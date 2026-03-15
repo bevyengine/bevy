@@ -15,16 +15,16 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::ReflectComponent,
-    query::{Changed, Without},
+    query::{Changed, Has, Or, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Vec2, Vec3};
+use bevy_math::{FloatOrd, Vec2};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
     RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, TEXT_EFFECT_PADDING,
 };
 use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
@@ -142,10 +142,10 @@ pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct Text2dShadow {
-    /// Shadow displacement
-    /// With a value of zero the shadow will be hidden directly behind the text
+    /// Shadow displacement in logical pixels
+    /// Clamped to 16 px after layout scaling
     pub offset: Vec2,
-    /// Color of the shadow
+    /// Color of the shadow.
     pub color: Color,
 }
 
@@ -154,6 +154,27 @@ impl Default for Text2dShadow {
         Self {
             offset: Vec2::new(4., -4.),
             color: Color::BLACK,
+        }
+    }
+}
+
+/// Adds an outline around `Text2d` text.
+///
+/// Use `TextOutline` for text drawn with `bevy_ui`.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct Text2dOutline {
+    /// Outline color.
+    pub color: Color,
+    /// Outline width in logical pixels.
+    pub width: f32,
+}
+
+impl Default for Text2dOutline {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            width: 1.,
         }
     }
 }
@@ -184,6 +205,8 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
         Ref<FontHinting>,
+        Has<Text2dShadow>,
+        Option<Ref<Text2dOutline>>,
     )>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<FontCx>,
@@ -226,6 +249,8 @@ pub fn update_text2d_layout(
         mut text_layout_info,
         mut computed,
         hinting,
+        has_shadow,
+        maybe_outline,
     ) in &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -247,10 +272,17 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
+        let outline_width = maybe_outline.and_then(|outline| {
+            (outline.width > 0.0)
+                .then_some((outline.width * scale_factor).min(TEXT_EFFECT_PADDING as f32))
+        });
+        let text_effect_padding = has_shadow || outline_width.is_some();
         let text_changed = scale_factor != text_layout_info.scale_factor
             || text2d.is_changed()
             || block.is_changed()
             || computed.needs_rerender(viewport_size_changed, rem_size.is_changed())
+            || text_layout_info.uses_text_effect_padding != text_effect_padding
+            || text_layout_info.outline_atlas_width != outline_width
             || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
         if !(text_changed || bounds.is_changed() || hinting.is_changed()) {
@@ -315,6 +347,8 @@ pub fn update_text2d_layout(
             text_bounds,
             block.justify,
             *hinting,
+            text_effect_padding,
+            outline_width,
         ) {
             Err(TextError::NoSuchFont | TextError::NoSuchFontFamily(_)) => {
                 // There was an error processing the text layout.
@@ -352,22 +386,53 @@ pub fn calculate_bounds_text2d(
             &TextLayoutInfo,
             &Anchor,
             &TextBounds,
+            Option<&Text2dShadow>,
+            Option<&Text2dOutline>,
             Option<&mut Aabb>,
         ),
-        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+        (
+            Or<(
+                Changed<TextLayoutInfo>,
+                Changed<Anchor>,
+                Changed<TextBounds>,
+                Changed<Text2dShadow>,
+                Changed<Text2dOutline>,
+            )>,
+            Without<NoFrustumCulling>,
+        ),
     >,
 ) {
-    for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+    for (entity, layout_info, anchor, text_bounds, maybe_shadow, maybe_outline, aabb) in
+        &mut text_to_update_aabb
+    {
         let size = Vec2::new(
             text_bounds.width.unwrap_or(layout_info.size.x),
             text_bounds.height.unwrap_or(layout_info.size.y),
         );
 
-        let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.x;
-        let x2 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x + 1.) * size.x;
-        let y1 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y - 1.) * size.y;
-        let y2 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y) * size.y;
-        let new_aabb = Aabb::from_min_max(Vec3::new(x1, y1, 0.), Vec3::new(x2, y2, 0.));
+        let base_min = Vec2::new(
+            (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.x,
+            (Anchor::TOP_LEFT.0.y - anchor.as_vec().y - 1.) * size.y,
+        );
+        let base_max = Vec2::new(
+            (Anchor::TOP_LEFT.0.x - anchor.as_vec().x + 1.) * size.x,
+            (Anchor::TOP_LEFT.0.y - anchor.as_vec().y) * size.y,
+        );
+        let mut min = base_min;
+        let mut max = base_max;
+
+        if let Some(outline) = maybe_outline.filter(|outline| outline.width > 0.0) {
+            let outline = Vec2::splat(outline.width);
+            min -= outline;
+            max += outline;
+        }
+
+        if let Some(shadow) = maybe_shadow {
+            min = min.min(base_min + shadow.offset);
+            max = max.max(base_max + shadow.offset);
+        }
+
+        let new_aabb = Aabb::from_min_max(min.extend(0.0), max.extend(0.0));
 
         if let Some(mut aabb) = aabb {
             *aabb = new_aabb;
@@ -523,5 +588,71 @@ mod tests {
         approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
         assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
         assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_expands_aabb_for_shadow() {
+        let (mut app, entity) = setup();
+
+        app.update();
+
+        let base_aabb = *app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find base AABB");
+
+        app.world_mut().entity_mut(entity).insert(Text2dShadow {
+            offset: Vec2::new(10.0, -4.0),
+            color: Color::BLACK,
+        });
+
+        app.update();
+
+        let shadow_aabb = *app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find shadow AABB");
+
+        approx::assert_abs_diff_eq!(shadow_aabb.center.x, base_aabb.center.x + 5.0);
+        approx::assert_abs_diff_eq!(shadow_aabb.center.y, base_aabb.center.y - 2.0);
+        approx::assert_abs_diff_eq!(shadow_aabb.half_extents.x, base_aabb.half_extents.x + 5.0);
+        approx::assert_abs_diff_eq!(shadow_aabb.half_extents.y, base_aabb.half_extents.y + 2.0);
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_expands_aabb_for_outline() {
+        let (mut app, entity) = setup();
+
+        app.update();
+
+        let base_aabb = *app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find base AABB");
+
+        app.world_mut().entity_mut(entity).insert(Text2dOutline {
+            color: Color::BLACK,
+            width: 3.0,
+        });
+
+        app.update();
+
+        let outline_aabb = *app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find outline AABB");
+
+        approx::assert_abs_diff_eq!(outline_aabb.center.x, base_aabb.center.x);
+        approx::assert_abs_diff_eq!(outline_aabb.center.y, base_aabb.center.y);
+        approx::assert_abs_diff_eq!(outline_aabb.half_extents.x, base_aabb.half_extents.x + 3.0);
+        approx::assert_abs_diff_eq!(outline_aabb.half_extents.y, base_aabb.half_extents.y + 3.0);
     }
 }
