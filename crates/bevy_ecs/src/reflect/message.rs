@@ -45,8 +45,8 @@ impl ReflectMessageFns {
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.
-    pub fn new<'a, T: Message + FromReflect + TypePath>() -> Self {
-        <ReflectMessage as FromType<T>>::from_type().0
+    pub fn new<M: Message + FromReflect + TypePath>() -> Self {
+        <ReflectMessage as FromType<M>>::from_type().0
     }
 }
 
@@ -97,11 +97,11 @@ impl ReflectMessage {
     }
 }
 
-impl<'a, E: Message + Reflect + TypePath> FromType<E> for ReflectMessage {
+impl<M: Message + Reflect + TypePath> FromType<M> for ReflectMessage {
     fn from_type() -> Self {
         ReflectMessage(ReflectMessageFns {
             write_message: |world, reflected_message, registry| {
-                let message = from_reflect_with_fallback::<E>(reflected_message, world, registry);
+                let message = from_reflect_with_fallback::<M>(reflected_message, world, registry);
                 world.write_message(message);
             },
         })
