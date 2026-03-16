@@ -48,7 +48,7 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabelBase>`.
 pub type InternedAppLabel = Interned<dyn AppLabelBase>;
 
-/// Actual AppLabel
+/// Actual `AppLabel`
 pub trait AppLabel: AppLabelBase + Default + Clone + Eq + Copy {}
 
 #[derive(Debug, thiserror::Error)]

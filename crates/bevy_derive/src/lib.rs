@@ -240,7 +240,7 @@ extern crate quote;
 use quote::quote;
 // extern crate syn;
 
-/// AppLabel helper
+/// `AppLabel` helper
 #[proc_macro_attribute]
 pub fn app_label(_metadata: TokenStream, input: TokenStream) -> TokenStream {
     let input2: proc_macro2::TokenStream = input.clone().into();
