@@ -1,9 +1,5 @@
 //! Framework for positioning of popups, tooltips, and other popover UI elements.
 
-use crate::{
-    ui_stack_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
-    UiGlobalTransform, UiSystems, Val,
-};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
@@ -11,6 +7,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs, system::Query,
 };
 use bevy_math::{Rect, Vec2};
+use bevy_render::RenderSystems;
+use bevy_ui::{
+    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems, Val,
+};
 
 /// Which side of the parent element the popover element should be placed.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -247,8 +247,11 @@ impl Plugin for PopoverPlugin {
         app.add_systems(
             PostUpdate,
             position_popover
-                .ambiguous_with(ui_stack_system)
-                .in_set(UiSystems::Prepare),
+                .in_set(UiSystems::Prepare)
+                .ambiguous_with(UiSystems::Prepare)
+                .ambiguous_with(UiSystems::Stack)
+                .before(RenderSystems::Render)
+                .before(UiSystems::Layout),
         );
     }
 }

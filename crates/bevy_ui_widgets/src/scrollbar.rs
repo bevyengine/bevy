@@ -12,10 +12,10 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-
-use crate::{
-    ui_layout_system, ui_stack_system, widget::popover, ComputedNode, ComputedUiRenderTargetInfo,
-    Node, ScrollPosition, UiGlobalTransform, UiScale, UiSystems, Val,
+use bevy_render::RenderSystems;
+use bevy_ui::{
+    ComputedNode, ComputedUiRenderTargetInfo, Node, ScrollPosition, UiGlobalTransform, UiScale,
+    UiSystems, Val,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -369,10 +369,11 @@ impl Plugin for ScrollbarPlugin {
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb
-                    .ambiguous_with(popover::position_popover)
-                    .ambiguous_with(ui_stack_system)
-                    .ambiguous_with(ui_layout_system)
-                    .in_set(UiSystems::Prepare),
+                    .in_set(UiSystems::Prepare)
+                    .ambiguous_with(UiSystems::Prepare)
+                    .ambiguous_with(UiSystems::Stack)
+                    .before(RenderSystems::Render)
+                    .before(UiSystems::Layout),
             );
     }
 }

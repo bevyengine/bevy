@@ -216,8 +216,6 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        app.add_plugins((widget::PopoverPlugin, widget::ScrollbarPlugin));
-
         build_text_interop(app);
     }
 }
