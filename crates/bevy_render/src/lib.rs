@@ -86,7 +86,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::PipelineCache,
+    render_resource::{PipelineCache, SparseBufferPlugin},
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
     settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
@@ -303,6 +303,7 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            SparseBufferPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));
