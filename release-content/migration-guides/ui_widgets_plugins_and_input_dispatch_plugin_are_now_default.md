@@ -28,6 +28,7 @@ fn main() {
 ```
 
 Remove `InputDispatchPlugin` if you have `DefaultPlugins`
+
 ```rs
 // 0.18
 fn main() {
