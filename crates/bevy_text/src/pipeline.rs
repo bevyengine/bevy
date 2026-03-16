@@ -26,7 +26,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
+    TextFont, TextLayout,
 };
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -35,7 +36,14 @@ pub struct TextPipeline {
     /// Buffered vec for collecting text sections.
     ///
     /// See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-    sections_buffer: Vec<(usize, &'static str, &'static TextFont, f32, LineHeight)>,
+    sections_buffer: Vec<(
+        usize,
+        &'static str,
+        &'static TextFont,
+        f32,
+        LineHeight,
+        LetterSpacing,
+    )>,
     /// Buffered string for concatenated text content.
     text_buffer: String,
 }
@@ -47,7 +55,17 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -68,15 +86,21 @@ impl TextPipeline {
             return Err(TextError::DegenerateScaleFactor);
         }
 
-        let mut sections: Vec<(usize, &str, &TextFont, f32, LineHeight)> =
+        let mut sections: Vec<(usize, &str, &TextFont, f32, LineHeight, LetterSpacing)> =
             core::mem::take(&mut self.sections_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &TextFont, f32, LineHeight) { unreachable!() })
+                .map(
+                    |_| -> (usize, &str, &TextFont, f32, LineHeight, LetterSpacing) {
+                        unreachable!()
+                    },
+                )
                 .collect();
 
         let result = {
-            for (span_index, (entity, depth, span, text_font, _color, line_height)) in
-                text_spans.enumerate()
+            for (
+                span_index,
+                (entity, depth, span, text_font, _color, line_height, letter_spacing),
+            ) in text_spans.enumerate()
             {
                 match text_font.font_size {
                     crate::FontSize::Vw(_)
@@ -125,11 +149,18 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push((span_index, span, text_font, font_size, line_height));
+                sections.push((
+                    span_index,
+                    span,
+                    text_font,
+                    font_size,
+                    line_height,
+                    letter_spacing,
+                ));
             }
 
             self.text_buffer.clear();
-            for (_, span, _, _, _) in &sections {
+            for (_, span, _, _, _, _) in &sections {
                 self.text_buffer.push_str(span);
             }
 
@@ -156,7 +187,9 @@ impl TextPipeline {
             }
 
             let mut start = 0;
-            for (span_index, span, text_font, font_size, line_height) in sections.drain(..) {
+            for (span_index, span, text_font, font_size, line_height, letter_spacing) in
+                sections.drain(..)
+            {
                 let end = start + span.len();
                 let range = start..end;
                 start = end;
@@ -178,6 +211,10 @@ impl TextPipeline {
                 builder.push(StyleProperty::FontSize(font_size), range.clone());
                 builder.push(
                     StyleProperty::LineHeight(line_height.eval(font_size)),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::LetterSpacing(letter_spacing.eval()),
                     range.clone(),
                 );
                 builder.push(
@@ -207,7 +244,14 @@ impl TextPipeline {
         self.sections_buffer = sections
             .into_iter()
             .map(
-                |_| -> (usize, &'static str, &'static TextFont, f32, LineHeight) { unreachable!() },
+                |_| -> (
+                    usize,
+                    &'static str,
+                    &'static TextFont,
+                    f32,
+                    LineHeight,
+                    LetterSpacing,
+                ) { unreachable!() },
             )
             .collect();
 
@@ -219,7 +263,17 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
