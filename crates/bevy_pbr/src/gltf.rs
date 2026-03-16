@@ -101,7 +101,12 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
     fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _gltf: &gltf::Gltf,
+        _settings: &bevy_gltf::GltfLoaderSettings,
+    ) {
         // create the `StandardMaterial` for the glTF `DefaultMaterial` so
         // it can be accessed when meshes don't have materials.
         let std_label = format!("{}/std", GltfAssetLabel::DefaultMaterial);

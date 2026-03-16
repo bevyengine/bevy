@@ -13,6 +13,7 @@ use bevy_ecs::{
     resource::Resource,
     world::{EntityWorldMut, World},
 };
+use bevy_mesh::Mesh;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use gltf::Node;
 
@@ -22,7 +23,7 @@ use {
     bevy_platform::collections::{HashMap, HashSet},
 };
 
-use crate::{GltfMaterial, GltfMesh};
+use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
@@ -70,7 +71,13 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {}
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    ) {
+    }
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -154,8 +161,7 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         gltf_document: &gltf::Gltf,
         gltf_primitive: &gltf::Primitive,
         buffer_data: &[Vec<u8>],
-        out_doc: &mut Option<gltf::Document>,
-        out_data: &mut Option<Vec<Vec<u8>>>,
+        user_mesh: &mut Option<Mesh>,
     ) -> impl ConditionalSendFuture<Output = ()> {
         async {}
     }
@@ -270,7 +276,12 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
 
     /// Called when the "global" data for an extension
     /// at the root of a glTF file is encountered.
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf);
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    );
 
     #[cfg(feature = "bevy_animation")]
     /// Called when an individual animation is processed
@@ -306,8 +317,7 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         gltf_document: &'a gltf::Gltf,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
-        out_doc: &'a mut Option<gltf::Document>,
-        out_data: &'a mut Option<Vec<Vec<u8>>>,
+        user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()>;
 
     /// Called when an individual glTF Mesh is processed
@@ -376,8 +386,13 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         Self::dyn_clone(self)
     }
 
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {
-        Self::on_root(self, load_context, gltf);
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    ) {
+        Self::on_root(self, load_context, gltf, settings);
     }
 
     #[cfg(feature = "bevy_animation")]
@@ -430,8 +445,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_document: &'a gltf::Gltf,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
-        out_doc: &'a mut Option<gltf::Document>,
-        out_data: &'a mut Option<Vec<Vec<u8>>>,
+        user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()> {
         Box::pin(async move {
             Self::on_gltf_primitive(
@@ -440,8 +454,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
                 gltf_document,
                 gltf_primitive,
                 buffer_data,
-                out_doc,
-                out_data,
+                user_mesh,
             )
             .await;
         })
