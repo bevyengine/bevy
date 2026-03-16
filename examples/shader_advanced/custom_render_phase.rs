@@ -349,13 +349,20 @@ impl GetBatchData for StencilPipeline {
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
     );
-    type CompareData = AssetId<Mesh>;
+    // Placing `AssetId<Mesh>` in the batch set compare data prevents Bevy from
+    // trying to multi-draw items with different meshes together. This is fine
+    // for this simple example.
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = ();
     type BufferData = MeshUniform;
 
     fn get_batch_data(
         (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
                 "`get_batch_data` should never be called in GPU mesh uniform \
@@ -397,7 +404,10 @@ impl GetFullBatchData for StencilPipeline {
     fn get_index_and_compare_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -411,7 +421,7 @@ impl GetFullBatchData for StencilPipeline {
             NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance
                 .should_batch()
-                .then_some(mesh_instance.mesh_asset_id()),
+                .then_some((mesh_instance.mesh_asset_id(), ())),
         ))
     }
 

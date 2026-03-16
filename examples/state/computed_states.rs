@@ -10,10 +10,10 @@
 //! In addition, we want to enable a "tutorial" mode, which will involve its own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
 //!
-//! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
-//! We will then create some computed states that derive from [`AppState`]: [`InGame`] and [`TurboMode`] are marker states implemented
-//! as Zero-Sized Structs (ZSTs), while [`IsPaused`] is an enum with 2 distinct states.
-//! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
+//! To implement this, we will create 2 root-level states: `AppState` and `TutorialState`.
+//! We will then create some computed states that derive from `AppState`: `InGame` and `TurboMode` are marker states implemented
+//! as Zero-Sized Structs (ZSTs), while `IsPaused` is an enum with 2 distinct states.
+//! And lastly, we'll add `Tutorial`, a computed state deriving from `TutorialState`, `InGame` and `IsPaused`, with 2 distinct
 //! states to display the 2 tutorial texts.
 
 use bevy::{dev_tools::states::*, input::keyboard::Key, prelude::*};
