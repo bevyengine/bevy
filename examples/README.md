@@ -368,12 +368,12 @@ Example | Description
 
 Example | Description
 --- | ---
-[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
-[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
-[Game Menu](../examples/games/game_menu.rs) | A simple game menu
-[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Alien Cake Addict](../examples/showcase/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+[Breakout](../examples/showcase/breakout.rs) | An implementation of the classic game "Breakout".
+[Contributors](../examples/showcase/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+[Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
+[Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
 
 ### Gizmos
 

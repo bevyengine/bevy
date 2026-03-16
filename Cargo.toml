@@ -2669,7 +2669,7 @@ wasm = false
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/games/alien_cake_addict.rs"
+path = "examples/showcase/alien_cake_addict.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.alien_cake_addict]
@@ -2680,7 +2680,7 @@ wasm = true
 
 [[example]]
 name = "breakout"
-path = "examples/games/breakout.rs"
+path = "examples/showcase/breakout.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.breakout]
@@ -2691,7 +2691,7 @@ wasm = true
 
 [[example]]
 name = "contributors"
-path = "examples/games/contributors.rs"
+path = "examples/showcase/contributors.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.contributors]
@@ -2702,7 +2702,7 @@ wasm = true
 
 [[example]]
 name = "desk_toy"
-path = "examples/games/desk_toy.rs"
+path = "examples/showcase/desk_toy.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.desk_toy]
@@ -2713,7 +2713,7 @@ wasm = false
 
 [[example]]
 name = "game_menu"
-path = "examples/games/game_menu.rs"
+path = "examples/showcase/game_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.game_menu]
@@ -2724,7 +2724,7 @@ wasm = true
 
 [[example]]
 name = "loading_screen"
-path = "examples/games/loading_screen.rs"
+path = "examples/showcase/loading_screen.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.loading_screen]
