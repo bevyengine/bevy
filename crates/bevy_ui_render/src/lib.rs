@@ -930,27 +930,29 @@ pub fn extract_text_sections(
 
         let mut color = text_color.0.to_linear();
 
-        let mut current_span_index = 0;
+        let mut current_section_index = 0;
 
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                section_index: span_index,
+                section_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            if current_span_index != *span_index
-                && let Some(span_entity) =
-                    computed_block.entities().get(*span_index).map(|t| t.entity)
+            if current_section_index != *section_index
+                && let Some(span_entity) = computed_block
+                    .entities()
+                    .get(*section_index)
+                    .map(|t| t.entity)
             {
                 color = text_styles
                     .get(span_entity)
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
-                current_span_index = *span_index;
+                current_section_index = *section_index;
             }
 
             extracted_uinodes.glyphs.push(ExtractedGlyph {
