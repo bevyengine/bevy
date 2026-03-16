@@ -1,9 +1,10 @@
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
+use core::iter::FusedIterator;
 use core::{fmt, fmt::Debug};
 use derive_more::From;
-use fixedbitset::FixedBitSet;
+use fixedbitset::{Difference, FixedBitSet, Intersection, IntoOnes, Ones, Union};
 use thiserror::Error;
 
 /// Tracks read and write access to specific elements in a collection.
@@ -754,7 +755,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.iter());
+                this.extend(other);
             }
             _ => {}
         }
@@ -1293,17 +1294,14 @@ impl ComponentIdSet {
 
     /// Iterates the [`ComponentId`]s in the set.
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.0.ones().map(ComponentId::new)
+    pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
+        ComponentIdIter(self.0.ones())
     }
 
     /// Returns a lazy iterator over the union of two [`ComponentIdSet`]s.
     #[inline]
-    pub fn union<'a>(
-        &'a self,
-        other: &'a ComponentIdSet,
-    ) -> impl Iterator<Item = ComponentId> + 'a {
-        self.0.union(&other.0).map(ComponentId::new)
+    pub fn union<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Union<'a>> {
+        ComponentIdIter(self.0.union(&other.0))
     }
 
     /// Returns a lazy iterator over the intersection of two [`ComponentIdSet`]s.
@@ -1311,17 +1309,14 @@ impl ComponentIdSet {
     pub fn intersection<'a>(
         &'a self,
         other: &'a ComponentIdSet,
-    ) -> impl Iterator<Item = ComponentId> + 'a {
-        self.0.intersection(&other.0).map(ComponentId::new)
+    ) -> ComponentIdIter<Intersection<'a>> {
+        ComponentIdIter(self.0.intersection(&other.0))
     }
 
     /// Returns a lazy iterator over the difference of two [`ComponentIdSet`]s.
     #[inline]
-    pub fn difference<'a>(
-        &'a self,
-        other: &'a ComponentIdSet,
-    ) -> impl Iterator<Item = ComponentId> + 'a {
-        self.0.difference(&other.0).map(ComponentId::new)
+    pub fn difference<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Difference<'a>> {
+        ComponentIdIter(self.0.difference(&other.0))
     }
 
     /// In-place union of two [`ComponentIdSet`]s.
@@ -1376,6 +1371,26 @@ impl Clone for ComponentIdSet {
     }
 }
 
+impl IntoIterator for ComponentIdSet {
+    type Item = ComponentId;
+
+    type IntoIter = ComponentIdIter<IntoOnes>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ComponentIdIter(self.0.into_ones())
+    }
+}
+
+impl<'a> IntoIterator for &'a ComponentIdSet {
+    type Item = ComponentId;
+
+    type IntoIter = ComponentIdIter<Ones<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl FromIterator<ComponentId> for ComponentIdSet {
     fn from_iter<T: IntoIterator<Item = ComponentId>>(iter: T) -> Self {
         Self(FixedBitSet::from_iter(
@@ -1389,6 +1404,32 @@ impl Extend<ComponentId> for ComponentIdSet {
         self.0.extend(iter.into_iter().map(ComponentId::index));
     }
 }
+
+/// An iterator of [`ComponentId`]s.
+///
+/// This is equivalent to `map(ComponentId::new)`,
+/// but is a named type to allow it to be used in associated types.
+pub struct ComponentIdIter<I>(I);
+
+impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
+    type Item = ComponentId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(ComponentId::new)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl<I: DoubleEndedIterator<Item = usize>> DoubleEndedIterator for ComponentIdIter<I> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back().map(ComponentId::new)
+    }
+}
+
+impl<I: FusedIterator<Item = usize>> FusedIterator for ComponentIdIter<I> {}
 
 #[cfg(test)]
 mod tests {
