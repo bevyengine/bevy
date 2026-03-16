@@ -33,6 +33,7 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_resource::{
+        self,
         binding_types::{storage_buffer, storage_buffer_read_only},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, Buffer,
         BufferBinding, BufferDescriptor, BufferUsages, ComputePassDescriptor, PipelineCache,
@@ -114,7 +115,12 @@ impl Plugin for SkinCachePlugin {
                     .in_set(RenderSystems::Prepare)
                     .after(prepare_skins),
             )
-            .add_systems(RenderGraph, skin_cache.before(schedule::camera_driver));
+            .add_systems(
+                RenderGraph,
+                skin_cache
+                    .before(schedule::camera_driver)
+                    .after(render_resource::update_sparse_buffers),
+            );
     }
 
     fn finish(&self, app: &mut App) {
