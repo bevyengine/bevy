@@ -13,7 +13,7 @@ use bevy_ecs::{
     resource::Resource,
     world::{EntityWorldMut, World},
 };
-use bevy_mesh::Mesh;
+use bevy_mesh::{Mesh, MeshVertexAttribute};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use gltf::Node;
 
@@ -159,8 +159,12 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_document: &gltf::Gltf,
+        gltf_mesh: &gltf::Mesh,
         gltf_primitive: &gltf::Primitive,
         buffer_data: &[Vec<u8>],
+        settings: &GltfLoaderSettings,
+        custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+        convert_coordinates: bool,
         user_mesh: &mut Option<Mesh>,
     ) -> impl ConditionalSendFuture<Output = ()> {
         async {}
@@ -315,8 +319,12 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         &'a mut self,
         load_context: &'a mut LoadContext<'_>,
         gltf_document: &'a gltf::Gltf,
+        gltf_mesh: &'a gltf::Mesh,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
+        settings: &'a GltfLoaderSettings,
+        custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
+        convert_coordinates: bool,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()>;
 
@@ -443,8 +451,12 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         &'a mut self,
         load_context: &'a mut LoadContext<'_>,
         gltf_document: &'a gltf::Gltf,
+        gltf_mesh: &'a gltf::Mesh,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
+        settings: &'a GltfLoaderSettings,
+        custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
+        convert_coordinates: bool,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()> {
         Box::pin(async move {
@@ -452,8 +464,12 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
                 self,
                 load_context,
                 gltf_document,
+                gltf_mesh,
                 gltf_primitive,
                 buffer_data,
+                settings,
+                custom_vertex_attributes,
+                convert_coordinates,
                 user_mesh,
             )
             .await;
