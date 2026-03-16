@@ -74,6 +74,7 @@ std = [
   "bevy_math/std",
   "bevy_reflect?/std",
   "bevy_utils/parallel",
+  "bevy_utils/buffered_channel",
   "serde?/std",
 ]
 

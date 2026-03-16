@@ -584,15 +584,14 @@ pub fn scene_spawner_system(world: &mut World) {
                 AssetEvent::Added { id } => {
                     scene_spawner.debounced_scene_asset_events.insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_scenes.contains_key(id)
-                    {
-                        updated_spawned_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_scenes.contains_key(id) =>
+                {
+                    updated_spawned_scenes.push(*id);
                 }
                 _ => {}
             }
@@ -608,15 +607,14 @@ pub fn scene_spawner_system(world: &mut World) {
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_dynamic_scenes.contains_key(id)
-                    {
-                        updated_spawned_dynamic_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_dynamic_scenes.contains_key(id) =>
+                {
+                    updated_spawned_dynamic_scenes.push(*id);
                 }
                 _ => {}
             }
