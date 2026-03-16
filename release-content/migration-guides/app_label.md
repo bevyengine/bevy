@@ -1,9 +1,11 @@
 ---
-title: "`AppLabel` refactor"
+title: "Further constraints on `AppLabel`"
 pull_requests: [23377]
 ---
 
-The `AppLabel` derive has been updated
+`AppLabel` needs some extra constraints
+
+Before:
 
 ```rust,ignore
 #[derive(AppLabel, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -13,8 +15,8 @@ struct MyAppLabel;
 After:
 
 ```rust,ignore
-use bevy_derive::app_label;
-
-#[app_label]
+#[derive(AppLabelBase, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct MyAppLabel;
+
+impl AppLabel for MyAppLabel {}
 ```

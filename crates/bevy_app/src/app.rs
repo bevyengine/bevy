@@ -1552,7 +1552,6 @@ mod tests {
     use core::marker::PhantomData;
     use std::sync::Mutex;
 
-    use bevy_derive::app_label;
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
         component::Component,
@@ -1566,7 +1565,7 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    use crate::{App, AppExit, AppLabelBase, Plugin, SubApp, Update};
+    use crate::{App, AppExit, AppLabel, AppLabelBase, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1736,13 +1735,13 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct TupleLabel(u32, u32);
 
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct StructLabel {
             a: u32,
             b: u32,
@@ -1752,17 +1751,17 @@ mod tests {
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
         #[expect(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         enum EnumLabel {
             #[default]
             Unit,
@@ -1773,7 +1772,7 @@ mod tests {
             },
         }
 
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct GenericLabel<T>(PhantomData<T>);
 
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
@@ -1873,8 +1872,10 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-        #[app_label]
+        #[derive(AppLabelBase, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct MySubApp;
+
+        impl AppLabel for MySubApp {}
 
         #[derive(Resource)]
         struct Foo(usize);
