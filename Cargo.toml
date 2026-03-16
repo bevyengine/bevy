@@ -2328,6 +2328,18 @@ description = "Demonstrates how to add custom schedules"
 category = "ECS (Entity Component System)"
 wasm = false
 
+
+[[example]]
+name = "extraction"
+path = "examples/ecs/extraction.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extraction]
+name = "Extraction"
+description = "Demonstrates different ways of extracting components, copying them from the main world to the render world"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
