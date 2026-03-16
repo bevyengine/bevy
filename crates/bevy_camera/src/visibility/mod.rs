@@ -1022,7 +1022,7 @@ mod test {
 
         assert!(
             !is_visible(&app, child),
-            "Child1 should inherit visibility from parent"
+            "Child should inherit visibility from parent"
         );
 
         // Detach a child from the invisible parent
