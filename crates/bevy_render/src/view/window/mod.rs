@@ -322,7 +322,7 @@ pub fn prepare_windows(
                 );
             }
             Err(err) => {
-                bevy_log::error!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+                bevy_log::error!("Couldn't get swap chain texture: {err}");
             }
         }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
