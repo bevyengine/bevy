@@ -18,7 +18,7 @@ pub struct PositionedGlyph {
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
-    pub span_index: usize,
+    pub section_index: usize,
     /// The index of the glyph's line.
     pub line_index: usize,
     /// The byte index of the glyph in its line.

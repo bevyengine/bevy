@@ -937,7 +937,7 @@ pub fn extract_text_sections(
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index: span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -1036,7 +1036,7 @@ pub fn extract_text_shadows(
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index: span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -1048,7 +1048,7 @@ pub fn extract_text_shadows(
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
+                info.section_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
@@ -1067,7 +1067,7 @@ pub fn extract_text_shadows(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
                 continue;
@@ -1177,7 +1177,7 @@ pub fn extract_text_decorations(
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok((
                 (text_background_color, maybe_strikethrough, maybe_underline),
                 text_color,

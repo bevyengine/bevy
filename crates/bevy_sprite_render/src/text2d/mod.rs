@@ -78,7 +78,7 @@ pub fn extract_text2d_sprite(
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
@@ -151,7 +151,7 @@ pub fn extract_text2d_sprite(
             }
 
             for run in text_layout_info.run_geometry.iter() {
-                let section_entity = computed_block.entities()[run.span_index].entity;
+                let section_entity = computed_block.entities()[run.section_index].entity;
                 let Ok((_, has_strikethrough, has_underline, _, _)) =
                     decoration_query.get(section_entity)
                 else {
@@ -214,7 +214,7 @@ pub fn extract_text2d_sprite(
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index: span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -239,7 +239,7 @@ pub fn extract_text2d_sprite(
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+                info.section_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
@@ -261,7 +261,7 @@ pub fn extract_text2d_sprite(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok((
                 text_color,
                 has_strike_through,

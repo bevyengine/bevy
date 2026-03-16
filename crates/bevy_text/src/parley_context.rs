@@ -7,6 +7,23 @@ use parley::LayoutContext;
 use parley::{FontContext, GenericFamily};
 use swash::scale::ScaleContext;
 
+#[derive(Copy, Clone, PartialEq, Default, Debug)]
+pub struct TextBrush {
+    /// Index of the text section within its `ComputedTextBlock`
+    pub section_index: u32,
+    /// Antialiasing method to use when rendering the text.
+    pub font_smoothing: FontSmoothing,
+}
+
+impl TextBrush {
+    pub fn new(section_index: u32, font_smoothing: FontSmoothing) -> Self {
+        TextBrush {
+            section_index,
+            font_smoothing,
+        }
+    }
+}
+
 /// A font database and cache, used for font family resolution and text layout.
 ///
 /// This resource is a wrapper around [`parley::FontContext`].
@@ -131,7 +148,7 @@ impl FontCx {
 
 /// Text layout context
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct LayoutCx(pub LayoutContext<(u32, FontSmoothing)>);
+pub struct LayoutCx(pub LayoutContext<TextBrush>);
 
 /// Text scaler context
 #[derive(Resource, Default, Deref, DerefMut)]
