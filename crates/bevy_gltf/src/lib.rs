@@ -132,7 +132,7 @@ pub mod convert_coordinates;
 mod label;
 mod loader;
 mod material;
-pub mod vertex_attributes;
+mod vertex_attributes;
 
 extern crate alloc;
 

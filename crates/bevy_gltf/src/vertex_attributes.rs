@@ -257,7 +257,7 @@ enum ConversionMode {
 }
 
 #[derive(Error, Debug)]
-pub enum ConvertAttributeError {
+pub(crate) enum ConvertAttributeError {
     #[error("Vertex attribute {0} has format {1:?} but expected {3:?} for target attribute {2}")]
     WrongFormat(String, VertexFormat, String, VertexFormat),
     #[error("{0} in accessor {1}")]
@@ -266,7 +266,7 @@ pub enum ConvertAttributeError {
     UnknownName(String),
 }
 
-pub fn convert_attribute(
+pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
