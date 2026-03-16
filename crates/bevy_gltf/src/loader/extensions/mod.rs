@@ -162,9 +162,9 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         gltf_mesh: &gltf::Mesh,
         gltf_primitive: &gltf::Primitive,
         buffer_data: &[Vec<u8>],
-        settings: &GltfLoaderSettings,
         custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-        convert_coordinates: bool,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
         user_mesh: &mut Option<Mesh>,
     ) -> impl ConditionalSendFuture<Output = ()> {
         async {}
@@ -322,9 +322,9 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         gltf_mesh: &'a gltf::Mesh,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
-        settings: &'a GltfLoaderSettings,
         custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
-        convert_coordinates: bool,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()>;
 
@@ -454,9 +454,9 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_mesh: &'a gltf::Mesh,
         gltf_primitive: &'a gltf::Primitive,
         buffer_data: &'a [Vec<u8>],
-        settings: &'a GltfLoaderSettings,
         custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
-        convert_coordinates: bool,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()> {
         Box::pin(async move {
@@ -467,9 +467,9 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
                 gltf_mesh,
                 gltf_primitive,
                 buffer_data,
-                settings,
                 custom_vertex_attributes,
-                convert_coordinates,
+                gltf_mesh_on_skinned_nodes,
+                gltf_mesh_on_non_skinned_nodes,
                 user_mesh,
             )
             .await;

@@ -717,6 +717,11 @@ impl GltfLoader {
         }
         for gltf_mesh in gltf.meshes() {
             let mut primitives = vec![];
+
+            let gltf_mesh_on_skinned_nodes = meshes_on_skinned_nodes.contains(&gltf_mesh.index());
+            let gltf_mesh_on_non_skinned_nodes =
+                meshes_on_non_skinned_nodes.contains(&gltf_mesh.index());
+
             for primitive in gltf_mesh.primitives() {
                 let primitive_label = GltfAssetLabel::Primitive {
                     mesh: gltf_mesh.index(),
@@ -734,9 +739,9 @@ impl GltfLoader {
                             &gltf_mesh,
                             &primitive,
                             &buffer_data,
-                            &settings,
                             &loader.custom_vertex_attributes,
-                            convert_coordinates.rotate_meshes,
+                            gltf_mesh_on_skinned_nodes,
+                            gltf_mesh_on_non_skinned_nodes,
                             &mut user_mesh,
                         )
                         .await;
@@ -752,14 +757,14 @@ impl GltfLoader {
                     // Read vertex attributes
                     for (semantic, accessor) in primitive.attributes() {
                         if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
-                            if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
+                            if !gltf_mesh_on_skinned_nodes {
                                 warn!(
                                     "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                                     semantic,
                                     primitive_label
                                 );
                                 continue;
-                            } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
+                            } else if gltf_mesh_on_non_skinned_nodes {
                                 error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                             }
                         }
