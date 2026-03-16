@@ -3,7 +3,7 @@ title: "Include `UiWidgetsPlugins` in `DefaultPlugins`"
 pull_requests: [23346]
 ---
 
-TODO: What has changed since the last release?
+`UiWidgetsPlugins` and `InputDispatchPlugin` are now part of `DefaultPlugins`.
 
 TODO: Why did we make this breaking change?
 
@@ -43,6 +43,46 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins) // Puff!
         .add_plugins((my_sequel_game::game_plugin))
+        .run();
+}
+```
+
+Remove `PopoverPlugin` if you have `DefaultPlugins`
+
+```rs
+// 0.18
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins, PopoverPlugin)
+        .add_plugins((my_threequel_game::game_plugin))
+        .run();
+}
+
+// 0.19
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins) // Puff!
+        .add_plugins((my_threequel_game::game_plugin))
+        .run();
+}
+```
+
+Remove `ScrollbarPlugin` if you have `DefaultPlugins`
+
+```rs
+// 0.18
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins, ScrollbarPlugin)
+        .add_plugins((my_fourquel_game::game_plugin))
+        .run();
+}
+
+// 0.19
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins) // Puff!
+        .add_plugins((my_fourquel_game::game_plugin))
         .run();
 }
 ```
