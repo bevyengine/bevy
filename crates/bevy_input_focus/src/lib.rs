@@ -43,6 +43,7 @@ use bevy_input::gamepad::GamepadButtonChangedEvent;
 use bevy_input::keyboard::KeyboardInput;
 #[cfg(feature = "mouse")]
 use bevy_input::mouse::MouseWheel;
+use bevy_input::InputSystems;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -233,45 +234,15 @@ impl Plugin for InputDispatchPlugin {
             PreUpdate,
             (
                 #[cfg(feature = "keyboard")]
-                {
-                    let s = dispatch_focused_input::<KeyboardInput>;
-
-                    #[cfg(feature = "gamepad")]
-                    let s = s
-                        .ambiguous_with(dispatch_focused_input::<GamepadButtonChangedEvent>)
-                        .after(bevy_input::gamepad::gamepad_event_processing_system);
-
-                    #[cfg(feature = "mouse")]
-                    let s = s.ambiguous_with(dispatch_focused_input::<MouseWheel>);
-                    s
-                },
+                dispatch_focused_input::<KeyboardInput>,
                 #[cfg(feature = "gamepad")]
-                {
-                    let s = dispatch_focused_input::<GamepadButtonChangedEvent>
-                        .after(bevy_input::gamepad::gamepad_event_processing_system);
-
-                    #[cfg(feature = "keyboard")]
-                    let s = s.ambiguous_with(dispatch_focused_input::<KeyboardInput>);
-
-                    #[cfg(feature = "mouse")]
-                    let s = s.ambiguous_with(dispatch_focused_input::<MouseWheel>);
-                    s
-                },
+                dispatch_focused_input::<GamepadButtonChangedEvent>,
                 #[cfg(feature = "mouse")]
-                {
-                    let s = dispatch_focused_input::<MouseWheel>;
-
-                    #[cfg(feature = "keyboard")]
-                    let s = s.ambiguous_with(dispatch_focused_input::<KeyboardInput>);
-
-                    #[cfg(feature = "gamepad")]
-                    let s = s
-                        .ambiguous_with(dispatch_focused_input::<GamepadButtonChangedEvent>)
-                        .after(bevy_input::gamepad::gamepad_event_processing_system);
-                    s
-                },
+                dispatch_focused_input::<MouseWheel>,
             )
-                .in_set(InputFocusSystems::Dispatch),
+                .in_set(InputFocusSystems::Dispatch)
+                .ambiguous_with(InputFocusSystems::Dispatch)
+                .after(InputSystems),
         );
     }
 }
