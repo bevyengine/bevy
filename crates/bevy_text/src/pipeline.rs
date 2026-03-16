@@ -300,7 +300,7 @@ impl TextPipeline {
                         font_size_bits: font_size.to_bits(),
                         variations_hash,
                         hinting,
-                        font_smoothing: glyph_run.style().brush.font_smoothing,
+                        font_smoothing,
                     };
 
                     let Some(font_ref) =
