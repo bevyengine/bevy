@@ -626,10 +626,10 @@ where
 
         // Finally, we add any new page words, with all bits set.
         let new_page_count = self.index_to_page(new_len);
-        self.dirty_pages
-            .resize_with((new_page_count as usize).div_ceil(PAGES_PER_DIRTY_WORD as usize), || {
-                AtomicU64::new(u64::MAX)
-            });
+        self.dirty_pages.resize_with(
+            (new_page_count as usize).div_ceil(PAGES_PER_DIRTY_WORD as usize),
+            || AtomicU64::new(u64::MAX),
+        );
     }
 
     /// Truncates the buffer to the given length.
