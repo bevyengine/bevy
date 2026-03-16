@@ -17,11 +17,9 @@ use bevy_mesh::{Mesh, MeshVertexAttribute};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use gltf::Node;
 
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_animation")]
-use {
-    bevy_animation::AnimationClip,
-    bevy_platform::collections::{HashMap, HashSet},
-};
+use {bevy_animation::AnimationClip, bevy_platform::collections::HashSet};
 
 use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
