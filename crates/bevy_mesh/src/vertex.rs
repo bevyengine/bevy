@@ -322,7 +322,7 @@ pub enum VertexAttributeValues {
     Float64x3(Vec<[f64; 3]>),
     /// Four double-precision floats (f64). `vec4<f32>` in shaders. Requires [`wgpu_types::Features::VERTEX_ATTRIBUTE_64BIT`].
     Float64x4(Vec<[f64; 4]>),
-    /// Three unsigned 10-bit integers and one 2-bit integer, packed into a 32-bit integer (u32). [0, 1024] converted to float [0, 1] `vec4<f32>` in shaders.
+    /// Three unsigned 10-bit integers and one 2-bit integer, packed into a 32-bit integer (u32). [0, 1023] and [0, 3] converted to float [0, 1] `vec4<f32>` in shaders.
     Unorm10_10_10_2(Vec<u32>),
     /// Four unsigned 8-bit integers (u8) in BGRA. [0, 255] converted to float [0, 1] `vec4<f32>` RGBA in shaders.
     Unorm8x4Bgra(Vec<[u8; 4]>),
