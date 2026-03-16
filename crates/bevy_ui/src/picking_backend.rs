@@ -210,8 +210,7 @@ pub fn ui_picking(
                         &clipping_query,
                         &child_of_query,
                     )
-                {
-                    if let Some(target) = node
+                    && let Some(target) = node
                         .text_node
                         .and_then(|(text_layout_info, text_block)| {
                             pick_ui_text_section(
@@ -229,18 +228,17 @@ pub fn ui_picking(
                             (!settings.require_markers || node.pickable.is_some())
                                 .then_some(node_entity)
                         })
-                    {
-                        hit_nodes
-                            .entry((camera_entity, *pointer_id))
-                            .or_default()
-                            .push((
-                                target,
-                                camera_entity,
-                                node.pickable.cloned(),
-                                node.transform.inverse().transform_point2(*cursor_position)
-                                    / node.node.size(),
-                            ));
-                    }
+                {
+                    hit_nodes
+                        .entry((camera_entity, *pointer_id))
+                        .or_default()
+                        .push((
+                            target,
+                            camera_entity,
+                            node.pickable.cloned(),
+                            node.transform.inverse().transform_point2(*cursor_position)
+                                / node.node.size(),
+                        ));
                 }
             }
         }
