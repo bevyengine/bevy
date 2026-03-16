@@ -76,7 +76,7 @@ impl TextPipeline {
                 .collect();
 
         let result = {
-            for (span_index, (entity, depth, span, text_font, _color, line_height)) in
+            for (section_index, (entity, depth, span, text_font, _color, line_height)) in
                 text_spans.enumerate()
             {
                 match text_font.font_size {
@@ -126,7 +126,7 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push((span_index, span, text_font, font_size, line_height));
+                sections.push((section_index, span, text_font, font_size, line_height));
             }
 
             self.text_buffer.clear();

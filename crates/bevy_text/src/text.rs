@@ -81,7 +81,7 @@ impl Debug for ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
