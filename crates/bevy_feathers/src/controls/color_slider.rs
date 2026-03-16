@@ -22,7 +22,9 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy_ui_widgets::{
+    Slider, SliderOrientation, SliderRange, SliderThumb, SliderValue, TrackClick,
+};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
@@ -196,6 +198,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
         },
         Slider {
             track_click: TrackClick::Snap,
+            orientation: SliderOrientation::Horizontal,
         },
         ColorSlider {
             channel: props.channel.clone(),

@@ -1,8 +1,9 @@
 use crate::{
+    collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, RenderLightmaps,
-    RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
-    SetMeshViewBindingArrayBindGroup, ViewKeyCache,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
+    SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
@@ -174,9 +175,11 @@ impl Plugin for WireframePlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
-                        .after(prepare_assets::<RenderMesh>),
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
                     prepare_wireframe_wide_bind_groups
                         .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<RenderWireframeMaterial>)

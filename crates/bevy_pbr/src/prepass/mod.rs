@@ -909,7 +909,7 @@ pub(crate) fn specialize_prepass_material_meshes(
             mut pending_prepass_mesh_material_queues,
             dirty_specializations,
             this_run: system_change_tick,
-        } = state.get_mut(world);
+        } = state.get_mut(world).unwrap();
 
         this_run = system_change_tick.this_run();
 

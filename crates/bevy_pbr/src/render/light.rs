@@ -1942,7 +1942,7 @@ pub(crate) fn specialize_shadows(
             mut specialized_shadow_material_pipeline_cache,
             mut pending_shadow_queues,
             dirty_specializations,
-        } = state.get_mut(world);
+        } = state.get_mut(world).unwrap();
 
         for (entity, view_lights) in &view_lights {
             for view_light_entity in view_lights.lights.iter().copied() {

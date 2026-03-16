@@ -1,8 +1,7 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::skin::cache::{CachedSkinBindGroupKey, CachedSkinBuffers, CachedSkinLocation};
 use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::write_atmosphere_buffer,
+    material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
 use bevy_asset::uuid::Uuid;
@@ -40,7 +39,7 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::impl_atomic_pod;
-use bevy_render::mesh::allocator::SlabId;
+use bevy_render::mesh::allocator::{MeshSlabs, SlabId};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
 };
@@ -192,9 +191,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    MeshExtractionSystems
-                        .after(view::extract_visibility_ranges)
-                        .after(late_sweep_material_instances),
+                    MeshExtractionSystems.after(view::extract_visibility_ranges),
                 )
                 .add_systems(
                     ExtractSchedule,
@@ -716,6 +713,12 @@ bitflags::bitflags! {
         ///
         /// This will be `u16::MAX` if this mesh has no LOD.
         const LOD_INDEX_MASK              = (1 << 16) - 1;
+        /// Whether visibility ranges use the center of the AABB to compute
+        /// distance from the camera.
+        ///
+        /// If false, this uses distance from the world-space translation of the
+        /// mesh instead.
+        const AABB_BASED_VISIBILITY_RANGE = 1 << 27;
         /// Disables frustum culling for this mesh.
         ///
         /// This corresponds to the
@@ -735,6 +738,7 @@ impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
         lod_index: Option<NonMaxU16>,
+        visibility_range: Option<&VisibilityRange>,
         no_frustum_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
@@ -744,6 +748,9 @@ impl MeshFlags {
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
+        if visibility_range.is_some_and(|visibility_range| visibility_range.use_aabb) {
+            mesh_flags |= MeshFlags::AABB_BASED_VISIBILITY_RANGE;
+        }
         if no_frustum_culling {
             mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
         }
@@ -1679,7 +1686,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
-            Has<VisibilityRange>,
+            Option<&VisibilityRange>,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Has<CacheSkin>,
@@ -1711,13 +1718,14 @@ pub fn extract_meshes_for_cpu_building(
             }
 
             let mut lod_index = None;
-            if visibility_range {
+            if visibility_range.is_some() {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
+                visibility_range,
                 no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
@@ -1788,13 +1796,13 @@ type GpuMeshExtractionQuery = (
     Read<Mesh3d>,
     Option<Read<MeshTag>>,
     Option<Read<RenderLayers>>,
+    Option<Read<VisibilityRange>>,
     (
         Has<NoFrustumCulling>,
         Has<NotShadowReceiver>,
         Has<TransmittedShadowReceiver>,
         Has<NotShadowCaster>,
         Has<NoAutomaticBatching>,
-        Has<VisibilityRange>,
         Has<CacheSkin>,
     ),
 );
@@ -1996,13 +2004,13 @@ fn extract_mesh_for_gpu_building(
         mesh,
         tag,
         render_layers,
+        visibility_range,
         (
             no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
             no_automatic_batching,
-            visibility_range,
             cache_skin,
         ),
     ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
@@ -2017,13 +2025,14 @@ fn extract_mesh_for_gpu_building(
     }
 
     let mut lod_index = None;
-    if visibility_range {
+    if visibility_range.is_some() {
         lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
     }
 
     let mesh_flags = MeshFlags::from_components(
         transform,
         lod_index,
+        visibility_range,
         no_frustum_culling,
         not_shadow_receiver,
         transmitted_receiver,
@@ -2529,6 +2538,17 @@ pub fn get_image_texture<'a>(
     }
 }
 
+/// Data that must be identical for meshes to be multi-drawn together.
+#[derive(Clone, Copy, PartialEq)]
+pub struct MeshBatchSetCompareData {
+    /// The bind group for the material.
+    material_bind_group_index: MaterialBindGroupIndex,
+    /// The slabs that the mesh data is stored in.
+    mesh_slabs: MeshSlabs,
+    /// The bindless slab that stores the lightmap for this mesh, if applicable.
+    lightmap_slab: Option<NonMaxU32>,
+}
+
 impl GetBatchData for MeshPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
@@ -2539,13 +2559,8 @@ impl GetBatchData for MeshPipeline {
         SRes<MorphIndices>,
         SRes<CachedSkinBuffers>,
     );
-    // The material bind group ID, the mesh ID, and the lightmap ID,
-    // respectively.
-    type CompareData = (
-        MaterialBindGroupIndex,
-        AssetId<Mesh>,
-        Option<LightmapSlabIndex>,
-    );
+    type BatchSetCompareData = MeshBatchSetCompareData;
+    type BatchCompareData = AssetId<Mesh>;
 
     type BufferData = MeshUniform;
 
@@ -2560,7 +2575,10 @@ impl GetBatchData for MeshPipeline {
             cached_skin_buffers,
         ): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
                 "`get_batch_data` should never be called in GPU mesh uniform \
@@ -2574,6 +2592,7 @@ impl GetBatchData for MeshPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2593,9 +2612,12 @@ impl GetBatchData for MeshPipeline {
                 Some(mesh_instance.tag()),
             ),
             mesh_instance.should_batch().then_some((
-                material_bind_group_index.group,
+                MeshBatchSetCompareData {
+                    material_bind_group_index: material_bind_group_index.group,
+                    mesh_slabs,
+                    lightmap_slab: maybe_lightmap.map(|lightmap| lightmap.slab_index.0),
+                },
                 mesh_instance.mesh_asset_id(),
-                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -2605,9 +2627,12 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, _, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, _, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -2618,14 +2643,19 @@ impl GetFullBatchData for MeshPipeline {
         };
 
         let mesh_instance = mesh_instances.get(&main_entity)?;
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
+        let material_bind_group_index = mesh_instance.material_bindings_index();
 
         Some((
             NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance.should_batch().then_some((
-                mesh_instance.material_bindings_index().group,
+                MeshBatchSetCompareData {
+                    material_bind_group_index: material_bind_group_index.group,
+                    mesh_slabs,
+                    lightmap_slab: maybe_lightmap.map(|lightmap| lightmap.slab_index.0),
+                },
                 mesh_instance.mesh_asset_id(),
-                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }

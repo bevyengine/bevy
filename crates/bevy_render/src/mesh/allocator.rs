@@ -192,7 +192,7 @@ enum Slab {
 }
 
 /// IDs of the slabs associated with a single mesh.
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct MeshSlabs {
     /// The slab storing the mesh's vertex data.
     pub vertex_slab_id: SlabId,
