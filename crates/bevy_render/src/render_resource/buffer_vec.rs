@@ -1,4 +1,4 @@
-use core::{iter, marker::PhantomData, slice};
+use core::{iter, marker::PhantomData, ops::Range, slice};
 
 use crate::{
     render_resource::{AtomicPod, Buffer},
@@ -196,7 +196,7 @@ impl<T: NoUninit> RawBufferVec<T> {
     pub fn write_buffer_range(
         &mut self,
         render_queue: &RenderQueue,
-        range: core::ops::Range<usize>,
+        range: Range<usize>,
     ) -> Result<(), WriteBufferRangeError> {
         if self.values.is_empty() {
             return Err(WriteBufferRangeError::NoValuesToUpload);
@@ -306,6 +306,22 @@ where
         }
     }
 
+    /// Creates a new [`AtomicRawBufferVec`] with a custom label.
+    ///
+    /// The `buffer_usage` parameter tells `wgpu` which usages are allowed for
+    /// the backing buffer.
+    pub fn with_label(buffer_usage: BufferUsages, label: &str) -> Self {
+        Self {
+            values: Vec::new(),
+            buffer: None,
+            capacity: 0,
+            buffer_usage,
+            label: Some(label.to_string()),
+            changed: false,
+            phantom: PhantomData,
+        }
+    }
+
     /// Removes all elements from the buffer.
     pub fn clear(&mut self) {
         self.values.clear();
@@ -382,22 +398,44 @@ where
     /// Before queuing the write, a [`reserve`](AtomicRawBufferVec::reserve)
     /// operation is executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        if self.values.is_empty() {
+        self.write_buffer_range(0..self.values.len(), device, queue);
+    }
+
+    /// Queues writing of data from system RAM to VRAM using the
+    /// [`RenderDevice`] and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](AtomicRawBufferVec::reserve)
+    /// operation is executed.
+    pub fn write_buffer_range(
+        &mut self,
+        range: Range<usize>,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) {
+        assert!(
+            range.start <= range.end
+                && range.start <= self.values.len()
+                && range.end <= self.values.len()
+        );
+        if range.start == range.end {
             return;
         }
-        self.reserve(self.values.len(), device);
-        if let Some(buffer) = &self.buffer {
-            // SAFETY: We have `&mut self`, so there are no other references to
-            // our buffer, and the `Blob` type must implement `AtomicPodBlob`,
-            // which guarantees that it be bit-equivalent to an array of
-            // `AtomicU32`s (i.e. POD except that they're atomic).
-            unsafe {
-                let bytes: &[u8] = slice::from_raw_parts(
-                    self.values.as_ptr().cast::<u8>(),
-                    self.values.len() * size_of::<T::Blob>(),
-                );
-                queue.write_buffer(buffer, 0, bytes);
-            }
+        self.reserve(range.end, device);
+
+        let Some(buffer) = &self.buffer else { return };
+
+        // SAFETY: We checked the range above to make sure it's in bounds.
+        // We have `&mut self`, so there are no other references to our
+        // buffer, and the `Blob` type must implement `AtomicPodBlob`, which
+        // guarantees that it be bit-equivalent to an array of `AtomicU32`s
+        // (i.e. POD except that they're atomic).
+        unsafe {
+            let bytes: &[u8] = slice::from_raw_parts(
+                self.values.as_ptr().add(range.start).cast::<u8>(),
+                (range.end - range.start) * size_of::<T::Blob>(),
+            );
+            let start_offset = range.start as u64 * size_of::<T::Blob>() as u64;
+            queue.write_buffer(buffer, start_offset, bytes);
         }
     }
 
@@ -609,7 +647,7 @@ where
     pub fn write_buffer_range(
         &mut self,
         render_queue: &RenderQueue,
-        range: core::ops::Range<usize>,
+        range: Range<usize>,
     ) -> Result<(), WriteBufferRangeError> {
         if self.data.is_empty() {
             return Err(WriteBufferRangeError::NoValuesToUpload);

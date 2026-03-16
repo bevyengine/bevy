@@ -811,6 +811,7 @@ impl AssetSaver for FakeBsnSaver {
         writer: &mut crate::io::Writer,
         asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<(), Self::Error> {
         use std::io::{Error, ErrorKind};
 
@@ -1301,6 +1302,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
             writer: &mut crate::io::Writer,
             asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
             _settings: &Self::Settings,
+            _asset_path: AssetPath<'_>,
         ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
             let serialized = serialize_as_leaf(asset.get().value.clone());
             writer.write_all(serialized.as_bytes()).await

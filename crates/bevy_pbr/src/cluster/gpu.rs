@@ -255,7 +255,9 @@ pub struct ClusterMetadata {
     ///
     /// This is set to 0 by the CPU, and the GPU updates it with the computed
     /// value.
-    farthest_z: f32,
+    ///
+    /// This is a float encoded by `f32_bits_to_sortable_u32`. Decode with `sortable_u32_to_f32_bits`.
+    farthest_z: u32,
 }
 
 /// Indirect draw parameters for the raster dispatch phase, built partially by
@@ -431,9 +433,23 @@ impl ViewClusteringReadbackData {
         // Record the statistics we just received.
         self.last_frame_statistics = Some(ViewClusteringLastFrameStatistics {
             index_list_size: gpu_clustering_metadata.index_list_capacity,
-            farthest_z: gpu_clustering_metadata.farthest_z,
+            farthest_z: f32::from_bits(sortable_u32_to_f32_bits(
+                gpu_clustering_metadata.farthest_z,
+            )),
         });
     }
+}
+
+/// Decodes a u32 produced by `f32_bits_to_sortable_u32` (in
+/// `cluster_z_slice.wgsl`) back into f32 bits.
+///
+/// The encode flips the sign bit for positive floats and all bits for
+/// negative floats, so the decode must inspect the *encoded* sign bit
+/// (which is inverted relative to the original) and apply the
+/// complementary mask.
+fn sortable_u32_to_f32_bits(bits: u32) -> u32 {
+    let mask = (!((bits as i32) >> 31)) as u32 | 0x80000000;
+    bits ^ mask
 }
 
 /// Global data relating to the `cluster_raster.wgsl` shader.
@@ -495,7 +511,7 @@ impl FromWorld for ClusteringRasterPipeline {
             // @group(0) @binding(1) var<storage, read_write> index_lists:
             // ClusterableObjectIndexLists;
             binding_types::storage_buffer::<GpuClusterableObjectIndexListsStorage>(false)
-                .build(1, ShaderStages::VERTEX_FRAGMENT),
+                .build(1, ShaderStages::FRAGMENT),
             // @group(0) @binding(2) var<storage> clustered_lights:
             // ClusteredLights;
             binding_types::storage_buffer_read_only::<GpuClusteredLight>(false)
@@ -522,20 +538,20 @@ impl FromWorld for ClusteringRasterPipeline {
         // ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_count_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
 
         // @group(0) @binding(7) var<storage> offsets_and_counts:
         // ClusterOffsetsAndCounts;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer_read_only::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
         // @group(0) @binding(8) var<storage, read_write>
         // scratchpad_offsets_and_counts: ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(8, ShaderStages::VERTEX_FRAGMENT),
+                .build(8, ShaderStages::FRAGMENT),
         );
 
         let bind_group_layout_count_pass = BindGroupLayoutDescriptor::new(
@@ -561,12 +577,15 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
     type Key = ClusteringRasterPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
+        let mut fragment_shader_defs = vec![];
         if key.populate_pass {
-            shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
         } else {
-            shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
         }
+
+        let mut vertex_shader_defs = fragment_shader_defs.clone();
+        vertex_shader_defs.push(ShaderDefVal::from("VERTEX_SHADER"));
 
         RenderPipelineDescriptor {
             label: if key.populate_pass {
@@ -582,7 +601,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             immediate_size: 0,
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vertex_shader_defs,
                 entry_point: Some("vertex_main".into()),
                 buffers: vec![VertexBufferLayout {
                     array_stride: size_of::<Vec2>() as u64,
@@ -596,7 +615,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: fragment_shader_defs,
                 entry_point: Some("fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::R8Unorm,
@@ -1419,8 +1438,8 @@ fn prepare_cluster_dummy_textures(
                 // against the risk of thrashing between different sizes,
                 // especially if the auto-resize feature is on.
                 size: Extent3d {
-                    width: round_up(view_cluster_config.dimensions.x),
-                    height: round_up(view_cluster_config.dimensions.y),
+                    width: view_cluster_config.dimensions.x.next_multiple_of(32),
+                    height: view_cluster_config.dimensions.y.next_multiple_of(32),
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -1434,11 +1453,6 @@ fn prepare_cluster_dummy_textures(
         commands
             .entity(view_entity)
             .insert(ViewClusteringDummyTexture(dummy_texture));
-    }
-
-    /// Rounds the given value up to the nearest multiple of 32.
-    fn round_up(length: u32) -> u32 {
-        (length + 31) & !31
     }
 }
 
@@ -1670,7 +1684,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             decal_count,
             index_list_capacity: view_clustering_buffer_size_data.max_index_list_capacity as u32,
             z_slice_list_capacity: view_clustering_buffer_size_data.z_slice_list_capacity as u32,
-            farthest_z: 0.0,
+            farthest_z: 0,
         };
 
         // Allocate Z slices.

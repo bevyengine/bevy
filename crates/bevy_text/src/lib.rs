@@ -97,7 +97,14 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
-            .add_systems(PostUpdate, load_font_assets_into_font_collection)
+            .add_systems(
+                PostUpdate,
+                (
+                    detect_text_needs_rerender,
+                    load_font_assets_into_font_collection,
+                )
+                    .chain(),
+            )
             .add_systems(Last, trim_source_cache);
 
         #[cfg(feature = "default_font")]

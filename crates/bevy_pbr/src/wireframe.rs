@@ -1,10 +1,11 @@
 use crate::{
+    collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, RenderLightmaps,
-    RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
-    SetMeshViewBindingArrayBindGroup, ViewKeyCache,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
+    SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
-use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
@@ -100,7 +101,7 @@ impl Plugin for WireframePlugin {
         .register_type::<WireframeTopology>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
-            Update,
+            PostUpdate,
             (
                 wireframe_config_changed.run_if(resource_changed::<WireframeConfig>),
                 wireframe_color_changed,
@@ -174,9 +175,11 @@ impl Plugin for WireframePlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
-                        .after(prepare_assets::<RenderMesh>),
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
                     prepare_wireframe_wide_bind_groups
                         .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<RenderWireframeMaterial>)

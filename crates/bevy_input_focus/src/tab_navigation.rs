@@ -478,7 +478,7 @@ mod tests {
         let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert!(tab_navigation.tabindex_query.iter().count() >= 2);
 
@@ -511,7 +511,7 @@ mod tests {
         let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
         assert!(tab_navigation.tabindex_query.iter().count() >= 4);
 

@@ -377,7 +377,9 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// or a generic font category that is resolved using Parley's
+    /// [`FontContext`](`parley::FontContext`) which is accessible through the
+    /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -1098,20 +1100,17 @@ impl FontHinting {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
+/// Does not check root text components (e.g. `Text`/`Text2d`) for changes. Their systems must handle change detection.
+pub fn detect_text_needs_rerender(
     changed_roots: Query<
         Entity,
         (
             Or<(
-                Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<LineHeight>,
                 Changed<Children>,
             )>,
-            With<Root>,
             With<TextFont>,
             With<TextLayout>,
         ),
@@ -1144,8 +1143,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
+            once!(warn!("found entity {} with a root text component but no ComputedTextBlock; this warning only \
+                prints once", root));
             continue;
         };
         computed.needs_rerender = true;
@@ -1158,16 +1157,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
+                text entities; this warning only prints once",
+                entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
+                with a root text component; this warning only prints once",
+                entity
             ));
             continue;
         };
@@ -1196,9 +1194,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
-                    entity,
-                    core::any::type_name::<Root>()
+                    component; this warning only prints once",
+                    entity
                 ));
                 break;
             };

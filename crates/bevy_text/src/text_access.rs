@@ -211,11 +211,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
         loop {
             let (children, idx) = self.stack.last_mut()?;
 
-            loop {
-                let Some(child) = children.get(*idx) else {
-                    break;
-                };
-
+            while let Some(child) = children.get(*idx) {
                 // Increment to prep the next entity in this stack level.
                 *idx += 1;
 

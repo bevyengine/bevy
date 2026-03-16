@@ -24,10 +24,12 @@ struct AtmosphereSettings {
     rendering_method: u32,
 }
 
-// "Atmosphere space" is just the view position with y=0 and oriented horizontally,
-// so the horizon stays a horizontal line in our luts
+// "Atmosphere space" uses local up for the zenith so the horizon-detail
+// parameterization concentrates texels at the viewer's horizon. Azimuth uses a
+// world-fixed reference so the terminator stays stable when tilting the camera.
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
+    atmosphere_from_world: mat4x4<f32>,
 }
 
 struct AtmosphereData {
