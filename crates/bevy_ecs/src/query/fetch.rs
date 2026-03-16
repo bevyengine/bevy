@@ -406,7 +406,7 @@ pub unsafe trait QueryData: WorldQuery {
     label = "invalid contiguous `Query` data",
     note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
 )]
-pub trait ContiguousQueryData: ArchetypeQueryData {
+pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
@@ -433,6 +433,9 @@ pub trait ContiguousQueryData: ArchetypeQueryData {
 /// so later calls don't invalidate earlier items.
 /// This is how methods like [`Iterator::collect`] work.
 /// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
+///
+/// To iterate over a [`QueryData`] that does not implement [`IterQueryData`],
+/// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method.
 ///
 /// For `QueryData` that implement this trait, [`QueryData::fetch`] may be called for one entity while an item is still alive for a different entity.
 ///

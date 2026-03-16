@@ -310,6 +310,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
+        shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());

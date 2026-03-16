@@ -1,8 +1,8 @@
 //! Demonstrates how to define and use specialized mesh pipeline
 //!
 //! This example shows how to use the built-in [`SpecializedMeshPipeline`]
-//! functionality with a custom [`RenderCommand`] to allow custom mesh rendering with
-//! more flexibility than the material api.
+//! functionality with a custom [`RenderCommand`](bevy::render::render_phase::RenderCommand)
+//! to allow custom mesh rendering with more flexibility than the material api.
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
