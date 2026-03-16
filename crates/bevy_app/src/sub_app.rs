@@ -26,7 +26,8 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// # Example
 ///
 /// ```
-/// # use bevy_app::{App, SubApp, Main};
+/// # use bevy_app::{App, SubApp, Main, AppLabel};
+/// # use bevy_derive::AppLabelBase;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
