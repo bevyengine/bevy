@@ -221,7 +221,6 @@ fn save_scene_system(world: &mut World) {
 ///
 /// This system is only necessary for the info message in the UI.
 fn infotext_system(mut commands: Commands) {
-    commands.spawn(Camera2d);
     commands.spawn((
         Text::new("Check the console output for more!"),
         TextFont {
