@@ -141,6 +141,10 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // faces of the AABB, this is the current fragment's depth.
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
+    // Calculate the ray direction in view space (needed for AABB intersection)
+    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
+    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
+
     // Calculate the end position of the ray. This requires us to raytrace the
     // three back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
@@ -149,13 +153,20 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
         let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
 
-        // Calculate the intersection of the ray and the plane. The ray must
-        // intersect in front of us (t > 0).
-        let t = -plane.w / dot(plane.xyz, view_start_pos.xyz);
-        if (t < 0.0) {
+        // Calculate the intersection of the ray and the plane using proper ray-plane intersection.
+        // Ray: P = view_start_pos + Rd_view * t
+        // Plane: dot(plane.xyz, P) + plane.w = 0
+        let denom = dot(plane.xyz, Rd_view);
+        if (abs(denom) < 0.0001) {
+            // Ray is parallel to plane
             continue;
         }
-        let hit_pos = view_start_pos.xyz * t;
+        let t = -(dot(plane.xyz, view_start_pos.xyz) + plane.w) / denom;
+        if (t < 0.0) {
+            // Intersection is behind the ray start
+            continue;
+        }
+        let hit_pos = view_start_pos.xyz + Rd_view * t;
 
         // The intersection point must be in front of the other backfaces.
         let other_sides = vec2(
@@ -188,16 +199,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     let directional_light_count = lights.n_directional_lights;
 
-    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in NDC,
-    // view, and world coordinates.
-    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
-    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
+    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world coordinates.
     var Ro_world = position_view_to_world(view_start_pos.xyz);
     let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
-    Ro_world += Rd_world * jitter;
+    Ro_world += Rd_world * jitter * step_size_world;
 
     // Use Beer's law [1] [2] to calculate the maximum amount of light that each
     // directional light could contribute, and modulate that value by the light
