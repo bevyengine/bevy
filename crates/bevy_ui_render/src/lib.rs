@@ -943,13 +943,13 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if current_section_index != *section_index
-                && let Some(span_entity) = computed_block
+                && let Some(section_entity) = computed_block
                     .entities()
                     .get(*section_index)
                     .map(|t| t.entity)
             {
                 color = text_styles
-                    .get(span_entity)
+                    .get(section_entity)
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_section_index = *section_index;
