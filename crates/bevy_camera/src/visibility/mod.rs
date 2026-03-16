@@ -584,6 +584,7 @@ fn visibility_propagate_system(
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    mut removed_child_of: RemovedComponents<ChildOf>,
 ) {
     for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
@@ -606,6 +607,28 @@ fn visibility_propagate_system(
 
             // Recursively update the visibility of each child.
             for &child in children.into_iter().flatten() {
+                let _ =
+                    propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
+            }
+        }
+    }
+
+    // Previous loop did not consider entities who just had their ChildOf component removed.
+    for entity in removed_child_of.read() {
+        let Ok((visibility, mut inherited_visibility)) = visibility_query.get_mut(entity) else {
+            continue;
+        };
+
+        let is_visible = match visibility {
+            // If a entity has no parent, fall back to true
+            Visibility::Visible | Visibility::Inherited => true,
+            Visibility::Hidden => false,
+        };
+
+        if inherited_visibility.get() != is_visible {
+            inherited_visibility.0 = is_visible;
+
+            for &child in children_query.get(entity).ok().into_iter().flatten() {
                 let _ =
                     propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
             }
@@ -971,6 +994,47 @@ mod test {
             is_visible(child2),
             "Child2 should inherit visibility from parent"
         );
+    }
+
+    #[test]
+    fn test_visibility_propagation_on_parent_removed() {
+        // Setup the world and schedule
+        let mut app = App::new();
+
+        app.add_systems(Update, visibility_propagate_system);
+
+        // Create entities with visibility and hierarchy
+        let parent = app.world_mut().spawn((Visibility::Hidden,)).id();
+        let child = app.world_mut().spawn((Visibility::Inherited,)).id();
+
+        // Build hierarchy
+        app.world_mut().entity_mut(parent).add_children(&[child]);
+
+        // Run the system initially to set up visibility
+        app.update();
+
+        let is_visible = |app: &App, e: Entity| {
+            app.world()
+                .entity(e)
+                .get::<InheritedVisibility>()
+                .unwrap()
+                .get()
+        };
+
+        assert!(
+            !is_visible(&app, child),
+            "Child should inherit visibility from parent"
+        );
+
+        // Detach a child from the invisible parent
+        app.world_mut().entity_mut(child).remove::<ChildOf>(); // example of changing parent
+
+        // Run the system again to propagate changes
+        app.update();
+
+        // The child should now be visible as there is not parent to inherit
+        // invisibility from.
+        assert!(is_visible(&app, child), "Child should have become visible");
     }
 
     #[test]
