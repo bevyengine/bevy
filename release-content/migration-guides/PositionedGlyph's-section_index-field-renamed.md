@@ -3,4 +3,4 @@ title: `PositionedGlyph::span_index` is now `section_index`
 pull_requests: [23381]
 ---
 
-Only `TextSpan` entities should be refered to as "spans". Entities that can be either text roots or `TextSpan`s should be called "sections". Hence, `PositionedGlyph::span_idex` has been renamed to `section_index`.
+Only a `TextSpan` entity should be refered to as a "span". Use "section" when an entity could be either a text roots or `TextSpan`.  Hence, `PositionedGlyph::span_idex` has been renamed to `section_index`.
