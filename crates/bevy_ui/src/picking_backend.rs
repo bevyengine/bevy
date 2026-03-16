@@ -302,7 +302,10 @@ fn pick_ui_text_section(
 
     for run in text_layout_info.run_geometry.iter() {
         if run.bounds.contains(local_point) {
-            return text_block.entities().get(run.span_index).map(|e| e.entity);
+            return text_block
+                .entities()
+                .get(run.section_index)
+                .map(|e| e.entity);
         }
     }
     None
