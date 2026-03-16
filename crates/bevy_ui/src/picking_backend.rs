@@ -211,33 +211,36 @@ pub fn ui_picking(
                         &child_of_query,
                     )
                 {
-                    let mut target = node_entity;
-                    if let Some((text_layout_info, text_block)) = node.text_node
-                        && let Some(text_entity) = pick_ui_text_section(
-                            node.node,
-                            node.transform,
-                            *cursor_position,
-                            text_layout_info,
-                            text_block,
-                        )
+                    if let Some(target) = node
+                        .text_node
+                        .and_then(|(text_layout_info, text_block)| {
+                            pick_ui_text_section(
+                                node.node,
+                                node.transform,
+                                *cursor_position,
+                                text_layout_info,
+                                text_block,
+                            )
+                            .filter(|&text_entity| {
+                                !settings.require_markers || pickable_query.contains(text_entity)
+                            })
+                        })
+                        .or_else(|| {
+                            (!settings.require_markers || node.pickable.is_some())
+                                .then_some(node_entity)
+                        })
                     {
-                        if settings.require_markers && !pickable_query.contains(text_entity) {
-                            continue;
-                        }
-
-                        target = text_entity;
+                        hit_nodes
+                            .entry((camera_entity, *pointer_id))
+                            .or_default()
+                            .push((
+                                target,
+                                camera_entity,
+                                node.pickable.cloned(),
+                                node.transform.inverse().transform_point2(*cursor_position)
+                                    / node.node.size(),
+                            ));
                     }
-
-                    hit_nodes
-                        .entry((camera_entity, *pointer_id))
-                        .or_default()
-                        .push((
-                            target,
-                            camera_entity,
-                            node.pickable.cloned(),
-                            node.transform.inverse().transform_point2(*cursor_position)
-                                / node.node.size(),
-                        ));
                 }
             }
         }
