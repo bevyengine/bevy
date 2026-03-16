@@ -411,7 +411,7 @@ bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Undo / Redo framework
-bevy_undo = ["bevy_internal/bevy_undo"]
+bevy_undo_redo = ["bevy_internal/bevy_undo_redo"]
 
 # Feathers widget collection.
 experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]

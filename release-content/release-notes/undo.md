@@ -4,7 +4,7 @@ authors: ["@viridia"]
 pull_requests: []
 ---
 
-The new `bevy_undo` crate provides a basic framework for managing undo and redo actions. This will
+The new `bevy_undo_redo` crate provides a basic framework for managing undo and redo actions. This will
 be a key feature of the Bevy editor, but it can also be used for third-party editors. Text input
 fields will also be able to take advantage of this.
 
