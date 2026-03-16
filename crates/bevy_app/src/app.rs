@@ -1736,7 +1736,6 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-
         #[app_label]
         struct UnitLabel;
 
@@ -1874,7 +1873,6 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-
         #[app_label]
         struct MySubApp;
 
