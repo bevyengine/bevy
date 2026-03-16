@@ -876,6 +876,7 @@ fn cluster_on_gpu(
         .lock()
         .map(|mut data| data.get_or_create_staging_buffer(render_context.render_device()))
     else {
+        error!("Failed to fetch staging buffer; not clustering.");
         return;
     };
 
@@ -1653,6 +1654,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             })
             .lock()
         else {
+            warn!("Failed to acquire lock for view clustering buffer size data; skipping buffer creation for view: {}", view_entity.to_bits());
             continue;
         };
 
