@@ -165,8 +165,6 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
         settings: &GltfLoaderSettings,
         custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
         convert_coordinates: bool,
-        meshes_on_skinned_nodes: &HashSet<usize>,
-        meshes_on_non_skinned_nodes: &HashSet<usize>,
         user_mesh: &mut Option<Mesh>,
     ) -> impl ConditionalSendFuture<Output = ()> {
         async {}
@@ -327,8 +325,6 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         settings: &'a GltfLoaderSettings,
         custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
         convert_coordinates: bool,
-        meshes_on_skinned_nodes: &'a HashSet<usize>,
-        meshes_on_non_skinned_nodes: &'a HashSet<usize>,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()>;
 
@@ -461,8 +457,6 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         settings: &'a GltfLoaderSettings,
         custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
         convert_coordinates: bool,
-        meshes_on_skinned_nodes: &'a HashSet<usize>,
-        meshes_on_non_skinned_nodes: &'a HashSet<usize>,
         user_mesh: &'a mut Option<Mesh>,
     ) -> BoxedFuture<'a, ()> {
         Box::pin(async move {
@@ -476,8 +470,6 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
                 settings,
                 custom_vertex_attributes,
                 convert_coordinates,
-                meshes_on_skinned_nodes,
-                meshes_on_non_skinned_nodes,
                 user_mesh,
             )
             .await;

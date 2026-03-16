@@ -737,8 +737,6 @@ impl GltfLoader {
                             &settings,
                             &loader.custom_vertex_attributes,
                             convert_coordinates.rotate_meshes,
-                            &meshes_on_skinned_nodes,
-                            &meshes_on_non_skinned_nodes,
                             &mut user_mesh,
                         )
                         .await;
@@ -747,17 +745,70 @@ impl GltfLoader {
                 let mut mesh = if let Some(user_mesh_provided) = user_mesh {
                     user_mesh_provided
                 } else {
-                    preprocess_mesh(
-                        &gltf_mesh,
-                        &primitive,
-                        &primitive_label,
-                        settings,
-                        &buffer_data,
-                        &loader.custom_vertex_attributes,
-                        convert_coordinates.rotate_meshes,
-                        &meshes_on_skinned_nodes,
-                        &meshes_on_non_skinned_nodes,
-                    )?
+                    let primitive_topology = primitive_topology(primitive.mode())?;
+
+                    let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
+
+                    // Read vertex attributes
+                    for (semantic, accessor) in primitive.attributes() {
+                        if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+                            if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
+                                warn!(
+                                    "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                                    semantic,
+                                    primitive_label
+                                );
+                                continue;
+                            } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
+                                error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                            }
+                        }
+                        match convert_attribute(
+                            semantic,
+                            accessor,
+                            &buffer_data,
+                            &loader.custom_vertex_attributes,
+                            convert_coordinates.rotate_meshes,
+                        ) {
+                            Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                            Err(err) => warn!("{}", err),
+                        }
+                    }
+
+                    // Read vertex indices
+                    let reader =
+                        primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
+                    if let Some(indices) = reader.read_indices() {
+                        mesh.insert_indices(match indices {
+                            ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
+                            ReadIndices::U16(is) => Indices::U16(is.collect()),
+                            ReadIndices::U32(is) => Indices::U32(is.collect()),
+                        });
+                    };
+
+                    {
+                        let morph_target_reader = reader.read_morph_targets();
+                        if morph_target_reader.len() != 0 {
+                            mesh.set_morph_targets(
+                                morph_target_reader
+                                    .flat_map(|i| PrimitiveMorphAttributesIter {
+                                        convert_coordinates: convert_coordinates.rotate_meshes,
+                                        positions: i.0,
+                                        normals: i.1,
+                                        tangents: i.2,
+                                    })
+                                    .collect(),
+                            );
+
+                            let extras = gltf_mesh.extras().as_ref();
+                            if let Some(names) = extras.and_then(|extras| {
+                                serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
+                            }) {
+                                mesh.set_morph_target_names(names.target_names);
+                            }
+                        }
+                    }
+                    mesh
                 };
 
                 if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
@@ -1122,83 +1173,6 @@ impl AssetLoader for GltfLoader {
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
     }
-}
-
-pub fn preprocess_mesh<'a>(
-    gltf_mesh: &gltf::Mesh<'a>,
-    primitive: &gltf::Primitive<'a>,
-    primitive_label: &GltfAssetLabel,
-    settings: &GltfLoaderSettings,
-    buffer_data: &Vec<Vec<u8>>,
-    custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    convert_coordinates: bool,
-    meshes_on_skinned_nodes: &HashSet<usize>,
-    meshes_on_non_skinned_nodes: &HashSet<usize>,
-) -> Result<Mesh, GltfError> {
-    let primitive_topology = primitive_topology(primitive.mode())?;
-
-    let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
-
-    // Read vertex attributes
-    for (semantic, accessor) in primitive.attributes() {
-        if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
-            if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
-                warn!(
-                    "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                    semantic,
-                    primitive_label
-                );
-                continue;
-            } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
-            }
-        }
-        match convert_attribute(
-            semantic,
-            accessor,
-            buffer_data,
-            custom_vertex_attributes,
-            convert_coordinates,
-        ) {
-            Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
-            Err(err) => warn!("{}", err),
-        }
-    }
-
-    // Read vertex indices
-    let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
-    if let Some(indices) = reader.read_indices() {
-        mesh.insert_indices(match indices {
-            ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
-            ReadIndices::U16(is) => Indices::U16(is.collect()),
-            ReadIndices::U32(is) => Indices::U32(is.collect()),
-        });
-    };
-
-    {
-        let morph_target_reader = reader.read_morph_targets();
-        if morph_target_reader.len() != 0 {
-            mesh.set_morph_targets(
-                morph_target_reader
-                    .flat_map(|i| PrimitiveMorphAttributesIter {
-                        convert_coordinates,
-                        positions: i.0,
-                        normals: i.1,
-                        tangents: i.2,
-                    })
-                    .collect(),
-            );
-
-            let extras = gltf_mesh.extras().as_ref();
-            if let Some(names) = extras
-                .and_then(|extras| serde_json::from_str::<MorphTargetNames>(extras.get()).ok())
-            {
-                mesh.set_morph_target_names(names.target_names);
-            }
-        }
-    }
-
-    Ok(mesh)
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
@@ -2050,11 +2024,11 @@ impl ImageOrPath {
     }
 }
 
-struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: bool,
-    positions: Option<Iter<'s, [f32; 3]>>,
-    normals: Option<Iter<'s, [f32; 3]>>,
-    tangents: Option<Iter<'s, [f32; 3]>>,
+pub struct PrimitiveMorphAttributesIter<'s> {
+    pub convert_coordinates: bool,
+    pub positions: Option<Iter<'s, [f32; 3]>>,
+    pub normals: Option<Iter<'s, [f32; 3]>>,
+    pub tangents: Option<Iter<'s, [f32; 3]>>,
 }
 
 impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
@@ -2106,7 +2080,7 @@ struct AnimationContext {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct MorphTargetNames {
+pub struct MorphTargetNames {
     pub target_names: Vec<String>,
 }
 
