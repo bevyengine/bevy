@@ -171,7 +171,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(exited) = &transition.exited else {
@@ -249,7 +249,7 @@ pub fn despawn_entities_on_enter_state<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     let Some(entered) = &transition.entered else {
