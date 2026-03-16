@@ -1736,7 +1736,6 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-        use super::AppLabel;
 
         #[app_label]
         struct UnitLabel;
@@ -1875,7 +1874,6 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-        use super::AppLabel;
 
         #[app_label]
         struct MySubApp;
