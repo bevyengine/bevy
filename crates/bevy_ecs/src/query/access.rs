@@ -84,22 +84,6 @@ impl Access {
         access
     }
 
-    fn add_sparse_set_index_read(&mut self, index: ComponentId) {
-        if !self.read_and_writes_inverted {
-            self.read_and_writes.insert(index);
-        } else {
-            self.read_and_writes.remove(index);
-        }
-    }
-
-    fn add_sparse_set_index_write(&mut self, index: ComponentId) {
-        if !self.writes_inverted {
-            self.writes.insert(index);
-        } else {
-            self.writes.remove(index);
-        }
-    }
-
     /// Adds access to the component given by `index`.
     #[deprecated(since = "0.19.0", note = "use Access::add_read")]
     pub fn add_component_read(&mut self, index: ComponentId) {
@@ -108,7 +92,11 @@ impl Access {
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
-        self.add_sparse_set_index_read(index);
+        if !self.read_and_writes_inverted {
+            self.read_and_writes.insert(index);
+        } else {
+            self.read_and_writes.remove(index);
+        }
     }
 
     /// Adds exclusive access to the component given by `index`.
@@ -119,8 +107,12 @@ impl Access {
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_write(&mut self, index: ComponentId) {
-        self.add_sparse_set_index_read(index);
-        self.add_sparse_set_index_write(index);
+        self.add_read(index);
+        if !self.writes_inverted {
+            self.writes.insert(index);
+        } else {
+            self.writes.remove(index);
+        }
     }
 
     /// Adds access to the resource given by `index`.
@@ -141,22 +133,6 @@ impl Access {
         self.add_write(index);
     }
 
-    fn remove_sparse_set_index_read(&mut self, index: ComponentId) {
-        if self.read_and_writes_inverted {
-            self.read_and_writes.insert(index);
-        } else {
-            self.read_and_writes.remove(index);
-        }
-    }
-
-    fn remove_sparse_set_index_write(&mut self, index: ComponentId) {
-        if self.writes_inverted {
-            self.writes.insert(index);
-        } else {
-            self.writes.remove(index);
-        }
-    }
-
     /// Removes both read and write access to the component given by `index`.
     #[deprecated(since = "0.19.0", note = "use Access::remove_read")]
     pub fn remove_component_read(&mut self, index: ComponentId) {
@@ -172,8 +148,12 @@ impl Access {
     /// `extend` with a call to `extend` followed by a call to
     /// `remove_read`.
     pub fn remove_read(&mut self, index: ComponentId) {
-        self.remove_sparse_set_index_write(index);
-        self.remove_sparse_set_index_read(index);
+        self.remove_write(index);
+        if self.read_and_writes_inverted {
+            self.read_and_writes.insert(index);
+        } else {
+            self.read_and_writes.remove(index);
+        }
     }
 
     /// Removes write access to the component given by `index`.
@@ -191,7 +171,11 @@ impl Access {
     /// `extend` with a call to `extend` followed by a call to
     /// `remove_write`.
     pub fn remove_write(&mut self, index: ComponentId) {
-        self.remove_sparse_set_index_write(index);
+        if self.writes_inverted {
+            self.writes.insert(index);
+        } else {
+            self.writes.remove(index);
+        }
     }
 
     /// Adds an archetypal (indirect) access to the component given by `index`.
