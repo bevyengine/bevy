@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform},
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -97,7 +97,10 @@ impl Plugin for TonemappingPlugin {
             .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
-                prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
+                (
+                    prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                ),
             );
     }
 }
@@ -365,6 +368,112 @@ pub fn prepare_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
+
+#[derive(Component)]
+pub struct TonemappingBindGroups {
+    a: (BindGroupKey, BindGroup),
+    b: (BindGroupKey, BindGroup),
+    last_tonemapping: Option<Tonemapping>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct BindGroupKey {
+    buffer_id: BufferId,
+    source_id: TextureViewId,
+    lut_id: TextureViewId,
+}
+
+fn prepare_bind_groups(
+    mut commands: Commands,
+    mut views: Query<(
+        Entity,
+        &ViewTarget,
+        &Tonemapping,
+        Option<&mut TonemappingBindGroups>,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    tonemapping_pipeline: Res<TonemappingPipeline>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
+    view_uniforms: Res<ViewUniforms>,
+    tonemapping_luts: Res<TonemappingLuts>,
+    render_device: Res<RenderDevice>,
+) {
+    let view_uniforms_buffer = &view_uniforms.uniforms;
+    let view_uniforms_buffer_id = if let Some(buf) = view_uniforms_buffer.buffer() {
+        buf.id()
+    } else {
+        return;
+    };
+    let fallback_image_id = fallback_image.d3.texture_view.id();
+
+    let create_bind_group = |texture: &TextureView, lut_bindings: (&TextureView, &Sampler)| {
+        let key = BindGroupKey {
+            buffer_id: view_uniforms_buffer_id,
+            source_id: texture.id(),
+            lut_id: fallback_image_id,
+        };
+        (
+            key,
+            render_device.create_bind_group(
+                None,
+                &pipeline_cache.get_bind_group_layout(&tonemapping_pipeline.texture_bind_group),
+                &BindGroupEntries::sequential((
+                    view_uniforms_buffer,
+                    texture,
+                    &tonemapping_pipeline.sampler,
+                    lut_bindings.0,
+                    lut_bindings.1,
+                )),
+            ),
+        )
+    };
+
+    for (entity, view_target, tonemapping, mut maybe_bind_groups) in &mut views {
+        if *tonemapping == Tonemapping::None {
+            continue;
+        }
+
+        if !view_target.is_hdr() {
+            continue;
+        }
+
+        let main_texture_view = view_target.main_texture_view();
+        let main_texture_other_view = view_target.main_texture_other_view();
+
+        let lut_bindings =
+            get_lut_bindings(&gpu_images, &tonemapping_luts, tonemapping, &fallback_image);
+
+        if let Some(bind_groups) = &mut maybe_bind_groups {
+            let tonemapping_changed = bind_groups.last_tonemapping != Some(*tonemapping);
+            if tonemapping_changed {
+                bind_groups.last_tonemapping = Some(*tonemapping);
+            }
+
+            let mut key = BindGroupKey {
+                buffer_id: view_uniforms_buffer_id,
+                source_id: main_texture_view.id(),
+                lut_id: fallback_image_id,
+            };
+
+            if bind_groups.a.0 != key || tonemapping_changed {
+                bind_groups.a = create_bind_group(main_texture_view, lut_bindings);
+            }
+
+            key.source_id = main_texture_other_view.id();
+            if bind_groups.b.0 != key || tonemapping_changed {
+                bind_groups.b = create_bind_group(main_texture_other_view, lut_bindings);
+            }
+        } else {
+            commands.entity(entity).insert(TonemappingBindGroups {
+                a: create_bind_group(main_texture_view, lut_bindings),
+                b: create_bind_group(main_texture_other_view, lut_bindings),
+                last_tonemapping: Some(*tonemapping),
+            });
+        }
+    }
+}
+
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
