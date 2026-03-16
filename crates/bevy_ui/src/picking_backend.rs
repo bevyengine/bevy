@@ -203,35 +203,7 @@ pub fn ui_picking(
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
-                if let Some((text_layout_info, text_block)) = node.text_node {
-                    if let Some(text_entity) = pick_ui_text_section(
-                        node.node,
-                        node.transform,
-                        *cursor_position,
-                        text_layout_info,
-                        text_block,
-                    ) && clip_check_recursive(
-                        *cursor_position,
-                        node_entity,
-                        &clipping_query,
-                        &child_of_query,
-                    ) {
-                        if settings.require_markers && !pickable_query.contains(text_entity) {
-                            continue;
-                        }
-
-                        hit_nodes
-                            .entry((camera_entity, *pointer_id))
-                            .or_default()
-                            .push((
-                                text_entity,
-                                camera_entity,
-                                node.pickable.cloned(),
-                                node.transform.inverse().transform_point2(*cursor_position)
-                                    / node.node.size(),
-                            ));
-                    }
-                } else if node.node.contains_point(*node.transform, *cursor_position)
+                if node.node.contains_point(*node.transform, *cursor_position)
                     && clip_check_recursive(
                         *cursor_position,
                         node_entity,
@@ -239,11 +211,28 @@ pub fn ui_picking(
                         &child_of_query,
                     )
                 {
+                    let mut target = node_entity;
+                    if let Some((text_layout_info, text_block)) = node.text_node
+                        && let Some(text_entity) = pick_ui_text_section(
+                            node.node,
+                            node.transform,
+                            *cursor_position,
+                            text_layout_info,
+                            text_block,
+                        )
+                    {
+                        if settings.require_markers && !pickable_query.contains(text_entity) {
+                            continue;
+                        }
+
+                        target = text_entity;
+                    }
+
                     hit_nodes
                         .entry((camera_entity, *pointer_id))
                         .or_default()
                         .push((
-                            node_entity,
+                            target,
                             camera_entity,
                             node.pickable.cloned(),
                             node.transform.inverse().transform_point2(*cursor_position)
@@ -305,5 +294,6 @@ fn pick_ui_text_section(
             return text_block.entities().get(run.span_index).map(|e| e.entity);
         }
     }
+
     None
 }
