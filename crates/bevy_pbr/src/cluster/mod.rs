@@ -72,6 +72,7 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
     // `RenderDevice` limits in addition to the `RenderAdapter`.
     // Some android devices report the capabilities and limits wrong, so we can't rely on them.
+    // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
     let gpu_clustering_supported = cfg!(target_os = "android")
         && adapter
             .get_downlevel_capabilities()
