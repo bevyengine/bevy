@@ -92,8 +92,7 @@ impl Clone for Popover {
     }
 }
 
-/// Clips or positions popovers
-pub fn position_popover(
+fn position_popover(
     mut q_popover: Query<(
         &mut Node,
         &mut Visibility,

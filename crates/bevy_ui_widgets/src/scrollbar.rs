@@ -246,7 +246,7 @@ fn scrollbar_on_drag_cancel(
     }
 }
 
-pub fn update_scrollbar_thumb(
+fn update_scrollbar_thumb(
     q_scroll_area: Query<(&ScrollPosition, &ComputedNode)>,
     q_scrollbar: Query<(&Scrollbar, &ComputedNode, &Children)>,
     mut q_thumb: Query<&mut Node, With<CoreScrollbarThumb>>,
