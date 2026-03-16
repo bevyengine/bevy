@@ -447,7 +447,7 @@ where
     /// Writes the buffer to the GPU.
     fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // `Self::ensure_nonempty` must have been called first.
-        debug_assert_ne!(self.buffer.len(), 0);
+        debug_assert!(!self.buffer.is_empty());
         // Only write the modified portion of this buffer. Typically, that
         // portion will be much smaller than the full size of the buffer.
         self.buffer.write_buffer_range(
