@@ -222,13 +222,64 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     enum_variant_meta::derive_enum_variant_meta(input)
 }
 
-/// Generates an impl of the `AppLabel` trait.
+/// Generates an impl of the `AppLabelBase` trait.
 ///
 /// This does not work for unions.
-#[proc_macro_derive(AppLabel)]
-pub fn derive_app_label(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(AppLabelBase)]
+pub fn derive_app_label_base(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
     let mut trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
-    trait_path.segments.push(format_ident!("AppLabel").into());
-    derive_label(input, "AppLabel", &trait_path)
+    trait_path
+        .segments
+        .push(format_ident!("AppLabelBase").into());
+    derive_label(input, "AppLabelBase", &trait_path)
+}
+
+extern crate quote;
+use quote::quote;
+// extern crate syn;
+
+/// AppLabel helper
+#[proc_macro_attribute]
+pub fn app_label(_metadata: TokenStream, input: TokenStream) -> TokenStream {
+    let input2: proc_macro2::TokenStream = input.clone().into();
+
+    let input1 = syn::parse_macro_input!(input as syn::DeriveInput);
+    let ident = input1.ident.clone();
+    let (impl_generics, ty_generics, where_clause) = input1.generics.split_for_impl();
+    let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    where_clause.predicates.push(
+        syn::parse2(quote! {
+            Self: 'static + Send + Sync + Clone + Default + Copy + Eq + ::core::fmt::Debug + ::core::hash::Hash
+        })
+        .unwrap(),
+    );
+
+    let bevy_app_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
+
+    let mut app_label_base_path = bevy_app_path.clone();
+    app_label_base_path
+        .segments
+        .push(format_ident!("AppLabelBase").into());
+
+    let mut app_label_path = bevy_app_path.clone();
+    app_label_path
+        .segments
+        .push(format_ident!("AppLabel").into());
+
+    let output = quote! {
+        #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, #app_label_base_path)]
+        #input2
+
+        impl #impl_generics #app_label_path for #ident #ty_generics #where_clause {
+            // fn intern(&self) {
+            //     (self as #app_label_base_path).intern(self)
+            // }
+        }
+    };
+    output.into()
 }

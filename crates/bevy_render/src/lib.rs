@@ -95,9 +95,9 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabelBase, Plugin};
 use bevy_asset::{AssetApp, AssetServer};
-use bevy_derive::Deref;
+use bevy_derive::{app_label, Deref};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
@@ -270,7 +270,7 @@ impl Render {
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[app_label]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
