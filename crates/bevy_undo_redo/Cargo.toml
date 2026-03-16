@@ -1,5 +1,5 @@
 [package]
-name = "bevy_undo"
+name = "bevy_undo_redo"
 version = "0.19.0-dev"
 edition = "2024"
 description = "Undo/Redo framework for Bevy Engine"
