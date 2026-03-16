@@ -1036,7 +1036,7 @@ pub fn extract_text_shadows(
             PositionedGlyph {
                 position,
                 atlas_info,
-                section_index: span_index,
+                section_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -1048,7 +1048,8 @@ pub fn extract_text_shadows(
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.section_index != *span_index || info.atlas_info.texture != atlas_info.texture
+                info.section_index != *section_index
+                    || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
