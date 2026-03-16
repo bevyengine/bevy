@@ -2029,10 +2029,18 @@ impl ImageOrPath {
     }
 }
 
+/// An Iterator that iterates over morph target positions, normals,
+/// and tangents while optionally handling coordinate conversions.
+/// Used when setting morph targets on a `Mesh` while reading them
+/// from a primitive.
 pub struct PrimitiveMorphAttributesIter<'s> {
+    /// Should the values be converted
     pub convert_coordinates: bool,
+    /// Vertex position displacements
     pub positions: Option<Iter<'s, [f32; 3]>>,
+    /// Vertex normal displacements
     pub normals: Option<Iter<'s, [f32; 3]>>,
+    /// Vertex tangent displacements
     pub tangents: Option<Iter<'s, [f32; 3]>>,
 }
 
@@ -2083,9 +2091,12 @@ struct AnimationContext {
     pub path: SmallVec<[Name; 8]>,
 }
 
+/// Applications like Blender place shape key names in
+/// the glTF extras as a list of target names.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MorphTargetNames {
+    /// The list of target names (or shape keys)
     pub target_names: Vec<String>,
 }
 

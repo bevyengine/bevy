@@ -30,8 +30,11 @@ impl Normalization {
 /// An error that occurs when accessing buffer data
 #[derive(Error, Debug)]
 pub enum AccessFailed {
+    /// Accessing the data failed because of an issue like a mismatch in stride,
+    /// or a buffer view slice failing.
     #[error("Malformed vertex attribute data")]
     MalformedData,
+    /// The format supplied is unsupported for this operation.
     #[error("Unsupported vertex attribute format")]
     UnsupportedFormat,
 }

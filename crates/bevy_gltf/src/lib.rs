@@ -132,6 +132,7 @@ pub mod convert_coordinates;
 mod label;
 mod loader;
 mod material;
+/// A set of utilities for accessing and converting vertex attribute data
 pub mod vertex_attributes;
 
 extern crate alloc;
