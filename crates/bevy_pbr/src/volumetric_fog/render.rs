@@ -799,7 +799,7 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
             continue;
         }
 
-        let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
+        let view_position = view_from_local.transform_point3a(local_normal * 0.5);
         let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
         far_planes[next_index] = plane_coords;
@@ -870,4 +870,25 @@ fn calculate_fog_volume_clip_from_local_transforms(
         vec4(0.0, 0.0, 0.0, 0.0),
         vec4(0.0, 0.0, z_near, z_near),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_far_planes_identity_has_correct_z_plane_position() {
+        let far_planes = get_far_planes(&Affine3A::IDENTITY);
+
+        let z_plane = far_planes[0];
+        assert_eq!(z_plane.truncate(), Vec3::Z);
+        assert!((z_plane.w + 0.5).abs() < 1e-6);
+
+        let z_face_point = Vec3::new(0.0, 0.0, 0.5);
+        let plane_eval = z_plane.truncate().dot(z_face_point) + z_plane.w;
+        assert!(plane_eval.abs() < 1e-6);
+
+        assert_eq!(far_planes[1], Vec4::ZERO);
+        assert_eq!(far_planes[2], Vec4::ZERO);
+    }
 }
