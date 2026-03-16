@@ -924,9 +924,15 @@ pub fn prepare_lights(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     (
         mut max_directional_lights_warning_emitted,
+        mut max_rect_lights_warning_emitted,
         mut max_cascades_per_light_warning_emitted,
         mut live_shadow_mapping_lights,
-    ): (Local<bool>, Local<bool>, Local<HashSet<RetainedViewEntity>>),
+    ): (
+        Local<bool>,
+        Local<bool>,
+        Local<bool>,
+        Local<HashSet<RetainedViewEntity>>,
+    ),
     point_lights: Query<(
         Entity,
         &MainEntity,
@@ -991,6 +997,15 @@ pub fn prepare_lights(
             MAX_DIRECTIONAL_LIGHTS
         );
         *max_directional_lights_warning_emitted = true;
+    }
+
+    if !*max_rect_lights_warning_emitted && rect_lights.len() > MAX_RECT_LIGHTS {
+        warn!(
+            "The amount of rectangle area lights of {} is exceeding the supported limit of {}.",
+            rect_lights.len(),
+            MAX_RECT_LIGHTS
+        );
+        *max_rect_lights_warning_emitted = true;
     }
 
     if !*max_cascades_per_light_warning_emitted

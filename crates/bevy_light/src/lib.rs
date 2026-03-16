@@ -242,7 +242,7 @@ impl Plugin for LightPlugin {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
+/// With<DirectionalLight>, With<RectLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
 pub type WithLight = Or<(
     With<PointLight>,
     With<SpotLight>,

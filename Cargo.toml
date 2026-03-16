@@ -1130,6 +1130,7 @@ wasm = true
 name = "rect_light"
 path = "examples/3d/rect_light.rs"
 doc-scrape-examples = true
+required-features = ["free_camera"]
 
 [package.metadata.example.rect_light]
 name = "Rectangular Area Light"

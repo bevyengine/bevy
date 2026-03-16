@@ -10,6 +10,9 @@ use crate::light_consts;
 ///
 /// The rectangle lies in the XY plane of the entity's local coordinate frame
 /// and faces the local -Z direction.
+///
+/// Shadow maps are currently unsupported, objects illuminated by a
+/// ``RectLight`` will not cast shadows.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility, VisibilityClass)]

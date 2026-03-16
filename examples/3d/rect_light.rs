@@ -1,6 +1,5 @@
 //! Illustrates rectangular area lights and how surface roughness affects their appearance.
 
-#[cfg(feature = "free_camera")]
 use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::prelude::*;
 
@@ -14,7 +13,6 @@ fn main() {
                 }),
                 ..default()
             }),
-            #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
@@ -79,7 +77,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-8.0, 5.0, 8.0).looking_at(Vec3::Y, Vec3::Y),
-        #[cfg(feature = "free_camera")]
         FreeCamera::default(),
     ));
 
