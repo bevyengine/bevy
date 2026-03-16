@@ -942,7 +942,7 @@ impl Default for LineHeight {
     }
 }
 
-/// Specifies the space between of each letter of a text for `Text` and `Text2d`
+/// Specifies the space between each letter of a text for `Text` and `Text2d`
 ///
 /// Default is 0
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]

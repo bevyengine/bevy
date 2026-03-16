@@ -29,7 +29,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            // Flex container a középső tartalomnak
             parent
                 .spawn(Node {
                     width: Val::Percent(100.0),
@@ -71,7 +70,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ));
                 });
 
-            // Absolute elemek a root alatt
             parent.spawn((
                 Text::new("LetterSpacing::Px(0.0)"),
                 LetterSpacingLabel,
