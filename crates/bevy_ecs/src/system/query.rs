@@ -2802,9 +2802,11 @@ impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_
 /// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
+/// This will cause the system to fail, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
-/// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
+/// Use [`Option<Single<D, F>>`] instead to run the system but get `None` when there are zero or multiple matching entities.
+///
+/// Use [`If<Single<D, F>>`](crate::system::If) instead to skip the system when there are zero or multiple matching entities.
 ///
 /// Note that [`Single`] is not used as a search optimization. It is used as a validation with slight overhead compared to [`Query`].
 ///
@@ -2855,7 +2857,9 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> Single<'w, 's, D, F> {
 /// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
-/// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
+/// This will cause the system to fail, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
+///
+/// Use [`If<Populated<D, F>>`](crate::system::If) instead to skip the system when there are zero matching entities.
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
