@@ -209,9 +209,10 @@ use crate::{
         embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId,
         UnprocessedAssetSourceBuilders,
     },
-    processor::{AssetProcessor, Process},
+    processor::{AssetProcessor, FileTransactionLogFactory, Process},
 };
 use alloc::{
+    boxed::Box,
     format,
     string::{String, ToString},
     sync::Arc,
@@ -455,8 +456,15 @@ impl Plugin for AssetPlugin {
                     .unwrap_or_default()
                     .0;
                 let mut final_sources = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                let (processor, sources) =
-                    AssetProcessor::new(&mut unprocessed_sources, &mut final_sources, watch);
+                let log_path = Path::new(&self.processed_file_path).join("log");
+                let (processor, sources) = AssetProcessor::new(
+                    &mut unprocessed_sources,
+                    &mut final_sources,
+                    watch,
+                    Box::new(FileTransactionLogFactory {
+                        file_path: log_path,
+                    }),
+                );
                 // the main asset server shares loaders with the processor asset server
                 app.insert_resource(AssetServer::new_with_loaders(
                     sources,

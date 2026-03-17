@@ -253,6 +253,7 @@ impl AssetProcessor {
         unprocessed_sources: &mut AssetSourceBuilders,
         final_sources: &mut AssetSourceBuilders,
         watch_processed: bool,
+        default_transaction_log_factory: Box<dyn ProcessorTransactionLogFactory + 'static>,
     ) -> (Self, Arc<AssetSources>) {
         let state = Arc::new(ProcessingState::new());
 
@@ -270,6 +271,7 @@ impl AssetProcessor {
             unprocessed_sources,
             ungated_processed_readers_and_writers,
             state,
+            default_transaction_log_factory,
         ));
         // The asset processor uses its own asset server with its own id space
         let server = AssetServer::new_with_meta_check(
@@ -1437,6 +1439,7 @@ impl AssetProcessorData {
             (Arc<dyn ErasedAssetReader>, Box<dyn ErasedAssetWriter>),
         >,
         processing_state: Arc<ProcessingState>,
+        default_transaction_log_factory: Box<dyn ProcessorTransactionLogFactory + 'static>,
     ) -> Self {
         let mut processed_sources = ProcessedSources::default();
         for (id, (ungated_processed_reader, processed_writer)) in
@@ -1455,7 +1458,7 @@ impl AssetProcessorData {
         AssetProcessorData {
             processing_state,
             sources: processed_sources,
-            log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
+            log_factory: Mutex::new(Some(default_transaction_log_factory)),
             log: Default::default(),
             processors: Default::default(),
         }

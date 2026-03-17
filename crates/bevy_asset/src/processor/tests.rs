@@ -89,7 +89,13 @@ fn create_empty_asset_processor() -> AssetProcessor {
         }),
     );
 
-    AssetProcessor::new(&mut sources, &mut final_sources, false).0
+    AssetProcessor::new(
+        &mut sources,
+        &mut final_sources,
+        false,
+        Box::new(FakeTransactionLogFactory),
+    )
+    .0
 }
 
 #[test]
@@ -254,48 +260,48 @@ fn serialize_as_cool_text(text: &str) -> String {
     ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
 }
 
+/// A dummy transaction log factory that just creates [`FakeTransactionLog`].
+struct FakeTransactionLogFactory;
+
+impl ProcessorTransactionLogFactory for FakeTransactionLogFactory {
+    fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
+        Box::pin(async move { Ok(vec![]) })
+    }
+
+    fn create_new_log(
+        &self,
+    ) -> BoxedFuture<'_, Result<Box<dyn ProcessorTransactionLog>, BevyError>> {
+        Box::pin(async move { Ok(Box::new(FakeTransactionLog) as _) })
+    }
+}
+
+/// A dummy transaction log that just drops every log.
+// TODO: In the future it's possible for us to have a test of the transaction log, so making
+// this more complex may be necessary.
+struct FakeTransactionLog;
+
+impl ProcessorTransactionLog for FakeTransactionLog {
+    fn begin_processing<'a>(
+        &'a mut self,
+        _asset: &'a AssetPath<'_>,
+    ) -> BoxedFuture<'a, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn end_processing<'a>(
+        &'a mut self,
+        _asset: &'a AssetPath<'_>,
+    ) -> BoxedFuture<'a, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn unrecoverable(&mut self) -> BoxedFuture<'_, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+}
+
 /// Sets the transaction log for the app to a fake one to prevent touching the filesystem.
 fn set_fake_transaction_log(app: &mut App) {
-    /// A dummy transaction log factory that just creates [`FakeTransactionLog`].
-    struct FakeTransactionLogFactory;
-
-    impl ProcessorTransactionLogFactory for FakeTransactionLogFactory {
-        fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
-            Box::pin(async move { Ok(vec![]) })
-        }
-
-        fn create_new_log(
-            &self,
-        ) -> BoxedFuture<'_, Result<Box<dyn ProcessorTransactionLog>, BevyError>> {
-            Box::pin(async move { Ok(Box::new(FakeTransactionLog) as _) })
-        }
-    }
-
-    /// A dummy transaction log that just drops every log.
-    // TODO: In the future it's possible for us to have a test of the transaction log, so making
-    // this more complex may be necessary.
-    struct FakeTransactionLog;
-
-    impl ProcessorTransactionLog for FakeTransactionLog {
-        fn begin_processing<'a>(
-            &'a mut self,
-            _asset: &'a AssetPath<'_>,
-        ) -> BoxedFuture<'a, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-
-        fn end_processing<'a>(
-            &'a mut self,
-            _asset: &'a AssetPath<'_>,
-        ) -> BoxedFuture<'a, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-
-        fn unrecoverable(&mut self) -> BoxedFuture<'_, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-    }
-
     app.world()
         .resource::<AssetProcessor>()
         .data()
