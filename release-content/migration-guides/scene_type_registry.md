@@ -3,7 +3,7 @@ title: DynamicSceneBuilder and DynamicScene::from_scene now require a &TypeRegis
 pull_requests: [23401]
 ---
 
-Previously, `DynamicSceneBuilder` and `DynamicScene` would get the type registry out of the worlda
+Previously, `DynamicSceneBuilder` and `DynamicScene` would get the type registry out of the world
 being extracted. However, when building a world from scratch just for serialization, this required
 artificially cloning the registry and putting it in the world being saved.
 
