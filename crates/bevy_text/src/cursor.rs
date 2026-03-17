@@ -1,4 +1,7 @@
-use bevy_color::Color;
+use bevy_color::{
+    palettes::css::{GREEN, RED},
+    Alpha as _, Color,
+};
 use bevy_ecs::component::Component;
 
 /// Controls text cursor appearance.
@@ -13,4 +16,13 @@ pub struct TextCursorStyle {
     pub color: Color,
     /// Background color of selected text
     pub selection_color: Color,
+}
+
+impl Default for TextCursorStyle {
+    fn default() -> Self {
+        Self {
+            color: RED.into(),
+            selection_color: Color::from(GREEN).with_alpha(0.5),
+        }
+    }
 }

@@ -22,6 +22,7 @@ use parley::{FontFamily, FontStack, PositionedLayoutItem};
 /// Updates [`EditableText::editor`] to match e.g. [`TextFont`]
 /// Writes layout to [`TextLayoutInfo`] for rendering
 /// Adds required glyphs to the texture atlas
+// TODO: add change detection logic here to improve performance
 pub fn editable_text_system(
     fonts: Res<Assets<Font>>,
     mut font_cx: ResMut<FontCx>,

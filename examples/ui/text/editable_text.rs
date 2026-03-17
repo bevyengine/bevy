@@ -6,7 +6,10 @@
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
 use bevy::color::palettes::css::{GREEN, RED, YELLOW};
-use bevy::input_focus::{InputDispatchPlugin, InputFocus};
+use bevy::input_focus::{
+    tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
+    InputDispatchPlugin, InputFocus,
+};
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
 use bevy::ui_widgets::EditableTextInputPlugin;
@@ -19,9 +22,10 @@ fn main() {
             EditableTextInputPlugin,
             // Input focus is required to direct keyboard input to the correct EditableText
             InputDispatchPlugin,
+            TabNavigationPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, rotate_tab)
+        // .add_systems(PreUpdate, rotate_tab)
         .add_systems(Update, text_submission)
         .run();
 }
@@ -80,10 +84,13 @@ fn setup(
     input_focus.set(text_input_left_edit);
 
     let input_container = commands
-        .spawn(Node {
-            display: Display::Flex,
-            ..default()
-        })
+        .spawn((
+            Node {
+                display: Display::Flex,
+                ..default()
+            },
+            TabGroup::new(0),
+        ))
         .id();
 
     // Set up a text output to see the result of our text input
@@ -161,10 +168,8 @@ fn build_input_text(
                 font_size: FontSize::Px(font_size),
                 ..default()
             },
-            TextCursorStyle {
-                color: RED.into(),
-                selection_color: Color::from(GREEN).with_alpha(0.5),
-            },
+            TextCursorStyle::default(),
+            TabIndex(if is_left { 0 } else { 1 }),
             UiTransform::from_translation(Val2 {
                 x: Val::Px(10.0),
                 y: Val::Px(10.0),

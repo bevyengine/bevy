@@ -23,7 +23,7 @@ use bevy_text::{
     RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
-extern crate alloc;
+
 use taffy::style::AvailableSpace;
 use tracing::error;
 
