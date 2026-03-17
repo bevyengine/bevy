@@ -309,8 +309,7 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
-                    let hint =
-                        hinting.should_hint() && font_smoothing == FontSmoothing::AntiAliased;
+                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
                     let mut scaler = scale_cx
                         .0
                         .builder(font_ref)
