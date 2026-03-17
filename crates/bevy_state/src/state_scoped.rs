@@ -93,7 +93,7 @@ pub fn despawn_entities_when_state<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.allow_same_state_transitions {
         return;
     }
     for (entity, when) in &query {
