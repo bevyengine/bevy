@@ -370,6 +370,16 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, (), true)
     }
 
+    /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
+    /// `type_id`.
+    pub fn load_erased<'a>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        type_id: TypeId,
+    ) -> UntypedHandle {
+        self.load_erased_with_meta_transform(path, type_id, None, ())
+    }
+
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
     /// The guard item is dropped when either the asset is loaded or loading has failed.
     ///

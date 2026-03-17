@@ -3,6 +3,7 @@ use crate::{
     material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
+use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
 use bevy_camera::{
@@ -38,6 +39,7 @@ use bevy_mesh::{
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
 use bevy_render::impl_atomic_pod;
 use bevy_render::mesh::allocator::{MeshSlabs, SlabId};
 use bevy_render::mesh::morph::{
@@ -264,7 +266,8 @@ impl Plugin for MeshRenderPlugin {
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSystems::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush)
+                                .after(write_mesh_culling_data_buffer),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
@@ -632,7 +635,7 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(AtomicRawBufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(AtomicSparseBufferVec<MeshCullingData>);
 
 impl_atomic_pod!(MeshCullingData, MeshCullingDataBlob);
 
@@ -699,6 +702,12 @@ bitflags::bitflags! {
         ///
         /// This will be `u16::MAX` if this mesh has no LOD.
         const LOD_INDEX_MASK              = (1 << 16) - 1;
+        /// Whether visibility ranges use the center of the AABB to compute
+        /// distance from the camera.
+        ///
+        /// If false, this uses distance from the world-space translation of the
+        /// mesh instead.
+        const AABB_BASED_VISIBILITY_RANGE = 1 << 27;
         /// Disables frustum culling for this mesh.
         ///
         /// This corresponds to the
@@ -718,6 +727,7 @@ impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
         lod_index: Option<NonMaxU16>,
+        visibility_range: Option<&VisibilityRange>,
         no_frustum_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
@@ -727,6 +737,9 @@ impl MeshFlags {
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
+        if visibility_range.is_some_and(|visibility_range| visibility_range.use_aabb) {
+            mesh_flags |= MeshFlags::AABB_BASED_VISIBILITY_RANGE;
+        }
         if no_frustum_culling {
             mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
         }
@@ -1490,7 +1503,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &InstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
     ) -> Option<u32> {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1600,7 +1613,11 @@ impl MeshCullingData {
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(AtomicRawBufferVec::new(BufferUsages::STORAGE))
+        Self(AtomicSparseBufferVec::new(
+            BufferUsages::STORAGE,
+            8,
+            Arc::from("mesh culling data buffer"),
+        ))
     }
 }
 
@@ -1652,7 +1669,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
-            Has<VisibilityRange>,
+            Option<&VisibilityRange>,
             Option<&RenderLayers>,
             Option<&Aabb>,
         )>,
@@ -1682,13 +1699,14 @@ pub fn extract_meshes_for_cpu_building(
             }
 
             let mut lod_index = None;
-            if visibility_range {
+            if visibility_range.is_some() {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
+                visibility_range,
                 no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
@@ -1762,7 +1780,7 @@ type GpuMeshExtractionQuery = (
     Has<TransmittedShadowReceiver>,
     Has<NotShadowCaster>,
     Has<NoAutomaticBatching>,
-    Has<VisibilityRange>,
+    Option<Read<VisibilityRange>>,
     Option<Read<RenderLayers>>,
 );
 
@@ -1977,13 +1995,14 @@ fn extract_mesh_for_gpu_building(
     }
 
     let mut lod_index = None;
-    if visibility_range {
+    if visibility_range.is_some() {
         lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
     }
 
     let mesh_flags = MeshFlags::from_components(
         transform,
         lod_index,
+        visibility_range,
         no_frustum_culling,
         not_shadow_receiver,
         transmitted_receiver,
@@ -2352,7 +2371,6 @@ pub fn collect_meshes_for_gpu_building(
         let entity = batch;
         meshes_to_reextract_next_frame.insert(entity);
     }
-    previous_input_buffer.truncate();
     // Buffers can't be empty. Make sure there's something in the previous input buffer.
     previous_input_buffer.ensure_nonempty();
 }

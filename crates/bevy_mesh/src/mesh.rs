@@ -1366,6 +1366,23 @@ impl Mesh {
                 VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm8(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Uint16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Sint16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Snorm16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float16x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm10_10_10_2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Unorm8x4Bgra(vec) => *vec = duplicate(vec, indices),
             }
         }
 
