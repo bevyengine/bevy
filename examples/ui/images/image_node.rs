@@ -1,5 +1,5 @@
-//! This example illustrates the basic usage of an `ImageNode`.
-//! `ImageNode` is UI Node that render an Image.
+//! This example illustrates the basic usage of [`ImageNode`],
+//! a UI node that renders an image.
 
 use bevy::prelude::*;
 

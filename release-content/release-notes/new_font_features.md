@@ -1,7 +1,7 @@
 ---
 title: "New Font features"
 authors: ["@ickshonpe"]
-pull_requests: [22156, 22614]
+pull_requests: [22156, 22614, 22879]
 ---
 
 `TextFont` has been expanded to include new fields:
@@ -24,13 +24,9 @@ FontSource has two variants: Handle, which identifies a font by asset handle, an
 
 `FontStyle` is an enum used to set the slant style of a font, with variants `Normal`, `Italic`, or `Oblique`.
 
-The system font support is very basic for now. You load them using the `CosmicFontSystem` resource:
+The system font support is very basic for now. To load them, you must enable the `bevy/system_font_discovery` feature.
 
-```rust
-font_system.db_mut().load_system_fonts()
-```
-
-Then they are available to be selected by family name using `FontSource::Family`.
+Then they are available to be selected by family name using `FontSource::Family` via the `FontCx` resource.
 
 The `font_size` field is now a `FontSize`, enabling responsive font sizing.
 
