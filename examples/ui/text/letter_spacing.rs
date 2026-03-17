@@ -59,111 +59,113 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         Node {
-                             padding: vh(2).bottom(),
+                            padding: vh(2).bottom(),
                             ..default()
                         },
                     ));
 
-                // Left justified
-                parent.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    width: percent(100.0),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Justify::Left"),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(2.0),
-                            ..default()
-                        },
-                    ));
-                    parent.spawn((
-                        Text::new("letter spacing"),
-                        AnimatedLetterSpacing,
-                        TextLayout::new_with_justify(Justify::Left),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(6.0),
-                            ..default()
-                        },
-                        Node {
+                    // Left justified
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
                             width: percent(100.0),
                             ..default()
-                        },
-                        // Custom `LetterSpacing` can be added to any text entity as a component
-                        LetterSpacing::Px(0.0),
-                    ));
-                });
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("Justify::Left"),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(2.0),
+                                    ..default()
+                                },
+                            ));
+                            parent.spawn((
+                                Text::new("letter spacing"),
+                                AnimatedLetterSpacing,
+                                TextLayout::new_with_justify(Justify::Left),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(6.0),
+                                    ..default()
+                                },
+                                Node {
+                                    width: percent(100.0),
+                                    ..default()
+                                },
+                                // Custom `LetterSpacing` can be added to any text entity as a component
+                                LetterSpacing::Px(0.0),
+                            ));
+                        });
 
-                // Center justified
-                parent.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    width: percent(100.0),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Justify::Center"),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(2.0),
-                            ..default()
-                        },
-                    ));
-                    parent.spawn((
-                        Text::new("letter spacing"),
-                        AnimatedLetterSpacing,
-                        TextLayout::new_with_justify(Justify::Center),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(6.0),
-                            ..default()
-                        },
-                        Node {
+                    // Center justified
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
                             width: percent(100.0),
                             ..default()
-                        },
-                        // Custom `LetterSpacing` can be added to any text entity as a component
-                        LetterSpacing::Px(0.0),
-                    ));
-                });
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("Justify::Center"),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(2.0),
+                                    ..default()
+                                },
+                            ));
+                            parent.spawn((
+                                Text::new("letter spacing"),
+                                AnimatedLetterSpacing,
+                                TextLayout::new_with_justify(Justify::Center),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(6.0),
+                                    ..default()
+                                },
+                                Node {
+                                    width: percent(100.0),
+                                    ..default()
+                                },
+                                // Custom `LetterSpacing` can be added to any text entity as a component
+                                LetterSpacing::Px(0.0),
+                            ));
+                        });
 
-                // Right justified
-                parent.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    width: percent(100.0),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Justify::Right"),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(2.0),
-                            ..default()
-                        },
-                    ));
-                    parent.spawn((
-                        Text::new("letter spacing"),
-                        AnimatedLetterSpacing,
-                        TextLayout::new_with_justify(Justify::Right),
-                        TextFont {
-                            font: font.clone().into(),
-                            font_size: FontSize::Vh(6.0),
-                            ..default()
-                        },
-                        Node {
+                    // Right justified
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
                             width: percent(100.0),
                             ..default()
-                        },
-                        // Custom `LetterSpacing` can be added to any text entity as a component
-                        LetterSpacing::Px(0.0),
-                    ));
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("Justify::Right"),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(2.0),
+                                    ..default()
+                                },
+                            ));
+                            parent.spawn((
+                                Text::new("letter spacing"),
+                                AnimatedLetterSpacing,
+                                TextLayout::new_with_justify(Justify::Right),
+                                TextFont {
+                                    font: font.clone().into(),
+                                    font_size: FontSize::Vh(6.0),
+                                    ..default()
+                                },
+                                Node {
+                                    width: percent(100.0),
+                                    ..default()
+                                },
+                                // Custom `LetterSpacing` can be added to any text entity as a component
+                                LetterSpacing::Px(0.0),
+                            ));
+                        });
                 });
-                });
-
 
             parent.spawn((
                 Text::new("LetterSpacing::Px(0.0)"),
@@ -226,16 +228,12 @@ fn toggle_mode(
     for mut text in &mut label_query {
         match *mode {
             SpacingMode::Px => {
-                if let Some(LetterSpacing::Px(v)) =
-                    query.iter().next().map(|s| *s)
-                {
+                if let Some(LetterSpacing::Px(v)) = query.iter().next().copied() {
                     text.0 = format!("LetterSpacing::Px({:.1})", v);
                 }
             }
             SpacingMode::Rem => {
-                if let Some(LetterSpacing::Rem(v)) =
-                    query.iter().next().map(|s| *s)
-                {
+                if let Some(LetterSpacing::Rem(v)) = query.iter().next().copied() {
                     text.0 = format!("LetterSpacing::Rem({:.2})", v);
                 }
             }
