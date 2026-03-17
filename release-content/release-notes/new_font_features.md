@@ -64,8 +64,6 @@ absolute and relative units:
 pub enum LetterSpacing {
     /// Letter spacing in pixels.
     Px(f32),
-    /// Letter spacing relative to the current font size.
-    Em(f32),
     /// Letter spacing relative to the `RemSize` resource.
     Rem(f32),
 }
