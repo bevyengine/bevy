@@ -1,5 +1,5 @@
 ---
-title: "Include `UiWidgetsPlugins` in `DefaultPlugins`"
+title: "`UiWidgetsPlugins` and `InputDispatchPlugin` are now in `DefaultPlugins`"
 pull_requests: [23346]
 ---
 
