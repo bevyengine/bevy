@@ -332,4 +332,57 @@ mod tests {
             .is_none());
         assert!(app.world().get_entity(entity).is_err());
     }
+
+    #[test]
+    fn despawn_on_exit_same_state_transition() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::On);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+
+        let entity = app.world_mut().spawn(DespawnOnExit(State::On)).id();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        app.world_mut().commands().set_state(State::On);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+        // entity was despawned on exit, despite setting the state to the same state.
+        // this is because allow same state transitions is true
+        assert!(app.world().get_entity(entity).is_err());
+
+        let entity = app.world_mut().spawn(DespawnOnExit(State::On)).id();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        app.world_mut().commands().set_state_if_neq(State::On);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+        // entity was despawned on exit, despite setting the state to the same state.
+        // this is because allow same state transitions is true
+        assert!(app.world().get_entity(entity).is_ok());
+    }
 }
