@@ -60,7 +60,7 @@ fn setup(
                 ..Default::default()
             },
             BorderColor::from(Color::from(YELLOW)),
-            Text::new("Tab to change input, Ctrl+Enter to submit"),
+            Text::new("Ctrl+Enter to submit text"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: FontSize::Px(30.0),
