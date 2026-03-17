@@ -948,7 +948,7 @@ impl Default for LineHeight {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub enum LetterSpacing {
-    /// Set letter spacing to a specific number of pixels
+    /// Set letter spacing to a specific number of logical pixels
     Px(f32),
     /// Set letter spacing to a multiple of the font size
     Rem(f32),
