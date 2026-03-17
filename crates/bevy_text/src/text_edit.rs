@@ -4,7 +4,7 @@ use smol_str::SmolStr;
 
 use crate::TextBrush;
 
-/// crate::{FontSmoothing, TextBrush}edit and navigation actions applied by the `apply_text_edits` system.
+/// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 pub enum TextEdit {
     /// Insert a character at the cursor. If there is a selection, replaces the selection with the character instead.
