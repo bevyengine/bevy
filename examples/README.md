@@ -335,6 +335,7 @@ Example | Description
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
+[Extraction](../examples/ecs/extraction.rs) | Demonstrates different ways of extracting components, copying them from the main world to the render world
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -368,12 +369,12 @@ Example | Description
 
 Example | Description
 --- | ---
-[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
-[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
-[Game Menu](../examples/games/game_menu.rs) | A simple game menu
-[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Alien Cake Addict](../examples/showcase/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+[Breakout](../examples/showcase/breakout.rs) | An implementation of the classic game "Breakout".
+[Contributors](../examples/showcase/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+[Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
+[Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
 
 ### Gizmos
 

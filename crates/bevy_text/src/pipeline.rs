@@ -20,6 +20,7 @@ use parley::{
 };
 use swash::FontRef;
 
+use crate::TextBrush;
 use crate::{
     add_glyph_to_atlas,
     error::TextError,
@@ -205,7 +206,10 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::Brush((span_index as u32, text_font.font_smoothing)),
+                    StyleProperty::Brush(TextBrush::new(
+                        section_index as u32,
+                        text_font.font_smoothing,
+                    )),
                     range.clone(),
                 );
                 builder.push(StyleProperty::FontSize(font_size), range.clone());
@@ -334,14 +338,14 @@ impl TextPipeline {
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let span_index = glyph_run.style().brush.0 as usize;
-                    let font_smoothing = glyph_run.style().brush.1;
+                    let section_index = glyph_run.style().brush.section_index as usize;
+                    let font_smoothing = glyph_run.style().brush.font_smoothing;
                     let run = glyph_run.run();
                     let font = run.font();
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
-                    let variations_hash = FixedHasher.hash_one(coords);
                     let text_range = run.text_range();
+                    let variations_hash = FixedHasher.hash_one(coords);
                     let font_atlas_key = FontAtlasKey {
                         id: font.data.id() as u32,
                         index: font.index,
@@ -398,7 +402,7 @@ impl TextPipeline {
                                 }
                                 + atlas_info.offset,
                             atlas_info,
-                            span_index,
+                            section_index,
                             byte_index: text_range.start,
                             byte_length: text_range.len(),
                             line_index,
@@ -406,7 +410,7 @@ impl TextPipeline {
                     }
 
                     layout_info.run_geometry.push(RunGeometry {
-                        span_index,
+                        section_index,
                         bounds: Rect::new(
                             glyph_run.offset(),
                             line.metrics().min_coord,
@@ -490,7 +494,7 @@ impl TextLayoutInfo {
 #[derive(Default, Debug, Clone, Reflect)]
 pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
-    pub span_index: usize,
+    pub section_index: usize,
     /// Bounding box around the text run.
     pub bounds: Rect,
     /// Y position of the strikethrough in the text layout.
@@ -561,11 +565,7 @@ impl TextMeasureInfo {
     }
 }
 
-fn layout_with_bounds(
-    layout: &mut Layout<(u32, FontSmoothing)>,
-    bounds: TextBounds,
-    justify: Justify,
-) {
+fn layout_with_bounds(layout: &mut Layout<TextBrush>, bounds: TextBounds, justify: Justify) {
     layout.break_all_lines(bounds.width);
 
     let container_width = if bounds.width.is_none() && justify != Justify::Left {
@@ -578,7 +578,7 @@ fn layout_with_bounds(
 }
 
 /// Calculate the size of the text area for the given buffer.
-fn buffer_dimensions(buffer: &Layout<(u32, FontSmoothing)>) -> Vec2 {
+fn buffer_dimensions(buffer: &Layout<TextBrush>) -> Vec2 {
     let size = Vec2::new(buffer.full_width(), buffer.height());
     if size.is_finite() {
         size.ceil()

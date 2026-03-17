@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -38,7 +38,7 @@ pub struct TextEntity {
 pub struct ComputedTextBlock {
     /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) layout: Layout<(u32, FontSmoothing)>,
+    pub(crate) layout: Layout<TextBrush>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -81,7 +81,7 @@ impl Debug for ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -102,7 +102,7 @@ impl ComputedTextBlock {
     }
 
     /// Accesses the shaped layout buffer.
-    pub fn buffer(&self) -> &Layout<(u32, FontSmoothing)> {
+    pub fn buffer(&self) -> &Layout<TextBrush> {
         &self.layout
     }
 }
