@@ -25,6 +25,9 @@ Conversion can be necessary because glTF's
 are "+Z forward", while Bevy's are "-Z forward" (although not all glTF files
 follow the standard).
 
+Coordinate conversion remains disabled by default - if you haven't enabled
+it then your glTFs will work the same as before.
+
 ## Node Conversion
 
 `GltfConvertCoordinates` has a new `rotate_nodes` option. Enabling this option
