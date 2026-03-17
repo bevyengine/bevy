@@ -1,23 +1,23 @@
 ---
 title: "Generic Font Families"
 authors: ["@ickshonpe"]
-pull_requests: [22396]
+pull_requests: [22396, 22879]
 ---
 
 Bevy now supports generic font families, allowing font faces to be selected using broadly defined categories (such as `FontSource::Serif` or `FontSource::Monospace`) without naming a specific font family.
 
-The `CosmicFontSystem` resource can be used to update the font family associated with each generic font variant:
+The `FontCx` resource can be used to update the font family associated with each generic font variant:
 
 ```rust
-let mut font_system = CosmicFontSystem::default();
-let mut font_database = font_system.db_mut();
-font_database.set_serif_family("Allegro");
-font_database.set_sans_serif_family("Encode Sans");
-font_database.set_cursive_family("Cedarville Cursive");
-font_database.set_fantasy_family("Argusho");
-font_database.set_monospace_family("Lucida Console");
+fn font_families(mut font_system: ResMut<FontCx>) {
+  font_system.set_serif_family("Allegro");
+  font_system.set_sans_serif_family("Encode Sans");
+  font_system.set_cursive_family("Cedarville Cursive");
+  font_system.set_fantasy_family("Argusho");
+  font_system.set_monospace_family("Lucida Console");
 
-// `CosmicFontSystem::get_family` can be used to look the family associated with a `FontSource`
-let family_name = font_system.get_family(&FontSource::Serif).unwrap();
-assert_eq!(family_name.as_str(), "Allegro");
+  // `FontCx::get_family` can be used to look up the family associated with a `FontSource`
+  let family_name = font_system.get_family(&FontSource::Serif).unwrap();
+  assert_eq!(family_name.as_str(), "Allegro");
+}
 ```
