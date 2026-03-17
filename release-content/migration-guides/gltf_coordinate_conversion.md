@@ -53,8 +53,8 @@ When a glTF is spawned as a Bevy scene, its entity hierarchy usually looks like
 this:
 
 - User entity
-    - glTF scene root entity
-        - glTF root node entities
+  - glTF scene root entity
+    - glTF root node entities
 
 "User entity" is the entity that was spawned with a `SceneRoot` component or
 passed to `SceneSpawner::spawn_as_child`.
@@ -62,8 +62,8 @@ passed to `SceneSpawner::spawn_as_child`.
 In Bevy 0.18, `rotate_scene_entities` would rotate the glTF scene root entity.
 
 - User entity.
-    - glTF scene root entity \<--- ROTATED
-        - glTF root node entities
+  - glTF scene root entity \<--- ROTATED
+    - glTF root node entities
 
 This gave the correct visual result, but left the glTF scene root entity with
 incorrect semantics - its `Transform::forward` would be wrong.
@@ -72,8 +72,8 @@ In Bevy 0.19, the option has been renamed to `rotate_scenes` and its behavior
 has changed - it now rotates the glTF root node entities.
 
 - User entity.
-    - glTF scene root entity
-        - glTF root node entities \<--- ROTATED
+  - glTF scene root entity
+    - glTF root node entities \<--- ROTATED
 
 Now the glTF scene root entity has the correct semantics, while the visual
 result stays the same.
