@@ -81,7 +81,7 @@ result stays the same.
 ## Arbitrary Semantics
 
 `GltfConvertCoordinates` has a new `semantics` option for arbitrary semantic
-conversion. 
+conversion.
 
 Some glTF files don't follow the standard "+Z forward" semantics. The example
 below shows how a glTF file with "+X forward, +Y up" semantics can be converted
@@ -98,4 +98,3 @@ settings.convert_coordinates = Some(GltfConvertCoordinates::ALL.with_semantics(
     })
 ));
 ```
-
