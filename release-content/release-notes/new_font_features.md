@@ -1,8 +1,10 @@
 ---
 title: "New Font features"
-authors: ["@ickshonpe"]
-pull_requests: [22156, 22614, 22879]
+authors: ["@ickshonpe", "@gregcsokas"]
+pull_requests: [22156, 22614, 22879, 23380]
 ---
+
+## Text Font
 
 `TextFont` has been expanded to include new fields:
 
@@ -52,3 +54,27 @@ pub enum FontSize {
 `Rem` units are currently resolved using `RemSize`, which is a new `Resource`. `RemSize` just newtypes an `f32` currently.
 
 `Text2d`'s support for viewport coords is limited. A `Text2d` entity's resolved font size is always based on the size of the primary window, not on the size of its render target(s).
+
+## Letter Spacing
+
+A new `LetterSpacing` component has been added, controlling the spacing between 
+characters in a text entity. It follows the same pattern as `LineHeight` and supports 
+absolute and relative units:
+```rust
+pub enum LetterSpacing {
+    /// Letter spacing in pixels.
+    Px(f32),
+    /// Letter spacing relative to the current font size.
+    Em(f32),
+    /// Letter spacing relative to the `RemSize` resource.
+    Rem(f32),
+}
+```
+
+The default value is `LetterSpacing::Px(0.0)`, preserving existing behavior. 
+Negative values are supported and bring characters closer together.
+```rust
+commands.spawn((
+    Text::new("Hello, Bevy!"),
+    LetterSpacing::Px(4.0),
+));
