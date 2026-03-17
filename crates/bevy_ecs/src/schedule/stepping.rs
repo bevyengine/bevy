@@ -661,7 +661,7 @@ impl ScheduleState {
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
         for (key, system) in schedule.systems().unwrap() {
-            let behavior = self.behavior_updates.get(&system.type_id());
+            let behavior = self.behavior_updates.get(&system.system_type());
             match behavior {
                 None => continue,
                 Some(None) => {
@@ -896,7 +896,7 @@ mod tests {
             // system TypeId, and name.
             let systems: Vec<(TypeId, alloc::string::String)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
-                    (system.type_id(), system.name().as_string())
+                    (system.system_type(), system.name().as_string())
                 })
             .collect();
 
@@ -905,7 +905,7 @@ mod tests {
             $(
                 let sys = IntoSystem::into_system($system);
                 for (i, (type_id, _)) in systems.iter().enumerate() {
-                    if sys.type_id() == *type_id {
+                    if sys.system_type() == *type_id {
                         expected.insert(i);
                     }
                 }

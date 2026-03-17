@@ -856,9 +856,12 @@ pub fn extract_viewport_nodes(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+        let Some(camera_entity) = viewport_node.camera else {
+            continue;
+        };
 
         let Some(image) = camera_query
-            .get(viewport_node.camera)
+            .get(camera_entity)
             .ok()
             .and_then(|(_, render_target)| render_target.as_image())
         else {
@@ -938,27 +941,29 @@ pub fn extract_text_sections(
 
         let mut color = text_color.0.to_linear();
 
-        let mut current_span_index = 0;
+        let mut current_section_index = 0;
 
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            if current_span_index != *span_index
-                && let Some(span_entity) =
-                    computed_block.entities().get(*span_index).map(|t| t.entity)
+            if current_section_index != *section_index
+                && let Some(section_entity) = computed_block
+                    .entities()
+                    .get(*section_index)
+                    .map(|t| t.entity)
             {
                 color = text_styles
-                    .get(span_entity)
+                    .get(section_entity)
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
-                current_span_index = *span_index;
+                current_section_index = *section_index;
             }
 
             extracted_uinodes.glyphs.push(ExtractedGlyph {
@@ -1044,7 +1049,7 @@ pub fn extract_text_shadows(
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -1056,7 +1061,8 @@ pub fn extract_text_shadows(
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
+                info.section_index != *section_index
+                    || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
@@ -1077,7 +1083,7 @@ pub fn extract_text_shadows(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.span_index)
+                .get(run.section_index)
                 .map(|t| t.entity)
             else {
                 continue;
@@ -1193,7 +1199,7 @@ pub fn extract_text_decorations(
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
                 .entities()
-                .get(run.span_index)
+                .get(run.section_index)
                 .map(|t| t.entity)
             else {
                 continue;
