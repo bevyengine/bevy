@@ -72,7 +72,7 @@
 use alloc::collections::VecDeque;
 
 use crate::{
-    apply_edit, text_edit::TextEdit, FontCx, FontHinting, FontSmoothing, LayoutCx, LineHeight,
+    apply_edit, text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush,
     TextColor, TextFont, TextLayout,
 };
 use bevy_ecs::prelude::*;
@@ -102,7 +102,7 @@ pub struct EditableText {
     /// Note that many more complex editing operations require working with [`PlainEditor::driver`].
     /// These operations should generally be batched together to avoid redundant layout work.
     // The B: Brush generic here must match the brush used by `ComputedTextBlock` to ensure that the font system is compatible.
-    pub editor: PlainEditor<(u32, FontSmoothing)>,
+    pub editor: PlainEditor<TextBrush>,
     /// Text edit actions that have been requested but not yet applied.
     ///
     /// These edits are processed in first-in, first-out order.
@@ -124,13 +124,13 @@ impl Default for EditableText {
 
 impl EditableText {
     /// Access the internal [`PlainEditor`].
-    pub fn editor(&self) -> &PlainEditor<(u32, FontSmoothing)> {
+    pub fn editor(&self) -> &PlainEditor<TextBrush> {
         &self.editor
     }
 
     /// Mutably access the internal [`PlainEditor`].
     ///
-    pub fn editor_mut(&mut self) -> &mut PlainEditor<(u32, FontSmoothing)> {
+    pub fn editor_mut(&mut self) -> &mut PlainEditor<TextBrush> {
         &mut self.editor
     }
 
@@ -152,7 +152,7 @@ impl EditableText {
     pub fn apply_pending_edits(
         &mut self,
         font_context: &mut FontContext,
-        layout_context: &mut LayoutContext<(u32, FontSmoothing)>,
+        layout_context: &mut LayoutContext<TextBrush>,
     ) {
         // Take the `pending_edits` out of the struct so we can apply them without mutable aliasing issues.
         // We do not need to put the `pending_edits` back into the struct,
@@ -169,7 +169,7 @@ impl EditableText {
     pub fn clear(
         &mut self,
         font_context: &mut FontContext,
-        layout_context: &mut LayoutContext<(u32, FontSmoothing)>,
+        layout_context: &mut LayoutContext<TextBrush>,
     ) {
         self.editor.set_text("");
         let mut driver = self.editor_mut().driver(font_context, layout_context);

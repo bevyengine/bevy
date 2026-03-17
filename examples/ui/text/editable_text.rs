@@ -5,7 +5,7 @@
 //! that includes e.g. a background, border, and text label.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::{GREEN, RED, YELLOW};
+use bevy::color::palettes::css::YELLOW;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputDispatchPlugin, InputFocus,
@@ -25,7 +25,6 @@ fn main() {
             TabNavigationPlugin,
         ))
         .add_systems(Startup, setup)
-        // .add_systems(PreUpdate, rotate_tab)
         .add_systems(Update, text_submission)
         .run();
 }
@@ -201,29 +200,5 @@ fn text_submission(
         text_output.0 = format!("{:}: {:}", name, input);
 
         text_input.clear(&mut font_context.0, &mut layout_context.0);
-    }
-}
-
-fn rotate_tab(
-    mut input_focus: ResMut<InputFocus>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    text_input: Query<Entity, With<EditableText>>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Tab) {
-        let focused_entity = input_focus.0;
-
-        for entity in text_input.iter() {
-            if focused_entity.is_none() {
-                input_focus.0 = Some(entity);
-                return;
-            }
-
-            if let Some(focused_entity) = focused_entity
-                && entity != focused_entity
-            {
-                input_focus.0 = Some(entity);
-                return;
-            }
-        }
     }
 }

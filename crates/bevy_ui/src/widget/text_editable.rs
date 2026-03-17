@@ -103,7 +103,7 @@ pub fn editable_text_system(
             for (line_index, item) in line.items().enumerate() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let (span_index, smoothing) = glyph_run.style().brush;
+                        let brush = glyph_run.style().brush;
 
                         let run = glyph_run.run();
 
@@ -117,7 +117,7 @@ pub fn editable_text_system(
                             font_size_bits: font_size.to_bits(),
                             variations_hash: FixedHasher.hash_one(coords),
                             hinting: *hinting,
-                            font_smoothing: smoothing,
+                            font_smoothing: brush.font_smoothing,
                         };
 
                         for glyph in glyph_run.positioned_glyphs() {
@@ -157,7 +157,7 @@ pub fn editable_text_system(
                                     + atlas_info.rect.size() / 2.
                                     + atlas_info.offset,
                                 atlas_info,
-                                span_index: span_index as usize,
+                                section_index: brush.section_index as usize,
                                 line_index,
                                 byte_index: line.text_range().start,
                                 byte_length: line.text_range().len(),
@@ -165,7 +165,7 @@ pub fn editable_text_system(
                         }
 
                         info.run_geometry.push(RunGeometry {
-                            span_index: span_index as usize,
+                            section_index: brush.section_index as usize,
                             bounds: Rect {
                                 min: Vec2::new(glyph_run.offset(), line.metrics().min_coord),
                                 max: Vec2::new(

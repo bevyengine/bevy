@@ -2,9 +2,9 @@ use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
 use smol_str::SmolStr;
 
-use crate::FontSmoothing;
+use crate::TextBrush;
 
-/// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
+/// crate::{FontSmoothing, TextBrush}edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 pub enum TextEdit {
     /// Insert a character at the cursor. If there is a selection, replaces the selection with the character instead.
@@ -50,8 +50,8 @@ pub enum TextEdit {
 /// Takes a `TextEdit` and applies to `PlainEditorDriver`
 pub fn apply_edit<'a>(
     edit: TextEdit,
-    mut driver: PlainEditorDriver<'a, (u32, FontSmoothing)>,
-) -> PlainEditorDriver<'a, (u32, FontSmoothing)> {
+    mut driver: PlainEditorDriver<'a, TextBrush>,
+) -> PlainEditorDriver<'a, TextBrush> {
     match edit {
         TextEdit::Insert(str) => driver.insert_or_replace_selection(&str),
         TextEdit::Backspace => driver.backdelete(),
