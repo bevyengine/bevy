@@ -1,7 +1,7 @@
 ---
 title: "New Text features"
-authors: ["@ickshonpe", "@gregcsokas"]
-pull_requests: [22156, 22614, 22879, 23380]
+authors: [ "@ickshonpe", "@gregcsokas" ]
+pull_requests: [ 22156, 22614, 22879, 23380 ]
 ---
 
 ## Text Font
@@ -20,9 +20,11 @@ pub struct TextFont {
 }
 ```
 
-FontSource has two variants: Handle, which identifies a font by asset handle, and Family, which selects a font by its family name.
+FontSource has two variants: Handle, which identifies a font by asset handle, and Family, which selects a font by its
+family name.
 
-`FontWidth` is a newtype struct representing OpenType font stretch classifications ranging from `ULTRA_CONDENSED` (50%) to `ULTRA_EXPANDED` (200%).
+`FontWidth` is a newtype struct representing OpenType font stretch classifications ranging from `ULTRA_CONDENSED` (50%)
+to `ULTRA_EXPANDED` (200%).
 
 `FontStyle` is an enum used to set the slant style of a font, with variants `Normal`, `Italic`, or `Oblique`.
 
@@ -51,15 +53,18 @@ pub enum FontSize {
 }
 ```
 
-`Rem` units are currently resolved using `RemSize`, which is a new `Resource`. `RemSize` just newtypes an `f32` currently.
+`Rem` units are currently resolved using `RemSize`, which is a new `Resource`. `RemSize` just newtypes an `f32`
+currently.
 
-`Text2d`'s support for viewport coords is limited. A `Text2d` entity's resolved font size is always based on the size of the primary window, not on the size of its render target(s).
+`Text2d`'s support for viewport coords is limited. A `Text2d` entity's resolved font size is always based on the size of
+the primary window, not on the size of its render target(s).
 
 ## Letter Spacing
 
-A new `LetterSpacing` component has been added, controlling the spacing between 
-characters in a text entity. It follows the same pattern as `LineHeight` and supports 
+A new `LetterSpacing` component has been added, controlling the spacing between
+characters in a text entity. It follows the same pattern as `LineHeight` and supports
 absolute and relative units:
+
 ```rust
 pub enum LetterSpacing {
     /// Letter spacing in pixels.
@@ -69,8 +74,9 @@ pub enum LetterSpacing {
 }
 ```
 
-The default value is `LetterSpacing::Px(0.0)`, preserving existing behavior. 
+The default value is `LetterSpacing::Px(0.0)`, preserving existing behavior.
 Negative values are supported and bring characters closer together.
+
 ```rust
 commands.spawn((
     Text::new("Hello, Bevy!"),
