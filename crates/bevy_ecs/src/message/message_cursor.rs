@@ -10,11 +10,11 @@ use core::marker::PhantomData;
 ///
 /// Access to the [`Messages<M>`] resource is required to read any incoming messages.
 ///
-/// In almost all cases, you should just use a [`MessageReader`] or [`MessageMutator`],
+/// In almost all cases, you should just use a [`MessageReader`] to read messages,
+/// or a [`MessageMutator`] to modify messages or to read and write messages in the same system,
 /// which will automatically manage the state for you.
 ///
-/// However, this type can be useful if you need to manually track messages,
-/// such as when you're attempting to send and receive messages of the same type in the same system.
+/// However, this type can be useful if you need to manually track messages.
 ///
 /// # Example
 ///

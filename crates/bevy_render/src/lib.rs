@@ -20,7 +20,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -61,6 +62,7 @@ pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
+pub mod uniform;
 pub mod view;
 
 /// The render prelude.
@@ -84,7 +86,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::PipelineCache,
+    render_resource::{PipelineCache, SparseBufferPlugin},
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
     settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
@@ -301,6 +303,7 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            SparseBufferPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));

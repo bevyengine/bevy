@@ -63,8 +63,8 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        self.system.type_id()
+    fn system_type(&self) -> TypeId {
+        self.system.system_type()
     }
 
     #[inline]
@@ -154,8 +154,8 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        self.condition.type_id()
+    fn system_type(&self) -> TypeId {
+        self.condition.system_type()
     }
 
     #[inline]
