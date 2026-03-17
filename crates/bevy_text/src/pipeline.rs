@@ -207,7 +207,7 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
-                        section_index as u32,
+                        span_index as u32,
                         text_font.font_smoothing,
                     )),
                     range.clone(),
