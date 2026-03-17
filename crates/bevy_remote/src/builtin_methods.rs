@@ -310,7 +310,7 @@ pub struct BrpMutateResourcesParams {
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-struct BrpTriggerEventParams {
+pub struct BrpTriggerEventParams {
     /// The [full path] of the event to trigger.
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
