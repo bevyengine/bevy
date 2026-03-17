@@ -10,7 +10,7 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -86,6 +86,9 @@ pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
 
 /// The method path for a `world.trigger_event` request.
 pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
+
+/// The method path for a `world.write_message` request.
+pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
@@ -313,6 +316,19 @@ struct BrpTriggerEventParams {
     /// [full path]: bevy_reflect::TypePath::type_path
     pub event: String,
     /// The serialized value of the event to be triggered, if any.
+    pub value: Option<Value>,
+}
+
+/// `world.write_message`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpWriteMessageParams {
+    /// The [full path] of the message to write.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub message: String,
+    /// The serialized value of the message to be written, if any.
     pub value: Option<Value>,
 }
 
@@ -1415,6 +1431,44 @@ pub fn process_remote_trigger_event_request(
         } else {
             let payload = DynamicStruct::default();
             reflect_event.trigger(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
+}
+
+/// Handles a `world.trigger_event` request coming from a client.
+pub fn process_remote_write_message_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpWriteMessageParams { message, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&message) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown message type: `{message}`"
+            )));
+        };
+        let Some(reflect_message) = registration.data::<ReflectMessage>() else {
+            return Err(BrpError::resource_error(format!(
+                "Message `{message}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{message} is invalid: {err}"))
+                    })?;
+            reflect_message.write_message(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_message.write_message(world, &payload, &registry);
         }
 
         Ok(Value::Null)
