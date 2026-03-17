@@ -1336,11 +1336,9 @@ impl Mesh {
             )]
             match &mut attributes.values {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
-                VertexAttributeValues::Float16(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Float32x2(vec) => *vec = duplicate(vec, indices),
-                VertexAttributeValues::Float16x2(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32x2(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint32x2(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Float32x3(vec) => *vec = duplicate(vec, indices),
@@ -1349,7 +1347,6 @@ impl Mesh {
                 VertexAttributeValues::Sint32x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint32x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Float32x4(vec) => *vec = duplicate(vec, indices),
-                VertexAttributeValues::Float16x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint16x2(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Snorm16x2(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint16x2(vec) => *vec = duplicate(vec, indices),
