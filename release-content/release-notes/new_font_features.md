@@ -1,5 +1,5 @@
 ---
-title: "New Font features"
+title: "New Text features"
 authors: ["@ickshonpe", "@gregcsokas"]
 pull_requests: [22156, 22614, 22879, 23380]
 ---
