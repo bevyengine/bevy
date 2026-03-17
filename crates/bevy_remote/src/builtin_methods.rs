@@ -1776,7 +1776,12 @@ mod tests {
     use super::*;
     use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
-        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+        component::Component,
+        event::Event,
+        message::{Message, Messages},
+        observer::On,
+        resource::Resource,
+        system::ResMut,
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1838,6 +1843,33 @@ mod tests {
             Ok(Null)
         );
         assert!(world.resource::<TestResult>().0);
+    }
+
+    #[test]
+    fn write_reflect_only_message() {
+        #[derive(Message, Reflect)]
+        #[reflect(Message)]
+        struct Pass;
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+        world.init_resource::<Messages<Pass>>();
+
+        let params = serde_json::to_value(&BrpWriteMessageParams {
+            message: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_write_message_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(!world.get_resource::<Messages<Pass>>().unwrap().is_empty());
     }
 
     #[test]
