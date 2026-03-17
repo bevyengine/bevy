@@ -1093,7 +1093,7 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
-    pub fn should_hint(self) -> bool {
+    pub fn is_enabled(self) -> bool {
         matches!(self, FontHinting::Enabled)
     }
 }
