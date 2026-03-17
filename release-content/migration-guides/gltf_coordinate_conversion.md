@@ -98,3 +98,4 @@ settings.convert_coordinates = Some(GltfConvertCoordinates::ALL.with_semantics(
     })
 ));
 ```
+
