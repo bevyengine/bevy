@@ -3,6 +3,7 @@ use crate::{
     material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
+use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
 use bevy_camera::visibility::NoCpuCulling;
@@ -38,6 +39,7 @@ use bevy_mesh::{
     VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
 use bevy_render::impl_atomic_pod;
 use bevy_render::mesh::allocator::{MeshSlabs, SlabId};
 use bevy_render::mesh::morph::{
@@ -264,7 +266,8 @@ impl Plugin for MeshRenderPlugin {
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSystems::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush)
+                                .after(write_mesh_culling_data_buffer),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
@@ -620,7 +623,7 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(AtomicRawBufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(AtomicSparseBufferVec<MeshCullingData>);
 
 impl_atomic_pod!(MeshCullingData, MeshCullingDataBlob);
 
@@ -1500,7 +1503,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &InstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
     ) -> Option<u32> {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1610,7 +1613,11 @@ impl MeshCullingData {
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(AtomicRawBufferVec::new(BufferUsages::STORAGE))
+        Self(AtomicSparseBufferVec::new(
+            BufferUsages::STORAGE,
+            8,
+            Arc::from("mesh culling data buffer"),
+        ))
     }
 }
 
