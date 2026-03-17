@@ -31,20 +31,22 @@ use crate::{
     TextFont, TextLayout,
 };
 
+struct TextSection<'a> {
+    index: usize,
+    text: &'a str,
+    text_font: &'a TextFont,
+    font_size: f32,
+    line_height: LineHeight,
+    letter_spacing: LetterSpacing,
+}
+
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 #[derive(Resource, Default)]
 pub struct TextPipeline {
     /// Buffered vec for collecting text sections.
     ///
     /// See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-    sections_buffer: Vec<(
-        usize,
-        &'static str,
-        &'static TextFont,
-        f32,
-        LineHeight,
-        LetterSpacing,
-    )>,
+    sections_buffer: Vec<TextSection<'static>>,
     /// Buffered string for concatenated text content.
     text_buffer: String,
 }
@@ -56,17 +58,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<
-            Item = (
-                Entity,
-                usize,
-                &'a str,
-                &'a TextFont,
-                Color,
-                LineHeight,
-                LetterSpacing,
-            ),
-        >,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -87,20 +79,15 @@ impl TextPipeline {
             return Err(TextError::DegenerateScaleFactor);
         }
 
-        let mut sections: Vec<(usize, &str, &TextFont, f32, LineHeight, LetterSpacing)> =
-            core::mem::take(&mut self.sections_buffer)
-                .into_iter()
-                .map(
-                    |_| -> (usize, &str, &TextFont, f32, LineHeight, LetterSpacing) {
-                        unreachable!()
-                    },
-                )
-                .collect();
+        let mut sections: Vec<TextSection<'_>> = core::mem::take(&mut self.sections_buffer)
+            .into_iter()
+            .map(|_| -> TextSection<'_> { unreachable!() })
+            .collect();
 
         let result = {
             for (
-                span_index,
-                (entity, depth, span, text_font, _color, line_height, letter_spacing),
+                index,
+                (entity, depth, text, text_font, _color, line_height, letter_spacing),
             ) in text_spans.enumerate()
             {
                 match text_font.font_size {
@@ -118,7 +105,7 @@ impl TextPipeline {
                     font_smoothing: text_font.font_smoothing,
                 });
 
-                if span.is_empty() {
+                if text.is_empty() {
                     continue;
                 }
 
@@ -150,19 +137,19 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push((
-                    span_index,
-                    span,
+                sections.push(TextSection {
+                    index,
+                    text,
                     text_font,
                     font_size,
                     line_height,
                     letter_spacing,
-                ));
+                });
             }
 
             self.text_buffer.clear();
-            for (_, span, _, _, _, _) in &sections {
-                self.text_buffer.push_str(span);
+            for section in &sections {
+                self.text_buffer.push_str(section.text);
             }
 
             let text = self.text_buffer.as_str();
@@ -188,10 +175,8 @@ impl TextPipeline {
             }
 
             let mut start = 0;
-            for (span_index, span, text_font, font_size, line_height, letter_spacing) in
-                sections.drain(..)
-            {
-                let end = start + span.len();
+            for section in sections.drain(..) {
+                let end = start + section.text.len();
                 let range = start..end;
                 start = end;
 
@@ -199,42 +184,43 @@ impl TextPipeline {
                     continue;
                 }
 
-                let family = resolve_font_source(&text_font.font, fonts)?;
+                let family = resolve_font_source(&section.text_font.font, fonts)?;
 
                 builder.push(
                     StyleProperty::FontStack(FontStack::Single(family)),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::Brush(TextBrush::new(
-                        span_index as u32,
-                        text_font.font_smoothing,
-                    )),
+                    StyleProperty::Brush((section.index as u32, section.text_font.font_smoothing)),
                     range.clone(),
                 );
-                builder.push(StyleProperty::FontSize(font_size), range.clone());
+                builder.push(StyleProperty::FontSize(section.font_size), range.clone());
                 builder.push(
-                    StyleProperty::LineHeight(line_height.eval(font_size)),
+                    StyleProperty::LineHeight(section.line_height.eval(section.font_size)),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::LetterSpacing(letter_spacing.eval(base_rem_size)),
+                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWeight(text_font.weight.into()),
+                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWidth(text_font.width.into()),
+                    StyleProperty::FontWeight(section.text_font.weight.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontStyle(text_font.style.into()),
+                    StyleProperty::FontWidth(section.text_font.width.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontFeatures((&text_font.font_features).into()),
+                    StyleProperty::FontStyle(section.text_font.style.into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontFeatures((&section.text_font.font_features).into()),
                     range,
                 );
             }
@@ -247,16 +233,7 @@ impl TextPipeline {
         sections.clear();
         self.sections_buffer = sections
             .into_iter()
-            .map(
-                |_| -> (
-                    usize,
-                    &'static str,
-                    &'static TextFont,
-                    f32,
-                    LineHeight,
-                    LetterSpacing,
-                ) { unreachable!() },
-            )
+            .map(|_| -> TextSection<'static> { unreachable!() })
             .collect();
 
         result
@@ -267,17 +244,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<
-            Item = (
-                Entity,
-                usize,
-                &'a str,
-                &'a TextFont,
-                Color,
-                LineHeight,
-                LetterSpacing,
-            ),
-        >,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
