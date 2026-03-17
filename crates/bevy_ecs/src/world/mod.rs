@@ -2852,12 +2852,16 @@ impl World {
                 // ran during self.flush(), interact with the correct ticks on the resource component.
                 {
                     let location = entity_mut.location();
-                    let mut bundle_inserter = BundleInserter::new::<R>(
-                        // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                        unsafe { entity_mut.world_mut() },
-                        location.archetype_id,
-                        self.ticks.changed,
-                    );
+                    // SAFETY:
+                    // - `location.archetype_id` is part of a valid `EntityLocation`.
+                    let mut bundle_inserter = unsafe {
+                        BundleInserter::new::<R>(
+                            // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
+                            entity_mut.world_mut(),
+                            location.archetype_id,
+                            self.ticks.changed,
+                        )
+                    };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.

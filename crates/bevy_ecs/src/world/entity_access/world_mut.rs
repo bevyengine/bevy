@@ -1049,8 +1049,10 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
+        // SAFETY:
+        // - `location.archetype_id` is part of a valid `EntityLocation`.
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+            unsafe { BundleInserter::new::<T>(self.world, location.archetype_id, change_tick) };
         // SAFETY:
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.

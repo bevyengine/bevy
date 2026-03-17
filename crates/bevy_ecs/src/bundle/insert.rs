@@ -34,7 +34,7 @@ impl<'w> BundleInserter<'w> {
     /// # Safety
     /// - `archetype_id` must correspond to a valid archetype in `world`.
     #[inline]
-    pub(crate) fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -86,11 +86,7 @@ impl<'w> BundleInserter<'w> {
                 .into()
         };
 
-        let archetype_move_type = if new_archetype.is_none() {
-            ArchetypeMoveType::SameArchetype
-        } else {
-            // SAFETY: `new_archetype` is not `None` in this branch.
-            let new_archetype = unsafe { new_archetype.unwrap_unchecked() };
+        let archetype_move_type = if let Some(new_archetype) = new_archetype {
             if archetype.table_id() == new_archetype.table_id() {
                 ArchetypeMoveType::NewArchetypeSameTable {
                     new_archetype: new_archetype.into(),
@@ -100,6 +96,8 @@ impl<'w> BundleInserter<'w> {
                     new_archetype: new_archetype.into(),
                 }
             }
+        } else {
+            ArchetypeMoveType::SameArchetype
         };
 
         let inserter = Self {
@@ -274,7 +272,7 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY:
                 // - `location.table_id` is obtained from a valid location
                 //   and `new_table_id` was obtained from a valid archetype.
-                // - `DROP` is `true`.
+                // - We will not drop any components.
                 // - Valid values will be written to new components by the caller (`Self::insert`).
                 let move_result = unsafe {
                     tables.move_row::<true>(

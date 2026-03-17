@@ -192,8 +192,11 @@ impl<'w> BundleRemover<'w> {
 
         let (needs_drop, pre_remove_result) = pre_remove(
             &mut world.storages.sparse_sets,
-            self.old_and_new_table
-                .map(|old_and_new_table| &mut world.storages.tables[old_and_new_table.0]),
+            // SAFETY:
+            // - The `TableId`s in `old_and_new_table` were retrieved from valid `Archetype`s.
+            self.old_and_new_table.map(|old_and_new_table| unsafe {
+                world.storages.tables.get_unchecked_mut(old_and_new_table.0)
+            }),
             &world.components,
             self.bundle_info.as_ref().explicit_components(),
         );
@@ -245,7 +248,7 @@ impl<'w> BundleRemover<'w> {
             let move_result = if needs_drop {
                 // SAFETY:
                 // - `old_table_id` and `new_table_id` were obtained from valid archetypes.
-                // - `DROP` is `true`.
+                // - We will not drop any components.
                 // - No components were added.
                 unsafe {
                     world.storages.tables.move_row::<true>(

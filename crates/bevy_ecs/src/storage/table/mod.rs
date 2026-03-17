@@ -659,6 +659,17 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
+    /// Fetches a [`Table`] by its [`TableId`] without doing bounds checking.
+    ///
+    /// # Safety
+    /// - `id` must represent a valid [`Table`] for this [`Tables`].
+    #[inline]
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
+        // SAFETY:
+        // - The caller ensures that `id` is in-bounds.
+        unsafe { self.tables.get_unchecked_mut(id.as_usize()) }
+    }
+
     /// Attempts to fetch a table based on the provided components,
     /// creating and returning a new [`Table`] if one did not already exist.
     ///
@@ -732,6 +743,8 @@ impl Tables {
     ///
     /// # Safety
     /// - `old_table_id` and `new_table_id` must be valid indices for this [`Tables`].
+    /// - If `DROP` is `true`, the caller must not drop any removed components
+    ///   at any point.
     /// - If `DROP` is `false`, the caller must have previously obtained ownership
     ///   of all removed components and is responsible for dropping them.
     /// - If any components were added,
@@ -758,26 +771,24 @@ impl Tables {
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
 
-        let mut src_iter = src_table.columns.iter_mut();
         let mut dst_iter = dst_table.columns.iter_mut();
-        let mut src_next = src_iter.next();
         let mut dst_next = dst_iter.next();
 
-        while let Some((src_component_id, src_column)) = src_next.take() {
-            let Some((dst_component_id, dst_column)) = dst_next.take() else {
-                // SAFETY:
-                // - `last_index` is the index of the last element.
-                // - `row` <= `last_index` is asserted.
-                // - The length of `src_column` is given by the length of `src_table.entities`,
-                //   which has been updated.
-                unsafe {
-                    src_column.swap_remove_unchecked::<DROP>(last_index, row);
-                }
-                src_next = src_iter.next();
-                continue;
-            };
+        for (src_component_id, src_column) in src_table.columns.iter_mut() {
+            // Skip past any destination columns that don't exist in the source table.
+            // The caller is responsible for initializing those columns.
+            while dst_next
+                .as_ref()
+                .is_some_and(|(dst_component_id, _)| *dst_component_id < src_component_id)
+            {
+                dst_next = dst_iter.next();
+            }
 
-            if *src_component_id == *dst_component_id {
+            // Then move the value in the source column if it exists in the destination table,
+            // or remove it if it does not.
+            if let Some((dst_component_id, dst_column)) = dst_next.as_mut()
+                && *dst_component_id == src_component_id
+            {
                 // SAFETY:
                 // - `src_column` and `dst_column` correspond to the same `ComponentId`.
                 // - `row` is asserted to be in-bounds for `src_column`.
@@ -788,7 +799,8 @@ impl Tables {
                 unsafe {
                     dst_column.initialize_from_unchecked(src_column, last_index, row, dst_row);
                 }
-            } else if *src_component_id < *dst_component_id {
+                dst_next = dst_iter.next();
+            } else {
                 // SAFETY:
                 // - `last_index` is the index of the last element.
                 // - `row` <= `last_index` is asserted.
@@ -797,17 +809,6 @@ impl Tables {
                 unsafe {
                     src_column.swap_remove_unchecked::<DROP>(last_index, row);
                 }
-            }
-
-            if *src_component_id <= *dst_component_id {
-                src_next = src_iter.next();
-            } else {
-                src_next = Some((src_component_id, src_column));
-            }
-            if *src_component_id >= *dst_component_id {
-                dst_next = dst_iter.next();
-            } else {
-                dst_next = Some((dst_component_id, dst_column));
             }
         }
 

@@ -869,7 +869,9 @@ impl Archetypes {
         id_b: ArchetypeId,
     ) -> (&mut Archetype, Option<&mut Archetype>) {
         if id_a == id_b {
-            let archetype_a = &mut self[id_a];
+            // SAFETY:
+            // - The caller ensures `id_a` is in-bounds.
+            let archetype_a = unsafe { self.archetypes.get_unchecked_mut(id_a.index()) };
             (archetype_a, None)
         } else {
             // SAFETY:
