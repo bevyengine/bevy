@@ -371,7 +371,7 @@ impl TextPipeline {
     }
 }
 
-/// resolve a font source
+/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
 pub fn resolve_font_source<'a>(
     font: &'a FontSource,
     fonts: &Assets<Font>,

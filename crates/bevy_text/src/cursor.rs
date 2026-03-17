@@ -1,7 +1,9 @@
 use bevy_color::Color;
 use bevy_ecs::component::Component;
 
-/// When this component is alongside an [`EditableText`](`crate::EditableText`) ,
+/// Controls text cursor appearance.
+///
+/// When this component on the same entity as an [`EditableText`](`crate::EditableText`) ,
 /// and the [`UiRenderPlugin`](https://docs.rs/bevy/latest/bevy/ui_render/struct.UiRenderPlugin.html)
 /// is active, a simple rectangle will be drawn for the cursor.
 /// This is an optional component, to allow for stylistic cursors.
