@@ -461,9 +461,11 @@ fn example_control_system(
 
     if input.just_pressed(KeyCode::KeyH) {
         if hdr {
-            commands.entity(camera_entity).remove::<Hdr>();
+            commands.entity(camera_entity).remove::<(Bloom, Hdr)>();
         } else {
-            commands.entity(camera_entity).insert(Hdr);
+            commands
+                .entity(camera_entity)
+                .insert((Bloom::default(), Hdr));
         }
     }
 
