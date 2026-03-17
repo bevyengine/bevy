@@ -18,7 +18,7 @@ fn main() {
         // This must be done before AssetPlugin finalizes building assets.
         .register_asset_source(
             "example_files",
-            AssetSourceBuilder::platform_default("examples/asset/files", None),
+            AssetSourceBuilder::platform_default("examples/asset/files"),
         )
         // DefaultPlugins contains AssetPlugin so it must be added to our App
         // after inserting our new asset source.
