@@ -337,7 +337,7 @@ mod tests {
     fn despawn_on_exit_same_state_transition() {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
         enum State {
-            On
+            On,
         }
 
         let mut app = App::new();
@@ -366,7 +366,8 @@ mod tests {
             &State::On
         );
         // entity was despawned on exit, despite setting the state to the same state.
-        // this is because allow same state transitions is true
+        // this is because "set_state" runs state transitions even if
+        // the next state and the previous are equal.
         assert!(app.world().get_entity(entity).is_err());
 
         let entity = app.world_mut().spawn(DespawnOnExit(State::On)).id();
@@ -381,8 +382,9 @@ mod tests {
                 .get(),
             &State::On
         );
-        // entity was despawned on exit, despite setting the state to the same state.
-        // this is because allow same state transitions is true
+        // entity was not despawned on exit
+        // this is because "set_state_if_neq" skips state transitions since
+        // the app's next state is the same as its previous.
         assert!(app.world().get_entity(entity).is_ok());
     }
 }
