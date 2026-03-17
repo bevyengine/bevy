@@ -22,6 +22,8 @@ use bevy_ecs::{
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -1486,6 +1488,11 @@ fn run_once(mut app: App) -> AppExit {
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
 #[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone, Message)
+)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
