@@ -652,7 +652,7 @@ impl App {
     }
 
     /// Registers the type `T` in the [`AppTypeRegistry`] resource,
-    /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
+    /// adding reflect data as specified in the [`Reflect`] derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
@@ -668,7 +668,7 @@ impl App {
     /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
-    /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
+    /// type you derived [`Reflect`] for. However, in cases where you want to
     /// add a piece of type data that was not included in the list of `#[reflect(...)]` type data in
     /// the derive, or where the type is generic and cannot register e.g. `ReflectSerialize`
     /// unconditionally without knowing the specific type parameters, this method can be used to
