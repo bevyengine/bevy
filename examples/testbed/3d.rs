@@ -475,15 +475,12 @@ mod gltf_coordinate_conversion {
                 Semantics::BEVY,
             ),
         ] {
-            let convert_coordinates = GltfConvertCoordinates {
-                rotate_scenes: true,
-                rotate_nodes: true,
-                rotate_meshes: true,
-                semantics: GltfConvertSemantics::All(SemanticsConversion {
+            let convert_coordinates = GltfConvertCoordinates::ALL.with_semantics(
+                GltfConvertSemantics::All(SemanticsConversion {
                     source: Semantics::GLTF,
                     target: target_semantics,
                 }),
-            };
+            );
 
             commands.spawn((
                 PendingScene {

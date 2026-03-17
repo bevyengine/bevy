@@ -19,22 +19,74 @@ use thiserror::Error;
 ///
 /// Without conversion, this means that most glTF scenes would appear backwards
 /// in Bevy - or more precisely, the scene's `Transform::forward` would point
-/// backwards instead of forwards. To solve this, conversion can be enabled
-/// through `GltfConvertCoordinates` in [`GltfPlugin`](crate::GltfPlugin) or
-/// [`GltfLoaderSettings`](crate::loader::GltfLoaderSettings).
+/// backwards instead of forwards.
 ///
-/// Not all glTF scenes follow the standard. It's also common for nodes within
-/// the scene to have inconsistent semantics - so the scene might be +Z forward
-/// but nodes within the scene are different. `GltfConvertCoordinates` has
-/// several options to handle these cases.
+/// Conversion can be enabled globally with [`GltfPlugin`](crate::GltfPlugin).
+/// If the app is using `DefaultPlugins`:
 ///
-/// First, conversion can be controlled individually for scenes, nodes and
-/// meshes. See [`rotate_scenes`](GltfConvertCoordinates::rotate_scenes),
-/// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes).
+/// ```ignore
+/// app.add_plugins(DefaultPlugins.set(GltfPlugin {
+///     convert_coordinates: GltfConvertCoordinates::ALL,
+///     ..Default::default()
+/// }));
+/// ```
+///
+/// Or if the app is adding `GltfPlugins` itself:
+///
+/// ```
+/// # use bevy_gltf::*;
+/// # use bevy_gltf::convert_coordinates::*;
+/// # fn setup(app: &mut bevy_app::App) {
+/// app.add_plugins(GltfPlugin {
+///     convert_coordinates: GltfConvertCoordinates::ALL,
+///     ..Default::default()
+/// });
+/// # }
+/// ```
+/// Conversion can also be enabled per-glTF with [`GltfLoaderSettings`](crate::loader::GltfLoaderSettings):
+///
+/// ```
+/// # use bevy_gltf::*;
+/// # use bevy_gltf::convert_coordinates::*;
+/// # fn load(asset_server: &bevy_asset::AssetServer) {
+/// asset_server.load_with_settings::<Gltf, GltfLoaderSettings>(
+///     "scene.gltf",
+///     |settings| {
+///         settings.convert_coordinates = Some(GltfConvertCoordinates::ALL);
+///     },
+/// );
+/// # }
+/// ```
+///
+/// Note that some glTF files do now follow the standard semantics. It's also
+/// common for nodes within the scene to have inconsistent semantics - so the
+/// scene might be +Z forward but nodes within the scene could be different.
+/// `GltfConvertCoordinates` has several options to handle these cases.
+///
+/// First, conversion can be enabled individually for scenes, nodes and meshes.
+/// See [`rotate_scenes`](GltfConvertCoordinates::rotate_scenes),
+/// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and
+/// [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes).
 ///
 /// Second, the source and target semantics can be overridden. So instead of
 /// converting from standard glTF semantics to Bevy semantics, one or both can
-/// be overridden with, say, "+X forward, -Z up". See [`GltfConvertSemantics`].
+/// be overridden with, say, "+X forward, +Y up". See [`GltfConvertSemantics`]
+/// for details.
+///
+/// ```
+/// # use bevy_gltf::convert_coordinates::*;
+/// // Convert everything from "+X forward, +Y up" semantics to Bevy semantics.
+/// let convert_coordinates = GltfConvertCoordinates::ALL.with_semantics(
+///     GltfConvertSemantics::All(SemanticsConversion {
+///         source: Semantics {
+///             forward: SignedAxis::X,
+///             up: SignedAxis::Y,
+///         },
+///         target: Semantics::BEVY,
+///     })
+/// );
+/// ```
+
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, rotate all scenes to match the target semantics.
@@ -78,6 +130,30 @@ impl GltfConvertCoordinates {
         rotate_meshes: true,
         semantics: GltfConvertSemantics::All(SemanticsConversion::GLTF_TO_BEVY),
     };
+
+    /// Returns self with a new `rotate_scenes` value.
+    pub fn with_rotate_scenes(mut self, rotate_scenes: bool) -> Self {
+        self.rotate_scenes = rotate_scenes;
+        self
+    }
+
+    /// Returns self with a new `rotate_nodes` value.
+    pub fn with_rotate_nodes(mut self, rotate_nodes: bool) -> Self {
+        self.rotate_nodes = rotate_nodes;
+        self
+    }
+
+    /// Returns self with a new `rotate_meshes` value.
+    pub fn with_rotate_meshes(mut self, rotate_meshes: bool) -> Self {
+        self.rotate_meshes = rotate_meshes;
+        self
+    }
+
+    /// Returns self with a new `semantics` value.
+    pub fn with_semantics(mut self, semantics: GltfConvertSemantics) -> Self {
+        self.semantics = semantics;
+        self
+    }
 }
 
 /// The semantics conversion that will be used by scenes, nodes and meshes.
