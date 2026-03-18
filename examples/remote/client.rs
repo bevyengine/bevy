@@ -12,7 +12,6 @@ use std::any::type_name;
 use anyhow::Result as AnyhowResult;
 use bevy::{
     ecs::hierarchy::ChildOf,
-    prelude::info,
     remote::{
         builtin_methods::{
             BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD,
@@ -61,12 +60,12 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    info!("query_all req: {query_all_req:#?}");
+    println!("query_all req: {query_all_req:#?}");
     let query_all_res = ureq::post(url)
         .send_json(query_all_req)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    info!("{query_all_res:#}");
+    println!("{query_all_res:#}");
     Ok(())
 }
 
@@ -86,12 +85,12 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    info!("transform request: {get_transform_request:#?}");
+    println!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    info!("{res:#}");
+    println!("{res:#}");
     Ok(())
 }
 
@@ -115,11 +114,11 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    info!("transform request: {get_transform_request:#?}");
+    println!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    info!("{res:#}");
+    println!("{res:#}");
     Ok(())
 }
