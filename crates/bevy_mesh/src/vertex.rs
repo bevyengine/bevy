@@ -623,6 +623,7 @@ impl VertexAttributeValues {
         Some(VertexAttributeValues::Snorm16x4(values))
     }
 
+    /// Create compressed UVs. Returns `None` if `self` isn't [`VertexAttributeValues::Float32x2`].
     pub(crate) fn create_compressed_uvs(&self, range: Aabb2d) -> Option<VertexAttributeValues> {
         // Create Unorm16x2 UVs
         let VertexAttributeValues::Float32x2(uncompressed_values) = self else {

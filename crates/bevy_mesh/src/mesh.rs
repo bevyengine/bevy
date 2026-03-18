@@ -993,10 +993,8 @@ impl Mesh {
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    pub fn compute_aabb(&self) -> Option<Aabb3d> {
-        let positions = self.attribute(Self::ATTRIBUTE_POSITION)?;
+    /// Returns `None` if `positions` isn't [`VertexAttributeValues::Float32x3`], or if `positions` is empty.
+    fn compute_aabb(positions: &VertexAttributeValues) -> Option<Aabb3d> {
         match positions {
             VertexAttributeValues::Float32x3(val) => {
                 let mut iter = val.iter().map(|a| Vec3A::from_array(*a));
@@ -1010,15 +1008,10 @@ impl Mesh {
         }
     }
 
-    /// Compute the UV0 or UV1 range.
+    /// Compute the UV range.
     ///
-    /// Returns `None` if `attr` isn't [`Mesh::ATTRIBUTE_UV_0`] or [`Mesh::ATTRIBUTE_UV_1`],
-    /// or if `self` doesn't have uv0 or uv1 of type [`VertexAttributeValues::Float32x2`].
-    pub fn compute_uv_range(&self, attr: MeshVertexAttribute) -> Option<Aabb2d> {
-        if attr != Self::ATTRIBUTE_UV_0 && attr != Self::ATTRIBUTE_UV_1 {
-            return None;
-        }
-        let uvs = self.attribute(attr)?;
+    /// Returns `None` if `uvs` isn't [`VertexAttributeValues::Float32x2`], or if `uvs` is empty.
+    fn compute_uv_range(uvs: &VertexAttributeValues) -> Option<Aabb2d> {
         match uvs {
             VertexAttributeValues::Float32x2(val) => {
                 let mut iter = val.iter().map(|a| Vec2::from_array(*a));
@@ -1032,7 +1025,7 @@ impl Mesh {
         }
     }
 
-    /// Returns the compressed vertex format for the given attribute ID, or None if the compression flag is not set.
+    /// Returns the compressed vertex format for the given attribute ID, or `None` if the compression flag is not set.
     fn get_compressed_vertex_format(
         &self,
         attribute_id: MeshVertexAttributeId,
@@ -1103,11 +1096,15 @@ impl Mesh {
         }
     }
 
-    /// Create compressed attribute values for the given attribute ID and attribute values. Return None if the compression flag is not set or it can't be compressed.
+    /// Create compressed attribute values for the given attribute ID and attribute values. Return `None` if the compression flag is not set or the attribute values can't be compressed.
+    ///
+    /// Panics when compressing positions but `aabb` is `None`, or when compressing UVs but corresponding `uv_ranges` is `None`.
     fn create_compressed_attribute_values(
         &self,
         attribute_id: MeshVertexAttributeId,
         attribute_values: &VertexAttributeValues,
+        aabb: Option<Aabb3d>,
+        uv_ranges: [Option<Aabb2d>; 2],
     ) -> Option<VertexAttributeValues> {
         match attribute_id {
             ATTRIBUTE_POSITION_ID
@@ -1115,12 +1112,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
             {
-                let aabb = if let Some(aabb) = self.final_aabb {
-                    aabb
-                } else {
-                    self.compute_aabb()?
-                };
-                attribute_values.create_compressed_positions(aabb)
+                attribute_values.create_compressed_positions(aabb.unwrap())
             }
             ATTRIBUTE_NORMAL_ID
                 if self
@@ -1134,16 +1126,14 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                self.compute_uv_range(Mesh::ATTRIBUTE_UV_0)
-                    .and_then(|range| attribute_values.create_compressed_uvs(range))
+                attribute_values.create_compressed_uvs(uv_ranges[0].unwrap())
             }
             ATTRIBUTE_UV_1_ID
                 if self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                self.compute_uv_range(Mesh::ATTRIBUTE_UV_0)
-                    .and_then(|range| attribute_values.create_compressed_uvs(range))
+                attribute_values.create_compressed_uvs(uv_ranges[1].unwrap())
             }
             ATTRIBUTE_TANGENT_ID
                 if self
@@ -1205,11 +1195,11 @@ impl Mesh {
         mut attribute_compression: MeshAttributeCompressionFlags,
         index_compression: bool,
     ) -> Mesh {
-        // Colors are unchange if already compressed.
         if self
             .attribute_compression
             .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT)
         {
+            // Don't change color flag if it's already compressed.
             attribute_compression
                 .remove(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT);
         }
@@ -1226,23 +1216,37 @@ impl Mesh {
             if let Some(compressed_format) = self.get_compressed_vertex_format(attr.id)
                 && let Some(values) = self.attribute(attr.id)
             {
-                let values = self.create_compressed_attribute_values(attr.id, values);
+                // Must compute aabb, uv0, uv1 before we insert the compressed attributes. After compressing them can't be computed.
+                // If computing fails, which means the format isn't expected uncompressed format or the values is empty, we skip this attribute.
+                match attr.id {
+                    ATTRIBUTE_POSITION_ID => {
+                        let Some(aabb) = Self::compute_aabb(values) else {
+                            continue;
+                        };
+                        self.final_aabb = Some(aabb);
+                    }
+                    ATTRIBUTE_UV_0_ID => {
+                        let Some(uv_range) = Self::compute_uv_range(values) else {
+                            continue;
+                        };
+                        self.final_uv_ranges[0] = Some(uv_range);
+                    }
+                    ATTRIBUTE_UV_1_ID => {
+                        let Some(uv_range) = Self::compute_uv_range(values) else {
+                            continue;
+                        };
+                        self.final_uv_ranges[1] = Some(uv_range);
+                    }
+                    _ => {}
+                }
+                let values = self.create_compressed_attribute_values(
+                    attr.id,
+                    self.attribute(attr.id).unwrap(),
+                    self.final_aabb,
+                    self.final_uv_ranges,
+                );
                 if let Some(values) = values {
                     attr.format = compressed_format;
-                    // Must compute aabb, uv0, uv1 before we insert the compressed attributes.
-                    // After compressing, them can't be computed.
-                    match attr.id {
-                        ATTRIBUTE_POSITION_ID => {
-                            self.final_aabb = self.compute_aabb();
-                        }
-                        ATTRIBUTE_UV_0_ID => {
-                            self.final_uv_ranges[0] = self.compute_uv_range(Mesh::ATTRIBUTE_UV_0);
-                        }
-                        ATTRIBUTE_UV_1_ID => {
-                            self.final_uv_ranges[1] = self.compute_uv_range(Mesh::ATTRIBUTE_UV_1);
-                        }
-                        _ => {}
-                    }
                     self.insert_attribute(attr, values);
                 }
             }
@@ -2619,9 +2623,6 @@ impl Mesh {
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     pub fn take_gpu_data(&mut self) -> Result<Self, MeshAccessError> {
-        // store the aabb extents as they cannot be computed after extraction
-        self.final_aabb = self.compute_aabb();
-
         let attributes = self.attributes.extract()?;
         let indices = self.indices.extract()?;
         #[cfg(feature = "morph")]
@@ -2629,6 +2630,13 @@ impl Mesh {
         #[cfg(feature = "morph")]
         let morph_target_names = self.morph_target_names.extract()?;
 
+        // store the aabb extents as they cannot be computed after extraction
+        if let Some(MeshAttributeData { values, .. }) = attributes
+            .as_ref_option()?
+            .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
+        {
+            self.final_aabb = Self::compute_aabb(values);
+        }
         Ok(Self {
             attributes,
             indices,
