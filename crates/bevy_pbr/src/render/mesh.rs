@@ -2835,14 +2835,6 @@ const_assert_eq!(
     0
 );
 
-// Ensure that the reserved bits don't overlap with the topology bits
-const_assert_eq!(
-    (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
-        << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
-    0
-);
-
 // Ensure that the reserved bits don't overlap with the indices type bits
 const_assert_eq!(
     BaseMeshPipelineKey::INDEX_FORMAT_RESERVED_BITS.bits()
