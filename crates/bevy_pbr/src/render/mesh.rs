@@ -2654,7 +2654,7 @@ bitflags::bitflags! {
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
+    // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u64 {
         // Nothing
         const NONE                              = 0;
@@ -2853,11 +2853,11 @@ const_assert_eq!(
     0
 );
 
-// Ensure that the reserved bits don't overlap with the indices type bits
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
 const_assert_eq!(
-    BaseMeshPipelineKey::INDEX_FORMAT_RESERVED_BITS.bits()
-        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
-    0
+    BaseMeshPipelineKey::all().bits() & MeshPipelineKey::all().bits(),
+    MeshPipelineKey::MORPH_TARGETS.bits()
 );
 
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {

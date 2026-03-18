@@ -44,7 +44,10 @@ bitflags! {
     /// to coexist in the same field without any shifts.
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
-        const MORPH_TARGETS = 1 << (u64::BITS - 1);
+        const MORPH_TARGETS = 1 << Self::MORPH_TARGETS_SHIFT_BITS;
+
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+
         const INDEX_FORMAT_RESERVED_BITS = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
         const INDEX_FORMAT_NONE = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
         const INDEX_FORMAT_U32  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
@@ -69,9 +72,11 @@ impl Plugin for MeshPlugin {
 }
 
 impl BaseMeshPipelineKey {
+    pub const MORPH_TARGETS_SHIFT_BITS: u64 = (u64::BITS - 1) as u64;
+
     pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u64 = 0b111;
     pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u64 =
-        (u64::BITS - 1 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones()) as u64;
+        Self::MORPH_TARGETS_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones() as u64;
 
     pub const INDEX_FORMAT_MASK_BITS: u64 = 0b11;
     pub const INDEX_FORMAT_SHIFT_BITS: u64 =
