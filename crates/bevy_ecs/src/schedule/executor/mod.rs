@@ -11,7 +11,7 @@ pub use self::single_threaded::SingleThreadedExecutor;
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 
-use fixedbitset::FixedBitSet;
+pub use fixedbitset::FixedBitSet;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
-pub(super) trait SystemExecutor: Send + Sync {
+pub trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
     fn run(
@@ -76,7 +76,7 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<SystemKey>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<SystemWithAccess>,
+    pub systems: Vec<SystemWithAccess>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system node id.

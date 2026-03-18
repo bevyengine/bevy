@@ -517,6 +517,13 @@ impl Schedule {
         self
     }
 
+    /// Replaces the schedule's executor with a user-provided implementation.
+    pub fn set_executor(&mut self, executor: impl SystemExecutor + 'static) -> &mut Self {
+        self.executor = Box::new(executor);
+        self.executor_initialized = false;
+        self
+    }
+
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
     /// [`ApplyDeferred`]. By default this
