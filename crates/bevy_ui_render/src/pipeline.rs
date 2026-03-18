@@ -77,6 +77,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // shadow color
                 VertexFormat::Float32x4,
+                // outline color
+                VertexFormat::Float32x4,
                 // effect params
                 VertexFormat::Float32x4,
             ],
