@@ -110,10 +110,12 @@ struct InnerBevyError {
 }
 
 /// Indicates how severe a [`BevyError`] is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Severity {
     /// The error can be safely ignored.
     Ignore,
+    /// The error can be safely ignored, but may need to be surfaced during debugging.
+    Debug,
     /// Something unexpected but recoverable happened.
     Warning,
     /// A real error occurred, but the program may continue.
