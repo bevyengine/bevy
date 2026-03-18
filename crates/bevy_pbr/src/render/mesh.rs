@@ -2785,7 +2785,7 @@ impl MeshPipelineKey {
 
     /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
     ///
-    /// For non-strip topologies, `strip_index_format` is ignored and it's always [`Self::STRIP_INDEX_FORMAT_NONE`].
+    /// For non-strip topologies, `strip_index_format` is ignored and it's always [`BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE`].
     pub fn from_primitive_topology_and_strip_index(
         primitive_topology: PrimitiveTopology,
         strip_index_format: Option<IndexFormat>,
