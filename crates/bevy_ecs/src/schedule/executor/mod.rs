@@ -2,7 +2,7 @@
 mod multi_threaded;
 mod single_threaded;
 
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
@@ -38,6 +38,29 @@ pub trait SystemExecutor: Send + Sync {
         error_handler: fn(BevyError, ErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
+}
+
+/// Returns the default executor for the current platform.
+///
+/// On Wasm or when the `multi_threaded` feature is disabled, this returns a
+/// [`SingleThreadedExecutor`]. Otherwise it returns a [`MultiThreadedExecutor`].
+pub fn default_executor() -> Box<dyn SystemExecutor> {
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        feature = "std",
+        feature = "multi_threaded"
+    ))]
+    {
+        Box::new(MultiThreadedExecutor::new())
+    }
+    #[cfg(any(
+        target_arch = "wasm32",
+        not(feature = "std"),
+        not(feature = "multi_threaded")
+    ))]
+    {
+        Box::new(SingleThreadedExecutor::new())
+    }
 }
 
 /// Specifies how a [`Schedule`](super::Schedule) will be run.
