@@ -16,7 +16,7 @@ use core::{
 ///
 /// # Backtraces
 ///
-/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl]).
+/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl).
 /// When printed, the backtrace will be displayed. By default, the backtrace will be trimmed down to filter out noise. To see the full backtrace,
 /// set the `BEVY_BACKTRACE=full` environment variable.
 ///
@@ -100,7 +100,7 @@ impl BevyError {
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
 /// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
-/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
