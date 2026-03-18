@@ -36,7 +36,7 @@ fn evaluate_specular_brdf(
     L: vec3<f32>,
     base_color: vec3<f32>,
     metallic: f32,
-    reflectance: vec3<f32>,
+    reflectance: f32,
     perceptual_roughness: f32,
     roughness: f32,
 ) -> vec3<f32> {
@@ -46,7 +46,7 @@ fn evaluate_specular_brdf(
     let LdotH = saturate(dot(L, H));
     let NdotV = max(dot(N, V), 0.0001);
 
-    let F0 = calculate_F0(base_color, metallic, reflectance);
+    let F0 = calculate_F0(base_color, metallic, vec3(reflectance));
     let F = fresnel(F0, LdotH);
 
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
