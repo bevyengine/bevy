@@ -2619,15 +2619,15 @@ impl Mesh {
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     pub fn take_gpu_data(&mut self) -> Result<Self, MeshAccessError> {
+        // store the aabb extents as they cannot be computed after extraction
+        self.final_aabb = self.compute_aabb();
+
         let attributes = self.attributes.extract()?;
         let indices = self.indices.extract()?;
         #[cfg(feature = "morph")]
         let morph_targets = self.morph_targets.extract()?;
         #[cfg(feature = "morph")]
         let morph_target_names = self.morph_target_names.extract()?;
-
-        // store the aabb extents as they cannot be computed after extraction
-        self.final_aabb = self.compute_aabb();
 
         Ok(Self {
             attributes,
