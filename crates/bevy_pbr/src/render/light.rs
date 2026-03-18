@@ -1449,11 +1449,10 @@ pub fn prepare_lights(
                     })
                     .clone();
 
-                let retained_view_entity = RetainedViewEntity::new(
-                    *light_main_entity,
-                    Some(camera_main_entity.into()),
-                    face_index as u32,
-                );
+                // Point light shadow maps are shared across all cameras,
+                // so the retained view entity must not include the camera.
+                let retained_view_entity =
+                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1559,8 +1558,9 @@ pub fn prepare_lights(
 
             let view_light_entity = light_view_entities[0];
 
-            let retained_view_entity =
-                RetainedViewEntity::new(*light_main_entity, Some(camera_main_entity.into()), 0);
+            // Spot light shadow maps are shared across all cameras,
+            // so the retained view entity must not include the camera.
+            let retained_view_entity = RetainedViewEntity::new(*light_main_entity, None, 0);
 
             commands.entity(view_light_entity).insert((
                 ShadowView {

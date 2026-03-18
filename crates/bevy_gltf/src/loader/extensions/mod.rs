@@ -77,7 +77,13 @@ pub trait GltfExtensionHandler: Send + Sync {
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
     /// Called when an individual animation is processed
-    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {}
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    ) {
+    }
 
     #[cfg(feature = "bevy_animation")]
     #[expect(

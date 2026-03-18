@@ -737,14 +737,14 @@ mod tests {
         collections::{HashMap, HashSet},
         sync::Mutex,
     };
-    use bevy_reflect::TypePath;
+    use bevy_reflect::{Reflect, TypePath};
     use core::{any::TypeId, time::Duration};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
 
-    #[derive(Asset, TypePath, Debug, Default)]
+    #[derive(Asset, Debug, Default, Reflect)]
     pub struct CoolText {
         pub text: String,
         pub embedded: String,

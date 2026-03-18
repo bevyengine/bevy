@@ -519,6 +519,9 @@ struct SlabAllocation {
     allocation: Allocation,
     /// The number of slots that this allocation takes up.
     slot_count: u32,
+    /// The number of slots at the end of the allocation that are considered
+    /// padding.
+    padding: u32,
 }
 
 /// The hardware buffer that slab-allocated data lives in, as well as the range
@@ -632,6 +635,7 @@ where
 
         let data_element_count = data_byte_len.div_ceil(layout.size()) as u32;
         let data_slot_count = data_element_count.div_ceil(layout.elements_per_slot());
+        let padding = data_slot_count * layout.elements_per_slot() - data_element_count;
 
         // If the data is too large for a slab, give it a slab of its own.
         if data_slot_count as u64 * layout.slot_size()
@@ -639,7 +643,14 @@ where
         {
             self.allocate_large(key, layout);
         } else {
-            self.allocate_general(key, data_slot_count, layout, slabs_to_grow, settings);
+            self.allocate_general(
+                key,
+                data_slot_count,
+                padding,
+                layout,
+                slabs_to_grow,
+                settings,
+            );
         }
     }
 
@@ -649,6 +660,7 @@ where
         &mut self,
         key: &I::Key,
         data_slot_count: u32,
+        padding: u32,
         layout: I::Layout,
         slabs_to_grow: &mut HashMap<SlabId<I>, SlabToReallocate>,
         settings: &SlabAllocatorSettings,
@@ -689,6 +701,7 @@ where
                 slab_allocation: SlabAllocation {
                     allocation,
                     slot_count: data_slot_count,
+                    padding,
                 },
             });
             break;
@@ -706,6 +719,7 @@ where
                 settings,
                 layout,
                 data_slot_count,
+                padding,
             );
 
             self.slabs.insert(new_slab_id, Slab::General(new_slab));
@@ -867,7 +881,8 @@ where
                     range: (slab_allocation.allocation.offset
                         * general_slab.element_layout.elements_per_slot())
                         ..((slab_allocation.allocation.offset + slab_allocation.slot_count)
-                            * general_slab.element_layout.elements_per_slot()),
+                            * general_slab.element_layout.elements_per_slot())
+                            - slab_allocation.padding,
                     phantom: PhantomData,
                 })
             }
@@ -1009,6 +1024,7 @@ where
         settings: &SlabAllocatorSettings,
         layout: I::Layout,
         data_slot_count: u32,
+        padding: u32,
     ) -> GeneralSlab<I> {
         let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
             as u32)
@@ -1032,6 +1048,7 @@ where
                 slab_allocation: SlabAllocation {
                     slot_count: data_slot_count,
                     allocation,
+                    padding,
                 },
             });
         }
