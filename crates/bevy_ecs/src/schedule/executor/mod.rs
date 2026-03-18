@@ -332,16 +332,13 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
-        schedule::ExecutorKind,
+        schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{Populated, Res, ResMut, Single},
         world::World,
     };
 
     #[derive(Component)]
     struct TestComponent;
-
-    const EXECUTORS: [ExecutorKind; 2] =
-        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct TestState {
@@ -364,30 +361,39 @@ mod tests {
     }
 
     #[test]
+    fn single_and_populated_skipped_and_run_singlethreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        single_and_populated_skipped_and_run("SingleThreaded", schedule);
+    }
+
+    #[test]
+    fn single_and_populated_skipped_and_run_multithreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        single_and_populated_skipped_and_run("MultiThreaded", schedule);
+    }
+
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
-    fn single_and_populated_skipped_and_run() {
-        for executor in EXECUTORS {
-            std::println!("Testing executor: {executor:?}");
+    fn single_and_populated_skipped_and_run(name: &str, mut schedule: Schedule) {
+        std::println!("Testing executor: {name}");
 
-            let mut world = World::new();
-            world.init_resource::<TestState>();
+        let mut world = World::new();
+        world.init_resource::<TestState>();
 
-            let mut schedule = Schedule::default();
-            schedule.set_executor_kind(executor);
-            schedule.add_systems((set_single_state, set_populated_state));
-            schedule.run(&mut world);
+        schedule.add_systems((set_single_state, set_populated_state));
+        schedule.run(&mut world);
 
-            let state = world.get_resource::<TestState>().unwrap();
-            assert!(!state.single_ran);
-            assert!(!state.populated_ran);
+        let state = world.get_resource::<TestState>().unwrap();
+        assert!(!state.single_ran);
+        assert!(!state.populated_ran);
 
-            world.spawn(TestComponent);
+        world.spawn(TestComponent);
 
-            schedule.run(&mut world);
-            let state = world.get_resource::<TestState>().unwrap();
-            assert!(state.single_ran);
-            assert!(state.populated_ran);
-        }
+        schedule.run(&mut world);
+        let state = world.get_resource::<TestState>().unwrap();
+        assert!(state.single_ran);
+        assert!(state.populated_ran);
     }
 
     fn look_for_missing_resource(_res: Res<TestState>) {}
@@ -398,7 +404,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.set_executor(SingleThreadedExecutor::new());
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }
@@ -409,7 +415,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
     }
@@ -580,7 +586,7 @@ mod tests {
 mod validation_tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
-        schedule::ExecutorKind,
+        schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
             DynParamBuilder, DynSystemParam, ExclusiveSystemParam, Local, ParamBuilder, ParamSet,
             Query, Res, ResMut, RunSystemError, RunSystemOnce, Single, SystemMeta,
@@ -591,9 +597,6 @@ mod validation_tests {
 
     #[derive(Component)]
     struct TestComponent;
-
-    const EXECUTORS: [ExecutorKind; 2] =
-        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct Counter(u8);
@@ -833,29 +836,38 @@ mod validation_tests {
     }
 
     #[test]
-    fn validation_skips_system_in_schedule() {
+    fn validation_skips_system_in_schedule_singlethreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        validation_skips_system_in_schedule("SingleThreaded", schedule);
+    }
+
+    #[test]
+    fn validation_skips_system_in_schedule_multithreaded() {
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        validation_skips_system_in_schedule("MultiThreaded", schedule);
+    }
+
+    fn validation_skips_system_in_schedule(name: &str, mut schedule: Schedule) {
         // Ensure the executor properly handles validation failures by skipping
         // and not running the system body.
         fn skippable_system(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
             counter.0 += 1;
         }
 
-        for executor in EXECUTORS {
-            let mut world = World::new();
-            world.init_resource::<Counter>();
+        let mut world = World::new();
+        world.init_resource::<Counter>();
 
-            let mut schedule = Schedule::default();
-            schedule.set_executor_kind(executor);
-            schedule.add_systems(skippable_system);
+        schedule.add_systems(skippable_system);
 
-            // No TestComponent entity exists, so the system should be skipped.
-            schedule.run(&mut world);
-            assert_eq!(
-                world.resource::<Counter>().0,
-                0,
-                "System should have been skipped with {executor:?}"
-            );
-        }
+        // No TestComponent entity exists, so the system should be skipped.
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<Counter>().0,
+            0,
+            "System should have been skipped with {name}"
+        );
     }
 
     #[test]

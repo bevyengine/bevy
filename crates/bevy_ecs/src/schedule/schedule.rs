@@ -374,7 +374,7 @@ impl Schedule {
             label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
-            executor: make_executor(ExecutorKind::default()),
+            executor: default_executor(),
             executor_initialized: false,
             warnings: Vec::new(),
         };
