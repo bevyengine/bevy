@@ -1,9 +1,62 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::brdf
 
 #import bevy_pbr::lighting::{F_AB, D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
-#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
 #import bevy_render::maths::PI
+#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD}
+
+struct EvaluateAndSampleBrdfResult {
+    wi: vec3<f32>,
+    throughput: vec3<f32>,
+    pdf: f32,
+}
+
+fn evaluate_and_sample_brdf(
+    wo: vec3<f32>,
+    world_normal: vec3<f32>,
+    world_tangent: vec4<f32>,
+    material: ResolvedMaterial,
+    rng: ptr<function, u32>,
+) -> EvaluateAndSampleBrdfResult {
+    let diffuse_weight = mix(mix(0.4, 0.9, material.perceptual_roughness), 0.0, material.metallic); // TODO: Based on fresnel weight
+    let specular_weight = 1.0 - diffuse_weight;
+
+    let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
+    let T = TBN[0];
+    let B = TBN[1];
+    let N = TBN[2];
+
+    let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
+
+    var wi: vec3<f32>;
+    var wi_tangent: vec3<f32>;
+    let diffuse_selected = rand_f(rng) < diffuse_weight;
+    if diffuse_selected {
+        wi = sample_cosine_hemisphere(world_normal, rng);
+        wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
+    } else {
+        wi_tangent = sample_ggx_vndf(wo_tangent, material.roughness, rng);
+        if wi_tangent.z <= 0.0 {
+            return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0);
+        }
+        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+    }
+
+    let diffuse_pdf = dot(wi, world_normal) / PI;
+    let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
+    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
+
+    var throughput = evaluate_brdf(wo, wi, world_normal, material);
+    if diffuse_selected || material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
+        throughput /= pdf;
+    }
+
+    return EvaluateAndSampleBrdfResult(wi, throughput, pdf);
+}
 
 fn evaluate_brdf(
     wo: vec3<f32>,
@@ -36,7 +89,11 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let F = fresnel(F0, LdotH);
 
     if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
-        return F;
+        if abs(NdotH - 1.0) < 0.0001 {
+            return F;
+        } else {
+            return vec3(0.0);
+        }
     }
 
     let D = D_GGX(material.roughness, NdotH);
@@ -44,7 +101,6 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let F_ab = F_AB(material.perceptual_roughness, NdotV);
     return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * NdotL;
 }
-
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
