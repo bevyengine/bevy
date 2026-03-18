@@ -30,12 +30,13 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    let mesh_handle = meshes.add(mesh.compressed_mesh(
-        MeshAttributeCompressionFlags::all()
-            & !MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT
-            | MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8,
-        true,
-    ));
+    let mesh_handle = meshes.add(
+        mesh.compressed_mesh(
+            MeshAttributeCompressionFlags::all()
+                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
+            true,
+        ),
+    );
 
     commands.spawn(Camera2d);
 

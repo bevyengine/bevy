@@ -75,10 +75,8 @@ pub struct RenderMesh {
     /// AABB used for decompressing vertex positions.
     /// None if the positions of the mesh is empty or the format isn't Float32x3.
     pub aabb: Option<Aabb3d>,
-    /// UV0 range for decompressing UV0 coordinates.
-    pub uv0_range: Option<Aabb2d>,
-    /// UV1 range for decompressing UV1 coordinates.
-    pub uv1_range: Option<Aabb2d>,
+    /// UV ranges for decompressing UV0 and UV1 coordinates.
+    pub uv_ranges: [Option<Aabb2d>; 2],
 }
 
 impl RenderMesh {
@@ -203,9 +201,8 @@ impl RenderAsset for RenderMesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            aabb: mesh.final_aabb.or_else(|| mesh.compute_aabb()),
-            uv0_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_0),
-            uv1_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_1),
+            aabb: mesh.final_aabb,
+            uv_ranges: mesh.final_uv_ranges,
         })
     }
 

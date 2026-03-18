@@ -530,9 +530,8 @@ pub struct MeshUniform {
     pub morph_descriptor_index: u32,
     /// AABB half extents for decompressing vertex positions.
     pub aabb_half_extents: Vec3,
-    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
-    pub uv0_range: Vec4,
-    pub uv1_range: Vec4,
+    /// UV channels range for decompressing UVs coordinates. xy is the min UV value, zw is the extents.
+    pub uv_channels_min_and_extents: [Vec4; 2],
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -607,9 +606,8 @@ pub struct MeshInputUniform {
     pub pad1: u32,
     pub aabb_half_extents: Vec3,
     pub pad2: u32,
-    /// UVs range for decompressing UVs coordinates.
-    pub uv0_range: Vec4,
-    pub uv1_range: Vec4,
+    /// UV channels range for decompressing UVs coordinates.
+    pub uv_channels_min_and_extents: [Vec4; 2],
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -656,9 +654,7 @@ impl MeshUniform {
             None => u16::MAX,
             Some((slot_index, _)) => slot_index.into(),
         };
-        let (aabb, uv0_range, uv1_range) = mesh
-            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
-            .unwrap_or_default();
+        let (aabb, uv_ranges) = mesh.map(|m| (m.aabb, m.uv_ranges)).unwrap_or_default();
 
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
@@ -678,16 +674,17 @@ impl MeshUniform {
             },
             aabb_center: aabb.map(|a| a.center().into()).unwrap_or(Vec3::ZERO),
             aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
-            uv0_range: uv_range_to_vec4(uv0_range),
-            uv1_range: uv_range_to_vec4(uv1_range),
+            uv_channels_min_and_extents: uv_ranges_to_vec4(uv_ranges),
         }
     }
 }
 
-fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
-    range
-        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
-        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+fn uv_ranges_to_vec4<const N: usize>(ranges: [Option<Aabb2d>; N]) -> [Vec4; N] {
+    ranges.map(|r_option| {
+        r_option
+            .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
+            .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+    })
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
@@ -1433,9 +1430,9 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
-        let (aabb, uv0_range, uv1_range) = meshes
+        let (aabb, uv_ranges) = meshes
             .get(AssetId::<Mesh>::from(self.shared.asset_id))
-            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
+            .map(|m| (m.aabb, m.uv_ranges))
             .unwrap_or_default();
 
         // Create the mesh input uniform.
@@ -1462,8 +1459,7 @@ impl RenderMeshInstanceGpuBuilder {
             aabb_half_extents: aabb
                 .map(|aabb| aabb.half_size().into())
                 .unwrap_or(Vec3::ZERO),
-            uv0_range: uv_range_to_vec4(uv0_range),
-            uv1_range: uv_range_to_vec4(uv1_range),
+            uv_channels_min_and_extents: uv_ranges_to_vec4(uv_ranges),
             pad1: 0,
             pad2: 0,
         };

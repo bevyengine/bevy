@@ -2,14 +2,22 @@
 //!
 //! Also illustrates how to read morph target names in `name_morphs`.
 
-use bevy::{prelude::*, scene::SceneInstanceReady};
+use bevy::{
+    gltf::GltfPlugin, mesh::MeshAttributeCompressionFlags, prelude::*, scene::SceneInstanceReady,
+};
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins.set(GltfPlugin {
+                mesh_attribute_compression: MeshAttributeCompressionFlags::all()
+                    .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
+                ..Default::default()
+            }),
+        )
         .insert_resource(GlobalAmbientLight {
             brightness: 150.0,
             ..default()

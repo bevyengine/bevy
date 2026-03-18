@@ -17,7 +17,7 @@ struct Mesh2d {
     aabb_half_extents: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
-    /// UVs range for decompressing UVs coordinates.
-    uv0_range: vec4<f32>,
+    /// UV channels range for decompressing UVs coordinates.
+    uv_channels_min_and_extents: array<vec4<f32>, 1>,
     tag: u32,
 };

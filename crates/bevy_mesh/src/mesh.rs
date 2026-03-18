@@ -261,9 +261,12 @@ pub struct Mesh {
     pub enable_raytracing: bool,
     /// Indicate whether vertex attributes are compressed.
     attribute_compression: MeshAttributeCompressionFlags,
-    /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
-    /// This data will be set if/when a mesh is extracted to the GPU
+    /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling and decompressing vertex positions.
+    /// This data will be set if/when a mesh is extracted to the GPU or calling [`Mesh::compressed_mesh`].
     pub final_aabb: Option<Aabb3d>,
+    /// Precomputed min and max extents of the mesh UV channels data. Used mainly for decompressing vertex UVs.
+    /// This will be set when calling [`Mesh::compressed_mesh`].
+    pub final_uv_ranges: [Option<Aabb2d>; 2],
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
@@ -296,7 +299,21 @@ impl MeshAttributeCompressionFlags {
     const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
     const COMPRESS_COLOR_SHIFT_BIT: u8 =
         Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
+
+    /// Helper function to set color flag.
+    pub fn with_color(self, color_flag: Self) -> Self {
+        self & !Self::COMPRESS_COLOR_RESERVED_BIT | color_flag
+    }
 }
+
+// Workaround const expression in match pattern.
+const ATTRIBUTE_POSITION_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_POSITION.id;
+const ATTRIBUTE_NORMAL_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_NORMAL.id;
+const ATTRIBUTE_UV_0_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_0.id;
+const ATTRIBUTE_UV_1_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_1.id;
+const ATTRIBUTE_TANGENT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_TANGENT.id;
+const ATTRIBUTE_COLOR_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_COLOR.id;
+const ATTRIBUTE_JOINT_WEIGHT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
 
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
@@ -390,6 +407,7 @@ impl Mesh {
             attribute_compression: MeshAttributeCompressionFlags::empty(),
             final_aabb: None,
             skinned_mesh_bounds: None,
+            final_uv_ranges: [None; 2],
         }
     }
 
@@ -1019,13 +1037,6 @@ impl Mesh {
         &self,
         attribute_id: MeshVertexAttributeId,
     ) -> Option<VertexFormat> {
-        const ATTRIBUTE_POSITION_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_POSITION.id;
-        const ATTRIBUTE_NORMAL_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_NORMAL.id;
-        const ATTRIBUTE_UV_0_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_0.id;
-        const ATTRIBUTE_UV_1_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_1.id;
-        const ATTRIBUTE_TANGENT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_TANGENT.id;
-        const ATTRIBUTE_COLOR_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_COLOR.id;
-        const ATTRIBUTE_JOINT_WEIGHT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
         match attribute_id {
             ATTRIBUTE_POSITION_ID
                 if self
@@ -1098,13 +1109,6 @@ impl Mesh {
         attribute_id: MeshVertexAttributeId,
         attribute_values: &VertexAttributeValues,
     ) -> Option<VertexAttributeValues> {
-        const ATTRIBUTE_POSITION_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_POSITION.id;
-        const ATTRIBUTE_NORMAL_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_NORMAL.id;
-        const ATTRIBUTE_UV_0_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_0.id;
-        const ATTRIBUTE_UV_1_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_1.id;
-        const ATTRIBUTE_TANGENT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_TANGENT.id;
-        const ATTRIBUTE_COLOR_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_COLOR.id;
-        const ATTRIBUTE_JOINT_WEIGHT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
         match attribute_id {
             ATTRIBUTE_POSITION_ID
                 if self
@@ -1130,16 +1134,16 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                attribute_values
-                    .create_compressed_uvs(self.compute_uv_range(Mesh::ATTRIBUTE_UV_0).unwrap())
+                self.compute_uv_range(Mesh::ATTRIBUTE_UV_0)
+                    .and_then(|range| attribute_values.create_compressed_uvs(range))
             }
             ATTRIBUTE_UV_1_ID
                 if self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                attribute_values
-                    .create_compressed_uvs(self.compute_uv_range(Mesh::ATTRIBUTE_UV_1).unwrap())
+                self.compute_uv_range(Mesh::ATTRIBUTE_UV_0)
+                    .and_then(|range| attribute_values.create_compressed_uvs(range))
             }
             ATTRIBUTE_TANGENT_ID
                 if self
@@ -1220,15 +1224,24 @@ impl Mesh {
             Mesh::ATTRIBUTE_JOINT_WEIGHT,
         ] {
             if let Some(compressed_format) = self.get_compressed_vertex_format(attr.id)
-                && self.contains_attribute(attr.id)
+                && let Some(values) = self.attribute(attr.id)
             {
-                let values = self
-                    .create_compressed_attribute_values(attr.id, self.attribute(attr.id).unwrap());
+                let values = self.create_compressed_attribute_values(attr.id, values);
                 if let Some(values) = values {
                     attr.format = compressed_format;
-                    if attr.id == Mesh::ATTRIBUTE_POSITION.id {
-                        // Must compute aabb before we compress positions.
-                        self.final_aabb = self.compute_aabb();
+                    // Must compute aabb, uv0, uv1 before we insert the compressed attributes.
+                    // After compressing, them can't be computed.
+                    match attr.id {
+                        ATTRIBUTE_POSITION_ID => {
+                            self.final_aabb = self.compute_aabb();
+                        }
+                        ATTRIBUTE_UV_0_ID => {
+                            self.final_uv_ranges[0] = self.compute_uv_range(Mesh::ATTRIBUTE_UV_0);
+                        }
+                        ATTRIBUTE_UV_1_ID => {
+                            self.final_uv_ranges[1] = self.compute_uv_range(Mesh::ATTRIBUTE_UV_1);
+                        }
+                        _ => {}
                     }
                     self.insert_attribute(attr, values);
                 }
@@ -2614,23 +2627,7 @@ impl Mesh {
         let morph_target_names = self.morph_target_names.extract()?;
 
         // store the aabb extents as they cannot be computed after extraction
-        if let Some(MeshAttributeData {
-            values: VertexAttributeValues::Float32x3(position_values),
-            ..
-        }) = attributes
-            .as_ref_option()?
-            .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
-            && !position_values.is_empty()
-        {
-            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
-            let mut min = iter.next().unwrap();
-            let mut max = min;
-            for v in iter {
-                min = Vec3::min(min, v);
-                max = Vec3::max(max, v);
-            }
-            self.final_aabb = Some(Aabb3d::from_min_max(min, max));
-        }
+        self.final_aabb = self.compute_aabb();
 
         Ok(Self {
             attributes,
@@ -3581,8 +3578,7 @@ mod tests {
 
         let mesh_compressed_all = mesh.clone().compressed_mesh(
             MeshAttributeCompressionFlags::all()
-                & !MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT
-                | MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8,
+                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
             true,
         );
         assert_eq!(

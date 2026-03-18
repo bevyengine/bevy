@@ -2,7 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::{light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use bevy::{
+    gltf::GltfPlugin, light::CascadeShadowConfigBuilder, mesh::MeshAttributeCompressionFlags,
+    prelude::*, scene::SceneInstanceReady,
+};
 
 // An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
@@ -14,7 +17,14 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins.set(GltfPlugin {
+                mesh_attribute_compression: MeshAttributeCompressionFlags::all()
+                    .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
+                mesh_index_compression: true,
+                ..Default::default()
+            }),
+        )
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
         .run();

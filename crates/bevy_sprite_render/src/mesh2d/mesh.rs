@@ -213,8 +213,8 @@ pub struct Mesh2dUniform {
     /// AABB for decompressing positions.
     pub aabb_half_extents: Vec3,
     pub flags: u32,
-    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
-    pub uv0_range: Vec4,
+    /// UV channels range for decompressing UV coordinates. xy is the min UV value, zw is the extents.
+    pub uv_channels_min_and_extents: [Vec4; 1],
     pub tag: u32,
 }
 
@@ -226,7 +226,7 @@ impl Mesh2dUniform {
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
-        let (aabb, uv_range) = mesh.map(|m| (m.aabb, m.uv0_range)).unwrap_or_default();
+        let (aabb, uv_ranges) = mesh.map(|m| (m.aabb, [m.uv_ranges[0]])).unwrap_or_default(); // UV1 is unused in mesh2d.
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             local_from_world_transpose_a,
@@ -237,15 +237,17 @@ impl Mesh2dUniform {
             aabb_half_extents: aabb
                 .map(|aabb| aabb.half_size().into())
                 .unwrap_or(Vec3::ZERO),
-            uv0_range: uv_range_to_vec4(uv_range),
+            uv_channels_min_and_extents: uv_ranges_to_vec4(uv_ranges),
         }
     }
 }
 
-fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
-    range
-        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
-        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+fn uv_ranges_to_vec4<const N: usize>(ranges: [Option<Aabb2d>; N]) -> [Vec4; N] {
+    ranges.map(|r_option| {
+        r_option
+            .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
+            .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+    })
 }
 
 // NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!

@@ -180,13 +180,8 @@ fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {
     return bevy_pbr::utils::octahedral_decode_tangent(compressed_tangent);
 }
 
-fn decompress_vertex_uv(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f32> {
-    let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv0_range;
-    return uv_range.xy + uv_range.zw * compressed_uv;
-}
-
-fn decompress_vertex_uv_b(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f32> {
-    let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv1_range;
+fn decompress_vertex_uv_channel(instance_index: u32, compressed_uv: vec2<f32>, channel: u32) -> vec2<f32> {
+    let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv_channels_min_and_extents[channel];
     return uv_range.xy + uv_range.zw * compressed_uv;
 }
 #endif

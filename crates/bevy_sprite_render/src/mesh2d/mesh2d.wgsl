@@ -79,7 +79,7 @@ fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
 #endif
 #ifdef VERTEX_UVS
 #ifdef VERTEX_UVS_COMPRESSED
-    uncompressed_vertex.uv = mesh_functions::decompress_vertex_uv(vertex_in.instance_index, vertex_in.compressed_uv);
+    uncompressed_vertex.uv = mesh_functions::decompress_vertex_uv_channel(vertex_in.instance_index, vertex_in.compressed_uv, 0);
 #else
     uncompressed_vertex.uv = vertex_in.uv;
 #endif

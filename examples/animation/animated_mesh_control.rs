@@ -3,8 +3,8 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::RepeatAnimation, gltf::GltfPlugin, light::CascadeShadowConfigBuilder,
-    mesh::MeshAttributeCompressionFlags, prelude::*, scene::SceneInstanceReady,
+    animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*,
+    scene::SceneInstanceReady,
 };
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
@@ -16,13 +16,7 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins(DefaultPlugins.set(GltfPlugin {
-            mesh_attribute_compression: MeshAttributeCompressionFlags::all()
-                & !MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT
-                | MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8,
-            mesh_index_compression: true,
-            ..Default::default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(
             Update,

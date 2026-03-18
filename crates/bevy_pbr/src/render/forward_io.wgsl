@@ -97,14 +97,14 @@ fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
 #endif
 #ifdef VERTEX_UVS_A
 #ifdef VERTEX_UVS_A_COMPRESSED
-    uncompressed_vertex.uv = bevy_pbr::mesh_functions::decompress_vertex_uv(vertex_in.instance_index, vertex_in.compressed_uv);
+    uncompressed_vertex.uv = bevy_pbr::mesh_functions::decompress_vertex_uv_channel(vertex_in.instance_index, vertex_in.compressed_uv, 0);
 #else
     uncompressed_vertex.uv = vertex_in.uv;
 #endif
 #endif
 #ifdef VERTEX_UVS_B
 #ifdef VERTEX_UVS_B_COMPRESSED
-    uncompressed_vertex.uv_b = bevy_pbr::mesh_functions::decompress_vertex_uv_b(vertex_in.instance_index, vertex_in.compressed_uv_b);
+    uncompressed_vertex.uv_b = bevy_pbr::mesh_functions::decompress_vertex_uv_channel(vertex_in.instance_index, vertex_in.compressed_uv_b, 1);
 #else
     uncompressed_vertex.uv_b = vertex_in.uv_b;
 #endif
