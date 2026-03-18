@@ -1,20 +1,20 @@
 //! This example illustrates how to create UI text and update it in a system.
 //!
-//! It displays the current FPS in the top left corner, as well as text that changes color
+//! It displays the current FPS in the top left corner, as well as a text effect showcase
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::{FontFeatureTag, FontFeatures, FontSize, Underline},
+    text::{FontFeatureTag, FontFeatures, FontSize},
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system));
+        .add_systems(Update, (text_update_system, text_alpha_system));
     app.run();
 }
 
@@ -22,37 +22,90 @@ fn main() {
 #[derive(Component)]
 struct FpsText;
 
-// Marker struct to help identify the color-changing Text component
+// Marker struct to help identify the alpha-animated Text component
 #[derive(Component)]
 struct AnimatedText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let showcase_font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let showcase_text_font = TextFont {
+        font: showcase_font.clone().into(),
+        font_size: FontSize::Px(48.0),
+        ..default()
+    };
+
     // UI camera
     commands.spawn(Camera2d);
-    // Text with one section
-    commands.spawn((
-        // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        Text::new("hello\nbevy!"),
-        Underline,
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            // The size of the text will be 20% of the viewport height.
-            font_size: FontSize::Vh(20.0),
-            ..default()
-        },
-        TextShadow::default(),
-        // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
-        // Set the style of the Node itself.
-        Node {
+    commands
+        .spawn(Node {
             position_type: PositionType::Absolute,
-            bottom: px(5),
-            right: px(5),
+            bottom: px(24),
+            right: px(24),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::End,
+            row_gap: px(10),
             ..default()
-        },
-        AnimatedText,
-    ));
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Text effects"),
+                TextFont {
+                    font: showcase_font.clone().into(),
+                    font_size: FontSize::Px(24.0),
+                    ..default()
+                },
+                TextColor(GOLD.into()),
+            ));
+            parent.spawn((
+                Text::new("Shadow only"),
+                showcase_text_font.clone(),
+                TextColor(Color::WHITE),
+                TextShadow {
+                    offset: Vec2::splat(8.0),
+                    color: Color::BLACK.with_alpha(0.85),
+                },
+                TextLayout::new_with_justify(Justify::Right),
+            ));
+            parent.spawn((
+                Text::new("Outline only"),
+                showcase_text_font.clone(),
+                TextColor(Color::srgb(0.98, 0.94, 0.83)),
+                TextOutline {
+                    color: Color::srgb(0.22, 0.09, 0.04),
+                    width: 2.0,
+                },
+                TextLayout::new_with_justify(Justify::Right),
+            ));
+            parent.spawn((
+                Text::new("Shadow + outline"),
+                showcase_text_font.clone(),
+                TextColor(Color::srgb(0.92, 0.97, 1.0)),
+                TextShadow {
+                    offset: Vec2::splat(8.0),
+                    color: Color::BLACK.with_alpha(0.85),
+                },
+                TextOutline {
+                    color: Color::srgb(0.12, 0.19, 0.35),
+                    width: 2.0,
+                },
+                TextLayout::new_with_justify(Justify::Right),
+            ));
+            parent.spawn((
+                Text::new("Animated alpha"),
+                showcase_text_font,
+                TextColor(Color::srgb(1.0, 0.95, 0.8)),
+                TextShadow {
+                    offset: Vec2::splat(8.0),
+                    color: Color::BLACK.with_alpha(0.85),
+                },
+                TextOutline {
+                    color: Color::srgb(0.25, 0.09, 0.02),
+                    width: 2.0,
+                },
+                TextLayout::new_with_justify(Justify::Right),
+                AnimatedText,
+            ));
+        });
 
     // Text with multiple sections
     commands
@@ -173,17 +226,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimatedText>>) {
+fn text_alpha_system(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimatedText>>) {
     for mut text_color in &mut query {
-        let seconds = time.elapsed_secs();
-
-        // Update the color of the ColorText span.
-        text_color.0 = Color::srgb(
-            ops::sin(1.25 * seconds) / 2.0 + 0.5,
-            ops::sin(0.75 * seconds) / 2.0 + 0.5,
-            ops::sin(0.50 * seconds) / 2.0 + 0.5,
-        );
-        //t.set_changed();
+        let alpha = ops::sin(1.5 * time.elapsed_secs()) * 0.35 + 0.65;
+        text_color.0 = Color::srgb(1.0, 0.95, 0.8).with_alpha(alpha);
     }
 }
 

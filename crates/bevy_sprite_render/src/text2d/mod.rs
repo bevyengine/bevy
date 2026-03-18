@@ -13,15 +13,15 @@ use bevy_ecs::{
 use bevy_math::{Rect, Vec2, Vec3};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::{Anchor, Text2dShadow};
+use bevy_sprite::{Anchor, Text2dOutline, Text2dShadow};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
     TextBounds, TextColor, TextLayoutInfo, Underline, UnderlineColor, TEXT_EFFECT_PADDING,
 };
 use bevy_transform::prelude::GlobalTransform;
-
 const TEXT2D_BACKGROUND_Z_OFFSET: f32 = -0.0003;
 const TEXT2D_SHADOW_Z_OFFSET: f32 = -0.0002;
+const TEXT2D_OUTLINE_Z_OFFSET: f32 = -0.0001;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -38,6 +38,7 @@ pub fn extract_text2d_sprite(
             &TextBounds,
             &Anchor,
             Option<&Text2dShadow>,
+            Option<&Text2dOutline>,
             &GlobalTransform,
         )>,
     >,
@@ -61,6 +62,7 @@ pub fn extract_text2d_sprite(
         text_bounds,
         anchor,
         maybe_shadow,
+        maybe_outline,
         global_transform,
     ) in text2d_query.iter()
     {
@@ -79,8 +81,9 @@ pub fn extract_text2d_sprite(
             text_bounds.height.unwrap_or(text_layout_info.size.y),
         );
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
-        let text_transform =
-            *global_transform * GlobalTransform::from_translation(top_left.extend(0.0)) * scaling;
+        let base_transform =
+            *global_transform * GlobalTransform::from_translation(top_left.extend(0.0));
+        let text_transform = base_transform * scaling;
 
         for run in text_layout_info.run_geometry.iter() {
             let section_entity = computed_block.entities()[run.section_index].entity;
@@ -115,8 +118,6 @@ pub fn extract_text2d_sprite(
                 clamp_text2d_shadow_offset(shadow.offset, text_layout_info.scale_factor),
             )
         });
-        let base_transform =
-            *global_transform * GlobalTransform::from_translation(top_left.extend(0.0));
         let shadow_transform = shadow_effect.map(|(_, shadow_offset)| {
             base_transform
                 * GlobalTransform::from_translation(
@@ -124,12 +125,19 @@ pub fn extract_text2d_sprite(
                 )
                 * scaling
         });
-        let glyph_text_effect = shadow_effect
-            .map(|(color, offset)| {
-                ExtractedTextEffect::shadow(Vec2::new(offset.x, -offset.y), color)
-            })
-            .unwrap_or_default();
-        let glyph_padding = combined_text_effect_padding(shadow_effect.map(|(_, offset)| offset));
+        let outline_effect = maybe_outline.and_then(|outline| {
+            clamp_outline_width(outline.width * text_layout_info.scale_factor)
+                .map(|width| (LinearRgba::from(outline.color), width))
+        });
+
+        let glyph_text_effect = ExtractedTextEffect::text(
+            shadow_effect.map(|(color, offset)| (color, Vec2::new(offset.x, -offset.y))),
+            outline_effect.map(|(color, _)| color),
+        );
+        let glyph_padding = combined_text_effect_padding(
+            shadow_effect.map(|(_, offset)| offset),
+            outline_effect.map(|(_, width)| width),
+        );
 
         let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
@@ -227,6 +235,19 @@ pub fn extract_text2d_sprite(
                     );
                 }
 
+                if let Some((outline_color, outline_width)) = outline_effect {
+                    extract_text2d_decoration(
+                        &mut commands,
+                        &mut extracted_sprites,
+                        main_entity,
+                        text_transform,
+                        offset,
+                        outline_color,
+                        size + Vec2::splat(outline_width * 2.0),
+                        TEXT2D_OUTLINE_Z_OFFSET,
+                    );
+                }
+
                 extract_text2d_decoration(
                     &mut commands,
                     &mut extracted_sprites,
@@ -261,6 +282,19 @@ pub fn extract_text2d_sprite(
                         shadow.color.into(),
                         size,
                         TEXT2D_SHADOW_Z_OFFSET,
+                    );
+                }
+
+                if let Some((outline_color, outline_width)) = outline_effect {
+                    extract_text2d_decoration(
+                        &mut commands,
+                        &mut extracted_sprites,
+                        main_entity,
+                        text_transform,
+                        offset,
+                        outline_color,
+                        size + Vec2::splat(outline_width * 2.0),
+                        TEXT2D_OUTLINE_Z_OFFSET,
                     );
                 }
 
@@ -318,6 +352,15 @@ fn clamp_text2d_shadow_offset(offset: Vec2, scale_factor: f32) -> Vec2 {
     sampled_offset.clamp(Vec2::splat(-limit), Vec2::splat(limit))
 }
 
+fn clamp_outline_width(width: f32) -> Option<f32> {
+    if width <= 0.0 {
+        return None;
+    }
+
+    let limit = TEXT_EFFECT_PADDING as f32;
+    Some(width.min(limit))
+}
+
 fn expanded_effect_rect(fill_rect: Rect, padding: Vec2) -> Rect {
     Rect {
         min: fill_rect.min - padding,
@@ -325,8 +368,17 @@ fn expanded_effect_rect(fill_rect: Rect, padding: Vec2) -> Rect {
     }
 }
 
-fn combined_text_effect_padding(shadow_offset: Option<Vec2>) -> Option<Vec2> {
-    let padding = shadow_offset.map_or(Vec2::ZERO, |shadow_offset| shadow_offset.abs().ceil());
+fn combined_text_effect_padding(
+    shadow_offset: Option<Vec2>,
+    outline_width: Option<f32>,
+) -> Option<Vec2> {
+    let shadow_padding =
+        shadow_offset.map_or(Vec2::ZERO, |shadow_offset| shadow_offset.abs().ceil());
+    let outline_padding = outline_width.map_or(Vec2::ZERO, |outline_width| {
+        Vec2::splat(outline_width.ceil().max(1.0))
+    });
+    let padding = shadow_padding.max(outline_padding);
+
     if padding == Vec2::ZERO {
         None
     } else {

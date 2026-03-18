@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::css::*,
     math::ops,
     prelude::*,
-    sprite::{Anchor, Text2dShadow},
+    sprite::{Anchor, Text2dOutline, Text2dShadow},
     text::{FontSmoothing, LineBreak, TextBounds},
 };
 
@@ -19,7 +19,12 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (animate_translation, animate_rotation, animate_scale),
+            (
+                animate_translation,
+                animate_rotation,
+                animate_scale,
+                animate_alpha,
+            ),
         )
         .run();
 }
@@ -33,6 +38,9 @@ struct AnimateRotation;
 #[derive(Component)]
 struct AnimateScale;
 
+#[derive(Component)]
+struct AnimateAlpha;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_font = TextFont {
@@ -44,31 +52,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
-        Text2d::new(" translation "),
+        Text2d::new(" shadow only "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextColor(Color::WHITE),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
+        Text2dShadow {
+            offset: Vec2::new(10.0, -10.0),
+            color: Color::BLACK.with_alpha(0.85),
+        },
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
-        Text2d::new(" rotation "),
+        Text2d::new(" outline only "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextColor(Color::srgb(0.98, 0.94, 0.83)),
+        Transform::from_translation(Vec3::new(0.0, 80.0, 0.0)),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
+        Text2dOutline {
+            color: ORANGE_RED.into(),
+            width: 2.0,
+        },
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
-        Text2d::new(" scale "),
+        Text2d::new(" both + alpha "),
         text_font,
         TextLayout::new_with_justify(text_justification),
-        Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        TextColor(Color::srgb(0.99, 0.95, 0.8)),
+        Transform::from_translation(Vec3::new(400.0, 80.0, 0.0)),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
+        Text2dShadow {
+            offset: Vec2::new(8.0, -8.0),
+            color: Color::BLACK.with_alpha(0.85),
+        },
+        Text2dOutline {
+            color: MIDNIGHT_BLUE.into(),
+            width: 2.0,
+        },
         AnimateScale,
+        AnimateAlpha,
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_font = TextFont {
@@ -179,7 +205,7 @@ fn animate_translation(
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * ops::sin(time.elapsed_secs()) - 400.0;
-        transform.translation.y = 100.0 * ops::cos(time.elapsed_secs());
+        transform.translation.y = 80.0 + 100.0 * ops::cos(time.elapsed_secs());
     }
 }
 
@@ -202,5 +228,12 @@ fn animate_scale(
         let scale = (ops::sin(time.elapsed_secs()) + 1.1) * 2.0;
         transform.scale.x = scale;
         transform.scale.y = scale;
+    }
+}
+
+fn animate_alpha(time: Res<Time>, mut query: Query<&mut TextColor, With<AnimateAlpha>>) {
+    for mut text_color in &mut query {
+        let alpha = ops::sin(1.5 * time.elapsed_secs()) * 0.35 + 0.65;
+        text_color.0 = Color::srgb(0.99, 0.95, 0.8).with_alpha(alpha);
     }
 }

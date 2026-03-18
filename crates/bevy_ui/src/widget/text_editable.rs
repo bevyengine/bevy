@@ -302,6 +302,7 @@ pub fn update_editable_text_layout(
 
             info.scale_factor = layout.scale();
             info.uses_text_effect_padding = false;
+            info.outline_atlas_width = None;
             info.size = (
                 layout.width() / layout.scale(),
                 layout.height() / layout.scale(),
@@ -331,6 +332,7 @@ pub fn update_editable_text_layout(
                                 hinting: *hinting,
                                 font_smoothing: brush.font_smoothing,
                                 text_effect_padding: false,
+                                outline_width_bits: None,
                             };
 
                             for glyph in glyph_run.positioned_glyphs() {
@@ -362,6 +364,7 @@ pub fn update_editable_text_layout(
                                         text_font.font_smoothing,
                                         glyph.id as u16,
                                         false,
+                                        None,
                                     )
                                 }) else {
                                     continue;

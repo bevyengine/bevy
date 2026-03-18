@@ -26,7 +26,7 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::{ExtractedTextEffect, ExtractedTextEffectFlags, SpriteAssetEvents};
-use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextOutline, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
     ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
@@ -42,7 +42,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -114,6 +114,7 @@ pub mod stack_z_offsets {
     pub const TEXT_SELECTION: f32 = 0.055;
     pub const TEXT_BACKGROUND: f32 = 0.059;
     pub const TEXT_SHADOW: f32 = 0.06;
+    pub const TEXT_OUTLINE: f32 = 0.061;
     pub const TEXT: f32 = 0.062;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
     pub const TEXT_CURSOR: f32 = 0.08;
@@ -129,6 +130,7 @@ pub enum RenderUiSystems {
     ExtractBorders,
     ExtractViewportNodes,
     ExtractTextBackgrounds,
+    ExtractTextOutlines,
     ExtractText,
     ExtractCursor,
     ExtractDebug,
@@ -226,6 +228,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractTextureSlice,
                     RenderUiSystems::ExtractBorders,
                     RenderUiSystems::ExtractTextBackgrounds,
+                    RenderUiSystems::ExtractTextOutlines,
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
@@ -942,6 +945,7 @@ pub fn extract_text_sections(
             Option<&TextScroll>,
             Option<&TextCursorStyle>,
             Option<&TextShadow>,
+            Option<&TextOutline>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -965,6 +969,7 @@ pub fn extract_text_sections(
         text_scroll,
         cursor_style,
         maybe_shadow,
+        maybe_outline,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -998,10 +1003,15 @@ pub fn extract_text_sections(
                 clamp_ui_shadow_offset(shadow.offset, text_layout_info.scale_factor),
             )
         });
-        let glyph_effect = shadow
-            .map(|(color, offset)| ExtractedTextEffect::shadow(offset, color))
-            .unwrap_or_default();
-        let glyph_padding = combined_text_effect_padding(shadow.map(|(_, offset)| offset));
+        let outline = maybe_outline.and_then(|outline| {
+            clamp_ui_outline_width(outline.width * text_layout_info.scale_factor)
+                .map(|width| (outline.color.into(), width))
+        });
+        let glyph_effect = ExtractedTextEffect::text(shadow, outline.map(|(color, _width)| color));
+        let glyph_padding = combined_text_effect_padding(
+            shadow.map(|(_, offset)| offset),
+            outline.map(|(_, width)| width),
+        );
 
         let mut color = text_color.0.to_linear();
 
@@ -1090,6 +1100,15 @@ fn clamp_ui_shadow_offset(offset: Vec2, scale_factor: f32) -> Vec2 {
     sampled_offset.clamp(Vec2::splat(-limit), Vec2::splat(limit))
 }
 
+fn clamp_ui_outline_width(width: f32) -> Option<f32> {
+    if width <= 0.0 {
+        return None;
+    }
+
+    let limit = TEXT_EFFECT_PADDING as f32;
+    Some(width.min(limit))
+}
+
 fn expanded_effect_rect(fill_rect: Rect, padding: Vec2) -> Rect {
     Rect {
         min: fill_rect.min - padding,
@@ -1097,8 +1116,17 @@ fn expanded_effect_rect(fill_rect: Rect, padding: Vec2) -> Rect {
     }
 }
 
-fn combined_text_effect_padding(shadow_offset: Option<Vec2>) -> Option<Vec2> {
-    let padding = shadow_offset.map_or(Vec2::ZERO, |shadow_offset| shadow_offset.abs().ceil());
+fn combined_text_effect_padding(
+    shadow_offset: Option<Vec2>,
+    outline_width: Option<f32>,
+) -> Option<Vec2> {
+    let shadow_padding =
+        shadow_offset.map_or(Vec2::ZERO, |shadow_offset| shadow_offset.abs().ceil());
+    let outline_padding = outline_width.map_or(Vec2::ZERO, |outline_width| {
+        Vec2::splat(outline_width.ceil().max(1.0))
+    });
+    let padding = shadow_padding.max(outline_padding);
+
     if padding == Vec2::ZERO {
         None
     } else {
@@ -1122,6 +1150,7 @@ pub fn extract_text_decorations(
             &TextLayoutInfo,
             Option<&TextScroll>,
             Option<&TextShadow>,
+            Option<&TextOutline>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1147,6 +1176,7 @@ pub fn extract_text_decorations(
         text_layout_info,
         text_scroll,
         maybe_shadow,
+        maybe_outline,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1173,12 +1203,15 @@ pub fn extract_text_decorations(
         } else {
             maybe_clip.map(|clip| clip.clip)
         };
-
         let shadow = maybe_shadow.map(|shadow| {
             (
                 shadow.color.into(),
                 clamp_ui_shadow_offset(shadow.offset, text_layout_info.scale_factor),
             )
+        });
+        let outline = maybe_outline.and_then(|outline| {
+            clamp_ui_outline_width(outline.width * text_layout_info.scale_factor)
+                .map(|width| (outline.color.into(), width))
         });
 
         for run in text_layout_info.run_geometry.iter() {
@@ -1246,6 +1279,20 @@ pub fn extract_text_decorations(
                     );
                 }
 
+                if let Some((outline_color, outline_width)) = outline {
+                    extract_text_decoration(
+                        &mut commands,
+                        &mut extracted_uinodes,
+                        entity,
+                        clip,
+                        extracted_camera_entity,
+                        transform * Affine2::from_translation(position),
+                        stack_index.0 as f32 + stack_z_offsets::TEXT_OUTLINE,
+                        outline_color,
+                        size + Vec2::splat(outline_width * 2.0),
+                    );
+                }
+
                 extract_text_decoration(
                     &mut commands,
                     &mut extracted_uinodes,
@@ -1278,6 +1325,20 @@ pub fn extract_text_decorations(
                         stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
                         shadow_color,
                         size,
+                    );
+                }
+
+                if let Some((outline_color, outline_width)) = outline {
+                    extract_text_decoration(
+                        &mut commands,
+                        &mut extracted_uinodes,
+                        entity,
+                        clip,
+                        extracted_camera_entity,
+                        transform * Affine2::from_translation(position),
+                        stack_index.0 as f32 + stack_z_offsets::TEXT_OUTLINE,
+                        outline_color,
+                        size + Vec2::splat(outline_width * 2.0),
                     );
                 }
 
@@ -1352,6 +1413,7 @@ struct UiVertex {
     /// Position relative to the center of the UI node.
     pub point: [f32; 2],
     pub shadow_color: [f32; 4],
+    pub outline_color: [f32; 4],
     pub effect_params: [f32; 4],
 }
 
@@ -1405,7 +1467,9 @@ pub mod shader_flags {
     pub const BORDER_BOTTOM: u32 = 2048;
     pub const BORDER_ALL: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
     pub const INVERT: u32 = 4096;
-    pub const TEXT_EFFECT_SHADOW: u32 = 8192;
+    pub const TEXT_GLYPH: u32 = 8192;
+    pub const TEXT_EFFECT_SHADOW: u32 = 16384;
+    pub const TEXT_EFFECT_OUTLINE: u32 = 32768;
 }
 
 pub fn queue_uinodes(
@@ -1751,6 +1815,7 @@ pub fn prepare_uinodes(
                                 size: rect_size.into(),
                                 point: points[i].into(),
                                 shadow_color: [0.0; 4],
+                                outline_color: [0.0; 4],
                                 effect_params: [0.0; 4],
                             });
                         }
@@ -1771,21 +1836,37 @@ pub fn prepare_uinodes(
 
                         for glyph in &extracted_uinodes.glyphs[range.clone()] {
                             let color = glyph.color.to_f32_array();
+                            if !glyph.effect.flags.contains(ExtractedTextEffectFlags::TEXT) {
+                                continue;
+                            }
+
+                            let shadow_color = glyph.effect.shadow_color.to_f32_array();
+                            let outline_color = glyph.effect.outline_color.to_f32_array();
                             let glyph_rect = glyph.rect;
                             let rect_size = glyph_rect.size();
-                            let effect_flags = if glyph
+                            let mut effect_params = Vec4::new(
+                                glyph.effect.shadow_offset.x,
+                                glyph.effect.shadow_offset.y,
+                                0.0,
+                                0.0,
+                            );
+                            effect_params.x /= atlas_extent.x;
+                            effect_params.y /= atlas_extent.y;
+                            let mut effect_flags = shader_flags::TEXT_GLYPH;
+                            if glyph
                                 .effect
                                 .flags
                                 .contains(ExtractedTextEffectFlags::SHADOW)
                             {
-                                shader_flags::TEXT_EFFECT_SHADOW
-                            } else {
-                                0
-                            };
-                            let shadow_color = glyph.effect.shadow_color.to_f32_array();
-                            let mut effect_params = glyph.effect.params;
-                            effect_params.x /= atlas_extent.x;
-                            effect_params.y /= atlas_extent.y;
+                                effect_flags |= shader_flags::TEXT_EFFECT_SHADOW;
+                            }
+                            if glyph
+                                .effect
+                                .flags
+                                .contains(ExtractedTextEffectFlags::OUTLINE)
+                            {
+                                effect_flags |= shader_flags::TEXT_EFFECT_OUTLINE;
+                            }
 
                             // Specify the corners of the glyph
                             let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
@@ -1870,6 +1951,7 @@ pub fn prepare_uinodes(
                                     size: rect_size.into(),
                                     point: [0.0; 2],
                                     shadow_color,
+                                    outline_color,
                                     effect_params: effect_params.to_array(),
                                 });
                             }
