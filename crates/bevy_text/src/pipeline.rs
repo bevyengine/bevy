@@ -58,7 +58,17 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -85,10 +95,8 @@ impl TextPipeline {
             .collect();
 
         let result = {
-            for (
-                index,
-                (entity, depth, text, text_font, _color, line_height, letter_spacing),
-            ) in text_spans.enumerate()
+            for (index, (entity, depth, text, text_font, _color, line_height, letter_spacing)) in
+                text_spans.enumerate()
             {
                 match text_font.font_size {
                     crate::FontSize::Vw(_)
@@ -191,7 +199,10 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::Brush((section.index as u32, section.text_font.font_smoothing)),
+                    StyleProperty::Brush(TextBrush::new(
+                        section.index as u32,
+                        section.text_font.font_smoothing,
+                    )),
                     range.clone(),
                 );
                 builder.push(StyleProperty::FontSize(section.font_size), range.clone());
@@ -244,7 +255,17 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
