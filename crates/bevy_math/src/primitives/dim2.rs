@@ -2421,6 +2421,65 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_relative_eq};
 
     #[test]
+    fn plane_math() {
+        let origin = Vec2::new(1.0, 1.0);
+        let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
+        
+        let plane = Plane2d::from_point_and_normal(origin, normal);
+        assert_relative_eq!(plane.offset, -normal.dot(origin), epsilon = 1e-6);
+        assert_eq!(plane.normal, normal);
+
+        // A point on the plane
+        let point_on_plane = origin + Vec2::new(1.0, -1.0);
+        assert_relative_eq!(plane.signed_distance_to_point(point_on_plane), 0.0, epsilon = 1e-6);
+        assert_relative_eq!(plane.project_point(point_on_plane), point_on_plane, epsilon = 1e-6);
+
+        // A point in front of the plane
+        let point_front = point_on_plane + *normal * 2.0;
+        assert_relative_eq!(plane.signed_distance_to_point(point_front), 2.0, epsilon = 1e-6);
+        assert_relative_eq!(plane.project_point(point_front), point_on_plane, epsilon = 1e-6);
+
+        // A point behind the plane
+        let point_back = point_on_plane - *normal * 2.0;
+        assert_relative_eq!(plane.signed_distance_to_point(point_back), -2.0, epsilon = 1e-6);
+        assert_relative_eq!(plane.project_point(point_back), point_on_plane, epsilon = 1e-6);
+
+        // coefficients
+        let c = plane.offset;
+        let plane_coeffs = Plane2d::from_coefficients(normal.x, normal.y, c);
+        assert_relative_eq!(*plane_coeffs.normal, *plane.normal, epsilon = 1e-6);
+        assert_relative_eq!(plane_coeffs.offset, plane.offset, epsilon = 1e-6);
+
+        let try_plane_coeffs = Plane2d::try_from_coefficients(normal.x, normal.y, c).unwrap();
+        assert_relative_eq!(*try_plane_coeffs.normal, *plane.normal, epsilon = 1e-6);
+        assert_relative_eq!(try_plane_coeffs.offset, plane.offset, epsilon = 1e-6);
+
+        // Try from coefficients failure
+        assert!(Plane2d::try_from_coefficients(0.0, 0.0, c).is_err());
+    }
+
+    #[test]
+    fn half_space_math() {
+        let origin = Vec2::new(1.0, 1.0);
+        let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
+        let hs_1 = HalfSpace2d::from_point_and_normal(origin, normal);
+        
+        let c = hs_1.plane().offset;
+        let hs_2 = HalfSpace2d::new(normal, c);
+        assert_relative_eq!(*hs_1.plane().normal, *hs_2.plane().normal, epsilon = 1e-6);
+        assert_relative_eq!(hs_1.plane().offset, hs_2.plane().offset, epsilon = 1e-6);
+
+        let point_on_plane = origin + Vec2::new(1.0, -1.0);
+        assert!(!hs_1.contains(point_on_plane));
+
+        let point_front = point_on_plane + *normal * 2.0;
+        assert!(hs_1.contains(point_front));
+
+        let point_back = point_on_plane - *normal * 2.0;
+        assert!(!hs_1.contains(point_back));
+    }
+
+    #[test]
     fn rectangle_closest_point() {
         let rectangle = Rectangle::new(2.0, 2.0);
         assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);

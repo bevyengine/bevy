@@ -440,6 +440,12 @@ impl HalfSpace3d {
         Self(InfinitePlane3d { normal_d: normalized })
     }
 
+    /// Creates a new `HalfSpace3d` from a point on the boundary and an inward-facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec3A, normal: Dir3A) -> Self {
+        Self(InfinitePlane3d::from_point_and_normal(point, normal))
+    }
+
     /// Returns the unit normal vector of the bisecting plane.
     #[inline]
     pub fn normal(&self) -> Vec3A {
@@ -1935,6 +1941,36 @@ mod tests {
 
         let triangle_proj_inj = triangle_proj.map(|vec3| inj * vec3);
         assert_relative_eq!(area_f(triangle_proj_inj), 0.5);
+
+        // coefficients
+        let c = plane.offset();
+        let normal = plane.normal().as_vec3a();
+        let plane_coeffs = InfinitePlane3d::from_coefficients(normal.x, normal.y, normal.z, c);
+        assert_relative_eq!(plane_coeffs.as_vec4(), plane.as_vec4(), epsilon = 1e-6);
+
+        let try_plane_coeffs = InfinitePlane3d::try_from_coefficients(normal.x, normal.y, normal.z, c).unwrap();
+        assert_relative_eq!(try_plane_coeffs.as_vec4(), plane.as_vec4(), epsilon = 1e-6);
+
+        assert!(InfinitePlane3d::try_from_coefficients(0.0, 0.0, 0.0, c).is_err());
+    }
+
+    #[test]
+    fn half_space_math() {
+        let origin = Vec3::new(1.0, 1.0, 1.0);
+        let normal = Dir3A::new(Vec3A::new(1.0, 1.0, 1.0)).unwrap();
+        let hs_1 = HalfSpace3d::from_point_and_normal(Vec3A::from(origin), normal);
+        
+        let hs_2 = HalfSpace3d::new(hs_1.normal_d());
+        assert_relative_eq!(hs_1.plane().as_vec4(), hs_2.plane().as_vec4(), epsilon = 1e-6);
+
+        let point_on_plane = origin + Vec3::new(1.0, -1.0, 0.0);
+        assert!(!hs_1.contains(Vec3A::from(point_on_plane)));
+
+        let point_front = point_on_plane + Vec3::from(normal.as_vec3a()) * 2.0;
+        assert!(hs_1.contains(Vec3A::from(point_front)));
+
+        let point_back = point_on_plane - Vec3::from(normal.as_vec3a()) * 2.0;
+        assert!(!hs_1.contains(Vec3A::from(point_back)));
     }
 
     #[test]
