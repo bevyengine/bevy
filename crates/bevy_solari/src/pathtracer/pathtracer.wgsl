@@ -71,6 +71,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             // Sample new ray direction from the material BRDF for next bounce
             let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
+            if pdf == 0.0 { break; }
             ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position;
             ray_t_min = RAY_T_MIN;
@@ -126,6 +127,9 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
         wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
     } else {
         wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
+        if wi_tangent.z <= 0.0 {
+            return NextBounce(vec3(0.0), 0.0, false);
+        }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
     }
 

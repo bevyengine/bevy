@@ -20,6 +20,7 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+// Result is invalid when output.z <= 0.0, and must be discarded
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {

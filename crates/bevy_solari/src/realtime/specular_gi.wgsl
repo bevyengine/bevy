@@ -51,10 +51,15 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let N = TBN[2];
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, surface.material.roughness, &rng);
-        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-        let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
+        if wi_tangent.z <= 0.0 {
+            wi = vec3(0.0);
+            radiance = vec3(0.0);
+        } else {
+            wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+            let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
+            radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
+        }
     }
 
     let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
@@ -138,6 +143,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
+        if wi_tangent.z <= 0.0 { break; }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         ray_origin = ray_hit.world_position;
 
