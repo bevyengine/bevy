@@ -3891,6 +3891,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "letter_spacing"
+path = "examples/ui/text/letter_spacing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.letter_spacing]
+name = "Letter Spacing"
+description = "Demonstrates the letter spacing feature"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
