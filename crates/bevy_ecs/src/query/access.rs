@@ -1925,4 +1925,108 @@ mod tests {
         // [2, 3, ...] - [1, 3, ...] = [2]
         assert_eq!((s, i), (bit_set(4, [2]), false));
     }
+
+    #[test]
+    fn component_id_set_insert_remove_clear() {
+        let mut set = ComponentIdSet::new();
+        assert!(!set.contains(ComponentId::new(0)));
+        assert!(!set.contains(ComponentId::new(1)));
+        assert!(!set.contains(ComponentId::new(2)));
+        assert!(set.is_clear());
+        set.insert(ComponentId::new(2));
+        set.insert(ComponentId::new(1));
+        assert!(!set.contains(ComponentId::new(0)));
+        assert!(set.contains(ComponentId::new(1)));
+        assert!(set.contains(ComponentId::new(2)));
+        assert!(!set.is_clear());
+        set.remove(ComponentId::new(1));
+        assert!(!set.contains(ComponentId::new(0)));
+        assert!(!set.contains(ComponentId::new(1)));
+        assert!(set.contains(ComponentId::new(2)));
+        assert!(!set.is_clear());
+        set.insert(ComponentId::new(2));
+        set.insert(ComponentId::new(1));
+        assert!(!set.contains(ComponentId::new(0)));
+        assert!(set.contains(ComponentId::new(1)));
+        assert!(set.contains(ComponentId::new(2)));
+        assert!(!set.is_clear());
+        set.clear();
+        assert!(!set.contains(ComponentId::new(0)));
+        assert!(!set.contains(ComponentId::new(1)));
+        assert!(!set.contains(ComponentId::new(2)));
+        assert!(set.is_clear());
+    }
+
+    #[test]
+    fn component_id_set_remove_out_of_range() {
+        let mut set = ComponentIdSet::new();
+        set.remove(ComponentId::new(3));
+        set.insert(ComponentId::new(1));
+        set.remove(ComponentId::new(4));
+        assert!(set.iter().eq([1].map(ComponentId::new)));
+    }
+
+    #[test]
+    fn component_id_set_is_subset_is_disjoint() {
+        let set_1234 = ComponentIdSet::from_iter([1, 2, 3, 4].map(ComponentId::new));
+        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
+        let set_45 = ComponentIdSet::from_iter([4, 5].map(ComponentId::new));
+        assert!(set_23.is_subset(&set_1234));
+        assert!(!set_1234.is_subset(&set_23));
+        assert!(set_23.is_disjoint(&set_45));
+        assert!(set_45.is_disjoint(&set_23));
+        assert!(!set_1234.is_disjoint(&set_23));
+        assert!(!set_23.is_disjoint(&set_1234));
+    }
+
+    #[test]
+    fn component_id_set_union_intersection_difference() {
+        let set_13 = ComponentIdSet::from_iter([1, 3].map(ComponentId::new));
+        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
+
+        assert!(set_13.union(&set_23).eq([1, 3, 2].map(ComponentId::new)));
+        assert!(set_23.union(&set_13).eq([2, 3, 1].map(ComponentId::new)));
+        assert!(set_13.intersection(&set_23).eq([3].map(ComponentId::new)));
+        assert!(set_23.intersection(&set_13).eq([3].map(ComponentId::new)));
+        assert!(set_13.difference(&set_23).eq([1].map(ComponentId::new)));
+        assert!(set_23.difference(&set_13).eq([2].map(ComponentId::new)));
+    }
+
+    #[test]
+    fn component_id_set_union_intersection_difference_with() {
+        let set_13 = ComponentIdSet::from_iter([1, 3].map(ComponentId::new));
+        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
+
+        let mut s = set_13.clone();
+        s.union_with(&set_23);
+        assert!(s.iter().eq([1, 2, 3].map(ComponentId::new)));
+
+        let mut s = set_23.clone();
+        s.union_with(&set_13);
+        assert!(s.iter().eq([1, 2, 3].map(ComponentId::new)));
+
+        let mut s = set_13.clone();
+        s.intersect_with(&set_23);
+        assert!(s.iter().eq([3].map(ComponentId::new)));
+
+        let mut s = set_23.clone();
+        s.intersect_with(&set_13);
+        assert!(s.iter().eq([3].map(ComponentId::new)));
+
+        let mut s = set_13.clone();
+        s.difference_with(&set_23);
+        assert!(s.iter().eq([1].map(ComponentId::new)));
+
+        let mut s = set_23.clone();
+        s.difference_with(&set_13);
+        assert!(s.iter().eq([2].map(ComponentId::new)));
+
+        let mut s = set_13.clone();
+        s.difference_from(&set_23);
+        assert!(s.iter().eq([2].map(ComponentId::new)));
+
+        let mut s = set_23.clone();
+        s.difference_from(&set_13);
+        assert!(s.iter().eq([1].map(ComponentId::new)));
+    }
 }
