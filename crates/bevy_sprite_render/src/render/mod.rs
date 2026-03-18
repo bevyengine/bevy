@@ -293,19 +293,18 @@ pub struct ExtractedSlice {
     pub size: Vec2,
 }
 
-pub const EXTRACTED_TEXT_EFFECT_NONE: u32 = 0;
-pub const EXTRACTED_TEXT_EFFECT_SHADOW: u32 = 1;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ExtractedTextEffectKind {
-    #[default]
-    None = EXTRACTED_TEXT_EFFECT_NONE as isize,
-    Shadow = EXTRACTED_TEXT_EFFECT_SHADOW as isize,
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    #[repr(transparent)]
+    pub struct ExtractedTextEffectFlags: u32 {
+        const NONE = 0;
+        const SHADOW = 1 << 0;
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ExtractedTextEffect {
-    pub kind: ExtractedTextEffectKind,
+    pub flags: ExtractedTextEffectFlags,
     pub params: Vec4,
     pub shadow_color: LinearRgba,
 }
@@ -313,7 +312,7 @@ pub struct ExtractedTextEffect {
 impl ExtractedTextEffect {
     pub fn shadow(sample_offset: Vec2, shadow_color: LinearRgba) -> Self {
         Self {
-            kind: ExtractedTextEffectKind::Shadow,
+            flags: ExtractedTextEffectFlags::SHADOW,
             params: Vec4::new(sample_offset.x, sample_offset.y, 0.0, 0.0),
             shadow_color,
         }
@@ -488,7 +487,7 @@ impl SpriteInstance {
             i_uv_offset_scale: uv_offset_scale.to_array(),
             i_effect_params: text_effect.params.to_array(),
             i_shadow_color: text_effect.shadow_color.to_f32_array(),
-            i_effect_flags: [text_effect.kind as u32, 0, 0, 0],
+            i_effect_flags: [text_effect.flags.bits(), 0, 0, 0],
         }
     }
 }
@@ -851,15 +850,11 @@ pub fn prepare_sprite_image_bind_groups(
                                 (slice.size * -Vec2::splat(0.5) + slice.offset).extend(0.0),
                             );
 
-                        let text_effect =
-                            if extracted_sprite.text_effect.kind == ExtractedTextEffectKind::None {
-                                ExtractedTextEffect::default()
-                            } else {
-                                let mut text_effect = extracted_sprite.text_effect;
-                                text_effect.params.x /= batch_image_size.x;
-                                text_effect.params.y /= batch_image_size.y;
-                                text_effect
-                            };
+                        let mut text_effect = extracted_sprite.text_effect;
+                        if text_effect.flags.contains(ExtractedTextEffectFlags::SHADOW) {
+                            text_effect.params.x /= batch_image_size.x;
+                            text_effect.params.y /= batch_image_size.y;
+                        }
 
                         // Store the vertex data and add the item to the render phase
                         sprite_meta

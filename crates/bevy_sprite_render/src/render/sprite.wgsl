@@ -9,7 +9,6 @@
 
 #import bevy_sprite::sprite_view_bindings::view
 
-const TEXT_EFFECT_NONE: u32 = 0u;
 const TEXT_EFFECT_SHADOW: u32 = 1u;
 
 struct VertexInput {
@@ -33,7 +32,7 @@ struct VertexOutput {
     @location(1) @interpolate(flat) color: vec4<f32>,
     @location(2) @interpolate(flat) shadow_color: vec4<f32>,
     @location(3) @interpolate(flat) effect_params: vec4<f32>,
-    @location(4) @interpolate(flat) effect_kind: u32,
+    @location(4) @interpolate(flat) effect_flags: u32,
 };
 
 @vertex
@@ -55,7 +54,7 @@ fn vertex(in: VertexInput) -> VertexOutput {
     out.color = in.i_color;
     out.shadow_color = in.i_shadow_color;
     out.effect_params = in.i_effect_params;
-    out.effect_kind = in.i_effect_flags.x;
+    out.effect_flags = in.i_effect_flags.x;
 
     return out;
 }
@@ -87,11 +86,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = vec4<f32>(0.0);
     let base_sample = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    if in.effect_kind == TEXT_EFFECT_NONE {
+    if in.effect_flags == 0u {
         color = in.color * base_sample;
     } else {
         let fill_cov = base_sample.a;
-        if in.effect_kind == TEXT_EFFECT_SHADOW {
+        if (in.effect_flags & TEXT_EFFECT_SHADOW) != 0u {
             let shadow_uv = in.uv - in.effect_params.xy;
             let shadow_cov = textureSampleLevel(sprite_texture, sprite_sampler, shadow_uv, 0.0).a;
             color = composite_text_layers(
