@@ -1437,7 +1437,7 @@ pub fn process_remote_trigger_event_request(
     })
 }
 
-/// Handles a `world.trigger_event` request coming from a client.
+/// Handles a `world.write_message` request coming from a client.
 pub fn process_remote_write_message_request(
     In(params): In<Option<Value>>,
     world: &mut World,
