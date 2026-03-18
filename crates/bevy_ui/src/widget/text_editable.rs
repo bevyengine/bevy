@@ -301,6 +301,7 @@ pub fn update_editable_text_layout(
             let layout = driver.layout();
 
             info.scale_factor = layout.scale();
+            info.uses_text_effect_padding = false;
             info.size = (
                 layout.width() / layout.scale(),
                 layout.height() / layout.scale(),
@@ -329,6 +330,7 @@ pub fn update_editable_text_layout(
                                 variations_hash: FixedHasher.hash_one(coords),
                                 hinting: *hinting,
                                 font_smoothing: brush.font_smoothing,
+                                text_effect_padding: false,
                             };
 
                             for glyph in glyph_run.positioned_glyphs() {
@@ -359,6 +361,7 @@ pub fn update_editable_text_layout(
                                         &mut scaler,
                                         text_font.font_smoothing,
                                         glyph.id as u16,
+                                        false,
                                     )
                                 }) else {
                                     continue;

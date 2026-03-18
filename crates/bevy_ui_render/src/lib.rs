@@ -25,7 +25,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
-use bevy_sprite_render::{ExtractedTextEffect, ExtractedTextEffectKind, SpriteAssetEvents};
+use bevy_sprite_render::{ExtractedTextEffect, ExtractedTextEffectFlags, SpriteAssetEvents};
 use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
@@ -1773,9 +1773,14 @@ pub fn prepare_uinodes(
                             let color = glyph.color.to_f32_array();
                             let glyph_rect = glyph.rect;
                             let rect_size = glyph_rect.size();
-                            let effect_flags = match glyph.effect.kind {
-                                ExtractedTextEffectKind::None => 0,
-                                ExtractedTextEffectKind::Shadow => shader_flags::TEXT_EFFECT_SHADOW,
+                            let effect_flags = if glyph
+                                .effect
+                                .flags
+                                .contains(ExtractedTextEffectFlags::SHADOW)
+                            {
+                                shader_flags::TEXT_EFFECT_SHADOW
+                            } else {
+                                0
                             };
                             let shadow_color = glyph.effect.shadow_color.to_f32_array();
                             let mut effect_params = glyph.effect.params;
