@@ -14,7 +14,8 @@ use bevy::{
     ecs::hierarchy::ChildOf,
     remote::{
         builtin_methods::{
-            BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD,
+            BrpQuery, BrpQueryFilter, BrpQueryParams, BrpWriteMessageParams, ComponentSelector,
+            BRP_QUERY_METHOD, BRP_WRITE_MESSAGE_METHOD,
         },
         http::{DEFAULT_ADDR, DEFAULT_PORT},
         BrpRequest,
@@ -39,6 +40,10 @@ fn main() -> AnyhowResult<()> {
     // This request will return all entities in the app, their components, and their
     // component values.
     run_query_all_components_and_entities(&url)?;
+
+    // Send an `AppExit::Success` message to the app to the remote Bevy app.
+    // This will make it quit.
+    send_app_exit(&url)?;
 
     Ok(())
 }
@@ -117,6 +122,27 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
     println!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
+        .body_mut()
+        .read_json::<serde_json::Value>()?;
+    println!("{res:#}");
+    Ok(())
+}
+
+fn send_app_exit(url: &str) -> Result<(), anyhow::Error> {
+    let write_message_request = BrpRequest {
+        method: String::from(BRP_WRITE_MESSAGE_METHOD),
+        id: Some(serde_json::to_value(1)?),
+        params: Some(
+            serde_json::to_value(BrpWriteMessageParams {
+                message: "bevy_app::app::AppExit".to_string(),
+                value: Some("Success".into()),
+            })
+            .expect("Unable to convert write message parameters to a valid JSON value"),
+        ),
+    };
+    println!("write message request: {write_message_request:#?}");
+    let res = ureq::post(url)
+        .send_json(write_message_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
     println!("{res:#}");
