@@ -297,7 +297,8 @@ struct SlabAllocation {
     allocation: Allocation,
     /// The number of slots that this allocation takes up.
     slot_count: u32,
-    /// The number of padding elements that this allocation takes up.
+    /// The number of elements at the end that are padding.
+    /// This can happen when the size of each element is fewer than 4 bytes.
     padding_elem_count: u32,
 }
 
