@@ -78,7 +78,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             bounce_was_perfect_reflection = next_bounce.perfectly_specular_bounce;
 
             // Update throughput for next bounce
-            let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
+            let brdf = evaluate_brdf(wo, next_bounce.wi, ray_hit.world_normal, ray_hit.material);
             throughput *= brdf / next_bounce.pdf;
 
             // Russian roulette for early termination

@@ -57,8 +57,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
     }
 
-    let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
-        surface.material.reflectance, surface.material.perceptual_roughness, surface.material.roughness);
+    let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
     radiance *= brdf * view.exposure;
 
     var pixel_color = textureLoad(view_output, global_id.xy);
@@ -132,7 +131,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         } else if !surface_perfect_mirror {
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
-            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+            let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material);
             let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
             radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
@@ -144,7 +143,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-        let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
+        let brdf = evaluate_brdf(wo, wi, N, ray_hit.material);
         throughput *= brdf / p_bounce;
 
         // Path spread increase
