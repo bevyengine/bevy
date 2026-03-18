@@ -28,7 +28,9 @@ use crate::{
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
 pub trait SystemExecutor: Send + Sync {
+    /// Called once after the schedule is built or rebuilt.
     fn init(&mut self, schedule: &SystemSchedule);
+    /// Runs the systems in the schedule.
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
@@ -36,6 +38,7 @@ pub trait SystemExecutor: Send + Sync {
         skip_systems: Option<&FixedBitSet>,
         error_handler: fn(BevyError, ErrorContext),
     );
+    /// Sets whether deferred system buffers should be applied after all systems have run.
     fn set_apply_final_deferred(&mut self, value: bool);
 }
 
