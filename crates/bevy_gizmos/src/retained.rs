@@ -61,7 +61,7 @@ impl DerefMut for GizmoAsset {
 /// ```
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[require(Transform)]
 pub struct Gizmo {
@@ -82,4 +82,14 @@ pub struct Gizmo {
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
     /// You would set this value to a negative number close to 0.
     pub depth_bias: f32,
+}
+
+impl Default for Gizmo {
+    fn default() -> Self {
+        Self {
+            handle: Handle::default(),
+            line_config: Default::default(),
+            depth_bias: Default::default(),
+        }
+    }
 }

@@ -928,9 +928,15 @@ pub struct RenderWireframeMaterial {
     pub topology: WireframeTopology,
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
+
+impl Default for Mesh3dWireframe {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
 
 impl AsAssetId for Mesh3dWireframe {
     type Asset = WireframeMaterial;

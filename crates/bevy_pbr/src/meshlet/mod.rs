@@ -224,7 +224,7 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
 }
 
 /// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<MeshletMesh3d>)]
@@ -239,6 +239,12 @@ impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
 impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
     fn from(mesh: &MeshletMesh3d) -> Self {
         mesh.id()
+    }
+}
+
+impl Default for MeshletMesh3d {
+    fn default() -> Self {
+        MeshletMesh3d(Handle::default())
     }
 }
 

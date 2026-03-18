@@ -64,7 +64,7 @@ impl RenderPipelineDescriptor {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -76,8 +76,19 @@ pub struct VertexState {
     pub buffers: Vec<VertexBufferLayout>,
 }
 
+impl Default for VertexState {
+    fn default() -> Self {
+        Self {
+            shader: Handle::default(),
+            shader_defs: Default::default(),
+            entry_point: Default::default(),
+            buffers: Default::default(),
+        }
+    }
+}
+
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -89,6 +100,17 @@ pub struct FragmentState {
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl Default for FragmentState {
+    fn default() -> Self {
+        Self {
+            shader: Handle::default(),
+            shader_defs: Default::default(),
+            entry_point: Default::default(),
+            targets: Default::default(),
+        }
+    }
+}
+
 impl FragmentState {
     pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
         filling_set_at(&mut self.targets, index, None, Some(target));
@@ -96,7 +118,7 @@ impl FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayoutDescriptor>,
@@ -110,6 +132,20 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+impl Default for ComputePipelineDescriptor {
+    fn default() -> Self {
+        Self {
+            shader: Handle::default(),
+            label: Default::default(),
+            layout: Default::default(),
+            immediate_size: Default::default(),
+            shader_defs: Default::default(),
+            entry_point: Default::default(),
+            zero_initialize_workgroup_memory: Default::default(),
+        }
+    }
 }
 
 // utility function to set a value at the specified index, extending with

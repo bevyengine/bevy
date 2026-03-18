@@ -51,7 +51,7 @@ use core::any::TypeId;
 /// # use bevy_text::{Font, FontSize, Justify, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_sprite::Text2d;
 /// #
-/// # let font_handle: Handle<Font> = Default::default();
+/// # let font_handle: Handle<Font> = Handle::default();
 /// # let mut world = World::default();
 /// #
 /// // Basic usage.

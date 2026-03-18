@@ -10,12 +10,21 @@ use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 use thiserror::Error;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]
     pub joints: Vec<Entity>,
+}
+
+impl Default for SkinnedMesh {
+    fn default() -> Self {
+        Self {
+            inverse_bindposes: Handle::default(),
+            joints: Default::default(),
+        }
+    }
 }
 
 impl AsAssetId for SkinnedMesh {

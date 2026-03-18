@@ -1,9 +1,11 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath,
+    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
     ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_ecs::template::{GetTemplate, Template, TemplateContext};
+use bevy_platform::collections::Equivalent;
+use bevy_reflect::{Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -128,7 +130,7 @@ impl core::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Default, Debug, Hash, PartialEq, Clone, Handle)]
+#[reflect(Debug, Hash, PartialEq, Clone, Handle)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -148,6 +150,13 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "This exists to be parallel to Default::default()"
+    )]
+    pub fn default() -> Self {
+        Handle::Uuid(AssetId::<A>::DEFAULT_UUID, PhantomData)
+    }
     /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
@@ -190,12 +199,46 @@ impl<A: Asset> Handle<A> {
     }
 }
 
-impl<A: Asset> Default for Handle<A> {
+impl<T: Asset> GetTemplate for Handle<T> {
+    type Template = HandleTemplate<T>;
+}
+
+pub struct HandleTemplate<T> {
+    path: AssetPath<'static>,
+    marker: PhantomData<T>,
+}
+
+impl<T> Default for HandleTemplate<T> {
     fn default() -> Self {
-        Handle::Uuid(AssetId::<A>::DEFAULT_UUID, PhantomData)
+        Self {
+            path: Default::default(),
+            marker: Default::default(),
+        }
     }
 }
 
+impl<I: Into<AssetPath<'static>>, T> From<I> for HandleTemplate<T> {
+    fn from(value: I) -> Self {
+        Self {
+            path: value.into(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<T: Asset> Template for HandleTemplate<T> {
+    type Output = Handle<T>;
+    fn build_template(&self, context: &mut TemplateContext) -> bevy_ecs::error::Result<Handle<T>> {
+        Ok(context.resource::<AssetServer>().load(&self.path))
+    }
+
+    fn clone_template(&self) -> Self {
+        HandleTemplate {
+            path: self.path.clone(),
+            marker: PhantomData,
+        }
+    }
+}
 impl<A: Asset> core::fmt::Debug for Handle<A> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = ShortName::of::<A>();
@@ -216,6 +259,13 @@ impl<A: Asset> Hash for Handle<A> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id().hash(state);
+    }
+}
+
+// Handle uses AssetId when hashing. This enables using AssetId instead of handle with hashsets and hashmaps.
+impl<T: Asset> Equivalent<Handle<T>> for AssetId<T> {
+    fn equivalent(&self, key: &Handle<T>) -> bool {
+        *self == key.id()
     }
 }
 

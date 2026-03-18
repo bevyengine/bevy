@@ -13,7 +13,7 @@ use crate::{Anchor, SpriteImageMode};
 /// Mesh backend instead of the Sprite backend.
 ///
 /// The only API difference is the added [`alpha mode`](SpriteMesh::alpha_mode).
-#[derive(Component, Debug, Default, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SpriteMesh {
@@ -42,6 +42,22 @@ pub struct SpriteMesh {
     /// If you wish to render a sprite with translucent pixels,
     /// set it to `Blend` instead (significantly worse for performance).
     pub alpha_mode: SpriteAlphaMode,
+}
+
+impl Default for SpriteMesh {
+    fn default() -> Self {
+        Self {
+            image: Handle::default(),
+            texture_atlas: Default::default(),
+            color: Default::default(),
+            flip_x: Default::default(),
+            flip_y: Default::default(),
+            custom_size: Default::default(),
+            rect: Default::default(),
+            image_mode: Default::default(),
+            alpha_mode: Default::default(),
+        }
+    }
 }
 
 impl core::hash::Hash for SpriteMesh {

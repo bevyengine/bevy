@@ -8,7 +8,7 @@ use bevy_math::URect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A custom cursor created from an image.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -44,6 +44,19 @@ pub struct CustomCursorImage {
     /// to adjust this field to account for the flip because it is adjusted
     /// automatically.
     pub hotspot: (u16, u16),
+}
+
+impl Default for CustomCursorImage {
+    fn default() -> Self {
+        Self {
+            handle: Handle::default(),
+            texture_atlas: Default::default(),
+            flip_x: Default::default(),
+            flip_y: Default::default(),
+            rect: Default::default(),
+            hotspot: Default::default(),
+        }
+    }
 }
 
 /// A custom cursor created from a URL. Note that this currently only works on the web.

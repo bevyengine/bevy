@@ -7,7 +7,6 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::extract_component::ExtractComponent;
-use bevy_utils::default;
 
 /// Component that enables auto exposure for an HDR-enabled 2d or 3d camera.
 ///
@@ -98,8 +97,8 @@ impl Default for AutoExposure {
             speed_brighten: 3.0,
             speed_darken: 1.0,
             exponential_transition_distance: 1.5,
-            metering_mask: default(),
-            compensation_curve: default(),
+            metering_mask: Handle::default(),
+            compensation_curve: Handle::default(),
         }
     }
 }

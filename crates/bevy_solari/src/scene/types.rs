@@ -15,7 +15,13 @@ use derive_more::derive::From;
 /// and use [`bevy_mesh::Indices::U32`].
 ///
 /// The material used for this entity must be [`MeshMaterial3d<StandardMaterial>`].
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(MeshMaterial3d<StandardMaterial>, Transform, SyncToRenderWorld)]
 pub struct RaytracingMesh3d(pub Handle<Mesh>);
+
+impl Default for RaytracingMesh3d {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
