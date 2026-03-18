@@ -385,10 +385,10 @@ Example | Description
 [Anchored Text Gizmos](../examples/gizmos/anchored_text_gizmos.rs) | Demonstrates anchored text gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+[Retained Gizmos](../examples/gizmos/retained_gizmos.rs) | A scene showcasing retained gizmos
 [Text Gizmos 2d](../examples/gizmos/2d_text_gizmos.rs) | A scene showcasing 2d text gizmos
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
-[Retained Gizmos](../examples/gizmos/retained_gizmos.rs) | A scene showcasing retained gizmos
 
 ### Helpers
 
