@@ -679,10 +679,13 @@ mod tests {
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let scene = DynamicSceneBuilder::from_world(&world)
-            .extract_entities([a, b, c, d].into_iter())
-            .extract_resources()
-            .build();
+        let scene = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicSceneBuilder::from_world(&world, &type_registry)
+                .extract_entities([a, b, c, d].into_iter())
+                .extract_resources()
+                .build()
+        };
 
         let expected = r#"(
   resources: {
