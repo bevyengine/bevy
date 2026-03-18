@@ -10,7 +10,7 @@ use bevy_asset::{Assets, Handle};
 
 use bevy_image::TextureAtlasLayout;
 use bevy_math::{primitives::Rectangle, vec2};
-use bevy_mesh::{Mesh, Mesh2d};
+use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshBuilder, Meshable};
 
 use bevy_platform::collections::HashMap;
 use bevy_sprite::{prelude::SpriteMesh, Anchor};
@@ -39,7 +39,19 @@ fn add_mesh(
     mut commands: Commands,
 ) {
     if quad.is_none() {
-        *quad = Some(meshes.add(Rectangle::from_size(vec2(1.0, 1.0))));
+        *quad = Some(
+            meshes.add(
+                Rectangle::from_size(vec2(1.0, 1.0))
+                    .mesh()
+                    .build()
+                    .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
+                    .compressed_mesh(
+                        MeshAttributeCompressionFlags::COMPRESS_POSITION
+                            | MeshAttributeCompressionFlags::COMPRESS_UV0,
+                        true,
+                    ),
+            ),
+        );
     }
     for entity in sprites {
         if let Some(quad) = quad.clone() {

@@ -62,6 +62,7 @@ pub struct Mesh2dRenderPlugin;
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_shader_library!(app, "mesh2d_vertex_output.wgsl");
+        load_shader_library!(app, "mesh2d_vertex_input.wgsl");
         load_shader_library!(app, "mesh2d_view_types.wgsl");
         load_shader_library!(app, "mesh2d_view_bindings.wgsl");
         load_shader_library!(app, "mesh2d_types.wgsl");
