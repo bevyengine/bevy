@@ -1183,8 +1183,9 @@ impl Measured2d for Rhombus {
     }
 }
 
-/// An unbounded plane in 2D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+/// An unbounded plane in 2D space, defined by a normal and a signed offset from the origin.
+///
+/// The plane consists of all points `p` such that `dot(normal, p) + offset == 0`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1197,30 +1198,125 @@ impl Measured2d for Rhombus {
     reflect(Serialize, Deserialize)
 )]
 pub struct Plane2d {
-    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    /// The normal of the plane. The plane will be placed perpendicular to this direction.
     pub normal: Dir2,
+    /// The signed offset from the origin along the normal.
+    pub offset: f32,
 }
 
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
-    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction through the origin.
     fn default() -> Self {
-        Self { normal: Dir2::Y }
+        Self {
+            normal: Dir2::Y,
+            offset: 0.0,
+        }
     }
 }
 
 impl Plane2d {
-    /// Create a new `Plane2d` from a normal
+    /// Create a new `Plane2d` from a normal direction and a signed offset from the origin.
+    #[inline]
+    pub const fn new(normal: Dir2, offset: f32) -> Self {
+        Self { normal, offset }
+    }
+
+    /// Creates a new [`Plane2d`] from a point on the plane and an outward facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec2, normal: Dir2) -> Self {
+        let offset = -normal.dot(point);
+        Self::new(normal, offset)
+    }
+
+    /// Creates a new [`Plane2d`] from the coefficients of the plane equation `ax + by + c = 0`.
+    ///
+    /// The normal vector `(a, b)` must be of unit length.
     ///
     /// # Panics
     ///
-    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    /// Panics if the normal vector `(a, b)` is not of unit length when debug assertions are enabled.
     #[inline]
-    pub fn new(normal: Vec2) -> Self {
+    pub fn from_coefficients(a: f32, b: f32, c: f32) -> Self {
+        debug_assert!(
+            (a * a + b * b - 1.0).abs() < 1e-6,
+            "The normal vector (a, b) must be of unit length."
+        );
+
         Self {
-            normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir2::from_xy_unchecked(a, b),
+            offset: c,
         }
+    }
+
+    /// Tries to create a new [`Plane2d`] from the coefficients of the plane equation `ax + by + c = 0`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the normal vector `(a, b)` is not of unit length.
+    #[inline]
+    pub fn try_from_coefficients(a: f32, b: f32, c: f32) -> Result<Self, InvalidDirectionError> {
+        let normal = Dir2::new(Vec2::new(a, b))?;
+        Ok(Self {
+            normal,
+            offset: c,
+        })
+    }
+
+    /// Computes the signed distance from the plane to a point.
+    #[inline]
+    pub fn signed_distance_to_point(&self, point: Vec2) -> f32 {
+        self.normal.dot(point) + self.offset
+    }
+
+    /// Projects a point onto the plane along the plane's normal.
+    #[inline]
+    pub fn project_point(&self, point: Vec2) -> Vec2 {
+        point - *self.normal * self.signed_distance_to_point(point)
+    }
+}
+
+/// A region of 2D space bounded by a line (the 2D analog of a half-space).
+///
+/// Any point `p` is considered to be within the `HalfSpace2d` when
+/// `normal.dot(p) + offset > 0.` is satisfied.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, Default, PartialEq)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct HalfSpace2d(pub Plane2d);
+
+impl HalfSpace2d {
+    /// Creates a new `HalfSpace2d` from a normal direction and offset.
+    #[inline]
+    pub const fn new(normal: Dir2, offset: f32) -> Self {
+        Self(Plane2d::new(normal, offset))
+    }
+
+    /// Creates a new `HalfSpace2d` from a point on the boundary and an inward-facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec2, normal: Dir2) -> Self {
+        Self(Plane2d::from_point_and_normal(point, normal))
+    }
+
+    /// Returns the underlying [`Plane2d`].
+    #[inline]
+    pub fn plane(&self) -> &Plane2d {
+        &self.0
+    }
+
+    /// Returns `true` if the point is inside the half-space (on the normal side of the boundary).
+    #[inline]
+    pub fn contains(&self, point: Vec2) -> bool {
+        self.0.signed_distance_to_point(point) > 0.0
     }
 }
 

@@ -31,10 +31,10 @@ impl Bounded3d for InfinitePlane3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();
 
-        let normal = isometry.rotation * *self.normal;
-        let facing_x = normal == Vec3::X || normal == Vec3::NEG_X;
-        let facing_y = normal == Vec3::Y || normal == Vec3::NEG_Y;
-        let facing_z = normal == Vec3::Z || normal == Vec3::NEG_Z;
+        let normal = isometry.rotation * self.normal().as_vec3a();
+        let facing_x = normal == Vec3A::X || normal == Vec3A::NEG_X;
+        let facing_y = normal == Vec3A::Y || normal == Vec3A::NEG_Y;
+        let facing_z = normal == Vec3A::Z || normal == Vec3A::NEG_Z;
 
         // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
@@ -375,7 +375,7 @@ mod tests {
             Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
             Segment3d, Sphere, Torus, Triangle3d,
         },
-        Dir3,
+        Dir3, Dir3A,
     };
 
     #[test]
@@ -396,23 +396,24 @@ mod tests {
     fn plane() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
-        let aabb1 = InfinitePlane3d::new(Vec3::X).aabb_3d(translation);
+        let aabb1 = InfinitePlane3d::new(Dir3A::X, 0.0).aabb_3d(translation);
         assert_eq!(aabb1.min, Vec3A::new(2.0, -f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec3A::new(2.0, f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let aabb2 = InfinitePlane3d::new(Vec3::Y).aabb_3d(translation);
+        let aabb2 = InfinitePlane3d::new(Dir3A::Y, 0.0).aabb_3d(translation);
         assert_eq!(aabb2.min, Vec3A::new(-f32::MAX / 2.0, 1.0, -f32::MAX / 2.0));
         assert_eq!(aabb2.max, Vec3A::new(f32::MAX / 2.0, 1.0, f32::MAX / 2.0));
 
-        let aabb3 = InfinitePlane3d::new(Vec3::Z).aabb_3d(translation);
+        let aabb3 = InfinitePlane3d::new(Dir3A::Z, 0.0).aabb_3d(translation);
         assert_eq!(aabb3.min, Vec3A::new(-f32::MAX / 2.0, -f32::MAX / 2.0, 0.0));
         assert_eq!(aabb3.max, Vec3A::new(f32::MAX / 2.0, f32::MAX / 2.0, 0.0));
 
-        let aabb4 = InfinitePlane3d::new(Vec3::ONE).aabb_3d(translation);
+        let aabb4 =
+            InfinitePlane3d::new(Dir3A::from_xyz(1.0, 1.0, 1.0).unwrap(), 0.0).aabb_3d(translation);
         assert_eq!(aabb4.min, Vec3A::splat(-f32::MAX / 2.0));
         assert_eq!(aabb4.max, Vec3A::splat(f32::MAX / 2.0));
 
-        let bounding_sphere = InfinitePlane3d::new(Vec3::Y).bounding_sphere(translation);
+        let bounding_sphere = InfinitePlane3d::new(Dir3A::Y, 0.0).bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
     }

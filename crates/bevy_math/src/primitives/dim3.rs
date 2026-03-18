@@ -3,8 +3,9 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
-    Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
+    Dir3, Dir3A, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3, Vec3A, Vec4, Vec4Swizzles,
 };
+use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -14,6 +15,11 @@ use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+
+/// Error returned when trying to create a plane with a non-unit length normal.
+#[derive(Error, Debug, PartialEq)]
+#[error("The normal vector must be of unit length.")]
+pub struct UnnormalizedNormalError;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -185,8 +191,9 @@ impl Measured2d for Plane3d {
     reflect(Serialize, Deserialize)
 )]
 pub struct InfinitePlane3d {
-    /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Dir3,
+    /// Creates a new [`Plane3d`] from an outward facing normal and a signed offset from the origin.
+    // pub normal: Dir3,
+    normal_d: Vec4,
 }
 
 impl Primitive3d for InfinitePlane3d {}
@@ -194,7 +201,7 @@ impl Primitive3d for InfinitePlane3d {}
 impl Default for InfinitePlane3d {
     /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self { normal: Dir3::Y }
+        Self { normal_d: Vec4::Y }
     }
 }
 
@@ -205,56 +212,126 @@ impl InfinitePlane3d {
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline]
-    pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
-    where
-        <T as TryInto<Dir3>>::Error: core::fmt::Debug,
-    {
+    pub fn new(normal: Dir3A, offset: f32) -> Self {
         Self {
-            normal: normal
-                .try_into()
-                .expect("normal must be nonzero and finite"),
+            normal_d: normal.extend(offset),
         }
     }
 
-    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
-    /// of those points.
-    ///
-    /// The direction of the plane normal is determined by the winding order
-    /// of the triangular shape formed by the points.
+    /// Creates a new [`Plane3d`] from a `Vec4` where the `x`, `y`, and `z` components represent the normal
+    /// and the `w` component represents the offset.
     ///
     /// # Panics
     ///
-    /// Panics if a valid normal can not be computed, for example when the points
-    /// are *collinear* and lie on the same line.
+    /// Panics if the normal vector `(x, y, z)` is not of unit length when debug assertions are enabled.
     #[inline]
-    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Dir3::new((b - a).cross(c - a)).expect(
-            "infinite plane must be defined by three finite points that don't lie on the same line",
+    pub fn from_vec4(normal_offset: Vec4) -> Self {
+        Self::from_coefficients(
+            normal_offset.x,
+            normal_offset.y,
+            normal_offset.z,
+            normal_offset.w,
+        )
+    }
+
+    /// Tries to create a new [`Plane3d`] from a `Vec4` where the `x`, `y`, and `z` components represent the normal
+    /// and the `w` component represents the offset.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`UnnormalizedNormalError`] if the normal vector `(x, y, z)` is not of unit length.
+    #[inline]
+    pub fn try_from_vec4(normal_offset: Vec4) -> Result<Self, UnnormalizedNormalError> {
+        Self::try_from_coefficients(
+            normal_offset.x,
+            normal_offset.y,
+            normal_offset.z,
+            normal_offset.w,
+        )
+    }
+
+    /// Creates a new [`Plane3d`] from a point on the plane and an outward facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec3A, normal: Dir3A) -> Self {
+        let offset = -normal.dot(point);
+        Self::new(normal, offset)
+    }
+
+    /// Creates a new [`Plane3d`] from the coefficients of the plane equation `ax + by + cz + d = 0`.
+    ///
+    /// The normal vector `(a, b, c)` must be of unit length.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the normal vector `(a, b, c)` is not of unit length when debug assertions are enabled.
+    #[inline]
+    pub const fn from_coefficients(a: f32, b: f32, c: f32, d: f32) -> Self {
+        debug_assert!(
+            (a * a + b * b + c * c - 1.0).abs() < 1e-6,
+            "The normal vector (a, b, c) must be of unit length."
         );
-        let translation = (a + b + c) / 3.0;
 
-        (Self { normal }, translation)
+        Self {
+            normal_d: Vec4::new(a, b, c, d),
+        }
     }
 
-    /// Computes the shortest distance between a plane transformed with the given `isometry` and a
-    /// `point`. The result is a signed value; it's positive if the point lies in the half-space
-    /// that the plane's normal vector points towards.
-    #[inline]
-    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
-        let isometry = isometry.into();
-        self.normal.dot(isometry.inverse() * point)
-    }
-
-    /// Injects the `point` into this plane transformed with the given `isometry`.
+    /// Tries to create a new [`Plane3d`] from the coefficients of the plane equation `ax + by + cz + d = 0`.
     ///
-    /// This projects the point orthogonally along the shortest path onto the plane.
+    /// The normal vector `(a, b, c)` must be of unit length.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`UnnormalizedNormalError`] if the normal vector `(a, b, c)` is not of unit length.
     #[inline]
-    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
-        point - self.normal * self.signed_distance(isometry, point)
+    pub const fn try_from_coefficients(
+        a: f32,
+        b: f32,
+        c: f32,
+        d: f32,
+    ) -> Result<Self, UnnormalizedNormalError> {
+        let len_sq = a * a + b * b + c * c;
+        if (len_sq - 1.0).abs() >= 1e-6 {
+            return Err(UnnormalizedNormalError);
+        }
+
+        Ok(Self {
+            normal_d: Vec4::new(a, b, c, d),
+        })
     }
 
-    /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space with the given
-    /// `origin` to the XY-plane.
+    /// Returns the outward facing normal of the plane.
+    #[inline]
+    pub fn normal(&self) -> Dir3A {
+        Dir3A::new_unchecked(Vec3A::from_vec4(self.normal_d))
+    }
+
+    /// Returns the signed offset from the origin.
+    #[inline]
+    pub fn offset(&self) -> f32 {
+        self.normal_d.w
+    }
+
+    /// Returns the normal vector and signed offset as a `Vec4`.
+    #[inline]
+    pub const fn as_vec4(&self) -> Vec4 {
+        self.normal_d
+    }
+
+    /// Computes the signed distance from the plane to a point.
+    #[inline]
+    pub fn signed_distance_to_point(&self, point: Vec3A) -> f32 {
+        self.normal_d.dot(point.extend(1.0))
+    }
+
+    /// Projects a point onto the plane along the plane's normal.
+    #[inline]
+    pub fn project_point(&self, point: Vec3A) -> Vec3A {
+        point - self.normal() * self.signed_distance_to_point(point)
+    }
+
+    /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space
+    /// to the XY-plane.
     ///
     /// ## Guarantees
     ///
@@ -278,61 +355,39 @@ impl InfinitePlane3d {
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
     #[inline]
-    pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
-        let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
-        let transformed_origin = rotation * origin;
-        Isometry3d::new(-Vec3::Z * transformed_origin.z, rotation)
+    pub fn isometry_into_xy(&self) -> Isometry3d {
+        let normal_vec3 = Vec3::from(self.normal().as_vec3a());
+        let rotation = Quat::from_rotation_arc(normal_vec3, Vec3::Z);
+        // Closest point on the plane to the world origin
+        let point_on_plane = -self.offset() * normal_vec3;
+        let transformed = rotation * point_on_plane;
+        Isometry3d::new(-Vec3::Z * transformed.z, rotation)
     }
 
-    /// Computes an [`Isometry3d`] which transforms points from the XY-plane to this plane with the
-    /// given `origin`.
-    ///
-    /// ## Guarantees
-    ///
-    /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
-    ///   the transformed geometry
-    /// * uses the least rotation possible to transform the geometry
-    /// * if two geometries are transformed with the same isometry, then the relations between
-    ///   them, like distances, are also preserved
-    /// * compared to projections, the transformation is lossless (up to floating point errors)
-    ///   reversible
-    ///
-    /// ## Non-Guarantees
-    ///
-    /// * the rotation used is generally not unique
-    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
-    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
-    ///   one
-    ///
-    /// See [`isometries_xy`] for example usescases.
-    ///
-    /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
-    /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
+    /// Computes an [`Isometry3d`] which transforms points from the XY-plane
+    /// to this plane.
     #[inline]
-    pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
-        self.isometry_into_xy(origin).inverse()
+    pub fn isometry_from_xy(&self) -> Isometry3d {
+        self.isometry_into_xy().inverse()
     }
 
-    /// Computes both [isometries] which transforms points from the plane in 3D space with the
-    /// given `origin` to the XY-plane and back.
-    ///
-    /// [isometries]: `Isometry3d`
+    /// Computes both isometries: from the plane to XY and from XY back to the plane.
     ///
     /// # Example
     ///
-    /// The projection and its inverse can be used to run 2D algorithms on flat shapes in 3D. The
-    /// workflow would usually look like this:
-    ///
     /// ```
-    /// # use bevy_math::{Vec3, Dir3};
+    /// # use bevy_math::{Vec3, Vec3A, Dir3A};
     /// # use bevy_math::primitives::InfinitePlane3d;
     ///
     /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
     /// let center = (a + b + c) / 3.0;
     ///
-    /// let plane = InfinitePlane3d::new(Vec3::ONE);
+    /// let plane = InfinitePlane3d::from_point_and_normal(
+    ///     Vec3A::from(center),
+    ///     Dir3A::from_xyz(1.0, 1.0, 1.0).unwrap(),
+    /// );
     ///
-    /// let (to_xy, from_xy) = plane.isometries_xy(center);
+    /// let (to_xy, from_xy) = plane.isometries_xy();
     ///
     /// let triangle_2d = triangle_3d.map(|vec3| to_xy * vec3).map(|vec3| vec3.truncate());
     ///
@@ -341,11 +396,110 @@ impl InfinitePlane3d {
     /// let triangle_3d = triangle_2d.map(|vec2| vec2.extend(0.0)).map(|vec3| from_xy * vec3);
     /// ```
     #[inline]
-    pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
-        let projection = self.isometry_into_xy(origin);
+    pub fn isometries_xy(&self) -> (Isometry3d, Isometry3d) {
+        let projection = self.isometry_into_xy();
         (projection, projection.inverse())
     }
 }
+
+/// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+///
+/// This bisecting plane partitions 3D space into two infinite regions,
+/// the half-space is one of those regions and excludes the bisecting plane.
+///
+/// Each instance of this type is characterized by:
+/// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
+/// - the signed distance along the normal from the bisecting plane to the origin of 3D space.
+///
+/// Any point `p` is considered to be within the `HalfSpace3d` when
+/// `normal.dot(p) + distance > 0.` is satisfied.
+///
+/// It is used to define a [`ViewFrustum`](crate::primitives::ViewFrustum),
+/// but is also a useful mathematical primitive for rendering tasks such as light computation.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, Default, PartialEq)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct HalfSpace3d(InfinitePlane3d);
+
+impl HalfSpace3d {
+    /// Constructs a `HalfSpace3d` from a 4D vector whose first 3 components
+    /// represent the bisecting plane's unit normal, and the last component is
+    /// the signed distance along the normal from the plane to the origin.
+    /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
+    #[inline]
+    pub fn new(normal_d: Vec4) -> Self {
+        let normalized = normal_d * normal_d.xyz().length_recip();
+        Self(InfinitePlane3d { normal_d: normalized })
+    }
+
+    /// Returns the unit normal vector of the bisecting plane.
+    #[inline]
+    pub fn normal(&self) -> Vec3A {
+        Vec3A::from_vec4(self.0.as_vec4())
+    }
+
+    /// Returns the signed distance from the bisecting plane to the origin.
+    #[inline]
+    pub fn d(&self) -> f32 {
+        self.0.offset()
+    }
+
+    /// Returns the bisecting plane's unit normal vector and the signed distance
+    /// from the plane to the origin as a `Vec4`.
+    #[inline]
+    pub fn normal_d(&self) -> Vec4 {
+        self.0.as_vec4()
+    }
+
+    /// Returns the underlying [`InfinitePlane3d`].
+    #[inline]
+    pub fn plane(&self) -> &InfinitePlane3d {
+        &self.0
+    }
+
+    /// Returns `true` if the point is inside the half-space (on the normal side of the plane).
+    #[inline]
+    pub fn contains(&self, point: Vec3A) -> bool {
+        self.0.signed_distance_to_point(point) > 0.0
+    }
+
+    /// Returns the intersection point if the three half-spaces all intersect at a single point.
+    #[inline]
+    pub fn intersection_point(a: HalfSpace3d, b: HalfSpace3d, c: HalfSpace3d) -> Option<Vec3> {
+        let an = a.normal();
+        let bn = b.normal();
+        let cn = c.normal();
+
+        let x = Vec3A::new(an.x, bn.x, cn.x);
+        let y = Vec3A::new(an.y, bn.y, cn.y);
+        let z = Vec3A::new(an.z, bn.z, cn.z);
+
+        let d = -Vec3A::new(a.d(), b.d(), c.d());
+
+        let u = y.cross(z);
+        let v = x.cross(d);
+
+        let denom = x.dot(u);
+
+        if ops::abs(denom) < f32::EPSILON {
+            return None;
+        }
+
+        Some(Vec3::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
+    }
+}
+
+/// Backward-compatible type alias for [`HalfSpace3d`].
+#[doc(alias = "HalfSpace3d")]
+pub type HalfSpace = HalfSpace3d;
 
 /// An infinite line going through the origin along a direction in 3D space.
 ///
@@ -1693,6 +1847,33 @@ mod tests {
     }
 
     #[test]
+    fn half_space_intersection_point() {
+        // Intersection of shifted xy, xz, and yz planes
+        let xy_at_z_3 = HalfSpace3d::new(Vec4::new(0., 0., -1., 3.));
+        let xz_at_y_2 = HalfSpace3d::new(Vec4::new(0., 1., 0., -2.));
+        let yz_at_x_1 = HalfSpace3d::new(Vec4::new(1., 0., 0., -1.));
+        assert_relative_eq!(
+            HalfSpace3d::intersection_point(xy_at_z_3, xz_at_y_2, yz_at_x_1).unwrap(),
+            Vec3::new(1., 2., 3.),
+            epsilon = 2e-7
+        );
+
+        // Three planes that do not simultaneously intersect
+        let xz_at_y_3 = HalfSpace3d::new(Vec4::new(0., 1., 0., -3.));
+        assert!(HalfSpace3d::intersection_point(xy_at_z_3, xz_at_y_2, xz_at_y_3).is_none());
+
+        // Three planes that intersect at a line
+        let other_xz_at_y_2 = HalfSpace3d::new(Vec4::new(0., -1., 0., 3.));
+        assert!(HalfSpace3d::intersection_point(xy_at_z_3, xz_at_y_2, other_xz_at_y_2).is_none());
+
+        // Three identical planes
+        assert!(HalfSpace3d::intersection_point(xz_at_y_2, xz_at_y_2, other_xz_at_y_2).is_none());
+
+        // ill-defined halfspace
+        let ill_defined = HalfSpace3d(InfinitePlane3d { normal_d: Vec4::new(0., 0., 0., f32::INFINITY) });
+        assert!(HalfSpace3d::intersection_point(xy_at_z_3, xz_at_y_2, ill_defined).is_none());
+    }
+    #[test]
     fn plane_from_points() {
         let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
@@ -1702,48 +1883,49 @@ mod tests {
 
     #[test]
     fn infinite_plane_math() {
-        let (plane, origin) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
-        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        let origin = (Vec3::X + Vec3::Z + Vec3::NEG_X) / 3.0;
+        let plane = InfinitePlane3d::from_point_and_normal(Vec3A::from(origin), Dir3A::NEG_Y);
+        assert_eq!(plane.normal().as_vec3a(), Vec3A::NEG_Y, "incorrect normal");
         assert_eq!(origin, Vec3::Z * 0.33333334, "incorrect translation");
 
         let point_in_plane = Vec3::X + Vec3::Z;
-        assert_eq!(
-            plane.signed_distance(origin, point_in_plane),
+        assert_relative_eq!(
+            plane.signed_distance_to_point(Vec3A::from(point_in_plane)),
             0.0,
-            "incorrect distance"
+            epsilon = 1e-6
         );
-        assert_eq!(
-            plane.project_point(origin, point_in_plane),
+        assert_relative_eq!(
+            Vec3::from(plane.project_point(Vec3A::from(point_in_plane))),
             point_in_plane,
-            "incorrect point"
+            epsilon = 1e-6
         );
 
         let point_outside = Vec3::Y;
-        assert_eq!(
-            plane.signed_distance(origin, point_outside),
+        assert_relative_eq!(
+            plane.signed_distance_to_point(Vec3A::from(point_outside)),
             -1.0,
-            "incorrect distance"
+            epsilon = 1e-6
         );
-        assert_eq!(
-            plane.project_point(origin, point_outside),
+        assert_relative_eq!(
+            Vec3::from(plane.project_point(Vec3A::from(point_outside))),
             Vec3::ZERO,
-            "incorrect point"
+            epsilon = 1e-6
         );
 
         let point_outside = Vec3::NEG_Y;
-        assert_eq!(
-            plane.signed_distance(origin, point_outside),
+        assert_relative_eq!(
+            plane.signed_distance_to_point(Vec3A::from(point_outside)),
             1.0,
-            "incorrect distance"
+            epsilon = 1e-6
         );
-        assert_eq!(
-            plane.project_point(origin, point_outside),
+        assert_relative_eq!(
+            Vec3::from(plane.project_point(Vec3A::from(point_outside))),
             Vec3::ZERO,
-            "incorrect point"
+            epsilon = 1e-6
         );
 
         let area_f = |[a, b, c]: [Vec3; 3]| (a - b).cross(a - c).length() * 0.5;
-        let (proj, inj) = plane.isometries_xy(origin);
+        let (proj, inj) = plane.isometries_xy();
 
         let triangle = [Vec3::X, Vec3::Y, Vec3::ZERO];
         assert_eq!(area_f(triangle), 0.5, "incorrect area");
