@@ -5,7 +5,7 @@ use bevy::{
     color::palettes::css::*,
     prelude::*,
 };
-use rand::Rng;
+use rand::RngExt;
 
 fn main() {
     App::new()
