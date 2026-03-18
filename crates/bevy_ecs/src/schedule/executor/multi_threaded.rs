@@ -16,8 +16,7 @@ use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
-        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
-        SystemWithAccess,
+        is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
     system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -149,10 +148,6 @@ impl Default for MultiThreadedExecutor {
 }
 
 impl SystemExecutor for MultiThreadedExecutor {
-    fn kind(&self) -> ExecutorKind {
-        ExecutorKind::MultiThreaded
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         let state = self.state.get_mut().unwrap();
         // pre-allocate space

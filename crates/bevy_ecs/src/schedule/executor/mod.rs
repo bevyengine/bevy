@@ -28,7 +28,6 @@ use crate::{
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
 pub trait SystemExecutor: Send + Sync {
-    fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
     fn run(
         &mut self,
@@ -61,32 +60,6 @@ pub fn default_executor() -> Box<dyn SystemExecutor> {
     {
         Box::new(SingleThreadedExecutor::new())
     }
-}
-
-/// Specifies how a [`Schedule`](super::Schedule) will be run.
-///
-/// The default depends on the target platform:
-///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on Wasm.
-///  - [`MultiThreaded`](ExecutorKind::MultiThreaded) everywhere else.
-#[derive(PartialEq, Eq, Default, Debug, Copy, Clone)]
-pub enum ExecutorKind {
-    /// Runs the schedule using a single thread.
-    ///
-    /// Useful if you're dealing with a single-threaded environment, saving your threads for
-    /// other things, or just trying minimize overhead.
-    #[cfg_attr(
-        any(
-            target_arch = "wasm32",
-            not(feature = "std"),
-            not(feature = "multi_threaded")
-        ),
-        default
-    )]
-    SingleThreaded,
-    /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[cfg(feature = "std")]
-    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
-    MultiThreaded,
 }
 
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
