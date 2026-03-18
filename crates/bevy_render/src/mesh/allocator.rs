@@ -494,6 +494,8 @@ impl MeshAllocator {
         for mesh_id in meshes_to_free {
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
+            #[cfg(feature = "morph")]
+            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget));
         }
 
         deallocation_stage.commit();
