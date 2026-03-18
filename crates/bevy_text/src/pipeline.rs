@@ -215,10 +215,6 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
-                    range.clone(),
-                );
-                builder.push(
                     StyleProperty::FontWeight(section.text_font.weight.into()),
                     range.clone(),
                 );
