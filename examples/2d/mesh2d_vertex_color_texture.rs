@@ -1,7 +1,7 @@
 //! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 
-use bevy::{mesh::MeshAttributeCompressionFlags, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -30,13 +30,7 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    let mesh_handle = meshes.add(
-        mesh.compressed_mesh(
-            MeshAttributeCompressionFlags::all()
-                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
-            true,
-        ),
-    );
+    let mesh_handle = meshes.add(mesh);
 
     commands.spawn(Camera2d);
 
