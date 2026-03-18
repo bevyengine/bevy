@@ -1693,25 +1693,27 @@ impl RenderGpuCulledEntities {
         self.changed_layers.clear();
     }
 
-    /// Records that an entity became newly-visible this frame.
+    /// Records that an entity became newly-visible or changed its set of layers
+    /// this frame.
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
-    pub fn add(&mut self, new_entity: MainEntity, render_layers: RenderLayers) {
-        self.added.push(new_entity);
-        self.entities.insert(new_entity, render_layers);
+    pub fn update(&mut self, new_entity: MainEntity, render_layers: RenderLayers) {
+        match self.entities.entry(new_entity) {
+            Entry::Occupied(mut occupied_entry) => {
+                occupied_entry.insert(render_layers);
+            }
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(render_layers);
+                self.added.push(new_entity);
+            }
+        }
     }
 
     /// Records that an entity became newly-invisible this frame.
     pub fn remove(&mut self, old_entity: MainEntity) {
         self.removed.push(old_entity);
         self.entities.remove(&old_entity);
-    }
-
-    /// Marks an entity has having changed the set of render layers that it
-    /// belongs to.
-    pub fn mark_as_changed_layers(&mut self, entity: MainEntity, new_render_layers: RenderLayers) {
-        self.entities.insert(entity, new_render_layers);
     }
 }
 
@@ -2598,12 +2600,14 @@ pub fn collect_meshes_for_gpu_building(
         if let Some(mesh_culling_data) = mesh_culling_builder {
             mesh_culling_data.update(&mut mesh_culling_data_buffer, instance_data_index);
         }
+        // If the instance is already visible, just update the layers.
+        // Otherwise, mark it as newly-added.
         let render_layers = render_mesh_instances
             .get(&entity)
             .and_then(|render_mesh_instance| render_mesh_instance.render_layers.as_ref())
             .cloned()
             .unwrap_or_else(RenderLayers::default);
-        render_gpu_culled_entities.add(entity, render_layers);
+        render_gpu_culled_entities.update(entity, render_layers);
     }
     while let Ok(batch) = removed_rx.recv() {
         let entity = batch;
