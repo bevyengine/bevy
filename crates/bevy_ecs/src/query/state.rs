@@ -173,7 +173,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     ///
-    /// Unlike [`QueryState::new`], this this does not check access of nested queries,
+    /// Unlike [`QueryState::new`], this does not check access of nested queries,
     /// so [`Self::init_access`] must be called before querying using this state or returning it to safe code.
     ///
     /// # Safety
