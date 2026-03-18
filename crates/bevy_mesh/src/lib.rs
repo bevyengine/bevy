@@ -84,7 +84,7 @@ impl BaseMeshPipelineKey {
 
     /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
     ///
-    /// For non-strip topologies, `strip_index_format` is ignored and it's always [`Self::STRIP_INDEX_FORMAT_NONE`].
+    /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
     pub fn from_primitive_topology_and_strip_index(
         primitive_topology: PrimitiveTopology,
         strip_index_format: Option<wgpu_types::IndexFormat>,
