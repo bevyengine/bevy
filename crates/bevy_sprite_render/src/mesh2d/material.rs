@@ -830,7 +830,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology_and_index(
+                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
                     mesh.primitive_topology(),
                     mesh.index_format(),
                 )

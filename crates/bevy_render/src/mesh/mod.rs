@@ -180,7 +180,7 @@ impl RenderAsset for RenderMesh {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let key_bits = BaseMeshPipelineKey::from_primitive_topology_and_index(
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology_and_strip_index(
             mesh.primitive_topology(),
             index_format,
         );

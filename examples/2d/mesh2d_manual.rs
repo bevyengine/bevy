@@ -417,7 +417,7 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_index(
+                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
                     mesh.primitive_topology(),
                     mesh.index_format(),
                 );

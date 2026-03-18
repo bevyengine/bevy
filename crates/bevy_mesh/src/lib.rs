@@ -48,10 +48,10 @@ bitflags! {
 
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
 
-        const INDEX_FORMAT_RESERVED_BITS = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
-        const INDEX_FORMAT_NONE = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const INDEX_FORMAT_U32  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const INDEX_FORMAT_U16  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_RESERVED_BITS = Self::STRIP_INDEX_FORMAT_MASK_BITS << Self::STRIP_INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_NONE = 0 << Self::STRIP_INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U32  = 1 << Self::STRIP_INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U16  = 2 << Self::STRIP_INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -78,20 +78,27 @@ impl BaseMeshPipelineKey {
     pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u64 =
         Self::MORPH_TARGETS_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones() as u64;
 
-    pub const INDEX_FORMAT_MASK_BITS: u64 = 0b11;
-    pub const INDEX_FORMAT_SHIFT_BITS: u64 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::INDEX_FORMAT_MASK_BITS.count_ones() as u64;
+    pub const STRIP_INDEX_FORMAT_MASK_BITS: u64 = 0b11;
+    pub const STRIP_INDEX_FORMAT_SHIFT_BITS: u64 = Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS
+        - Self::STRIP_INDEX_FORMAT_MASK_BITS.count_ones() as u64;
 
-    pub fn from_primitive_topology_and_index(
+    /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, `strip_index_format` is ignored and it's always [`Self::STRIP_INDEX_FORMAT_NONE`].
+    pub fn from_primitive_topology_and_strip_index(
         primitive_topology: PrimitiveTopology,
-        indices: Option<wgpu_types::IndexFormat>,
+        strip_index_format: Option<wgpu_types::IndexFormat>,
     ) -> Self {
-        let index_bits = match indices {
-            None => BaseMeshPipelineKey::INDEX_FORMAT_NONE,
-            Some(indices) => match indices {
-                wgpu_types::IndexFormat::Uint16 => BaseMeshPipelineKey::INDEX_FORMAT_U16,
-                wgpu_types::IndexFormat::Uint32 => BaseMeshPipelineKey::INDEX_FORMAT_U32,
-            },
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE,
+                Some(index_format) => match index_format {
+                    wgpu_types::IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
+                    wgpu_types::IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE
         }
         .bits();
         let primitive_topology_bits = ((primitive_topology as u64)

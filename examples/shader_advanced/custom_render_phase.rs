@@ -591,7 +591,7 @@ fn queue_custom_meshes(
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology_and_index(
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
                 mesh.primitive_topology(),
                 mesh.index_format(),
             );

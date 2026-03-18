@@ -807,7 +807,7 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= Mesh2dPipelineKey::from_primitive_topology_and_index(
+            mesh_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
                 mesh.primitive_topology(),
                 mesh.index_format(),
             );

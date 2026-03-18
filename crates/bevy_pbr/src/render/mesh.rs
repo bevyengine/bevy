@@ -2783,16 +2783,23 @@ impl MeshPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology_and_index(
+    /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, `strip_index_format` is ignored and it's always [`Self::STRIP_INDEX_FORMAT_NONE`].
+    pub fn from_primitive_topology_and_strip_index(
         primitive_topology: PrimitiveTopology,
-        indices: Option<IndexFormat>,
+        strip_index_format: Option<IndexFormat>,
     ) -> Self {
-        let index_bits = match indices {
-            None => BaseMeshPipelineKey::INDEX_FORMAT_NONE,
-            Some(indices) => match indices {
-                IndexFormat::Uint16 => BaseMeshPipelineKey::INDEX_FORMAT_U16,
-                IndexFormat::Uint32 => BaseMeshPipelineKey::INDEX_FORMAT_U32,
-            },
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE,
+                Some(indices) => match indices {
+                    IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE
         }
         .bits();
         let primitive_topology_bits = ((primitive_topology as u64)
@@ -2815,21 +2822,17 @@ impl MeshPipelineKey {
         }
     }
 
-    pub fn index_format(&self) -> Option<IndexFormat> {
-        let index_bits = self.bits() & BaseMeshPipelineKey::INDEX_FORMAT_RESERVED_BITS.bits();
-        match index_bits {
-            x if x == BaseMeshPipelineKey::INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
-            x if x == BaseMeshPipelineKey::INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
-            x if x == BaseMeshPipelineKey::INDEX_FORMAT_NONE.bits() => None,
-            _ => unreachable!(),
-        }
-    }
-
     pub fn strip_index_format(&self) -> Option<IndexFormat> {
-        if self.primitive_topology().is_strip() {
-            self.index_format()
-        } else {
-            None
+        let index_bits = self.bits() & BaseMeshPipelineKey::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16.bits() => {
+                Some(IndexFormat::Uint16)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32.bits() => {
+                Some(IndexFormat::Uint32)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }
