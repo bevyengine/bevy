@@ -19,9 +19,10 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
-    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
+    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -102,6 +103,7 @@ impl Default for TextNodeFlags {
     TextFont,
     TextColor,
     LineHeight,
+    LetterSpacing,
     TextNodeFlags,
     ContentSize,
     // Hinting is enabled by default as UI text is normally pixel.
@@ -173,7 +175,7 @@ pub struct TextMeasure {
 }
 
 impl TextMeasure {
-    /// Checks if the cosmic text buffer is needed for measuring the text.
+    /// Checks if the Parley text layout is needed for measuring the text.
     #[inline]
     pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))

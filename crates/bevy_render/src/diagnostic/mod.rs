@@ -205,7 +205,7 @@ impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
 
 impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
     fn drop(&mut self) {
-        panic!("TimeSpanScope::end was never called")
+        bevy_log::error!("TimeSpanScope::end was never called");
     }
 }
 

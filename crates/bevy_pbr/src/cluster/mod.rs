@@ -71,10 +71,13 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     // We need to support compute shaders to use GPU clustering. To deal with
     // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
     // `RenderDevice` limits in addition to the `RenderAdapter`.
-    let gpu_clustering_supported = adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::COMPUTE_SHADERS)
+    // Some android devices report the capabilities and limits wrong, so we can't rely on them.
+    // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
+    let gpu_clustering_supported = !cfg!(target_os = "android")
+        && adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS)
         && device.limits().max_storage_buffers_per_shader_stage > 0;
 
     let gpu_clustering = if gpu_clustering_supported {
