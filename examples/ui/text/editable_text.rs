@@ -140,8 +140,6 @@ fn build_input_text(
     let outer = commands
         .spawn((
             Node {
-                width: px(200),
-                height: px(100),
                 border: UiRect {
                     left: px(5),
                     right: px(5),
@@ -160,6 +158,11 @@ fn build_input_text(
 
     let edit = commands
         .spawn((
+            Node {
+                width: px(200),
+                height: px(100),
+                ..Default::default()
+            },
             Name::new(if is_left { "Left" } else { "Right" }),
             EditableText::default(),
             TextFont {

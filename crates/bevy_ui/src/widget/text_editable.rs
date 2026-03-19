@@ -68,7 +68,11 @@ pub fn editable_text_system(
         let logical_viewport_size = target.logical_size();
         let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
         style_set.insert(parley::StyleProperty::FontSize(font_size));
-
+        style_set.insert(parley::StyleProperty::Brush(TextBrush::new(
+            0,
+            text_font.font_smoothing,
+        )));
+        
         if target.is_changed() {
             editable_text.editor.set_scale(target.scale_factor());
         }
@@ -92,9 +96,6 @@ pub fn editable_text_system(
         )
             .into();
 
-        content_size.set(NodeMeasure::Fixed(FixedMeasure {
-            size: info.size * target.scale_factor(),
-        }));
 
         info.glyphs.clear();
         info.run_geometry.clear();
@@ -138,7 +139,7 @@ pub fn editable_text_system(
                                 let mut scaler = scale_cx
                                     .builder(font_ref)
                                     .size(font_size)
-                                    .hint(true)
+                                    .hint(matches!(hinting, FontHinting::Enabled))
                                     .normalized_coords(coords)
                                     .build();
                                 add_glyph_to_atlas(

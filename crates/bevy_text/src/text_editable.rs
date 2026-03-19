@@ -154,13 +154,15 @@ impl EditableText {
         font_context: &mut FontContext,
         layout_context: &mut LayoutContext<TextBrush>,
     ) {
-        // Take the `pending_edits` out of the struct so we can apply them without mutable aliasing issues.
-        // We do not need to put the `pending_edits` back into the struct,
-        // as all edits should be consumed by this method, leaving `pending_edits` empty at the end.
-        let mut pending_edits = core::mem::take(&mut self.pending_edits);
-        let mut driver = self.editor_mut().driver(font_context, layout_context);
+        let Self {
+            editor,
+            pending_edits,
+            ..
+        } = self;
+        
+        let mut driver = editor.driver(font_context, layout_context);
 
-        while let Some(edit) = pending_edits.pop_front() {
+        for edit in pending_edits.drain(..) {
             driver = apply_edit(edit, driver);
         }
     }
