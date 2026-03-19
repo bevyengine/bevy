@@ -8,7 +8,7 @@ use bevy_input::{
 };
 use bevy_math::{CompassOctant, Vec2};
 use bevy_window::SystemCursorIcon;
-use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, Modifiers, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 #[cfg(target_os = "ios")]
@@ -628,6 +628,37 @@ pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key 
         Key::Named(NamedKey::F35) => bevy_input::keyboard::Key::F35,
         _ => todo!(),
     }
+}
+
+/// Converts a [`winit::event::Modifiers`] to a Bevy [`Modifiers`]
+pub fn convert_modifiers(modifiers: winit::event::Modifiers) -> Modifiers {
+    use winit::keyboard::ModifiersKeyState::Pressed;
+    let mut result = Modifiers::empty();
+    if modifiers.lalt_state() == Pressed {
+        result |= Modifiers::L_ALT;
+    }
+    if modifiers.ralt_state() == Pressed {
+        result |= Modifiers::R_ALT;
+    }
+    if modifiers.lcontrol_state() == Pressed {
+        result |= Modifiers::L_CONTROL;
+    }
+    if modifiers.rcontrol_state() == Pressed {
+        result |= Modifiers::R_CONTROL;
+    }
+    if modifiers.lshift_state() == Pressed {
+        result |= Modifiers::L_SHIFT;
+    }
+    if modifiers.rshift_state() == Pressed {
+        result |= Modifiers::R_SHIFT;
+    }
+    if modifiers.lsuper_state() == Pressed {
+        result |= Modifiers::L_META;
+    }
+    if modifiers.rsuper_state() == Pressed {
+        result |= Modifiers::R_META;
+    }
+    result
 }
 
 ///Converts a [`winit::keyboard::NativeKey`] to a Bevy [`NativeKey`](bevy_input::keyboard::NativeKey)

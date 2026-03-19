@@ -405,6 +405,12 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                             self.bevy_window_events.send(Ime::Disabled { window });
                         }
                     },
+                    WindowEvent::ModifiersChanged(modifiers) => {
+                        self.bevy_window_events
+                            .send(BevyWindowEvent::ModifiersChanged(
+                                converters::convert_modifiers(modifiers),
+                            ));
+                    }
                     WindowEvent::ThemeChanged(theme) => {
                         self.bevy_window_events.send(WindowThemeChanged {
                             window,
@@ -804,6 +810,9 @@ impl WinitAppRunnerState {
                     world.write_message(e);
                 }
                 BevyWindowEvent::Ime(e) => {
+                    world.write_message(e);
+                }
+                BevyWindowEvent::ModifiersChanged(e) => {
                     world.write_message(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {

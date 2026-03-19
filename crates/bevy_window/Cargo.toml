@@ -41,6 +41,7 @@ std = [
   "serde?/std",
   "raw-window-handle/std",
   "bevy_platform/std",
+  "bitflags/std",
 ]
 
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -75,6 +76,7 @@ raw-window-handle = { version = "0.6", features = [
   "alloc",
 ], default-features = false }
 log = { version = "0.4", default-features = false }
+bitflags = { version = "2.3", default-features = false }
 
 [lints]
 workspace = true

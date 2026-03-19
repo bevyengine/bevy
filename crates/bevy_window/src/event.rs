@@ -283,6 +283,39 @@ pub enum Ime {
     },
 }
 
+bitflags::bitflags! {
+    /// The state of modifier keys (Shift, Control, Alt, and Meta).
+    #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(
+        feature = "bevy_reflect",
+        derive(Reflect),
+        reflect(opaque, Debug, PartialEq, Clone)
+    )]
+    #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(
+        all(feature = "serialize", feature = "bevy_reflect"),
+        reflect(Serialize, Deserialize)
+    )]
+    pub struct Modifiers: u8 {
+        /// The left Shift key is pressed.
+        const L_SHIFT = 1 << 0;
+        /// The right Shift key is pressed.
+        const R_SHIFT = 1 << 1;
+        /// The left Control key is pressed.
+        const L_CONTROL = 1 << 2;
+        /// The right Control key is pressed.
+        const R_CONTROL = 1 << 3;
+        /// The left Alt key is pressed.
+        const L_ALT = 1 << 4;
+        /// The right Alt key is pressed.
+        const R_ALT = 1 << 5;
+        /// The left Meta key is pressed.
+        const L_META = 1 << 6;
+        /// The right Meta key is pressed.
+        const R_META = 1 << 7;
+    }
+}
+
 /// An event that indicates a window has received or lost focus.
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
@@ -512,6 +545,8 @@ pub enum WindowEvent {
     FileDragAndDrop(FileDragAndDrop),
     /// An Input Method Editor event.
     Ime(Ime),
+    /// The modifier keys have changed.
+    ModifiersChanged(Modifiers),
     /// A redraw of all of the application's windows has been requested.
     RequestRedraw(RequestRedraw),
     /// The window's OS-reported scale factor has changed.
@@ -595,6 +630,12 @@ impl From<FileDragAndDrop> for WindowEvent {
 impl From<Ime> for WindowEvent {
     fn from(e: Ime) -> Self {
         Self::Ime(e)
+    }
+}
+
+impl From<Modifiers> for WindowEvent {
+    fn from(e: Modifiers) -> Self {
+        Self::ModifiersChanged(e)
     }
 }
 
