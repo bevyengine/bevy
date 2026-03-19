@@ -126,7 +126,7 @@ pub trait PersistentGpuBufferable {
     fn write_bytes_le(
         &self,
         metadata: Self::Metadata,
-        buffer_slice: &mut [u8],
+        buffer_slice: WriteOnly<[u8]>,
         buffer_offset: BufferAddress,
     );
 }
