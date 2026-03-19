@@ -69,8 +69,6 @@
 // because doing so allows us to process `EditableText` in the various systems provided by `bevy_text`
 // and `bevy_ui`, such as text layout and font management.
 
-use alloc::collections::VecDeque;
-
 use crate::{
     apply_edit, text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush,
     TextColor, TextFont, TextLayout,

@@ -1,6 +1,6 @@
 use core::hash::BuildHasher;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, NodeMeasure};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
@@ -37,21 +37,12 @@ pub fn editable_text_system(
         Ref<ComputedUiRenderTargetInfo>,
         &mut EditableText,
         &mut TextLayoutInfo,
-        &mut ContentSize,
         Ref<ComputedNode>,
     )>,
     rem_size: Res<RemSize>,
 ) {
-    for (
-        text_font,
-        line_height,
-        hinting,
-        target,
-        mut editable_text,
-        mut info,
-        mut content_size,
-        computed_node,
-    ) in input_field_query.iter_mut()
+    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
+        input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
