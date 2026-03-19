@@ -115,6 +115,7 @@ impl Plugin for WindowPlugin {
             .add_message::<CursorEntered>()
             .add_message::<CursorLeft>()
             .add_message::<Ime>()
+            .add_message::<Modifiers>()
             .add_message::<WindowFocused>()
             .add_message::<WindowOccluded>()
             .add_message::<WindowScaleFactorChanged>()
