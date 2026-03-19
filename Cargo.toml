@@ -13,9 +13,6 @@ documentation = "https://docs.rs/bevy"
 rust-version = "1.92.0"
 
 [patch."crates-io"]
-wgpu = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk" }
-wgpu-types = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk" }
-naga = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk" }
 naga_oil = { git = "https://github.com/ChristopherBiscardi/naga_oil", branch = "naga-29" }
 dlss_wgpu = { git = "https://github.com/ChristopherBiscardi/dlss_wgpu", branch = "wgpu-29" }
 

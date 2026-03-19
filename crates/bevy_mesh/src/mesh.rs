@@ -24,7 +24,7 @@ use core::ptr;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
-use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
+use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode, WriteOnly};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -984,10 +984,7 @@ impl Mesh {
     }
     /// Does the same as [`write_packed_vertex_buffer_data`], but accepts wgpu's
     /// `WriteOnly`
-    pub fn write_packed_vertex_buffer_data_write_only(
-        &self,
-        slice: &mut wgpu::WriteOnly<'_, [u8]>,
-    ) {
+    pub fn write_packed_vertex_buffer_data_write_only(&self, slice: &mut WriteOnly<'_, [u8]>) {
         let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
         let vertex_size = self.get_vertex_size() as usize;
