@@ -52,7 +52,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     pub fn batch_size(limits: &Limits) -> usize {
         (limits
             .max_uniform_buffer_binding_size
-            .min(MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE) as u64
+            .min(MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE)
             / T::min_size().get()) as usize
     }
 

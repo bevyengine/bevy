@@ -300,7 +300,7 @@ pub fn prepare_windows(
         match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture)
             | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
-                window.set_swapchain_texture(surface_texture)
+                window.set_swapchain_texture(surface_texture);
             }
             #[cfg(target_os = "linux")]
             wgpu::CurrentSurfaceTexture::Timeout if may_erroneously_timeout() => {
