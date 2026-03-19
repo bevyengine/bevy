@@ -8,7 +8,9 @@ use bevy_input::{
 };
 use bevy_math::{CompassOctant, Vec2};
 use bevy_window::SystemCursorIcon;
-use bevy_window::{EnabledButtons, Modifiers, WindowLevel, WindowTheme};
+use bevy_window::{
+    EnabledButtons, ModifierKeys, ModifierState, Modifiers, WindowLevel, WindowTheme,
+};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 #[cfg(target_os = "ios")]
@@ -633,32 +635,51 @@ pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key 
 /// Converts a [`winit::event::Modifiers`] to a Bevy [`Modifiers`]
 pub fn convert_modifiers(modifiers: winit::event::Modifiers) -> Modifiers {
     use winit::keyboard::ModifiersKeyState::Pressed;
-    let mut result = Modifiers::empty();
+    let mut modifier_keys = ModifierKeys::empty();
     if modifiers.lalt_state() == Pressed {
-        result |= Modifiers::L_ALT;
+        modifier_keys |= ModifierKeys::L_ALT;
     }
     if modifiers.ralt_state() == Pressed {
-        result |= Modifiers::R_ALT;
+        modifier_keys |= ModifierKeys::R_ALT;
     }
     if modifiers.lcontrol_state() == Pressed {
-        result |= Modifiers::L_CONTROL;
+        modifier_keys |= ModifierKeys::L_CONTROL;
     }
     if modifiers.rcontrol_state() == Pressed {
-        result |= Modifiers::R_CONTROL;
+        modifier_keys |= ModifierKeys::R_CONTROL;
     }
     if modifiers.lshift_state() == Pressed {
-        result |= Modifiers::L_SHIFT;
+        modifier_keys |= ModifierKeys::L_SHIFT;
     }
     if modifiers.rshift_state() == Pressed {
-        result |= Modifiers::R_SHIFT;
+        modifier_keys |= ModifierKeys::R_SHIFT;
     }
     if modifiers.lsuper_state() == Pressed {
-        result |= Modifiers::L_META;
+        modifier_keys |= ModifierKeys::L_META;
     }
     if modifiers.rsuper_state() == Pressed {
-        result |= Modifiers::R_META;
+        modifier_keys |= ModifierKeys::R_META;
     }
-    result
+
+    let wint_state = modifiers.state();
+    let mut modifier_state = ModifierState::empty();
+    if wint_state.control_key() {
+        modifier_state |= ModifierState::CONTROL;
+    }
+    if wint_state.alt_key() {
+        modifier_state |= ModifierState::ALT;
+    }
+    if wint_state.shift_key() {
+        modifier_state |= ModifierState::SHIFT;
+    }
+    if wint_state.super_key() {
+        modifier_state |= ModifierState::META;
+    }
+
+    Modifiers {
+        keys: modifier_keys,
+        state: modifier_state,
+    }
 }
 
 ///Converts a [`winit::keyboard::NativeKey`] to a Bevy [`NativeKey`](bevy_input::keyboard::NativeKey)

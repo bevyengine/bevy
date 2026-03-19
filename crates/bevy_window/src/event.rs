@@ -299,7 +299,7 @@ bitflags::bitflags! {
         all(feature = "serialize", feature = "bevy_reflect"),
         reflect(Serialize, Deserialize)
     )]
-    pub struct Modifiers: u8 {
+    pub struct ModifierKeys: u8 {
         /// The left Shift key is pressed.
         const L_SHIFT = 1 << 0;
         /// The right Shift key is pressed.
@@ -317,6 +317,61 @@ bitflags::bitflags! {
         /// The right Meta key is pressed.
         const R_META = 1 << 7;
     }
+}
+
+bitflags::bitflags! {
+    /// The state of modifier keys (Shift, Control, Alt, and Meta).
+    ///
+    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
+    /// not set to 1, the modifier key's state is unknown.
+    #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(
+        feature = "bevy_reflect",
+        derive(Reflect),
+        reflect(opaque, Debug, PartialEq, Clone)
+    )]
+    #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(
+        all(feature = "serialize", feature = "bevy_reflect"),
+        reflect(Serialize, Deserialize)
+    )]
+    pub struct ModifierState: u8 {
+        /// Any Shift key is pressed.
+        const SHIFT = 1 << 0;
+        /// Any Control key is pressed.
+        const CONTROL = 1 << 1;
+        /// Any Alt key is pressed.
+        const ALT = 1 << 2;
+        /// Any Meta key is pressed.
+        const META = 1 << 3;
+    }
+}
+
+/// An event that is sent whenever the state of modifier keys has changed.
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque, Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Modifiers {
+    /// The state of modifier keys with left and right keys distinguished.
+    ///
+    /// When a modifier key is pressed but it's unknown whether it's the left or right
+    /// key, neither bit will be set to 1. When a modifier key is pressed, the
+    /// corresponding bit will be set to 1. When it's not set to 1, the modifier key's
+    /// state is unknown.
+    pub keys: ModifierKeys,
+    /// The state of modifier keys.
+    ///
+    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
+    /// not set to 1, the modifier key's state is unknown.
+    pub state: ModifierState,
 }
 
 /// An event that indicates a window has received or lost focus.
