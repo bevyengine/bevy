@@ -285,6 +285,9 @@ pub enum Ime {
 
 bitflags::bitflags! {
     /// The state of modifier keys (Shift, Control, Alt, and Meta).
+    ///
+    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
+    /// not set to 1, the modifier key's state is unknown.
     #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
     #[cfg_attr(
         feature = "bevy_reflect",
