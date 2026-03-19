@@ -266,7 +266,7 @@ impl InfinitePlane3d {
     ///
     /// Panics if the normal vector `(a, b, c)` is not of unit length when debug assertions are enabled.
     #[inline]
-    pub const fn from_coefficients(a: f32, b: f32, c: f32, d: f32) -> Self {
+    pub fn from_coefficients(a: f32, b: f32, c: f32, d: f32) -> Self {
         debug_assert!(
             ops::abs(a * a + b * b + c * c - 1.0) < 1e-6,
             "The normal vector (a, b, c) must be of unit length."
@@ -285,7 +285,7 @@ impl InfinitePlane3d {
     ///
     /// Returns an [`UnnormalizedNormalError`] if the normal vector `(a, b, c)` is not of unit length.
     #[inline]
-    pub const fn try_from_coefficients(
+    pub fn try_from_coefficients(
         a: f32,
         b: f32,
         c: f32,
