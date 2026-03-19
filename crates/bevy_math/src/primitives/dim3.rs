@@ -268,7 +268,7 @@ impl InfinitePlane3d {
     #[inline]
     pub const fn from_coefficients(a: f32, b: f32, c: f32, d: f32) -> Self {
         debug_assert!(
-            (a * a + b * b + c * c - 1.0).abs() < 1e-6,
+            ops::abs(a * a + b * b + c * c - 1.0) < 1e-6,
             "The normal vector (a, b, c) must be of unit length."
         );
 
@@ -292,7 +292,7 @@ impl InfinitePlane3d {
         d: f32,
     ) -> Result<Self, UnnormalizedNormalError> {
         let len_sq = a * a + b * b + c * c;
-        if (len_sq - 1.0).abs() >= 1e-6 {
+        if ops::abs(len_sq - 1.0) >= 1e-6 {
             return Err(UnnormalizedNormalError);
         }
 

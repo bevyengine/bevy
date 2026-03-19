@@ -1240,7 +1240,7 @@ impl Plane2d {
     #[inline]
     pub fn from_coefficients(a: f32, b: f32, c: f32) -> Self {
         debug_assert!(
-            (a * a + b * b - 1.0).abs() < 1e-6,
+            ops::abs(a * a + b * b - 1.0) < 1e-6,
             "The normal vector (a, b) must be of unit length."
         );
 
