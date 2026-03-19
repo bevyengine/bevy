@@ -1,4 +1,4 @@
-//! Provides Bevy functionality. See [`Scene`], [`SceneList`], [`ScenePatch`], and the [`bsn!`] / [`bsn_list!`] macros for more information.
+//! Provides BSN functionality. See [`Scene`], [`SceneList`], [`ScenePatch`], and the [`bsn!`] / [`bsn_list!`] macros for more information.
 
 /// The Bevy Scene prelude.
 ///

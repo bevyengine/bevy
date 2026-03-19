@@ -29,7 +29,7 @@ pub struct ScenePatch {
 }
 
 impl ScenePatch {
-    /// Kicks of a load of the `scene`. This enumerates the scene's dependencies using [`Scene::register_dependencies`], loads
+    /// Kicks off a load of the `scene`. This enumerates the scene's dependencies using [`Scene::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`ScenePatch::dependencies`].nn
     pub fn load<P: Scene>(assets: &AssetServer, scene: P) -> Self {
         let mut dependencies = Vec::new();
@@ -138,7 +138,7 @@ pub struct SceneListPatch {
 }
 
 impl SceneListPatch {
-    /// Kicks of a load of the `scene_list`. This enumerates the scene list's dependencies using [`SceneList::register_dependencies`], loads
+    /// Kicks off a load of the `scene_list`. This enumerates the scene list's dependencies using [`SceneList::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`SceneListPatch::dependencies`].nn
     pub fn load<L: SceneList>(assets: &AssetServer, scene_list: L) -> Self {
         let mut dependencies = Vec::new();
