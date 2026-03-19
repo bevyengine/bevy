@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::{
     ops::{self, sin_cos},
-    primitives::HalfSpace,
+    primitives::HalfSpace3d,
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
 use bevy_transform::components::GlobalTransform;
@@ -409,7 +409,7 @@ pub(crate) fn assign_objects_to_clusters(
                     let view_x = clip_to_view(view_from_clip, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
                     let normal = Vec3::X;
                     let d = view_x * normal.x;
-                    x_planes.push(HalfSpace::new(normal.extend(d)));
+                    x_planes.push(HalfSpace3d::new(normal.extend(d)));
                 }
 
                 let y_slices = clusters.dimensions.y as f32;
@@ -419,7 +419,7 @@ pub(crate) fn assign_objects_to_clusters(
                     let view_y = clip_to_view(view_from_clip, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
                     let normal = Vec3::Y;
                     let d = view_y * normal.y;
-                    y_planes.push(HalfSpace::new(normal.extend(d)));
+                    y_planes.push(HalfSpace3d::new(normal.extend(d)));
                 }
             } else {
                 let x_slices = clusters.dimensions.x as f32;
@@ -430,7 +430,7 @@ pub(crate) fn assign_objects_to_clusters(
                     let nt = clip_to_view(view_from_clip, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
                     let normal = nb.cross(nt);
                     let d = nb.dot(normal);
-                    x_planes.push(HalfSpace::new(normal.extend(d)));
+                    x_planes.push(HalfSpace3d::new(normal.extend(d)));
                 }
 
                 let y_slices = clusters.dimensions.y as f32;
@@ -441,7 +441,7 @@ pub(crate) fn assign_objects_to_clusters(
                     let nr = clip_to_view(view_from_clip, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
                     let normal = nr.cross(nl);
                     let d = nr.dot(normal);
-                    y_planes.push(HalfSpace::new(normal.extend(d)));
+                    y_planes.push(HalfSpace3d::new(normal.extend(d)));
                 }
             }
 
@@ -451,7 +451,7 @@ pub(crate) fn assign_objects_to_clusters(
                     z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
                 let normal = -Vec3::Z;
                 let d = view_z * normal.z;
-                z_planes.push(HalfSpace::new(normal.extend(d)));
+                z_planes.push(HalfSpace3d::new(normal.extend(d)));
             }
 
             for clusterable_object in &clusterable_objects {
@@ -1038,7 +1038,7 @@ fn screen_to_view(screen_size: Vec2, view_from_clip: Mat4, screen: Vec2, ndc_z: 
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 {
+fn get_distance_x(plane: HalfSpace3d, point: Vec3A, is_orthographic: bool) -> f32 {
     if is_orthographic {
         point.x - plane.d()
     } else {
@@ -1051,7 +1051,7 @@ fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
-fn project_to_plane_z(z_object: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
+fn project_to_plane_z(z_object: Sphere, z_plane: HalfSpace3d) -> Option<Sphere> {
     // p = sphere center
     // n = plane normal
     // d = n.p if p is in the plane
@@ -1075,7 +1075,7 @@ fn project_to_plane_z(z_object: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
 fn project_to_plane_y(
     y_object: Sphere,
-    y_plane: HalfSpace,
+    y_plane: HalfSpace3d,
     is_orthographic: bool,
 ) -> Option<Sphere> {
     let distance_to_plane = if is_orthographic {

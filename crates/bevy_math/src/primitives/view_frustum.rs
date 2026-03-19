@@ -1,11 +1,11 @@
-use crate::{primitives::HalfSpace, Mat4, Vec3, Vec4};
+use crate::{primitives::HalfSpace3d, Mat4, Vec3, Vec4};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A region of 3D space defined by the intersection of 6 [`HalfSpace`]s.
+/// A region of 3D space defined by the intersection of 6 [`HalfSpace3d`]s.
 ///
 /// View Frustums are typically an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
 ///
@@ -24,7 +24,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct ViewFrustum {
     /// The six half-spaces making up the frustum
-    pub half_spaces: [HalfSpace; 6],
+    pub half_spaces: [HalfSpace3d; 6],
 }
 
 impl ViewFrustum {
@@ -41,7 +41,7 @@ impl ViewFrustum {
     #[inline]
     pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
         let mut frustum = ViewFrustum::from_clip_from_world_no_far(clip_from_world);
-        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(clip_from_world.row(2));
+        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace3d::new(clip_from_world.row(2));
         frustum
     }
 
@@ -57,7 +57,7 @@ impl ViewFrustum {
         let mut frustum = ViewFrustum::from_clip_from_world_no_far(clip_from_world);
         let far_center = *view_translation - far * *view_backward;
         frustum.half_spaces[Self::FAR_PLANE_IDX] =
-            HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
+            HalfSpace3d::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
 
@@ -72,14 +72,14 @@ impl ViewFrustum {
     pub fn corners(&self) -> Option<[Vec3; 8]> {
         let [left, right, top, bottom, near, far] = self.half_spaces;
         Some([
-            HalfSpace::intersection_point(top, left, near)?,
-            HalfSpace::intersection_point(top, right, near)?,
-            HalfSpace::intersection_point(bottom, right, near)?,
-            HalfSpace::intersection_point(bottom, left, near)?,
-            HalfSpace::intersection_point(top, left, far)?,
-            HalfSpace::intersection_point(top, right, far)?,
-            HalfSpace::intersection_point(bottom, right, far)?,
-            HalfSpace::intersection_point(bottom, left, far)?,
+            HalfSpace3d::intersection_point(top, left, near)?,
+            HalfSpace3d::intersection_point(top, right, near)?,
+            HalfSpace3d::intersection_point(bottom, right, near)?,
+            HalfSpace3d::intersection_point(bottom, left, near)?,
+            HalfSpace3d::intersection_point(top, left, far)?,
+            HalfSpace3d::intersection_point(top, right, far)?,
+            HalfSpace3d::intersection_point(bottom, right, far)?,
+            HalfSpace3d::intersection_point(bottom, left, far)?,
         ])
     }
 
@@ -96,12 +96,12 @@ impl ViewFrustum {
 
         Self {
             half_spaces: [
-                HalfSpace::new(row3 + row0),
-                HalfSpace::new(row3 - row0),
-                HalfSpace::new(row3 + row1),
-                HalfSpace::new(row3 - row1),
-                HalfSpace::new(row3 + row2),
-                HalfSpace::new(Self::INACTIVE_HALF_SPACE),
+                HalfSpace3d::new(row3 + row0),
+                HalfSpace3d::new(row3 - row0),
+                HalfSpace3d::new(row3 + row1),
+                HalfSpace3d::new(row3 - row1),
+                HalfSpace3d::new(row3 + row2),
+                HalfSpace3d::new(Self::INACTIVE_HALF_SPACE),
             ],
         }
     }
@@ -114,7 +114,7 @@ mod view_frustum_tests {
     use approx::assert_relative_eq;
 
     use super::ViewFrustum;
-    use crate::{primitives::HalfSpace, Vec3, Vec4};
+    use crate::{primitives::HalfSpace3d, Vec3, Vec4};
 
     #[test]
     fn cuboid_frustum_corners() {
@@ -124,17 +124,17 @@ mod view_frustum_tests {
             // top: z = 3; bottom: z = -2
             half_spaces: [
                 // left: yz plane at x = -5
-                HalfSpace::new(Vec4::new(1., 0., 0., 5.)),
+                HalfSpace3d::new(Vec4::new(1., 0., 0., 5.)),
                 // right: yz plane at x = 4
-                HalfSpace::new(Vec4::new(-1., 0., 0., 4.)),
+                HalfSpace3d::new(Vec4::new(-1., 0., 0., 4.)),
                 // top: xy plane at z = 3
-                HalfSpace::new(Vec4::new(0., 0., -1., 3.)),
+                HalfSpace3d::new(Vec4::new(0., 0., -1., 3.)),
                 // bottom: xy plane at z = -2
-                HalfSpace::new(Vec4::new(0., 0., 1., 2.)),
+                HalfSpace3d::new(Vec4::new(0., 0., 1., 2.)),
                 // near: xz plane at origin (y = 0)
-                HalfSpace::new(Vec4::new(0., 1., 0., 0.)),
+                HalfSpace3d::new(Vec4::new(0., 1., 0., 0.)),
                 // far: xz plane at y = 6
-                HalfSpace::new(Vec4::new(0., -1., 0., 6.)),
+                HalfSpace3d::new(Vec4::new(0., -1., 0., 6.)),
             ],
         };
         let corners = cuboid_frustum.corners().unwrap();
@@ -163,17 +163,17 @@ mod view_frustum_tests {
         let pyramid_frustum = ViewFrustum {
             half_spaces: [
                 // left
-                HalfSpace::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
                 // right
-                HalfSpace::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
                 // top
-                HalfSpace::new(Vec4::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
                 // bottom
-                HalfSpace::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
                 // near: xz plane at y = -1
-                HalfSpace::new(Vec4::new(0., 1., 0., 1.)),
+                HalfSpace3d::new(Vec4::new(0., 1., 0., 1.)),
                 // far: xz plane at y = 3
-                HalfSpace::new(Vec4::new(0., -1., 0., 3.)),
+                HalfSpace3d::new(Vec4::new(0., -1., 0., 3.)),
             ],
         };
         let corners = pyramid_frustum.corners().unwrap();
@@ -201,17 +201,17 @@ mod view_frustum_tests {
         let no_far = ViewFrustum {
             half_spaces: [
                 // left: a yz plane rotated outwards
-                HalfSpace::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
                 // right: a yz plane rotated outwards
-                HalfSpace::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
                 // top: an xz plane rotated outwards
-                HalfSpace::new(Vec4::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
                 // bottom: xz plane rotated outwards
-                HalfSpace::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
                 // near: xz plane at origin (y = 0)
-                HalfSpace::new(Vec4::new(0., 1., 0., 0.)),
+                HalfSpace3d::new(Vec4::new(0., 1., 0., 0.)),
                 // far
-                HalfSpace::new(ViewFrustum::INACTIVE_HALF_SPACE),
+                HalfSpace3d::new(ViewFrustum::INACTIVE_HALF_SPACE),
             ],
         };
         let corners = no_far.corners().unwrap();
@@ -238,12 +238,12 @@ mod view_frustum_tests {
         let invalid = ViewFrustum {
             half_spaces: [
                 // the left and the top half spaces are the same, resulting in no intersection point
-                HalfSpace::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
-                HalfSpace::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
-                HalfSpace::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
-                HalfSpace::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
-                HalfSpace::new(Vec4::new(0., 1., 0., 0.)),
-                HalfSpace::new(Vec4::new(0., -1., 0., 3.)),
+                HalfSpace3d::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+                HalfSpace3d::new(Vec4::new(0., 1., 0., 0.)),
+                HalfSpace3d::new(Vec4::new(0., -1., 0., 3.)),
             ],
         };
         assert!(invalid.corners().is_none());

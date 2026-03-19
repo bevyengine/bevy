@@ -4,7 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
-    primitives::{HalfSpace, ViewFrustum},
+    primitives::{HalfSpace3d, ViewFrustum},
     Affine3A, Mat3A, Vec3, Vec3A,
 };
 use bevy_mesh::{Mesh, VertexAttributeValues};
@@ -130,7 +130,7 @@ impl Aabb {
     /// Check if the AABB is at the front side of the bisecting plane.
     /// Referenced from: [AABB Plane intersection](https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html)
     #[inline]
-    pub fn is_in_half_space(&self, half_space: &HalfSpace, world_from_local: &Affine3A) -> bool {
+    pub fn is_in_half_space(&self, half_space: &HalfSpace3d, world_from_local: &Affine3A) -> bool {
         // transform the half-extents into world space.
         let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
         // collapse the half-extents onto the plane normal.
@@ -144,7 +144,7 @@ impl Aabb {
     /// Optimized version of [`Self::is_in_half_space`] when the AABB is already in world space.
     /// Use this when `world_from_local` would be the identity transform.
     #[inline]
-    pub fn is_in_half_space_identity(&self, half_space: &HalfSpace) -> bool {
+    pub fn is_in_half_space_identity(&self, half_space: &HalfSpace3d) -> bool {
         let p_normal = half_space.normal();
         let r = self.half_extents.abs().dot(p_normal.abs());
         let signed_distance = p_normal.dot(self.center) + half_space.d();
@@ -460,12 +460,12 @@ mod tests {
     fn big_frustum() -> Frustum {
         Frustum(ViewFrustum {
             half_spaces: [
-                HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
-                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
-                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 4.0000)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
-                HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
+                HalfSpace3d::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
+                HalfSpace3d::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.2425, -0.9701, 2.9104)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -1.0000, -0.0000, 4.0000)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
+                HalfSpace3d::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
             ],
         })
     }
@@ -496,12 +496,12 @@ mod tests {
     fn frustum() -> Frustum {
         Frustum(ViewFrustum {
             half_spaces: [
-                HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
-                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
-                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
-                HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
+                HalfSpace3d::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
+                HalfSpace3d::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.2425, -0.9701, 0.7276)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -1.0000, -0.0000, 1.0000)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
+                HalfSpace3d::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
             ],
         })
     }
@@ -576,12 +576,12 @@ mod tests {
     fn long_frustum() -> Frustum {
         Frustum(ViewFrustum {
             half_spaces: [
-                HalfSpace::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
-                HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
-                HalfSpace::new(Vec4::new(-0.0000, -1.0000, -0.0000, 45.1249)),
-                HalfSpace::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
-                HalfSpace::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
+                HalfSpace3d::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
+                HalfSpace3d::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.0168, -0.9999, 2.2718)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -1.0000, -0.0000, 45.1249)),
+                HalfSpace3d::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
+                HalfSpace3d::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
             ],
         })
     }
@@ -730,21 +730,21 @@ mod tests {
                     center: Vec3A::ZERO,
                     half_extents: Vec3A::splat(1.0),
                 },
-                HalfSpace::new(Vec4::new(1.0, 0.0, 0.0, -0.5)),
+                HalfSpace3d::new(Vec4::new(1.0, 0.0, 0.0, -0.5)),
             ),
             (
                 Aabb {
                     center: Vec3A::new(2.0, -1.0, 0.5),
                     half_extents: Vec3A::new(1.0, 2.0, 0.5),
                 },
-                HalfSpace::new(Vec4::new(1.0, 1.0, 1.0, -1.0).normalize()),
+                HalfSpace3d::new(Vec4::new(1.0, 1.0, 1.0, -1.0).normalize()),
             ),
             (
                 Aabb {
                     center: Vec3A::new(1.0, 1.0, 1.0),
                     half_extents: Vec3A::ZERO,
                 },
-                HalfSpace::new(Vec4::new(0.0, 0.0, 1.0, -2.0)),
+                HalfSpace3d::new(Vec4::new(0.0, 0.0, 1.0, -2.0)),
             ),
         ];
         for (aabb, half_space) in cases {

@@ -507,6 +507,7 @@ impl HalfSpace3d {
 }
 
 /// Backward-compatible type alias for [`HalfSpace3d`].
+#[deprecated(since = "0.19.0", note = "Please use `HalfSpace3d` instead.")]
 #[doc(alias = "HalfSpace3d")]
 pub type HalfSpace = HalfSpace3d;
 
