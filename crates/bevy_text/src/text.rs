@@ -1,4 +1,4 @@
-use crate::{Font, TextBrush, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -198,9 +198,7 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
+impl TextSection for TextSpan {
     fn read_span(&self) -> &str {
         self.as_str()
     }

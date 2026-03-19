@@ -24,7 +24,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    TextLayoutInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
 use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
@@ -108,9 +108,7 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {}
-
-impl TextSpanAccess for Text2d {
+impl TextSection for Text2d {
     fn read_span(&self) -> &str {
         self.as_str()
     }
