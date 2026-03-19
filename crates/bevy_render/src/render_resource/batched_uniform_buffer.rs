@@ -28,7 +28,7 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u64 = 1 << 20;
 // indexing uniform buffers, and instead emulate it with large switch statements
 // over buffer indices that take a long time to compile.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
+const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u64 = 1 << 12;
 
 /// Similar to [`DynamicUniformBuffer`], except every N elements (depending on size)
 /// are grouped into a batch as an `array<T, N>` in WGSL.
