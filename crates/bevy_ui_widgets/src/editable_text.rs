@@ -3,8 +3,6 @@
 //! This module provides systems to process keyboard input events and apply text edits
 //! to focused [`EditableText`] widgets.
 //!
-//! Only entities that are focused via the [`InputFocus`] resource will receive keyboard input events.
-//!
 //! Note that this module is distinct from the core `bevy_text` crate to avoid pulling in
 //! [`bevy_input`] to that crate, which is intended to be usable in non-interactive contexts.
 
