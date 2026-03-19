@@ -328,6 +328,7 @@ Example | Description
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
+[Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay
@@ -601,6 +602,7 @@ Example | Description
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior

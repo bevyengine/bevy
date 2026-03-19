@@ -138,7 +138,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// while ensuring only one is alive at a time.
     ///
     /// Most queries do implement [`IterQueryData`],
-    /// and and can use the ordinary [`Iterator::next`]
+    /// and can use the ordinary [`Iterator::next`]
     /// method or a `for` loop.
     ///
     /// # Example
@@ -1274,7 +1274,7 @@ where
     /// while ensuring only one is alive at a time.
     ///
     /// Most queries do implement [`IterQueryData`],
-    /// and and can use the ordinary [`Iterator::next`]
+    /// and can use the ordinary [`Iterator::next`]
     /// method or a `for` loop.
     ///
     /// # Example
@@ -1312,7 +1312,7 @@ where
     /// while ensuring only one is alive at a time.
     ///
     /// Most queries do implement [`IterQueryData`],
-    /// and and can use the ordinary [`Iterator::next`]
+    /// and can use the ordinary [`Iterator::next`]
     /// method or a `for` loop.
     pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>>
     where

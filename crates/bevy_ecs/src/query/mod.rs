@@ -833,4 +833,22 @@ mod tests {
         where
             C: Component;
     }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
+    #[test]
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
+        let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
 }
