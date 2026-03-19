@@ -1232,21 +1232,16 @@ impl Plane2d {
 
     /// Creates a new [`Plane2d`] from the coefficients of the plane equation `ax + by + c = 0`.
     ///
-    /// The normal vector `(a, b)` must be of unit length.
-    ///
     /// # Panics
     ///
-    /// Panics if the normal vector `(a, b)` is not of unit length when debug assertions are enabled.
-    #[inline]
+    /// Panics if the normal vector `(a, b)` has a length of zero, infinity, or `NaN`.
     pub fn from_coefficients(a: f32, b: f32, c: f32) -> Self {
-        debug_assert!(
-            ops::abs(a * a + b * b - 1.0) < 1e-6,
-            "The normal vector (a, b) must be of unit length."
-        );
+        let (normal, length) = Dir2::new_and_length(Vec2::new(a, b))
+            .expect("finite plane must be defined by a normal with a non-zero length");
 
         Self {
-            normal: Dir2::from_xy_unchecked(a, b),
-            offset: c,
+            normal,
+            offset: c / length,
         }
     }
 
@@ -1254,11 +1249,14 @@ impl Plane2d {
     ///
     /// # Errors
     ///
-    /// Returns an error if the normal vector `(a, b)` is not of unit length.
+    /// Returns an [`InvalidDirectionError`] if the normal vector `(a, b)` has a length of zero, infinity, or `NaN`.
     #[inline]
     pub fn try_from_coefficients(a: f32, b: f32, c: f32) -> Result<Self, InvalidDirectionError> {
-        let normal = Dir2::new(Vec2::new(a, b))?;
-        Ok(Self { normal, offset: c })
+        let (normal, length) = Dir2::new_and_length(Vec2::new(a, b))?;
+        Ok(Self {
+            normal,
+            offset: c / length,
+        })
     }
 
     /// Computes the signed distance from the plane to a point.

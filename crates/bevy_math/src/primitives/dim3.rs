@@ -6,8 +6,6 @@ use crate::{
     Dir3, Dir3A, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3, Vec3A, Vec4,
     Vec4Swizzles,
 };
-use thiserror::Error;
-
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -16,11 +14,6 @@ use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-
-/// Error returned when trying to create a plane with a non-unit length normal.
-#[derive(Error, Debug, PartialEq)]
-#[error("The normal vector must be of unit length.")]
-pub struct UnnormalizedNormalError;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -240,9 +233,9 @@ impl InfinitePlane3d {
     ///
     /// # Errors
     ///
-    /// Returns an [`UnnormalizedNormalError`] if the normal vector `(x, y, z)` is not of unit length.
+    /// Returns an [`InvalidDirectionError`] if the normal vector `(x, y, z)` has a length of zero, infinity, or `NaN`.
     #[inline]
-    pub fn try_from_vec4(normal_offset: Vec4) -> Result<Self, UnnormalizedNormalError> {
+    pub fn try_from_vec4(normal_offset: Vec4) -> Result<Self, InvalidDirectionError> {
         Self::try_from_coefficients(
             normal_offset.x,
             normal_offset.y,
@@ -262,18 +255,17 @@ impl InfinitePlane3d {
     ///
     /// The normal vector `(a, b, c)` must be of unit length.
     ///
+    ///
     /// # Panics
     ///
-    /// Panics if the normal vector `(a, b, c)` is not of unit length when debug assertions are enabled.
+    /// Panics if the normal vector `(a, b, c)` has a length of zero, infinity, or `NaN`.
     #[inline]
     pub fn from_coefficients(a: f32, b: f32, c: f32, d: f32) -> Self {
-        debug_assert!(
-            ops::abs(a * a + b * b + c * c - 1.0) < 1e-6,
-            "The normal vector (a, b, c) must be of unit length."
-        );
+        let (normal, length) = Dir3::new_and_length(Vec3::new(a, b, c))
+            .expect("infinite plane must be defined by a normal with a non-zero length");
 
         Self {
-            normal_d: Vec4::new(a, b, c, d),
+            normal_d: normal.extend(d / length),
         }
     }
 
@@ -283,21 +275,18 @@ impl InfinitePlane3d {
     ///
     /// # Errors
     ///
-    /// Returns an [`UnnormalizedNormalError`] if the normal vector `(a, b, c)` is not of unit length.
+    /// Returns an [`InvalidDirectionError`] if the normal vector `(a, b, c)` has a length of zero, infinity, or `NaN`.
     #[inline]
     pub fn try_from_coefficients(
         a: f32,
         b: f32,
         c: f32,
         d: f32,
-    ) -> Result<Self, UnnormalizedNormalError> {
-        let len_sq = a * a + b * b + c * c;
-        if ops::abs(len_sq - 1.0) >= 1e-6 {
-            return Err(UnnormalizedNormalError);
-        }
+    ) -> Result<Self, InvalidDirectionError> {
+        let (normal, length) = Dir3::new_and_length(Vec3::new(a, b, c))?;
 
         Ok(Self {
-            normal_d: Vec4::new(a, b, c, d),
+            normal_d: normal.extend(d / length),
         })
     }
 
@@ -481,6 +470,22 @@ impl HalfSpace3d {
     }
 
     /// Returns the intersection point if the three half-spaces all intersect at a single point.
+    ///
+    /// This implementation solves the linear system `M * p = -d` using Cramer's Rule,
+    /// where `M` is the matrix formed by the normal vectors of the three planes as rows.
+    ///
+    /// To optimize the calculation, the columns of `M` are extracted into vectors `x`, `y`, and `z`.
+    /// The determinant of `M` is then computed via the scalar triple product: `denom = x.dot(y.cross(z))`.
+    ///
+    /// By utilizing vector identities, Cramer's Rule is evaluated using only two cross products
+    /// instead of the standard three:
+    /// * `u = y.cross(z)`
+    /// * `v = x.cross(d)`
+    ///
+    /// The components of the intersection point are then derived as:
+    /// * `p_x =  d.dot(u) / denom`
+    /// * `p_y =  z.dot(v) / denom`
+    /// * `p_z = -y.dot(v) / denom` (Optimized from `d.dot(x.cross(y))`)    
     #[inline]
     pub fn intersection_point(a: HalfSpace3d, b: HalfSpace3d, c: HalfSpace3d) -> Option<Vec3> {
         let an = a.normal();
