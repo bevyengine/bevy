@@ -46,22 +46,18 @@ fn prepare_view_upscaling_pipelines(
         Option<&ViewUpscalingPipeline>,
     )>,
 ) {
-    let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera, maybe_pipeline) in view_targets.iter() {
-        let out_texture_id = view_target.out_texture().id();
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
                 CameraOutputMode::Write { blend_state, .. } => {
-                    let already_seen = output_textures.contains(&out_texture_id);
-                    output_textures.insert(out_texture_id);
-
                     match blend_state {
                         None => {
-                            // If we've already seen this output for a camera and it doesn't have an output blend
-                            // mode configured, default to alpha blend so that we don't accidentally overwrite
-                            // the output texture
-                            if already_seen {
+                            // Auto-detect: the first camera to render to this output
+                            // (sorted_camera_index_for_target == 0) uses replace mode;
+                            // subsequent cameras default to alpha blending so they don't
+                            // accidentally overwrite earlier cameras' output.
+                            if extracted_camera.sorted_camera_index_for_target > 0 {
                                 Some(BlendState::ALPHA_BLENDING)
                             } else {
                                 None
@@ -72,7 +68,6 @@ fn prepare_view_upscaling_pipelines(
                 }
             }
         } else {
-            output_textures.insert(out_texture_id);
             None
         };
 
@@ -85,8 +80,6 @@ fn prepare_view_upscaling_pipelines(
         if maybe_pipeline.is_none_or(|ViewUpscalingPipeline(_, cached_key)| *cached_key != key) {
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
-            // Ensure the pipeline is loaded before continuing the frame to prevent frames without
-            // any GPU work submitted
             pipeline_cache.block_on_render_pipeline(pipeline);
 
             commands
