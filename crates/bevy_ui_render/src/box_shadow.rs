@@ -5,7 +5,7 @@ use core::{hash::Hash, ops::Range};
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -34,7 +34,7 @@ use bevy_ui::{
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
+use crate::{utils::pack_uv, BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
@@ -71,8 +71,8 @@ impl Plugin for BoxShadowPlugin {
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct BoxShadowVertex {
     position: [f32; 3],
-    uvs: [f32; 2],
-    vertex_color: [f32; 4],
+    uvs: [u16; 2],
+    vertex_color: [u8; 4],
     size: [f32; 2],
     radius: [f32; 4],
     blur: f32,
@@ -89,7 +89,7 @@ pub struct UiShadowsBatch {
 #[derive(Resource)]
 pub struct BoxShadowMeta {
     vertices: RawBufferVec<BoxShadowVertex>,
-    indices: RawBufferVec<u32>,
+    indices: RawBufferVec<u16>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -141,9 +141,9 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 // position
                 VertexFormat::Float32x3,
                 // uv
-                VertexFormat::Float32x2,
+                VertexFormat::Unorm16x2,
                 // color
-                VertexFormat::Float32x4,
+                VertexFormat::Unorm8x4,
                 // target rect size
                 VertexFormat::Float32x2,
                 // corner radius values (top left, top right, bottom right, bottom left)
@@ -465,11 +465,18 @@ pub fn prepare_shadows(
                 ]
                 .map(|pos| pos / box_shadow.bounds);
 
+                let vertex_color = [
+                    (box_shadow.color.red * 255.0) as u8,
+                    (box_shadow.color.green * 255.0) as u8,
+                    (box_shadow.color.blue * 255.0) as u8,
+                    (box_shadow.color.alpha * 255.0) as u8,
+                ];
+
                 for i in 0..4 {
                     ui_meta.vertices.push(BoxShadowVertex {
                         position: positions_clipped[i].into(),
-                        uvs: uvs[i].into(),
-                        vertex_color: box_shadow.color.to_f32_array(),
+                        uvs: pack_uv(uvs[i]),
+                        vertex_color,
                         size: box_shadow.size.into(),
                         radius: box_shadow.radius.into(),
                         blur: box_shadow.blur_radius,
@@ -478,7 +485,7 @@ pub fn prepare_shadows(
                 }
 
                 for &i in &QUAD_INDICES {
-                    ui_meta.indices.push(indices_index + i as u32);
+                    ui_meta.indices.push((indices_index + i as u32) as u16);
                 }
 
                 batches.push((
@@ -556,7 +563,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBoxShadow {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint16);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

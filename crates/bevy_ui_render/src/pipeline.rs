@@ -62,9 +62,9 @@ impl SpecializedRenderPipeline for UiPipeline {
                 // position
                 VertexFormat::Float32x3,
                 // uv
-                VertexFormat::Float32x2,
+                VertexFormat::Unorm16x2,
                 // color
-                VertexFormat::Float32x4,
+                VertexFormat::Unorm8x4,
                 // mode
                 VertexFormat::Uint32,
                 // border radius

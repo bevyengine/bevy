@@ -5,7 +5,7 @@ use core::{
 };
 
 use super::shader_flags::BORDER_ALL;
-use crate::*;
+use crate::{utils::pack_uv, *};
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
@@ -79,7 +79,7 @@ pub struct GradientBatch {
 #[derive(Resource)]
 pub struct GradientMeta {
     vertices: RawBufferVec<UiGradientVertex>,
-    indices: RawBufferVec<u32>,
+    indices: RawBufferVec<u16>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -151,7 +151,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 // position
                 VertexFormat::Float32x3,
                 // uv
-                VertexFormat::Float32x2,
+                VertexFormat::Unorm16x2,
                 // flags
                 VertexFormat::Uint32,
                 // radius
@@ -639,7 +639,7 @@ pub fn queue_gradient(
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct UiGradientVertex {
     position: [f32; 3],
-    uv: [f32; 2],
+    uv: [u16; 2],
     flags: u32,
     radius: [f32; 4],
     border: [f32; 4],
@@ -856,7 +856,7 @@ pub fn prepare_gradient(
                         for i in 0..4 {
                             ui_meta.vertices.push(UiGradientVertex {
                                 position: positions_clipped[i].into(),
-                                uv: uvs[i].into(),
+                                uv: pack_uv(uvs[i]),
                                 flags: stop_flags | shader_flags::CORNERS[i],
                                 radius: [
                                     gradient.border_radius.top_left,
@@ -883,8 +883,9 @@ pub fn prepare_gradient(
                         }
 
                         for &i in &QUAD_INDICES {
-                            ui_meta.indices.push(indices_index + i as u32);
+                            ui_meta.indices.push((indices_index + i as u32) as u16);
                         }
+
                         indices_index += 4;
                         segment_count += 1;
                     }
@@ -964,7 +965,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawGradient {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint16);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

@@ -15,6 +15,7 @@ mod render_pass;
 pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
+pub mod utils;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
@@ -33,7 +34,7 @@ use bevy_ui::{
 
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, LinearRgba};
 use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
@@ -76,7 +77,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::shader_flags::INVERT;
+use crate::{shader_flags::INVERT, utils::pack_uv};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -1286,8 +1287,8 @@ pub fn extract_text_decorations(
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct UiVertex {
     pub position: [f32; 3],
-    pub uv: [f32; 2],
-    pub color: [f32; 4],
+    pub uv: [u16; 2],
+    pub color: [u8; 4],
     /// Shader flags to determine how to render the UI node.
     /// See [`shader_flags`] for possible values.
     pub flags: u32,
@@ -1306,7 +1307,7 @@ struct UiVertex {
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: RawBufferVec<UiVertex>,
-    indices: RawBufferVec<u32>,
+    indices: RawBufferVec<u16>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -1671,7 +1672,13 @@ pub fn prepare_uinodes(
                             .map(|pos| pos / atlas_extent)
                         };
 
-                        let color = color.to_f32_array();
+                        let color = [
+                            (color.red * 255.0) as u8,
+                            (color.green * 255.0) as u8,
+                            (color.blue * 255.0) as u8,
+                            (color.alpha * 255.0) as u8,
+                        ];
+
                         match *node_type {
                             NodeType::Border(border_flags) => {
                                 flags |= border_flags;
@@ -1685,7 +1692,7 @@ pub fn prepare_uinodes(
                         for i in 0..4 {
                             ui_meta.vertices.push(UiVertex {
                                 position: positions_clipped[i].into(),
-                                uv: uvs[i].into(),
+                                uv: pack_uv(uvs[i]),
                                 color,
                                 flags: flags | shader_flags::CORNERS[i],
                                 radius: (*border_radius).into(),
@@ -1701,7 +1708,7 @@ pub fn prepare_uinodes(
                         }
 
                         for &i in &QUAD_INDICES {
-                            ui_meta.indices.push(indices_index + i as u32);
+                            ui_meta.indices.push((indices_index + i as u32) as u16);
                         }
 
                         vertices_index += 6;
@@ -1715,7 +1722,13 @@ pub fn prepare_uinodes(
                         let atlas_extent = image.size_2d().as_vec2();
 
                         for glyph in &extracted_uinodes.glyphs[range.clone()] {
-                            let color = glyph.color.to_f32_array();
+                            let color = [
+                                (glyph.color.red * 255.0) as u8,
+                                (glyph.color.green * 255.0) as u8,
+                                (glyph.color.blue * 255.0) as u8,
+                                (glyph.color.alpha * 255.0) as u8,
+                            ];
+
                             let glyph_rect = glyph.rect;
                             let rect_size = glyph_rect.size();
 
@@ -1792,7 +1805,7 @@ pub fn prepare_uinodes(
                             for i in 0..4 {
                                 ui_meta.vertices.push(UiVertex {
                                     position: positions_clipped[i].into(),
-                                    uv: uvs[i].into(),
+                                    uv: pack_uv(uvs[i]),
                                     color,
                                     flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                     radius: [0.0; 4],
@@ -1803,7 +1816,7 @@ pub fn prepare_uinodes(
                             }
 
                             for &i in &QUAD_INDICES {
-                                ui_meta.indices.push(indices_index + i as u32);
+                                ui_meta.indices.push((indices_index + i as u32) as u16);
                             }
 
                             vertices_index += 6;

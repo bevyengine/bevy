@@ -95,7 +95,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 #[derive(Copy, Clone, Pod, Zeroable)]
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
-    pub uv: [f32; 2],
+    pub uv: [u16; 2],
     pub size: [f32; 2],
     pub border: [f32; 4],
     pub radius: [f32; 4],
@@ -133,7 +133,7 @@ where
                 // position
                 VertexFormat::Float32x3,
                 // uv
-                VertexFormat::Float32x2,
+                VertexFormat::Unorm16x2,
                 // size
                 VertexFormat::Float32x2,
                 // border widths
@@ -515,7 +515,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     for i in QUAD_INDICES {
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
-                            uv: uvs[i].into(),
+                            uv: pack_uv(uvs[i]),
                             size: extracted_uinode.rect.size().into(),
                             radius: extracted_uinode.border_radius,
                             border: [

@@ -2,7 +2,7 @@ use core::{hash::Hash, ops::Range};
 
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -65,8 +65,8 @@ impl Plugin for UiTextureSlicerPlugin {
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct UiTextureSliceVertex {
     pub position: [f32; 3],
-    pub uv: [f32; 2],
-    pub color: [f32; 4],
+    pub uv: [u16; 2],
+    pub color: [u8; 4],
     pub slices: [f32; 4],
     pub border: [f32; 4],
     pub repeat: [f32; 4],
@@ -82,7 +82,7 @@ pub struct UiTextureSlicerBatch {
 #[derive(Resource)]
 pub struct UiTextureSliceMeta {
     vertices: RawBufferVec<UiTextureSliceVertex>,
-    indices: RawBufferVec<u32>,
+    indices: RawBufferVec<u16>,
     view_bind_group: Option<BindGroup>,
 }
 
@@ -150,9 +150,9 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 // position
                 VertexFormat::Float32x3,
                 // uv
-                VertexFormat::Float32x2,
+                VertexFormat::Unorm16x2,
                 // color
-                VertexFormat::Float32x4,
+                VertexFormat::Unorm8x4,
                 // normalized texture slicing lines (left, top, right, bottom)
                 VertexFormat::Float32x4,
                 // normalized target slicing lines (left, top, right, bottom)
@@ -565,7 +565,12 @@ pub fn prepare_ui_slices(
                         .map(|pos| pos / atlas_extent)
                     };
 
-                    let color = texture_slices.color.to_f32_array();
+                    let color = [
+                        (texture_slices.color.red * 255.0) as u8,
+                        (texture_slices.color.green * 255.0) as u8,
+                        (texture_slices.color.blue * 255.0) as u8,
+                        (texture_slices.color.alpha * 255.0) as u8,
+                    ];
 
                     let (image_size, mut atlas) = if let Some(atlas) = texture_slices.atlas_rect {
                         (
@@ -598,7 +603,7 @@ pub fn prepare_ui_slices(
                     for i in 0..4 {
                         ui_meta.vertices.push(UiTextureSliceVertex {
                             position: positions_clipped[i].into(),
-                            uv: uvs[i].into(),
+                            uv: pack_uv(uvs[i]),
                             color,
                             slices,
                             border,
@@ -608,7 +613,7 @@ pub fn prepare_ui_slices(
                     }
 
                     for &i in &QUAD_INDICES {
-                        ui_meta.indices.push(indices_index + i as u32);
+                        ui_meta.indices.push((indices_index + i as u32) as u16);
                     }
 
                     vertices_index += 6;
@@ -707,7 +712,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint16);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
