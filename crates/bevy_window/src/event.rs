@@ -284,10 +284,10 @@ pub enum Ime {
 }
 
 bitflags::bitflags! {
-    /// The state of modifier keys (Shift, Control, Alt, and Meta).
+    /// Modifier keys that are pressed with left and right keys distinguished.
     ///
-    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
-    /// not set to 1, the modifier key's state is unknown.
+    /// When a modifier key is present, it indicates that the key is pressed. When it's not
+    /// present, the modifier key's state is unknown.
     #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
     #[cfg_attr(
         feature = "bevy_reflect",
@@ -299,7 +299,7 @@ bitflags::bitflags! {
         all(feature = "serialize", feature = "bevy_reflect"),
         reflect(Serialize, Deserialize)
     )]
-    pub struct ModifierKeys: u8 {
+    pub struct KeyModifierKeys: u8 {
         /// The left Shift key is pressed.
         const L_SHIFT = 1 << 0;
         /// The right Shift key is pressed.
@@ -322,8 +322,8 @@ bitflags::bitflags! {
 bitflags::bitflags! {
     /// The state of modifier keys (Shift, Control, Alt, and Meta).
     ///
-    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
-    /// not set to 1, the modifier key's state is unknown.
+    /// When a modifier key is present, it indicates that the key is pressed. When it's not
+    /// present, the modifier key's state is unknown.
     #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
     #[cfg_attr(
         feature = "bevy_reflect",
@@ -335,7 +335,7 @@ bitflags::bitflags! {
         all(feature = "serialize", feature = "bevy_reflect"),
         reflect(Serialize, Deserialize)
     )]
-    pub struct ModifierState: u8 {
+    pub struct KeyModifierState: u8 {
         /// Any Shift key is pressed.
         const SHIFT = 1 << 0;
         /// Any Control key is pressed.
@@ -347,7 +347,7 @@ bitflags::bitflags! {
     }
 }
 
-/// An event that is sent whenever the state of modifier keys has changed.
+/// Details about the state of modifiers.
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -359,19 +359,17 @@ bitflags::bitflags! {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Modifiers {
-    /// The state of modifier keys with left and right keys distinguished.
+pub struct KeyModifiers {
+    /// The specific modifier keys that are pressed, with left and right keys distinguished.
     ///
-    /// When a modifier key is pressed but it's unknown whether it's the left or right
-    /// key, neither bit will be set to 1. When a modifier key is pressed, the
-    /// corresponding bit will be set to 1. When it's not set to 1, the modifier key's
-    /// state is unknown.
-    pub keys: ModifierKeys,
+    /// When a modifier key is present, it indicates that the key is pressed. When it's not
+    /// present, the modifier key's state is unknown.
+    pub keys: KeyModifierKeys,
     /// The state of modifier keys.
     ///
-    /// When a modifier key is pressed, the corresponding bit will be set to 1. When it's
-    /// not set to 1, the modifier key's state is unknown.
-    pub state: ModifierState,
+    /// When a modifier key is present, it indicates that the key is pressed. When it's not
+    /// present, the modifier key's state is unknown.
+    pub state: KeyModifierState,
 }
 
 /// An event that indicates a window has received or lost focus.
@@ -604,7 +602,7 @@ pub enum WindowEvent {
     /// An Input Method Editor event.
     Ime(Ime),
     /// The modifier keys have changed.
-    ModifiersChanged(Modifiers),
+    KeyModifiersChanged(KeyModifiers),
     /// A redraw of all of the application's windows has been requested.
     RequestRedraw(RequestRedraw),
     /// The window's OS-reported scale factor has changed.
@@ -691,9 +689,9 @@ impl From<Ime> for WindowEvent {
     }
 }
 
-impl From<Modifiers> for WindowEvent {
-    fn from(e: Modifiers) -> Self {
-        Self::ModifiersChanged(e)
+impl From<KeyModifiers> for WindowEvent {
+    fn from(e: KeyModifiers) -> Self {
+        Self::KeyModifiersChanged(e)
     }
 }
 

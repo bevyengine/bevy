@@ -407,7 +407,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                     },
                     WindowEvent::ModifiersChanged(modifiers) => {
                         self.bevy_window_events
-                            .send(BevyWindowEvent::ModifiersChanged(
+                            .send(BevyWindowEvent::KeyModifiersChanged(
                                 converters::convert_modifiers(modifiers),
                             ));
                     }
@@ -812,7 +812,7 @@ impl WinitAppRunnerState {
                 BevyWindowEvent::Ime(e) => {
                     world.write_message(e);
                 }
-                BevyWindowEvent::ModifiersChanged(e) => {
+                BevyWindowEvent::KeyModifiersChanged(e) => {
                     world.write_message(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {

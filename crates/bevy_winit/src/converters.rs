@@ -9,7 +9,7 @@ use bevy_input::{
 use bevy_math::{CompassOctant, Vec2};
 use bevy_window::SystemCursorIcon;
 use bevy_window::{
-    EnabledButtons, ModifierKeys, ModifierState, Modifiers, WindowLevel, WindowTheme,
+    EnabledButtons, KeyModifierKeys, KeyModifierState, KeyModifiers, WindowLevel, WindowTheme,
 };
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
@@ -632,51 +632,51 @@ pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key 
     }
 }
 
-/// Converts a [`winit::event::Modifiers`] to a Bevy [`Modifiers`]
-pub fn convert_modifiers(modifiers: winit::event::Modifiers) -> Modifiers {
+/// Converts a [`winit::event::Modifiers`] to a Bevy [`KeyModifiers`]
+pub fn convert_modifiers(modifiers: winit::event::Modifiers) -> KeyModifiers {
     use winit::keyboard::ModifiersKeyState::Pressed;
-    let mut modifier_keys = ModifierKeys::empty();
+    let mut modifier_keys = KeyModifierKeys::empty();
     if modifiers.lalt_state() == Pressed {
-        modifier_keys |= ModifierKeys::L_ALT;
+        modifier_keys |= KeyModifierKeys::L_ALT;
     }
     if modifiers.ralt_state() == Pressed {
-        modifier_keys |= ModifierKeys::R_ALT;
+        modifier_keys |= KeyModifierKeys::R_ALT;
     }
     if modifiers.lcontrol_state() == Pressed {
-        modifier_keys |= ModifierKeys::L_CONTROL;
+        modifier_keys |= KeyModifierKeys::L_CONTROL;
     }
     if modifiers.rcontrol_state() == Pressed {
-        modifier_keys |= ModifierKeys::R_CONTROL;
+        modifier_keys |= KeyModifierKeys::R_CONTROL;
     }
     if modifiers.lshift_state() == Pressed {
-        modifier_keys |= ModifierKeys::L_SHIFT;
+        modifier_keys |= KeyModifierKeys::L_SHIFT;
     }
     if modifiers.rshift_state() == Pressed {
-        modifier_keys |= ModifierKeys::R_SHIFT;
+        modifier_keys |= KeyModifierKeys::R_SHIFT;
     }
     if modifiers.lsuper_state() == Pressed {
-        modifier_keys |= ModifierKeys::L_META;
+        modifier_keys |= KeyModifierKeys::L_META;
     }
     if modifiers.rsuper_state() == Pressed {
-        modifier_keys |= ModifierKeys::R_META;
+        modifier_keys |= KeyModifierKeys::R_META;
     }
 
     let wint_state = modifiers.state();
-    let mut modifier_state = ModifierState::empty();
+    let mut modifier_state = KeyModifierState::empty();
     if wint_state.control_key() {
-        modifier_state |= ModifierState::CONTROL;
+        modifier_state |= KeyModifierState::CONTROL;
     }
     if wint_state.alt_key() {
-        modifier_state |= ModifierState::ALT;
+        modifier_state |= KeyModifierState::ALT;
     }
     if wint_state.shift_key() {
-        modifier_state |= ModifierState::SHIFT;
+        modifier_state |= KeyModifierState::SHIFT;
     }
     if wint_state.super_key() {
-        modifier_state |= ModifierState::META;
+        modifier_state |= KeyModifierState::META;
     }
 
-    Modifiers {
+    KeyModifiers {
         keys: modifier_keys,
         state: modifier_state,
     }

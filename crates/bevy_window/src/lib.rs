@@ -38,9 +38,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ModifierKeys, ModifierState,
-        Modifiers, MonitorSelection, VideoModeSelection, Window, WindowMoved, WindowPlugin,
-        WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, KeyModifierKeys,
+        KeyModifierState, KeyModifiers, MonitorSelection, VideoModeSelection, Window, WindowMoved,
+        WindowPlugin, WindowPosition, WindowResizeConstraints,
     };
 }
 
@@ -115,7 +115,7 @@ impl Plugin for WindowPlugin {
             .add_message::<CursorEntered>()
             .add_message::<CursorLeft>()
             .add_message::<Ime>()
-            .add_message::<Modifiers>()
+            .add_message::<KeyModifiers>()
             .add_message::<WindowFocused>()
             .add_message::<WindowOccluded>()
             .add_message::<WindowScaleFactorChanged>()
