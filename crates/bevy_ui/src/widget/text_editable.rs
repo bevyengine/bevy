@@ -72,7 +72,7 @@ pub fn editable_text_system(
             0,
             text_font.font_smoothing,
         )));
-        
+
         if target.is_changed() {
             editable_text.editor.set_scale(target.scale_factor());
         }
@@ -95,7 +95,6 @@ pub fn editable_text_system(
             layout.height() / layout.scale(),
         )
             .into();
-
 
         info.glyphs.clear();
         info.run_geometry.clear();

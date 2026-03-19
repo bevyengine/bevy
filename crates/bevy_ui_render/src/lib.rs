@@ -9,10 +9,10 @@
 
 pub mod box_shadow;
 mod color_space;
-mod cursor;
 mod gradient;
 mod pipeline;
 mod render_pass;
+mod text;
 pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
@@ -77,8 +77,8 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::cursor::extract_text_cursor;
 use crate::shader_flags::INVERT;
+use crate::text::extract_text_cursor;
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -112,9 +112,9 @@ pub mod stack_z_offsets {
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
-    pub const TEXT_CURSOR: f32 = 0.065;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const TEXT_SELECTION: f32 = 0.055;
+    pub const TEXT_SELECTION: f32 = 0.08;
+    pub const TEXT_CURSOR: f32 = 0.085;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

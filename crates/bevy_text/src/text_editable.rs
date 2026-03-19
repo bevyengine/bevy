@@ -106,7 +106,7 @@ pub struct EditableText {
     /// Text edit actions that have been requested but not yet applied.
     ///
     /// These edits are processed in first-in, first-out order.
-    pub pending_edits: VecDeque<TextEdit>,
+    pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
 }
@@ -116,7 +116,7 @@ impl Default for EditableText {
         Self {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
-            pending_edits: VecDeque::new(),
+            pending_edits: Vec::new(),
             cursor_width: 0.2,
         }
     }
@@ -143,7 +143,7 @@ impl EditableText {
 
     /// Queue a [`TextEdit`] action to be applied later by the [`apply_text_edits`] system.
     pub fn queue_edit(&mut self, edit: TextEdit) {
-        self.pending_edits.push_back(edit);
+        self.pending_edits.push(edit);
     }
 
     /// Applies all [`TextEdit`]s in `pending_edits` immediately, updating the [`PlainEditor`] text / cursor state accordingly.
@@ -159,7 +159,7 @@ impl EditableText {
             pending_edits,
             ..
         } = self;
-        
+
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
