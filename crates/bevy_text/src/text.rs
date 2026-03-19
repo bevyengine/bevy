@@ -199,10 +199,10 @@ impl TextSpan {
 }
 
 impl TextSection for TextSpan {
-    fn read_span(&self) -> &str {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }

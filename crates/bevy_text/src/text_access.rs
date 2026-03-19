@@ -9,10 +9,10 @@ use crate::{LetterSpacing, LineHeight, TextColor, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSection: Component<Mutability = Mutable> + From<String> {
-    /// Gets the text span's string.
-    fn read_span(&self) -> &str;
-    /// Gets mutable reference to the text span's string.
-    fn write_span(&mut self) -> &mut String;
+    /// Returns the text for this section.
+    fn get_text(&self) -> &str;
+    /// Returns a mutable reference to the text for this section.
+    fn get_text_mut(&mut self) -> &mut String;
 }
 
 /// Scratch buffer used to store intermediate state when iterating over text spans.
@@ -227,7 +227,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     root_entity,
                     0,
-                    text.read_span(),
+                    text.get_text(),
                     text_font,
                     color.0,
                     *line_height,
@@ -259,7 +259,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     entity,
                     depth,
-                    span.read_span(),
+                    span.get_text(),
                     text_font,
                     color.0,
                     *line_height,
@@ -337,7 +337,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
             return Some((
                 root_entity,
                 0,
-                text.map_unchanged(|t| t.write_span()),
+                text.map_unchanged(|t| t.get_text_mut()),
                 font,
                 color,
                 line_height,
@@ -392,7 +392,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         Some((
             entity,
             depth,
-            text.map_unchanged(|t| t.write_span()),
+            text.map_unchanged(|t| t.get_text_mut()),
             font,
             color,
             line_height,
@@ -561,7 +561,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         if !(callback)(
             root_entity,
             0,
-            text.map_unchanged(|t| t.write_span()),
+            text.map_unchanged(|t| t.get_text_mut()),
             font,
             color,
             line_height,
@@ -604,7 +604,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
                 if !(callback)(
                     entity,
                     depth,
-                    text.map_unchanged(|t| t.write_span()),
+                    text.map_unchanged(|t| t.get_text_mut()),
                     font,
                     color,
                     line_height,
