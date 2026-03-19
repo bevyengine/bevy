@@ -1258,10 +1258,7 @@ impl Plane2d {
     #[inline]
     pub fn try_from_coefficients(a: f32, b: f32, c: f32) -> Result<Self, InvalidDirectionError> {
         let normal = Dir2::new(Vec2::new(a, b))?;
-        Ok(Self {
-            normal,
-            offset: c,
-        })
+        Ok(Self { normal, offset: c })
     }
 
     /// Computes the signed distance from the plane to a point.
@@ -2424,25 +2421,49 @@ mod tests {
     fn plane_math() {
         let origin = Vec2::new(1.0, 1.0);
         let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
-        
+
         let plane = Plane2d::from_point_and_normal(origin, normal);
         assert_relative_eq!(plane.offset, -normal.dot(origin), epsilon = 1e-6);
         assert_eq!(plane.normal, normal);
 
         // A point on the plane
         let point_on_plane = origin + Vec2::new(1.0, -1.0);
-        assert_relative_eq!(plane.signed_distance_to_point(point_on_plane), 0.0, epsilon = 1e-6);
-        assert_relative_eq!(plane.project_point(point_on_plane), point_on_plane, epsilon = 1e-6);
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_on_plane),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_on_plane),
+            point_on_plane,
+            epsilon = 1e-6
+        );
 
         // A point in front of the plane
         let point_front = point_on_plane + *normal * 2.0;
-        assert_relative_eq!(plane.signed_distance_to_point(point_front), 2.0, epsilon = 1e-6);
-        assert_relative_eq!(plane.project_point(point_front), point_on_plane, epsilon = 1e-6);
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_front),
+            2.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_front),
+            point_on_plane,
+            epsilon = 1e-6
+        );
 
         // A point behind the plane
         let point_back = point_on_plane - *normal * 2.0;
-        assert_relative_eq!(plane.signed_distance_to_point(point_back), -2.0, epsilon = 1e-6);
-        assert_relative_eq!(plane.project_point(point_back), point_on_plane, epsilon = 1e-6);
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_back),
+            -2.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_back),
+            point_on_plane,
+            epsilon = 1e-6
+        );
 
         // coefficients
         let c = plane.offset;
@@ -2463,7 +2484,7 @@ mod tests {
         let origin = Vec2::new(1.0, 1.0);
         let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
         let hs_1 = HalfSpace2d::from_point_and_normal(origin, normal);
-        
+
         let c = hs_1.plane().offset;
         let hs_2 = HalfSpace2d::new(normal, c);
         assert_relative_eq!(*hs_1.plane().normal, *hs_2.plane().normal, epsilon = 1e-6);

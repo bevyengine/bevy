@@ -3,7 +3,8 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
-    Dir3, Dir3A, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3, Vec3A, Vec4, Vec4Swizzles,
+    Dir3, Dir3A, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3, Vec3A, Vec4,
+    Vec4Swizzles,
 };
 use thiserror::Error;
 
@@ -437,7 +438,9 @@ impl HalfSpace3d {
     #[inline]
     pub fn new(normal_d: Vec4) -> Self {
         let normalized = normal_d * normal_d.xyz().length_recip();
-        Self(InfinitePlane3d { normal_d: normalized })
+        Self(InfinitePlane3d {
+            normal_d: normalized,
+        })
     }
 
     /// Creates a new `HalfSpace3d` from a point on the boundary and an inward-facing normal.
@@ -1876,7 +1879,9 @@ mod tests {
         assert!(HalfSpace3d::intersection_point(xz_at_y_2, xz_at_y_2, other_xz_at_y_2).is_none());
 
         // ill-defined halfspace
-        let ill_defined = HalfSpace3d(InfinitePlane3d { normal_d: Vec4::new(0., 0., 0., f32::INFINITY) });
+        let ill_defined = HalfSpace3d(InfinitePlane3d {
+            normal_d: Vec4::new(0., 0., 0., f32::INFINITY),
+        });
         assert!(HalfSpace3d::intersection_point(xy_at_z_3, xz_at_y_2, ill_defined).is_none());
     }
     #[test]
@@ -1948,7 +1953,8 @@ mod tests {
         let plane_coeffs = InfinitePlane3d::from_coefficients(normal.x, normal.y, normal.z, c);
         assert_relative_eq!(plane_coeffs.as_vec4(), plane.as_vec4(), epsilon = 1e-6);
 
-        let try_plane_coeffs = InfinitePlane3d::try_from_coefficients(normal.x, normal.y, normal.z, c).unwrap();
+        let try_plane_coeffs =
+            InfinitePlane3d::try_from_coefficients(normal.x, normal.y, normal.z, c).unwrap();
         assert_relative_eq!(try_plane_coeffs.as_vec4(), plane.as_vec4(), epsilon = 1e-6);
 
         assert!(InfinitePlane3d::try_from_coefficients(0.0, 0.0, 0.0, c).is_err());
@@ -1959,9 +1965,13 @@ mod tests {
         let origin = Vec3::new(1.0, 1.0, 1.0);
         let normal = Dir3A::new(Vec3A::new(1.0, 1.0, 1.0)).unwrap();
         let hs_1 = HalfSpace3d::from_point_and_normal(Vec3A::from(origin), normal);
-        
+
         let hs_2 = HalfSpace3d::new(hs_1.normal_d());
-        assert_relative_eq!(hs_1.plane().as_vec4(), hs_2.plane().as_vec4(), epsilon = 1e-6);
+        assert_relative_eq!(
+            hs_1.plane().as_vec4(),
+            hs_2.plane().as_vec4(),
+            epsilon = 1e-6
+        );
 
         let point_on_plane = origin + Vec3::new(1.0, -1.0, 0.0);
         assert!(!hs_1.contains(Vec3A::from(point_on_plane)));
