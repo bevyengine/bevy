@@ -199,6 +199,7 @@ pub async fn initialize_renderer(
                 latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
                     .unwrap_or_default(),
                 force_shader_model: ForceShaderModelToken::default(),
+                agility_sdk: None,
             },
             noop: wgpu::NoopBackendOptions { enable: false },
         },
