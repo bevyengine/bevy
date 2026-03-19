@@ -2,7 +2,6 @@ use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_camera::CameraOutputMode;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::ExtractedCamera, render_resource::*, view::ViewTarget, Render, RenderApp, RenderSystems,
 };
@@ -80,6 +79,8 @@ fn prepare_view_upscaling_pipelines(
         if maybe_pipeline.is_none_or(|ViewUpscalingPipeline(_, cached_key)| *cached_key != key) {
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
+            // Ensure the pipeline is loaded before continuing the frame to prevent frames without
+            // any GPU work submitted
             pipeline_cache.block_on_render_pipeline(pipeline);
 
             commands
