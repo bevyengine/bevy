@@ -15,12 +15,12 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    error::EntityCommandOutput,
+    error::{BevyError, CommandOutput},
     name::Name,
     observer::IntoEntityObserver,
     relationship::RelationshipHookMode,
     system::Command,
-    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
 use bevy_ptr::{move_as_ptr, OwningPtr};
 
@@ -85,18 +85,25 @@ use bevy_ptr::{move_as_ptr, OwningPtr};
 /// ```
 pub trait EntityCommand: Send + 'static {
     /// The return type of [`apply`](EntityCommand::apply).
-    type Out: EntityCommandOutput;
+    type Out: CommandOutput;
 
     /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Self::Out;
 
     /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
     /// internally runs the [`EntityCommand`] on that entity.
+    #[inline]
     fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
     {
-        Self::Out::with_entity(self, entity)
+        move |world: &mut World| {
+            let entity = world.get_entity_mut(entity)?;
+            if let Some(error) = self.apply(entity).to_err() {
+                return Err(error);
+            }
+            Ok::<(), BevyError>(())
+        }
     }
 }
 
@@ -114,7 +121,7 @@ pub enum EntityCommandError<E> {
 impl<Out, F> EntityCommand for F
 where
     F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
-    Out: EntityCommandOutput,
+    Out: CommandOutput,
 {
     type Out = Out;
 

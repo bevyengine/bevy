@@ -4,11 +4,13 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{CommandOutput, ErrorHandler, Result},
+    error::{CommandOutput, ErrorContext, ErrorHandler, Result},
     event::Event,
     message::{Message, Messages},
     resource::Resource,
@@ -60,28 +62,51 @@ pub trait Command: Send + 'static {
 
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    #[inline]
     fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command<Out = ()>
     where
         Self: Sized,
     {
-        Self::Out::handle_error_with(self, error_handler)
+        move |world: &mut World| {
+            if let Some(error) = self.apply(world).to_err() {
+                error_handler(
+                    error,
+                    ErrorContext::Command {
+                        name: DebugName::type_name::<Self>(),
+                    },
+                );
+            }
+        }
     }
 
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    #[inline]
     fn handle_error(self) -> impl Command<Out = ()>
     where
         Self: Sized,
     {
-        Self::Out::handle_error(self)
+        move |world: &mut World| {
+            if let Some(error) = self.apply(world).to_err() {
+                world.default_error_handler()(
+                    error,
+                    ErrorContext::Command {
+                        name: DebugName::type_name::<Self>(),
+                    },
+                );
+            }
+        }
     }
 
     /// Takes a [`Command`] that returns a Result and ignores any error that occurs.
+    #[inline]
     fn ignore_error(self) -> impl Command<Out = ()>
     where
         Self: Sized,
     {
-        Self::Out::ignore_error(self)
+        move |world: &mut World| {
+            let _ = self.apply(world);
+        }
     }
 }
 
