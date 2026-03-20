@@ -53,7 +53,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
     view::{ExtractedView, RetainedViewEntity, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
@@ -202,9 +202,9 @@ impl Plugin for UiRenderPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-            .init_resource::<ImageNodeBindGroups>()
-            .init_resource::<UiMeta>()
+            .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
+            .init_gpu_resource::<ImageNodeBindGroups>()
+            .init_gpu_resource::<UiMeta>()
             .init_resource::<ExtractedUiNodes>()
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()

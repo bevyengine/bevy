@@ -30,7 +30,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
@@ -51,8 +51,8 @@ impl Plugin for GradientPlugin {
                 .add_render_command::<TransparentUi, DrawGradientFns>()
                 .init_resource::<ExtractedGradients>()
                 .init_resource::<ExtractedColorStops>()
-                .init_resource::<GradientMeta>()
-                .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
+                .init_gpu_resource::<GradientMeta>()
+                .init_gpu_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(RenderStartup, init_gradient_pipeline)
                 .add_systems(
                     ExtractSchedule,

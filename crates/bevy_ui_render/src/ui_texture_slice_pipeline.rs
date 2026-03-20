@@ -23,7 +23,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
@@ -42,9 +42,9 @@ impl Plugin for UiTextureSlicerPlugin {
             render_app
                 .add_render_command::<TransparentUi, DrawUiTextureSlices>()
                 .init_resource::<ExtractedUiTextureSlices>()
-                .init_resource::<UiTextureSliceMeta>()
-                .init_resource::<UiTextureSliceImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
+                .init_gpu_resource::<UiTextureSliceMeta>()
+                .init_gpu_resource::<UiTextureSliceImageBindGroups>()
+                .init_gpu_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(RenderStartup, init_ui_texture_slice_pipeline)
                 .add_systems(
                     ExtractSchedule,

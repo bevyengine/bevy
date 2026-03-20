@@ -48,7 +48,7 @@ use crate::{
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchSetMeta, GetBatchData, GetFullBatchData};
@@ -86,7 +86,7 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.init_resource::<GpuPreprocessingSupport>();
+        render_app.init_gpu_resource::<GpuPreprocessingSupport>();
     }
 }
 
