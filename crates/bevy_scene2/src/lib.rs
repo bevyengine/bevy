@@ -47,6 +47,9 @@ impl Plugin for ScenePlugin {
 /// to add IDE support for nested type names, as it allows us to pass the input Ident from the input to the output code.
 pub const fn touch_type<T>() {}
 
+/// Creates a tuple that will be nested after it passes 11 items.
+/// When there is a single item, it is _not_ wrapped in a tuple.
+/// This is implemented in a way that creates the smallest number of trait impls possible.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! auto_nest_tuple {
