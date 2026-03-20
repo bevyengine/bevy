@@ -36,7 +36,7 @@ fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Uncompres
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph);
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #ifdef MORPH_TARGETS
     var vertex = morph_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else

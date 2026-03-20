@@ -12,7 +12,7 @@
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
-    let uncompressed_vertex = decompress_vertex(vertex);
+    let uncompressed_vertex = decompress_vertex(vertex, vertex.instance_index);
 #ifdef VERTEX_UVS
     out.uv = uncompressed_vertex.uv;
 #endif

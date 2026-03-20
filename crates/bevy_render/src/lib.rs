@@ -278,6 +278,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+        load_shader_library!(app, "utils.wgsl");
         load_shader_library!(app, "maths.wgsl");
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");

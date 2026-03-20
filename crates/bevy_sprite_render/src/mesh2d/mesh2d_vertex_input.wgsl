@@ -56,31 +56,35 @@ struct Vertex {
 #endif
 };
 
-fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
+// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+// See https://github.com/gfx-rs/naga/issues/2416
+fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
     var uncompressed_vertex: UncompressedVertex;
-    uncompressed_vertex.instance_index = vertex_in.instance_index;
+    uncompressed_vertex.instance_index = instance_index;
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    uncompressed_vertex.position = mesh_functions::decompress_vertex_position(vertex_in.instance_index, vertex_in.compressed_position);
+    let mesh_uniform = bevy_sprite::mesh2d_bindings::mesh[instance_index];
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_uniform.aabb_center, mesh_uniform.aabb_half_extents);
 #else
     uncompressed_vertex.position = vertex_in.position;
 #endif
 #ifdef VERTEX_NORMALS
 #ifdef VERTEX_NORMALS_COMPRESSED
-    uncompressed_vertex.normal = mesh_functions::decompress_vertex_normal(vertex_in.compressed_normal);
+    uncompressed_vertex.normal = bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
 #else
     uncompressed_vertex.normal = vertex_in.normal;
 #endif
 #endif
 #ifdef VERTEX_UVS
 #ifdef VERTEX_UVS_COMPRESSED
-    uncompressed_vertex.uv = mesh_functions::decompress_vertex_uv_channel(vertex_in.instance_index, vertex_in.compressed_uv, 0);
+    let uv_min_and_extents = bevy_sprite::mesh2d_bindings::mesh[instance_index].uv_channels_min_and_extents[0];
+    uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv, uv_min_and_extents);
 #else
     uncompressed_vertex.uv = vertex_in.uv;
 #endif
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED
-    uncompressed_vertex.tangent = mesh_functions::decompress_vertex_tangent(vertex_in.compressed_tangent);
+    uncompressed_vertex.tangent = bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
 #else
     uncompressed_vertex.tangent = vertex_in.tangent;
 #endif
