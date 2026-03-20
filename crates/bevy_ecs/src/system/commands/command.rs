@@ -8,7 +8,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::Result,
+    error::{CommandOutput, ErrorHandler, Result},
     event::Event,
     message::{Message, Messages},
     resource::Resource,
@@ -35,6 +35,8 @@ use crate::{
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
+///     type Out = ();
+///
 ///     fn apply(self, world: &mut World) {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
@@ -45,19 +47,51 @@ use crate::{
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-pub trait Command<Out = ()>: Send + 'static {
+pub trait Command: Send + 'static {
+    /// The return type of [`apply`](Command::apply).
+    type Out: CommandOutput;
+
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> Out;
+    fn apply(self, world: &mut World) -> Self::Out;
+
+    /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command<Out = ()>
+    where
+        Self: Sized,
+    {
+        Self::Out::handle_error_with(self, error_handler)
+    }
+
+    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error(self) -> impl Command<Out = ()>
+    where
+        Self: Sized,
+    {
+        Self::Out::handle_error(self)
+    }
+
+    /// Takes a [`Command`] that returns a Result and ignores any error that occurs.
+    fn ignore_error(self) -> impl Command<Out = ()>
+    where
+        Self: Sized,
+    {
+        Self::Out::ignore_error(self)
+    }
 }
 
-impl<F, Out> Command<Out> for F
+impl<F, Out> Command for F
 where
     F: FnOnce(&mut World) -> Out + Send + 'static,
+    Out: CommandOutput,
 {
+    type Out = Out;
+
     fn apply(self, world: &mut World) -> Out {
         self(world)
     }
@@ -85,7 +119,7 @@ where
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
+pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle<Effect: NoBundleEffect>,
@@ -123,7 +157,7 @@ pub fn remove_resource<R: Resource>() -> impl Command {
 }
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`].
-pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command<Result> {
+pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
     move |world: &mut World| -> Result {
         world.run_system(id)?;
         Ok(())
@@ -132,7 +166,7 @@ pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command<Result> {
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`]
 /// and provides the given input value.
-pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command<Result>
+pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command
 where
     I: SystemInput<Inner<'static>: Send> + 'static,
 {
@@ -144,7 +178,7 @@ where
 
 /// A [`Command`] that runs the given system,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached<M, S>(system: S) -> impl Command<Result>
+pub fn run_system_cached<M, S>(system: S) -> impl Command
 where
     M: 'static,
     S: IntoSystem<(), (), M> + Send + 'static,
@@ -159,7 +193,7 @@ where
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
 ///
 /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
-pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
+pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,
     M: 'static,
@@ -174,7 +208,7 @@ where
 /// A [`Command`] that removes a system previously registered with
 /// [`Commands::register_system`](crate::system::Commands::register_system) or
 /// [`World::register_system`].
-pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
+pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command
 where
     I: SystemInput + Send + 'static,
     O: Send + 'static,
@@ -189,7 +223,7 @@ where
 /// - [`Commands::run_system_cached`](crate::system::Commands::run_system_cached)
 /// - [`World::run_system_cached`]
 /// - [`World::register_system_cached`]
-pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command<Result>
+pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command
 where
     I: SystemInput + Send + 'static,
     O: 'static,
@@ -203,7 +237,7 @@ where
 }
 
 /// A [`Command`] that runs the schedule corresponding to the given [`ScheduleLabel`].
-pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
+pub fn run_schedule(label: impl ScheduleLabel) -> impl Command {
     move |world: &mut World| -> Result {
         world.try_run_schedule(label)?;
         Ok(())
