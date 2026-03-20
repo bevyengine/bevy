@@ -147,7 +147,9 @@ impl Default for MultiThreadedExecutor {
     }
 }
 
-impl SystemExecutor for MultiThreadedExecutor {
+// SAFETY: `schedule.systems` is not mutated in manners that
+// break safety invariants relied on elsewhere.
+unsafe impl SystemExecutor for MultiThreadedExecutor {
     fn init(&mut self, schedule: &SystemSchedule) {
         let state = self.state.get_mut().unwrap();
         // pre-allocate space

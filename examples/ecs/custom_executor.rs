@@ -11,7 +11,12 @@ use bevy::{
 #[derive(Default)]
 struct CustomExecutor;
 
-impl SystemExecutor for CustomExecutor {
+#[expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to implement SystemExecutor"
+)]
+// SAFETY: we do not mutate `SystemWithAccess`.
+unsafe impl SystemExecutor for CustomExecutor {
     fn init(&mut self, _schedule: &SystemSchedule) {}
 
     fn run(

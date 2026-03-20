@@ -37,7 +37,9 @@ pub struct SingleThreadedExecutor {
     apply_final_deferred: bool,
 }
 
-impl SystemExecutor for SingleThreadedExecutor {
+// SAFETY: `schedule.systems` is not mutated in manners that
+// break safety invariants relied on elsewhere.
+unsafe impl SystemExecutor for SingleThreadedExecutor {
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();

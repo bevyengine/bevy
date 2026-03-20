@@ -1,6 +1,6 @@
 ---
 title: "`set_executor` replaced `ExecutorKind`"
-pull_requests: [23414]
+pull_requests: [23414, 23429]
 ---
 
 `ExecutorKind` has been removed. Schedules are now configured by passing an executor instance directly via `Schedule::set_executor`.
@@ -8,7 +8,7 @@ pull_requests: [23414]
 - `Schedule::set_executor_kind` has been removed. Use `Schedule::set_executor` instead.
 - `Schedule::get_executor_kind` has been removed. There is no replacement; executors are no longer identified by an enum variant.
 - `SystemExecutor::kind` has been removed from the trait.
-- `SystemExecutor` is now a public trait. You can implement it to provide a fully custom executor.
+- `SystemExecutor` is now an unsafe public trait. You can implement it to provide a fully custom executor, if you know what you are doing.
 - `SystemSchedule::systems` is now `pub`.
 
 ```rust

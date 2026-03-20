@@ -27,7 +27,13 @@ use crate::{
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
-pub trait SystemExecutor: Send + Sync {
+///
+/// # Safety
+///
+/// Implementors guarantee that they will not mutate `SystemWithAccess`
+/// in `schedule.systems` in manners that break safety invariants relied
+/// on elsewhere. Please be sure you know what you are doing!
+pub unsafe trait SystemExecutor: Send + Sync {
     /// Called once after the schedule is built or rebuilt.
     fn init(&mut self, schedule: &SystemSchedule);
     /// Runs the systems in the schedule.
