@@ -51,7 +51,7 @@ fn evaluate_and_sample_brdf(
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
     }
 
-    let diffuse_pdf = dot(wi, world_normal) / PI;
+    let diffuse_pdf = saturate(dot(wi, world_normal)) / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
     let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 
