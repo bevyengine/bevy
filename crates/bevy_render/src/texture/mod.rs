@@ -13,9 +13,9 @@ pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    extract_resource::ExtractResourcePlugin, render_asset::RenderAssetPlugin,
+    extract_resource::ExtractResourcePlugin, init_gpu_resource, render_asset::RenderAssetPlugin,
     render_resource::DefaultImageSamplerDescriptor, renderer::RenderDevice, GpuResourceAppExt,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
@@ -63,16 +63,26 @@ impl Plugin for TexturePlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.insert_resource(DefaultImageSamplerDescriptor(default_sampler.clone()));
-            let default_sampler = {
-                let device = render_app.world().resource::<RenderDevice>();
-                device.create_sampler(&default_sampler.as_wgpu())
-            };
-            render_app
-                .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<FallbackImage>()
-                .init_resource::<FallbackImageZero>()
-                .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageFormatMsaaCache>();
+            render_app.add_systems(
+                RenderStartup,
+                (
+                    init_default_image_sampler,
+                    init_gpu_resource::<FallbackImage>,
+                    init_gpu_resource::<FallbackImageZero>,
+                    init_gpu_resource::<FallbackImageCubemap>,
+                    init_gpu_resource::<FallbackImageFormatMsaaCache>,
+                )
+                    .chain()
+                    .ambiguous_with_all(),
+            );
         }
     }
+}
+
+fn init_default_image_sampler(world: &mut World) {
+    let descriptor = world.resource::<DefaultImageSamplerDescriptor>();
+    let wgpu_descriptor = descriptor.as_wgpu();
+    let device = world.resource::<RenderDevice>();
+    let sampler = device.create_sampler(&wgpu_descriptor);
+    world.insert_resource(DefaultImageSampler(sampler));
 }
