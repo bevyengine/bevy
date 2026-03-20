@@ -56,7 +56,8 @@
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping
 //! feature`] to capture the [`Result`] output of the system and handle it accordingly.
 //!
-//! When working with commands, you can handle the result of each command separately using the [`HandleError::handle_error_with`] method.
+//! When working with commands, you can handle the result of each command separately
+//! using the [`Command::handle_error_with`] method.
 //!
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()
@@ -64,6 +65,7 @@
 //! [`System`]: crate::system::System
 //! [`name`]: crate::system::System::name
 //! [`system piping feature`]: crate::system::In
+//! [`Command::handle_error_with`]: crate::system::Command::handle_error_with
 
 mod bevy_error;
 mod command_handling;

@@ -115,11 +115,11 @@ impl CommandOutput for () {
 }
 
 /// A trait for types that can be used as the output of an [`EntityCommand`] when
-/// converted into a [`Command`] with a specific entity using [`CommandWithEntity`].
+/// converted into a [`Command`].
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a valid `CommandWithEntity` output type",
-    label = "invalid `CommandWithEntity` output type",
-    note = "the output type of a `CommandWithEntity` should be `()` or a `Result` where the error type can be wrapped in an `EntityCommandError`"
+    message = "`{Self}` is not a valid `EntityCommand` output type",
+    label = "invalid `EntityCommand` output type",
+    note = "the output type of an `EntityCommand` should be `()` or a `Result` where the error type can be wrapped in an `EntityCommandError`"
 )]
 pub trait EntityCommandOutput: Sized {
     /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
