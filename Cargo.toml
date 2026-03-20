@@ -2318,6 +2318,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_executor"
+path = "examples/ecs/custom_executor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_executor]
+name = "Custom Executor"
+description = "Demonstrates how to make a custom SystemExecutor"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_schedule"
 path = "examples/ecs/custom_schedule.rs"
 doc-scrape-examples = true
@@ -3887,6 +3898,17 @@ doc-scrape-examples = true
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "letter_spacing"
+path = "examples/ui/text/letter_spacing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.letter_spacing]
+name = "Letter Spacing"
+description = "Demonstrates the letter spacing feature"
 category = "UI (User Interface)"
 wasm = true
 

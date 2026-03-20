@@ -49,7 +49,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
@@ -83,7 +83,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .allow_ambiguous_resource::<RenderMaterial2dBindGroupIds>()
                 .init_resource::<RenderMaterial2dIds>()
                 .allow_ambiguous_resource::<RenderMaterial2dIds>()
-                .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
+                .init_gpu_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
                     (

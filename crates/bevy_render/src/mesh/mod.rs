@@ -2,6 +2,8 @@ pub mod allocator;
 #[cfg(feature = "morph")]
 pub mod morph;
 
+#[cfg(feature = "morph")]
+use crate::GpuResourceAppExt;
 use crate::{
     render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     renderer::{RenderDevice, RenderQueue},
@@ -49,7 +51,7 @@ impl Plugin for MeshRenderAssetPlugin {
         };
 
         #[cfg(feature = "morph")]
-        _render_app.init_resource::<RenderMorphTargetAllocator>();
+        _render_app.init_gpu_resource::<RenderMorphTargetAllocator>();
     }
 }
 

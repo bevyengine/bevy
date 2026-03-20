@@ -6,7 +6,7 @@ use bevy::{
     animation::{AnimationEvent, AnimationTargetId},
     asset::LoadContext,
     ecs::entity::EntityHashSet,
-    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    gltf::extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
     light::CascadeShadowConfigBuilder,
     platform::collections::{HashMap, HashSet},
     prelude::*,
@@ -154,7 +154,7 @@ struct GltfExtensionHandlerAnimation {
 }
 
 impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 

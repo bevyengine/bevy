@@ -663,7 +663,7 @@ fn propagate_recursive(
 }
 
 /// Track entities that were visible last frame, used to granularly update [`ViewVisibility`] this
-/// frame without spurious `Change` detecation.
+/// frame without spurious `Change` detection.
 fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
     query.par_iter_mut().for_each(|mut view_visibility| {
         view_visibility.bypass_change_detection().update();

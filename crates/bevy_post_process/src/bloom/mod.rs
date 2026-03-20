@@ -28,7 +28,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
@@ -56,8 +56,8 @@ impl Plugin for BloomPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
                 RenderStartup,
                 (
