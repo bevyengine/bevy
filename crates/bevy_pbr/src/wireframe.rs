@@ -55,7 +55,7 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
@@ -142,14 +142,14 @@ impl Plugin for WireframePlugin {
             .extra_buffer_usages |= BufferUsages::STORAGE;
 
         render_app
-            .init_resource::<SpecializedWireframePipelineCache>()
+            .init_gpu_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe3d>>()
             .add_render_command::<Wireframe3d, DrawWireframe3dThin>()
             .add_render_command::<Wireframe3d, DrawWireframe3dWide>()
-            .init_resource::<RenderWireframeInstances>()
-            .init_resource::<WireframeWideBindGroups>()
-            .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .init_resource::<PendingWireframeQueues>()
+            .init_gpu_resource::<RenderWireframeInstances>()
+            .init_gpu_resource::<WireframeWideBindGroups>()
+            .init_gpu_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
+            .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
                 init_wireframe_3d_pipeline.after(MeshPipelineSet),
