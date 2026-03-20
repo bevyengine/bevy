@@ -22,7 +22,7 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
@@ -137,8 +137,8 @@ impl Plugin for ViewPlugin {
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetAttachments>();
+                .init_gpu_resource::<ViewUniforms>()
+                .init_gpu_resource::<ViewTargetAttachments>();
         }
     }
 }
