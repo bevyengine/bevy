@@ -70,12 +70,12 @@ fn evaluate_brdf(
 fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
     let diffuse_color = calculate_diffuse_color(material.base_color, material.metallic, 0.0, 0.0) / PI;
 
-    let H = normalize(wi + wo);
-    let LdotH = saturate(dot(wi, H));
+    let NdotL = saturate(dot(world_normal, wi));
+    let NdotV = max(dot(world_normal, wo), 0.0001);
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
-    let F = fresnel(F0, LdotH);
+    let layering = (1.0 - fresnel(F0, NdotL)) * (1.0 - fresnel(F0, NdotV));
 
-    return diffuse_color * (1.0 - F) * saturate(dot(world_normal, wi));
+    return diffuse_color * layering * saturate(dot(world_normal, wi));
 }
 
 fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
