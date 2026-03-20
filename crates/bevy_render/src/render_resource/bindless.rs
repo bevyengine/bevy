@@ -220,88 +220,85 @@ pub struct BindlessIndex(pub u32);
 /// Creates the bind group layout entries common to all shaders that use
 /// bindless bind groups.
 ///
-/// `bindless_resource_count` specifies the total number of bindless resources.
-/// `bindless_slab_resource_limit` specifies the resolved
-/// [`BindlessSlabResourceLimit`] value.
+/// `used_resource_types` limits which binding arrays are created,
+/// reducing argument buffer slot usage on constrained platforms.
 pub fn create_bindless_bind_group_layout_entries(
     bindless_index_table_length: u32,
     bindless_slab_resource_limit: u32,
     bindless_index_table_binding_number: BindingNumber,
+    used_resource_types: &[BindlessResourceType],
 ) -> Vec<BindGroupLayoutEntry> {
     let bindless_slab_resource_limit =
         NonZeroU32::new(bindless_slab_resource_limit).expect("Bindless slot count must be nonzero");
 
-    // The maximum size of a binding array is the
-    // `bindless_slab_resource_limit`, which would occur if all of the bindless
-    // resources were of the same type. So we create our binding arrays with
-    // that size.
+    let stages = ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE;
 
-    vec![
-        // Start with the bindless index table, bound to binding number 0.
+    // Start the bindless index table; remaining entries are added
+    // below based on which resource types the material actually uses.
+
+    let mut entries = vec![
+        // Start with the bindless index table.
         storage_buffer_read_only_sized(
             false,
             NonZeroU64::new(bindless_index_table_length as u64 * size_of::<u32>() as u64),
         )
-        .build(
-            *bindless_index_table_binding_number,
-            ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-        ),
-        // Continue with the common bindless resource arrays.
-        sampler(SamplerBindingType::Filtering)
-            .count(bindless_slab_resource_limit)
-            .build(
-                1,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        sampler(SamplerBindingType::NonFiltering)
-            .count(bindless_slab_resource_limit)
-            .build(
-                2,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        sampler(SamplerBindingType::Comparison)
-            .count(bindless_slab_resource_limit)
-            .build(
-                3,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_1d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                4,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_2d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                5,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_2d_array(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                6,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_3d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                7,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_cube(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                8,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-        texture_cube_array(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(
-                9,
-                ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-            ),
-    ]
+        .build(*bindless_index_table_binding_number, stages),
+    ];
+
+    // binding arrays only for types that this material uses
+    // Specifically Metal where each binding array uses the buffer slot (limited to 31)
+    for &(resource_type, ref binding_number) in BINDING_NUMBERS.iter() {
+        if !used_resource_types.contains(&resource_type) {
+            continue;
+        }
+        let entry = match resource_type {
+            BindlessResourceType::SamplerFiltering => sampler(SamplerBindingType::Filtering)
+                .count(bindless_slab_resource_limit)
+                .build(**binding_number, stages),
+            BindlessResourceType::SamplerNonFiltering => sampler(SamplerBindingType::NonFiltering)
+                .count(bindless_slab_resource_limit)
+                .build(**binding_number, stages),
+            BindlessResourceType::SamplerComparison => sampler(SamplerBindingType::Comparison)
+                .count(bindless_slab_resource_limit)
+                .build(**binding_number, stages),
+            BindlessResourceType::Texture1d => {
+                texture_1d(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::Texture2d => {
+                texture_2d(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::Texture2dArray => {
+                texture_2d_array(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::Texture3d => {
+                texture_3d(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::TextureCube => {
+                texture_cube(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::TextureCubeArray => {
+                texture_cube_array(TextureSampleType::Float { filterable: true })
+                    .count(bindless_slab_resource_limit)
+                    .build(**binding_number, stages)
+            }
+            BindlessResourceType::None
+            | BindlessResourceType::Buffer
+            | BindlessResourceType::DataBuffer => continue,
+        };
+        entries.push(entry);
+    }
+
+    entries
 }
 
 impl BindlessSlabResourceLimit {
