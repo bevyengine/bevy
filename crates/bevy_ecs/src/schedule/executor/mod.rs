@@ -10,6 +10,8 @@ use core::any::TypeId;
 
 pub use self::single_threaded::SingleThreadedExecutor;
 
+#[cfg(all(feature = "std", feature = "executor_stats"))]
+pub use self::multi_threaded::MultiThreadedExecutorStats;
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 #[cfg(feature = "std")]

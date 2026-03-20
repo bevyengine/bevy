@@ -44,6 +44,9 @@ debug = ["bevy_utils/debug", "bevy_reflect?/debug"]
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
 
+## Collects per-run multithreaded executor counters and timings for profiling.
+executor_stats = ["std"]
+
 ## Provides system stepping support, allowing them to be paused, stepped, and
 ## other debug operations which can help with diagnosing certain behaviors.
 bevy_debug_stepping = []

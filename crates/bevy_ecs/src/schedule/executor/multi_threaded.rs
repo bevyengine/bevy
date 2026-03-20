@@ -7,7 +7,15 @@ use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "std")]
 use std::eprintln;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex, MutexGuard,
+};
+#[cfg(feature = "executor_stats")]
+use std::{
+    sync::atomic::{AtomicU64, AtomicUsize},
+    time::Instant,
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -69,12 +77,108 @@ struct SystemResult {
     system_index: usize,
 }
 
+/// Per-run counters collected by [`MultiThreadedExecutor`].
+#[cfg(feature = "executor_stats")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MultiThreadedExecutorStats {
+    /// System completion events pushed by worker tasks.
+    pub completions_pushed: usize,
+    /// Tick requests originating from worker completions.
+    pub worker_tick_requests: usize,
+    /// Successful acquisitions of the completion-driver token.
+    pub driver_acquisitions: usize,
+    /// Successful `try_lock` acquisitions of the executor state.
+    pub try_lock_successes: usize,
+    /// Failed `try_lock` attempts against the executor state.
+    pub try_lock_failures: usize,
+    /// Successful executor tick passes performed while holding the state lock.
+    pub tick_runs: usize,
+    /// Completion events drained from the completion queue.
+    pub completion_events_drained: usize,
+    /// Finished systems processed by `finish_system_and_handle_dependents`.
+    pub systems_finished: usize,
+    /// Ready systems scanned while deciding what to spawn next.
+    pub ready_systems_scanned: usize,
+    /// Systems actually spawned during the run.
+    pub systems_spawned: usize,
+    /// Nanoseconds spent inside the executor tick while holding the lock.
+    pub tick_lock_total_nanos: u64,
+    /// Nanoseconds spent draining completion events while holding the lock.
+    pub completion_drain_nanos: u64,
+    /// Nanoseconds spent scanning and spawning ready systems while holding the lock.
+    pub spawn_ready_nanos: u64,
+}
+
+#[cfg(feature = "executor_stats")]
+#[derive(Default)]
+struct MultiThreadedExecutorMetrics {
+    completions_pushed: AtomicUsize,
+    worker_tick_requests: AtomicUsize,
+    driver_acquisitions: AtomicUsize,
+    try_lock_successes: AtomicUsize,
+    try_lock_failures: AtomicUsize,
+    tick_runs: AtomicUsize,
+    completion_events_drained: AtomicUsize,
+    systems_finished: AtomicUsize,
+    ready_systems_scanned: AtomicUsize,
+    systems_spawned: AtomicUsize,
+    tick_lock_total_nanos: AtomicU64,
+    completion_drain_nanos: AtomicU64,
+    spawn_ready_nanos: AtomicU64,
+}
+
+#[cfg(feature = "executor_stats")]
+impl MultiThreadedExecutorMetrics {
+    fn reset(&self) {
+        self.completions_pushed.store(0, Ordering::Relaxed);
+        self.worker_tick_requests.store(0, Ordering::Relaxed);
+        self.driver_acquisitions.store(0, Ordering::Relaxed);
+        self.try_lock_successes.store(0, Ordering::Relaxed);
+        self.try_lock_failures.store(0, Ordering::Relaxed);
+        self.tick_runs.store(0, Ordering::Relaxed);
+        self.completion_events_drained.store(0, Ordering::Relaxed);
+        self.systems_finished.store(0, Ordering::Relaxed);
+        self.ready_systems_scanned.store(0, Ordering::Relaxed);
+        self.systems_spawned.store(0, Ordering::Relaxed);
+        self.tick_lock_total_nanos.store(0, Ordering::Relaxed);
+        self.completion_drain_nanos.store(0, Ordering::Relaxed);
+        self.spawn_ready_nanos.store(0, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> MultiThreadedExecutorStats {
+        MultiThreadedExecutorStats {
+            completions_pushed: self.completions_pushed.load(Ordering::Relaxed),
+            worker_tick_requests: self.worker_tick_requests.load(Ordering::Relaxed),
+            driver_acquisitions: self.driver_acquisitions.load(Ordering::Relaxed),
+            try_lock_successes: self.try_lock_successes.load(Ordering::Relaxed),
+            try_lock_failures: self.try_lock_failures.load(Ordering::Relaxed),
+            tick_runs: self.tick_runs.load(Ordering::Relaxed),
+            completion_events_drained: self.completion_events_drained.load(Ordering::Relaxed),
+            systems_finished: self.systems_finished.load(Ordering::Relaxed),
+            ready_systems_scanned: self.ready_systems_scanned.load(Ordering::Relaxed),
+            systems_spawned: self.systems_spawned.load(Ordering::Relaxed),
+            tick_lock_total_nanos: self.tick_lock_total_nanos.load(Ordering::Relaxed),
+            completion_drain_nanos: self.completion_drain_nanos.load(Ordering::Relaxed),
+            spawn_ready_nanos: self.spawn_ready_nanos.load(Ordering::Relaxed),
+        }
+    }
+
+    fn add_duration(counter: &AtomicU64, start: Instant) {
+        let nanos = start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+        counter.fetch_add(nanos, Ordering::Relaxed);
+    }
+}
+
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
 pub struct MultiThreadedExecutor {
     /// The running state, protected by a mutex so that a reference to the executor can be shared across tasks.
     state: Mutex<ExecutorState>,
     /// Queue of system completion events.
     system_completion: ConcurrentQueue<SystemResult>,
+    /// Coalesces completion-driven executor ticks behind a single active driver.
+    tick_in_progress: AtomicBool,
+    /// Records whether any thread requested another tick while the current driver was active.
+    tick_requested: AtomicBool,
     /// Setting when true applies deferred system buffers after all systems have run
     apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
@@ -82,6 +186,10 @@ pub struct MultiThreadedExecutor {
     /// Recycles the temporary bitset used by `ApplyDeferred` tasks without bloating completion events.
     recycled_unapplied_systems: Mutex<Option<FixedBitSet>>,
     starting_systems: FixedBitSet,
+    #[cfg(feature = "executor_stats")]
+    metrics: MultiThreadedExecutorMetrics,
+    #[cfg(feature = "executor_stats")]
+    last_stats: MultiThreadedExecutorStats,
     /// Cached tracing span
     #[cfg(feature = "trace")]
     executor_span: Span,
@@ -160,12 +268,21 @@ impl SystemExecutor for MultiThreadedExecutor {
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
-        let state = self.state.get_mut().unwrap();
-        // reset counts
         if schedule.systems.is_empty() {
+            #[cfg(feature = "executor_stats")]
+            {
+                self.last_stats = MultiThreadedExecutorStats::default();
+            }
             return;
         }
+        #[cfg(feature = "executor_stats")]
+        self.metrics.reset();
+
+        let state = self.state.get_mut().unwrap();
+        // reset counts
         state.num_running_systems = 0;
+        self.tick_in_progress.store(false, Ordering::Relaxed);
+        self.tick_requested.store(false, Ordering::Relaxed);
         self.recycled_unapplied_systems.get_mut().unwrap().take();
         state
             .num_dependencies_remaining
@@ -207,12 +324,16 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                 // The first tick won't need to process finished systems, but we still need to run the loop in
                 // tick_executor() in case a system completes while the first tick still holds the mutex.
-                context.tick_executor();
+                context.request_tick();
             },
         );
 
         // End the borrows of self and world in environment by copying out the reference to systems.
         let systems = environment.systems;
+        #[cfg(feature = "executor_stats")]
+        {
+            self.last_stats = self.metrics.snapshot();
+        }
 
         let state = self.state.get_mut().unwrap();
         if self.apply_final_deferred {
@@ -253,6 +374,19 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         res: Result<(), Box<dyn Any + Send>>,
         system: &ScheduleSystem,
     ) {
+        #[cfg(feature = "executor_stats")]
+        {
+            self.environment
+                .executor
+                .metrics
+                .completions_pushed
+                .fetch_add(1, Ordering::Relaxed);
+            self.environment
+                .executor
+                .metrics
+                .worker_tick_requests
+                .fetch_add(1, Ordering::Relaxed);
+        }
         // tell the executor that the system finished
         self.environment
             .executor
@@ -271,7 +405,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
                 *panic_payload = Some(payload);
             }
         }
-        self.tick_executor();
+        self.request_tick();
     }
 
     #[expect(
@@ -279,11 +413,87 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         reason = "Field is only accessed here and is guarded by lock with a documented safety comment"
     )]
     fn try_lock<'a>(&'a self) -> Option<(&'a mut Conditions<'sys>, MutexGuard<'a, ExecutorState>)> {
-        let guard = self.environment.executor.state.try_lock().ok()?;
+        let guard = match self.environment.executor.state.try_lock() {
+            Ok(guard) => {
+                #[cfg(feature = "executor_stats")]
+                self.environment
+                    .executor
+                    .metrics
+                    .try_lock_successes
+                    .fetch_add(1, Ordering::Relaxed);
+                guard
+            }
+            Err(_) => {
+                #[cfg(feature = "executor_stats")]
+                self.environment
+                    .executor
+                    .metrics
+                    .try_lock_failures
+                    .fetch_add(1, Ordering::Relaxed);
+                return None;
+            }
+        };
         // SAFETY: This is an exclusive access as no other location fetches conditions mutably, and
         // is synchronized by the lock on the executor state.
         let conditions = unsafe { &mut *self.environment.conditions.get() };
         Some((conditions, guard))
+    }
+
+    fn request_tick(&self) {
+        let executor = self.environment.executor;
+        executor.tick_requested.store(true, Ordering::Release);
+        if executor
+            .tick_in_progress
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            #[cfg(feature = "executor_stats")]
+            executor
+                .metrics
+                .driver_acquisitions
+                .fetch_add(1, Ordering::Relaxed);
+            self.drive_executor();
+        }
+    }
+
+    fn drive_executor(&self) {
+        loop {
+            self.environment
+                .executor
+                .tick_requested
+                .store(false, Ordering::Release);
+            self.tick_executor();
+            if !self
+                .environment
+                .executor
+                .tick_requested
+                .load(Ordering::Acquire)
+            {
+                break;
+            }
+        }
+
+        self.environment
+            .executor
+            .tick_in_progress
+            .store(false, Ordering::Release);
+
+        // Close the race where a completion arrives after the last drain observed no further work
+        // but before other threads can see that the driver token was released.
+        if self
+            .environment
+            .executor
+            .tick_requested
+            .load(Ordering::Acquire)
+            && self
+                .environment
+                .executor
+                .tick_in_progress
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+        {
+            self.drive_executor();
+        }
     }
 
     fn tick_executor(&self) {
@@ -296,7 +506,21 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             let Some((conditions, mut guard)) = self.try_lock() else {
                 return;
             };
+            #[cfg(feature = "executor_stats")]
+            let tick_start = Instant::now();
             guard.tick(self, conditions);
+            #[cfg(feature = "executor_stats")]
+            {
+                self.environment
+                    .executor
+                    .metrics
+                    .tick_runs
+                    .fetch_add(1, Ordering::Relaxed);
+                MultiThreadedExecutorMetrics::add_duration(
+                    &self.environment.executor.metrics.tick_lock_total_nanos,
+                    tick_start,
+                );
+            }
             // Make sure we drop the guard before checking system_completion.is_empty(), or we could lose events.
             drop(guard);
             if self.environment.executor.system_completion.is_empty() {
@@ -314,13 +538,25 @@ impl MultiThreadedExecutor {
         Self {
             state: Mutex::new(ExecutorState::new()),
             system_completion: ConcurrentQueue::unbounded(),
+            tick_in_progress: AtomicBool::new(false),
+            tick_requested: AtomicBool::new(false),
             starting_systems: FixedBitSet::new(),
             apply_final_deferred: true,
             panic_payload: Mutex::new(None),
             recycled_unapplied_systems: Mutex::new(None),
+            #[cfg(feature = "executor_stats")]
+            metrics: MultiThreadedExecutorMetrics::default(),
+            #[cfg(feature = "executor_stats")]
+            last_stats: MultiThreadedExecutorStats::default(),
             #[cfg(feature = "trace")]
             executor_span: info_span!("multithreaded executor"),
         }
+    }
+
+    #[cfg(feature = "executor_stats")]
+    /// Returns the counters collected by the most recent run.
+    pub fn last_stats(&self) -> MultiThreadedExecutorStats {
+        self.last_stats
     }
 }
 
@@ -345,16 +581,44 @@ impl ExecutorState {
         #[cfg(feature = "trace")]
         let _span = context.environment.executor.executor_span.enter();
 
+        #[cfg(feature = "executor_stats")]
+        let drain_start = Instant::now();
+        #[cfg(feature = "executor_stats")]
+        let mut drained = 0usize;
         for result in context.environment.executor.system_completion.try_iter() {
+            #[cfg(feature = "executor_stats")]
+            {
+                drained += 1;
+            }
             self.finish_system_and_handle_dependents(context, result);
+        }
+        #[cfg(feature = "executor_stats")]
+        {
+            context
+                .environment
+                .executor
+                .metrics
+                .completion_events_drained
+                .fetch_add(drained, Ordering::Relaxed);
+            MultiThreadedExecutorMetrics::add_duration(
+                &context.environment.executor.metrics.completion_drain_nanos,
+                drain_start,
+            );
         }
 
         // SAFETY:
         // - `finish_system_and_handle_dependents` has updated the currently running systems.
         // - `rebuild_active_access` locks access for all currently running systems.
+        #[cfg(feature = "executor_stats")]
+        let spawn_start = Instant::now();
         unsafe {
             self.spawn_system_tasks(context, conditions);
         }
+        #[cfg(feature = "executor_stats")]
+        MultiThreadedExecutorMetrics::add_duration(
+            &context.environment.executor.metrics.spawn_ready_nanos,
+            spawn_start,
+        );
     }
 
     /// # Safety
@@ -366,6 +630,10 @@ impl ExecutorState {
         if self.exclusive_running {
             return;
         }
+        #[cfg(feature = "executor_stats")]
+        let mut ready_systems_scanned = 0usize;
+        #[cfg(feature = "executor_stats")]
+        let mut systems_spawned = 0usize;
 
         #[cfg(feature = "hotpatching")]
         #[expect(
@@ -396,6 +664,10 @@ impl ExecutorState {
             ready_systems.clone_from(&self.ready_systems);
 
             for system_index in ready_systems.ones() {
+                #[cfg(feature = "executor_stats")]
+                {
+                    ready_systems_scanned += 1;
+                }
                 debug_assert!(!self.running_systems.contains(system_index));
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
@@ -442,6 +714,10 @@ impl ExecutorState {
 
                 self.running_systems.insert(system_index);
                 self.num_running_systems += 1;
+                #[cfg(feature = "executor_stats")]
+                {
+                    systems_spawned += 1;
+                }
 
                 if matches!(
                     context.environment.compiled.system_metadata[system_index].lane,
@@ -468,6 +744,21 @@ impl ExecutorState {
 
         // give back
         self.ready_systems_copy = ready_systems;
+        #[cfg(feature = "executor_stats")]
+        {
+            context
+                .environment
+                .executor
+                .metrics
+                .ready_systems_scanned
+                .fetch_add(ready_systems_scanned, Ordering::Relaxed);
+            context
+                .environment
+                .executor
+                .metrics
+                .systems_spawned
+                .fetch_add(systems_spawned, Ordering::Relaxed);
+        }
     }
 
     fn can_run(
@@ -689,6 +980,13 @@ impl ExecutorState {
     fn finish_system_and_handle_dependents(&mut self, context: &Context, result: SystemResult) {
         let compiled = context.environment.compiled;
         let SystemResult { system_index } = result;
+        #[cfg(feature = "executor_stats")]
+        context
+            .environment
+            .executor
+            .metrics
+            .systems_finished
+            .fetch_add(1, Ordering::Relaxed);
 
         if matches!(
             compiled.system_metadata[system_index].lane,
@@ -828,10 +1126,11 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
+        schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule, SystemSet},
+        system::{Commands, Res},
         world::World,
     };
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[derive(Resource)]
     struct R;
@@ -865,5 +1164,48 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
+    }
+
+    #[derive(Resource, Default)]
+    struct WideFanOutCounter(AtomicUsize);
+
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct RootSet;
+
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct LeafSet(usize);
+
+    #[test]
+    fn repeated_wide_fan_out_completions_are_not_lost() {
+        fn root() {}
+
+        fn leaf(counter: Res<WideFanOutCounter>) {
+            counter.0.fetch_add(1, Ordering::Relaxed);
+        }
+
+        const LEAF_COUNT: usize = 256;
+        const RUNS: usize = 64;
+
+        let mut world = World::new();
+        world.init_resource::<WideFanOutCounter>();
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(root.in_set(RootSet));
+        for index in 0..LEAF_COUNT {
+            schedule.add_systems(leaf.in_set(LeafSet(index)).after(RootSet));
+        }
+
+        for _ in 0..RUNS {
+            schedule.run(&mut world);
+        }
+
+        assert_eq!(
+            world
+                .resource::<WideFanOutCounter>()
+                .0
+                .load(Ordering::Relaxed),
+            LEAF_COUNT * RUNS
+        );
     }
 }

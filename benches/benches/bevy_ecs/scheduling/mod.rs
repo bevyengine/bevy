@@ -24,6 +24,7 @@ criterion_group!(
     dependency_chain_run,
     executor_hot_paths,
     wide_fan_out_run,
+    completion_storm_run,
     deferred_barrier_stress,
     mixed_lane_run,
 );

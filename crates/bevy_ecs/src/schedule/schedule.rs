@@ -1754,6 +1754,8 @@ mod tests {
 
     use bevy_ecs_macros::ScheduleLabel;
 
+    #[cfg(feature = "executor_stats")]
+    use crate::schedule::MultiThreadedExecutor;
     use crate::{
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
@@ -2542,6 +2544,46 @@ mod tests {
         assert!(stats.queue_injections > 0);
         assert!(stats.deferred_barriers > 0);
         assert!(stats.condition_evaluations > 0);
+    }
+
+    #[cfg(feature = "executor_stats")]
+    #[test]
+    fn multi_threaded_executor_stats_track_completion_storm_activity() {
+        fn root() {}
+
+        fn leaf() {}
+
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct RootSet;
+
+        #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct LeafSet(usize);
+
+        const LEAF_COUNT: usize = 64;
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(root.in_set(RootSet));
+        for index in 0..LEAF_COUNT {
+            schedule.add_systems(leaf.in_set(LeafSet(index)).after(RootSet));
+        }
+
+        let mut compiled = schedule.compile(&mut world).unwrap();
+        let mut executor = MultiThreadedExecutor::new();
+        executor.init(&compiled.executable);
+        executor.run(&mut compiled.executable, &mut world, None, ignore);
+
+        let stats = executor.last_stats();
+        assert_eq!(stats.completions_pushed, LEAF_COUNT + 1);
+        assert_eq!(stats.worker_tick_requests, LEAF_COUNT + 1);
+        assert_eq!(stats.completion_events_drained, LEAF_COUNT + 1);
+        assert_eq!(stats.systems_finished, LEAF_COUNT + 1);
+        assert_eq!(stats.systems_spawned, LEAF_COUNT + 1);
+        assert!(stats.driver_acquisitions >= 1);
+        assert!(stats.try_lock_successes >= 1);
+        assert!(stats.tick_runs >= 1);
+        assert!(stats.tick_lock_total_nanos >= stats.completion_drain_nanos);
+        assert!(stats.tick_lock_total_nanos >= stats.spawn_ready_nanos);
     }
 
     #[derive(SystemSet, Debug, Hash, Clone, PartialEq, Eq)]

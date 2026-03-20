@@ -274,6 +274,58 @@ pub fn wide_fan_out_run(criterion: &mut Criterion) {
     group.finish();
 }
 
+pub fn completion_storm_run(criterion: &mut Criterion) {
+    fn noop() {}
+
+    let mut group = criterion.benchmark_group("completion_storm_run");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for system_count in [64usize, 256, 1024] {
+        {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+            schedule.set_executor(SingleThreadedExecutor::new());
+            for _ in 0..system_count {
+                schedule.add_systems(noop);
+            }
+            schedule.run(&mut world);
+            group.bench_function(
+                format!("{system_count}_systems/SingleThreaded"),
+                |bencher| bencher.iter(|| schedule.run(&mut world)),
+            );
+        }
+
+        {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+            schedule.set_executor(MultiThreadedExecutor::new());
+            for _ in 0..system_count {
+                schedule.add_systems(noop);
+            }
+            schedule.run(&mut world);
+            group.bench_function(format!("{system_count}_systems/MultiThreaded"), |bencher| {
+                bencher.iter(|| schedule.run(&mut world))
+            });
+        }
+
+        {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+            schedule.set_executor(WorkStealingExecutor::new());
+            for _ in 0..system_count {
+                schedule.add_systems(noop);
+            }
+            schedule.run(&mut world);
+            group.bench_function(format!("{system_count}_systems/WorkStealing"), |bencher| {
+                bencher.iter(|| schedule.run(&mut world))
+            });
+        }
+    }
+
+    group.finish();
+}
+
 pub fn deferred_barrier_stress(criterion: &mut Criterion) {
     fn writer(mut commands: Commands) {
         commands.queue(|world: &mut World| {
