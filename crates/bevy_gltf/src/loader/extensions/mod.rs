@@ -293,7 +293,12 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
 
     #[cfg(feature = "bevy_animation")]
     /// Called when an individual animation is processed
-    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>);
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    );
 
     #[cfg(feature = "bevy_animation")]
     /// Called when all animations have been collected.
@@ -408,8 +413,13 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
     }
 
     #[cfg(feature = "bevy_animation")]
-    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {
-        Self::on_animation(self, gltf_animation, handle);
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    ) {
+        Self::on_animation(self, load_context, gltf_animation, animation_clip);
     }
 
     #[cfg(feature = "bevy_animation")]
