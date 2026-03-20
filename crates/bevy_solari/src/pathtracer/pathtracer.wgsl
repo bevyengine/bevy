@@ -1,11 +1,11 @@
 enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
+#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_F0}
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf}
+#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, fresnel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 
@@ -95,7 +95,11 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
-    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.roughness), 0.0, ray_hit.material.metallic); // TODO: Based on fresnel weight
+    let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
+    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
+    let df = 1.0 - luminance(fresnel(F0, NdotV));
+
+    let diffuse_weight = mix(df, 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);

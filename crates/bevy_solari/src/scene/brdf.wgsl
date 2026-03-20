@@ -2,6 +2,7 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::brdf
 
+#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::lighting::{F_AB, D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
@@ -22,7 +23,11 @@ fn evaluate_and_sample_brdf(
     material: ResolvedMaterial,
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
-    let diffuse_weight = mix(mix(0.4, 0.9, material.perceptual_roughness), 0.0, material.metallic); // TODO: Based on fresnel weight
+    let NdotV = max(dot(world_normal, wo), 0.0001);
+    let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
+    let df = 1.0 - luminance(fresnel(F0, NdotV));
+
+    let diffuse_weight = mix(df, 0.0, material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
