@@ -115,7 +115,7 @@ use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
-/// Rendering is done in a [`SubApp`](bevy_app::SubApp), which exchanges data with the main app
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
 /// between main schedule iterations.
 ///
 /// Rendering can be executed between iterations of the main schedule,
@@ -208,23 +208,27 @@ pub enum RenderSystems {
 pub struct RenderStartup;
 
 /// Constructs a `T` resource with `from_world` and inserts it.
-pub fn init_gpu_resource<T: Resource + FromWorld>(world: &mut World) {
-    let res = T::from_world(world);
+pub fn init_gpu_resource<R: Resource + FromWorld>(world: &mut World) {
+    let res = R::from_world(world);
     world.insert_resource(res);
 }
 
 /// Convenience methods for render-recovery-aware resource initialization.
 pub trait GpuResourceAppExt {
+    /// Causes the provided GPU resource to be re-initialized during [`RenderStartup`].
+    ///
+    /// This is useful when recovering from lost render devices.
+    ///
     /// Shorthand for:
     /// ```ignore
-    /// app.add_systems(RenderStartup, init_gpu_resource::<T>);
+    /// app.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all());
     /// ```
-    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self;
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self;
 }
 
 impl GpuResourceAppExt for SubApp {
-    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self {
-        self.add_systems(RenderStartup, init_gpu_resource::<T>)
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all())
     }
 }
 
@@ -352,6 +356,10 @@ impl Plugin for RenderPlugin {
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
+            render_app
+                .get_schedule_mut(RenderStartup)
+                .unwrap()
+                .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
             render_app.update_schedule = Some(RenderRecovery.intern());
             render_app.add_systems(
                 RenderRecovery,
