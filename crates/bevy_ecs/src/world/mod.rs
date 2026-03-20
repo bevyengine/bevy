@@ -2853,14 +2853,12 @@ impl World {
                 {
                     let location = entity_mut.location();
                     // SAFETY:
+                    // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
+                    let world = unsafe { entity_mut.world_mut() };
+                    // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
                     let mut bundle_inserter = unsafe {
-                        BundleInserter::new::<R>(
-                            // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                            entity_mut.world_mut(),
-                            location.archetype_id,
-                            self.ticks.changed,
-                        )
+                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
                     };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source

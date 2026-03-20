@@ -270,8 +270,12 @@ impl<'w> BundleInserter<'w> {
                 }
 
                 // SAFETY:
+                // - Since `ArchetypeMoveType` is `NewArchetypeNewTable`,
+                //   the entity's old table was determined to be different
+                //   from its new table in `Self::new_with_id`.
                 // - `location.table_id` is obtained from a valid location
-                //   and `new_table_id` was obtained from a valid archetype.
+                //   and `new_archetype.table_id()` is obtained from a valid archetype.
+                // - `result.table_row` was obtained from a valid archetype.
                 // - We will not drop any components.
                 // - Valid values will be written to new components by the caller (`Self::insert`).
                 let move_result = unsafe {

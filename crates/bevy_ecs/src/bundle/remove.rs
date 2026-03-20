@@ -119,7 +119,8 @@ impl<'w> BundleRemover<'w> {
     /// `pre_remove` should return a bool for if the components still need to be dropped.
     ///
     /// # Safety
-    /// The `location` must have the same archetype as the remover.
+    /// - `location` must have the same archetype as the remover.
+    /// - `location` must be valid for the given `Entity`.
     #[inline]
     pub(crate) unsafe fn remove<T: 'static>(
         &mut self,
@@ -247,7 +248,10 @@ impl<'w> BundleRemover<'w> {
         let new_location = if let Some((old_table_id, new_table_id)) = self.old_and_new_table {
             let move_result = if needs_drop {
                 // SAFETY:
+                // - In this branch, `old_table_id` and `new_table_id` were determined
+                //   to be different in `Self::new_with_id`.
                 // - `old_table_id` and `new_table_id` were obtained from valid archetypes.
+                // - The caller ensures `location` is valid.
                 // - We will not drop any components.
                 // - No components were added.
                 unsafe {
@@ -259,7 +263,10 @@ impl<'w> BundleRemover<'w> {
                 }
             } else {
                 // SAFETY:
+                // - In this branch, `old_table_id` and `new_table_id` were determined
+                //   to be different in `Self::new_with_id`.
                 // - `old_table_id` and `new_table_id` were obtained from valid archetypes.
+                // - The caller ensures `location` is valid.
                 // - Ownership of removed components was obtained in `pre_remove`.
                 // - No components were added.
                 unsafe {

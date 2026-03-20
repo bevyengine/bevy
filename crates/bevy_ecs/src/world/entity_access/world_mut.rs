@@ -1230,7 +1230,9 @@ impl<'w> EntityWorldMut<'w> {
         let mut remover =
             // SAFETY: The archetype id must be valid since this entity is in it.
             unsafe { BundleRemover::new::<T>(self.world, location.archetype_id, true) }?;
-        // SAFETY: The passed location has the sane archetype as the remover, since they came from the same location.
+        // SAFETY:
+        // - The passed location has the same archetype as the remover, since they came from the same location.
+        // - `location` was obtained from a valid `Self`.
         let (new_location, result) = unsafe {
             remover.remove(
                 entity,
@@ -1293,7 +1295,9 @@ impl<'w> EntityWorldMut<'w> {
         else {
             return self;
         };
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `location` was obtained from a valid `Self`.
         let new_location = unsafe {
             remover.remove(
                 self.entity,
@@ -1333,7 +1337,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `location` was obtained from a valid `Self`.
         let new_location = unsafe {
             remover.remove(
                 self.entity,
@@ -1389,7 +1395,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `old_location` was obtained from a valid `Self`.
         let new_location = unsafe {
             remover.remove(
                 self.entity,
@@ -1440,7 +1448,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `location` was obtained from a valid `Self`.
         let new_location = unsafe {
             remover.remove(
                 self.entity,
@@ -1504,7 +1514,9 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         };
         remover.relationship_hook_mode = relationship_hook_mode;
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `location` was obtained from a valid `Self`.
         let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
 
         self.location = Some(new_location);
@@ -1542,7 +1554,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
-        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        // SAFETY:
+        // - The remover archetype came from the passed location and the removal can not fail.
+        // - `location` was obtained from a valid `Self`.
         let new_location = unsafe {
             remover.remove(
                 self.entity,

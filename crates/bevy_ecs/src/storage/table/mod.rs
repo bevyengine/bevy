@@ -737,12 +737,10 @@ impl Tables {
     /// If `DROP` is `false`, removed components will be forgotten,
     /// allowing ownership to be relinquished to the caller.
     ///
-    /// # Panics
-    /// - If `old_table_id` and `new_table_id` are equal.
-    /// - If `row` is out-of-bounds of the table corresponding to `old_table_id`.
-    ///
     /// # Safety
+    /// - `old_table_id` and `new_table_id` must not be equal.
     /// - `old_table_id` and `new_table_id` must be valid indices for this [`Tables`].
+    /// - `row` must be a valid index for the table corresponding to `old_table_id`.
     /// - If `DROP` is `true`, the caller must not drop any removed components
     ///   at any point.
     /// - If `DROP` is `false`, the caller must have previously obtained ownership
@@ -756,42 +754,41 @@ impl Tables {
         new_table_id: TableId,
         row: TableRow,
     ) -> TableMoveResult<'_> {
-        assert!(old_table_id != new_table_id);
+        #[cfg(debug_assertions)]
+        debug_assert!(old_table_id != new_table_id);
         // SAFETY:
-        // - `old_table_id` and `new_table_id` are asserted to not overlap.
+        // - The caller ensures `old_table_id` and `new_table_id` do not overlap.
         // - The caller ensures `old_table_id` and `new_table_id` are in-bounds.
         let [src_table, dst_table] = unsafe {
             self.tables
                 .get_disjoint_unchecked_mut([old_table_id.as_usize(), new_table_id.as_usize()])
         };
         let last_index = (src_table.entity_count() - 1) as usize;
-        assert!(row.index() <= last_index);
+        #[cfg(debug_assertions)]
+        debug_assert!(row.index() <= last_index);
         // SAFETY:
         // - All pre-existing columns will be written to immediately.
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
 
-        let mut dst_iter = dst_table.columns.iter_mut();
-        let mut dst_next = dst_iter.next();
+        let mut dst_iter = dst_table.columns.iter_mut().peekable();
 
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
             // Skip past any destination columns that don't exist in the source table.
             // The caller is responsible for initializing those columns.
-            while dst_next
-                .as_ref()
-                .is_some_and(|(dst_component_id, _)| *dst_component_id < src_component_id)
-            {
-                dst_next = dst_iter.next();
-            }
+            while dst_iter
+                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
+                .is_some()
+            {}
 
             // Then move the value in the source column if it exists in the destination table,
             // or remove it if it does not.
-            if let Some((dst_component_id, dst_column)) = dst_next.as_mut()
-                && *dst_component_id == src_component_id
+            if let Some((_, dst_column)) =
+                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
             {
                 // SAFETY:
                 // - `src_column` and `dst_column` correspond to the same `ComponentId`.
-                // - `row` is asserted to be in-bounds for `src_column`.
+                // - The caller ensures `row` is in-bounds for `src_column`.
                 // - `dst_row` was just allocated for the table containing `dst_column`.
                 // - `src_column` was initialized by a previous call to this function
                 //   or by a previous caller.
@@ -799,11 +796,10 @@ impl Tables {
                 unsafe {
                     dst_column.initialize_from_unchecked(src_column, last_index, row, dst_row);
                 }
-                dst_next = dst_iter.next();
             } else {
                 // SAFETY:
                 // - `last_index` is the index of the last element.
-                // - `row` <= `last_index` is asserted.
+                // - The caller ensures `row` <= `last_index`.
                 // - The length of `src_column` is given by the length of `src_table.entities`,
                 //   which has been updated.
                 unsafe {
