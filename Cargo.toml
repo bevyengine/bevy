@@ -4368,6 +4368,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "transform_gizmo"
+path = "examples/gizmos/transform_gizmo.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.transform_gizmo]
+name = "Transform Gizmo"
+description = "Interactive transform gizmo for translating, rotating, and scaling entities"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "axes"
 path = "examples/gizmos/axes.rs"
 doc-scrape-examples = true
