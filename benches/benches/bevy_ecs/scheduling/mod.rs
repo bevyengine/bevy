@@ -19,4 +19,10 @@ criterion_group!(
     schedule,
     build_schedule,
     empty_schedule_run,
+    compile_schedule_only,
+    compiled_schedule_run,
+    dependency_chain_run,
+    wide_fan_out_run,
+    deferred_barrier_stress,
+    mixed_lane_run,
 );

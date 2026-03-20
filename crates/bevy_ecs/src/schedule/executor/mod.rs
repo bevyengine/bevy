@@ -1,6 +1,8 @@
 #[cfg(feature = "std")]
 mod multi_threaded;
 mod single_threaded;
+#[cfg(feature = "std")]
+mod work_stealing;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
@@ -10,6 +12,8 @@ pub use self::single_threaded::SingleThreadedExecutor;
 
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
+#[cfg(feature = "std")]
+pub use self::work_stealing::{WorkStealingExecutor, WorkStealingExecutorStats};
 
 pub use fixedbitset::FixedBitSet;
 
@@ -65,6 +69,59 @@ pub fn default_executor() -> Box<dyn SystemExecutor> {
     }
 }
 
+/// The execution lane that a compiled system is assigned to.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CompiledSystemLane {
+    /// The system can run on a worker thread.
+    #[default]
+    Worker,
+    /// The system must run on the main-thread lane because it accesses `!Send` data.
+    MainThread,
+    /// The system must run exclusively on the main-thread lane.
+    Exclusive,
+    /// The system is an `ApplyDeferred` barrier.
+    ApplyDeferred,
+}
+
+/// Per-system metadata generated during schedule compilation.
+#[derive(Clone, Default)]
+pub struct CompiledSystemMetadata {
+    /// The set of systems whose main access conflicts with this system.
+    pub conflicting_systems: FixedBitSet,
+    /// The set of systems whose main access conflicts with this system's conditions.
+    pub condition_conflicting_systems: FixedBitSet,
+    /// The execution lane this system must use.
+    pub lane: CompiledSystemLane,
+}
+
+/// Executor-ready metadata generated during schedule compilation.
+#[derive(Clone, Default)]
+pub struct CompiledPlan {
+    /// Systems that start with zero unsatisfied dependencies.
+    pub starting_systems: FixedBitSet,
+    /// The initial unsatisfied dependency count for each system.
+    pub dependency_counts: Vec<usize>,
+    /// Per-system metadata in compiled order.
+    pub system_metadata: Vec<CompiledSystemMetadata>,
+    /// Starting offsets into [`Self::dependent_indices`] for each system.
+    pub dependent_starts: Vec<usize>,
+    /// Flattened dependent adjacency list in compiled order.
+    pub dependent_indices: Vec<usize>,
+    /// The set of systems whose access conflicts with each set condition.
+    pub set_condition_conflicting_systems: Vec<FixedBitSet>,
+    /// Marks `ApplyDeferred` systems in compiled order.
+    pub apply_deferred_systems: FixedBitSet,
+}
+
+impl CompiledPlan {
+    /// Returns the immediate dependents of the system in compiled order.
+    pub fn dependents(&self, system_index: usize) -> &[usize] {
+        let start = self.dependent_starts[system_index];
+        let end = self.dependent_starts[system_index + 1];
+        &self.dependent_indices[start..end]
+    }
+}
+
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
 /// (along with dependency information for `multi_threaded` execution).
 ///
@@ -104,11 +161,13 @@ pub struct SystemSchedule {
     ///
     /// If a set doesn't run because of its conditions, this is used to skip all systems in it.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
+    /// Executor-ready metadata generated during schedule compilation.
+    pub compiled: CompiledPlan,
 }
 
 impl SystemSchedule {
     /// Creates an empty [`SystemSchedule`].
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             systems: Vec::new(),
             system_conditions: Vec::new(),
@@ -119,6 +178,7 @@ impl SystemSchedule {
             system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
+            compiled: CompiledPlan::default(),
         }
     }
 }

@@ -3823,7 +3823,29 @@ impl World {
         &mut self,
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
-        self.try_schedule_scope(label, |world, sched| sched.run(world))
+        let label = label.intern();
+        let Some(schedule) = self
+            .get_resource_mut::<Schedules>()
+            .and_then(|mut schedules| schedules.remove(label))
+        else {
+            return Err(TryRunScheduleError(label));
+        };
+
+        let mut compiled = schedule
+            .compile(self)
+            .unwrap_or_else(|error| panic!("Error when compiling schedule {:?}: {error}", label));
+        compiled.run(self);
+
+        let old = self
+            .resource_mut::<Schedules>()
+            .insert(compiled.into_schedule());
+        if old.is_some() {
+            warn!(
+                "Schedule `{label:?}` was inserted during a call to `World::try_run_schedule`: its value has been overwritten"
+            );
+        }
+
+        Ok(())
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
@@ -3838,7 +3860,8 @@ impl World {
     ///
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.schedule_scope(label, |world, sched| sched.run(world));
+        self.try_run_schedule(label)
+            .unwrap_or_else(|error| panic!("{error}"));
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.

@@ -16,7 +16,8 @@ use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
-        is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
+        is_apply_deferred, CompiledSystemLane, ConditionWithAccess, SystemExecutor, SystemSchedule,
+        SystemWithAccess,
     },
     system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -164,68 +165,33 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.skipped_systems = FixedBitSet::with_capacity(sys_count);
         state.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
-        state.system_task_metadata = Vec::with_capacity(sys_count);
-        for index in 0..sys_count {
-            state.system_task_metadata.push(SystemTaskMetadata {
-                conflicting_systems: FixedBitSet::with_capacity(sys_count),
-                condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
+        state.system_task_metadata = schedule
+            .compiled
+            .system_metadata
+            .iter()
+            .enumerate()
+            .map(|(index, metadata)| SystemTaskMetadata {
+                conflicting_systems: metadata.conflicting_systems.clone(),
+                condition_conflicting_systems: metadata.condition_conflicting_systems.clone(),
                 dependents: schedule.system_dependents[index].clone(),
-                is_send: schedule.systems[index].system.is_send(),
-                is_exclusive: schedule.systems[index].system.is_exclusive(),
-            });
-            if schedule.system_dependencies[index] == 0 {
-                self.starting_systems.insert(index);
-            }
-        }
+                is_send: !matches!(
+                    metadata.lane,
+                    CompiledSystemLane::MainThread
+                        | CompiledSystemLane::Exclusive
+                        | CompiledSystemLane::ApplyDeferred
+                ),
+                is_exclusive: matches!(
+                    metadata.lane,
+                    CompiledSystemLane::Exclusive | CompiledSystemLane::ApplyDeferred
+                ),
+            })
+            .collect();
 
-        {
-            #[cfg(feature = "trace")]
-            let _span = info_span!("calculate conflicting systems").entered();
-            for index1 in 0..sys_count {
-                let system1 = &schedule.systems[index1];
-                for index2 in 0..index1 {
-                    let system2 = &schedule.systems[index2];
-                    if !system2.access.is_compatible(&system1.access) {
-                        state.system_task_metadata[index1]
-                            .conflicting_systems
-                            .insert(index2);
-                        state.system_task_metadata[index2]
-                            .conflicting_systems
-                            .insert(index1);
-                    }
-                }
-
-                for index2 in 0..sys_count {
-                    let system2 = &schedule.systems[index2];
-                    if schedule.system_conditions[index1]
-                        .iter()
-                        .any(|condition| !system2.access.is_compatible(&condition.access))
-                    {
-                        state.system_task_metadata[index1]
-                            .condition_conflicting_systems
-                            .insert(index2);
-                    }
-                }
-            }
-
-            state.set_condition_conflicting_systems.clear();
-            state.set_condition_conflicting_systems.reserve(set_count);
-            for set_idx in 0..set_count {
-                let mut conflicting_systems = FixedBitSet::with_capacity(sys_count);
-                for sys_index in 0..sys_count {
-                    let system = &schedule.systems[sys_index];
-                    if schedule.set_conditions[set_idx]
-                        .iter()
-                        .any(|condition| !system.access.is_compatible(&condition.access))
-                    {
-                        conflicting_systems.insert(sys_index);
-                    }
-                }
-                state
-                    .set_condition_conflicting_systems
-                    .push(conflicting_systems);
-            }
-        }
+        self.starting_systems
+            .clone_from(&schedule.compiled.starting_systems);
+        state
+            .set_condition_conflicting_systems
+            .clone_from(&schedule.compiled.set_condition_conflicting_systems);
 
         state.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }

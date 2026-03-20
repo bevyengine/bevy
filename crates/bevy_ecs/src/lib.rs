@@ -26,6 +26,7 @@ extern crate alloc;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_ecs;
 
+pub mod agent_schedule;
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -66,6 +67,11 @@ use message::Message;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        agent_schedule::{
+            AccessDeclaration, AccessTrustMode, AgentCommands, AgentCompileOptions, AgentSchedule,
+            AgentSystemBuilder, BatchCompiledSchedule, CompiledAgentSchedule, SnapshotView,
+            WorldSnapshot,
+        },
         bundle::Bundle,
         change_detection::{
             ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
@@ -87,8 +93,9 @@ pub mod prelude {
         relationship::RelationshipTarget,
         resource::Resource,
         schedule::{
-            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
-            Schedules, SystemCondition, SystemSet,
+            common_conditions::*, ApplyDeferred, CompiledSchedule, IntoScheduleConfigs,
+            IntoSystemSet, Schedule, Schedules, SystemCondition, SystemSet, WorkStealingExecutor,
+            WorkStealingExecutorStats,
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{

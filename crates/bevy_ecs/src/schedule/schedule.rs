@@ -34,7 +34,7 @@ use crate::{
     resource::Resource,
     schedule::*,
     system::ScheduleSystem,
-    world::World,
+    world::{World, WorldId},
 };
 
 pub use stepping::Stepping;
@@ -346,6 +346,16 @@ pub struct Schedule {
     warnings: Vec<ScheduleBuildWarning>,
 }
 
+/// A world-bound executable schedule produced by [`Schedule::compile`].
+pub struct CompiledSchedule {
+    label: InternedScheduleLabel,
+    graph: ScheduleGraph,
+    executable: SystemSchedule,
+    executor: Box<dyn SystemExecutor>,
+    warnings: Vec<ScheduleBuildWarning>,
+    world_id: WorldId,
+}
+
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
 struct DefaultSchedule;
 
@@ -511,6 +521,19 @@ impl Schedule {
         self
     }
 
+    /// Compiles this schedule into a world-bound executable artifact.
+    pub fn compile(mut self, world: &mut World) -> Result<CompiledSchedule, ScheduleBuildError> {
+        self.initialize(world)?;
+        Ok(CompiledSchedule {
+            label: self.label,
+            graph: self.graph,
+            executable: self.executable,
+            executor: self.executor,
+            warnings: self.warnings,
+            world_id: world.id(),
+        })
+    }
+
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
@@ -663,6 +686,75 @@ impl Schedule {
     /// [`Schedule::initialize`].
     pub fn warnings(&self) -> &[ScheduleBuildWarning] {
         &self.warnings
+    }
+}
+
+impl CompiledSchedule {
+    /// Returns the label this schedule was compiled with.
+    pub fn label(&self) -> InternedScheduleLabel {
+        self.label
+    }
+
+    /// Returns the [`WorldId`] this schedule is bound to.
+    pub fn world_id(&self) -> WorldId {
+        self.world_id
+    }
+
+    /// Returns any warnings emitted while compiling the schedule.
+    pub fn warnings(&self) -> &[ScheduleBuildWarning] {
+        &self.warnings
+    }
+
+    /// Runs all systems in this compiled schedule on the bound world.
+    pub fn run(&mut self, world: &mut World) {
+        assert_eq!(
+            self.world_id,
+            world.id(),
+            "Encountered a mismatched World. A CompiledSchedule cannot be run on a different World."
+        );
+
+        world.check_change_ticks();
+        let error_handler = world.default_error_handler();
+
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        self.executor
+            .run(&mut self.executable, world, None, error_handler);
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            self.executor
+                .run(&mut self.executable, world, None, error_handler);
+        }
+    }
+
+    /// Applies any accumulated deferred system buffers in topological order.
+    pub fn apply_deferred(&mut self, world: &mut World) {
+        assert_eq!(
+            self.world_id,
+            world.id(),
+            "Encountered a mismatched World. A CompiledSchedule cannot be used with a different World."
+        );
+
+        for SystemWithAccess { system, .. } in &mut self.executable.systems {
+            system.apply_deferred(world);
+        }
+    }
+
+    /// Returns the number of systems in this compiled schedule.
+    pub fn systems_len(&self) -> usize {
+        self.executable.systems.len()
+    }
+
+    /// Converts this compiled schedule back into a mutable [`Schedule`] builder.
+    pub fn into_schedule(self) -> Schedule {
+        Schedule {
+            label: self.label,
+            graph: self.graph,
+            executable: self.executable,
+            executor: self.executor,
+            executor_initialized: true,
+            warnings: self.warnings,
+        }
     }
 }
 
@@ -1289,6 +1381,95 @@ impl ScheduleGraph {
             }
         }
 
+        let mut compiled = CompiledPlan {
+            starting_systems: FixedBitSet::with_capacity(sys_count),
+            dependency_counts: system_dependencies.clone(),
+            system_metadata: Vec::with_capacity(sys_count),
+            dependent_starts: Vec::with_capacity(sys_count + 1),
+            dependent_indices: Vec::new(),
+            set_condition_conflicting_systems: Vec::with_capacity(set_with_conditions_count),
+            apply_deferred_systems: FixedBitSet::with_capacity(sys_count),
+        };
+
+        compiled.dependent_starts.push(0);
+        for dependents in &system_dependents {
+            compiled.dependent_indices.extend(dependents);
+            compiled
+                .dependent_starts
+                .push(compiled.dependent_indices.len());
+        }
+
+        for (system_index, &sys_key) in dg_system_ids.iter().enumerate() {
+            let system = &self.systems[sys_key];
+            let lane = if system.system.system_type() == TypeId::of::<ApplyDeferred>() {
+                compiled.apply_deferred_systems.insert(system_index);
+                CompiledSystemLane::ApplyDeferred
+            } else if system.system.is_exclusive() {
+                CompiledSystemLane::Exclusive
+            } else if system.system.is_send() {
+                CompiledSystemLane::Worker
+            } else {
+                CompiledSystemLane::MainThread
+            };
+
+            if system_dependencies[system_index] == 0 {
+                compiled.starting_systems.insert(system_index);
+            }
+
+            compiled.system_metadata.push(CompiledSystemMetadata {
+                conflicting_systems: FixedBitSet::with_capacity(sys_count),
+                condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
+                lane,
+            });
+        }
+
+        for index1 in 0..sys_count {
+            let system1 = &self.systems[dg_system_ids[index1]];
+            for index2 in 0..index1 {
+                let system2 = &self.systems[dg_system_ids[index2]];
+                if !system2.access.is_compatible(&system1.access) {
+                    compiled.system_metadata[index1]
+                        .conflicting_systems
+                        .insert(index2);
+                    compiled.system_metadata[index2]
+                        .conflicting_systems
+                        .insert(index1);
+                }
+            }
+
+            if let Some(conditions) = self.systems.get_conditions(dg_system_ids[index1]) {
+                for index2 in 0..sys_count {
+                    let system2 = &self.systems[dg_system_ids[index2]];
+                    if conditions
+                        .iter()
+                        .any(|condition| !system2.access.is_compatible(&condition.access))
+                    {
+                        compiled.system_metadata[index1]
+                            .condition_conflicting_systems
+                            .insert(index2);
+                    }
+                }
+            }
+        }
+
+        for &set_key in &hg_set_ids {
+            let mut conflicting_systems = FixedBitSet::with_capacity(sys_count);
+            if let Some(conditions) = self.system_sets.get_conditions(set_key) {
+                for (sys_index, &sys_key) in dg_system_ids.iter().enumerate() {
+                    let system = &self.systems[sys_key];
+                    if conditions
+                        .iter()
+                        .any(|condition| !system.access.is_compatible(&condition.access))
+                    {
+                        conflicting_systems.insert(sys_index);
+                    }
+                }
+            }
+            compiled
+                .set_condition_conflicting_systems
+                .push(conflicting_systems);
+        }
+
         SystemSchedule {
             systems: Vec::with_capacity(sys_count),
             system_conditions: Vec::with_capacity(sys_count),
@@ -1299,6 +1480,7 @@ impl ScheduleGraph {
             system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
+            compiled,
         }
     }
 
@@ -1588,7 +1770,8 @@ mod tests {
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
             passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
-            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
+            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemExecutor,
+            SystemSet, WorkStealingExecutor,
         },
         system::Commands,
         world::World,
@@ -2295,6 +2478,81 @@ mod tests {
             .get_resource::<CheckSystemRan>()
             .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 1);
+    }
+
+    #[test]
+    fn compiled_schedule_roundtrips_back_into_schedule() {
+        let mut world = World::new();
+        world.insert_resource(CheckSystemRan(0));
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+
+        let mut compiled = schedule.compile(&mut world).unwrap();
+        compiled.run(&mut world);
+        assert_eq!(world.resource::<CheckSystemRan>().0, 1);
+
+        let mut schedule = compiled.into_schedule();
+        schedule.add_systems(|mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<CheckSystemRan>().0, 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "mismatched World")]
+    fn compiled_schedule_rejects_other_world() {
+        let mut world = World::new();
+        let mut other = World::new();
+        let schedule = Schedule::default();
+        let mut compiled = schedule.compile(&mut world).unwrap();
+        compiled.run(&mut other);
+    }
+
+    #[test]
+    fn world_run_schedule_roundtrips_compiled_schedule_state() {
+        let mut schedules = Schedules::default();
+        let mut schedule = Schedule::new(TestSchedule);
+        schedule.add_systems(|mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+        schedules.insert(schedule);
+
+        let mut world = World::new();
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+
+        world.run_schedule(TestSchedule);
+        world.schedule_scope(TestSchedule, |_world, schedule| {
+            schedule.add_systems(|mut ran: ResMut<CheckSystemRan>| ran.0 += 10);
+        });
+        world.run_schedule(TestSchedule);
+
+        assert_eq!(world.resource::<CheckSystemRan>().0, 12);
+    }
+
+    #[test]
+    fn work_stealing_executor_stats_track_conditions_and_barriers() {
+        #[derive(Resource)]
+        struct Seen;
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Seen),
+                (|_seen: Option<Res<Seen>>| {}).run_if(|| true),
+            )
+                .chain(),
+        );
+
+        let mut compiled = schedule.compile(&mut world).unwrap();
+        let mut executor = WorkStealingExecutor::new();
+        executor.init(&compiled.executable);
+        executor.run(&mut compiled.executable, &mut world, None, ignore);
+
+        let stats = executor.last_stats();
+        assert!(stats.queue_injections > 0);
+        assert!(stats.deferred_barriers > 0);
+        assert!(stats.condition_evaluations > 0);
     }
 
     #[derive(SystemSet, Debug, Hash, Clone, PartialEq, Eq)]
