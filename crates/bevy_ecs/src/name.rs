@@ -92,8 +92,17 @@ impl Name {
     /// This will allocate a new string if the name was previously
     /// created from a borrow.
     #[inline(always)]
-    pub fn mutate<F: FnOnce(&mut String)>(&mut self, _f: F) {
-        todo!("Expose this functionality in Hashed")
+    pub fn mutate(&mut self, func: impl FnOnce(&mut String)) {
+        self.0 .0.mutate(|cow_str| match cow_str {
+            Cow::Borrowed(borrowed) => {
+                let mut owned = borrowed.to_owned();
+                func(&mut owned);
+                *cow_str = Cow::Owned(owned);
+            }
+            Cow::Owned(owned) => {
+                func(owned);
+            }
+        });
     }
 
     /// Gets the name of the entity as a `&str`.
