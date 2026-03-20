@@ -7,7 +7,7 @@ enable wgpu_ray_query;
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
-#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
@@ -51,7 +51,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let N = TBN[2];
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, surface.material.roughness, &rng);
-        if wi_tangent.z <= 0.0 {
+        if ggx_vndf_sample_invalid(wi_tangent) {
             wi = vec3(0.0);
             radiance = vec3(0.0);
         } else {
@@ -143,7 +143,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
-        if wi_tangent.z <= 0.0 { break; }
+        if ggx_vndf_sample_invalid(wi_tangent) { break; }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         ray_origin = ray_hit.world_position;
 

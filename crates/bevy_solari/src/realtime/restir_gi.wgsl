@@ -8,7 +8,7 @@ enable wgpu_ray_query;
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
+#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic, isnan}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
@@ -212,10 +212,6 @@ fn jacobian(
 
 fn isinf(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) == 0x7f800000u;
-}
-
-fn isnan(x: f32) -> bool {
-    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
 fn empty_reservoir() -> Reservoir {

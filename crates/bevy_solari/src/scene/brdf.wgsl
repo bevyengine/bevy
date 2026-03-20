@@ -6,7 +6,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
 #import bevy_render::maths::PI
-#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
+#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD}
 
 struct EvaluateAndSampleBrdfResult {
@@ -40,7 +40,7 @@ fn evaluate_and_sample_brdf(
         wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
     } else {
         wi_tangent = sample_ggx_vndf(wo_tangent, material.roughness, rng);
-        if wi_tangent.z <= 0.0 {
+        if ggx_vndf_sample_invalid(wi_tangent) {
             return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0);
         }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;

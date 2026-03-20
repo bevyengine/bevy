@@ -44,6 +44,14 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
     return 2.0 * dot(i, m) * m - i;
 }
 
+fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
+    return ray_tangent.z <= 0.0 || isnan(ray_tangent.x) || isnan(ray_tangent.y) || isnan(ray_tangent.z);
+}
+
+fn isnan(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
+}
+
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
