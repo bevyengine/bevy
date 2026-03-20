@@ -2138,6 +2138,17 @@ category = "Async Tasks"
 wasm = false
 
 [[example]]
+name = "async_ecs_access"
+path = "examples/async_tasks/async_ecs_access.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.async_ecs_access]
+name = "Async Ecs Access"
+description = "An example showing how to offload work to background async tasks using the AsyncBridge primitive."
+category = "Async Tasks"
+wasm = true
+
+[[example]]
 name = "async_channel_pattern"
 path = "examples/async_tasks/async_channel_pattern.rs"
 doc-scrape-examples = true
