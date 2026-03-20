@@ -2318,6 +2318,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_executor"
+path = "examples/ecs/custom_executor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_executor]
+name = "Custom Executor"
+description = "Demonstrates how to make a custom SystemExecutor"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_schedule"
 path = "examples/ecs/custom_schedule.rs"
 doc-scrape-examples = true

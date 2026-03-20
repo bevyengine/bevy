@@ -328,6 +328,7 @@ Example | Description
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
+[Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay

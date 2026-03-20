@@ -14,7 +14,7 @@ pub use texture_cache::*;
 
 use crate::{
     extract_resource::ExtractResourcePlugin, render_asset::RenderAssetPlugin,
-    renderer::RenderDevice, Render, RenderApp, RenderSystems,
+    renderer::RenderDevice, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
@@ -33,7 +33,7 @@ impl Plugin for TexturePlugin {
         .init_resource::<ManualTextureViews>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<TextureCache>()
+                .init_gpu_resource::<TextureCache>()
                 .allow_ambiguous_resource::<TextureCache>()
                 .add_systems(
                     Render,

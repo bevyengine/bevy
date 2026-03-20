@@ -11,9 +11,7 @@ use std::eprintln;
 
 use crate::{
     error::{ErrorContext, ErrorHandler},
-    schedule::{
-        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
     system::{RunSystemError, ScheduleSystem},
     world::World,
 };
@@ -40,10 +38,6 @@ pub struct SingleThreadedExecutor {
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
-    fn kind(&self) -> ExecutorKind {
-        ExecutorKind::SingleThreaded
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
