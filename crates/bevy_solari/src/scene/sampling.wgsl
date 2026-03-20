@@ -48,10 +48,6 @@ fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
     return ray_tangent.z <= 0.0 || isnan(ray_tangent.x) || isnan(ray_tangent.y) || isnan(ray_tangent.z);
 }
 
-fn isnan(x: f32) -> bool {
-    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
-}
-
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
@@ -71,15 +67,23 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     let ai = roughness * i.xy;
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);
+    var pdf: f32;
     if i.z >= 0.0 {
         let a = roughness;
         let s = 1.0 + length(i.xy);
         let a2 = a * a;
         let s2 = s * s;
         let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
-        return ndf / (2.0 * (k * i.z + t));
+        pdf = ndf / (2.0 * (k * i.z + t));
+    } else {
+        pdf = ndf * (t - i.z) / (2.0 * len2);
     }
-    return ndf * (t - i.z) / (2.0 * len2);
+
+    return select(pdf, 0.0, isnan(pdf));
+}
+
+fn isnan(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
 const NULL_LIGHT_ID = 0xFFFFFFFFu;
