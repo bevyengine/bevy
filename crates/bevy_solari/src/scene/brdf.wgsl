@@ -58,6 +58,8 @@ fn evaluate_and_sample_brdf(
     var throughput = evaluate_brdf(wo, wi, world_normal, material);
     if diffuse_selected || material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
         throughput /= pdf;
+    } else {
+        throughput /= specular_weight;
     }
 
     return EvaluateAndSampleBrdfResult(wi, throughput, pdf);
