@@ -569,17 +569,19 @@ impl GltfLoader {
                     );
                     }
                 }
+
+                // let extensions handle extension data placed on animations before creating
+                // the `Handle`
+                for extension in extensions.iter_mut() {
+                    extension.on_animation(load_context, &animation, &mut animation_clip);
+                }
+
                 let handle = load_context.add_labeled_asset(
                     GltfAssetLabel::Animation(animation.index()).to_string(),
                     animation_clip,
                 );
                 if let Some(name) = animation.name() {
                     named_animations.insert(name.into(), handle.clone());
-                }
-
-                // let extensions handle extension data placed on animations
-                for extension in extensions.iter_mut() {
-                    extension.on_animation(&animation, handle.clone());
                 }
 
                 animations.push(handle);
