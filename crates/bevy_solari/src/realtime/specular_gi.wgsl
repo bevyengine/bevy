@@ -81,7 +81,6 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var ray_origin = primary_surface.world_position;
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
-    var surface_perfect_mirror = false;
     var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
@@ -105,11 +104,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
         // Add emissive contribution
-        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit, surface_perfect_mirror);
+        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
-        surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
+        let surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
 
         // Primary surface replacement for perfect mirrors
         // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
@@ -149,8 +148,10 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-        let brdf = evaluate_brdf(wo, wi, N, ray_hit.material);
-        throughput *= brdf / p_bounce;
+        throughput *= evaluate_brdf(wo, wi, N, ray_hit.material);
+        if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
+            throughput /= p_bounce;
+        }
 
         // Path spread increase
         path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
@@ -159,10 +160,8 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     return radiance;
 }
 
-fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfect_mirror: bool) -> f32 {
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull) -> f32 {
     if i != 0u {
-        if previous_surface_perfect_mirror { return 1.0; }
-
         let p_light = random_emissive_light_pdf(ray_hit);
         return power_heuristic(p_bounce, p_light);
     } else {
