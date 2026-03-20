@@ -1547,3 +1547,12 @@ mod tests {
         assert!(window.physical_cursor_position().is_none());
     }
 }
+
+/// Represents the relationship between a Window and the Monitor it is currently on.
+///
+/// # Note
+/// This component is inserted after window creation, this means that there is a small period of
+/// time when the Window exists, but does not know the monitor it is on.
+#[derive(Component, Debug)]
+#[relationship(relationship_target=crate::monitor::HasWindows)]
+pub struct OnMonitor(pub Entity);

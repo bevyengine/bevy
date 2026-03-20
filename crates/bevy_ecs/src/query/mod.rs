@@ -814,4 +814,41 @@ mod tests {
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
     }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23352
+    #[test]
+    // presence/lack of trailing commas are significant in this test, so skip rustfmt
+    #[rustfmt::skip]
+    fn query_data_derive_where_clause() {
+        #[derive(QueryData)]
+        struct QueryDataA<C>
+        where
+            C: Component,
+        {
+            component: &'static C,
+        }
+
+        #[derive(QueryData)]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component;
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
+    #[test]
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
+        let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
 }

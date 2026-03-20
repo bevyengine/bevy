@@ -704,7 +704,7 @@ impl SparseSetIndex for Entity {
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntityAllocator {
-    inner: remote_allocator::Allocator,
+    pub(crate) inner: remote_allocator::Allocator,
 }
 
 impl EntityAllocator {
