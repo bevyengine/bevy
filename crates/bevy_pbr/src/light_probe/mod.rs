@@ -27,7 +27,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -408,8 +408,8 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .init_resource::<LightProbesBuffer>()
-            .init_resource::<EnvironmentMapUniformBuffer>()
+            .init_gpu_resource::<LightProbesBuffer>()
+            .init_gpu_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(
                 ExtractSchedule,
