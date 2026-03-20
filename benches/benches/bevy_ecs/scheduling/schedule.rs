@@ -343,3 +343,118 @@ pub fn mixed_lane_run(criterion: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn executor_hot_paths(criterion: &mut Criterion) {
+    fn writer(mut commands: Commands) {
+        commands.queue(|world: &mut World| {
+            let mut value = world.resource_mut::<Counter>();
+            value.0 = value.0.wrapping_add(1);
+        });
+    }
+
+    fn reader(_counter: Option<Res<Counter>>) {}
+
+    fn root() {}
+    fn leaf() {
+        black_box(13usize);
+    }
+
+    #[derive(Resource, Default)]
+    struct Counter(u32);
+
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct RootSet;
+
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct LeafSet(usize);
+
+    let mut group = criterion.benchmark_group("executor_hot_paths");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        for _ in 0..64 {
+            schedule.add_systems((writer, reader).chain());
+        }
+        schedule.run(&mut world);
+        group.bench_function("deferred_barriers/SingleThreaded", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        for _ in 0..64 {
+            schedule.add_systems((writer, reader).chain());
+        }
+        schedule.run(&mut world);
+        group.bench_function("deferred_barriers/MultiThreaded", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(WorkStealingExecutor::new());
+        for _ in 0..64 {
+            schedule.add_systems((writer, reader).chain());
+        }
+        schedule.run(&mut world);
+        group.bench_function("deferred_barriers/WorkStealing", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(SingleThreadedExecutor::new());
+        schedule.add_systems(root.in_set(RootSet));
+        for index in 0..256 {
+            schedule.add_systems(leaf.in_set(LeafSet(index)).after(RootSet));
+        }
+        schedule.run(&mut world);
+        group.bench_function("wide_fan_out/SingleThreaded", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(root.in_set(RootSet));
+        for index in 0..256 {
+            schedule.add_systems(leaf.in_set(LeafSet(index)).after(RootSet));
+        }
+        schedule.run(&mut world);
+        group.bench_function("wide_fan_out/MultiThreaded", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(WorkStealingExecutor::new());
+        schedule.add_systems(root.in_set(RootSet));
+        for index in 0..256 {
+            schedule.add_systems(leaf.in_set(LeafSet(index)).after(RootSet));
+        }
+        schedule.run(&mut world);
+        group.bench_function("wide_fan_out/WorkStealing", |bencher| {
+            bencher.iter(|| schedule.run(&mut world));
+        });
+    }
+
+    group.finish();
+}

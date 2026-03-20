@@ -573,10 +573,12 @@ impl<'env, 'sys> Runtime<'env, 'sys> {
         match lane {
             CompiledSystemLane::ApplyDeferred => {
                 self.deferred_barriers.fetch_add(1, Ordering::Relaxed);
-                let unapplied_systems = self.take_unapplied_systems();
+                let mut unapplied_systems = self.take_unapplied_systems();
                 let world = unsafe { self.environment.world_cell.world_mut() };
                 let system = unsafe { &mut *self.environment.systems[system_index].get() };
                 let res = apply_deferred(&unapplied_systems, self.environment.systems, world);
+                unapplied_systems.clear();
+                self.restore_unapplied_systems(unapplied_systems);
                 if let Err(payload) = res {
                     self.mark_panic(payload, &system.system);
                 }
@@ -631,9 +633,13 @@ impl<'env, 'sys> Runtime<'env, 'sys> {
 
     fn take_unapplied_systems(&self) -> FixedBitSet {
         let mut state = self.state.lock().unwrap();
-        let unapplied = state.unapplied_systems.clone();
-        state.unapplied_systems.clear();
-        unapplied
+        core::mem::take(&mut state.unapplied_systems)
+    }
+
+    fn restore_unapplied_systems(&self, unapplied_systems: FixedBitSet) {
+        let mut state = self.state.lock().unwrap();
+        debug_assert!(state.unapplied_systems.is_clear());
+        state.unapplied_systems = unapplied_systems;
     }
 
     fn finish_running(
@@ -699,15 +705,13 @@ impl<'env, 'sys> Runtime<'env, 'sys> {
             return Ok(());
         }
 
-        let unapplied_systems = {
-            let mut state = self.state.lock().unwrap();
-            let unapplied_systems = state.unapplied_systems.clone();
-            state.unapplied_systems.clear();
-            unapplied_systems
-        };
+        let mut unapplied_systems = self.take_unapplied_systems();
 
         let world = unsafe { self.environment.world_cell.world_mut() };
-        apply_deferred(&unapplied_systems, self.environment.systems, world)
+        let res = apply_deferred(&unapplied_systems, self.environment.systems, world);
+        unapplied_systems.clear();
+        self.restore_unapplied_systems(unapplied_systems);
+        res
     }
 
     fn snapshot_stats(&self) -> WorkStealingExecutorStats {

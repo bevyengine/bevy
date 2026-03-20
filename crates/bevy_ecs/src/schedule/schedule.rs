@@ -1335,24 +1335,6 @@ impl ScheduleGraph {
         let set_with_conditions_count = hg_set_ids.len();
         let hg_node_count = self.hierarchy.node_count();
 
-        // get the number of dependencies and the immediate dependents of each system
-        // (needed by multi_threaded executor to run systems in the correct order)
-        let mut system_dependencies = Vec::with_capacity(sys_count);
-        let mut system_dependents = Vec::with_capacity(sys_count);
-        for &sys_key in &dg_system_ids {
-            let num_dependencies = flat_dependency
-                .neighbors_directed(sys_key, Incoming)
-                .count();
-
-            let dependents = flat_dependency
-                .neighbors_directed(sys_key, Outgoing)
-                .map(|dep_id| dg_system_idx_map[&dep_id])
-                .collect::<Vec<_>>();
-
-            system_dependencies.push(num_dependencies);
-            system_dependents.push(dependents);
-        }
-
         // get the rows and columns of the hierarchy graph's reachability matrix
         // (needed to we can evaluate conditions in the correct order)
         let mut systems_in_sets_with_conditions =
@@ -1383,7 +1365,7 @@ impl ScheduleGraph {
 
         let mut compiled = CompiledPlan {
             starting_systems: FixedBitSet::with_capacity(sys_count),
-            dependency_counts: system_dependencies.clone(),
+            dependency_counts: Vec::with_capacity(sys_count),
             system_metadata: Vec::with_capacity(sys_count),
             dependent_starts: Vec::with_capacity(sys_count + 1),
             dependent_indices: Vec::new(),
@@ -1392,8 +1374,17 @@ impl ScheduleGraph {
         };
 
         compiled.dependent_starts.push(0);
-        for dependents in &system_dependents {
-            compiled.dependent_indices.extend(dependents);
+        for &sys_key in &dg_system_ids {
+            compiled.dependency_counts.push(
+                flat_dependency
+                    .neighbors_directed(sys_key, Incoming)
+                    .count(),
+            );
+            compiled.dependent_indices.extend(
+                flat_dependency
+                    .neighbors_directed(sys_key, Outgoing)
+                    .map(|dep_id| dg_system_idx_map[&dep_id]),
+            );
             compiled
                 .dependent_starts
                 .push(compiled.dependent_indices.len());
@@ -1412,7 +1403,7 @@ impl ScheduleGraph {
                 CompiledSystemLane::MainThread
             };
 
-            if system_dependencies[system_index] == 0 {
+            if compiled.dependency_counts[system_index] == 0 {
                 compiled.starting_systems.insert(system_index);
             }
 
@@ -1476,8 +1467,6 @@ impl ScheduleGraph {
             set_conditions: Vec::with_capacity(set_with_conditions_count),
             system_ids: dg_system_ids,
             set_ids: hg_set_ids,
-            system_dependencies,
-            system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
             compiled,

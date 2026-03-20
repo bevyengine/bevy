@@ -16,8 +16,8 @@ use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
-        is_apply_deferred, CompiledSystemLane, ConditionWithAccess, SystemExecutor, SystemSchedule,
-        SystemWithAccess,
+        is_apply_deferred, CompiledPlan, CompiledSystemLane, ConditionWithAccess, SystemExecutor,
+        SystemSchedule, SystemWithAccess,
     },
     system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -30,6 +30,7 @@ use super::__rust_begin_short_backtrace;
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
+    compiled: &'sys CompiledPlan,
     systems: &'sys [SyncUnsafeCell<SystemWithAccess>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
@@ -50,6 +51,7 @@ impl<'env, 'sys> Environment<'env, 'sys> {
     ) -> Self {
         Environment {
             executor,
+            compiled: &schedule.compiled,
             systems: SyncUnsafeCell::from_mut(schedule.systems.as_mut_slice()).as_slice_of_cells(),
             conditions: SyncUnsafeCell::new(Conditions {
                 system_conditions: &mut schedule.system_conditions,
@@ -60,24 +62,6 @@ impl<'env, 'sys> Environment<'env, 'sys> {
             world_cell: world.as_unsafe_world_cell(),
         }
     }
-}
-
-/// Per-system data used by the [`MultiThreadedExecutor`].
-// Copied here because it can't be read from the system when it's running.
-struct SystemTaskMetadata {
-    /// The set of systems whose `component_access_set()` conflicts with this one.
-    conflicting_systems: FixedBitSet,
-    /// The set of systems whose `component_access_set()` conflicts with this system's conditions.
-    /// Note that this is separate from `conflicting_systems` to handle the case where
-    /// a system is skipped by an earlier system set condition or system stepping,
-    /// and needs access to run its conditions but not for itself.
-    condition_conflicting_systems: FixedBitSet,
-    /// Indices of the systems that directly depend on the system.
-    dependents: Vec<usize>,
-    /// Is `true` if the system does not access `!Send` data.
-    is_send: bool,
-    /// Is `true` if the system is exclusive.
-    is_exclusive: bool,
 }
 
 /// The result of running a system that is sent across a channel.
@@ -95,6 +79,8 @@ pub struct MultiThreadedExecutor {
     apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Mutex<Option<Box<dyn Any + Send>>>,
+    /// Recycles the temporary bitset used by `ApplyDeferred` tasks without bloating completion events.
+    recycled_unapplied_systems: Mutex<Option<FixedBitSet>>,
     starting_systems: FixedBitSet,
     /// Cached tracing span
     #[cfg(feature = "trace")]
@@ -103,10 +89,6 @@ pub struct MultiThreadedExecutor {
 
 /// The state of the executor while running.
 pub struct ExecutorState {
-    /// Metadata for scheduling and running system tasks.
-    system_task_metadata: Vec<SystemTaskMetadata>,
-    /// The set of systems whose `component_access_set()` conflicts with this system set's conditions.
-    set_condition_conflicting_systems: Vec<FixedBitSet>,
     /// Returns `true` if a system with non-`Send` access is running.
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
@@ -165,33 +147,8 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.skipped_systems = FixedBitSet::with_capacity(sys_count);
         state.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
-        state.system_task_metadata = schedule
-            .compiled
-            .system_metadata
-            .iter()
-            .enumerate()
-            .map(|(index, metadata)| SystemTaskMetadata {
-                conflicting_systems: metadata.conflicting_systems.clone(),
-                condition_conflicting_systems: metadata.condition_conflicting_systems.clone(),
-                dependents: schedule.system_dependents[index].clone(),
-                is_send: !matches!(
-                    metadata.lane,
-                    CompiledSystemLane::MainThread
-                        | CompiledSystemLane::Exclusive
-                        | CompiledSystemLane::ApplyDeferred
-                ),
-                is_exclusive: matches!(
-                    metadata.lane,
-                    CompiledSystemLane::Exclusive | CompiledSystemLane::ApplyDeferred
-                ),
-            })
-            .collect();
-
         self.starting_systems
             .clone_from(&schedule.compiled.starting_systems);
-        state
-            .set_condition_conflicting_systems
-            .clone_from(&schedule.compiled.set_condition_conflicting_systems);
 
         state.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
@@ -209,9 +166,10 @@ impl SystemExecutor for MultiThreadedExecutor {
             return;
         }
         state.num_running_systems = 0;
+        self.recycled_unapplied_systems.get_mut().unwrap().take();
         state
             .num_dependencies_remaining
-            .clone_from(&schedule.system_dependencies);
+            .clone_from(&schedule.compiled.dependency_counts);
         state.ready_systems.clone_from(&self.starting_systems);
 
         // If stepping is enabled, make sure we skip those systems that should
@@ -225,7 +183,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             // signal the dependencies for each of the skipped systems, as
             // though they had run
             for system_index in skipped_systems.ones() {
-                state.signal_dependents(system_index);
+                state.signal_dependents(&schedule.compiled, system_index);
                 state.ready_systems.remove(system_index);
             }
         }
@@ -260,12 +218,14 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world);
+            let mut unapplied_systems = core::mem::take(&mut state.unapplied_systems);
+            let res = apply_deferred(&unapplied_systems, systems, world);
+            unapplied_systems.clear();
+            state.unapplied_systems = unapplied_systems;
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
             }
-            state.unapplied_systems.clear();
         }
 
         // check to see if there was a panic
@@ -357,6 +317,7 @@ impl MultiThreadedExecutor {
             starting_systems: FixedBitSet::new(),
             apply_final_deferred: true,
             panic_payload: Mutex::new(None),
+            recycled_unapplied_systems: Mutex::new(None),
             #[cfg(feature = "trace")]
             executor_span: info_span!("multithreaded executor"),
         }
@@ -366,8 +327,6 @@ impl MultiThreadedExecutor {
 impl ExecutorState {
     fn new() -> Self {
         Self {
-            system_task_metadata: Vec::new(),
-            set_condition_conflicting_systems: Vec::new(),
             num_running_systems: 0,
             num_dependencies_remaining: Vec::new(),
             local_thread_running: false,
@@ -387,7 +346,7 @@ impl ExecutorState {
         let _span = context.environment.executor.executor_span.enter();
 
         for result in context.environment.executor.system_completion.try_iter() {
-            self.finish_system_and_handle_dependents(result);
+            self.finish_system_and_handle_dependents(context, result);
         }
 
         // SAFETY:
@@ -451,7 +410,7 @@ impl ExecutorState {
                     system.refresh_hotpatch();
                 }
 
-                if !self.can_run(system_index, conditions) {
+                if !self.can_run(context.environment.compiled, system_index, conditions) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
                     // being significantly displaced here (compared to single-threaded order)
                     // if systems after them in topological order can run
@@ -472,7 +431,10 @@ impl ExecutorState {
                         context.error_handler,
                     )
                 } {
-                    self.skip_system_and_signal_dependents(system_index);
+                    self.skip_system_and_signal_dependents(
+                        context.environment.compiled,
+                        system_index,
+                    );
                     // signal_dependents may have set more systems to ready.
                     check_for_new_ready_systems = true;
                     continue;
@@ -481,7 +443,10 @@ impl ExecutorState {
                 self.running_systems.insert(system_index);
                 self.num_running_systems += 1;
 
-                if self.system_task_metadata[system_index].is_exclusive {
+                if matches!(
+                    context.environment.compiled.system_metadata[system_index].lane,
+                    CompiledSystemLane::Exclusive | CompiledSystemLane::ApplyDeferred
+                ) {
                     // SAFETY: `can_run` returned true for this system,
                     // which means no systems are currently borrowed.
                     unsafe {
@@ -493,8 +458,7 @@ impl ExecutorState {
 
                 // SAFETY:
                 // - Caller ensured no other reference to this system exists.
-                // - `system_task_metadata[system_index].is_exclusive` is `false`,
-                //   so `System::is_exclusive` returned `false` when we called it.
+                // - The compiled lane for this system is not exclusive.
                 // - `can_run` returned true, so no systems with conflicting world access are running.
                 unsafe {
                     self.spawn_system_task(context, system_index);
@@ -506,13 +470,22 @@ impl ExecutorState {
         self.ready_systems_copy = ready_systems;
     }
 
-    fn can_run(&mut self, system_index: usize, conditions: &mut Conditions) -> bool {
-        let system_meta = &self.system_task_metadata[system_index];
-        if system_meta.is_exclusive && self.num_running_systems > 0 {
+    fn can_run(
+        &mut self,
+        compiled: &CompiledPlan,
+        system_index: usize,
+        conditions: &mut Conditions,
+    ) -> bool {
+        let lane = compiled.system_metadata[system_index].lane;
+        if matches!(
+            lane,
+            CompiledSystemLane::Exclusive | CompiledSystemLane::ApplyDeferred
+        ) && self.num_running_systems > 0
+        {
             return false;
         }
 
-        if !system_meta.is_send && self.local_thread_running {
+        if !matches!(lane, CompiledSystemLane::Worker) && self.local_thread_running {
             return false;
         }
 
@@ -520,12 +493,14 @@ impl ExecutorState {
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
             .difference(&self.evaluated_sets)
         {
-            if !self.set_condition_conflicting_systems[set_idx].is_disjoint(&self.running_systems) {
+            if !compiled.set_condition_conflicting_systems[set_idx]
+                .is_disjoint(&self.running_systems)
+            {
                 return false;
             }
         }
 
-        if !system_meta
+        if !compiled.system_metadata[system_index]
             .condition_conflicting_systems
             .is_disjoint(&self.running_systems)
         {
@@ -533,7 +508,7 @@ impl ExecutorState {
         }
 
         if !self.skipped_systems.contains(system_index)
-            && !system_meta
+            && !compiled.system_metadata[system_index]
                 .conflicting_systems
                 .is_disjoint(&self.running_systems)
         {
@@ -618,8 +593,7 @@ impl ExecutorState {
         let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
         // Move the full context object into the new future.
         let context = *context;
-
-        let system_meta = &self.system_task_metadata[system_index];
+        let lane = context.environment.compiled.system_metadata[system_index].lane;
 
         let task = async move {
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -647,7 +621,7 @@ impl ExecutorState {
             context.system_completed(system_index, res, system);
         };
 
-        if system_meta.is_send {
+        if matches!(lane, CompiledSystemLane::Worker) {
             context.scope.spawn(task);
         } else {
             self.local_thread_running = true;
@@ -664,14 +638,22 @@ impl ExecutorState {
         let context = *context;
 
         if is_apply_deferred(&**system) {
-            // TODO: avoid allocation
-            let unapplied_systems = self.unapplied_systems.clone();
-            self.unapplied_systems.clear();
+            let mut unapplied_systems = core::mem::take(&mut self.unapplied_systems);
             let task = async move {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
+                unapplied_systems.clear();
+                {
+                    let mut recycled = context
+                        .environment
+                        .executor
+                        .recycled_unapplied_systems
+                        .lock()
+                        .unwrap();
+                    *recycled = Some(unapplied_systems);
+                }
                 context.system_completed(system_index, res, system);
             };
 
@@ -704,15 +686,34 @@ impl ExecutorState {
         self.local_thread_running = true;
     }
 
-    fn finish_system_and_handle_dependents(&mut self, result: SystemResult) {
-        let SystemResult { system_index, .. } = result;
+    fn finish_system_and_handle_dependents(&mut self, context: &Context, result: SystemResult) {
+        let compiled = context.environment.compiled;
+        let SystemResult { system_index } = result;
 
-        if self.system_task_metadata[system_index].is_exclusive {
-            self.exclusive_running = false;
+        if matches!(
+            compiled.system_metadata[system_index].lane,
+            CompiledSystemLane::ApplyDeferred
+        ) && let Some(unapplied_systems) = context
+            .environment
+            .executor
+            .recycled_unapplied_systems
+            .lock()
+            .unwrap()
+            .take()
+        {
+            debug_assert!(self.unapplied_systems.is_clear());
+            self.unapplied_systems = unapplied_systems;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
-            self.local_thread_running = false;
+        match compiled.system_metadata[system_index].lane {
+            CompiledSystemLane::Worker => {}
+            CompiledSystemLane::MainThread => {
+                self.local_thread_running = false;
+            }
+            CompiledSystemLane::Exclusive | CompiledSystemLane::ApplyDeferred => {
+                self.exclusive_running = false;
+                self.local_thread_running = false;
+            }
         }
 
         debug_assert!(self.num_running_systems >= 1);
@@ -721,16 +722,16 @@ impl ExecutorState {
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
 
-        self.signal_dependents(system_index);
+        self.signal_dependents(compiled, system_index);
     }
 
-    fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
+    fn skip_system_and_signal_dependents(&mut self, compiled: &CompiledPlan, system_index: usize) {
         self.completed_systems.insert(system_index);
-        self.signal_dependents(system_index);
+        self.signal_dependents(compiled, system_index);
     }
 
-    fn signal_dependents(&mut self, system_index: usize) {
-        for &dep_idx in &self.system_task_metadata[system_index].dependents {
+    fn signal_dependents(&mut self, compiled: &CompiledPlan, system_index: usize) {
+        for &dep_idx in compiled.dependents(system_index) {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];
             debug_assert!(*remaining >= 1);
             *remaining -= 1;

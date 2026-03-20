@@ -22,6 +22,7 @@ criterion_group!(
     compile_schedule_only,
     compiled_schedule_run,
     dependency_chain_run,
+    executor_hot_paths,
     wide_fan_out_run,
     deferred_barrier_stress,
     mixed_lane_run,

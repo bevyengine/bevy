@@ -122,8 +122,8 @@ impl CompiledPlan {
     }
 }
 
-/// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
-/// (along with dependency information for `multi_threaded` execution).
+/// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order,
+/// along with executor-ready compiled metadata.
 ///
 /// Since the arrays are sorted in the same order, elements are referenced by their index.
 /// [`FixedBitSet`] is used as a smaller, more efficient substitute of `HashSet<usize>`.
@@ -135,20 +135,6 @@ pub struct SystemSchedule {
     pub systems: Vec<SystemWithAccess>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<ConditionWithAccess>>,
-    /// Indexed by system node id.
-    /// Number of systems that the system immediately depends on.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
-    pub(super) system_dependencies: Vec<usize>,
-    /// Indexed by system node id.
-    /// List of systems that immediately depend on the system.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
-    pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
     /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
@@ -174,8 +160,6 @@ impl SystemSchedule {
             set_conditions: Vec::new(),
             system_ids: Vec::new(),
             set_ids: Vec::new(),
-            system_dependencies: Vec::new(),
-            system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
             compiled: CompiledPlan::default(),
