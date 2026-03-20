@@ -14,7 +14,8 @@ pub use texture_cache::*;
 
 use crate::{
     extract_resource::ExtractResourcePlugin, render_asset::RenderAssetPlugin,
-    renderer::RenderDevice, GpuResourceAppExt, Render, RenderApp, RenderSystems,
+    render_resource::DefaultImageSamplerDescriptor, renderer::RenderDevice, GpuResourceAppExt,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
@@ -61,6 +62,7 @@ impl Plugin for TexturePlugin {
             .clone();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.insert_resource(DefaultImageSamplerDescriptor(default_sampler.clone()));
             let default_sampler = {
                 let device = render_app.world().resource::<RenderDevice>();
                 device.create_sampler(&default_sampler.as_wgpu())
