@@ -761,28 +761,28 @@ impl QueuedScenes {
         list_patches: &Assets<SceneListPatch>,
     ) {
         for entity in core::mem::take(&mut self.new_scene_entities) {
-            if let Ok(handle) = scene_patch_instances.get(world, entity).map(|h| &h.0) {
-                let patches = world.resource::<Assets<ScenePatch>>();
-                if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
-                    let mut entity_mut = world.get_entity_mut(entity).unwrap();
-                    if let Err(err) = resolved.apply(&mut entity_mut) {
-                        let scene_patch_instance =
-                            scene_patch_instances.get(world, entity).unwrap();
-                        let handle = &scene_patch_instance.0;
-                        let id = handle.id();
-                        let path = handle.path();
-                        error!(
-                            "Failed to apply scene (id: {id}, path: {path:?}) to \
+            let Ok(handle) = scene_patch_instances.get(world, entity).map(|h| &h.0) else {
+                continue;
+            };
+            let patches = world.resource::<Assets<ScenePatch>>();
+            if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
+                let mut entity_mut = world.get_entity_mut(entity).unwrap();
+                if let Err(err) = resolved.apply(&mut entity_mut) {
+                    let scene_patch_instance = scene_patch_instances.get(world, entity).unwrap();
+                    let handle = &scene_patch_instance.0;
+                    let id = handle.id();
+                    let path = handle.path();
+                    error!(
+                        "Failed to apply scene (id: {id}, path: {path:?}) to \
                                     entity {entity}: {err}",
-                        );
-                    }
-                } else {
-                    let entities = self
-                        .waiting_scene_entities
-                        .entry(handle.clone())
-                        .or_default();
-                    entities.push(entity);
+                    );
                 }
+            } else {
+                let entities = self
+                    .waiting_scene_entities
+                    .entry(handle.clone())
+                    .or_default();
+                entities.push(entity);
             }
         }
 
