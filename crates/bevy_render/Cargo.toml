@@ -124,6 +124,7 @@ tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 bitflags = "2"
 itertools = "0.14"
+weak-table = "0.3"
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }

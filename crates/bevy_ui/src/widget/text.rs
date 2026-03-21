@@ -9,7 +9,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
     world::Ref,
@@ -19,10 +19,12 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
-    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, EditableText, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx,
+    LetterSpacing, LineBreak, LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
+
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -102,6 +104,7 @@ impl Default for TextNodeFlags {
     TextFont,
     TextColor,
     LineHeight,
+    LetterSpacing,
     TextNodeFlags,
     ContentSize,
     // Hinting is enabled by default as UI text is normally pixel.
@@ -173,7 +176,7 @@ pub struct TextMeasure {
 }
 
 impl TextMeasure {
-    /// Checks if the cosmic text buffer is needed for measuring the text.
+    /// Checks if the Parley text layout is needed for measuring the text.
     #[inline]
     pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
@@ -336,14 +339,17 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Ref<ComputedNode>,
-        &TextLayout,
-        &mut TextLayoutInfo,
-        &mut TextNodeFlags,
-        &mut ComputedTextBlock,
-        Ref<FontHinting>,
-    )>,
+    mut text_query: Query<
+        (
+            Ref<ComputedNode>,
+            &TextLayout,
+            &mut TextLayoutInfo,
+            &mut TextNodeFlags,
+            &mut ComputedTextBlock,
+            Ref<FontHinting>,
+        ),
+        Without<EditableText>,
+    >,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
     for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in

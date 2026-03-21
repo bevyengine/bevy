@@ -40,9 +40,9 @@ pub(crate) fn item_struct(
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
-            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state(
+            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::QueryData>::Item<'__w, '__s>, )*
-            );
+            ) #user_where_clauses_with_world_and_state;
         },
         Fields::Unit => quote! {
             #item_attrs

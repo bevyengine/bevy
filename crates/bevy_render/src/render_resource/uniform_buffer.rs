@@ -307,9 +307,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
 
         if let Some(buffer) = self.buffer.as_deref() {
-            let buffer_view = queue
-                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
-                .unwrap();
+            let buffer_view =
+                queue.write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)?;
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
                     QueueWriteBufferViewWrapper {
