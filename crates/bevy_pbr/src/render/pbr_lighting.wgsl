@@ -6,7 +6,7 @@
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
-#import bevy_render::maths::{PI, orthonormalize}
+#import bevy_render::maths::{PI, orthonormalize, solve_cubic}
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -354,48 +354,6 @@ fn derive_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> DerivedLig
     return input;
 }
 
-// Returns L in the `xyz` components and the modified roughness in the `w` component.
-fn compute_specular_layer_values_for_point_light(
-    input: ptr<function, LightingInput>,
-    layer: u32,
-    V: vec3<f32>,
-    light_to_frag: vec3<f32>,
-    light_radius: f32,
-    distance: f32,
-) -> vec4<f32> {
-    // Unpack.
-    let R = (*input).layers[layer].R;
-    let a = (*input).layers[layer].roughness;
-
-    // Representative Point Area Lights.
-    // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
-    var LtFdotR = dot(light_to_frag, R);
-
-    // HACK: the following line is an amendment to fix a discontinuity when a surface
-    // intersects the light sphere. See https://github.com/bevyengine/bevy/issues/13318
-    //
-    // This sentence in the reference is crux of the problem: "We approximate finding the point with the
-    // smallest angle to the reflection ray by finding the point with the smallest distance to the ray."
-    // This approximation turns out to be completely wrong for points inside or near the sphere.
-    // Clamping this dot product to be positive ensures `centerToRay` lies on ray and not behind it.
-    // Any non-zero epsilon works here, it just has to be positive to avoid a singularity at zero.
-    // However, this is still far from physically accurate. Deriving an exact solution would help,
-    // but really we should adopt a superior solution to area lighting, such as:
-    // Polygonal-Light Shading with Linearly Transformed Cosines by Eric Heitz et al.
-    LtFdotR = max(0.0001, LtFdotR);
-
-    let centerToRay = LtFdotR * R - light_to_frag;
-    let closestPoint = light_to_frag + centerToRay * saturate(
-        light_radius * inverseSqrt(dot(centerToRay, centerToRay)));
-    let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
-
-    // Karis 2013, page 14. The constant 2 (or 3) is hand tuned to fit reference.
-    // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let a_prime = saturate(a + light_radius / (2.0 * distance));
-
-    let L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
-    return vec4(L, a_prime);
-}
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
@@ -614,17 +572,108 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     return (vec2<f32>(corner_uv) + face_uv) * face_size;
 }
 
-// This is a modification to Karis 2013 for area lights to fix an issue where the specular
-// reflection on smooth materials looks too rough and dim. We lerp between the base roughness
-// and Karis2013 roughness with a lerp factor tuned by looking at reference renders. The goal
-// is to preserve sharp specular highlights on smooth materials, without blowing out specular
-// highlights on rough materials.
-//
-// The ideal solution is to switch to Linearly Transformed Cosines, which is more accurate in
-// all cases, and a popular choice for realtime.
-fn specular_fix_remap(a: f32) -> f32 {
-    let inv_a_sq = (1.0 - a) * (1.0 - a);
-    return 1.0 - inv_a_sq * inv_a_sq;
+// From the SIGGRAPH 2017 talk, "Real-Time Line- and Disk-Light Shading" by Heitz and Hill
+// Slides and code: https://blog.selfshadow.com/publications/s2017-shading-course
+fn ltc_integrate_disk(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    P: vec3<f32>,
+    Minv: mat3x3<f32>,
+    disk_center: vec3<f32>,
+    disk_right: vec3<f32>,
+    disk_up: vec3<f32>,
+) -> f32 {
+    // Construct orthonormal basis around N
+    let T1 = normalize(V - N * dot(V, N));
+    let T2 = cross(N, T1);
+    let basis = transpose(mat3x3<f32>(T1, T2, N));
+
+    // Init ellipse
+    var C = Minv * (basis * (disk_center - P));
+    var V1 = Minv * (basis * disk_right);
+    var V2 = Minv * (basis * disk_up);
+
+    if dot(cross(V1, V2), C) < 0.0 {
+        return 0.0;
+    }
+
+    // Compute eigenvectors of ellipse
+    var a: f32;
+    var b: f32;
+    let d11 = dot(V1, V1);
+    let d22 = dot(V2, V2);
+    let d12 = dot(V1, V2);
+
+    // V1 and V2 are not orthogonal
+    if abs(d12) / sqrt(d11 * d22) > 0.0001 {
+        let tr = d11 + d22;
+        let det = sqrt(max(d11 * d22 - d12 * d12, 0.0));
+
+        // Use sqrt matrix to solve for eigenvalues
+        let u = 0.5 * sqrt(max(tr - 2.0 * det, 0.0));
+        let v = 0.5 * sqrt(max(tr + 2.0 * det, 0.0));
+        let e_max = (u + v) * (u + v);
+        let e_min = (u - v) * (u - v);
+
+        var V1_new: vec3<f32>;
+        var V2_new: vec3<f32>;
+        if d11 > d22 {
+            V1_new = d12 * V1 + (e_max - d11) * V2;
+            V2_new = d12 * V1 + (e_min - d11) * V2;
+        } else {
+            V1_new = d12 * V2 + (e_max - d22) * V1;
+            V2_new = d12 * V2 + (e_min - d22) * V1;
+        }
+
+        a = 1.0 / e_max;
+        b = 1.0 / e_min;
+        V1 = normalize(V1_new);
+        V2 = normalize(V2_new);
+    } else {
+        a = 1.0 / d11;
+        b = 1.0 / d22;
+        V1 = V1 * sqrt(a);
+        V2 = V2 * sqrt(b);
+    }
+
+    var V3 = cross(V1, V2);
+    if dot(C, V3) < 0.0 {
+        V3 = -V3;
+    }
+
+    let L = dot(V3, C);
+    let x0 = dot(V1, C) / L;
+    let y0 = dot(V2, C) / L;
+
+    let aL2 = a * L * L;
+    let bL2 = b * L * L;
+
+    let c0 = aL2 * bL2;
+    let c1 = aL2 * bL2 * (1.0 + x0 * x0 + y0 * y0) - aL2 - bL2;
+    let c2 = 1.0 - aL2 * (1.0 + x0 * x0) - bL2 * (1.0 + y0 * y0);
+    let c3 = 1.0;
+
+    let roots = solve_cubic(vec4(c0, c1, c2, c3));
+    let e1 = roots.x;
+    let e2 = roots.y;
+    let e3 = roots.z;
+
+    let avg_dir_local = vec3(aL2 * x0 / (aL2 - e2), bL2 * y0 / (bL2 - e2), 1.0);
+    let rotate = mat3x3<f32>(V1, V2, V3);
+    let avg_dir = normalize(rotate * avg_dir_local);
+
+    let L1 = sqrt(max(-e2 / e3, 0.0));
+    let L2 = sqrt(max(-e2 / e1, 0.0));
+
+    let form_factor = L1 * L2 * inverseSqrt((1.0 + L1 * L1) * (1.0 + L2 * L2));
+
+    // Use tabulated horizon-clipped sphere
+    let LUT_SCALE = 63.0 / 64.0;
+    let LUT_BIAS =  0.5 / 64.0;
+    let clip_uv = vec2(avg_dir.z * 0.5 + 0.5, form_factor) * LUT_SCALE + LUT_BIAS;
+    let horizon_scale = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, clip_uv, 0.0).w;
+
+    return form_factor * horizon_scale;
 }
 
 fn point_light(
@@ -644,122 +693,138 @@ fn point_light(
     let L = normalize(light_to_frag);
     let distance_square = dot(light_to_frag, light_to_frag);
     let distance = sqrt(distance_square);
-    let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
-
-    // Base layer
-
-    let a = (*input).layers[LAYER_BASE].roughness;
-    let specular_L_a_prime = compute_specular_layer_values_for_point_light(
-        input,
-        LAYER_BASE,
-        V,
-        light_to_frag,
-        (*light).position_radius.w,
-        distance,
-    );
-    let L_spec = specular_L_a_prime.xyz;
-    let a_prime = specular_L_a_prime.w;
-    var specular_derived_input = derive_lighting_input(N, V, L_spec);
-
-    let normalizationFactor = a / a_prime;
-    let specular_intensity = normalizationFactor * normalizationFactor;
-
-    let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
-
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-    var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
-#else   // STANDARD_MATERIAL_ANISOTROPY
-    var specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-
-    // Sphere area light visibility (solid-angle attenuation)
     let light_radius = (*light).position_radius.w;
-    if light_radius > 0.0 {
-        let solid_angle = light_radius * light_radius / (distance * distance);
-        specular_light *= saturate(specular_derived_input.NdotL / max(specular_derived_input.NdotL + solid_angle, 1e-4));
-    }
-
-    // Clearcoat
-
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    // Unpack.
-    let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
-    let clearcoat_strength = (*input).clearcoat_strength;
-    let clearcoat_a = (*input).layers[LAYER_CLEARCOAT].roughness;
-
-    // Perform specular input calculations again for the clearcoat layer. We
-    // can't reuse the above because the clearcoat normal might be different
-    // from the main layer normal.
-    let clearcoat_specular_L_a_prime = compute_specular_layer_values_for_point_light(
-        input,
-        LAYER_CLEARCOAT,
-        V,
-        light_to_frag,
-        (*light).position_radius.w,
-        distance,
-    );
-    let L_clearcoat_spec = clearcoat_specular_L_a_prime.xyz;
-    let clearcoat_a_prime = clearcoat_specular_L_a_prime.w;
-    var clearcoat_specular_derived_input =
-        derive_lighting_input(clearcoat_N, V, L_clearcoat_spec);
-
-    // Calculate the specular light.
-    let clearcoat_normalizationFactor = clearcoat_a / clearcoat_a_prime;
-
-    let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
-
-    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, specular_fix_remap(clearcoat_a));
-
-    let Fc_Frc = specular_clearcoat(
-        input,
-        &clearcoat_specular_derived_input,
-        clearcoat_strength,
-        clearcoat_brdf_roughness,
-        clearcoat_specular_intensity
-    );
-    let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
-    var Frc = Fc_Frc.g;             // Clearcoat light.
-
-    // Sphere area light visibility (solid-angle attenuation) for clearcoat
-    if light_radius > 0.0 {
-        let solid_angle = light_radius * light_radius / (distance * distance);
-        Frc *= saturate(clearcoat_specular_derived_input.NdotL / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4));
-    }
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-
-    // Diffuse.
-    // Comes after specular since its N⋅L is used in the lighting equation.
-    var derived_input = derive_lighting_input(N, V, L);
-    var diffuse = vec3(0.0);
-    if (enable_diffuse) {
-        diffuse = diffuse_color * Fd_Burley(input, &derived_input);
-    }
-
-    // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
-    // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
-    // where
-    // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
-    // Φ is luminous power in lumens
-    // our rangeAttenuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
-
-    // For a point light, luminous intensity, I, in lumens per steradian is given by:
-    // I = Φ / 4 π
-    // The derivation of this can be seen here: https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-
-    // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
+    let inverse_range_squared = (*light).color_inverse_square_range.w;
+    let range_falloff = getRangeFalloff(distance_square, inverse_range_squared);
+    let range_attenuation = getDistanceAttenuation(distance_square, inverse_range_squared);
 
     var color_times_NdotL: vec3<f32>;
+
+    if light_radius == 0.0 {
+        // Base layer
+        let a = (*input).layers[LAYER_BASE].roughness;
+        let specular_intensity = 1.0;
+        var specular_derived_input = derive_lighting_input(N, V, L);
+
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+        var specular_light = specular_anisotropy(input, &specular_derived_input, L, a, specular_intensity);
+#else   // STANDARD_MATERIAL_ANISOTROPY
+        var specular_light = specular(input, &specular_derived_input, a, specular_intensity);
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
+        // Clearcoat
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    // Account for the Fresnel term from the clearcoat darkening the main layer.
-    //
-    // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
-#else   // STANDARD_MATERIAL_CLEARCOAT
-    color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
+        // Unpack.
+        let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+        let clearcoat_strength = (*input).clearcoat_strength;
+        let clearcoat_a = (*input).layers[LAYER_CLEARCOAT].roughness;
+
+        // Perform specular input calculations again for the clearcoat layer. We
+        // can't reuse the above because the clearcoat normal might be different
+        // from the main layer normal.
+        var clearcoat_specular_derived_input = derive_lighting_input(clearcoat_N, V, L);
+        let Fc_Frc = specular_clearcoat(input, &clearcoat_specular_derived_input, clearcoat_strength, clearcoat_a, 1.0);
+        let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
+        var Frc = Fc_Frc.g;             // Clearcoat light.
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    var texture_sample = 1f;
+        // Diffuse.
+        // Comes after specular since its N⋅L is used in the lighting equation.
+        var derived_input = derive_lighting_input(N, V, L);
+        var diffuse = vec3(0.0);
+        if (enable_diffuse) {
+            diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+        }
 
+        // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
+        // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
+        // where
+        // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
+        // Φ is luminous power in lumens
+        // our rangeAttenuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+
+        // For a point light, luminous intensity, I, in lumens per steradian is given by:
+        // I = Φ / 4 π
+        // The derivation of this can be seen here: https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+
+        // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+        // Account for the Fresnel term from the clearcoat darkening the main layer.
+        //
+        // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
+        color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
+#else   // STANDARD_MATERIAL_CLEARCOAT
+        color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+    } else { 
+        // light_radius > 0, use LTC
+
+        let basis = orthonormalize(L);
+        let disk_right = basis[0] * light_radius;
+        let disk_up = basis[1] * light_radius;
+
+        let NdotV = (*input).layers[LAYER_BASE].NdotV;
+        let perceptual_roughness = (*input).layers[LAYER_BASE].perceptual_roughness;
+
+        // Sample the LTC LUTs 
+        let LUT_SCALE = 63.0 / 64.0;
+        let LUT_BIAS  =  0.5 / 64.0;
+        let uv = vec2(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
+        let t1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, uv, 0.0);
+        let t2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, uv, 0.0);
+
+        // Reconstruct the GGX inverse-LTC matrix
+        let Minv = mat3x3<f32>(
+            vec3(t1.x, 0.0, t1.y),
+            vec3(0.0,  1.0, 0.0),
+            vec3(t1.z, 0.0, t1.w),
+        );
+        let spec = ltc_integrate_disk(N, V, P, Minv, (*light).position_radius.xyz, disk_right, disk_up);
+
+        // Use Lambertian diffuse, Burley would require a second LUT
+        let identity = mat3x3<f32>(
+            vec3(1.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0),
+            vec3(0.0, 0.0, 1.0),
+        );
+        let diff = select(0.0, ltc_integrate_disk(N, V, P, identity, (*light).position_radius.xyz, disk_right, disk_up), enable_diffuse);
+
+        // t2.x = BSDF magnitude, t2.y = Fresnel weight
+        let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
+        let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+        let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+        let clearcoat_strength = (*input).clearcoat_strength;
+        let clearcoat_perceptual_roughness = (*input).layers[LAYER_CLEARCOAT].perceptual_roughness;
+        let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
+
+        // Sample LUTs for clearcoat layer
+        let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
+        let tc1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, cc_uv, 0.0);
+        let tc2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, cc_uv, 0.0);
+        let Minv_cc = mat3x3<f32>(
+            vec3<f32>(tc1.x, 0.0, tc1.y),
+            vec3<f32>(0.0,   1.0, 0.0),
+            vec3<f32>(tc1.z, 0.0, tc1.w),
+        );
+        let spec_cc = ltc_integrate_disk(clearcoat_N, V, P, Minv_cc, (*light).position_radius.xyz, disk_right, disk_up);
+
+        // Clearcoat has F0=0.04
+        let spec_weight_cc = 0.04 * tc2.x + (1.0 - 0.04) * tc2.y;
+        let Fc = clearcoat_strength * spec_weight_cc;
+        let inv_Fc = 1.0 - Fc;
+        color_times_NdotL = (spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
+            + spec_weight_cc * spec_cc * clearcoat_strength;
+#else   // STANDARD_MATERIAL_CLEARCOAT
+        color_times_NdotL = spec_weight * spec + diffuse_color * diff;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
+    // LTC integration expects intensity in cd/m²
+    color_times_NdotL *= 1.0 / max(PI * light_radius * light_radius, 1e-7);
+    }
+
+    var texture_sample = 1f;
 #ifdef LIGHT_TEXTURES
     if enable_texture && (*light).decal_index != 0xFFFFFFFFu {
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
@@ -776,8 +841,13 @@ fn point_light(
     }
 #endif
 
-    return color_times_NdotL * (*light).color_inverse_square_range.rgb *
-        rangeAttenuation * texture_sample;
+    // Punctual path (radius == 0) uses inverse-square falloff.
+    // LTC path (radius > 0) uses only the smooth range cutoff to avoid
+    // double-applying distance attenuation.
+    return color_times_NdotL
+        * (*light).color_inverse_square_range.rgb
+        * texture_sample
+        * select(range_attenuation, range_falloff, light_radius > 0.0);
 }
 
 fn spot_light(
