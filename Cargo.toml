@@ -4749,6 +4749,18 @@ category = "Remote Protocol"
 wasm = false
 
 [[example]]
+name = "render_client"
+path = "examples/remote/render_client.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.render_client]
+name = "render_client"
+description = "A simple command line client that can control Bevy render subapp via the BRP"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true

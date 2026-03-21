@@ -353,6 +353,15 @@ impl Plugin for RenderPlugin {
                 ),
             );
 
+            #[cfg(not(feature = "reflect_auto_register"))]
+            render_app.init_resource::<AppTypeRegistry>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            render_app.insert_resource(AppTypeRegistry::new_with_derived_types());
+
+            #[cfg(feature = "reflect_functions")]
+            render_app.init_resource::<AppFunctionRegistry>();
+
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
