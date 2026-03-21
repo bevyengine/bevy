@@ -1301,6 +1301,10 @@ struct UiVertex {
     pub size: [f32; 2],
     /// Position relative to the center of the UI node.
     pub point: [f32; 2],
+    /// Clip rect in screen space (min_x, min_y, max_x, max_y).
+    /// For non-rotated nodes, vertex clipping is used and this is set to infinity.
+    /// For rotated nodes, fragment-level clipping is used via this field.
+    pub clip: [f32; 4],
 }
 
 #[derive(Resource)]
@@ -1570,29 +1574,59 @@ pub fn prepare_uinodes(
                             .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
                         let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
 
-                        // Calculate the effect of clipping
-                        // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                        let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
-                            [
-                                Vec2::new(
-                                    f32::max(clip.min.x - positions[0].x, 0.),
-                                    f32::max(clip.min.y - positions[0].y, 0.),
-                                ),
-                                Vec2::new(
-                                    f32::min(clip.max.x - positions[1].x, 0.),
-                                    f32::max(clip.min.y - positions[1].y, 0.),
-                                ),
-                                Vec2::new(
-                                    f32::min(clip.max.x - positions[2].x, 0.),
-                                    f32::min(clip.max.y - positions[2].y, 0.),
-                                ),
-                                Vec2::new(
-                                    f32::max(clip.min.x - positions[3].x, 0.),
-                                    f32::min(clip.max.y - positions[3].y, 0.),
-                                ),
-                            ]
+                        // Calculate the effect of clipping.
+                        // For rotated nodes, vertex clipping is incorrect (corners are not
+                        // axis-aligned), so we skip it and use fragment-level clipping via
+                        // the `clip` vertex attribute and a discard in the shader instead.
+                        let is_rotated = transform.x_axis[1] != 0.0;
+                        let positions_diff = if !is_rotated {
+                            if let Some(clip) = extracted_uinode.clip {
+                                [
+                                    Vec2::new(
+                                        f32::max(clip.min.x - positions[0].x, 0.),
+                                        f32::max(clip.min.y - positions[0].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::min(clip.max.x - positions[1].x, 0.),
+                                        f32::max(clip.min.y - positions[1].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::min(clip.max.x - positions[2].x, 0.),
+                                        f32::min(clip.max.y - positions[2].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::max(clip.min.x - positions[3].x, 0.),
+                                        f32::min(clip.max.y - positions[3].y, 0.),
+                                    ),
+                                ]
+                            } else {
+                                [Vec2::ZERO; 4]
+                            }
                         } else {
+                            // Rotated: leave vertices unmodified; clipping is handled in shader.
                             [Vec2::ZERO; 4]
+                        };
+                        // Shader-level clip rect, used only for rotated nodes.
+                        // For non-rotated nodes, vertex clipping is already correct, so we
+                        // disable the shader clip by setting it to infinite bounds.
+                        let shader_clip = if is_rotated {
+                            if let Some(clip) = extracted_uinode.clip {
+                                [clip.min.x, clip.min.y, clip.max.x, clip.max.y]
+                            } else {
+                                [
+                                    f32::NEG_INFINITY,
+                                    f32::NEG_INFINITY,
+                                    f32::INFINITY,
+                                    f32::INFINITY,
+                                ]
+                            }
+                        } else {
+                            [
+                                f32::NEG_INFINITY,
+                                f32::NEG_INFINITY,
+                                f32::INFINITY,
+                                f32::INFINITY,
+                            ]
                         };
 
                         let positions_clipped = [
@@ -1602,22 +1636,32 @@ pub fn prepare_uinodes(
                             positions[3] + positions_diff[3].extend(0.),
                         ];
 
+                        // Convert the screen-space clipping deltas to local (unscaled) space for use
+                        // in UV and SDF point calculations. `positions_diff` is in world/screen space
+                        // but UVs and the `point` SDF attribute must be in the node's local space.
+                        // Without this conversion, UiTransform scale causes inverted image scaling
+                        // and incorrect border radius rendering on clipped nodes.
+                        let local_positions_diff =
+                            if transform.matrix2.determinant().abs() > f32::EPSILON {
+                                let inv = transform.matrix2.inverse();
+                                positions_diff.map(|d| inv * d)
+                            } else {
+                                positions_diff
+                            };
+
                         let points = [
-                            points[0] + positions_diff[0],
-                            points[1] + positions_diff[1],
-                            points[2] + positions_diff[2],
-                            points[3] + positions_diff[3],
+                            points[0] + local_positions_diff[0],
+                            points[1] + local_positions_diff[1],
+                            points[2] + local_positions_diff[2],
+                            points[3] + local_positions_diff[3],
                         ];
 
                         let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
-                        // Don't try to cull nodes that have a rotation
-                        // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                        // In those two cases, the culling check can proceed normally as corners will be on
-                        // horizontal / vertical lines
-                        // For all other angles, bypass the culling check
-                        // This does not properly handles all rotations on all axis
-                        if transform.x_axis[1] == 0.0 {
+                        // Don't try to cull nodes that have a rotation via vertex clipping diffs,
+                        // since positions_diff is zeroed out for rotated nodes.
+                        // Fragment-level clipping handles the rotated case in the shader.
+                        if !is_rotated {
                             // Cull nodes that are completely clipped
                             if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                                 || positions_diff[1].y - positions_diff[2].y
@@ -1636,36 +1680,37 @@ pub fn prepare_uinodes(
                             let atlas_extent = atlas_scaling
                                 .map(|scaling| image.size_2d().as_vec2() * scaling)
                                 .unwrap_or(uinode_rect.max);
+                            let mut local_uv_diff = local_positions_diff;
                             if *flip_x {
                                 core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                                positions_diff[0].x *= -1.;
-                                positions_diff[1].x *= -1.;
-                                positions_diff[2].x *= -1.;
-                                positions_diff[3].x *= -1.;
+                                local_uv_diff[0].x *= -1.;
+                                local_uv_diff[1].x *= -1.;
+                                local_uv_diff[2].x *= -1.;
+                                local_uv_diff[3].x *= -1.;
                             }
                             if *flip_y {
                                 core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                                positions_diff[0].y *= -1.;
-                                positions_diff[1].y *= -1.;
-                                positions_diff[2].y *= -1.;
-                                positions_diff[3].y *= -1.;
+                                local_uv_diff[0].y *= -1.;
+                                local_uv_diff[1].y *= -1.;
+                                local_uv_diff[2].y *= -1.;
+                                local_uv_diff[3].y *= -1.;
                             }
                             [
                                 Vec2::new(
-                                    uinode_rect.min.x + positions_diff[0].x,
-                                    uinode_rect.min.y + positions_diff[0].y,
+                                    uinode_rect.min.x + local_uv_diff[0].x,
+                                    uinode_rect.min.y + local_uv_diff[0].y,
                                 ),
                                 Vec2::new(
-                                    uinode_rect.max.x + positions_diff[1].x,
-                                    uinode_rect.min.y + positions_diff[1].y,
+                                    uinode_rect.max.x + local_uv_diff[1].x,
+                                    uinode_rect.min.y + local_uv_diff[1].y,
                                 ),
                                 Vec2::new(
-                                    uinode_rect.max.x + positions_diff[2].x,
-                                    uinode_rect.max.y + positions_diff[2].y,
+                                    uinode_rect.max.x + local_uv_diff[2].x,
+                                    uinode_rect.max.y + local_uv_diff[2].y,
                                 ),
                                 Vec2::new(
-                                    uinode_rect.min.x + positions_diff[3].x,
-                                    uinode_rect.max.y + positions_diff[3].y,
+                                    uinode_rect.min.x + local_uv_diff[3].x,
+                                    uinode_rect.max.y + local_uv_diff[3].y,
                                 ),
                             ]
                             .map(|pos| pos / atlas_extent)
@@ -1697,6 +1742,7 @@ pub fn prepare_uinodes(
                                 ],
                                 size: rect_size.into(),
                                 point: points[i].into(),
+                                clip: shader_clip,
                             });
                         }
 
@@ -1727,27 +1773,51 @@ pub fn prepare_uinodes(
                                     .extend(0.)
                             });
 
-                            let positions_diff = if let Some(clip) = extracted_uinode.clip {
-                                [
-                                    Vec2::new(
-                                        f32::max(clip.min.x - positions[0].x, 0.),
-                                        f32::max(clip.min.y - positions[0].y, 0.),
-                                    ),
-                                    Vec2::new(
-                                        f32::min(clip.max.x - positions[1].x, 0.),
-                                        f32::max(clip.min.y - positions[1].y, 0.),
-                                    ),
-                                    Vec2::new(
-                                        f32::min(clip.max.x - positions[2].x, 0.),
-                                        f32::min(clip.max.y - positions[2].y, 0.),
-                                    ),
-                                    Vec2::new(
-                                        f32::max(clip.min.x - positions[3].x, 0.),
-                                        f32::min(clip.max.y - positions[3].y, 0.),
-                                    ),
-                                ]
+                            let is_rotated = extracted_uinode.transform.x_axis[1] != 0.0;
+                            let positions_diff = if !is_rotated {
+                                if let Some(clip) = extracted_uinode.clip {
+                                    [
+                                        Vec2::new(
+                                            f32::max(clip.min.x - positions[0].x, 0.),
+                                            f32::max(clip.min.y - positions[0].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::min(clip.max.x - positions[1].x, 0.),
+                                            f32::max(clip.min.y - positions[1].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::min(clip.max.x - positions[2].x, 0.),
+                                            f32::min(clip.max.y - positions[2].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::max(clip.min.x - positions[3].x, 0.),
+                                            f32::min(clip.max.y - positions[3].y, 0.),
+                                        ),
+                                    ]
+                                } else {
+                                    [Vec2::ZERO; 4]
+                                }
                             } else {
                                 [Vec2::ZERO; 4]
+                            };
+                            let shader_clip = if is_rotated {
+                                if let Some(clip) = extracted_uinode.clip {
+                                    [clip.min.x, clip.min.y, clip.max.x, clip.max.y]
+                                } else {
+                                    [
+                                        f32::NEG_INFINITY,
+                                        f32::NEG_INFINITY,
+                                        f32::INFINITY,
+                                        f32::INFINITY,
+                                    ]
+                                }
+                            } else {
+                                [
+                                    f32::NEG_INFINITY,
+                                    f32::NEG_INFINITY,
+                                    f32::INFINITY,
+                                    f32::INFINITY,
+                                ]
                             };
 
                             let positions_clipped = [
@@ -1757,34 +1827,51 @@ pub fn prepare_uinodes(
                                 positions[3] + positions_diff[3].extend(0.),
                             ];
 
-                            // cull nodes that are completely clipped
+                            // Cull glyphs that are completely clipped (only valid for non-rotated).
                             let transformed_rect_size = extracted_uinode
                                 .transform
                                 .transform_vector2(rect_size)
                                 .abs();
-                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                                || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y
+                            if !is_rotated
+                                && (positions_diff[0].x - positions_diff[1].x
+                                    >= transformed_rect_size.x
+                                    || positions_diff[1].y - positions_diff[2].y
+                                        >= transformed_rect_size.y)
                             {
                                 continue;
                             }
 
+                            // Convert screen-space clipping deltas to local (atlas) space for correct
+                            // UV computation when the node has a UiTransform scale applied.
+                            let local_positions_diff = if extracted_uinode
+                                .transform
+                                .matrix2
+                                .determinant()
+                                .abs()
+                                > f32::EPSILON
+                            {
+                                let inv = extracted_uinode.transform.matrix2.inverse();
+                                positions_diff.map(|d| inv * d)
+                            } else {
+                                positions_diff
+                            };
+
                             let uvs = [
                                 Vec2::new(
-                                    glyph.rect.min.x + positions_diff[0].x,
-                                    glyph.rect.min.y + positions_diff[0].y,
+                                    glyph.rect.min.x + local_positions_diff[0].x,
+                                    glyph.rect.min.y + local_positions_diff[0].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.max.x + positions_diff[1].x,
-                                    glyph.rect.min.y + positions_diff[1].y,
+                                    glyph.rect.max.x + local_positions_diff[1].x,
+                                    glyph.rect.min.y + local_positions_diff[1].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.max.x + positions_diff[2].x,
-                                    glyph.rect.max.y + positions_diff[2].y,
+                                    glyph.rect.max.x + local_positions_diff[2].x,
+                                    glyph.rect.max.y + local_positions_diff[2].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.min.x + positions_diff[3].x,
-                                    glyph.rect.max.y + positions_diff[3].y,
+                                    glyph.rect.min.x + local_positions_diff[3].x,
+                                    glyph.rect.max.y + local_positions_diff[3].y,
                                 ),
                             ]
                             .map(|pos| pos / atlas_extent);
@@ -1799,6 +1886,7 @@ pub fn prepare_uinodes(
                                     border: [0.0; 4],
                                     size: rect_size.into(),
                                     point: [0.0; 2],
+                                    clip: shader_clip,
                                 });
                             }
 
@@ -1822,4 +1910,377 @@ pub fn prepare_uinodes(
         commands.try_insert_batch(batches);
     }
     extracted_uinodes.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Helper: replicates the UV-clipping math used in `prepare_uinodes` so it can
+// be unit-tested without a GPU.
+//
+// Returns the four UV coordinates (TL, TR, BR, BL) for a node quad that is
+// clipped to `clip` given the node's world-space `transform`, its
+// `node_rect` (in local/layout pixels) and the atlas extent used to
+// normalise UVs.
+#[cfg(test)]
+fn compute_clipped_uvs(
+    transform: Affine2,
+    node_rect: bevy_math::Rect,
+    clip: bevy_math::Rect,
+    atlas_extent: Vec2,
+) -> [Vec2; 4] {
+    let rect_size = node_rect.size();
+
+    // Screen-space corner positions.
+    let positions = QUAD_VERTEX_POSITIONS
+        .map(|pos| transform.transform_point2(pos * rect_size));
+
+    // Screen-space clipping deltas (same logic as `prepare_uinodes`).
+    let positions_diff = [
+        Vec2::new(
+            f32::max(clip.min.x - positions[0].x, 0.),
+            f32::max(clip.min.y - positions[0].y, 0.),
+        ),
+        Vec2::new(
+            f32::min(clip.max.x - positions[1].x, 0.),
+            f32::max(clip.min.y - positions[1].y, 0.),
+        ),
+        Vec2::new(
+            f32::min(clip.max.x - positions[2].x, 0.),
+            f32::min(clip.max.y - positions[2].y, 0.),
+        ),
+        Vec2::new(
+            f32::max(clip.min.x - positions[3].x, 0.),
+            f32::min(clip.max.y - positions[3].y, 0.),
+        ),
+    ];
+
+    // Convert to local space (the fix).
+    let local_positions_diff = if transform.matrix2.determinant().abs() > f32::EPSILON {
+        let inv = transform.matrix2.inverse();
+        positions_diff.map(|d| inv * d)
+    } else {
+        positions_diff
+    };
+
+    let uinode_rect = node_rect;
+    [
+        Vec2::new(
+            uinode_rect.min.x + local_positions_diff[0].x,
+            uinode_rect.min.y + local_positions_diff[0].y,
+        ),
+        Vec2::new(
+            uinode_rect.max.x + local_positions_diff[1].x,
+            uinode_rect.min.y + local_positions_diff[1].y,
+        ),
+        Vec2::new(
+            uinode_rect.max.x + local_positions_diff[2].x,
+            uinode_rect.max.y + local_positions_diff[2].y,
+        ),
+        Vec2::new(
+            uinode_rect.min.x + local_positions_diff[3].x,
+            uinode_rect.max.y + local_positions_diff[3].y,
+        ),
+    ]
+    .map(|pos| pos / atlas_extent)
+}
+
+// ---------------------------------------------------------------------------
+// Helper: same as `compute_clipped_uvs` but intentionally uses the OLD
+// (unfixed) logic — `positions_diff` applied directly to UVs without
+// converting to local space.  Used to confirm that the old code produced
+// the wrong results, giving the tests a clear before/after comparison.
+#[cfg(test)]
+fn compute_clipped_uvs_broken(
+    transform: Affine2,
+    node_rect: bevy_math::Rect,
+    clip: bevy_math::Rect,
+    atlas_extent: Vec2,
+) -> [Vec2; 4] {
+    let rect_size = node_rect.size();
+    let positions = QUAD_VERTEX_POSITIONS
+        .map(|pos| transform.transform_point2(pos * rect_size));
+
+    let positions_diff = [
+        Vec2::new(
+            f32::max(clip.min.x - positions[0].x, 0.),
+            f32::max(clip.min.y - positions[0].y, 0.),
+        ),
+        Vec2::new(
+            f32::min(clip.max.x - positions[1].x, 0.),
+            f32::max(clip.min.y - positions[1].y, 0.),
+        ),
+        Vec2::new(
+            f32::min(clip.max.x - positions[2].x, 0.),
+            f32::min(clip.max.y - positions[2].y, 0.),
+        ),
+        Vec2::new(
+            f32::max(clip.min.x - positions[3].x, 0.),
+            f32::min(clip.max.y - positions[3].y, 0.),
+        ),
+    ];
+
+    let uinode_rect = node_rect;
+    [
+        Vec2::new(
+            uinode_rect.min.x + positions_diff[0].x,
+            uinode_rect.min.y + positions_diff[0].y,
+        ),
+        Vec2::new(
+            uinode_rect.max.x + positions_diff[1].x,
+            uinode_rect.min.y + positions_diff[1].y,
+        ),
+        Vec2::new(
+            uinode_rect.max.x + positions_diff[2].x,
+            uinode_rect.max.y + positions_diff[2].y,
+        ),
+        Vec2::new(
+            uinode_rect.min.x + positions_diff[3].x,
+            uinode_rect.max.y + positions_diff[3].y,
+        ),
+    ]
+    .map(|pos| pos / atlas_extent)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_math::{Affine2, Mat2, Rect, Vec2};
+
+    const EPS: f32 = 1e-4;
+
+    fn approx_eq(a: Vec2, b: Vec2) -> bool {
+        (a - b).length() < EPS
+    }
+
+    // Build a simple scale-only Affine2 with the node centred at `center`.
+    fn scale_transform(center: Vec2, scale: f32) -> Affine2 {
+        Affine2 {
+            matrix2: Mat2::from_diagonal(Vec2::splat(scale)),
+            translation: center,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // With scale = 1 (no UiTransform scale) the fixed code should produce
+    // the same UVs as the old code.  This is a regression guard.
+    #[test]
+    fn uv_clipping_scale_one_unchanged() {
+        // 100×100 node centred at (150, 100). Clip cuts the right 25 px.
+        let node_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100., 100.),
+        };
+        let clip = Rect {
+            min: Vec2::new(100., 50.),
+            max: Vec2::new(175., 150.), // right edge at 175, node TL at 100 so 75 px visible
+        };
+        let center = Vec2::new(150., 100.);
+        let transform = scale_transform(center, 1.0);
+        let atlas_extent = Vec2::new(100., 100.);
+
+        let fixed = compute_clipped_uvs(transform, node_rect, clip, atlas_extent);
+        let broken = compute_clipped_uvs_broken(transform, node_rect, clip, atlas_extent);
+
+        // At scale=1 both implementations must agree.
+        for i in 0..4 {
+            assert!(
+                approx_eq(fixed[i], broken[i]),
+                "scale=1: corner {i} diverged: fixed={:?} broken={:?}",
+                fixed[i],
+                broken[i]
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // The original bug: with scale=3 the old code mapped the right-clipped
+    // TR corner to UV.x ≈ 0 (collapsing the visible texture to nothing),
+    // while the fixed code correctly maps it to UV.x ≈ 2/3.
+    //
+    // Setup:
+    //   node layout size = 100×100, UiTransform.scale = 3
+    //   → visual (screen) size = 300×300
+    //   node centre at (150, 150)
+    //   → screen corners: TL=(0,0) TR=(300,0) BR=(300,300) BL=(0,300)
+    //   clip rect = (0,0)→(200,200)  (cuts 100 screen-px off right & bottom)
+    //
+    // The visible fraction of the texture along each axis is 200/300 = 2/3,
+    // so the clipped TR corner should sample UV.x = 2/3.
+    #[test]
+    fn uv_clipping_scale_three_right_and_bottom() {
+        let node_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100., 100.),
+        };
+        let clip = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(200., 200.),
+        };
+        let center = Vec2::new(150., 150.);
+        let transform = scale_transform(center, 3.0);
+        let atlas_extent = Vec2::new(100., 100.);
+
+        let fixed = compute_clipped_uvs(transform, node_rect, clip, atlas_extent);
+        let broken = compute_clipped_uvs_broken(transform, node_rect, clip, atlas_extent);
+
+        let expected_tr_uv = Vec2::new(2. / 3., 0.);   // TR: x clipped to 2/3
+        let expected_br_uv = Vec2::new(2. / 3., 2. / 3.); // BR: both axes clipped
+
+        // Fixed code should be correct.
+        assert!(
+            approx_eq(fixed[1], expected_tr_uv),
+            "fixed TR UV wrong: got {:?}, expected {:?}",
+            fixed[1],
+            expected_tr_uv
+        );
+        assert!(
+            approx_eq(fixed[2], expected_br_uv),
+            "fixed BR UV wrong: got {:?}, expected {:?}",
+            fixed[2],
+            expected_br_uv
+        );
+
+        // Old (broken) code should NOT produce the correct result — confirm
+        // the test would have caught the bug.
+        assert!(
+            !approx_eq(broken[1], expected_tr_uv),
+            "broken code accidentally produced correct TR UV — test may be invalid"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // With scale=0.5 the visual node is half size.  Clipping from the left
+    // by 10 screen pixels should cut 20 local pixels (10 / 0.5) off the TL
+    // UV, i.e. TL UV.x = 20/100 = 0.2.
+    #[test]
+    fn uv_clipping_scale_half_left_edge() {
+        // 100×100 node, scale=0.5 → visual 50×50
+        // centre at (50, 50) → TL at (25, 25), TR at (75, 25)
+        // Clip left edge at 35 → cuts 10 screen-px = 20 local-px from TL
+        let node_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100., 100.),
+        };
+        let clip = Rect {
+            min: Vec2::new(35., 0.),
+            max: Vec2::new(200., 200.),
+        };
+        let center = Vec2::new(50., 50.);
+        let transform = scale_transform(center, 0.5);
+        let atlas_extent = Vec2::new(100., 100.);
+
+        let fixed = compute_clipped_uvs(transform, node_rect, clip, atlas_extent);
+
+        let expected_tl_uv = Vec2::new(0.2, 0.); // 20 local-px / 100 = 0.2
+        assert!(
+            approx_eq(fixed[0], expected_tl_uv),
+            "scale=0.5 TL UV wrong: got {:?}, expected {:?}",
+            fixed[0],
+            expected_tl_uv
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // When the node is fully inside the clip rect, all positions_diff are
+    // zero and UVs should be the standard corner values regardless of scale.
+    #[test]
+    fn uv_no_clipping_scale_three() {
+        let node_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100., 100.),
+        };
+        // Very large clip — nothing is clipped.
+        let clip = Rect {
+            min: Vec2::new(-9999., -9999.),
+            max: Vec2::new(9999., 9999.),
+        };
+        let center = Vec2::new(150., 150.);
+        let transform = scale_transform(center, 3.0);
+        let atlas_extent = Vec2::new(100., 100.);
+
+        let fixed = compute_clipped_uvs(transform, node_rect, clip, atlas_extent);
+
+        // Standard corner UVs (TL, TR, BR, BL).
+        assert!(approx_eq(fixed[0], Vec2::new(0., 0.)), "TL: {:?}", fixed[0]);
+        assert!(approx_eq(fixed[1], Vec2::new(1., 0.)), "TR: {:?}", fixed[1]);
+        assert!(approx_eq(fixed[2], Vec2::new(1., 1.)), "BR: {:?}", fixed[2]);
+        assert!(approx_eq(fixed[3], Vec2::new(0., 1.)), "BL: {:?}", fixed[3]);
+    }
+
+    // -----------------------------------------------------------------------
+    // `point` attribute used for border-radius SDF: with scale=3 and the
+    // right edge clipped by 100 screen-px, the TR `point.x` should be
+    // 50 - 100/3 ≈ 16.67 (not 50 - 100 = -50 as the old code gave).
+    #[test]
+    fn sdf_point_clipping_scale_three() {
+        let rect_size = Vec2::new(100., 100.);
+        let center = Vec2::new(150., 150.);
+        let scale = 3.0_f32;
+        let transform = Affine2 {
+            matrix2: Mat2::from_diagonal(Vec2::splat(scale)),
+            translation: center,
+        };
+
+        let positions = QUAD_VERTEX_POSITIONS
+            .map(|pos| transform.transform_point2(pos * rect_size));
+
+        let clip = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(200., 200.),
+        };
+
+        let positions_diff = [
+            Vec2::new(
+                f32::max(clip.min.x - positions[0].x, 0.),
+                f32::max(clip.min.y - positions[0].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[1].x, 0.),
+                f32::max(clip.min.y - positions[1].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[2].x, 0.),
+                f32::min(clip.max.y - positions[2].y, 0.),
+            ),
+            Vec2::new(
+                f32::max(clip.min.x - positions[3].x, 0.),
+                f32::min(clip.max.y - positions[3].y, 0.),
+            ),
+        ];
+
+        let inv = transform.matrix2.inverse();
+        let local_positions_diff = positions_diff.map(|d| inv * d);
+
+        let base_points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+
+        // Fixed: use local_positions_diff
+        let fixed_points = [
+            base_points[0] + local_positions_diff[0],
+            base_points[1] + local_positions_diff[1],
+            base_points[2] + local_positions_diff[2],
+            base_points[3] + local_positions_diff[3],
+        ];
+
+        // Old (broken): used screen-space positions_diff directly
+        let broken_points = [
+            base_points[0] + positions_diff[0],
+            base_points[1] + positions_diff[1],
+            base_points[2] + positions_diff[2],
+            base_points[3] + positions_diff[3],
+        ];
+
+        // TR corner: screen clip of -100 px on x → local clip of -100/3 ≈ -33.33
+        // base TR point.x = 50.  Fixed: 50 - 33.33 = 16.67.  Broken: 50 - 100 = -50.
+        let expected_tr_point_x = 50. - 100. / scale; // ≈ 16.67
+        assert!(
+            (fixed_points[1].x - expected_tr_point_x).abs() < EPS,
+            "fixed TR point.x wrong: got {}, expected {}",
+            fixed_points[1].x,
+            expected_tr_point_x
+        );
+        assert!(
+            (broken_points[1].x - (-50.)).abs() < EPS,
+            "broken TR point.x should be -50 (old bug value), got {}",
+            broken_points[1].x
+        );
+    }
 }

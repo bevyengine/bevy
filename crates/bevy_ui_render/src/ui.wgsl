@@ -25,11 +25,14 @@ struct VertexOutput {
 
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
-    @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
+    @location(4) @interpolate(flat) radius: vec4<f32>,
+    @location(5) @interpolate(flat) border: vec4<f32>,
 
     // Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
+    // Clip rect in screen space (min_x, min_y, max_x, max_y).
+    // Used for fragment-level clipping of rotated nodes.
+    @location(7) @interpolate(flat) clip: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -47,6 +50,8 @@ fn vertex(
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) point: vec2<f32>,
+    // Clip rect: min_x, min_y, max_x, max_y (in screen/viewport pixels).
+    @location(8) vertex_clip: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -57,6 +62,7 @@ fn vertex(
     out.size = size;
     out.border = border;
     out.point = point;
+    out.clip = vertex_clip;
 
     return out;
 }
@@ -214,6 +220,13 @@ fn draw_uinode_background(
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Fragment-level clip for rotated nodes (vertex clipping is not correct for rotated quads).
+    // in.position.xy is in viewport/window pixel coordinates, matching the clip rect space.
+    if in.position.x < in.clip.x || in.position.x > in.clip.z
+        || in.position.y < in.clip.y || in.position.y > in.clip.w {
+        discard;
+    }
+
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
