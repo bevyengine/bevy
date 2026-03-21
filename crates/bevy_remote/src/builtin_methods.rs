@@ -486,6 +486,8 @@ pub struct BrpListComponentsWatchingResponse {
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// The response to a `schedule.list` request.
+///
+/// Returns a list of [`ScheduleLabel`]s as Strings.
 pub type BrpScheduleListResponse = Vec<String>;
 
 /// One query match result: a single entity paired with the requested components.
