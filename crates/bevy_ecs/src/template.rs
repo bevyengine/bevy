@@ -364,11 +364,10 @@ impl TemplateData {
 
     /// Iterates over all stored values of the given type `T`.
     pub fn iter<T: Any>(&self) -> impl Iterator<Item = &T> {
-        if let Some(value) = self.0.get(&TypeId::of::<T>()) {
-            let value = value.downcast_ref::<Vec<T>>().unwrap();
-            value.iter()
-        } else {
-            [].iter()
-        }
+        self.0
+            .get(&TypeId::of::<T>())
+            .and_then(|v| v.downcast_ref::<Vec<T>>())
+            .map(|v| v.iter())
+            .unwrap_or_default()
     }
 }

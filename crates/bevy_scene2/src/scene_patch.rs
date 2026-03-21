@@ -30,7 +30,7 @@ pub struct ScenePatch {
 
 impl ScenePatch {
     /// Kicks off a load of the `scene`. This enumerates the scene's dependencies using [`Scene::register_dependencies`], loads
-    /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`ScenePatch::dependencies`].nn
+    /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`ScenePatch::dependencies`].
     pub fn load<P: Scene>(mut assets: &AssetServer, scene: P) -> Self {
         Self::load_with(&mut assets, scene)
     }
@@ -145,7 +145,7 @@ pub struct SceneListPatch {
 
 impl SceneListPatch {
     /// Kicks off a load of the `scene_list`. This enumerates the scene list's dependencies using [`SceneList::register_dependencies`], loads
-    /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`SceneListPatch::dependencies`].nn
+    /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`SceneListPatch::dependencies`].
     pub fn load<L: SceneList>(assets: &AssetServer, scene_list: L) -> Self {
         let mut dependencies = SceneDependencies::default();
         scene_list.register_dependencies(&mut dependencies);

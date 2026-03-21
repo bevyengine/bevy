@@ -55,7 +55,7 @@ pub struct ResolvedSceneListRoot {
 }
 
 impl ResolvedSceneListRoot {
-    /// This will spawn a new [`Entity`], then call [`ResolvedSceneRoot::apply`] on it.
+    /// Spawns multiple new [`Entity`]s, then calls [`ResolvedSceneListRoot::apply`] on them.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<Vec<Entity>, ApplySceneError> {
         self.spawn_with(world, |_| {})
     }

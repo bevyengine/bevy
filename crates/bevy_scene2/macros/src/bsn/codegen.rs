@@ -177,9 +177,9 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 }
                 BsnEntry::NameExpression(expr_tokens) => {
                     quote! {
-                        <#bevy_ecs::name::Name as PatchGetTemplate>::patch(
+                        <#bevy_ecs::name::Name as #bevy_scene::PatchGetTemplate>::patch(
                             move |value, _context| {
-                                *value = Name({#expr_tokens}.into());
+                                *value = #bevy_ecs::Name({#expr_tokens}.into());
                             }
                         )
                     }
