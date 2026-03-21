@@ -58,7 +58,10 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
             wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
             let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-            radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
+            radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng);
+            if surface.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
+                radiance /= pdf;
+            }
         }
     }
 
