@@ -606,7 +606,9 @@ pub fn resolve_scene_patches(
                 if let Some(waiting) = queued.waiting_scene_entities.remove(&id)
                     && !waiting.is_empty()
                 {
-                    error!("Failed to spawn entities waiting for scene {id:?} because it was removed: {waiting:?}");
+                    error!(
+                        "Failed to spawn entities waiting for scene {id:?} because it was removed: {waiting:?}"
+                    );
                 }
             }
             _ => {}
@@ -637,7 +639,9 @@ pub fn resolve_scene_patches(
                     && !waiting.is_empty()
                 {
                     let waiting_entities = waiting.iter().map(|r| r.entity).collect::<Vec<_>>();
-                    error!("Failed to spawn related entities for scene list {id:?} because it was removed: {waiting_entities:?}");
+                    error!(
+                        "Failed to spawn related entities for scene list {id:?} because it was removed: {waiting_entities:?}"
+                    );
                 }
             }
             _ => {}
@@ -678,132 +682,148 @@ pub fn spawn_queued(
 ) {
     world.resource_scope(|world, mut list_patches: Mut<Assets<SceneListPatch>>| {
         world.resource_scope(|world, mut queued: Mut<QueuedScenes>| {
-            world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
-                world.resource_scope(
-                    |world, list_events: Mut<Messages<AssetEvent<SceneListPatch>>>| {
-                        loop {
-                            if queued.new_scene_entities.is_empty()
-                                && queued.related_scene_list_spawns.is_empty()
-                                && queued.scene_list_spawns.is_empty()
-                            {
-                                break;
-                            }
-                            for entity in core::mem::take(&mut queued.new_scene_entities) {
-                                if let Ok(handle) = scene_patch_instances.get(world, entity).map(|h| &h.0) {
-                                    let patches = world.resource::<Assets<ScenePatch>>();
-                                    if let Some(resolved) =
-                                        patches.get(handle).and_then(|p| p.resolved.clone())
-                                    {
-                                        let mut entity_mut = world.get_entity_mut(entity).unwrap();
-                                        if let Err(err) = resolved.apply(&mut entity_mut) {
-                                            let scene_patch_instance = scene_patch_instances.get(world, entity).unwrap();
-                                            let handle = &scene_patch_instance.0;
-                                            error!("Failed to apply scene (id: {}, path: {:?}) to entity {entity}: {}", handle.id(), handle.path(), err);
-                                        }
-                                    } else {
-                                        let entities = queued
-                                            .waiting_scene_entities
-                                            .entry(handle.clone())
-                                            .or_default();
-                                        entities.push(entity);
-                                    }
-                                }
-                            }
+            loop {
+                if queued.is_empty() {
+                    break;
+                }
+                queued.spawn_queued(world, scene_patch_instances, &list_patches);
+            }
 
-                            for (scene_list_spawn, handle) in
-                                core::mem::take(&mut queued.related_scene_list_spawns)
+            world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
+                for event in reader.read(&events) {
+                    let patches = world.resource::<Assets<ScenePatch>>();
+                    if let AssetEvent::LoadedWithDependencies { id } = event
+                        && let Some(resolved) = patches.get(*id).and_then(|p| p.resolved.clone())
+                        && let Some(entities) = queued.waiting_scene_entities.remove(id)
+                    {
+                        for entity in entities {
+                            if let Ok(mut entity_mut) = world.get_entity_mut(entity)
+                                && let Err(err) = resolved.apply(&mut entity_mut)
                             {
-                                if let Some(list_patch) =
-                                    list_patches.get_mut(&handle)
-                                {
+                                error!(
+                                    "Failed to apply scene (id: {}) to entity {entity}: {}",
+                                    id, err
+                                );
+                            }
+                        }
+                    }
+                }
+            });
+            world.resource_scope(
+                |world, list_events: Mut<Messages<AssetEvent<SceneListPatch>>>| {
+                    for event in list_reader.read(&list_events) {
+                        if let AssetEvent::LoadedWithDependencies { id } = event
+                            && let Some(list_patch) = list_patches.get_mut(*id)
+                        {
+                            if let Some(scene_list_spawns) =
+                                queued.waiting_related_list_entities.remove(id)
+                            {
+                                for scene_list_spawn in scene_list_spawns {
                                     let result = list_patch.spawn_with(world, |entity| {
-                                        (scene_list_spawn.insert)(
-                                            entity,
-                                            scene_list_spawn.entity,
-                                        );
+                                        (scene_list_spawn.insert)(entity, scene_list_spawn.entity);
                                     });
 
                                     if let Err(err) = result {
-                                            error!("Failed to spawn scene list (id: {}, path: {:?}): {}", handle.id(), handle.path(), err);
+                                        error!("Failed to spawn scene list (id: {}): {}", id, err);
                                     }
-
-                                } else {
-                                    let entities = queued
-                                        .waiting_related_list_entities
-                                        .entry(handle)
-                                        .or_default();
-                                    entities.push(scene_list_spawn);
                                 }
                             }
 
-                            for handle in core::mem::take(&mut queued.scene_list_spawns) {
-                                if let Some(list_patch) =
-                                    list_patches.get_mut(&handle)
-                                {
+                            if let Some(waiting_list_spawns) =
+                                queued.waiting_scene_list_spawns.remove(id)
+                            {
+                                for _ in 0..waiting_list_spawns {
                                     let result = list_patch.spawn(world);
                                     if let Err(err) = result {
-                                            error!("Failed to spawn scene list (id: {}, path: {:?}): {}", handle.id(), handle.path(), err);
-                                    }
-                                } else {
-                                    let count =
-                                        queued.waiting_scene_list_spawns.entry(handle).or_default();
-                                    *count += 1;
-                                }
-                            }
-                        }
-
-                        for event in reader.read(&events) {
-                            let patches = world.resource::<Assets<ScenePatch>>();
-                            if let AssetEvent::LoadedWithDependencies { id } = event
-                                && let Some(resolved) =
-                                    patches.get(*id).and_then(|p| p.resolved.clone())
-                                && let Some(entities) = queued.waiting_scene_entities.remove(id)
-                            {
-                                for entity in entities {
-                                    if let Ok(mut entity_mut) = world.get_entity_mut(entity) && let Err(err) = resolved.apply(&mut entity_mut) {
-                                        error!("Failed to apply scene (id: {}) to entity {entity}: {}", id, err);
+                                        error!("Failed to spawn scene list (id: {}): {}", id, err);
                                     }
                                 }
                             }
                         }
-                        for event in list_reader.read(&list_events) {
-                            if let AssetEvent::LoadedWithDependencies { id } = event
-                                && let Some(list_patch) =
-                                    list_patches.get_mut(*id)
-                            {
-                                if let Some(scene_list_spawns) =
-                                    queued.waiting_related_list_entities.remove(id)
-                                {
-                                    for scene_list_spawn in scene_list_spawns {
-                                        let result = list_patch.spawn_with(world, |entity| {
-                                            (scene_list_spawn.insert)(
-                                                entity,
-                                                scene_list_spawn.entity,
-                                            );
-                                        });
-
-                                        if let Err(err) = result {
-                                                error!("Failed to spawn scene list (id: {}): {}", id, err);
-                                        }
-                                    }
-
-                                }
-
-                                if let Some(waiting_list_spawns) =
-                                    queued.waiting_scene_list_spawns.remove(id)
-                                {
-                                    for _ in 0..waiting_list_spawns {
-                                        let result = list_patch.spawn(world);
-                                        if let Err(err) = result {
-                                                error!("Failed to spawn scene list (id: {}): {}", id, err);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                );
-            });
+                    }
+                },
+            );
         });
     });
+}
+
+impl QueuedScenes {
+    fn is_empty(&self) -> bool {
+        self.new_scene_entities.is_empty()
+            && self.related_scene_list_spawns.is_empty()
+            && self.scene_list_spawns.is_empty()
+    }
+
+    fn spawn_queued(
+        &mut self,
+        world: &mut World,
+        scene_patch_instances: &mut QueryState<&ScenePatchInstance>,
+        list_patches: &Assets<SceneListPatch>,
+    ) {
+        for entity in core::mem::take(&mut self.new_scene_entities) {
+            if let Ok(handle) = scene_patch_instances.get(world, entity).map(|h| &h.0) {
+                let patches = world.resource::<Assets<ScenePatch>>();
+                if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
+                    let mut entity_mut = world.get_entity_mut(entity).unwrap();
+                    if let Err(err) = resolved.apply(&mut entity_mut) {
+                        let scene_patch_instance =
+                            scene_patch_instances.get(world, entity).unwrap();
+                        let handle = &scene_patch_instance.0;
+                        let id = handle.id();
+                        let path = handle.path();
+                        error!(
+                            "Failed to apply scene (id: {id}, path: {path:?}) to \
+                                    entity {entity}: {err}",
+                        );
+                    }
+                } else {
+                    let entities = self
+                        .waiting_scene_entities
+                        .entry(handle.clone())
+                        .or_default();
+                    entities.push(entity);
+                }
+            }
+        }
+
+        for (scene_list_spawn, handle) in core::mem::take(&mut self.related_scene_list_spawns) {
+            if let Some(list_patch) = list_patches.get(&handle) {
+                let result = list_patch.spawn_with(world, |entity| {
+                    (scene_list_spawn.insert)(entity, scene_list_spawn.entity);
+                });
+
+                if let Err(err) = result {
+                    error!(
+                        "Failed to spawn scene list (id: {}, path: {:?}): {}",
+                        handle.id(),
+                        handle.path(),
+                        err
+                    );
+                }
+            } else {
+                let entities = self
+                    .waiting_related_list_entities
+                    .entry(handle)
+                    .or_default();
+                entities.push(scene_list_spawn);
+            }
+        }
+
+        for handle in core::mem::take(&mut self.scene_list_spawns) {
+            if let Some(list_patch) = list_patches.get(&handle) {
+                let result = list_patch.spawn(world);
+                if let Err(err) = result {
+                    error!(
+                        "Failed to spawn scene list (id: {}, path: {:?}): {}",
+                        handle.id(),
+                        handle.path(),
+                        err
+                    );
+                }
+            } else {
+                let count = self.waiting_scene_list_spawns.entry(handle).or_default();
+                *count += 1;
+            }
+        }
+    }
 }
