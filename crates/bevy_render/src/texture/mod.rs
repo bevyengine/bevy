@@ -14,8 +14,8 @@ pub use texture_cache::*;
 
 use crate::{
     extract_resource::ExtractResourcePlugin, init_gpu_resource, render_asset::RenderAssetPlugin,
-    render_resource::DefaultImageSamplerDescriptor, renderer::RenderDevice, GpuResourceAppExt,
-    Render, RenderApp, RenderStartup, RenderSystems,
+    render_resource::DefaultImageSamplerDescriptor, GpuResourceAppExt, Render, RenderApp,
+    RenderStartup, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
@@ -66,7 +66,7 @@ impl Plugin for TexturePlugin {
             render_app.add_systems(
                 RenderStartup,
                 (
-                    init_default_image_sampler,
+                    init_gpu_resource::<DefaultImageSampler>,
                     init_gpu_resource::<FallbackImage>,
                     init_gpu_resource::<FallbackImageZero>,
                     init_gpu_resource::<FallbackImageCubemap>,
@@ -77,12 +77,4 @@ impl Plugin for TexturePlugin {
             );
         }
     }
-}
-
-fn init_default_image_sampler(world: &mut World) {
-    let descriptor = world.resource::<DefaultImageSamplerDescriptor>();
-    let wgpu_descriptor = descriptor.as_wgpu();
-    let device = world.resource::<RenderDevice>();
-    let sampler = device.create_sampler(&wgpu_descriptor);
-    world.insert_resource(DefaultImageSampler(sampler));
 }

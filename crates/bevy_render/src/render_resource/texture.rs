@@ -1,6 +1,9 @@
-use crate::renderer::WgpuWrapper;
+use crate::renderer::{RenderDevice, WgpuWrapper};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::resource::Resource;
+use bevy_ecs::{
+    resource::Resource,
+    world::{FromWorld, World},
+};
 use bevy_image::ImageSamplerDescriptor;
 use bevy_utils::define_atomic_id;
 use core::ops::Deref;
@@ -171,3 +174,13 @@ pub struct DefaultImageSamplerDescriptor(pub ImageSamplerDescriptor);
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
+
+impl FromWorld for DefaultImageSampler {
+    fn from_world(world: &mut World) -> Self {
+        let descriptor = world.resource::<DefaultImageSamplerDescriptor>();
+        let wgpu_descriptor = descriptor.as_wgpu();
+        let device = world.resource::<RenderDevice>();
+        let sampler = device.create_sampler(&wgpu_descriptor);
+        Self(sampler)
+    }
+}
