@@ -14,6 +14,9 @@ pub struct GlyphCacheKey {
     pub glyph_id: u16,
 }
 
+#[doc(hidden)]
+pub const TEXT_EFFECT_PADDING: u32 = 16;
+
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
 /// A `FontAtlas` contains one or more textures, each of which contains one or more glyphs packed into them.
@@ -91,6 +94,7 @@ impl FontAtlas {
         key: GlyphCacheKey,
         texture: &Image,
         offset: Vec2,
+        text_effect_padding: bool,
     ) -> Result<(), TextError> {
         let mut atlas_texture = textures
             .get_mut(&self.texture)
@@ -101,6 +105,16 @@ impl FontAtlas {
             texture,
             &mut atlas_texture,
         ) {
+            if text_effect_padding {
+                let glyph_rect = self
+                    .texture_atlas
+                    .textures
+                    .get_mut(glyph_index)
+                    .expect("newly added glyph must have an atlas rect");
+                let padding = UVec2::splat(TEXT_EFFECT_PADDING);
+                glyph_rect.min += padding;
+                glyph_rect.max -= padding;
+            }
             self.glyph_to_atlas_index.insert(
                 key,
                 GlyphAtlasLocation {
@@ -133,10 +147,18 @@ pub fn add_glyph_to_atlas(
     scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
     glyph_id: u16,
+    text_effect_padding: bool,
 ) -> Result<GlyphAtlasInfo, TextError> {
-    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
+    let (glyph_texture, offset) =
+        get_glyph_texture(scaler, glyph_id, font_smoothing, text_effect_padding)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
-        atlas.add_glyph(textures, GlyphCacheKey { glyph_id }, &glyph_texture, offset)
+        atlas.add_glyph(
+            textures,
+            GlyphCacheKey { glyph_id },
+            &glyph_texture,
+            offset,
+            text_effect_padding,
+        )
     };
     if !font_atlases
         .iter_mut()
@@ -153,7 +175,13 @@ pub fn add_glyph_to_atlas(
 
         let mut new_atlas = FontAtlas::new(textures, UVec2::splat(containing), font_smoothing);
 
-        new_atlas.add_glyph(textures, GlyphCacheKey { glyph_id }, &glyph_texture, offset)?;
+        new_atlas.add_glyph(
+            textures,
+            GlyphCacheKey { glyph_id },
+            &glyph_texture,
+            offset,
+            text_effect_padding,
+        )?;
 
         font_atlases.push(new_atlas);
     }
@@ -167,10 +195,11 @@ pub fn add_glyph_to_atlas(
     clippy::identity_op,
     reason = "Alignment improves clarity during RGBA operations."
 )]
-pub fn get_outlined_glyph_texture(
+pub fn get_glyph_texture(
     scaler: &mut Scaler,
     glyph_id: u16,
     font_smoothing: FontSmoothing,
+    text_effect_padding: bool,
 ) -> Result<(Image, Vec2), TextError> {
     let image = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
@@ -209,6 +238,29 @@ pub fn get_outlined_glyph_texture(
         }
     }
 
+    let (data, width, height) = if text_effect_padding {
+        let padding = TEXT_EFFECT_PADDING;
+        let padded_width = width + padding * 2;
+        let padded_height = height + padding * 2;
+        let mut padded_rgba = vec![0; padded_width as usize * padded_height as usize * 4];
+        let src_row_bytes = width as usize * 4;
+        let dst_stride = padded_width as usize * 4;
+        let dst_x = padding as usize * 4;
+        let dst_y = padding as usize;
+
+        for row in 0..height as usize {
+            let src_start = row * src_row_bytes;
+            let src_end = src_start + src_row_bytes;
+            let dst_start = (row + dst_y) * dst_stride + dst_x;
+            let dst_end = dst_start + src_row_bytes;
+            padded_rgba[dst_start..dst_end].copy_from_slice(&rgba[src_start..src_end]);
+        }
+
+        (padded_rgba, padded_width, padded_height)
+    } else {
+        (rgba, width, height)
+    };
+
     Ok((
         Image::new(
             Extent3d {
@@ -217,7 +269,7 @@ pub fn get_outlined_glyph_texture(
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            rgba,
+            data,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
         ),
