@@ -419,7 +419,7 @@ impl LoadFromPath for AssetServer {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.load_erased(path, type_id)
+        self.load_erased(type_id, path)
     }
 }
 
