@@ -1,8 +1,15 @@
+use bevy_reflect::TypePath;
 use criterion::{criterion_group, Criterion};
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use bevy_app::App;
-use bevy_asset::{AssetServer, Assets};
+use bevy_asset::{
+    io::{
+        memory::{Dir, MemoryAssetReader},
+        AssetSourceBuilder, AssetSourceId,
+    },
+    AssetApp, AssetLoader, AssetServer, Assets,
+};
 use bevy_ecs::prelude::*;
 use bevy_scene2::{prelude::*, ScenePatch};
 use bevy_ui::prelude::*;
@@ -31,16 +38,16 @@ fn ui_loaded_asset() -> impl Scene {
     bsn! {
         Node
         Children [
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
-            (:"scene://button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node {width: Val::Px(200.) }),
         ]
     }
 }
@@ -118,6 +125,19 @@ fn raw_ui() -> impl Bundle {
     )
 }
 
+/// Fork of `bevy_asset::tests::run_app_until`.
+fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {
+    const LARGE_ITERATION_COUNT: usize = 10000;
+    for _ in 0..LARGE_ITERATION_COUNT {
+        app.update();
+        if predicate() {
+            return;
+        }
+    }
+
+    panic!("Ran out of loops to return `Some` from `predicate`");
+}
+
 fn spawn(c: &mut Criterion) {
     let mut group = c.benchmark_group("spawn");
     group.warm_up_time(Duration::from_millis(500));
@@ -132,6 +152,16 @@ fn spawn(c: &mut Criterion) {
     });
     group.bench_function("ui_immediate_loaded_scene", |b| {
         let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
         app.add_plugins((
             bevy_app::TaskPoolPlugin::default(),
             bevy_asset::AssetPlugin::default(),
@@ -140,12 +170,35 @@ fn spawn(c: &mut Criterion) {
         app.finish();
         app.cleanup();
 
-        let assets = app.world().resource::<AssetServer>();
-        let handle =
-            assets.load_with_path("scene://button.bsn", ScenePatch::load(assets, button()));
+        // Create a fake loader to act as a ScenePatch loaded from a file.
+        app.register_asset_loader(FakeSceneLoader);
+
+        #[derive(TypePath)]
+        struct FakeSceneLoader;
+
+        impl AssetLoader for FakeSceneLoader {
+            type Asset = ScenePatch;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _reader: &mut dyn bevy_asset::io::Reader,
+                _settings: &Self::Settings,
+                load_context: &mut bevy_asset::LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(ScenePatch::load_with(load_context, button()))
+            }
+        }
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("button.bsn"), "");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("button.bsn");
         assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
 
-        app.update();
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
 
         let patch = app
             .world()

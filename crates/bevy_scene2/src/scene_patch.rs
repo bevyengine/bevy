@@ -3,7 +3,7 @@ use crate::{
     ResolvedSceneRoot, Scene, SceneDependencies, SceneList,
 };
 use alloc::sync::Arc;
-use bevy_asset::{Asset, AssetServer, Assets, Handle, UntypedHandle};
+use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -31,12 +31,18 @@ pub struct ScenePatch {
 impl ScenePatch {
     /// Kicks off a load of the `scene`. This enumerates the scene's dependencies using [`Scene::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`ScenePatch::dependencies`].nn
-    pub fn load<P: Scene>(assets: &AssetServer, scene: P) -> Self {
+    pub fn load<P: Scene>(mut assets: &AssetServer, scene: P) -> Self {
+        Self::load_with(&mut assets, scene)
+    }
+
+    /// Same as [`Self::load`], but allows passing in any [`LoadFromPath`] impl for more general
+    /// loading cases.
+    pub fn load_with<P: Scene>(load_from_path: &mut impl LoadFromPath, scene: P) -> Self {
         let mut dependencies = SceneDependencies::default();
         scene.register_dependencies(&mut dependencies);
         let dependencies = dependencies
             .iter()
-            .map(|dep| assets.load_erased(dep.type_id, &dep.path))
+            .map(|i| load_from_path.load_from_path_untyped(i.type_id, i.path.clone()))
             .collect::<Vec<_>>();
         ScenePatch {
             scene: Box::new(scene),

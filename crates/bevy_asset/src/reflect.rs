@@ -404,6 +404,8 @@ pub trait LoadFromPath {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle;
+
+    // TODO: Consider providing an "unknown type" variant.
 }
 
 impl LoadFromPath for LoadContext<'_> {
@@ -417,6 +419,16 @@ impl LoadFromPath for LoadContext<'_> {
 }
 
 impl LoadFromPath for AssetServer {
+    fn load_from_path_untyped(
+        &mut self,
+        type_id: TypeId,
+        path: AssetPath<'static>,
+    ) -> UntypedHandle {
+        self.load_erased(type_id, path)
+    }
+}
+
+impl LoadFromPath for &AssetServer {
     fn load_from_path_untyped(
         &mut self,
         type_id: TypeId,
