@@ -35,7 +35,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs},
+        allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -138,7 +138,7 @@ impl Plugin for WireframePlugin {
         // we need storage for vertex pulling in the wide wireframe path
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::STORAGE;
 
         render_app
