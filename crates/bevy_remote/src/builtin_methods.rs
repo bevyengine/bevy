@@ -11,6 +11,7 @@ use bevy_ecs::{
     message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    schedule::Schedules,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -92,6 +93,9 @@ pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
+
+/// The method path for a `schedule.graph` request.
+pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -332,6 +336,13 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
+/// `schedule.graph`:
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpScheduleGraphParams {
+    /// The schedule to describe.
+    pub schedule_name: String,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -480,6 +491,48 @@ pub struct BrpListComponentsWatchingResponse {
 
 /// The response to a `world.query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
+
+/// Details on a system
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpSystem {
+    key: String,
+    method: String,
+}
+
+/// Details on a system set
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpSystemSet {
+    key: String,
+    method: String,
+}
+
+/// The response to a `schedule.graph` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpScheduleGraphResponse {
+    systems: Vec<BrpSystem>,
+    systemsets: Vec<BrpSystemSet>,
+
+    hierarchy_nodes: Vec<String>,
+    hierarchy_edges: Vec<(String, String)>,
+
+    dependency_nodes: Vec<String>,
+    dependency_edges: Vec<(String, String)>,
+}
+
+impl Default for BrpScheduleGraphResponse {
+    fn default() -> Self {
+        Self {
+            systems: vec![],
+            systemsets: vec![],
+
+            hierarchy_nodes: vec![],
+            hierarchy_edges: vec![],
+
+            dependency_nodes: vec![],
+            dependency_edges: vec![],
+        }
+    }
+}
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1527,6 +1580,63 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
+}
+
+/// Handles a `schedule.graph` request coming from a client.
+pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpScheduleGraphParams { schedule_name } = parse_some(params)?;
+
+    let schedules = world.resource::<Schedules>();
+
+    let matching_schedule = schedules
+        .iter()
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_name);
+
+    if matching_schedule.is_none() {
+        return Err(BrpError::resource_not_present(&schedule_name));
+    }
+
+    let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
+
+    let (_label, schedule) = matching_schedule.unwrap();
+
+    let _ignored_ambiguities = schedules.ignored_scheduling_ambiguities.clone();
+
+    let g = schedule.graph();
+    for (systemkey, method, _b) in g.systems.iter() {
+        response.systems.push(BrpSystem {
+            key: format!("{:?}", systemkey),
+            method: format!("{:?}", method),
+        });
+    }
+    for (systemsetkey, method, _b) in g.system_sets.iter() {
+        response.systemsets.push(BrpSystemSet {
+            key: format!("{:?}", systemsetkey),
+            method: format!("{:?}", method),
+        });
+    }
+
+    let hie = g.hierarchy();
+    for node in hie.nodes() {
+        response.hierarchy_nodes.push(format!("{:?}", node));
+    }
+    for (n1, n2) in hie.all_edges() {
+        response
+            .hierarchy_edges
+            .push((format!("{:?}", n1), format!("{:?}", n2)));
+    }
+
+    let dep = g.dependency();
+    for node in dep.nodes() {
+        response.dependency_nodes.push(format!("{:?}", node));
+    }
+    for (n1, n2) in dep.all_edges() {
+        response
+            .dependency_edges
+            .push((format!("{:?}", n1), format!("{:?}", n2)));
+    }
+
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
