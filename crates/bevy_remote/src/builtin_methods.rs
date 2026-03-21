@@ -336,13 +336,6 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
-/// `schedule.graph`:
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-struct BrpScheduleGraphParams {
-    /// The schedule to describe.
-    pub schedule_name: String,
-}
-
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -493,7 +486,7 @@ pub struct BrpListComponentsWatchingResponse {
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// The response to a `schedule.list` request.
-pub type BrpListSchedulesResponse = Vec<String>;
+pub type BrpScheduleListResponse = Vec<String>;
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1547,7 +1540,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
     let schedules = world.resource::<Schedules>();
 
-    let response: BrpListSchedulesResponse = schedules
+    let response: BrpScheduleListResponse = schedules
         .iter()
         .map(|(label, _schedule)| format!("{:?}", label))
         .collect::<Vec<_>>();
