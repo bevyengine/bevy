@@ -80,7 +80,9 @@ wildcards = "deny"
 # Certain crates that we don't want multiple versions of in the dependency tree
 deny = [
   { name = "ahash", deny-multiple-versions = true },
+  { name = "accesskit", deny-multiple-versions = true },
   { name = "android-activity", deny-multiple-versions = true },
+  { name = "parley", deny-multiple-versions = true },
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
