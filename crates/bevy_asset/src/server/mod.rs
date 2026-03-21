@@ -1722,8 +1722,12 @@ impl AssetServer {
     /// meta file that will use the default asset processor for the path, see
     /// [`AssetProcessor::write_default_meta_file_for_path`].
     ///
-    /// Note if there is already a meta file for `path`, this function returns
+    /// If there is already a meta file for `path`, this function returns
     /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
+    ///
+    /// This function will also fail for "processed" asset sources, with
+    /// `Err(WriteDefaultMetaError::MissingAssetWriter)`. Use
+    /// [`AssetProcessor::write_default_meta_file_for_path`] for these sources.
     ///
     /// [`AssetProcessor::write_default_meta_file_for_path`]:  crate::AssetProcessor::write_default_meta_file_for_path
     pub async fn write_default_loader_meta_file_for_path(
