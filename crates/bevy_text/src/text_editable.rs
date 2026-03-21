@@ -70,8 +70,8 @@
 // and `bevy_ui`, such as text layout and font management.
 
 use crate::{
-    apply_edit, text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush,
-    TextColor, TextFont, TextLayout,
+    text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont,
+    TextLayout,
 };
 use bevy_ecs::prelude::*;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
@@ -161,7 +161,7 @@ impl EditableText {
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            driver = apply_edit(edit, driver);
+            edit.apply(&mut driver, &mut String::new());
         }
     }
 

@@ -1,3 +1,4 @@
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
 use smol_str::SmolStr;
@@ -5,7 +6,7 @@ use smol_str::SmolStr;
 use crate::TextBrush;
 
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 pub enum TextEdit {
     /// Copy the current selection into the clipboard.
     ///
@@ -136,19 +137,66 @@ pub enum TextEdit {
     ShiftClickExtension(Vec2),
 }
 
-/// Takes a `TextEdit` and applies to `PlainEditorDriver`
-pub fn apply_edit<'a>(
-    edit: TextEdit,
-    mut driver: PlainEditorDriver<'a, TextBrush>,
-) -> PlainEditorDriver<'a, TextBrush> {
-    match edit {
-        TextEdit::Insert(str) => driver.insert_or_replace_selection(&str),
-        TextEdit::Backspace => driver.backdelete(),
-        TextEdit::Delete => driver.delete(),
-        TextEdit::MoveCursorRight => driver.move_right(),
-        TextEdit::MoveCursorLeft => driver.move_left(),
-        TextEdit::SelectRight => driver.select_right(),
-        TextEdit::SelectLeft => driver.select_left(),
+impl TextEdit {
+    /// Apply edit to the text editor driver
+    pub fn apply<'a>(
+        self,
+        driver: &'a mut PlainEditorDriver<TextBrush>,
+        clipboard_text: &mut String,
+    ) {
+        match self {
+            TextEdit::Copy => {
+                if let Some(text) = driver.editor.selected_text() {
+                    clipboard_text.clear();
+                    clipboard_text.push_str(text);
+                }
+            }
+            TextEdit::Cut => {
+                if let Some(text) = driver.editor.selected_text() {
+                    clipboard_text.clear();
+                    clipboard_text.push_str(text);
+                    driver.delete();
+                }
+            }
+            TextEdit::Paste => {
+                driver.insert_or_replace_selection(clipboard_text.as_str());
+            }
+            TextEdit::Insert(text) => driver.insert_or_replace_selection(text.as_str()),
+            TextEdit::Backspace => driver.backdelete(),
+            TextEdit::BackspaceWord => driver.backdelete_word(),
+            TextEdit::Delete => driver.delete(),
+            TextEdit::DeleteWord => driver.delete_word(),
+            TextEdit::Left(false) => driver.move_left(),
+            TextEdit::Right(false) => driver.move_right(),
+            TextEdit::WordLeft(false) => driver.move_word_left(),
+            TextEdit::WordRight(false) => driver.move_word_right(),
+            TextEdit::Up(false) => driver.move_up(),
+            TextEdit::Down(false) => driver.move_down(),
+            TextEdit::TextStart(false) => driver.move_to_text_start(),
+            TextEdit::TextEnd(false) => driver.move_to_text_end(),
+            TextEdit::HardLineStart(false) => driver.move_to_hard_line_start(),
+            TextEdit::HardLineEnd(false) => driver.move_to_hard_line_end(),
+            TextEdit::LineStart(false) => driver.move_to_line_start(),
+            TextEdit::LineEnd(false) => driver.move_to_line_end(),
+            TextEdit::Left(true) => driver.select_left(),
+            TextEdit::Right(true) => driver.select_right(),
+            TextEdit::WordLeft(true) => driver.select_word_left(),
+            TextEdit::WordRight(true) => driver.select_word_right(),
+            TextEdit::Up(true) => driver.select_up(),
+            TextEdit::Down(true) => driver.select_down(),
+            TextEdit::TextStart(true) => driver.select_to_text_start(),
+            TextEdit::TextEnd(true) => driver.select_to_text_end(),
+            TextEdit::HardLineStart(true) => driver.select_to_hard_line_start(),
+            TextEdit::HardLineEnd(true) => driver.select_to_hard_line_end(),
+            TextEdit::LineStart(true) => driver.select_to_line_start(),
+            TextEdit::LineEnd(true) => driver.select_to_line_end(),
+            TextEdit::CollapseSelection => driver.collapse_selection(),
+            TextEdit::SelectAll => driver.select_all(),
+            TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
+            TextEdit::ExtendSelectionToPoint(point) => {
+                driver.extend_selection_to_point(point.x, point.y)
+            }
+            TextEdit::ShiftClickExtension(point) => driver.shift_click_extension(point.x, point.y),
+        }
     }
-    driver
 }
