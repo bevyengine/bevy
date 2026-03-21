@@ -374,8 +374,8 @@ impl AssetServer {
     /// `type_id`.
     pub fn load_erased<'a>(
         &self,
-        path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
+        path: impl Into<AssetPath<'a>>,
     ) -> UntypedHandle {
         self.load_erased_with_meta_transform(path, type_id, None, ())
     }
