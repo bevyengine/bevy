@@ -75,6 +75,12 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // position relative to the center
                 VertexFormat::Float32x2,
+                // shadow color
+                VertexFormat::Float32x4,
+                // outline color
+                VertexFormat::Float32x4,
+                // effect params
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = if key.anti_alias {

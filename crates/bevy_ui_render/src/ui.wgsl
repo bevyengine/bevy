@@ -12,6 +12,9 @@ const BORDER_RIGHT: u32 = 1024u;
 const BORDER_BOTTOM: u32 = 2048u;
 const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 const INVERT: u32 = 4096u;
+const TEXT_GLYPH: u32 = 8192u;
+const TEXT_EFFECT_SHADOW: u32 = 16384u;
+const TEXT_EFFECT_OUTLINE: u32 = 32768u;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -25,11 +28,14 @@ struct VertexOutput {
 
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
-    @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
+    @location(4) @interpolate(flat) radius: vec4<f32>,
+    @location(5) @interpolate(flat) border: vec4<f32>,
 
     // Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
+    @location(7) @interpolate(flat) shadow_color: vec4<f32>,
+    @location(8) @interpolate(flat) outline_color: vec4<f32>,
+    @location(9) @interpolate(flat) effect_params: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -47,6 +53,9 @@ fn vertex(
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) point: vec2<f32>,
+    @location(8) shadow_color: vec4<f32>,
+    @location(9) outline_color: vec4<f32>,
+    @location(10) effect_params: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -57,12 +66,42 @@ fn vertex(
     out.size = size;
     out.border = border;
     out.point = point;
+    out.shadow_color = shadow_color;
+    out.outline_color = outline_color;
+    out.effect_params = effect_params;
 
     return out;
 }
 
 @group(1) @binding(0) var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1) var sprite_sampler: sampler;
+
+fn composite_text_layers(
+    fill_color: vec4<f32>,
+    outline_color: vec4<f32>,
+    shadow_color: vec4<f32>,
+    fill_cov: f32,
+    outline_cov: f32,
+    shadow_cov: f32,
+) -> vec4<f32> {
+    let fill_alpha = fill_color.a * fill_cov;
+    let outline_alpha = outline_color.a * outline_cov;
+    let shadow_alpha = shadow_color.a * shadow_cov;
+    let outline_weight = outline_alpha * (1.0 - fill_alpha);
+    let shadow_weight = shadow_alpha * (1.0 - fill_alpha) * (1.0 - outline_alpha);
+    let alpha = fill_alpha + outline_weight + shadow_weight;
+
+    if alpha <= 0.0 {
+        return vec4<f32>(0.0);
+    }
+
+    let rgb = (
+        fill_color.rgb * fill_alpha
+        + outline_color.rgb * outline_weight
+        + shadow_color.rgb * shadow_weight
+    ) / alpha;
+    return vec4<f32>(rgb, alpha);
+}
 
 // The returned value is the shortest distance from the given point to the boundary of the rounded 
 // box.
@@ -214,11 +253,30 @@ fn draw_uinode_background(
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+    var color = in.color;
+    let base_sample = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
-    // This allows us to draw both textured and untextured shapes together in the same batch.
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
+    if enabled(in.flags, TEXT_GLYPH) {
+        let fill_cov = base_sample.a;
+        let outline_cov = select(0.0, base_sample.r, enabled(in.flags, TEXT_EFFECT_OUTLINE));
+        var shadow_cov = 0.0;
+        if enabled(in.flags, TEXT_EFFECT_SHADOW) {
+            let shadow_uv = in.uv - in.effect_params.xy;
+            shadow_cov = textureSampleLevel(sprite_texture, sprite_sampler, shadow_uv, 0.0).a
+                * (1.0 - max(fill_cov, outline_cov));
+        }
+
+        color = composite_text_layers(
+            in.color,
+            in.outline_color,
+            in.shadow_color,
+            fill_cov,
+            outline_cov,
+            shadow_cov,
+        );
+    } else if enabled(in.flags, TEXTURED) {
+        color = in.color * base_sample;
+    }
 
     if enabled(in.flags, BORDER_ANY) {
         return draw_uinode_border(color, in.point, in.size, in.radius, in.border, in.flags);

@@ -185,7 +185,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
         };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 80,
+            array_stride: 144,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
                 // @location(0) i_model_transpose_col0: vec4<f32>,
@@ -217,6 +217,30 @@ impl SpecializedRenderPipeline for SpritePipeline {
                     format: VertexFormat::Float32x4,
                     offset: 64,
                     shader_location: 4,
+                },
+                // @location(5) i_effect_params: vec4<f32>,
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 80,
+                    shader_location: 5,
+                },
+                // @location(6) i_shadow_color: vec4<f32>,
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 96,
+                    shader_location: 6,
+                },
+                // @location(7) i_outline_color: vec4<f32>,
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 112,
+                    shader_location: 7,
+                },
+                // @location(8) i_effect_flags: vec4<u32>,
+                VertexAttribute {
+                    format: VertexFormat::Uint32x4,
+                    offset: 128,
+                    shader_location: 8,
                 },
             ],
         };
@@ -275,6 +299,47 @@ pub struct ExtractedSlice {
     pub size: Vec2,
 }
 
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    #[repr(transparent)]
+    pub struct ExtractedTextEffectFlags: u32 {
+        const NONE = 0;
+        const TEXT = 1 << 0;
+        const SHADOW = 1 << 1;
+        const OUTLINE = 1 << 2;
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ExtractedTextEffect {
+    pub flags: ExtractedTextEffectFlags,
+    pub shadow_offset: Vec2,
+    pub shadow_color: LinearRgba,
+    pub outline_color: LinearRgba,
+}
+
+impl ExtractedTextEffect {
+    pub fn text(shadow: Option<(LinearRgba, Vec2)>, outline: Option<LinearRgba>) -> Self {
+        let mut text_effect = Self {
+            flags: ExtractedTextEffectFlags::TEXT,
+            ..Default::default()
+        };
+
+        if let Some((shadow_color, shadow_offset)) = shadow {
+            text_effect.flags |= ExtractedTextEffectFlags::SHADOW;
+            text_effect.shadow_offset = shadow_offset;
+            text_effect.shadow_color = shadow_color;
+        }
+
+        if let Some(outline_color) = outline {
+            text_effect.flags |= ExtractedTextEffectFlags::OUTLINE;
+            text_effect.outline_color = outline_color;
+        }
+
+        text_effect
+    }
+}
+
 pub struct ExtractedSprite {
     pub main_entity: Entity,
     pub render_entity: Entity,
@@ -286,6 +351,7 @@ pub struct ExtractedSprite {
     pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub text_effect: ExtractedTextEffect,
     pub kind: ExtractedSpriteKind,
 }
 
@@ -368,6 +434,7 @@ pub fn extract_sprites(
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
+                text_effect: ExtractedTextEffect::default(),
                 kind: ExtractedSpriteKind::Slices {
                     indices: start..end,
                 },
@@ -397,6 +464,7 @@ pub fn extract_sprites(
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
+                text_effect: ExtractedTextEffect::default(),
                 kind: ExtractedSpriteKind::Single {
                     anchor: anchor.as_vec(),
                     rect,
@@ -416,11 +484,20 @@ struct SpriteInstance {
     pub i_model_transpose: [Vec4; 3],
     pub i_color: [f32; 4],
     pub i_uv_offset_scale: [f32; 4],
+    pub i_effect_params: [f32; 4],
+    pub i_shadow_color: [f32; 4],
+    pub i_outline_color: [f32; 4],
+    pub i_effect_flags: [u32; 4],
 }
 
 impl SpriteInstance {
     #[inline]
-    fn from(transform: &Affine3A, color: &LinearRgba, uv_offset_scale: &Vec4) -> Self {
+    fn from(
+        transform: &Affine3A,
+        color: &LinearRgba,
+        uv_offset_scale: &Vec4,
+        text_effect: ExtractedTextEffect,
+    ) -> Self {
         let transpose_model_3x3 = transform.matrix3.transpose();
         Self {
             i_model_transpose: [
@@ -430,6 +507,16 @@ impl SpriteInstance {
             ],
             i_color: color.to_f32_array(),
             i_uv_offset_scale: uv_offset_scale.to_array(),
+            i_effect_params: Vec4::new(
+                text_effect.shadow_offset.x,
+                text_effect.shadow_offset.y,
+                0.0,
+                0.0,
+            )
+            .to_array(),
+            i_shadow_color: text_effect.shadow_color.to_f32_array(),
+            i_outline_color: text_effect.outline_color.to_f32_array(),
+            i_effect_flags: [text_effect.flags.bits(), 0, 0, 0],
         }
     }
 }
@@ -753,6 +840,7 @@ pub fn prepare_sprite_image_bind_groups(
                             &transform,
                             &extracted_sprite.color,
                             &uv_offset_scale,
+                            ExtractedTextEffect::default(),
                         ));
 
                     current_batch.as_mut().unwrap().get_mut().range.end += 1;
@@ -792,12 +880,19 @@ pub fn prepare_sprite_image_bind_groups(
                             );
 
                         // Store the vertex data and add the item to the render phase
+                        let mut text_effect = extracted_sprite.text_effect;
+                        if text_effect.flags.contains(ExtractedTextEffectFlags::SHADOW) {
+                            text_effect.shadow_offset.x /= batch_image_size.x;
+                            text_effect.shadow_offset.y /= batch_image_size.y;
+                        }
+
                         sprite_meta
                             .sprite_instance_buffer
                             .push(SpriteInstance::from(
                                 &transform,
                                 &extracted_sprite.color,
                                 &uv_offset_scale,
+                                text_effect,
                             ));
 
                         current_batch.as_mut().unwrap().get_mut().range.end += 1;
