@@ -1,6 +1,8 @@
 use crate::{error::BevyError, never::Never};
 
 /// A trait implemented for types that can be used as the output of a [`Command`].
+///
+/// [`Command`]: crate::system::Command
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Command` output type",
     label = "invalid `Command` output type",
