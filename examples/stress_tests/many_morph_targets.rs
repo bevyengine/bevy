@@ -166,19 +166,10 @@ fn main() {
         .run();
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct MorphAssets {
     scene: Handle<Scene>,
     animations: Vec<(Handle<AnimationGraph>, AnimationNodeIndex)>,
-}
-
-impl Default for MorphAssets {
-    fn default() -> Self {
-        Self {
-            scene: Handle::default(),
-            animations: Default::default(),
-        }
-    }
 }
 
 #[derive(Component, Clone)]

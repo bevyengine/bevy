@@ -31,7 +31,7 @@ impl Plugin for SpriteMaterialPlugin {
     }
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, PartialEq)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default, PartialEq)]
 #[reflect(Debug, Clone)]
 #[uniform(0, SpriteMaterialUniform)]
 pub struct SpriteMaterial {
@@ -49,25 +49,6 @@ pub struct SpriteMaterial {
     pub anchor: Vec2,
     pub texture_atlas_layout: Option<TextureAtlasLayout>,
     pub texture_atlas_index: usize,
-}
-
-impl Default for SpriteMaterial {
-    fn default() -> Self {
-        Self {
-            image: Handle::default(),
-            texture_atlas: Default::default(),
-            color: Default::default(),
-            flip_x: Default::default(),
-            flip_y: Default::default(),
-            custom_size: Default::default(),
-            rect: Default::default(),
-            image_mode: Default::default(),
-            alpha_mode: Default::default(),
-            anchor: Default::default(),
-            texture_atlas_layout: Default::default(),
-            texture_atlas_index: Default::default(),
-        }
-    }
 }
 
 // NOTE: These must match the bit flags in bevy_sprite_render/src/sprite_mesh/sprite_materials.wgsl!

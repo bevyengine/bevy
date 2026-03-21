@@ -66,7 +66,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_text::{Font, FontSize, Justify, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
-/// # let font_handle: Handle<Font> = Handle::default();
+/// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// // Basic usage.

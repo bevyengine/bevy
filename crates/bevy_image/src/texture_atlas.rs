@@ -204,7 +204,7 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -215,15 +215,6 @@ pub struct TextureAtlas {
     pub layout: Handle<TextureAtlasLayout>,
     /// Texture atlas section index
     pub index: usize,
-}
-
-impl Default for TextureAtlas {
-    fn default() -> Self {
-        Self {
-            layout: Handle::default(),
-            index: Default::default(),
-        }
-    }
 }
 
 impl TextureAtlas {

@@ -150,13 +150,6 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
-    #[expect(
-        clippy::should_implement_trait,
-        reason = "This exists to be parallel to Default::default()"
-    )]
-    pub fn default() -> Self {
-        Handle::Uuid(AssetId::<A>::DEFAULT_UUID, PhantomData)
-    }
     /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
@@ -198,6 +191,18 @@ impl<A: Asset> Handle<A> {
         self.into()
     }
 }
+
+impl<A: Asset> Default for Handle<A> {
+    fn default() -> Self {
+        Handle::Uuid(AssetId::<A>::DEFAULT_UUID, PhantomData)
+    }
+}
+
+// This enables GetTemplate specialization for `Handle<T>` using the
+// ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
+// This enables Handle to implement Default _and_ implement GetTemplate, without conflicting with the
+// blanket impl of GetTemplate for T: Default + Clone.
+impl<T: Asset> Unpin for Handle<T> where for<'dummy> [()]: Sized {}
 
 impl<T: Asset> GetTemplate for Handle<T> {
     type Template = HandleTemplate<T>;

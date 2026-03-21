@@ -54,23 +54,11 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 struct PendingScene(Handle<Gltf>);
 
-impl Default for PendingScene {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
-
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 struct PendingAnimation((Handle<AnimationGraph>, AnimationNodeIndex));
-
-impl Default for PendingAnimation {
-    fn default() -> Self {
-        Self((Handle::default(), AnimationNodeIndex::default()))
-    }
-}
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((

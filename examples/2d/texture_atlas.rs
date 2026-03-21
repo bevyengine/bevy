@@ -26,14 +26,8 @@ enum AppState {
     Finished,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct RpgSpriteFolder(Handle<LoadedFolder>);
-
-impl Default for RpgSpriteFolder {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
