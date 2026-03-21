@@ -566,9 +566,10 @@ const CHANNEL_SIZE: usize = 16;
 ///
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
-    /// The verbs that the server will recognize and respond to.
+    /// The verbs that the server will recognize and respond to for main app.
     methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
-    remote_methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
+    /// The verbs that the server will recognize and respond to for render subapp.
+    render_methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -577,7 +578,7 @@ impl RemotePlugin {
     fn empty() -> Self {
         Self {
             methods: RwLock::new(vec![]),
-            remote_methods: RwLock::new(vec![]),
+            render_methods: RwLock::new(vec![]),
         }
     }
 
@@ -592,7 +593,7 @@ impl RemotePlugin {
         (if to_main {
             self.methods.get_mut()
         } else {
-            self.remote_methods.get_mut()
+            self.render_methods.get_mut()
         })
         .unwrap()
         .push((
@@ -613,7 +614,7 @@ impl RemotePlugin {
         (if to_main {
             self.methods.get_mut()
         } else {
-            self.remote_methods.get_mut()
+            self.render_methods.get_mut()
         })
         .unwrap()
         .push((
@@ -786,7 +787,7 @@ impl Plugin for RemotePlugin {
         #[cfg(feature = "bevy_render")]
         let mut render_remote_methods = RemoteMethods::new();
 
-        let render_plugin_methods = &mut *self.remote_methods.write().unwrap();
+        let render_plugin_methods = &mut *self.render_methods.write().unwrap();
         for (name, handler) in render_plugin_methods.drain(..) {
             #[cfg(feature = "bevy_render")]
             render_remote_methods.insert(

@@ -1,9 +1,9 @@
 //! A simple command line client that allows issuing queries to a remote Bevy
-//! app via the BRP.
+//! render subapp via the BRP.
 //! This example requires the `bevy_remote` feature to be enabled.
 //! You can run it with the following command:
 //! ```text
-//! cargo run --example client --features="bevy_remote"
+//! cargo run --example render_client --features="bevy_remote"
 //! ```
 //! This example assumes that the `server` example is running on the same machine.
 

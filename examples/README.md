@@ -460,6 +460,7 @@ Example | Description
 Example | Description
 --- | ---
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
+[render_client](../examples/remote/render_client.rs) | A simple command line client that can control Bevy render subapp via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
 ### Scene
