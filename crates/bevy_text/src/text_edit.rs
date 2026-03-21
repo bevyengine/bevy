@@ -22,9 +22,6 @@ pub enum TextEdit {
     Paste,
     /// Insert a character or string at the cursor. If there is a selection, replaces the selection with the character instead.
     ///
-    /// Typically generated in response to keyboard text input events.
-    ///
-    /// This is intended to insert a single Unicode grapheme cluster, such as a letter, digit, punctuation mark, or emoji.
     /// Ordinarily, this is derived from `bevy_input::keyboard::KeyboardInput::logical_key`,
     /// which stores a [`SmolStr`] inside of the `Key::Character` variant, which may represent multiple bytes.
     Insert(SmolStr),
