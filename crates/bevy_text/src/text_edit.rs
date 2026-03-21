@@ -191,7 +191,7 @@ impl TextEdit {
             TextEdit::SelectAll => driver.select_all(),
             TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
             TextEdit::ExtendSelectionToPoint(point) => {
-                driver.extend_selection_to_point(point.x, point.y)
+                driver.extend_selection_to_point(point.x, point.y);
             }
             TextEdit::ShiftClickExtension(point) => driver.shift_click_extension(point.x, point.y),
         }
