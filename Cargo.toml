@@ -1262,6 +1262,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "light_render_layers"
+path = "examples/3d/light_render_layers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_render_layers]
+name = "Light Render Layers"
+description = "Demonstrates using render layers to control which directional and point lights affect meshes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lines"
 path = "examples/3d/lines.rs"
 doc-scrape-examples = true
