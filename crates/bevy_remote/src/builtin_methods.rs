@@ -11,6 +11,7 @@ use bevy_ecs::{
     message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    schedule::Schedules,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -92,6 +93,9 @@ pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
+
+/// The method path for a `schedule.list` request.
+pub const BRP_SCHEDULE_LIST: &str = "schedule.list";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -332,6 +336,13 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
+/// `schedule.graph`:
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpScheduleGraphParams {
+    /// The schedule to describe.
+    pub schedule_name: String,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -480,6 +491,9 @@ pub struct BrpListComponentsWatchingResponse {
 
 /// The response to a `world.query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
+
+/// The response to a `schedule.list` request.
+pub type BrpListSchedulesResponse = Vec<String>;
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1527,6 +1541,18 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
+}
+
+/// Handles a `schedule.list` request coming from a client.
+pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
+    let schedules = world.resource::<Schedules>();
+
+    let response: BrpListSchedulesResponse = schedules
+        .iter()
+        .map(|(label, _schedule)| format!("{:?}", label))
+        .collect::<Vec<_>>();
+
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
