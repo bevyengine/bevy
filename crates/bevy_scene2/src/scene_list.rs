@@ -1,5 +1,4 @@
-use crate::{ResolveContext, ResolveSceneError, ResolvedScene, Scene};
-use bevy_asset::AssetPath;
+use crate::{ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies};
 use variadics_please::all_tuples;
 
 /// This behaves like a list of [`Scene`], where each entry in the list is a new entity (see [`Scene`] for more details).
@@ -20,7 +19,7 @@ pub trait SceneList: Send + Sync + 'static {
     /// [`ResolveSceneError`]!
     ///
     /// [`Asset`]: bevy_asset::Asset
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>);
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies);
 }
 
 /// Corresponds to a single member of a [`SceneList`] (an [`Entity`] with an `S` [`Scene`]).
@@ -40,7 +39,7 @@ impl<S: Scene> SceneList for EntityScene<S> {
         Ok(())
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         self.0.register_dependencies(dependencies);
     }
 }
@@ -62,7 +61,7 @@ macro_rules! scene_list_impl {
                 Ok(())
             }
 
-            fn register_dependencies(&self, _dependencies: &mut Vec<AssetPath<'static>>) {
+            fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {
                 #[expect(
                     clippy::allow_attributes,
                     reason = "This is inside a macro, and as such, may not trigger in all cases."
@@ -94,7 +93,7 @@ impl<S: Scene> SceneList for Vec<S> {
         Ok(())
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         for scene in self {
             scene.register_dependencies(dependencies);
         }
@@ -115,7 +114,7 @@ impl SceneList for Vec<Box<dyn Scene>> {
         Ok(())
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         for scene in self {
             scene.register_dependencies(dependencies);
         }

@@ -1,5 +1,5 @@
 use crate::{InheritSceneError, ResolvedScene, SceneList, ScenePatch};
-use bevy_asset::{AssetPath, AssetServer, Assets};
+use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
     error::Result,
@@ -12,6 +12,7 @@ use bevy_ecs::{
     },
 };
 use core::marker::PhantomData;
+use std::any::TypeId;
 use thiserror::Error;
 use variadics_please::all_tuples;
 
@@ -53,7 +54,38 @@ pub trait Scene: Send + Sync + 'static {
     /// [`Scene`] can have [`Asset`] dependencies, which _must_ be loaded before calling [`Scene::resolve`] or it might return a [`ResolveSceneError`]!
     ///
     /// [`Asset`]: bevy_asset::Asset
-    fn register_dependencies(&self, _dependencies: &mut Vec<AssetPath<'static>>) {}
+    fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
+}
+
+/// A collection of asset dependencies required by a [`Scene`].
+#[derive(Default)]
+pub struct SceneDependencies(Vec<SceneDependency>);
+
+impl SceneDependencies {
+    /// Registers a new asset dependency with the given `type_id` and `path`. The `type_id` should match
+    /// the type of the asset being loaded.
+    pub fn register_erased(&mut self, type_id: TypeId, path: AssetPath<'static>) {
+        self.0.push(SceneDependency { path, type_id });
+    }
+
+    /// Registers a new asset dependency with the given `A` tpe and `path`. `A` should match
+    /// the type of the asset being loaded.
+    pub fn register<A: Asset>(&mut self, path: AssetPath<'static>) {
+        self.register_erased(TypeId::of::<A>(), path);
+    }
+
+    /// Iterates the current dependencies.
+    pub fn iter(&self) -> impl Iterator<Item = &SceneDependency> {
+        self.0.iter()
+    }
+}
+
+/// An asset dependency of a [`Scene`].
+pub struct SceneDependency {
+    /// The path of the asset.
+    pub path: AssetPath<'static>,
+    /// The type of the asset.
+    pub type_id: TypeId,
 }
 
 /// An [`Error`] that occurs during [`Scene::resolve`].
@@ -118,7 +150,7 @@ macro_rules! scene_impl {
                 Ok(())
             }
 
-            fn register_dependencies(&self, _dependencies: &mut Vec<AssetPath<'static>>) {
+            fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {
                 #[expect(
                     clippy::allow_attributes,
                     reason = "This is inside a macro, and as such, may not trigger in all cases."
@@ -232,7 +264,7 @@ impl<R: Relationship, L: SceneList> Scene for RelatedScenes<R, L> {
             .resolve_list(context, &mut related.scenes)
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         self.related_template_list
             .register_dependencies(dependencies);
     }
@@ -273,8 +305,8 @@ impl Scene for InheritSceneAsset {
         }
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
-        dependencies.push(self.0.clone());
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        dependencies.register::<ScenePatch>(self.0.clone());
     }
 }
 
@@ -342,7 +374,7 @@ impl<S: Scene> Scene for SceneScope<S> {
         context.new_entity_scope(|context| self.0.resolve(context, scene))
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         self.0.register_dependencies(dependencies);
     }
 }
@@ -360,7 +392,7 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
         context.new_entity_scope(|context| self.0.resolve_list(context, scenes))
     }
 
-    fn register_dependencies(&self, dependencies: &mut Vec<AssetPath<'static>>) {
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
         self.0.register_dependencies(dependencies);
     }
 }
