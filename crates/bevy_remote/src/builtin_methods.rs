@@ -507,7 +507,7 @@ pub struct BrpSystemSet {
 }
 
 /// The response to a `schedule.graph` request.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct BrpScheduleGraphResponse {
     systems: Vec<BrpSystem>,
     systemsets: Vec<BrpSystemSet>,
@@ -517,21 +517,6 @@ pub struct BrpScheduleGraphResponse {
 
     dependency_nodes: Vec<String>,
     dependency_edges: Vec<(String, String)>,
-}
-
-impl Default for BrpScheduleGraphResponse {
-    fn default() -> Self {
-        Self {
-            systems: vec![],
-            systemsets: vec![],
-
-            hierarchy_nodes: vec![],
-            hierarchy_edges: vec![],
-
-            dependency_nodes: vec![],
-            dependency_edges: vec![],
-        }
-    }
 }
 
 /// One query match result: a single entity paired with the requested components.
