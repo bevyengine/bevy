@@ -11,10 +11,10 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
-use bevy_text::*;
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, FontAtlasKey, FontAtlasSet, FontCx, GlyphCacheKey,
-    LayoutCx, LineHeight, RunGeometry, ScaleCx, TextFont, TextLayoutInfo,
+    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
+    FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
+    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
 use parley::{swash::FontRef, BoundingBox};
 use parley::{FontFamily, FontStack, PositionedLayoutItem};
