@@ -138,7 +138,7 @@ pub enum TextEdit {
 }
 
 impl TextEdit {
-    /// Apply edit to the text editor driver
+    /// Apply the `TextEdit` to the text editor driver
     pub fn apply<'a>(
         self,
         driver: &'a mut PlainEditorDriver<TextBrush>,
