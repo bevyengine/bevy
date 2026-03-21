@@ -48,7 +48,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
 use bevy_utils::Parallel;
@@ -288,12 +288,12 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
+                .init_gpu_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .init_gpu_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(

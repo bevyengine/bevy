@@ -113,7 +113,8 @@ use bevy_render::{
         TextureUsages,
     },
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
+    RenderSystems,
 };
 
 use std::path::PathBuf;
@@ -321,8 +322,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters_for_cpu_clustering.in_set(RenderSystems::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>()
+            .init_gpu_resource::<LightMeta>()
+            .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);

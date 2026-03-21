@@ -58,7 +58,7 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, ViewUniform, ViewUniformOffset,
         ViewUniforms,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdMap};
@@ -349,10 +349,10 @@ impl Plugin for GpuMeshPreprocessPlugin {
         }
 
         render_app
-            .init_resource::<PreprocessPipelines>()
-            .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
-            .init_resource::<SpecializedComputePipelines<ResetIndirectBatchSetsPipeline>>()
-            .init_resource::<SpecializedComputePipelines<BuildIndirectParametersPipeline>>()
+            .init_gpu_resource::<PreprocessPipelines>()
+            .init_gpu_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<ResetIndirectBatchSetsPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<BuildIndirectParametersPipeline>>()
             .add_systems(
                 Render,
                 (
