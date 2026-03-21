@@ -307,7 +307,7 @@ impl AssetSourceBuilders {
         // Unprocessed sources are only built for processing them, so we hard-code watching their
         // assets to true.
         const WATCH: bool = true;
-        // We don't intend to write to the unprocessed sources, so we can avoid create the root
+        // We don't intend to write to the unprocessed sources, so we can avoid creating the root
         // directory for it.
         const CREATE_ROOT_FOR_WRITER: bool = false;
 
@@ -491,11 +491,12 @@ impl AssetSource {
         }
     }
 
-    /// Wraps the [`AssetReader`] so that [`AssetReader`] futures (such as [`AssetReader::read`] to
-    /// wait until the [`AssetProcessor`] has finished processing the requested asset.
+    /// Wraps the [`AssetReader`] so that [`AssetReader`] futures (such as [`AssetReader::read`])
+    /// will wait until the [`AssetProcessor`] has finished processing the requested asset.
     ///
     /// Returns the ungated reader to allow the [`AssetProcessor`] to read without blocking itself,
-    /// and the writer, as only the processor is allowed to write to a processed asset source.
+    /// and returns the writer, as only the processor is allowed to write to a processed asset
+    /// source.
     ///
     /// [`AssetReader`]: crate::io::AssetReader
     /// [`AssetReader::read`]: crate::io::AssetReader::read

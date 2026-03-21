@@ -3,7 +3,7 @@ title: Asset sources no longer contain "processed" versions of its fields.
 pull_requests: []
 ---
 
-In previous versions of Bevy, as sources contained two "parts". The "regular" part (i.e., the
+In previous versions of Bevy, asset sources contained two "parts". The "regular" part (i.e., the
 unprocessed reader, writer, watcher, etc) and the "processed" part (i.e., the processed reader,
 writer, watcher, etc). For many sources, these were actually duplicated. For example, the "web"
 asset source set its `reader` and `processed_reader` to the same value.
@@ -37,8 +37,8 @@ processing).
    `register_asset_source` directly). Come talk to us in the Bevy Discord `#assets-dev` to help us
    understand your use case!
 
-3. If you do not need the default asset source to be processed, you may remove `AssetPlugin::mode`
-   from the `AssetPlugin.
+3. If you do not need the default asset source to be processed, set `AssetPlugin::mode` to
+   `AssetMode::Unprocessed` in the `AssetPlugin`.
 
 So for example, if your app looks like the following:
 
@@ -85,7 +85,8 @@ fn main() {
                     ).unwrap()))
         )
         .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Remove this if you don't want the default source to be processed.
+            // If you don't want the default source to be processed, set this to
+            // `AssetMode::Unprocessed` (which is the default for `AssetPlugin`).
             mode: AssetMode::Processed,
             ..Default::default()
         }))
