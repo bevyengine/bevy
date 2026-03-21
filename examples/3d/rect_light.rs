@@ -57,6 +57,7 @@ fn setup(
             intensity: 100_000.0,
             width: 2.0,
             height: 1.0,
+            range: 20.0,
         },
         ShowLightGizmo::default(),
         Transform::from_xyz(1.0, 3.0, 1.0).looking_at(Vec3::Y, Vec3::Y),
@@ -68,6 +69,7 @@ fn setup(
             intensity: 800_000.0,
             width: 1.5,
             height: 4.0,
+            range: 20.0,
         },
         ShowLightGizmo::default(),
         Transform::from_xyz(-2.0, 1.5, -3.0)

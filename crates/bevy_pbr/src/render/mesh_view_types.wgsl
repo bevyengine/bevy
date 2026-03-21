@@ -59,6 +59,10 @@ struct RectLight {
     up: vec3<f32>,
     width: f32,
     height: f32,
+    range: f32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    _webgl2_padding_76b: f32,
+#endif
 };
 
 struct Lights {

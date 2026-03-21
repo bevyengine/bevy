@@ -94,6 +94,7 @@ pub struct ExtractedPointLight {
 pub struct ExtractedRectLight {
     pub color: LinearRgba,
     pub intensity: f32,
+    pub range: f32,
     pub width: f32,
     pub height: f32,
     pub transform: GlobalTransform,
@@ -183,6 +184,9 @@ pub struct GpuRectLight {
     up: Vec3,
     width: f32,
     height: f32,
+    range: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding_76b: f32,
 }
 
 #[derive(Copy, Clone, Debug, ShaderType)]
@@ -740,6 +744,7 @@ pub fn extract_lights(
                         / (effective_width * effective_height * core::f32::consts::PI),
                     width: effective_width,
                     height: effective_height,
+                    range: rect_light.range,
                     transform: *transform,
                 },
                 MainEntity::from(main_entity),
@@ -1491,6 +1496,9 @@ pub fn prepare_lights(
                 up,
                 width: rect_light.width,
                 height: rect_light.height,
+                range: rect_light.range,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_76b: 0.0,
             };
         }
         gpu_lights.n_rect_lights = rect_lights.len().min(MAX_RECT_LIGHTS) as u32;

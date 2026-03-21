@@ -129,10 +129,14 @@ struct DerivedLightingInput {
 // light radius is a non-physical construct for efficiency purposes,
 // because otherwise every light affects every fragment in the scene
 fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
+    return getRangeFalloff(distanceSquare, inverseRangeSquared) * 1.0 / max(distanceSquare, 0.0001);
+}
+
+// Falloff without the distance attenuation, for lights that have it baked-in (eg LTC lights)
+fn getRangeFalloff(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
     let factor = distanceSquare * inverseRangeSquared;
     let smoothFactor = saturate(1.0 - factor * factor);
-    let attenuation = smoothFactor * smoothFactor;
-    return attenuation * 1.0 / max(distanceSquare, 0.0001);
+    return smoothFactor * smoothFactor;
 }
 
 // Normal distribution function (specular D)
@@ -1015,6 +1019,10 @@ fn rect_light(
     let perceptual_roughness = (*input).layers[LAYER_BASE].perceptual_roughness;
 
     let light = &view_bindings::lights.rect_lights[light_id];
+    let light_to_frag = (*light).position - P;
+    let distance_square = dot(light_to_frag, light_to_frag);
+    let inverse_range_squared = 1.0 / max((*light).range * (*light).range, 0.0001);
+    let range_falloff = getRangeFalloff(distance_square, inverse_range_squared);
 
     let light_normal = cross((*light).up, (*light).right);
     let hw = (*light).right * (*light).width  * 0.5;
@@ -1079,9 +1087,9 @@ fn rect_light(
     let inv_Fc = 1.0 - Fc;
 
     return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
-        + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb;
+        + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb * range_falloff;
 #else
-    return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb;
+    return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
 #endif
 }
 

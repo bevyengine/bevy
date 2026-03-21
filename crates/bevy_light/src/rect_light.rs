@@ -25,6 +25,11 @@ pub struct RectLight {
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
 
+    /// Cut-off for the light's area-of-effect. Fragments outside this range will not be affected by
+    /// this light at all, so it's important to tune this together with `intensity` to prevent hard
+    /// lighting cut-offs.
+    pub range: f32,
+
     /// Width of the light rectangle (along local X).
     pub width: f32,
 
@@ -39,6 +44,7 @@ impl Default for RectLight {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             width: 1.0,
             height: 1.0,
+            range: 20.0,
         }
     }
 }

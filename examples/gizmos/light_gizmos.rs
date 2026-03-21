@@ -99,6 +99,7 @@ fn setup(
                 intensity: 200_000.0,
                 width: 1.5,
                 height: 0.8,
+                range: 20.0,
             },
             Transform::from_xyz(0.0, 3.0, -3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
