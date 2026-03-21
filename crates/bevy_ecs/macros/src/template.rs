@@ -1,7 +1,10 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, FieldsUnnamed, Index, Path};
+use syn::{
+    parse_macro_input, parse_quote, punctuated::Punctuated, Data, DeriveInput, Fields,
+    FieldsUnnamed, Index, Path, Token, WhereClause,
+};
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
 
@@ -290,10 +293,21 @@ pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
         Data::Union(_) => panic!("Union types are not supported yet."),
     };
 
+    let mut unpin_where_clause = where_clause.cloned().unwrap_or_else(|| WhereClause {
+        where_token: <Token![where]>::default(),
+        predicates: Punctuated::new(),
+    });
+
+    unpin_where_clause
+        .predicates
+        .push(parse_quote! { for<'a> [()]: Sized });
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs::template::GetTemplate for #type_ident #type_generics #where_clause {
             type Template = #template_ident #type_generics;
         }
+
+        impl #impl_generics Unpin for #type_ident #type_generics #unpin_where_clause {}
 
         #template
     })
