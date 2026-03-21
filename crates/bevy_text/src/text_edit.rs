@@ -95,7 +95,7 @@ pub enum TextEdit {
     /// Typically generated in response to Ctrl + End or Command + Down.
     TextEnd(bool),
     /// Moves the cursor to the start of the current hard line.
-    /// A hardline is a line seperated by a newline character.
+    /// A hardline is a line separated by a newline character.
     /// `true` moves and extends selection.
     ///
     /// Typically generated in response to Command + Left.
