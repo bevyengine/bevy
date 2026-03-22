@@ -2,11 +2,12 @@ use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, Data, DeriveInput, Fields,
-    FieldsUnnamed, Index, Path, Token, WhereClause,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
+    Fields, FieldsUnnamed, Index, Path, Result, Token, WhereClause,
 };
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
+const TEMPLATE_ATTRIBUTE: &str = "template";
 
 pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -22,13 +23,17 @@ pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
 
     let template = match &ast.data {
         Data::Struct(data_struct) => {
+            let result = match struct_impl(&data_struct.fields, &bevy_ecs, false) {
+                Ok(result) => result,
+                Err(err) => return err.into_compile_error().into(),
+            };
             let StructImpl {
                 template_fields,
                 template_field_builds,
                 template_field_defaults,
                 template_field_clones,
                 ..
-            } = struct_impl(&data_struct.fields, &bevy_ecs, false);
+            } = result;
             match &data_struct.fields {
                 Fields::Named(_) => {
                     quote! {
@@ -124,13 +129,17 @@ pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
             let mut variant_default_ident = None;
             let mut variant_defaults = Vec::new();
             for variant in &data_enum.variants {
+                let result = match struct_impl(&variant.fields, &bevy_ecs, true) {
+                    Ok(result) => result,
+                    Err(err) => return err.into_compile_error().into(),
+                };
                 let StructImpl {
                     template_fields,
                     template_field_builds,
                     template_field_defaults,
                     template_field_clones,
                     ..
-                } = struct_impl(&variant.fields, &bevy_ecs, true);
+                } = result;
 
                 let is_default = variant
                     .attrs
@@ -320,7 +329,7 @@ struct StructImpl {
     template_field_clones: Vec<proc_macro2::TokenStream>,
 }
 
-fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> StructImpl {
+fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<StructImpl> {
     let mut template_fields = Vec::with_capacity(fields.len());
     let mut template_field_builds = Vec::with_capacity(fields.len());
     let mut template_field_defaults = Vec::with_capacity(fields.len());
@@ -332,9 +341,26 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> StructImpl {
         let ident = &field.ident;
         let ty = &field.ty;
         let index = Index::from(index);
+        let mut template_type = None;
+        for attr in &field.attrs {
+            if attr.path().is_ident(TEMPLATE_ATTRIBUTE) {
+                let Ok(path) = attr.parse_args::<Path>() else {
+                    return Err(syn::Error::new(
+                        attr.span(),
+                        "Expected a Template type path",
+                    ));
+                };
+                template_type = Some(quote!(#path));
+            }
+        }
+
+        if template_type.is_none() {
+            template_type = Some(quote!(<#ty as #bevy_ecs::template::GetTemplate>::Template));
+        }
+
         if is_named {
             template_fields.push(quote! {
-                #field_maybe_pub #ident: <#ty as #bevy_ecs::template::GetTemplate>::Template
+                #field_maybe_pub #ident: #template_type
             });
             if is_enum {
                 template_field_builds.push(quote! {
@@ -357,7 +383,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> StructImpl {
             });
         } else {
             template_fields.push(quote! {
-                #field_maybe_pub <#ty as #bevy_ecs::template::GetTemplate>::Template
+                #field_maybe_pub #template_type
             });
             if is_enum {
                 let enum_tuple_ident = format_ident!("t{}", index);
@@ -380,10 +406,10 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> StructImpl {
             });
         }
     }
-    StructImpl {
+    Ok(StructImpl {
         template_fields,
         template_field_builds,
         template_field_defaults,
         template_field_clones,
-    }
+    })
 }
