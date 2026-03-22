@@ -57,18 +57,10 @@ fn on_focused_keyboard_input(
             queue_edit(TextEdit::Delete);
         }
         Key::ArrowRight => {
-            if shift {
-                queue_edit(TextEdit::SelectRight);
-            } else {
-                queue_edit(TextEdit::MoveCursorRight);
-            }
+            queue_edit(TextEdit::Right(shift));
         }
         Key::ArrowLeft => {
-            if shift {
-                queue_edit(TextEdit::SelectLeft);
-            } else {
-                queue_edit(TextEdit::MoveCursorLeft);
-            }
+            queue_edit(TextEdit::Left(shift));
         }
         _ => {}
     }

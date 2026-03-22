@@ -31,7 +31,7 @@ use crate::{
     TextFont, TextLayout,
 };
 
-struct TextSection<'a> {
+struct TextSectionView<'a> {
     index: usize,
     text: &'a str,
     text_font: &'a TextFont,
@@ -46,7 +46,7 @@ pub struct TextPipeline {
     /// Buffered vec for collecting text sections.
     ///
     /// See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-    sections_buffer: Vec<TextSection<'static>>,
+    sections_buffer: Vec<TextSectionView<'static>>,
     /// Buffered string for concatenated text content.
     text_buffer: String,
 }
@@ -89,9 +89,9 @@ impl TextPipeline {
             return Err(TextError::DegenerateScaleFactor);
         }
 
-        let mut sections: Vec<TextSection<'_>> = core::mem::take(&mut self.sections_buffer)
+        let mut sections: Vec<TextSectionView<'_>> = core::mem::take(&mut self.sections_buffer)
             .into_iter()
-            .map(|_| -> TextSection<'_> { unreachable!() })
+            .map(|_| -> TextSectionView<'_> { unreachable!() })
             .collect();
 
         let result = {
@@ -145,7 +145,7 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push(TextSection {
+                sections.push(TextSectionView {
                     index,
                     text,
                     text_font,
@@ -240,7 +240,7 @@ impl TextPipeline {
         sections.clear();
         self.sections_buffer = sections
             .into_iter()
-            .map(|_| -> TextSection<'static> { unreachable!() })
+            .map(|_| -> TextSectionView<'static> { unreachable!() })
             .collect();
 
         result
