@@ -1,12 +1,13 @@
 use crate::ComputedTextBlock;
 use crate::FontCx;
 use bevy_asset::Asset;
-use bevy_asset::AssetEvent;
+use bevy_asset::AssetId;
 use bevy_asset::Assets;
-use bevy_ecs::message::MessageReader;
+use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
@@ -46,16 +47,16 @@ impl Font {
 /// Add new font assets to the internal font collection.
 pub fn load_font_assets_into_font_collection(
     fonts: Res<Assets<Font>>,
-    mut events: MessageReader<AssetEvent<Font>>,
+    mut loaded_fonts: Local<HashSet<AssetId<Font>>>,
     mut font_cx: ResMut<FontCx>,
     mut text_block_query: Query<&mut ComputedTextBlock>,
 ) {
     let mut new_fonts_added = false;
 
-    for event in events.read() {
-        if let AssetEvent::Added { id } = event
-            && let Some(font) = fonts.get(*id)
-        {
+    loaded_fonts.retain(|id| fonts.contains(*id));
+
+    for (id, font) in fonts.iter() {
+        if loaded_fonts.insert(id) {
             font_cx.0.collection.register_fonts(
                 font.data.clone(),
                 Some(FontInfoOverride {

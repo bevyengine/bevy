@@ -23,6 +23,12 @@ struct EnvironmentMapRadiances {
     radiance: vec3<f32>,
 }
 
+struct MultiscatterResult {
+    FssEss: vec3<f32>,
+    FmsEms: vec3<f32>,
+    Edss: vec3<f32>,
+}
+
 // Computes the direction at which to sample the reflection probe.
 //
 // * `light_from_world` is the matrix that transforms world space into light
@@ -307,6 +313,24 @@ fn environment_map_light_clearcoat(
 
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
+// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
+//
+// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
+// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
+fn compute_multiscatter(
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
+    Ems: f32,
+    specular_occlusion: f32,
+) -> MultiscatterResult {
+    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
+    let Favg = F0 + (1.0 - F0) / 21.0;
+    let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
+    let Edss = 1.0 - (FssEss + FmsEms);
+
+    return MultiscatterResult(FssEss, FmsEms, Edss);
+}
+
 fn environment_map_light(
     input: ptr<function, LightingInput>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
@@ -315,9 +339,11 @@ fn environment_map_light(
     // Unpack.
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let diffuse_color = (*input).diffuse_color;
+    let metallic = (*input).metallic;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F_ab = (*input).F_ab;
-    let F0 = (*input).F0_;
+    let F0_dielectric = (*input).F0_dielectric;
+    let F0_metallic = (*input).F0_metallic;
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
@@ -338,18 +364,19 @@ fn environment_map_light(
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
     // See: https://google.github.io/filament/Filament.html#specularocclusion
-    let specular_occlusion = saturate(dot(F0, vec3(50.0 * 0.33)));
+    let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
+    let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
 
-    // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-    // We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
-    // Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
+    // Compute per-material (dielectric and metallic separately) then mix the results. 
+    // We can't use F0 directly as the multiscattering term is nonlinear.
     let Ems = 1.0 - (F_ab.x + F_ab.y);
-    let Favg = F0 + (1.0 - F0) / 21.0;
-    let Fms = FssEss * Favg / (1.0 - Ems * Favg);
-    let FmsEms = Fms * Ems;
-    let Edss = 1.0 - (FssEss + FmsEms);
-    let kD = diffuse_color * Edss;
+
+    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_occlusion);
+    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, specular_occlusion);
+
+    let FssEss = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic);
+    let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
+    let kD = diffuse_color * ms_dielectric.Edss;
 
     if (!found_diffuse_indirect) {
         out.diffuse = (FmsEms + kD) * radiances.irradiance;

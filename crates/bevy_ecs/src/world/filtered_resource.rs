@@ -149,7 +149,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().component_id::<R>();
-        component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
+        component_id.is_some_and(|component_id| self.access.has_read(component_id))
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
@@ -159,7 +159,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
             .components()
             .valid_component_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
-        if !self.access.has_resource_read(component_id) {
+        if !self.access.has_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
 
@@ -179,7 +179,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
     pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
-        if !self.access.has_resource_read(component_id) {
+        if !self.access.has_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
         // SAFETY: We have read access to this resource
@@ -220,14 +220,7 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        const READ_ALL_RESOURCES: &Access = {
-            const ACCESS: Access = {
-                let mut access = Access::new();
-                access.read_all_resources();
-                access
-            };
-            &ACCESS
-        };
+        const READ_ALL_RESOURCES: &Access = const { &Access::new_read_all() };
 
         let last_run = value.last_change_tick();
         let this_run = value.read_change_tick();
@@ -417,14 +410,14 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().component_id::<R>();
-        component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
+        component_id.is_some_and(|component_id| self.access.has_read(component_id))
     }
 
     /// Returns `true` if the `FilteredResources` has write access to the given resource.
     /// Note that [`Self::get_mut()`] may still return `Err` if the resource does not exist.
     pub fn has_write<R: Resource>(&self) -> bool {
         let component_id = self.world.components().component_id::<R>();
-        component_id.is_some_and(|component_id| self.access.has_resource_write(component_id))
+        component_id.is_some_and(|component_id| self.access.has_write(component_id))
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
@@ -489,7 +482,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         &mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, ResourceFetchError> {
-        if !self.access.has_resource_write(component_id) {
+        if !self.access.has_write(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
 
@@ -510,14 +503,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        const WRITE_ALL_RESOURCES: &Access = {
-            const ACCESS: Access = {
-                let mut access = Access::new();
-                access.write_all_resources();
-                access
-            };
-            &ACCESS
-        };
+        const WRITE_ALL_RESOURCES: &Access = const { &Access::new_write_all() };
 
         let last_run = value.last_change_tick();
         let this_run = value.change_tick();
@@ -557,10 +543,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 
     /// Add accesses required to read all resources.
     pub fn add_read_all(&mut self) -> &mut Self {
-        self.access.read_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_read(component_id);
-        }
+        self.access.read_all();
         self
     }
 
@@ -575,8 +558,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 
     /// Add accesses required to read the resource with the given [`ComponentId`].
     pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        self.access.add_resource_read(component_id);
-        self.access.add_component_read(component_id);
+        self.access.add_read(component_id);
         self
     }
 
@@ -610,10 +592,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to read all resources.
     pub fn add_read_all(&mut self) -> &mut Self {
-        self.access.read_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_read(component_id);
-        }
+        self.access.read_all();
         self
     }
 
@@ -628,17 +607,13 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to read the resource with the given [`ComponentId`].
     pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        self.access.add_resource_read(component_id);
-        self.access.add_component_read(component_id);
+        self.access.add_read(component_id);
         self
     }
 
     /// Add accesses required to get mutable access to all resources.
     pub fn add_write_all(&mut self) -> &mut Self {
-        self.access.write_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_write(component_id);
-        }
+        self.access.write_all();
         self
     }
 
@@ -653,8 +628,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to get mutable access to the resource with the given [`ComponentId`].
     pub fn add_write_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        self.access.add_resource_write(component_id);
-        self.access.add_component_write(component_id);
+        self.access.add_write(component_id);
         self
     }
 

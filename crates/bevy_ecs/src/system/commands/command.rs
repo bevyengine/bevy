@@ -157,6 +157,8 @@ where
 
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+///
+/// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
 pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,

@@ -31,17 +31,21 @@ indexmap = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
-uuid = { version = "1.13.1", default-features = false, features = [
+uuid = { version = "1.21.0", default-features = false, features = [
   "v4",
 ], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+uuid = { version = "1.21.0", default-features = false, features = ["js"] }
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

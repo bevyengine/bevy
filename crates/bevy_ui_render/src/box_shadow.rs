@@ -25,7 +25,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
@@ -49,8 +49,8 @@ impl Plugin for BoxShadowPlugin {
             render_app
                 .add_render_command::<TransparentUi, DrawBoxShadows>()
                 .init_resource::<ExtractedBoxShadows>()
-                .init_resource::<BoxShadowMeta>()
-                .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
+                .init_gpu_resource::<BoxShadowMeta>()
+                .init_gpu_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
                 .add_systems(RenderStartup, init_box_shadow_pipeline)
                 .add_systems(
                     ExtractSchedule,
@@ -338,7 +338,7 @@ pub fn queue_shadows(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
@@ -431,7 +431,7 @@ pub fn prepare_shadows(
                     positions[3] + positions_diff[3].extend(0.),
                 ];
 
-                let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size);
+                let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size).abs();
 
                 // Don't try to cull nodes that have a rotation
                 // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π

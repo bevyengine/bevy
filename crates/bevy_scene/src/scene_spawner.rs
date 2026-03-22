@@ -584,15 +584,14 @@ pub fn scene_spawner_system(world: &mut World) {
                 AssetEvent::Added { id } => {
                     scene_spawner.debounced_scene_asset_events.insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_scenes.contains_key(id)
-                    {
-                        updated_spawned_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_scenes.contains_key(id) =>
+                {
+                    updated_spawned_scenes.push(*id);
                 }
                 _ => {}
             }
@@ -608,15 +607,14 @@ pub fn scene_spawner_system(world: &mut World) {
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_dynamic_scenes.contains_key(id)
-                    {
-                        updated_spawned_dynamic_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_dynamic_scenes.contains_key(id) =>
+                {
+                    updated_spawned_dynamic_scenes.push(*id);
                 }
                 _ => {}
             }
@@ -754,10 +752,11 @@ mod tests {
         let mut scene_world = World::new();
 
         // create a new DynamicScene manually
-        let type_registry = app.world().resource::<AppTypeRegistry>().clone();
-        scene_world.insert_resource(type_registry);
         scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
-        let scene = DynamicScene::from_world(&scene_world);
+        let scene = DynamicScene::from_world_with(
+            &scene_world,
+            &app.world().resource::<AppTypeRegistry>().read(),
+        );
         let scene_handle = app
             .world_mut()
             .resource_mut::<Assets<DynamicScene>>()
@@ -824,9 +823,12 @@ mod tests {
             .query_filtered::<Entity, With<A>>()
             .single(&world)
             .unwrap();
-        let scene = DynamicSceneBuilder::from_world(&world)
-            .extract_entity(entity)
-            .build();
+        let scene = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicSceneBuilder::from_world(&world, &type_registry)
+                .extract_entity(entity)
+                .build()
+        };
 
         let scene_id = world.resource_mut::<Assets<DynamicScene>>().add(scene);
         let instance_id = scene_spawner
@@ -880,8 +882,11 @@ mod tests {
                  type_registry: Res<'_, AppTypeRegistry>,
                  asset_server: Res<'_, AssetServer>| {
                     asset_server.add(
-                        Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
-                            .unwrap(),
+                        Scene::from_dynamic_scene(
+                            &DynamicScene::from_world(world),
+                            &type_registry.read(),
+                        )
+                        .unwrap(),
                     )
                 },
             )
@@ -890,7 +895,7 @@ mod tests {
 
     fn build_dynamic_scene(app: &mut App) -> Handle<DynamicScene> {
         app.world_mut()
-            .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
+            .run_system_once(|world: &World, asset_server: Res<AssetServer>| {
                 asset_server.add(DynamicScene::from_world(world))
             })
             .expect("Failed to run dynamic scene builder system.")

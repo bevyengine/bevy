@@ -162,35 +162,15 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         system_meta: &crate::system::SystemMeta,
         world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe {
-            PopulatedMessageReader(MessageReader::get_param(
-                state,
-                system_meta,
-                world,
-                change_tick,
-            ))
-        }
-    }
-
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &crate::system::SystemMeta,
-        world: crate::world::unsafe_world_cell::UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe { MessageReader::<M>::validate_param(state, system_meta, world) }?;
-
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        let reader =
-            unsafe { MessageReader::get_param(state, system_meta, world, world.change_tick()) };
+        let reader = unsafe { MessageReader::get_param(state, system_meta, world, change_tick)? };
         if reader.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "message queue is empty",
             ))
         } else {
-            Ok(())
+            Ok(PopulatedMessageReader(reader))
         }
     }
 }

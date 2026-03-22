@@ -18,8 +18,6 @@ use bevy_render::{extract_component::ExtractComponent, sync_component::SyncCompo
 ///
 /// # Usage Notes
 ///
-/// **Bloom is currently not compatible with WebGL2.**
-///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,

@@ -1,6 +1,7 @@
 use core::fmt::Display;
 
 use crate::{change_detection::Tick, error::BevyError, prelude::Resource};
+use bevy_ecs::error::Severity;
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
 
@@ -104,7 +105,7 @@ macro_rules! inner {
 pub type ErrorHandler = fn(BevyError, ErrorContext);
 
 /// Error handler to call when an error is not handled otherwise.
-/// Defaults to [`panic()`].
+/// Defaults to [`match_severity()`].
 ///
 /// When updated while a [`Schedule`] is running, it doesn't take effect for
 /// that schedule until it's completed.
@@ -115,7 +116,20 @@ pub struct DefaultErrorHandler(pub ErrorHandler);
 
 impl Default for DefaultErrorHandler {
     fn default() -> Self {
-        Self(panic)
+        Self(match_severity)
+    }
+}
+
+/// Error handler that defers to an error's [`Severity`].
+#[track_caller]
+#[inline]
+pub fn match_severity(err: BevyError, ctx: ErrorContext) {
+    match err.severity() {
+        Severity::Ignore => ignore(err, ctx),
+        Severity::Debug => debug(err, ctx),
+        Severity::Warning => warn(err, ctx),
+        Severity::Error => error(err, ctx),
+        Severity::Critical => panic(err, ctx),
     }
 }
 

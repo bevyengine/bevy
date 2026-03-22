@@ -22,7 +22,7 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
@@ -114,21 +114,22 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     cleanup_view_targets_for_resize
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+                    collect_visible_cpu_culled_entities.in_set(RenderSystems::PrepareAssets),
                 ),
             );
         }
@@ -137,8 +138,8 @@ impl Plugin for ViewPlugin {
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetAttachments>();
+                .init_gpu_resource::<ViewUniforms>()
+                .init_gpu_resource::<ViewTargetAttachments>();
         }
     }
 }

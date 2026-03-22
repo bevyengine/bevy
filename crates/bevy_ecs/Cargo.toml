@@ -134,7 +134,7 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rand = "0.9"
+rand = "0.10"
 static_assertions = "1.1.0"
 serde_test = "1.0"
 
@@ -154,6 +154,10 @@ path = "examples/change_detection.rs"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true
 features = ["bevy_reflect/auto_register_static"]

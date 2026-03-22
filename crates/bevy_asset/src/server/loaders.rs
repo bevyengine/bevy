@@ -216,12 +216,12 @@ impl AssetLoaders {
 
         // Try extracting the extension from the path
         if let Some(full_extension) = asset_path.and_then(AssetPath::get_full_extension) {
-            if let Some(&index) = try_extension(full_extension.as_str()) {
+            if let Some(&index) = try_extension(full_extension) {
                 return self.get_by_index(index);
             }
 
             // Try secondary extensions from the path
-            for extension in AssetPath::iter_secondary_extensions(&full_extension) {
+            for extension in AssetPath::iter_secondary_extensions(full_extension) {
                 if let Some(&index) = try_extension(extension) {
                     return self.get_by_index(index);
                 }
@@ -269,8 +269,8 @@ impl AssetLoaders {
     pub(crate) fn get_by_path(&self, path: &AssetPath<'_>) -> Option<MaybeAssetLoader> {
         let extension = path.get_full_extension()?;
 
-        let result = core::iter::once(extension.as_str())
-            .chain(AssetPath::iter_secondary_extensions(&extension))
+        let result = core::iter::once(extension)
+            .chain(AssetPath::iter_secondary_extensions(extension))
             .filter_map(|extension| self.extension_to_loaders.get(extension)?.last().copied())
             .find_map(|index| self.get_by_index(index))?;
 

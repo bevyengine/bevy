@@ -177,29 +177,13 @@ const _: () = {
         }
 
         #[inline]
-        unsafe fn validate_param(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell,
-        ) -> Result<(), SystemParamValidationError> {
-            // SAFETY: Upheld by caller
-            unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                    &mut state.state,
-                    system_meta,
-                    world,
-                )
-            }
-        }
-
-        #[inline]
         #[track_caller]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
-        ) -> Self::Item<'w, 's> {
+        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
             // SAFETY: Upheld by caller
             let params = unsafe {
                 <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
@@ -207,13 +191,13 @@ const _: () = {
                     system_meta,
                     world,
                     change_tick,
-                )
+                )?
             };
-            Commands {
+            Ok(Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,
                 entities: params.2,
-            }
+            })
         }
     }
     // SAFETY: Only reads Entities
@@ -266,6 +250,20 @@ impl<'w, 's> Commands<'w, 's> {
             allocator,
             entities,
         }
+    }
+
+    /// Returns a new [`Commands`] that writes commands to the provided [`CommandQueue`] instead of the one from `self`.
+    ///
+    /// This is useful if you have a `Commands` that writes to one queue and you want one that writes to another.
+    ///
+    /// Note that you're responsible for ensuring the queue eventually writes its commands to the world. One way to
+    /// do this is calling [`Commands::append`] on a `Commands` that writes to the world queue. Failure to write a
+    /// queue may result in entities being allocated but never spawned, which means those entity IDs are never
+    /// freed for reuse.
+    ///
+    /// The original `Commands` isn't mutated or borrowed after this returns, so you can keep using it.
+    pub fn rebound_to<'q>(&self, queue: &'q mut CommandQueue) -> Commands<'w, 'q> {
+        Commands::new_from_entities(queue, self.allocator, self.entities)
     }
 
     /// Returns a [`Commands`] with a smaller lifetime.
@@ -1110,6 +1108,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Runs a cached system with an input, registering it if necessary.
     ///
     /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
+    ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     ///
     /// The first time this method is called for a particular system,
     /// it will register the system and store its [`SystemId`] in a

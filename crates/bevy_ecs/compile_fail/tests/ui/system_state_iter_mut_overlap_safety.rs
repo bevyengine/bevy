@@ -11,7 +11,7 @@ fn main() {
 
     let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
     {
-        let mut query = system_state.get_mut(&mut world);
+        let mut query = system_state.get_mut(&mut world).unwrap();
         let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
         assert_eq!(
             // this should fail to compile due to the later use of mut_vec

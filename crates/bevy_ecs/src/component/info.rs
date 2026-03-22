@@ -20,7 +20,9 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
-    relationship::RelationshipAccessor,
+    relationship::{
+        MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
+    },
     resource::Resource,
     storage::SparseSetIndex,
 };
@@ -144,9 +146,10 @@ impl ComponentInfo {
         &self.required_components
     }
 
-    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+    /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
-        self.descriptor.relationship_accessor.as_ref()
+        self.descriptor.relationship_accessor.accessor()
     }
 
     /// Returns components that cannot co-exist on the same entity as this component
@@ -231,7 +234,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
-    relationship_accessor: Option<RelationshipAccessor>,
+    relationship_accessor: MaybeRelationshipAccessor,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -272,7 +275,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
-            relationship_accessor: T::relationship_accessor().map(|v| v.accessor),
+            relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
     }
 
@@ -289,7 +292,7 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
-        relationship_accessor: Option<RelationshipAccessor>,
+        relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
         Self {
             name: name.into().into(),
@@ -300,7 +303,7 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
-            relationship_accessor,
+            relationship_accessor: relationship_accessor.into(),
         }
     }
 
@@ -322,7 +325,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
-            relationship_accessor: None,
+            relationship_accessor: None.into(),
         }
     }
 
@@ -350,6 +353,10 @@ impl ComponentDescriptor {
     pub fn mutable(&self) -> bool {
         self.mutable
     }
+
+    fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+        self.relationship_accessor.initialize(id, components);
+    }
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
@@ -371,8 +378,9 @@ impl Components {
     pub(super) unsafe fn register_component_inner(
         &mut self,
         id: ComponentId,
-        descriptor: ComponentDescriptor,
+        mut descriptor: ComponentDescriptor,
     ) {
+        descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
@@ -739,6 +747,18 @@ impl Components {
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter().filter_map(Option::as_ref)
+    }
+
+    pub(crate) fn get_relationship_accessor_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut MaybeRelationshipAccessor> {
+        self.components
+            .get_mut(component_id.index())
+            .and_then(|info| {
+                info.as_mut()
+                    .map(|info| &mut info.descriptor.relationship_accessor)
+            })
     }
 
     pub(crate) fn register_mutually_exclusive(

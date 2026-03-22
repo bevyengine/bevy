@@ -1,8 +1,8 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
 use bevy::{ecs::batching::BatchingStrategy, prelude::*};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 #[derive(Component, Deref)]
 struct Velocity(Vec2);

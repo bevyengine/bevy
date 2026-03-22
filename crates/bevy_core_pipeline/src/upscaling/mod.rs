@@ -32,17 +32,22 @@ impl Plugin for UpscalingPlugin {
 }
 
 #[derive(Component)]
-pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
+pub struct ViewUpscalingPipeline(CachedRenderPipelineId, BlitPipelineKey);
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
+    view_targets: Query<(
+        Entity,
+        &ViewTarget,
+        Option<&ExtractedCamera>,
+        Option<&ViewUpscalingPipeline>,
+    )>,
 ) {
     let mut output_textures = <HashSet<_>>::default();
-    for (entity, view_target, camera) in view_targets.iter() {
+    for (entity, view_target, camera, maybe_pipeline) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
@@ -76,13 +81,17 @@ fn prepare_view_upscaling_pipelines(
             blend_state,
             samples: 1,
         };
-        let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
-        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
-        pipeline_cache.block_on_render_pipeline(pipeline);
+        if maybe_pipeline.is_none_or(|ViewUpscalingPipeline(_, cached_key)| *cached_key != key) {
+            let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
-        commands
-            .entity(entity)
-            .insert(ViewUpscalingPipeline(pipeline));
+            // Ensure the pipeline is loaded before continuing the frame to prevent frames without
+            // any GPU work submitted
+            pipeline_cache.block_on_render_pipeline(pipeline);
+
+            commands
+                .entity(entity)
+                .insert(ViewUpscalingPipeline(pipeline, key));
+        }
     }
 }

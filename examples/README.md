@@ -134,6 +134,7 @@ Example | Description
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
+[Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ### 3D Rendering
@@ -244,7 +245,9 @@ Example | Description
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
+[Save Window Position](../examples/window/persisting_window_settings.rs) | Demonstrates saving window position in preferences
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+[User Preferences](../examples/app/persisting_preferences.rs) | Demonstrates persistence of user preferences
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ### Assets
@@ -256,12 +259,14 @@ Example | Description
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
-[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset (with subassets)
+[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
+[Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra Asset Source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
+[Generated Assets](../examples/asset/generated_assets.rs) | Shows how to generate and store assets at runtime
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
@@ -319,15 +324,19 @@ Example | Description
 
 Example | Description
 --- | ---
+[Callbacks](../examples/ecs/callbacks.rs) | Store arbitrary systems in components and run them on demand
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
+[Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
+[Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
+[Extraction](../examples/ecs/extraction.rs) | Demonstrates different ways of extracting components, copying them from the main world to the render world
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -344,7 +353,6 @@ Example | Description
 [Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
-[Send and receive messages](../examples/ecs/send_and_receive_messages.rs) | Demonstrates how to send and receive messages of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
@@ -362,12 +370,12 @@ Example | Description
 
 Example | Description
 --- | ---
-[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
-[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
-[Game Menu](../examples/games/game_menu.rs) | A simple game menu
-[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Alien Cake Addict](../examples/showcase/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+[Breakout](../examples/showcase/breakout.rs) | An implementation of the classic game "Breakout".
+[Contributors](../examples/showcase/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+[Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
+[Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
 
 ### Gizmos
 
@@ -415,7 +423,6 @@ Example | Description
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
-[Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
 [Smooth Follow](../examples/movement/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation
 
 ### Movement
@@ -539,6 +546,7 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
 [Many Sprite Meshes](../examples/stress_tests/many_sprite_meshes.rs) | Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
@@ -583,6 +591,7 @@ Example | Description
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Editable Text](../examples/ui/text/editable_text.rs) | Demonstrates a simple, unstyled text input widget
 [Feathers Widgets](../examples/ui/widgets/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
@@ -593,6 +602,7 @@ Example | Description
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior

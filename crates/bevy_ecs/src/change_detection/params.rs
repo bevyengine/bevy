@@ -1311,16 +1311,22 @@ impl<'w> MutUntyped<'w> {
 impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn is_added(&self) -> bool {
-        self.ticks
-            .added
-            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+        self.is_added_after(self.ticks.last_run)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
-        self.ticks
-            .changed
-            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+        self.is_changed_after(self.ticks.last_run)
+    }
+
+    #[inline]
+    fn is_added_after(&self, other: Tick) -> bool {
+        self.ticks.added.is_newer_than(other, self.ticks.this_run)
+    }
+
+    #[inline]
+    fn is_changed_after(&self, other: Tick) -> bool {
+        self.ticks.changed.is_newer_than(other, self.ticks.this_run)
     }
 
     #[inline]

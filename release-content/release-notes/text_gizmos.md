@@ -1,14 +1,15 @@
 ---
 title: "Text Gizmos"
-authors: ["@ickshonpe"]
-pull_requests: [22732]
+authors: ["@ickshonpe, @nuts-rice"]
+pull_requests: [22732, 23120]
 ---
 
-Gizmos can now render text using a built-in stroke font.
+Gizmos can now render text using a built-in stroke font, with support for coloring
+individual sections of text independently.
 
-## usage
+## Usage
 
-Use the `text` and `text_2d` to draw text using line segments:
+Use `text` and `text_2d` to draw single-color text:
 
 ```rust
 fn draw_text(mut gizmos: Gizmos) {
@@ -17,7 +18,20 @@ fn draw_text(mut gizmos: Gizmos) {
         "Hello Bevy",         // Only supports ASCII text
         40.0,                 // Font size in pixels
         Vec2::ZERO,           // Anchor point, zero is centered
-        Color::WHITE,         // Color of the text.
+        Color::WHITE,         // Color of the text
+    );
+}
+```
+
+Use `text_sections` and `text_sections_2d` to color each sections of characters independently:
+
+```rust
+fn draw_colored_text(mut gizmos: Gizmos) {
+    gizmos.text_sections(
+        Isometry3d::IDENTITY,
+        &[("Hello ", Color::WHITE), ("World!", Color::srgb(1., 0.3, 0.))], //Sections of text paired with color
+        25.,
+        Vec2::ZERO,
     );
 }
 ```

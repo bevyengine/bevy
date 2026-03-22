@@ -10,7 +10,7 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -86,6 +86,9 @@ pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
 
 /// The method path for a `world.trigger_event` request.
 pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
+
+/// The method path for a `world.write_message` request.
+pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
@@ -307,12 +310,25 @@ pub struct BrpMutateResourcesParams {
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-struct BrpTriggerEventParams {
+pub struct BrpTriggerEventParams {
     /// The [full path] of the event to trigger.
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     pub event: String,
     /// The serialized value of the event to be triggered, if any.
+    pub value: Option<Value>,
+}
+
+/// `world.write_message`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpWriteMessageParams {
+    /// The [full path] of the message to write.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub message: String,
+    /// The serialized value of the message to be written, if any.
     pub value: Option<Value>,
 }
 
@@ -687,7 +703,7 @@ fn reflect_components_to_response(
                 | BrpGetComponentsResponse::Lenient {
                     ref mut components, ..
                 } => {
-                    components.extend(serialized_object.into_iter());
+                    components.extend(serialized_object);
                 }
             },
             Err(err) => match response {
@@ -1421,6 +1437,44 @@ pub fn process_remote_trigger_event_request(
     })
 }
 
+/// Handles a `world.write_message` request coming from a client.
+pub fn process_remote_write_message_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpWriteMessageParams { message, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&message) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown message type: `{message}`"
+            )));
+        };
+        let Some(reflect_message) = registration.data::<ReflectMessage>() else {
+            return Err(BrpError::resource_error(format!(
+                "Message `{message}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{message} is invalid: {err}"))
+                    })?;
+            reflect_message.write_message(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_message.write_message(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1430,6 +1484,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 
     let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
+    let components = world.components();
     let types = types.read();
     let schemas = types
         .iter()
@@ -1447,7 +1502,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let (id, schema) = export_type(type_reg, extra_info, components);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1719,8 +1774,14 @@ mod tests {
     }
 
     use super::*;
+    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
-        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+        component::Component,
+        event::Event,
+        message::{Message, Messages},
+        observer::On,
+        resource::Resource,
+        system::ResMut,
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1782,6 +1843,99 @@ mod tests {
             Ok(Null)
         );
         assert!(world.resource::<TestResult>().0);
+    }
+
+    #[test]
+    fn write_reflect_only_message() {
+        #[derive(Message, Reflect)]
+        #[reflect(Message)]
+        struct Pass;
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+        world.init_resource::<Messages<Pass>>();
+
+        let params = serde_json::to_value(&BrpWriteMessageParams {
+            message: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_write_message_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(!world.get_resource::<Messages<Pass>>().unwrap().is_empty());
+    }
+
+    #[test]
+    fn export_registry_types_with_reliationship() {
+        #[derive(Component, Debug, Reflect)]
+        #[reflect(Component, Debug)]
+        #[require(bevy_ecs::name::Name)]
+        #[relationship(relationship_target = FollowedBy)]
+        struct Following(Entity);
+
+        #[derive(Component, Debug, Reflect)]
+        #[component(storage = "SparseSet")]
+        #[reflect(Component, Debug)]
+        #[relationship_target(relationship = Following)]
+        struct FollowedBy(Vec<Entity>);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Following>();
+            register.register::<FollowedBy>();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+        world.insert_resource(atr);
+        world.register_component::<Following>();
+        world.register_component::<FollowedBy>();
+
+        let params = BrpJsonSchemaQueryFilter::default();
+
+        let params_value = In(Some(
+            serde_json::to_value(params).expect("Failed to serialize"),
+        ));
+        let result_value =
+            export_registry_types(params_value, &world).expect("Failed to export registry types");
+
+        let result: HashMap<String, JsonSchemaBevyType> =
+            parse(result_value).expect("Failed to parse exported registry types");
+
+        let actual_following = result
+            .get("bevy_remote::builtin_methods::tests::Following")
+            .expect("Missing Following type in result")
+            .component_info
+            .clone();
+        let expected_following = Some(ComponentMetadata {
+            mutable: false,
+            storage_type: StorageKind::Table,
+            is_send_and_sync: true,
+            required_component_types: vec!["bevy_ecs::name::Name".to_owned()],
+            relationship_kind: Some(RelationshipKind::Relationship),
+        });
+        let actual_followed_by = result
+            .get("bevy_remote::builtin_methods::tests::FollowedBy")
+            .expect("Missing FollowedBy type in result")
+            .component_info
+            .clone();
+        let expected_followed_by = Some(ComponentMetadata {
+            mutable: true,
+            storage_type: StorageKind::SparseSet,
+            is_send_and_sync: true,
+            required_component_types: Vec::new(),
+            relationship_kind: Some(RelationshipKind::RelationshipTarget),
+        });
+        assert_eq!(actual_following, expected_following);
+        assert_eq!(actual_followed_by, expected_followed_by);
     }
 
     #[test]
