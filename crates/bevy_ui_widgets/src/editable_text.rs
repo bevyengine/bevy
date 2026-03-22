@@ -15,7 +15,7 @@ use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
-use bevy_ui::{ComputedNode, ComputedUiRenderTargetInfo, UiGlobalTransform};
+use bevy_ui::{ComputedNode, ComputedUiRenderTargetInfo, UiGlobalTransform, UiScale};
 use smol_str::SmolStr;
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
@@ -85,6 +85,7 @@ fn on_pointer_press(
     )>,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
+    ui_scale: Res<UiScale>,
 ) {
     if press.button != PointerButton::Primary {
         return;
@@ -96,7 +97,8 @@ fn on_pointer_press(
     };
 
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
-        inverse.transform_point2(press.pointer_location.position * target.scale_factor())
+        inverse
+            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
             + 0.5 * node.size()
     }) else {
         return;
@@ -127,6 +129,7 @@ fn on_pointer_drag(
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
     )>,
+    ui_scale: Res<UiScale>,
 ) {
     if drag.button != PointerButton::Primary {
         return;
@@ -138,7 +141,8 @@ fn on_pointer_drag(
     };
 
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
-        inverse.transform_point2(drag.pointer_location.position * target.scale_factor())
+        inverse
+            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
             + 0.5 * node.size()
     }) else {
         return;
