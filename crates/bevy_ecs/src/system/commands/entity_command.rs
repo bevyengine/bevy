@@ -15,7 +15,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    error::{BevyError, CommandOutput},
+    error::EntityCommandOutput,
     name::Name,
     observer::IntoEntityObserver,
     relationship::RelationshipHookMode,
@@ -85,7 +85,7 @@ use bevy_ptr::{move_as_ptr, OwningPtr};
 /// ```
 pub trait EntityCommand: Send + 'static {
     /// The return type of [`apply`](EntityCommand::apply).
-    type Out: CommandOutput;
+    type Out: EntityCommandOutput;
 
     /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Self::Out;
@@ -99,10 +99,7 @@ pub trait EntityCommand: Send + 'static {
     {
         move |world: &mut World| {
             let entity = world.get_entity_mut(entity)?;
-            if let Some(error) = self.apply(entity).to_err() {
-                return Err(error);
-            }
-            Ok::<(), BevyError>(())
+            self.apply(entity).into_result()
         }
     }
 }
@@ -121,7 +118,7 @@ pub enum EntityCommandError<E> {
 impl<Out, F> EntityCommand for F
 where
     F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
-    Out: CommandOutput,
+    Out: EntityCommandOutput,
 {
     type Out = Out;
 

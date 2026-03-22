@@ -1,4 +1,4 @@
-use crate::{error::BevyError, never::Never};
+use crate::{error::BevyError, never::Never, world::error::EntityMutableFetchError};
 
 /// A trait implemented for types that can be used as the output of a [`Command`].
 ///
@@ -34,5 +34,42 @@ impl CommandOutput for () {
     #[inline]
     fn to_err(self) -> Option<BevyError> {
         None
+    }
+}
+
+/// A trait implemented for types that can be used as the output of an [`EntityCommand`].
+pub trait EntityCommandOutput {
+    /// The type returned when the command is successfully applied.
+    type Out;
+
+    /// The error type returned when the command fails to apply. The type must
+    /// be convertible into a [`BevyError`] and constructible from an
+    /// [`EntityMutableFetchError`].
+    type Error: Into<BevyError> + From<EntityMutableFetchError>;
+
+    /// Converts the output into a `Result` containing either the successful output or an error.
+    fn into_result(self) -> Result<Self::Out, Self::Error>;
+}
+
+impl EntityCommandOutput for () {
+    type Out = ();
+    type Error = EntityMutableFetchError;
+
+    #[inline]
+    fn into_result(self) -> Result<Self::Out, Self::Error> {
+        Ok(())
+    }
+}
+
+impl<T, E> EntityCommandOutput for Result<T, E>
+where
+    E: Into<BevyError> + From<EntityMutableFetchError>,
+{
+    type Out = T;
+    type Error = E;
+
+    #[inline]
+    fn into_result(self) -> Result<Self::Out, Self::Error> {
+        self
     }
 }
