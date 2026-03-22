@@ -153,6 +153,7 @@ impl UiSurface {
                 if let Some(viewport_id) = taffy_node.viewport_id.take() {
                     self.taffy.remove(viewport_id).ok();
                 }
+                self.root_entity_to_viewport_node.remove(&child);
             }
         }
 
@@ -270,6 +271,7 @@ impl UiSurface {
                     self.taffy.remove(viewport_node).ok();
                 }
             }
+            self.root_entity_to_viewport_node.remove(&entity);
         }
     }
 

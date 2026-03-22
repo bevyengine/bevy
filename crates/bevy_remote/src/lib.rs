@@ -682,6 +682,10 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_trigger_event_request,
             )
             .with_method(
+                builtin_methods::BRP_WRITE_MESSAGE_METHOD,
+                builtin_methods::process_remote_write_message_request,
+            )
+            .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )

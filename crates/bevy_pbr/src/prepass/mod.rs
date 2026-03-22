@@ -38,10 +38,11 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
+        ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
@@ -63,7 +64,6 @@ use bevy_platform::hash::FixedHasher;
 use bevy_render::{
     erased_render_asset::ErasedRenderAssets,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::RenderVisibleEntities,
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
@@ -98,7 +98,7 @@ impl Plugin for PrepassPipelinePlugin {
                 Render,
                 prepare_prepass_view_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
+            .init_gpu_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
     }
 }
 
@@ -157,9 +157,9 @@ impl Plugin for PrepassPlugin {
         }
 
         render_app
-            .init_resource::<ViewKeyPrepassCache>()
-            .init_resource::<SpecializedPrepassMaterialPipelineCache>()
-            .init_resource::<PendingPrepassMeshMaterialQueues>()
+            .init_gpu_resource::<ViewKeyPrepassCache>()
+            .init_gpu_resource::<SpecializedPrepassMaterialPipelineCache>()
+            .init_gpu_resource::<PendingPrepassMeshMaterialQueues>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass>()
             .add_render_command::<Opaque3dPrepass, DrawDepthOnlyPrepass>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass>()

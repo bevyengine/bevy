@@ -70,9 +70,9 @@ fn contiguous_item_struct(
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
-            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state (
+            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>, )*
-            )
+            ) #user_where_clauses_with_world_and_state;
         },
         Fields::Unit => quote! {
             #item_attrs
@@ -168,6 +168,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
+    let user_where_predicates = user_where_clauses.map(|clause| &clause.predicates);
     let user_generics_with_world = {
         let mut generics = ast.generics.clone();
         generics.params.insert(0, parse_quote!('__w));
@@ -474,16 +475,16 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                 // SAFETY: All fields only access the current entity
                 unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
-                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                for #read_only_struct_name #user_ty_generics
                 // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
                 // See https://github.com/rust-lang/rust/issues/48214
-                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::SingleEntityQueryData>,)* {}
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::SingleEntityQueryData>,)* #user_where_predicates {}
 
                 impl #user_impl_generics #path::query::ReleaseStateQueryData
-                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                for #read_only_struct_name #user_ty_generics
                 // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
                 // See https://github.com/rust-lang/rust/issues/48214
-                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* {
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* #user_where_predicates {
                     fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                         Self::Item {
                             #(#field_members: <#read_only_field_types>::release_state(_item.#field_members),)*
@@ -492,10 +493,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 }
 
                 impl #user_impl_generics #path::query::ArchetypeQueryData
-                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                for #read_only_struct_name #user_ty_generics
                 // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
                 // See https://github.com/rust-lang/rust/issues/48214
-                where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* {}
+                where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* #user_where_predicates {}
             }
         } else {
             quote! {}
@@ -552,23 +553,23 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
             // SAFETY: All fields are iterable
             unsafe impl #user_impl_generics #path::query::IterQueryData
-            for #struct_name #user_ty_generics #user_where_clauses
+            for #struct_name #user_ty_generics
             // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
             // See https://github.com/rust-lang/rust/issues/48214
-            where #(for<'__a> #field_types: #path::query::IterQueryData,)* {}
+            where #(for<'__a> #field_types: #path::query::IterQueryData,)* #user_where_predicates {}
 
             // SAFETY: All fields only access the current entity
             unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
-            for #struct_name #user_ty_generics #user_where_clauses
+            for #struct_name #user_ty_generics
             // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
             // See https://github.com/rust-lang/rust/issues/48214
-            where #(for<'__a> #field_types: #path::query::SingleEntityQueryData,)* {}
+            where #(for<'__a> #field_types: #path::query::SingleEntityQueryData,)* #user_where_predicates {}
 
             impl #user_impl_generics #path::query::ReleaseStateQueryData
-            for #struct_name #user_ty_generics #user_where_clauses
+            for #struct_name #user_ty_generics
             // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
             // See https://github.com/rust-lang/rust/issues/48214
-            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* {
+            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* #user_where_predicates {
                 fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                     Self::Item {
                         #(#field_members: <#field_types>::release_state(_item.#field_members),)*
@@ -577,10 +578,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             }
 
             impl #user_impl_generics #path::query::ArchetypeQueryData
-            for #struct_name #user_ty_generics #user_where_clauses
+            for #struct_name #user_ty_generics
             // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
             // See https://github.com/rust-lang/rust/issues/48214
-            where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* {}
+            where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* #user_where_predicates {}
 
             #read_only_data_impl
         }

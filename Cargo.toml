@@ -1013,6 +1013,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "editable_text"
+path = "examples/ui/text/editable_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text]
+name = "Editable Text"
+description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -2318,6 +2329,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_executor"
+path = "examples/ecs/custom_executor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_executor]
+name = "Custom Executor"
+description = "Demonstrates how to make a custom SystemExecutor"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_schedule"
 path = "examples/ecs/custom_schedule.rs"
 doc-scrape-examples = true
@@ -2325,6 +2347,18 @@ doc-scrape-examples = true
 [package.metadata.example.custom_schedule]
 name = "Custom Schedule"
 description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+
+[[example]]
+name = "extraction"
+path = "examples/ecs/extraction.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extraction]
+name = "Extraction"
+description = "Demonstrates different ways of extracting components, copying them from the main world to the render world"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2669,7 +2703,7 @@ wasm = false
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/games/alien_cake_addict.rs"
+path = "examples/showcase/alien_cake_addict.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.alien_cake_addict]
@@ -2680,7 +2714,7 @@ wasm = true
 
 [[example]]
 name = "breakout"
-path = "examples/games/breakout.rs"
+path = "examples/showcase/breakout.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.breakout]
@@ -2691,7 +2725,7 @@ wasm = true
 
 [[example]]
 name = "contributors"
-path = "examples/games/contributors.rs"
+path = "examples/showcase/contributors.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.contributors]
@@ -2702,7 +2736,7 @@ wasm = true
 
 [[example]]
 name = "desk_toy"
-path = "examples/games/desk_toy.rs"
+path = "examples/showcase/desk_toy.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.desk_toy]
@@ -2713,7 +2747,7 @@ wasm = false
 
 [[example]]
 name = "game_menu"
-path = "examples/games/game_menu.rs"
+path = "examples/showcase/game_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.game_menu]
@@ -2724,7 +2758,7 @@ wasm = true
 
 [[example]]
 name = "loading_screen"
-path = "examples/games/loading_screen.rs"
+path = "examples/showcase/loading_screen.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.loading_screen]
@@ -3875,6 +3909,17 @@ doc-scrape-examples = true
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "letter_spacing"
+path = "examples/ui/text/letter_spacing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.letter_spacing]
+name = "Letter Spacing"
+description = "Demonstrates the letter spacing feature"
 category = "UI (User Interface)"
 wasm = true
 
