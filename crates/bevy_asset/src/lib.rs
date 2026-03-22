@@ -229,7 +229,7 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use std::path::Path;
-use tracing::{error, warn};
+use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -434,19 +434,7 @@ impl Plugin for AssetPlugin {
                             },
                         );
                 }
-                AssetMode::Unprocessed => {
-                    // Check to see if there are any asset sources that we marked as processed -
-                    // this is likely a mistake, and we should warn the user so they are not
-                    // confused!
-                    if let Some(unprocessed_sources) =
-                        app.world().get_resource::<UnprocessedAssetSourceBuilders>()
-                    {
-                        let ids: Vec<_> = unprocessed_sources.ids().collect();
-                        if !ids.is_empty() {
-                            warn!("AssetMode is set to Unprocessed");
-                        }
-                    }
-                }
+                AssetMode::Unprocessed => {}
             }
 
             if use_asset_processor {
