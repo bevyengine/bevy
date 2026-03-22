@@ -566,9 +566,9 @@ const CHANNEL_SIZE: usize = 16;
 ///
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
-    /// The verbs that the server will recognize and respond to for main app.
+    /// The verbs that the server will recognize and respond to for the main app.
     methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
-    /// The verbs that the server will recognize and respond to for render subapp.
+    /// The verbs that the server will recognize and respond to for the render subapp.
     render_methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
 }
 

@@ -49,7 +49,9 @@ use std::{
 /// This value was chosen randomly.
 pub const DEFAULT_PORT: u16 = 15702;
 
-/// The default port that Bevy will listen on for render subapp.
+/// The default port that Bevy will listen on for the render subapp.
+///
+/// The render subapp is available for requests if the `bevy_render` feature is enabled.
 pub const DEFAULT_RENDER_PORT: u16 = 15703;
 
 /// The default host address that Bevy will use for its server.
