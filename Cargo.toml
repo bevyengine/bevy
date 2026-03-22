@@ -12,9 +12,6 @@ repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.92.0"
 
-[patch."crates-io"]
-naga_oil = { git = "https://github.com/ChristopherBiscardi/naga_oil", branch = "naga-29" }
-dlss_wgpu = { git = "https://github.com/ChristopherBiscardi/dlss_wgpu", branch = "wgpu-29" }
 
 [workspace]
 resolver = "2"
