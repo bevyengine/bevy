@@ -635,15 +635,11 @@ pub trait AssetApp {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self;
-    /// Registers the given [`AssetSourceBuilder`] as "unprocessed" with the given `id`.
+    /// Registers an [`AssetSourceBuilder`] as an asset source that should be processed.
     ///
-    /// The provided source builder will be used as the "unprocessed" source. A corresponding
-    /// "processed" source will be created - the processed source will hold the final processed
-    /// assets which should be shipped to users.
-    ///
-    /// When the asset processor is enabled (i.e., the `asset_processor` feature is enabled), the
-    /// processor will read assets from the unprocessed source, process them (if needed), and then
-    /// write them to the processed source.
+    /// The provided source builder will be read during asset processing (i.e., the
+    /// `asset_processor` feature is enabled), and the processed assets are written to an
+    /// automatically created source (readable from the given `id`).
     ///
     /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
     /// since registered asset sources are built at that point and not after.
