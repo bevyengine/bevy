@@ -71,6 +71,10 @@ fn on_focused_keyboard_input(
     trigger.propagate(should_propagate);
 }
 
+/// System that processes pointer press events into text edit actions for [`EditableText`] widgets.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_press(
     mut press: On<Pointer<Press>>,
     mut text_input_query: Query<(
@@ -111,6 +115,10 @@ fn on_pointer_press(
     press.propagate(false);
 }
 
+/// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_drag(
     mut drag: On<Pointer<Drag>>,
     mut text_input_query: Query<(
