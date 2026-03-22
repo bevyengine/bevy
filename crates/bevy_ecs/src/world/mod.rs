@@ -3751,14 +3751,14 @@ impl World {
         let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
-            .and_then(|mut s| s.remove(label))
+            .and_then(|mut s| s.remove_temporarily(label))
         else {
             return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
 
-        let old = self.resource_mut::<Schedules>().insert(schedule);
+        let old = self.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }

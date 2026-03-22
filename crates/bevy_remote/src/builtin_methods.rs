@@ -487,8 +487,16 @@ pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// The response to a `schedule.list` request.
 ///
-/// Returns a list of [`ScheduleLabel`](bevy_ecs::schedule::ScheduleLabel)s as [`String`]s.
-pub type BrpScheduleListResponse = Vec<String>;
+/// Returns [`ScheduleLabel`](bevy_ecs::schedule::ScheduleLabel)s as [`String`]s.
+/// - `schedule_labels` are available for further inspect.
+/// - `unavailable_schedule_labels` are unavailable for further inspect.
+/// - `empty_schedule_labels` are labels that don't have schedules.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpScheduleListResponse {
+    schedule_labels: Vec<String>,
+    unavailable_schedule_labels: Vec<String>,
+    empty_schedule_labels: Vec<String>,
+}
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1542,9 +1550,23 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
     let schedules = world.resource::<Schedules>();
 
-    let response: BrpScheduleListResponse = schedules
+    let mut response = BrpScheduleListResponse::default();
+
+    response.schedule_labels = schedules
         .iter()
         .map(|(label, _schedule)| format!("{:?}", label))
+        .collect::<Vec<_>>();
+
+    response.unavailable_schedule_labels = schedules
+        .get_tempoararily_removed()
+        .iter()
+        .map(|label| format!("{:?}", label))
+        .collect::<Vec<_>>();
+
+    response.empty_schedule_labels = schedules
+        .get_empty_labels()
+        .iter()
+        .map(|label| format!("{:?}", label))
         .collect::<Vec<_>>();
 
     serde_json::to_value(response).map_err(BrpError::internal)
