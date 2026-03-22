@@ -19,7 +19,6 @@ Our initial text entry supports:
 - Unicode-aware navigation and editing: 1 byte/char != 1 character
 - Bidirectional text support, allowing both left-to-right and right-to-left scripts
 
-
 `EditableText` integrate with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
 `EditableText` entity is focused.
 
