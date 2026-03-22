@@ -1413,10 +1413,12 @@ impl Debug for ComponentIdSet {
 }
 
 impl Clone for ComponentIdSet {
+    #[inline]
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 
+    #[inline]
     fn clone_from(&mut self, source: &Self) {
         self.0.clone_from(&source.0);
     }
@@ -1427,6 +1429,7 @@ impl IntoIterator for ComponentIdSet {
 
     type IntoIter = ComponentIdIter<IntoOnes>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         ComponentIdIter(self.0.into_ones())
     }
@@ -1437,12 +1440,14 @@ impl<'a> IntoIterator for &'a ComponentIdSet {
 
     type IntoIter = ComponentIdIter<Ones<'a>>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
 impl FromIterator<ComponentId> for ComponentIdSet {
+    #[inline]
     fn from_iter<T: IntoIterator<Item = ComponentId>>(iter: T) -> Self {
         Self(FixedBitSet::from_iter(
             iter.into_iter().map(ComponentId::index),
@@ -1451,6 +1456,7 @@ impl FromIterator<ComponentId> for ComponentIdSet {
 }
 
 impl Extend<ComponentId> for ComponentIdSet {
+    #[inline]
     fn extend<T: IntoIterator<Item = ComponentId>>(&mut self, iter: T) {
         self.0.extend(iter.into_iter().map(ComponentId::index));
     }
@@ -1465,16 +1471,19 @@ pub struct ComponentIdIter<I>(I);
 impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
     type Item = ComponentId;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(ComponentId::new)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 
 impl<I: DoubleEndedIterator<Item = usize>> DoubleEndedIterator for ComponentIdIter<I> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(ComponentId::new)
     }
