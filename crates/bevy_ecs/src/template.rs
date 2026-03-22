@@ -375,3 +375,27 @@ impl TemplateData {
             .unwrap_or_default()
     }
 }
+
+/// A [`Template`] for Option.
+pub struct OptionTemplate<T>(Option<T>);
+
+impl<T> Default for OptionTemplate<T> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+
+impl<T: Template> Template for OptionTemplate<T> {
+    type Output = Option<T::Output>;
+
+    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+        Ok(match &self.0 {
+            Some(template) => Some(template.build_template(context)?),
+            None => None,
+        })
+    }
+
+    fn clone_template(&self) -> Self {
+        OptionTemplate(self.0.as_ref().map(|t| t.clone_template()))
+    }
+}
