@@ -21,8 +21,10 @@ impl SystemExecutor for CustomExecutor {
         _skip_systems: Option<&FixedBitSet>,
         _error_handler: fn(BevyError, ErrorContext),
     ) {
-        for entry in schedule.systems.iter_mut() {
-            let _ = entry.system.run((), world);
+        #[expect(unsafe_code, reason = "CustomExecutor's require unsafe")]
+        // SAFETY: `run` is a trait method on `System`
+        for entry in unsafe { schedule.systems_mut().iter_mut() } {
+            let _ = entry.run((), world);
         }
     }
 

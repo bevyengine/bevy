@@ -38,8 +38,8 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
+        ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
     RenderStartup, RenderSystems,
@@ -64,7 +64,6 @@ use bevy_platform::hash::FixedHasher;
 use bevy_render::{
     erased_render_asset::ErasedRenderAssets,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::RenderVisibleEntities,
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
