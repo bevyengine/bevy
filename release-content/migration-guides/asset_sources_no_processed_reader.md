@@ -31,7 +31,7 @@ processing).
    into the `imported_assets` folder, or whatever folder is set as the processed path).
 
    **For advanced users:** you may override the automatically created processed source using
-   `set_processed_asset_source_for_unprocessed_source`. Consider whether you actually need this
+   `register_processed_asset_source_with_final_source`. Consider whether you actually need this
    though. It may be more efficient to use the automatic source during dev, and then use a
    completely different "bundled" source when publishing (where you would just use
    `register_asset_source` directly). Come talk to us in the Bevy Discord `#assets-dev` to help us
@@ -76,10 +76,22 @@ Now, it would look like:
 ```rust
 fn main() {
     App::new()
-        .register_processed_asset_source(
+        .register_processed_asset_source_with_final_source(
             AssetSourceBuilder::new(|| Box::new(FileAssetReader::new("some/unprocessed/path")))
                 .with_watcher(|sender| Box::new(FileWatcher::new(
                         Path::new("some/unprocessed/path").into(),
+                        sender,
+                        Duration::from_secs(1.0),
+                    ).unwrap())),
+            // Note: if you don't care where the processed assets end up, omit this and use
+            // `register_processed_asset_source` instead!
+            AssetSourceBuilder::new(|| Box::new(FileAssetReader::new("the/processed/path")))
+                .with_writer(|create_root| Box::new(FileAssetWriter::new(
+                        "the/processed/path",
+                        create_root,
+                    )))
+                .with_watcher(|sender| Box::new(FileWatcher::new(
+                        Path::new("the/processed/path").into(),
                         sender,
                         Duration::from_secs(1.0),
                     ).unwrap()))
