@@ -3,6 +3,8 @@
 //! Adding the [`RemoteHttpPlugin`] to your [`App`] causes Bevy to accept
 //! connections over HTTP (by default, on port 15702) while your app is running.
 //!
+//! When `bevy_render` is enabled, a second port is available to query the render subapp.
+//!
 //! Clients are expected to `POST` JSON requests to the root URL; see the `client`
 //! example for a trivial example of use.
 
@@ -106,6 +108,7 @@ impl Default for Headers {
 /// The defaults are:
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
+/// - [`DEFAULT_RENDER_PORT`] : 15703. (when `bevy_render` is enabled)
 ///
 pub struct RemoteHttpPlugin {
     /// The address that Bevy will bind to.
@@ -137,19 +140,20 @@ impl Plugin for RemoteHttpPlugin {
             .add_systems(Startup, start_http_server);
 
         #[cfg(feature = "bevy_render")]
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        {
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
 
-        #[cfg(feature = "bevy_render")]
-        render_app
-            .insert_resource(HostAddress(self.address))
-            .insert_resource(HostPort(self.render_port))
-            .insert_resource(HostHeaders(self.headers.clone()))
-            .add_systems(
-                RenderStartup,
-                start_http_server.after(setup_mailbox_channel),
-            );
+            render_app
+                .insert_resource(HostAddress(self.address))
+                .insert_resource(HostPort(self.render_port))
+                .insert_resource(HostHeaders(self.headers.clone()))
+                .add_systems(
+                    RenderStartup,
+                    start_http_server.after(setup_mailbox_channel),
+                );
+        }
     }
 }
 

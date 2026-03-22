@@ -625,7 +625,7 @@ impl RemotePlugin {
     }
 
     /// Create the default list of BRP methods
-    pub fn add_default_methods(self, to_main: bool) -> Self {
+    fn add_default_methods(self, to_main: bool) -> Self {
         self.with_method(
             builtin_methods::BRP_GET_COMPONENTS_METHOD,
             builtin_methods::process_remote_get_components_request,
@@ -731,9 +731,15 @@ impl RemotePlugin {
 
 impl Default for RemotePlugin {
     fn default() -> Self {
-        Self::empty()
-            .add_default_methods(true)
-            .add_default_methods(false)
+        let mut t = Self::empty();
+        t = t.add_default_methods(true);
+
+        #[cfg(feature = "bevy_render")]
+        {
+            t = t.add_default_methods(false);
+        }
+
+        t
     }
 }
 
@@ -780,48 +786,47 @@ impl Plugin for RemotePlugin {
             );
 
         #[cfg(feature = "bevy_render")]
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        {
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
 
-        #[cfg(feature = "bevy_render")]
-        let mut render_remote_methods = RemoteMethods::new();
+            let mut render_remote_methods = RemoteMethods::new();
 
-        let render_plugin_methods = &mut *self.render_methods.write().unwrap();
-        for (name, handler) in render_plugin_methods.drain(..) {
-            #[cfg(feature = "bevy_render")]
-            render_remote_methods.insert(
-                name,
-                match handler {
-                    RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
-                        render_app.world_mut().register_boxed_system(system),
+            let render_plugin_methods = &mut *self.render_methods.write().unwrap();
+            for (name, handler) in render_plugin_methods.drain(..) {
+                render_remote_methods.insert(
+                    name,
+                    match handler {
+                        RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                        RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                    },
+                );
+            }
+
+            render_app
+                .insert_resource(render_remote_methods)
+                .init_resource::<schemas::SchemaTypesMetadata>()
+                .init_resource::<RemoteWatchingRequests>()
+                .add_systems(RenderStartup, setup_mailbox_channel)
+                .configure_sets(
+                    Render,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
+                )
+                .add_systems(
+                    Render,
+                    (
+                        (process_remote_requests, process_ongoing_watching_requests)
+                            .chain()
+                            .in_set(RemoteSystems::ProcessRequests),
+                        remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                     ),
-                    RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
-                        render_app.world_mut().register_boxed_system(system),
-                    ),
-                },
-            );
+                );
         }
-
-        #[cfg(feature = "bevy_render")]
-        render_app
-            .insert_resource(render_remote_methods)
-            .init_resource::<schemas::SchemaTypesMetadata>()
-            .init_resource::<RemoteWatchingRequests>()
-            .add_systems(RenderStartup, setup_mailbox_channel)
-            .configure_sets(
-                Render,
-                (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
-            )
-            .add_systems(
-                Render,
-                (
-                    (process_remote_requests, process_ongoing_watching_requests)
-                        .chain()
-                        .in_set(RemoteSystems::ProcessRequests),
-                    remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
-                ),
-            );
     }
 }
 
