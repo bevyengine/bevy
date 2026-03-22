@@ -38,6 +38,8 @@ impl CommandOutput for () {
 }
 
 /// A trait implemented for types that can be used as the output of an [`EntityCommand`].
+///
+/// [`EntityCommand`]: crate::system::EntityCommand
 pub trait EntityCommandOutput {
     /// The type returned when the command is successfully applied.
     type Out;
