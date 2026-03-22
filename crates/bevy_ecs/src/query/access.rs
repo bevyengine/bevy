@@ -1283,6 +1283,7 @@ impl FilteredAccessSet {
 
 /// A set of [`ComponentId`]s.
 #[derive(Default, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct ComponentIdSet(FixedBitSet);
 
 impl ComponentIdSet {
@@ -1466,6 +1467,7 @@ impl Extend<ComponentId> for ComponentIdSet {
 ///
 /// This is equivalent to `map(ComponentId::new)`,
 /// but is a named type to allow it to be used in associated types.
+#[repr(transparent)]
 pub struct ComponentIdIter<I>(I);
 
 impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
