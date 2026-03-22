@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::ButtonInput;
-use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
+use bevy_input_focus::{FocusedInput, InputFocus};
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
@@ -71,7 +71,7 @@ fn on_focused_keyboard_input(
     trigger.propagate(should_propagate);
 }
 
-fn text_input_on_pointer_press(
+fn on_pointer_press(
     mut press: On<Pointer<Press>>,
     mut text_input_query: Query<(
         &mut EditableText,
@@ -80,8 +80,7 @@ fn text_input_on_pointer_press(
         &UiGlobalTransform,
     )>,
     keys: Res<ButtonInput<Key>>,
-    mut input_focus: Option<ResMut<InputFocus>>,
-    mut input_focus_visible: Option<ResMut<InputFocusVisible>>,
+    mut input_focus: ResMut<InputFocus>,
 ) {
     if press.button != PointerButton::Primary {
         return;
@@ -91,6 +90,7 @@ fn text_input_on_pointer_press(
     else {
         return;
     };
+
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse.transform_point2(press.pointer_location.position * target.scale_factor())
             + 0.5 * node.size()
@@ -106,17 +106,12 @@ fn text_input_on_pointer_press(
             TextEdit::MoveToPoint
         }(local_pos));
 
-    if let Some(ref mut focus) = input_focus {
-        focus.set(press.entity);
-    }
-    if let Some(ref mut visible) = input_focus_visible {
-        visible.0 = false;
-    }
+    input_focus.set(press.entity);
 
     press.propagate(false);
 }
 
-fn text_input_on_pointer_drag(
+fn on_pointer_drag(
     mut drag: On<Pointer<Drag>>,
     mut text_input_query: Query<(
         &mut EditableText,
@@ -133,6 +128,7 @@ fn text_input_on_pointer_drag(
     else {
         return;
     };
+
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse.transform_point2(drag.pointer_location.position * target.scale_factor())
             + 0.5 * node.size()
@@ -160,8 +156,8 @@ pub struct EditableTextInputPlugin;
 impl Plugin for EditableTextInputPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(on_focused_keyboard_input)
-            .add_observer(text_input_on_pointer_drag)
-            .add_observer(text_input_on_pointer_press);
+            .add_observer(on_pointer_drag)
+            .add_observer(on_pointer_press);
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
