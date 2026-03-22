@@ -206,8 +206,8 @@ pub use uuid;
 
 use crate::{
     io::{
-        embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId,
-        UnprocessedAssetSourceBuilders,
+        embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders,
+        AssetSourceBuildersToProcess, AssetSourceId,
     },
     processor::{AssetProcessor, FileTransactionLogFactory, Process},
 };
@@ -375,7 +375,7 @@ impl Plugin for AssetPlugin {
                 {
                     let mut sources = app
                         .world_mut()
-                        .get_resource_or_init::<UnprocessedAssetSourceBuilders>();
+                        .get_resource_or_init::<AssetSourceBuildersToProcess>();
                     sources.init_default_source(&self.file_path);
                 }
             }
@@ -399,12 +399,12 @@ impl Plugin for AssetPlugin {
                 AssetMode::Processed => {
                     // Create the final sources for any sources that need to be processed.
                     app.world_mut()
-                        .try_resource_scope::<UnprocessedAssetSourceBuilders, _>(
-                            |world, unprocessed_sources| {
+                        .try_resource_scope::<AssetSourceBuildersToProcess, _>(
+                            |world, sources_to_process| {
                                 let mut final_sources =
                                     world.get_resource_or_init::<AssetSourceBuilders>();
-                                // Create the corresponding "processed" source for each unprocessed source in the final
-                                // sources.
+                                // Create the corresponding "processed" source for each source to
+                                // process in the final sources.
                                 let create_processed_source = |id: &AssetSourceId<'_>| {
                                     // Let the lifetime live longer while joining the paths.
                                     let child_path;
@@ -421,11 +421,13 @@ impl Plugin for AssetPlugin {
                                             .unwrap(),
                                     )
                                 };
-                                for id in unprocessed_sources.ids() {
+                                for id in sources_to_process.ids() {
                                     if final_sources.contains(&id) {
-                                        // Don't replace an existing source if it's already there. This allows
-                                        // `AssetApp::set_processed_asset_source_for_unprocessed_source` to configure a
-                                        // "replacement" source for writing processed assets.
+                                        // Don't replace an existing source if it's already there.
+                                        // This allows
+                                        // `AssetApp::register_processed_asset_source_with_final_source`
+                                        // to configure a "replacement" source for writing
+                                        // processed assets.
                                         continue;
                                     }
                                     final_sources
@@ -438,15 +440,15 @@ impl Plugin for AssetPlugin {
             }
 
             if use_asset_processor {
-                let mut unprocessed_sources = app
+                let mut sources_to_process = app
                     .world_mut()
-                    .remove_resource::<UnprocessedAssetSourceBuilders>()
+                    .remove_resource::<AssetSourceBuildersToProcess>()
                     .unwrap_or_default()
                     .0;
                 let mut final_sources = app.world_mut().resource_mut::<AssetSourceBuilders>();
                 let log_path = Path::new(&self.processed_file_path).join("log");
                 let (processor, sources) = AssetProcessor::new(
-                    &mut unprocessed_sources,
+                    &mut sources_to_process,
                     &mut final_sources,
                     watch,
                     Box::new(FileTransactionLogFactory {
@@ -634,11 +636,11 @@ pub trait AssetApp {
     fn register_processed_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
+        source_to_process: AssetSourceBuilder,
     ) -> &mut Self;
     /// Registers both given sources as an asset source that should be processed.
     ///
-    /// Assets are read from `unprocessed_source`, processed, then written to `processed_source`.
+    /// Assets are read from `source_to_process`, processed, then written to `processed_source`.
     ///
     /// Unlike [`Self::register_processed_asset_source`], this source does not automatically create
     /// the processed source for you - the given `processed_source` is used instead. This should
@@ -650,7 +652,7 @@ pub trait AssetApp {
     fn register_processed_asset_source_with_final_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
-        unprocessed_source: AssetSourceBuilder,
+        source_to_process: AssetSourceBuilder,
         processed_source: AssetSourceBuilder,
     ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
@@ -702,9 +704,8 @@ impl AssetApp for App {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
 
-        if let Some(unprocessed_sources) = self
-            .world()
-            .get_resource::<UnprocessedAssetSourceBuilders>()
+        if let Some(unprocessed_sources) =
+            self.world().get_resource::<AssetSourceBuildersToProcess>()
             && unprocessed_sources.contains(id.clone())
         {
             error!("The given asset source id {id} has already been registered as a \"processed\" asset source. Cannot register the asset source as unprocessed");
@@ -722,7 +723,7 @@ impl AssetApp for App {
     fn register_processed_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
+        source_to_process: AssetSourceBuilder,
     ) -> &mut Self {
         let id = id.into();
         if self.world().get_resource::<AssetServer>().is_some() {
@@ -733,7 +734,7 @@ impl AssetApp for App {
             && sources.contains(id.clone())
             && !self
                 .world()
-                .get_resource::<UnprocessedAssetSourceBuilders>()
+                .get_resource::<AssetSourceBuildersToProcess>()
                 .map(|sources| sources.contains(id.clone()))
                 .unwrap_or(false)
         {
@@ -743,8 +744,8 @@ impl AssetApp for App {
 
         let mut sources = self
             .world_mut()
-            .get_resource_or_init::<UnprocessedAssetSourceBuilders>();
-        sources.insert(id, source);
+            .get_resource_or_init::<AssetSourceBuildersToProcess>();
+        sources.insert(id, source_to_process);
 
         self
     }
@@ -752,7 +753,7 @@ impl AssetApp for App {
     fn register_processed_asset_source_with_final_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
-        unprocessed_source: AssetSourceBuilder,
+        source_to_process: AssetSourceBuilder,
         processed_source: AssetSourceBuilder,
     ) -> &mut Self {
         let id = id.into();
@@ -764,7 +765,7 @@ impl AssetApp for App {
             && sources.contains(id.clone())
             && !self
                 .world()
-                .get_resource::<UnprocessedAssetSourceBuilders>()
+                .get_resource::<AssetSourceBuildersToProcess>()
                 .map(|sources| sources.contains(id.clone()))
                 .unwrap_or(false)
         {
@@ -773,8 +774,8 @@ impl AssetApp for App {
         }
 
         self.world_mut()
-            .get_resource_or_init::<UnprocessedAssetSourceBuilders>()
-            .insert(id.clone(), unprocessed_source);
+            .get_resource_or_init::<AssetSourceBuildersToProcess>()
+            .insert(id.clone(), source_to_process);
         self.world_mut()
             .get_resource_or_init::<AssetSourceBuilders>()
             .insert(id, processed_source);

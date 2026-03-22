@@ -215,7 +215,7 @@ impl ProcessedSources {
 /// A single processed source.
 struct ProcessedSource {
     /// The unprocessed source, where the original unprocessed assets are read from.
-    unprocessed_source: AssetSource,
+    source_to_process: AssetSource,
     /// The ungated reader for the processed source.
     ///
     /// This is not gated on the processor, so that the processor can actually read the current
@@ -227,15 +227,15 @@ struct ProcessedSource {
 
 impl ProcessedSource {
     fn unprocessed_reader(&self) -> &dyn ErasedAssetReader {
-        self.unprocessed_source.reader()
+        self.source_to_process.reader()
     }
 
     fn unprocessed_writer(&self) -> Result<&dyn ErasedAssetWriter, MissingAssetWriterError> {
-        self.unprocessed_source.writer()
+        self.source_to_process.writer()
     }
 
     fn unprocessed_event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
-        self.unprocessed_source.event_receiver()
+        self.source_to_process.event_receiver()
     }
 
     fn processed_reader(&self) -> &dyn ErasedAssetReader {
@@ -250,14 +250,14 @@ impl ProcessedSource {
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
     pub fn new(
-        unprocessed_sources: &mut AssetSourceBuilders,
+        sources_to_process: &mut AssetSourceBuilders,
         final_sources: &mut AssetSourceBuilders,
         watch_processed: bool,
         default_transaction_log_factory: Box<dyn ProcessorTransactionLogFactory + 'static>,
     ) -> (Self, Arc<AssetSources>) {
         let state = Arc::new(ProcessingState::new());
 
-        let unprocessed_sources = unprocessed_sources.build_unprocessed_sources();
+        let unprocessed_sources = sources_to_process.build_as_sources_to_process();
         // TODO: It would be nice if we didn't need an additional "gating" step - we should just
         // create the asset source gated. But currently we need an additional `build_sources` step,
         // so we need to gate after the fact.
@@ -1449,7 +1449,7 @@ impl AssetProcessorData {
                 .remove(&id)
                 .expect("there is an unprocessed source for each processed reader");
             let processed_source = ProcessedSource {
-                unprocessed_source,
+                source_to_process: unprocessed_source,
                 ungated_processed_reader,
                 processed_writer,
             };

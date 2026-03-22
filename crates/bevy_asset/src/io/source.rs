@@ -300,8 +300,8 @@ impl AssetSourceBuilders {
         }
     }
 
-    /// Builds these sources to be used as unprocessed sources which we intend to process.
-    pub(crate) fn build_unprocessed_sources(
+    /// Builds these sources to be used as sources which we intend to process.
+    pub(crate) fn build_as_sources_to_process(
         &mut self,
     ) -> HashMap<AssetSourceId<'static>, AssetSource> {
         // Unprocessed sources are only built for processing them, so we hard-code watching their
@@ -346,8 +346,10 @@ impl AssetSourceBuilders {
     }
 }
 
+/// The collection of asset sources that will be processed by
+/// [`AssetProcessor`](crate::AssetProcessor).
 #[derive(Resource, Default, Deref, DerefMut)]
-pub(crate) struct UnprocessedAssetSourceBuilders(pub(crate) AssetSourceBuilders);
+pub(crate) struct AssetSourceBuildersToProcess(pub(crate) AssetSourceBuilders);
 
 /// A collection of unprocessed and processed [`AssetReader`](crate::io::AssetReader), [`AssetWriter`](crate::io::AssetWriter), and [`AssetWatcher`] instances
 /// for a specific asset source, identified by an [`AssetSourceId`].
@@ -573,10 +575,10 @@ impl AssetSources {
     }
 
     /// Wraps the [`AssetReader`] of every source in `self` with a corresponding entry in
-    /// `unprocessed_sources`, so that [`AssetReader`] futures (such as [`AssetReader::read`] wait
+    /// `sources_to_process`, so that [`AssetReader`] futures (such as [`AssetReader::read`] wait
     /// until the [`AssetProcessor`] has finished processing the requested asset.
     ///
-    /// Panics if there is a source in `unprocessed_sources` without a corresponding source in
+    /// Panics if there is a source in `sources_to_process` without a corresponding source in
     /// `self`.
     ///
     /// Returns the ungated reader and the writer for each processed source.
@@ -586,15 +588,15 @@ impl AssetSources {
     /// [`AssetProcessor`]: crate::AssetProcessor
     pub(crate) fn gate_on_processor(
         &mut self,
-        unprocessed_sources: &HashMap<AssetSourceId<'static>, AssetSource>,
+        sources_to_process: &HashMap<AssetSourceId<'static>, AssetSource>,
         processing_state: Arc<ProcessingState>,
     ) -> HashMap<AssetSourceId<'static>, (Arc<dyn ErasedAssetReader>, Box<dyn ErasedAssetWriter>)>
     {
         let mut source_id_to_ungated_reader_and_writer = HashMap::new();
-        for (id, _) in unprocessed_sources.iter() {
+        for (id, _) in sources_to_process.iter() {
             let ungated_reader_and_writer = self
                 .get_mut(id)
-                .expect("every unprocessed source should have a corresponding final source")
+                .expect("every source to process should have a corresponding final source")
                 .gate_on_processor(processing_state.clone());
             source_id_to_ungated_reader_and_writer.insert(id.clone(), ungated_reader_and_writer);
         }
