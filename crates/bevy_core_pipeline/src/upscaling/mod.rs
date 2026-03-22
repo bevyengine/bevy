@@ -36,6 +36,7 @@ impl Plugin for UpscalingPlugin {
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId, BlitPipelineKey);
 
+/// This is not required on first startup but is required during render recovery
 fn clear_view_upscaling_pipelines(
     mut commands: Commands,
     views: Query<Entity, With<ViewUpscalingPipeline>>,
