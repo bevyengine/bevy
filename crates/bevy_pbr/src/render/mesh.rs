@@ -287,12 +287,8 @@ impl Plugin for MeshRenderPlugin {
                         ),
                     );
             } else {
-                let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer = no_gpu_preprocessing::BatchedInstanceBuffer::<
-                    MeshUniform,
-                >::new(&render_device.limits());
                 render_app
-                    .insert_resource(cpu_batched_instance_buffer)
+                    .init_gpu_resource::<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>()
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
