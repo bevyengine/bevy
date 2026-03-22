@@ -49,7 +49,7 @@ use bevy_render::{
     view::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
@@ -112,11 +112,11 @@ impl Plugin for Wireframe2dPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedWireframePipelineCache>()
+            .init_gpu_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe2dPhaseItem>>()
             .add_render_command::<Wireframe2dPhaseItem, DrawWireframe2d>()
             .init_resource::<RenderWireframeInstances>()
-            .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
+            .init_gpu_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
             .init_resource::<PendingWireframe2dQueues>()
             .add_systems(
                 Core2d,

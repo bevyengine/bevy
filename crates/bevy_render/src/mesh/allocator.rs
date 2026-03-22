@@ -25,7 +25,7 @@ use crate::{
         Slab, SlabAllocationBufferSlice, SlabAllocator, SlabAllocatorSettings, SlabId, SlabItem,
         SlabItemLayout,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -61,12 +61,21 @@ pub struct MeshAllocator {
 /// Generally, these parameters adjust the tradeoff between memory fragmentation
 /// and speed. You can adjust them as desired for your application. Most
 /// applications can stick with the default values.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct MeshAllocatorSettings(pub SlabAllocatorSettings);
+#[derive(Resource, Deref, DerefMut)]
+pub struct MeshAllocatorSettings {
+    #[deref]
+    pub slab_allocator_settings: SlabAllocatorSettings,
 
-impl From<SlabAllocatorSettings> for MeshAllocatorSettings {
-    fn from(settings: SlabAllocatorSettings) -> Self {
-        Self(settings)
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
+}
+
+impl Default for MeshAllocatorSettings {
+    fn default() -> MeshAllocatorSettings {
+        MeshAllocatorSettings {
+            slab_allocator_settings: SlabAllocatorSettings::default(),
+            extra_buffer_usages: BufferUsages::empty(),
+        }
     }
 }
 
@@ -202,7 +211,7 @@ impl Plugin for MeshAllocatorPlugin {
 
         // The `RenderAdapter` isn't available until now, so we can't do this in
         // [`Plugin::build`].
-        render_app.init_resource::<MeshAllocator>();
+        render_app.init_gpu_resource::<MeshAllocator>();
     }
 }
 
@@ -216,8 +225,14 @@ impl FromWorld for MeshAllocator {
             .flags
             .contains(DownlevelFlags::BASE_VERTEX);
 
+        // Take the `extra_buffer_usages` from the mesh allocator settings into
+        // account.
+        let mesh_allocator_settings = world.resource::<MeshAllocatorSettings>();
+        let mut slab_allocator = SlabAllocator::new();
+        slab_allocator.extra_buffer_usages |= mesh_allocator_settings.extra_buffer_usages;
+
         Self {
-            slab_allocator: SlabAllocator::new(),
+            slab_allocator,
             general_vertex_slabs_supported,
         }
     }
@@ -567,7 +582,6 @@ impl ElementClass {
         match *self {
             ElementClass::Vertex => BufferUsages::VERTEX,
             ElementClass::Index => BufferUsages::INDEX,
-            #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,
         }
     }

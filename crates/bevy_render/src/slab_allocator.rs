@@ -986,7 +986,7 @@ where
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
+                    usage: buffer_usages | BufferUsages::COPY_DST,
                     mapped_at_creation: true,
                 });
                 {
