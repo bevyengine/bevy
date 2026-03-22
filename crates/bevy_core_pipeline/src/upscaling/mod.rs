@@ -4,7 +4,8 @@ use bevy_camera::CameraOutputMode;
 use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
-    camera::ExtractedCamera, render_resource::*, view::ViewTarget, Render, RenderApp, RenderSystems,
+    camera::ExtractedCamera, render_resource::*, view::ViewTarget, Render, RenderApp,
+    RenderStartup, RenderSystems,
 };
 
 mod node;
@@ -27,12 +28,23 @@ impl Plugin for UpscalingPlugin {
                     .in_set(RenderSystems::Prepare)
                     .ambiguous_with_all(),
             );
+            render_app.add_systems(RenderStartup, clear_view_upscaling_pipelines);
         }
     }
 }
 
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId, BlitPipelineKey);
+
+/// This is not required on first startup but is required during render recovery
+fn clear_view_upscaling_pipelines(
+    mut commands: Commands,
+    views: Query<Entity, With<ViewUpscalingPipeline>>,
+) {
+    for entity in &views {
+        commands.entity(entity).remove::<ViewUpscalingPipeline>();
+    }
+}
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
