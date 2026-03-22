@@ -69,22 +69,14 @@ fn on_focused_keyboard_input(
             state: bevy_input::ButtonState::Pressed,
             ..
         } => {
-            if shift {
-                editable_text.queue_edit(TextEdit::SelectRight);
-            } else {
-                editable_text.queue_edit(TextEdit::MoveCursorRight);
-            }
+            editable_text.queue_edit(TextEdit::Right(shift));
         }
         KeyboardInput {
             logical_key: Key::ArrowLeft,
             state: bevy_input::ButtonState::Pressed,
             ..
         } => {
-            if shift {
-                editable_text.queue_edit(TextEdit::SelectLeft);
-            } else {
-                editable_text.queue_edit(TextEdit::MoveCursorLeft);
-            }
+            editable_text.queue_edit(TextEdit::Left(shift));
         }
         _ => {
             consumed = false;
