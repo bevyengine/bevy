@@ -1014,6 +1014,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "editable_text"
+path = "examples/ui/text/editable_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text]
+name = "Editable Text"
+description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -2315,6 +2326,17 @@ doc-scrape-examples = true
 [package.metadata.example.component_hooks]
 name = "Component Hooks"
 description = "Define component hooks to manage component lifecycle events"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "custom_executor"
+path = "examples/ecs/custom_executor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_executor]
+name = "Custom Executor"
+description = "Demonstrates how to make a custom SystemExecutor"
 category = "ECS (Entity Component System)"
 wasm = false
 

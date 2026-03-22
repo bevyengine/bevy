@@ -9,9 +9,9 @@ use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
-        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntities,
-        VisibleEntityRanges, VisibleMeshEntities,
+        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoCpuCulling,
+        NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
+        VisibleEntities, VisibleEntityRanges, VisibleMeshEntities,
     },
     Camera3d, CameraUpdateSystems,
 };
@@ -318,7 +318,11 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
-/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map
+/// rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -344,6 +348,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,
@@ -481,8 +486,11 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
-/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
-/// shadow map rendering can work.
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that shadow
+/// map rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleEntities>,
     mut point_lights: Query<(
@@ -513,6 +521,7 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,

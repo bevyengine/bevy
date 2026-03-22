@@ -43,6 +43,7 @@ use bevy_render::erased_render_asset::{
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::GpuResourceAppExt;
 use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -288,18 +289,18 @@ impl Plugin for MaterialsPlugin {
         app.add_plugins((PrepassPipelinePlugin, PrepassPlugin::new(self.debug_flags)));
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SpecializedMaterialPipelineCache>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
-                .init_resource::<LightKeyCache>()
-                .init_resource::<SpecializedShadowMaterialPipelineCache>()
+                .init_gpu_resource::<SpecializedMaterialPipelineCache>()
+                .init_gpu_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
+                .init_gpu_resource::<LightKeyCache>()
+                .init_gpu_resource::<SpecializedShadowMaterialPipelineCache>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances>()
                 .allow_ambiguous_resource::<RenderMaterialInstances>()
                 .init_resource::<MaterialBindGroupAllocators>()
                 .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
-                .init_resource::<PendingMeshMaterialQueues>()
+                .init_gpu_resource::<PendingMeshMaterialQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterialQueues>()
-                .init_resource::<PendingShadowQueues>()
+                .init_gpu_resource::<PendingShadowQueues>()
                 .allow_ambiguous_resource::<PendingShadowQueues>()
                 .add_render_command::<Shadow, DrawPrepass>()
                 .add_render_command::<Shadow, DrawDepthOnlyPrepass>()

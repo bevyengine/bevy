@@ -30,7 +30,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::error;
@@ -46,7 +46,7 @@ impl Plugin for LineGizmo3dPlugin {
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
-            .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
                 GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),

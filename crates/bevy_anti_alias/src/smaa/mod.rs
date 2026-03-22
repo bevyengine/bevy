@@ -72,7 +72,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
@@ -345,7 +345,7 @@ impl Plugin for SmaaPlugin {
         render_app
             .insert_resource(smaa_luts)
             .init_resource::<SmaaSpecializedRenderPipelines>()
-            .init_resource::<SmaaInfoUniformBuffer>()
+            .init_gpu_resource::<SmaaInfoUniformBuffer>()
             .add_systems(RenderStartup, init_smaa_pipelines)
             .add_systems(
                 Render,
