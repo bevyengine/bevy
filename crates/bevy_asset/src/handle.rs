@@ -208,39 +208,42 @@ impl<T: Asset> GetTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
 }
 
-pub struct HandleTemplate<T> {
-    path: AssetPath<'static>,
-    marker: PhantomData<T>,
+pub enum HandleTemplate<T: Asset> {
+    Path(AssetPath<'static>),
+    Handle(Handle<T>),
 }
 
-impl<T> Default for HandleTemplate<T> {
+impl<T: Asset> Default for HandleTemplate<T> {
     fn default() -> Self {
-        Self {
-            path: Default::default(),
-            marker: Default::default(),
-        }
+        Self::Path(Default::default())
     }
 }
 
-impl<I: Into<AssetPath<'static>>, T> From<I> for HandleTemplate<T> {
+impl<I: Into<AssetPath<'static>>, T: Asset> From<I> for HandleTemplate<T> {
     fn from(value: I) -> Self {
-        Self {
-            path: value.into(),
-            marker: PhantomData,
-        }
+        Self::Path(value.into())
+    }
+}
+
+impl<T: Asset> From<Handle<T>> for HandleTemplate<T> {
+    fn from(value: Handle<T>) -> Self {
+        Self::Handle(value)
     }
 }
 
 impl<T: Asset> Template for HandleTemplate<T> {
     type Output = Handle<T>;
     fn build_template(&self, context: &mut TemplateContext) -> bevy_ecs::error::Result<Handle<T>> {
-        Ok(context.resource::<AssetServer>().load(&self.path))
+        Ok(match self {
+            HandleTemplate::Path(asset_path) => context.resource::<AssetServer>().load(asset_path),
+            HandleTemplate::Handle(handle) => handle.clone(),
+        })
     }
 
     fn clone_template(&self) -> Self {
-        HandleTemplate {
-            path: self.path.clone(),
-            marker: PhantomData,
+        match self {
+            HandleTemplate::Path(asset_path) => HandleTemplate::Path(asset_path.clone()),
+            HandleTemplate::Handle(handle) => HandleTemplate::Handle(handle.clone()),
         }
     }
 }
