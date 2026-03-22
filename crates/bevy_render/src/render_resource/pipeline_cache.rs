@@ -212,6 +212,8 @@ pub struct PipelineCache {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     pub(crate) synchronous_pipeline_compilation: bool,
+    /// If `true`, the shader cache needs to be repopulated from the main world's `Assets<Shader>`.
+    needs_shader_reload: bool,
 }
 
 impl PipelineCache {
@@ -263,6 +265,7 @@ impl PipelineCache {
             pipelines: default(),
             global_shader_defs,
             synchronous_pipeline_compilation,
+            needs_shader_reload: true,
         }
     }
 
@@ -720,6 +723,18 @@ impl PipelineCache {
         shaders: Extract<Res<Assets<Shader>>>,
         mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
+        if cache.needs_shader_reload {
+            cache.needs_shader_reload = false;
+            for (id, shader) in shaders.iter() {
+                let mut shader = shader.clone();
+                shader.shader_defs.extend(cache.global_shader_defs.clone());
+                cache.set_shader(id, shader);
+            }
+            // Drain events so we don't double-process shaders we just loaded.
+            for _ in events.read() {}
+            return;
+        }
+
         for event in events.read() {
             #[expect(
                 clippy::match_same_arms,
