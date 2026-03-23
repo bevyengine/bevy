@@ -524,7 +524,7 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
         };
 
         RenderPipelineDescriptor {
-            label: Some("grid_render_pipeline".into()),
+            label: Some("infinite_grid_render_pipeline".into()),
             layout: vec![self.view_layout.clone(), self.infinite_grid_layout.clone()],
             vertex: VertexState {
                 shader: self.shader.clone(),
