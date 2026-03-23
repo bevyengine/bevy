@@ -4586,8 +4586,8 @@ doc-scrape-examples = true
 required-features = ["bevy_dev_tools", "free_camera"]
 
 [package.metadata.example.infinite_grid]
-name = "Infnite grid"
-description = "Shows how to use the infinite grid"
+name = "Infinite grid"
+description = "Demonstrates Bevy's infinite grid, suitable as a ground plane for editors"
 category = "Dev tools"
 wasm = true
 

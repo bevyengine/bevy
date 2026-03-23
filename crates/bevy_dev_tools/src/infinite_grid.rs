@@ -86,7 +86,9 @@ impl Plugin for InfiniteGridPlugin {
     }
 }
 
-/// The component used to represent the grid
+/// The component used to represent an infinite grid.
+///
+/// This is intended for use as a ground plane in editor-like tools.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 #[require(

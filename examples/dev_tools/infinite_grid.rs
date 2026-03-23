@@ -1,4 +1,8 @@
-//! A simple example to show how to spawn an infinite grid
+//! A simple example to show how to spawn an infinite grid.
+//!
+//! Infinite grids are useful as the ground plane in editor-like applications,
+//! as they provide a consistent reference for the orientation of objects
+//! and an evenly spaced grid to judge relative scale.
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
