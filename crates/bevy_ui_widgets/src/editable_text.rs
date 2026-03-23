@@ -35,7 +35,7 @@ fn on_focused_keyboard_input(
     const ALT: u8 = 1 << 2;
     const SHIFT: u8 = 1 << 3;
     const COMMAND: u8 = SUPER | CTRL;
-    const WORD: u8 = CTRL | ALT;
+    const WORD_MODS: u8 = CTRL | ALT;
 
     // Bit flags representing states of modifier keys
     // On mac option is mapped to `Key::Alt` by `bevy_input`.
@@ -59,35 +59,35 @@ fn on_focused_keyboard_input(
         (Key::Cut, _) => queue_edit(TextEdit::Cut),
         (Key::Paste, _) => queue_edit(TextEdit::Paste),
         (Key::Character(c), m)
-            if (m & COMMAND) != 0 && (m & ALT) == 0 && c.eq_ignore_ascii_case("a") =>
+            if (m & COMMAND) != 0 && (m & (ALT | SHIFT)) == 0 && c.eq_ignore_ascii_case("a") =>
         {
             queue_edit(TextEdit::SelectAll)
         }
         (Key::Character(c), m)
-            if (m & COMMAND) != 0 && (m & ALT) == 0 && c.eq_ignore_ascii_case("c") =>
+            if (m & COMMAND) != 0 && (m & (ALT | SHIFT)) == 0 && c.eq_ignore_ascii_case("c") =>
         {
             queue_edit(TextEdit::Copy)
         }
         (Key::Character(c), m)
-            if (m & COMMAND) != 0 && (m & ALT) == 0 && c.eq_ignore_ascii_case("x") =>
+            if (m & COMMAND) != 0 && (m & (ALT | SHIFT)) == 0 && c.eq_ignore_ascii_case("x") =>
         {
             queue_edit(TextEdit::Cut)
         }
         (Key::Character(c), m)
-            if (m & COMMAND) != 0 && (m & ALT) == 0 && c.eq_ignore_ascii_case("v") =>
+            if (m & COMMAND) != 0 && (m & (ALT | SHIFT)) == 0 && c.eq_ignore_ascii_case("v") =>
         {
             queue_edit(TextEdit::Paste)
         }
-        (Key::Backspace, m) if (m & WORD) != 0 => queue_edit(TextEdit::BackspaceWord),
-        (Key::Delete, m) if (m & WORD) != 0 => queue_edit(TextEdit::DeleteWord),
+        (Key::Backspace, m) if (m & WORD_MODS) != 0 => queue_edit(TextEdit::BackspaceWord),
+        (Key::Delete, m) if (m & WORD_MODS) != 0 => queue_edit(TextEdit::DeleteWord),
         (Key::ArrowLeft, m) if (m & SUPER) != 0 && (m & CTRL) == 0 => {
             queue_edit(TextEdit::HardLineStart(shift))
         }
         (Key::ArrowRight, m) if (m & SUPER) != 0 && (m & CTRL) == 0 => {
             queue_edit(TextEdit::HardLineEnd(shift))
         }
-        (Key::ArrowLeft, m) if (m & WORD) != 0 => queue_edit(TextEdit::WordLeft(shift)),
-        (Key::ArrowRight, m) if (m & WORD) != 0 => queue_edit(TextEdit::WordRight(shift)),
+        (Key::ArrowLeft, m) if (m & WORD_MODS) != 0 => queue_edit(TextEdit::WordLeft(shift)),
+        (Key::ArrowRight, m) if (m & WORD_MODS) != 0 => queue_edit(TextEdit::WordRight(shift)),
         (Key::ArrowLeft, _) => queue_edit(TextEdit::Left(shift)),
         (Key::ArrowRight, _) => queue_edit(TextEdit::Right(shift)),
         (Key::ArrowUp, m) if (m & COMMAND) != 0 => queue_edit(TextEdit::TextStart(shift)),
