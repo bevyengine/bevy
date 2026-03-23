@@ -340,7 +340,7 @@ pub struct BrpWriteMessageParams {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct BrpScheduleGraphParams {
     /// The schedule to describe.
-    pub schedule_name: String,
+    pub schedule_label: String,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -492,21 +492,18 @@ pub struct BrpListComponentsWatchingResponse {
 /// The response to a `world.query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
-/// Details on a system
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpSystem {
-    key: String,
-    method: String,
-}
-
-/// Details on a system set
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpSystemSet {
-    key: String,
-    method: String,
-}
-
 /// The response to a `schedule.graph` request.
+///
+/// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
+/// A system can be placed inside a systemset in order to organise them.
+/// Relative ordering can be set between systems and/or sets.
+/// The graph can be though of two Directed Acylic Graph's (DAG's) overlayed.
+///
+/// Each system (f1) creates a corresponding system set (F1).
+/// There is a hierarchy edge between the system set and the system (F1 -> f1).
+/// If a system (f2) is placed in a set (S1), then there is a hierarchy edge (S1, f2)
+///
+/// If a schedule adds a condition f1.after(S1) , then an dependency edge is added (S1 -> f1)
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct BrpScheduleGraphResponse {
     systems: Vec<BrpSystem>,
@@ -517,6 +514,24 @@ pub struct BrpScheduleGraphResponse {
 
     dependency_nodes: Vec<String>,
     dependency_edges: Vec<(String, String)>,
+}
+
+/// Details on a system
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpSystem {
+    ///
+    key: String,
+    ///
+    method: String,
+}
+
+/// Details on a system set
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpSystemSet {
+    ///
+    key: String,
+    ///
+    method: String,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -1568,17 +1583,22 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 }
 
 /// Handles a `schedule.graph` request coming from a client.
+///
+/// Bevy removes a schedule from the world before running it, meaning that not all Schedules are available.
 pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
-    let BrpScheduleGraphParams { schedule_name } = parse_some(params)?;
+    let BrpScheduleGraphParams { schedule_label } = parse_some(params)?;
 
     let schedules = world.resource::<Schedules>();
 
     let matching_schedule = schedules
         .iter()
-        .find(|(label, _schedule)| format!("{:?}", label) == schedule_name);
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label);
 
     if matching_schedule.is_none() {
-        return Err(BrpError::resource_not_present(&schedule_name));
+        return Err(BrpError::resource_error(format!(
+            "Schedule with label={:} not found",
+            schedule_label
+        )));
     }
 
     let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
@@ -1876,7 +1896,8 @@ mod tests {
         message::{Message, Messages},
         observer::On,
         resource::Resource,
-        system::ResMut,
+        schedule::{IntoScheduleConfigs as _, Schedule, ScheduleLabel, SystemSet},
+        system::{Commands, Res, ResMut},
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -2053,5 +2074,61 @@ mod tests {
         test_serialize_deserialize(BrpListComponentsParams {
             entity: Entity::from_raw_u32(0).unwrap(),
         });
+    }
+
+    #[test]
+    fn test_schedule_graph() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+        fn f3(_s: Res<Resource1>) {}
+        fn f4(_t: Res<Resource1>) {}
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S1;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S2;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+        schedule.add_systems(f3.in_set(S1));
+        schedule.add_systems(f4.in_set(S2).after(S1));
+
+        let mut world = World::default();
+        world.add_schedule(schedule);
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .expect("FAIL");
+
+        // Each system creates a corresponding system set.
+        // In the below notation we use f1 for the system, and F1 for the corresponding system set.
+        // Above schedule should have the following layout:
+        // - 4 systems (f1, f2, f3, f4)
+        // - 6 system sets (F1, F2, F3, F4, S1, S2)
+        // - 10 hierarchy nodes and 10 dependency nodes (4 + 6)
+        // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
+        // - 2 dependency edges: f1 -> f2, S1 -> f4
+
+        let res = schedule_graph(In(Some(params)), &mut world);
+        let res2 = res.expect("expect to work");
+        let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
+
+        assert_eq!(res3.systems.len(), 4);
+        assert_eq!(res3.systemsets.len(), 6);
+        assert_eq!(res3.hierarchy_nodes.len(), 10);
+        assert_eq!(res3.dependency_nodes.len(), 10);
+        assert_eq!(res3.hierarchy_edges.len(), 6);
+        assert_eq!(res3.dependency_edges.len(), 2);
     }
 }
