@@ -170,12 +170,12 @@ impl ResolvedScene {
                 .map_err(ApplySceneError::TemplateBuildError)?;
         }
 
-        for (index, related) in self.related.values().enumerate() {
+        for related_resolved_scenes in self.related.values() {
             let target = context.entity.id();
             context
                 .entity
                 .world_scope(|world| -> Result<(), ApplySceneError> {
-                    for scene in &related.scenes {
+                    for (index, scene) in related_resolved_scenes.scenes.iter().enumerate() {
                         let mut entity = if let Some(scoped_entity_index) =
                             scene.entity_indices.first().copied()
                         {
@@ -188,7 +188,7 @@ impl ResolvedScene {
                         } else {
                             world.spawn_empty()
                         };
-                        (related.insert)(&mut entity, target);
+                        (related_resolved_scenes.insert)(&mut entity, target);
                         // PERF: this will result in an archetype move
                         scene
                             .apply(&mut TemplateContext::new(
@@ -197,7 +197,7 @@ impl ResolvedScene {
                                 context.entity_scopes,
                             ))
                             .map_err(|e| ApplySceneError::RelatedSceneError {
-                                relationship_type_name: related.relationship_name,
+                                relationship_type_name: related_resolved_scenes.relationship_name,
                                 index,
                                 error: Box::new(e),
                             })?;
