@@ -1,7 +1,7 @@
 //! A tool for exporting release content.
 //!
 //! This terminal-based tool generates a release content file
-//! from the content of the `release-content` directory.
+//! from the content of the `_release-content` directory.
 //!
 //! To run this tool, use the following command from the `bevy` repository root:
 //!
