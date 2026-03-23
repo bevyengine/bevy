@@ -42,6 +42,7 @@ fn on_focused_keyboard_input(
     #[cfg(target_os = "macos")]
     const SHIFT_SUPER: u8 = SHIFT | SUPER;
     const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
+    #[cfg(not(target_os = "macos"))]
     const SHIFT_ALT: u8 = SHIFT | ALT;
     const SHIFT_WORD: u8 = SHIFT | WORD;
 
