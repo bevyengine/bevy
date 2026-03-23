@@ -13,7 +13,6 @@ use bevy_input::ButtonInput;
 use bevy_input_focus::FocusedInput;
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
-use smol_str::StrExt;
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
@@ -50,16 +49,16 @@ fn on_focused_keyboard_input(
         (_, _, _, _, Key::Copy) => queue_edit(TextEdit::Copy),
         (_, _, _, _, Key::Cut) => queue_edit(TextEdit::Cut),
         (_, _, _, _, Key::Paste) => queue_edit(TextEdit::Paste),
-        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
+        (_, _, false, true, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
             queue_edit(TextEdit::SelectAll)
         }
-        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
+        (_, _, false, true, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
             queue_edit(TextEdit::Copy)
         }
-        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("x") => {
+        (_, _, false, true, Key::Character(c)) if c.eq_ignore_ascii_case("x") => {
             queue_edit(TextEdit::Cut)
         }
-        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
+        (_, _, false, true, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
             queue_edit(TextEdit::Paste)
         }
         (_, true, _, _, Key::Backspace) | (_, _, true, _, Key::Backspace) => {
