@@ -18,6 +18,10 @@ use variadics_please::all_tuples;
 
 /// Conceptually, a [`Scene`] describes what a spawned [`Entity`] should look like. This often describes what [`Component`]s the entity should have.
 ///
+/// [`Scene`] is _always_ a single top level [`Entity`] / root entity.  For "lists of scenes" / multiple "root" entities, see [`SceneList`]. These are
+/// separate traits for logical reasons: [`World::spawn`] is a "single entity" action. Additionally, "scene inheritance" only makes sense when both scenes
+/// are "single root entities". A good way to think of this is [`Entity`] vs [`Vec<Entity>`]: these are different types with different APIs and semantics.
+///
 /// ## Resolving Scenes
 ///
 /// Functionally, a [`Scene`] is something that can contribute to a [`ResolvedScene`] by calling [`Scene::resolve`]. [`Scene`] is inherently composable.
@@ -38,13 +42,17 @@ use variadics_please::all_tuples;
 ///
 /// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::queue_spawn_scene`]
 ///
+/// [`World::spawn`]: crate::World::spawn
 /// [`World::spawn_scene`]: crate::SpawnScene::spawn_scene
 /// [`World::queue_spawn_scene`]: crate::SpawnScene::queue_spawn_scene
 /// [`Entity`]: bevy_ecs::entity::Entity
 /// [`Component`]: bevy_ecs::component::Component
 pub trait Scene: Send + Sync + 'static {
     /// This will apply the changes described in this [`Scene`] to the given [`ResolvedScene`]. This should not be called until all of the dependencies
-    /// in [`Scene::register_dependencies`] have been loaded.
+    /// in [`Scene::register_dependencies`] have been loaded. The scene system will generally call this method on behalf of developers.
+    ///
+    /// [`Scene`]s are free to modify [`ResolvedScene`] in arbitrary ways. In the context of related entities, in general they should just be pushing new
+    /// entities to the back of the list.
     fn resolve(
         &self,
         context: &mut ResolveContext,
@@ -52,6 +60,8 @@ pub trait Scene: Send + Sync + 'static {
     ) -> Result<(), ResolveSceneError>;
 
     /// [`Scene`] can have [`Asset`] dependencies, which _must_ be loaded before calling [`Scene::resolve`] or it might return a [`ResolveSceneError`]!
+    ///
+    /// In most cases, the scene system will ensure [`Scene::resolve`] is called _after_ these dependencies have been loaded.
     ///
     /// [`Asset`]: bevy_asset::Asset
     fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
@@ -169,6 +179,27 @@ macro_rules! scene_impl {
 all_tuples!(scene_impl, 0, 12, P);
 
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
+///
+/// This is usually created by the [`PatchTemplate`] or [`PatchGetTemplate`] traits.
+///
+/// This enables defining things like "field" patches, which set specific fields without overriding
+/// any other fields:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_scene2::PatchGetTemplate;
+/// #[derive(GetTemplate)]
+/// struct Position {
+///     x: usize,
+///     y: usize,
+/// }
+///
+/// let patch = Position::patch(|position_template, context| {
+///     position_template.x = 10;
+/// });
+///
+/// let position = Position { x: 0, y: 0};
+/// // applying patch to position would result in { x: 10, y: 0 }
+/// ```
 pub struct TemplatePatch<F: Fn(&mut T, &mut ResolveContext), T>(pub F, pub PhantomData<T>);
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.

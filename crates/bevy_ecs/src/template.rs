@@ -17,6 +17,18 @@ use downcast_rs::{impl_downcast, Downcast};
 use variadics_please::all_tuples;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`](crate::world::World), etc), can produce a [`Template::Output`].
+///
+/// [`Template`] is the cornerstone of scene systems. It enables define types (and hierarchies) that require no [`World`] or [`Entity`] context to define,
+/// but can _use_ that context to produce the final runtime state. A [`Template`] is notably:
+/// * **Repeatable**: Building a [`Template`] does not consume it. This enables reusing "baked" scenes / avoids rebuilding scenes each time we want to spawn one.
+/// * **Clone-able**: Templates can be duplicated via [`Template::clone_template`], enabling scenes to be duplicated, supporting copy-on-write behaviors, etc.
+/// * **(Often) Serializable**: Templates are intended to be easily serialized and deserialized, as they are typically composed of raw data.
+///
+/// Asset handles and [`Entity`] are two commonly [`Template`]-ed types. Asset handles are often "loaded" from an "asset path". The "asset path" would be the [`Template`].
+/// Likewise [`Entity`] on its own has no reasonable default. A type with an [`Entity`] reference could use an "entity path" template to point to a specific entity, relative
+/// to the current spawn context.
+///
+/// See [`GetTemplate`], which defines the canonical [`Template`] for a type. This can be derived, which will generate a [`Template`] for the deriving type.
 pub trait Template {
     /// The type of value produced by this [`Template`].
     type Output;
@@ -177,6 +189,91 @@ impl ScopedEntities {
 
 /// [`GetTemplate`] is implemented for types that can be produced by a specific, canonical [`Template`]. This creates a way to correlate to the [`Template`] using the
 /// desired template output type. This is used by Bevy's scene system.
+///
+/// Both [`GetTemplate`] and [`Template`] are blanket implemented for types that implement [`Default`] and [`Clone`], meaning most types you would want to use
+/// _already have templates_.
+///
+/// It is best to think of [`GetTemplate`] as an alternative to [`Default`] for types that require world/spawn context to instantiate. Note that because of the blanket
+/// impl, you cannot implement [`GetTemplate`], [`Default`], and [`Clone`] together on the same type, as it would result in two conflicting [`GetTemplate`] impls.
+/// This is also why [`Template`] has its own [`Template::clone_template`] method (to avoid using the [`Clone`] impl, which would pull in the auto-impl).
+///
+/// You can _and should_ prefer deriving [`Default`] and [`Clone`] instead of an explicit [`GetTemplate`] impl, unless your type uses something that requires (or uses)
+/// a [`Template`]. Handles in an asset system or [`Entity`] are examples of "templated" types. If you want your type to support templates of them, you probably want
+/// to derive [`GetTemplate`].
+///
+/// [`GetTemplate`] can be derived for types whose fields _also_ implement [`GetTemplate`]:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Default, Clone)]
+/// # struct Handle<T>(core::marker::PhantomData<T>);
+/// # #[derive(Default, Clone)]
+/// # struct Image;
+/// #[derive(GetTemplate)]
+/// struct Player {
+///     image: Handle<Image>
+/// }
+/// ```
+///
+/// Deriving [`GetTemplate`] will generate a [`Template`] type for the deriving type. The example above would generate a `PlayerTemplate` like this:
+/// ```
+/// # use bevy_ecs::{prelude::*, template::TemplateContext};
+/// # #[derive(GetTemplate)]
+/// # struct Handle<T: core::marker::Unpin>(core::marker::PhantomData<T>);
+/// # #[derive(Default, Clone)]
+/// # struct Image;
+/// struct Player {
+///     image: Handle<Image>
+/// }
+///
+/// impl GetTemplate for Player {
+///     type Template = PlayerTemplate;
+/// }
+///
+/// struct PlayerTemplate {
+///     image: HandleTemplate<Image>,
+/// }
+///
+/// impl Template for PlayerTemplate {
+///     type Output = Player;
+///     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+///         Ok(Player {
+///             image: self.image.build_template(context)?,
+///         })
+///     }
+///
+///     fn clone_template(&self) -> Self {
+///         PlayerTemplate {
+///             image: self.image.clone_template(),
+///         }
+///     }
+/// }
+/// ```
+///
+/// [`GetTemplate`] derives can specify custom templates to use instead of a canonical [`GetTemplate`]:
+/// ```
+/// # use bevy_ecs::{prelude::*, template::TemplateContext};
+/// # struct Image;
+/// #[derive(GetTemplate)]
+/// struct Counter {
+///     #[template(Always10)]
+///     count: usize
+/// }
+///
+/// #[derive(Default)]
+/// struct Always10;
+///
+/// impl Template for Always10 {
+///     type Output = usize;
+///
+///     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+///         Ok(10)
+///     }
+///
+///     fn clone_template(&self) -> Self {
+///         Always10
+///     }
+/// }
+/// ```
 pub trait GetTemplate: Sized {
     /// The [`Template`] for this type.
     type Template: Template;
