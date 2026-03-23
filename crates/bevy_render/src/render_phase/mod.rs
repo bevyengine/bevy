@@ -392,6 +392,7 @@ pub(crate) struct RenderBinIndex(pub(crate) u32);
 /// This data structure consists of both CPU and GPU parts. A schematic diagram
 /// of the data structure is as follows:
 ///
+/// ```text
 ///         ┌─
 ///         │                ─────┬──────────────┬─────
 ///         │                     │ Mesh Inst. 2 │
@@ -436,6 +437,7 @@ pub(crate) struct RenderBinIndex(pub(crate) u32);
 ///         │  Buffer        ─────┴──────────────┴───────────┬──┴─────    │
 ///         │                                                │            │
 ///         └─                                               └────────────┘
+/// ```
 pub struct RenderMultidrawableBatchSet<BPI>
 where
     BPI: BinnedPhaseItem,
