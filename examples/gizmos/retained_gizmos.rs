@@ -14,6 +14,9 @@
 //!
 //! This example uses the free camera plugin for observing the scene. Controls
 //! are printed to the console on startup.
+//!
+//! Note this example is not meant to illustrate when to use retained gizmos,
+//! only how.
 
 use std::ops::Range;
 
@@ -123,9 +126,6 @@ fn on_spawn_gizmo(
     let up = axis.any_orthonormal_vector();
     let spin_rate = rng.random_range(SPIN);
 
-    // When drawing a lot of static lines a Gizmo component can have
-    // far better performance than the Gizmos system parameter,
-    // but the system parameter will perform better for smaller lines that update often.
     let color = COLORS[rng.random_range(0..COLORS.len())];
     gizmo
         .sphere(Isometry3d::IDENTITY, radius, color)
@@ -134,6 +134,9 @@ fn on_spawn_gizmo(
     let color = COLORS[rng.random_range(0..COLORS.len())];
     gizmo.cross(Isometry3d::IDENTITY, radius, color);
 
+    // A retained gizmo is spawned as an entity. This is more performant than
+    // an immediate mode gizmo if you have a large number of static elements
+    // where overall position and culling are the points of dynamism.
     commands.spawn((
         Gizmo {
             handle: gizmo_assets.add(gizmo),
