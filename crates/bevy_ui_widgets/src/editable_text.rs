@@ -26,6 +26,7 @@ const COMMAND: u8 = if cfg!(target_os = "macos") {
 };
 // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
 const WORD: u8 = if cfg!(target_os = "macos") { ALT } else { CTRL };
+const SHIFT_WORD: u8 = SHIFT | WORD;
 #[cfg(target_os = "macos")]
 const SHIFT_SUPER: u8 = SHIFT | SUPER;
 const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
