@@ -44,7 +44,7 @@ fn on_focused_keyboard_input(
     const SHIFT_ALT: u8 = SHIFT | ALT;
     const SHIFT_WORD: u8 = SHIFT | WORD;
 
-   let (command_mod_key, word_mod_key) = if cfg!(target_os = "macos") {
+    let (command_mod_key, word_mod_key) = if cfg!(target_os = "macos") {
         (Key::Super, Key::Alt)
     } else {
         (Key::Control, Key::Control)
@@ -101,7 +101,7 @@ fn on_focused_keyboard_input(
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
         (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
-        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) {
+        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
             if let Some(text) = &trigger.input.text
                 && !text.is_empty()
             {
