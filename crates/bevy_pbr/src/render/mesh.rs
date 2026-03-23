@@ -2966,7 +2966,7 @@ bitflags::bitflags! {
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
+    // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u64 {
         // Nothing
         const NONE                              = 0;
@@ -3095,11 +3095,29 @@ impl MeshPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, [`BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
+    pub fn from_primitive_topology_and_strip_index(
+        primitive_topology: PrimitiveTopology,
+        strip_index_format: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE,
+                Some(indices) => match indices {
+                    IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u64)
             & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -3113,6 +3131,20 @@ impl MeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & BaseMeshPipelineKey::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16.bits() => {
+                Some(IndexFormat::Uint16)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32.bits() => {
+                Some(IndexFormat::Uint32)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }
@@ -3136,12 +3168,11 @@ const_assert_eq!(
     0
 );
 
-// Ensure that the reserved bits don't overlap with the topology bits
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
 const_assert_eq!(
-    (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
-        << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
-    0
+    BaseMeshPipelineKey::all().bits() & MeshPipelineKey::all().bits(),
+    MeshPipelineKey::MORPH_TARGETS.bits()
 );
 
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
@@ -3553,6 +3584,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 cull_mode: Some(Face::Back),
                 unclipped_depth: false,
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
