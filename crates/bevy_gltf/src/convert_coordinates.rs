@@ -289,51 +289,74 @@ impl TryFrom<GltfConvertCoordinates> for ResolvedConvertCoordinates {
     }
 }
 
+/// Errors that can occur during coordinate conversion of mesh attributes.
 #[derive(Error, Debug)]
-pub(crate) enum ConvertCoordinateAttributesError {
+pub enum ConvertCoordinateAttributesError {
+    /// Coordinate conversion does not support the mesh attribute's format.
     #[error("Cannot apply coordinate conversion to attribute {0} - unsupported format {1:?}")]
     UnsupportedFormat(&'static str, VertexFormat),
 }
 
 /// Apply the given converter to the attribute.
-pub(crate) fn convert_attribute_coordinates(
+fn convert_attribute_coordinates(
     attribute: MeshVertexAttribute,
-    values: VertexAttributeValues,
+    values: &mut VertexAttributeValues,
     converter: HierarchyConverter,
-) -> Result<VertexAttributeValues, ConvertCoordinateAttributesError> {
-    if converter == HierarchyConverter::IDENTITY {
-        return Ok(values);
-    }
-
+) -> Result<(), ConvertCoordinateAttributesError> {
     match attribute {
         Mesh::ATTRIBUTE_POSITION | Mesh::ATTRIBUTE_NORMAL | Mesh::ATTRIBUTE_TANGENT => match values
         {
-            VertexAttributeValues::Float32x3(mut values) => {
-                for value in &mut values {
+            VertexAttributeValues::Float32x3(values) => {
+                for value in values {
                     *value = converter
                         .convert_translation(Vec3::from_array(*value))
                         .to_array();
                 }
-                Ok(VertexAttributeValues::Float32x3(values))
+                Ok(())
             }
 
-            VertexAttributeValues::Float32x4(mut values) => {
-                for value in &mut values {
+            VertexAttributeValues::Float32x4(values) => {
+                for value in values {
                     *value = converter
                         .convert_translation(Vec4::from_array(*value).truncate())
                         .extend(value[3])
                         .to_array();
                 }
-                Ok(VertexAttributeValues::Float32x4(values))
+                Ok(())
             }
 
             _ => Err(ConvertCoordinateAttributesError::UnsupportedFormat(
                 attribute.name,
-                VertexFormat::from(&values),
+                VertexFormat::from(&*values),
             )),
         },
-        _ => Ok(values),
+
+        _ => Ok(()),
     }
+}
+
+/// Apply the given coordinate conversion to the mesh.
+pub(crate) fn convert_mesh_coordinates(
+    mesh: &mut Mesh,
+    convert_coordinates: &ResolvedConvertCoordinates,
+) -> Result<(), ConvertCoordinateAttributesError> {
+    let converter = convert_coordinates.mesh_vertex_hierarchy_converter();
+
+    if converter != HierarchyConverter::IDENTITY {
+        for (attribute, values) in mesh.attributes_mut() {
+            convert_attribute_coordinates(*attribute, values, converter)?;
+        }
+
+        if let Some(morph_targets) = mesh.morph_targets_mut() {
+            for vertex in morph_targets {
+                vertex.position = converter.convert_translation(vertex.position);
+                vertex.normal = converter.convert_translation(vertex.normal);
+                vertex.tangent = converter.convert_translation(vertex.tangent);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// An axis in a 3D cartesian coordinate system.

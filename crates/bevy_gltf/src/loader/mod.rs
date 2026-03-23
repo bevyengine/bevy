@@ -55,7 +55,9 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::{HierarchyConverter, SemanticsError},
+    convert_coordinates::{
+        convert_mesh_coordinates, ConvertCoordinateAttributesError, SemanticsError,
+    },
     loader::gltf_ext::scene::{node_parents, node_transforms},
     vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
@@ -143,6 +145,9 @@ pub enum GltfError {
     /// The `GltfConvertCoordinates::semantics` were invalid.
     #[error(transparent)]
     CoordinateConversionSemantics(#[from] SemanticsError),
+    /// Coordinate conversion failed to convert mesh attributes.
+    #[error(transparent)]
+    CoordinateConversion(#[from] ConvertCoordinateAttributesError),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -778,9 +783,6 @@ impl GltfLoader {
 
                     let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
-                    let mesh_vertex_coordinate_converter =
-                        convert_coordinates.mesh_vertex_hierarchy_converter();
-
                     // Read vertex attributes
                     for (semantic, accessor) in primitive.attributes() {
                         if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -800,7 +802,6 @@ impl GltfLoader {
                             accessor,
                             &buffer_data,
                             &loader.custom_vertex_attributes,
-                            mesh_vertex_coordinate_converter,
                         ) {
                             Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                             Err(err) => warn!("{}", err),
@@ -824,7 +825,6 @@ impl GltfLoader {
                             mesh.set_morph_targets(
                                 morph_target_reader
                                     .flat_map(|i| PrimitiveMorphAttributesIter {
-                                        convert_coordinates: mesh_vertex_coordinate_converter,
                                         positions: i.0,
                                         normals: i.1,
                                         tangents: i.2,
@@ -842,6 +842,9 @@ impl GltfLoader {
                     }
                     mesh
                 };
+
+                convert_mesh_coordinates(&mut mesh, &convert_coordinates)
+                    .map_err(Into::<GltfError>::into)?;
 
                 if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                     && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
@@ -2070,8 +2073,6 @@ impl ImageOrPath {
 /// Used when setting morph targets on a `Mesh` while reading them
 /// from a primitive.
 pub struct PrimitiveMorphAttributesIter<'s> {
-    /// Should the values be converted
-    pub convert_coordinates: HierarchyConverter,
     /// Vertex position displacements
     pub positions: Option<Iter<'s, [f32; 3]>>,
     /// Vertex normal displacements
@@ -2092,18 +2093,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
         }
 
         let attributes = MorphAttributes {
-            position: position
-                .map(Vec3::from_array)
-                .map(|p| self.convert_coordinates.convert_translation(p))
-                .unwrap_or(Vec3::ZERO),
-            normal: normal
-                .map(Vec3::from_array)
-                .map(|n| self.convert_coordinates.convert_translation(n))
-                .unwrap_or(Vec3::ZERO),
-            tangent: tangent
-                .map(Vec3::from_array)
-                .map(|t| self.convert_coordinates.convert_translation(t))
-                .unwrap_or(Vec3::ZERO),
+            position: position.map(Into::into).unwrap_or(Vec3::ZERO),
+            normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
+            tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
             pad_a: 0.0,
             pad_b: 0.0,
             pad_c: 0.0,
