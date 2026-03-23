@@ -39,6 +39,7 @@ fn on_focused_keyboard_input(
     const COMMAND: u8 = 16;
     // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
     const WORD: u8 = 32;
+    #[cfg(target_os = "macos")]
     const SHIFT_SUPER: u8 = SHIFT | SUPER;
     const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
     const SHIFT_ALT: u8 = SHIFT | ALT;
@@ -82,8 +83,14 @@ fn on_focused_keyboard_input(
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => queue_edit(TextEdit::Paste),
         (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord),
         (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord),
+        #[cfg(target_os = "macos")]
         (SUPER | SHIFT_SUPER, Key::ArrowLeft) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
+        #[cfg(target_os = "macos")]
         (SUPER | SHIFT_SUPER, Key::ArrowRight) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
+        #[cfg(not(target_os = "macos"))]
+        (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
+        #[cfg(not(target_os = "macos"))]
+        (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
         (WORD | SHIFT_WORD, Key::ArrowLeft) => queue_edit(TextEdit::WordLeft(shift_pressed)),
         (WORD | SHIFT_WORD, Key::ArrowRight) => queue_edit(TextEdit::WordRight(shift_pressed)),
         (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed)),
@@ -94,8 +101,6 @@ fn on_focused_keyboard_input(
         (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::Home) => queue_edit(TextEdit::TextStart(shift_pressed)),
         (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed)),
-        (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
-        (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
         (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed)),
         (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
