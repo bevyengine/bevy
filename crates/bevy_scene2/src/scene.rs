@@ -180,6 +180,10 @@ all_tuples!(scene_impl, 0, 12, P);
 
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
+/// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched
+/// template if it does not already exist in the [`ResolvedScene`], then it will apply the patch on top
+/// of the current [`Template`] in the [`ResolvedScene`].
+///
 /// This is usually created by the [`PatchTemplate`] or [`PatchGetTemplate`] traits.
 ///
 /// This enables defining things like "field" patches, which set specific fields without overriding
