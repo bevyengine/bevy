@@ -5,8 +5,8 @@
 //! gizmo is spawned as an entity and is rendered so long as it is alive and
 //! visible.
 //!
-//! Retained gizmos are recommended for drawing a larger number of static elemnts.
-//! Retained gizmos also can undergo frustum culling.
+//! Retained gizmos are recommended for drawing a larger number of static elements.
+//! They have a transform and visibility components for rendering control.
 //!
 //! This example spawns gizmos on a jittery delay, choosing parameters randomly
 //! and implementing a cheap "twinkling" effect by toggling visibility randomly.
