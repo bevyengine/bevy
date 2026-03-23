@@ -37,7 +37,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 
@@ -82,8 +82,8 @@ impl Plugin for RenderDebugOverlayPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
-            .init_resource::<RenderDebugOverlayUniforms>()
+            .init_gpu_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
+            .init_gpu_resource::<RenderDebugOverlayUniforms>()
             .add_systems(
                 Render,
                 (
