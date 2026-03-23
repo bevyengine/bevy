@@ -4574,6 +4574,12 @@ doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [[example]]
+name = "infinite_grid"
+path = "examples/dev_tools/infinite_grid.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "free_camera"]
+
+[[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
 doc-scrape-examples = true
