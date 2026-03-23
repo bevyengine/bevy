@@ -8,12 +8,12 @@
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
+use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::ButtonInput;
 use bevy_input_focus::FocusedInput;
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
-use smol_str::SmolStr;
+use smol_str::StrExt;
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
@@ -25,14 +25,17 @@ use smol_str::SmolStr;
 fn on_focused_keyboard_input(
     mut trigger: On<FocusedInput<KeyboardInput>>,
     mut query: Query<&mut EditableText>,
-    keyboard_button_input: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<Key>>,
 ) {
     let Ok(mut editable_text) = query.get_mut(trigger.focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 
-    let shift = keyboard_button_input.pressed(KeyCode::ShiftLeft)
-        || keyboard_button_input.pressed(KeyCode::ShiftRight);
+    let control = keys.pressed(Key::Control);
+    let super_key = keys.pressed(Key::Super);
+    let command = control || super_key;
+    let alt = keys.pressed(Key::Alt); // On mac option is mapped to `Key::Alt` by `bevy_input`.
+    let shift = keys.pressed(Key::Shift);
 
     let mut should_propagate = true;
 
@@ -43,24 +46,69 @@ fn on_focused_keyboard_input(
         should_propagate = false;
     };
 
-    match &trigger.input.logical_key {
-        Key::Character(c) => {
-            queue_edit(TextEdit::Insert(c.clone()));
+    match (super_key, control, alt, command, &trigger.input.logical_key) {
+        (_, _, _, _, Key::Copy) => queue_edit(TextEdit::Copy),
+        (_, _, _, _, Key::Cut) => queue_edit(TextEdit::Cut),
+        (_, _, _, _, Key::Paste) => queue_edit(TextEdit::Paste),
+        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
+            queue_edit(TextEdit::SelectAll)
         }
-        Key::Space => {
-            queue_edit(TextEdit::Insert(SmolStr::new_inline(" ")));
+        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
+            queue_edit(TextEdit::Copy)
         }
-        Key::Backspace => {
-            queue_edit(TextEdit::Backspace);
+        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("x") => {
+            queue_edit(TextEdit::Cut)
         }
-        Key::Delete => {
-            queue_edit(TextEdit::Delete);
+        (_, _, _, true, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
+            queue_edit(TextEdit::Paste)
         }
-        Key::ArrowRight => {
-            queue_edit(TextEdit::Right(shift));
+        (_, true, _, _, Key::Backspace) | (_, _, true, _, Key::Backspace) => {
+            queue_edit(TextEdit::BackspaceWord)
         }
-        Key::ArrowLeft => {
-            queue_edit(TextEdit::Left(shift));
+        (_, true, _, _, Key::Delete) | (_, _, true, _, Key::Delete) => {
+            queue_edit(TextEdit::DeleteWord)
+        }
+        (true, false, _, _, Key::ArrowLeft) => queue_edit(TextEdit::HardLineStart(shift)),
+        (true, false, _, _, Key::ArrowRight) => queue_edit(TextEdit::HardLineEnd(shift)),
+        (_, true, _, _, Key::ArrowLeft) | (_, _, true, _, Key::ArrowLeft) => {
+            queue_edit(TextEdit::WordLeft(shift))
+        }
+        (_, true, _, _, Key::ArrowRight) | (_, _, true, _, Key::ArrowRight) => {
+            queue_edit(TextEdit::WordRight(shift))
+        }
+        (_, _, _, _, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift)),
+        (_, _, _, _, Key::ArrowRight) => queue_edit(TextEdit::Right(shift)),
+        (_, true, _, _, Key::ArrowUp) | (true, _, _, _, Key::ArrowUp) => {
+            queue_edit(TextEdit::TextStart(shift))
+        }
+        (_, true, _, _, Key::ArrowDown) | (true, _, _, _, Key::ArrowDown) => {
+            queue_edit(TextEdit::TextEnd(shift))
+        }
+        (_, _, _, _, Key::ArrowUp) => queue_edit(TextEdit::Up(shift)),
+        (_, _, _, _, Key::ArrowDown) => queue_edit(TextEdit::Down(shift)),
+        (_, true, _, _, Key::Home) | (true, _, _, _, Key::Home) => {
+            queue_edit(TextEdit::TextStart(shift))
+        }
+        (_, true, _, _, Key::End) | (true, _, _, _, Key::End) => {
+            queue_edit(TextEdit::TextEnd(shift))
+        }
+        (_, _, true, _, Key::Home) => queue_edit(TextEdit::HardLineStart(shift)),
+        (_, _, true, _, Key::End) => queue_edit(TextEdit::HardLineEnd(shift)),
+        (_, _, _, _, Key::Home) => queue_edit(TextEdit::LineStart(shift)),
+        (_, _, _, _, Key::End) => queue_edit(TextEdit::LineEnd(shift)),
+        (_, _, _, _, Key::Backspace) => queue_edit(TextEdit::Backspace),
+        (_, _, _, _, Key::Delete) => queue_edit(TextEdit::Delete),
+        (_, _, _, _, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
+        (_, _, _, _, Key::Tab) => {
+            // Parley doesn't support tabs yet.
+            // Ignore and propagate to allow for tab navigation.
+        }
+        (_, _, _, false, Key::Character(_)) | (_, _, _, false, Key::Space) => {
+            if let Some(text) = &trigger.input.text
+                && !text.is_empty()
+            {
+                queue_edit(TextEdit::Insert(text.clone()));
+            }
         }
         _ => {}
     }
