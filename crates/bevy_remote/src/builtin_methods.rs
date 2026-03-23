@@ -495,9 +495,9 @@ pub type BrpQueryResponse = Vec<BrpQueryRow>;
 /// The response to a `schedule.graph` request.
 ///
 /// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
-/// A system can be placed inside a systemset in order to organise them.
+/// A system can be placed inside a systemset in order to organize them.
 /// Relative ordering can be set between systems and/or sets.
-/// The graph can be though of two Directed Acylic Graph's (DAG's) overlayed.
+/// The graph can be though of two Directed Acylic Graph's (DAG's) overlaid.
 ///
 /// Each system (f1) creates a corresponding system set (F1).
 /// There is a hierarchy edge between the system set and the system (F1 -> f1).
@@ -519,18 +519,14 @@ pub struct BrpScheduleGraphResponse {
 /// Details on a system
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSystem {
-    ///
     key: String,
-    ///
     method: String,
 }
 
 /// Details on a system set
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSystemSet {
-    ///
     key: String,
-    ///
     method: String,
 }
 
@@ -1604,8 +1600,6 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
     let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
 
     let (_label, schedule) = matching_schedule.unwrap();
-
-    let _ignored_ambiguities = schedules.ignored_scheduling_ambiguities.clone();
 
     let g = schedule.graph();
     for (systemkey, method, _b) in g.systems.iter() {
