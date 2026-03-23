@@ -3,8 +3,6 @@ enable wgpu_ray_query;
 #import bevy_solari::world_cache::WORLD_CACHE_EMPTY_CELL
 #import bevy_solari::realtime_bindings::world_cache
 
-@group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
-
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
 
@@ -78,6 +76,8 @@ fn compact_world_cache_write_active_cells(
     if thread_index == 1023u && workgroup_id.x == 1023u {
         let active_cell_count = compacted_index + u32(cell_active);
         world_cache.active_cells_count = active_cell_count;
-        world_cache_active_cells_dispatch = vec3((active_cell_count + 63u) / 64u, 1u, 1u);
+        world_cache.indirect_dispatch_x = (active_cell_count + 63u) / 64u;
+        world_cache.indirect_dispatch_y = 1u;
+        world_cache.indirect_dispatch_z = 1u;
     }
 }

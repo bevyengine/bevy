@@ -42,6 +42,9 @@ struct WorldCache {
     b: array<u32, 1024u>,
     active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>,
     active_cells_count: u32,
+    indirect_dispatch_x: u32,
+    indirect_dispatch_y: u32,
+    indirect_dispatch_z: u32,
 }
 @group(1) @binding(14) var<storage, read_write> world_cache: WorldCache;
 

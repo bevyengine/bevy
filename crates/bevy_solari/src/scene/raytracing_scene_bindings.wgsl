@@ -13,6 +13,13 @@ struct InstanceGeometryIds {
     triangle_count: u32,
 }
 
+struct InstanceRecord {
+    transform: mat4x4<f32>,
+    previous_frame_transform: mat4x4<f32>,
+    geometry_ids: InstanceGeometryIds,
+    material_id: u32,
+}
+
 struct VertexBuffer { vertices: array<PackedVertex> }
 
 struct IndexBuffer { indices: array<u32> }
@@ -80,13 +87,59 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
 @group(0) @binding(4) var<storage> materials: array<Material>;
 @group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
-@group(0) @binding(7) var<storage> previous_frame_transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
-@group(0) @binding(8) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(9) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
-@group(0) @binding(10) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(11) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(12) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(6) var<storage, read> instance_records: array<InstanceRecord>;
+@group(0) @binding(7) var<storage, read> scene_lights_blob: array<u32>;
+
+fn scene_lights_light_source_count() -> u32 {
+    return scene_lights_blob[0];
+}
+
+fn scene_lights_directional_light_count() -> u32 {
+    return scene_lights_blob[1];
+}
+
+fn scene_lights_translation_count() -> u32 {
+    return scene_lights_blob[2];
+}
+
+fn scene_lights_sources_word_base() -> u32 {
+    return 4u;
+}
+
+fn scene_lights_directional_word_base() -> u32 {
+    return scene_lights_sources_word_base() + scene_lights_light_source_count() * 2u;
+}
+
+fn previous_frame_light_translations_word_base() -> u32 {
+    return scene_lights_directional_word_base() + scene_lights_directional_light_count() * 8u;
+}
+
+fn load_light_source_packed(i: u32) -> LightSource {
+    let b = scene_lights_sources_word_base() + i * 2u;
+    return LightSource(scene_lights_blob[b], scene_lights_blob[b + 1u]);
+}
+
+fn load_directional_light_packed(i: u32) -> DirectionalLight {
+    let b = scene_lights_directional_word_base() + i * 8u;
+    return DirectionalLight(
+        vec3f(
+            bitcast<f32>(scene_lights_blob[b]),
+            bitcast<f32>(scene_lights_blob[b + 1u]),
+            bitcast<f32>(scene_lights_blob[b + 2u]),
+        ),
+        bitcast<f32>(scene_lights_blob[b + 3u]),
+        vec3f(
+            bitcast<f32>(scene_lights_blob[b + 4u]),
+            bitcast<f32>(scene_lights_blob[b + 5u]),
+            bitcast<f32>(scene_lights_blob[b + 6u]),
+        ),
+        bitcast<f32>(scene_lights_blob[b + 7u]),
+    );
+}
+
+fn load_previous_frame_light_translation(i: u32) -> u32 {
+    return scene_lights_blob[previous_frame_light_translations_word_base() + i];
+}
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -182,13 +235,14 @@ fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> ar
 }
 
 fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
-    let material_id = material_ids[instance_id];
+    let inst = instance_records[instance_id];
+    let material_id = inst.material_id;
     let material = materials[material_id];
 
-    let transform = transforms[instance_id];
-    let previous_frame_transform = previous_frame_transforms[instance_id];
+    let transform = inst.transform;
+    let previous_frame_transform = inst.previous_frame_transform;
 
-    let instance_geometry_ids = geometry_ids[instance_id];
+    let instance_geometry_ids = inst.geometry_ids;
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
 
     let world_vertices = transform_positions(transform, vertices);

@@ -5,7 +5,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, load_light_source_packed, load_directional_light_packed, scene_lights_light_source_count, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
@@ -126,15 +126,15 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
 }
 
 fn random_emissive_light_pdf(hit: ResolvedRayHitFull) -> f32 {
-    let light_count = arrayLength(&light_sources);
+    let light_count = scene_lights_light_source_count();
     return 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
-    let light_count = arrayLength(&light_sources);
+    let light_count = scene_lights_light_source_count();
     let light_id = rand_range_u(light_count, rng);
 
-    let light_source = light_sources[light_id];
+    let light_source = load_light_source_packed(light_id);
 
     var triangle_id = 0u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
@@ -153,7 +153,7 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
 
 fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
-        let directional_light = directional_lights[light_source.id];
+        let directional_light = load_directional_light_packed(light_source.id);
 
 #ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
         // Sample a random direction within a cone whose base is the sun approximated as a disk
@@ -207,7 +207,7 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
 }
 
 fn resolve_and_calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContributionNoPdf {
-    let resolved_light_sample = resolve_light_sample(light_sample, light_sources[light_sample.light_id >> 16u]);
+    let resolved_light_sample = resolve_light_sample(light_sample, load_light_source_packed(light_sample.light_id >> 16u));
     let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, origin_world_normal);
     return LightContributionNoPdf(light_contribution.radiance, light_contribution.wi);
 }

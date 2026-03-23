@@ -12,7 +12,7 @@ enable wgpu_ray_query;
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::unpack_resolved_light_sample
 #import bevy_solari::sampling::{LightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
-#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::scene_bindings::{load_light_source_packed, load_previous_frame_light_translation, LIGHT_NOT_PRESENT_THIS_FRAME}
 #import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD
 #import bevy_solari::realtime_bindings::{view_output, light_tile_samples, light_tile_resolved_samples, di_reservoirs_a, di_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, ResolvedLightSamplePacked}
 
@@ -70,7 +70,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 
     if reservoir_valid(combined_reservoir) {
-        let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, light_sources[combined_reservoir.sample.light_id >> 16u]);
+        let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, load_light_source_packed(combined_reservoir.sample.light_id >> 16u));
         combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position, resolved_light_sample.world_position);
     }
 
@@ -157,7 +157,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     // Check if the light selected in the previous frame no longer exists in the current frame (e.g. entity despawned)
     let previous_light_id = temporal.reservoir.sample.light_id >> 16u;
     let triangle_id = temporal.reservoir.sample.light_id & 0xFFFFu;
-    let light_id = previous_frame_light_id_translations[previous_light_id];
+    let light_id = load_previous_frame_light_translation(previous_light_id);
     if light_id == LIGHT_NOT_PRESENT_THIS_FRAME {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }

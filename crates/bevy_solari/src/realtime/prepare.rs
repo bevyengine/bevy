@@ -41,7 +41,7 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
-/// Offset of active_cells_count (u32) within the combined world_cache buffer.
+/// Offset of `active_cells_count` (`u32`) within the combined `world_cache` buffer.
 pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 = WORLD_CACHE_SIZE
     * (size_of::<u32>() as u64
         + size_of::<u32>() as u64
@@ -53,6 +53,12 @@ pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 = WORLD_CACHE_SIZE
         + size_of::<u32>() as u64)
     + 1024 * (size_of::<u32>() as u64);
 
+/// Byte offset of the 12-byte indirect dispatch arguments (three `u32`) in `world_cache`.
+pub const WORLD_CACHE_INDIRECT_DISPATCH_OFFSET: u64 =
+    WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64;
+
+pub const WORLD_CACHE_INDIRECT_DISPATCH_ARGS_SIZE: u64 = 3 * size_of::<u32>() as u64;
+
 /// Internal rendering resources used for Solari lighting.
 #[derive(Component)]
 pub struct SolariLightingResources {
@@ -63,7 +69,7 @@ pub struct SolariLightingResources {
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
     pub world_cache: Buffer,
-    pub world_cache_active_cells_dispatch: Buffer,
+    pub world_cache_indirect_args: Buffer,
     pub view_size: UVec2,
 }
 
@@ -161,7 +167,8 @@ pub fn prepare_solari_lighting_resources(
             + WORLD_CACHE_SIZE * size_of::<u32>() as u64
             + 1024 * size_of::<u32>() as u64
             + WORLD_CACHE_SIZE * size_of::<u32>() as u64
-            + size_of::<u32>() as u64;
+            + size_of::<u32>() as u64
+            + 3 * size_of::<u32>() as u64;
         let world_cache_size = (world_cache_size + 15) & !15;
         let world_cache = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache"),
@@ -170,10 +177,10 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let world_cache_active_cells_dispatch = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_active_cells_dispatch"),
-            size: 16, // metal debugger needs 16 byte alignment
-            usage: BufferUsages::INDIRECT | BufferUsages::STORAGE,
+        let world_cache_indirect_args = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_world_cache_indirect_args"),
+            size: WORLD_CACHE_INDIRECT_DISPATCH_ARGS_SIZE,
+            usage: BufferUsages::COPY_DST | BufferUsages::INDIRECT,
             mapped_at_creation: false,
         });
 
@@ -185,7 +192,7 @@ pub fn prepare_solari_lighting_resources(
             gi_reservoirs_a,
             gi_reservoirs_b,
             world_cache,
-            world_cache_active_cells_dispatch,
+            world_cache_indirect_args,
             view_size,
         });
 

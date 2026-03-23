@@ -1,6 +1,8 @@
 //! Demonstrates realtime dynamic raytraced lighting using Bevy Solari.
 
 use argh::FromArgs;
+#[cfg(not(target_os = "macos"))]
+use bevy::render::diagnostic::RenderDiagnosticsPlugin;
 use bevy::{
     camera::CameraMainTextureUsages,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
@@ -10,7 +12,7 @@ use bevy::{
     mesh::{Indices, VertexAttributeValues},
     post_process::bloom::Bloom,
     prelude::*,
-    render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
+    render::render_resource::TextureUsages,
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
@@ -47,13 +49,11 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((
-        DefaultPlugins,
-        SolariPlugins,
-        FreeCameraPlugin,
-        RenderDiagnosticsPlugin,
-    ))
-    .insert_resource(args);
+    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCameraPlugin))
+        .insert_resource(args);
+
+    #[cfg(not(target_os = "macos"))]
+    app.add_plugins(RenderDiagnosticsPlugin);
 
     if args.many_lights == Some(true) {
         app.add_systems(Startup, setup_many_lights);

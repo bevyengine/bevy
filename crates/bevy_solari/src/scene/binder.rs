@@ -32,6 +32,8 @@ pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
     pub bind_group_layout: BindGroupLayoutDescriptor,
     previous_frame_light_entities: Vec<Entity>,
+    scene_lights_blob: Option<Buffer>,
+    scene_lights_blob_capacity: u64,
 }
 
 pub fn prepare_raytracing_scene_bindings(
@@ -78,10 +80,7 @@ pub fn prepare_raytracing_scene_bindings(
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
         });
-    let mut transforms = StorageBufferList::<Mat4>::default();
-    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
-    let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
-    let mut material_ids = StorageBufferList::<u32>::default();
+    let mut instance_records = StorageBufferList::<GpuInstanceRecord>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
     let mut directional_lights = StorageBufferList::<GpuDirectionalLight>::default();
     let mut previous_frame_light_id_translations = StorageBufferList::<u32>::default();
@@ -174,12 +173,9 @@ pub fn prepare_raytracing_scene_bindings(
             0xFF,
         ));
 
-        transforms.get_mut().push(transform);
-        previous_frame_transforms.get_mut().push(
-            previous_frame_transform
-                .map(|t| Mat4::from(t.0))
-                .unwrap_or(transform),
-        );
+        let prev = previous_frame_transform
+            .map(|t| Mat4::from(t.0))
+            .unwrap_or(transform);
 
         let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
             vertex_slice.buffer.as_entire_buffer_binding(),
@@ -190,15 +186,18 @@ pub fn prepare_raytracing_scene_bindings(
             index_slice.buffer.id(),
         );
 
-        geometry_ids.get_mut().push(GpuInstanceGeometryIds {
-            vertex_buffer_id,
-            vertex_buffer_offset: vertex_slice.range.start,
-            index_buffer_id,
-            index_buffer_offset: index_slice.range.start,
-            triangle_count: (index_slice.range.len() / 3) as u32,
+        instance_records.get_mut().push(GpuInstanceRecord {
+            transform,
+            previous_frame_transform: prev,
+            geometry: GpuInstanceGeometryIds {
+                vertex_buffer_id,
+                vertex_buffer_offset: vertex_slice.range.start,
+                index_buffer_id,
+                index_buffer_offset: index_slice.range.start,
+                triangle_count: (index_slice.range.len() / 3) as u32,
+            },
+            material_id,
         });
-
-        material_ids.get_mut().push(material_id);
 
         if material.emissive != Vec3::ZERO {
             light_sources
@@ -252,13 +251,50 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     materials.write_buffer(&render_device, &render_queue);
-    transforms.write_buffer(&render_device, &render_queue);
-    previous_frame_transforms.write_buffer(&render_device, &render_queue);
-    geometry_ids.write_buffer(&render_device, &render_queue);
-    material_ids.write_buffer(&render_device, &render_queue);
-    light_sources.write_buffer(&render_device, &render_queue);
-    directional_lights.write_buffer(&render_device, &render_queue);
-    previous_frame_light_id_translations.write_buffer(&render_device, &render_queue);
+    instance_records.write_buffer(&render_device, &render_queue);
+
+    let ls = light_sources.get();
+    let dl = directional_lights.get();
+    let tr = previous_frame_light_id_translations.get();
+    let mut words = Vec::with_capacity(4 + ls.len() * 2 + dl.len() * 8 + tr.len());
+    words.push(ls.len() as u32);
+    words.push(dl.len() as u32);
+    words.push(tr.len() as u32);
+    words.push(0);
+    for s in ls.iter() {
+        words.push(s.kind);
+        words.push(s.id);
+    }
+    for d in dl.iter() {
+        let bytes = bytemuck::bytes_of(d);
+        for chunk in bytes.chunks_exact(4) {
+            words.push(u32::from_ne_bytes(chunk.try_into().unwrap()));
+        }
+    }
+    words.extend_from_slice(tr);
+
+    let needed_bytes = (words.len() * 4) as u64;
+    let reuse = if raytracing_scene_bindings.scene_lights_blob.is_some() {
+        raytracing_scene_bindings.scene_lights_blob_capacity >= needed_bytes
+    } else {
+        false
+    };
+    if !reuse {
+        let cap = needed_bytes.next_power_of_two().max(256);
+        raytracing_scene_bindings.scene_lights_blob =
+            Some(render_device.create_buffer(&BufferDescriptor {
+                label: Some("raytracing_scene_lights_blob"),
+                size: cap,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        raytracing_scene_bindings.scene_lights_blob_capacity = cap;
+    }
+    let sl_buffer = raytracing_scene_bindings
+        .scene_lights_blob
+        .as_ref()
+        .unwrap();
+    render_queue.write_buffer(sl_buffer, 0, bytemuck::cast_slice(&words));
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
         label: Some("build_tlas_command_encoder"),
@@ -276,13 +312,8 @@ pub fn prepare_raytracing_scene_bindings(
             samplers.as_slice(),
             materials.binding().unwrap(),
             tlas.as_binding(),
-            transforms.binding().unwrap(),
-            previous_frame_transforms.binding().unwrap(),
-            geometry_ids.binding().unwrap(),
-            material_ids.binding().unwrap(),
-            light_sources.binding().unwrap(),
-            directional_lights.binding().unwrap(),
-            previous_frame_light_id_translations.binding().unwrap(),
+            instance_records.binding().unwrap(),
+            sl_buffer.as_entire_binding(),
         )),
     ));
 }
@@ -305,15 +336,12 @@ impl RaytracingSceneBindings {
                         acceleration_structure(),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
             previous_frame_light_entities: Vec::new(),
+            scene_lights_blob: None,
+            scene_lights_blob_capacity: 0,
         }
     }
 }
@@ -369,6 +397,14 @@ struct GpuInstanceGeometryIds {
 }
 
 #[derive(ShaderType)]
+struct GpuInstanceRecord {
+    transform: Mat4,
+    previous_frame_transform: Mat4,
+    geometry: GpuInstanceGeometryIds,
+    material_id: u32,
+}
+
+#[derive(ShaderType)]
 struct GpuMaterial {
     normal_map_texture_id: u32,
     base_color_texture_id: u32,
@@ -409,7 +445,8 @@ impl GpuLightSource {
     }
 }
 
-#[derive(ShaderType, Default)]
+#[repr(C)]
+#[derive(ShaderType, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct GpuDirectionalLight {
     direction_to_light: Vec3,
     cos_theta_max: f32,
