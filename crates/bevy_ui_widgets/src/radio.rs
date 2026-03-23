@@ -143,7 +143,7 @@ fn radio_group_on_key_input(
                 source: next_id,
                 value: true,
             });
-            // Trigger the on_change event for the newly checked radio button on radio group
+            // Trigger the `ValueChange` event for the newly checked radio button on radio group
             commands.trigger(ValueChange::<Entity> {
                 source: ev.focused_entity,
                 value: next_id,

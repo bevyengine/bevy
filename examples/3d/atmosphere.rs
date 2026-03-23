@@ -4,7 +4,7 @@ use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
@@ -14,12 +14,12 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
+        FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
+        MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -30,6 +30,12 @@ use bevy::{
 #[derive(Resource, Default)]
 struct GameState {
     paused: bool,
+}
+
+#[derive(Resource)]
+struct AtmospherePresets {
+    earth: Handle<ScatteringMedium>,
+    mars: Handle<ScatteringMedium>,
 }
 
 fn main() {
@@ -56,6 +62,8 @@ fn print_controls() {
     println!("Atmosphere Example Controls:");
     println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
+    println!("    3          - Switch to Earth atmosphere");
+    println!("    4          - Switch to Mars atmosphere");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -63,10 +71,26 @@ fn print_controls() {
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut atmosphere_settings: Query<&mut AtmosphereSettings>,
+    mut atmosphere_query: Query<&mut Atmosphere>,
+    atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Digit3) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            println!("Switched to Earth atmosphere");
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Digit4) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            println!("Switched to Mars atmosphere");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Digit1) {
         for mut settings in &mut atmosphere_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
@@ -98,12 +122,25 @@ fn atmosphere_controls(
     }
 }
 
-fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
+fn setup_camera_fog(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    asset_server: Res<AssetServer>,
+) {
+    let earth_medium = scattering_mediums.add(ScatteringMedium::earth(256, 256));
+    let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
+    let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
+
+    commands.insert_resource(AtmospherePresets {
+        earth: earth_medium.clone(),
+        mars: mars_medium.clone(),
+    });
+
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // get the default `Atmosphere` component
-        earth_atmosphere.get(),
+        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Earth atmosphere
+        Atmosphere::earth(earth_medium),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
@@ -125,8 +162,11 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
-        ScreenSpaceReflections::default(),
+        TemporalAntiAliasing::default(),
+        ScreenSpaceReflections {
+            min_perceptual_roughness: 0.0..0.0,
+            ..default()
+        },
     ));
 }
 
@@ -169,22 +209,13 @@ impl MaterialExtension for Water {
 fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        first_cascade_far_bound: 0.3,
-        maximum_distance: 15.0,
-        ..default()
-    }
-    .build();
-
     // Sun
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             // lux::RAW_SUNLIGHT is recommended for use with this feature, since
             // other values approximate sunlight *post-scattering* in various
             // conditions. RAW_SUNLIGHT in comparison is the illuminance of the
@@ -195,38 +226,12 @@ fn setup_terrain_scene(
         },
         Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        cascade_shadow_config,
     ));
 
     // spawn the fog volume
     commands.spawn((
         FogVolume::default(),
         Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
-    ));
-
-    let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
-
-    // light probe spheres
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 1.0,
-            perceptual_roughness: 0.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
-    ));
-
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 0.0,
-            perceptual_roughness: 1.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     // Terrain

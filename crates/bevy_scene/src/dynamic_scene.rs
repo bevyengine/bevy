@@ -1,6 +1,6 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
-use crate::reflect_utils::clone_reflect_value;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
@@ -43,13 +42,35 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    pub fn from_scene(scene: &Scene) -> Self {
-        Self::from_world(&scene.world)
+    ///
+    /// The `type_registry` provides type information for extracting components and resources
+    /// through reflection. You can get this registry from the **main** world, using
+    /// `main_world.resource::<AppTypeRegistry>().read()` or `app_type_registry_res.read()`
+    /// (for `Res<AppTypeRegistry>`). Note: the scene world is unlikely to have a type registry
+    /// internally.
+    pub fn from_scene(scene: &Scene, type_registry: &TypeRegistry) -> Self {
+        Self::from_world_with(&scene.world, type_registry)
     }
 
     /// Create a new dynamic scene from a given world.
+    ///
+    /// Panics if `world` does not contain [`AppTypeRegistry`]. Use [`Self::from_world_with`] to
+    /// handle this case.
     pub fn from_world(world: &World) -> Self {
-        DynamicSceneBuilder::from_world(world)
+        let type_registry = world.resource::<AppTypeRegistry>().read();
+        Self::from_world_with(world, &type_registry)
+    }
+
+    /// Create a new dynamic scene from a given world.
+    ///
+    /// The `type_registry` provides type information for extracting components and resources
+    /// through reflection. If the `world` is the "real" world (e.g., not a world in a [`Scene`]),
+    /// the `world` will contain the registry, which can be acquired using
+    /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "scene worlds", you
+    /// will need to get the type registry from the main world (you can clone the `AppTypeRegistry`
+    /// out of the world to avoid borrowing the world itself).
+    pub fn from_world_with(world: &World, type_registry: &TypeRegistry) -> Self {
+        DynamicSceneBuilder::from_world(world, type_registry)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
                 // while we could use `Allow<_>`, this wouldn't account for custom disabled components
@@ -72,10 +93,8 @@ impl DynamicScene {
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity>,
-        type_registry: &AppTypeRegistry,
+        type_registry: &TypeRegistry,
     ) -> Result<(), SceneSpawnError> {
-        let type_registry = type_registry.read();
-
         // First ensure that every entity in the scene has a corresponding world
         // entity in the entity map.
         for scene_entity in &self.entities {
@@ -130,7 +149,7 @@ impl DynamicScene {
                     reflect_component.apply_or_insert_mapped(
                         &mut world.entity_mut(entity),
                         component.as_partial_reflect(),
-                        &type_registry,
+                        type_registry,
                         mapper,
                         RelationshipHookMode::Skip,
                     );
@@ -151,30 +170,34 @@ impl DynamicScene {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
+            // reflect_resource existing, implies that reflect_component also exists
+            let reflect_component = registration
+                .data::<ReflectComponent>()
+                .expect("ReflectComponent is depended on ReflectResource");
 
-            // If this component references entities in the scene, update
-            // them to the entities in the world.
-            let mut cloned_resource;
-            let partial_reflect_resource = if let Some(map_entities) =
-                registration.data::<ReflectMapEntities>()
-            {
-                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
-                SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
-                });
-                cloned_resource.as_partial_reflect()
+            let resource_id = reflect_component.register_component(world);
+
+            // check if the resource already exists, if not spawn it, otherwise override the value
+            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
+                *entity
             } else {
-                resource.as_partial_reflect()
+                world.spawn_empty().id()
             };
 
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
+            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                reflect_component.apply_or_insert_mapped(
+                    &mut world.entity_mut(entity),
+                    resource.as_partial_reflect(),
+                    type_registry,
+                    mapper,
+                    RelationshipHookMode::Skip,
+                );
+            });
         }
 
         Ok(())
@@ -191,7 +214,7 @@ impl DynamicScene {
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
-        self.write_to_world_with(world, entity_map, &registry)
+        self.write_to_world_with(world, entity_map, &registry.read())
     }
 
     // TODO: move to AssetSaver when it is implemented
@@ -247,11 +270,10 @@ mod tests {
 
     #[test]
     fn resource_entity_map_maps_entities() {
-        let type_registry = AppTypeRegistry::default();
-        type_registry.write().register::<TestResource>();
+        let app_type_registry = AppTypeRegistry::default();
+        app_type_registry.write().register::<TestResource>();
 
         let mut source_world = World::new();
-        source_world.insert_resource(type_registry.clone());
 
         let original_entity_a = source_world.spawn_empty().id();
         let original_entity_b = source_world.spawn_empty().id();
@@ -262,15 +284,18 @@ mod tests {
         });
 
         // Write the scene.
-        let scene = DynamicSceneBuilder::from_world(&source_world)
-            .extract_resources()
-            .extract_entity(original_entity_a)
-            .extract_entity(original_entity_b)
-            .build();
+        let scene = {
+            let type_registry = app_type_registry.read();
+            DynamicSceneBuilder::from_world(&source_world, &type_registry)
+                .extract_resources()
+                .extract_entity(original_entity_a)
+                .extract_entity(original_entity_b)
+                .build()
+        };
 
         let mut entity_map = EntityHashMap::default();
         let mut destination_world = World::new();
-        destination_world.insert_resource(type_registry);
+        destination_world.insert_resource(app_type_registry);
 
         scene
             .write_to_world(&mut destination_world, &mut entity_map)
@@ -303,10 +328,13 @@ mod tests {
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
-        let scene = DynamicSceneBuilder::from_world(&world)
-            .extract_entity(original_parent_entity)
-            .extract_entity(original_child_entity)
-            .build();
+        let scene = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicSceneBuilder::from_world(&world, &type_registry)
+                .extract_entity(original_parent_entity)
+                .extract_entity(original_child_entity)
+                .build()
+        };
         let mut entity_map = EntityHashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 

@@ -16,12 +16,12 @@ This can cut down compile times and shrink your final binary size.
 For example, you can compile only the "2D" Bevy features (without the 3D features) like this:
 
 ```toml
-bevy = { version = "0.17", default-features = false, features = ["2d"] }
+bevy = { version = "0.18", default-features = false, features = ["2d"] }
 ```
 
 |Profile|Description|
 |-|-|
-|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui|
+|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio|
 |2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.|
 |3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
 |ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
@@ -36,20 +36,20 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 |Collection|Description|
 |-|-|
-|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!|
-|audio|Features used to build audio Bevy apps.|
-|scene|Features used to compose Bevy scenes.|
-|picking|Enables picking functionality|
-|default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).|
-|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc.|
-|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).|
-|2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render` |
-|3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render` |
-|ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render` |
-|default_no_std|Recommended defaults for no_std applications|
+|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
+|audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
+|scene|Features used to compose Bevy scenes. **Feature set:** `bevy_scene`.|
+|picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
+|default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_input_focus`, `bevy_log`, `bevy_state`, `bevy_window`, `custom_cursor`, `reflect_auto_register`.|
+|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `android_shared_stdcxx`, `bevy_gilrs`, `bevy_winit`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
+|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `hdr`, `png`.|
+|2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_sprite`.|
+|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`. **Feature set:** `2d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_post_process`, `bevy_sprite_render`, `bevy_gizmos_render`.|
+|3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_light`, `bevy_mikktspace`, `ktx2`, `morph_animation`, `morph`, `smaa_luts`, `tonemapping_luts`, `zstd_rust`.|
+|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`. **Feature set:** `3d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_gizmos_render`, `bevy_anti_alias`, `bevy_gltf`, `bevy_pbr`, `bevy_post_process`, `gltf_animation`.|
+|ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `default_app`, `common_api`, `bevy_ui`.|
+|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`. **Feature set:** `ui_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_ui_render`.|
+|default_no_std|Recommended defaults for no_std applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
 
 ### Feature List
 
@@ -84,14 +84,16 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_input_focus|Enable input focus subsystem|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
+|bevy_material|Provides materials.|
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
 |bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
-|bevy_picking|Provides picking functionality|
+|bevy_picking|Provides picking functionality without any backend|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
+|bevy_settings|Load and save user preferences|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|
@@ -101,6 +103,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
+|bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
@@ -117,7 +120,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_bevy_feathers|Feathers widget collection.|
-|experimental_bevy_ui_widgets|Experimental headless widget collection for Bevy UI.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
@@ -125,6 +127,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
+|gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
+|gestures|Gestures support. Automatically enabled by `bevy_window`.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
@@ -135,6 +139,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
@@ -142,6 +147,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
+|mouse|Mouse support. Automatically enabled by `bevy_window`.|
 |mp3|MP3 audio format support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
@@ -175,14 +181,17 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
+|system_font_discovery|Allows for discovery of preloaded system fonts|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|touch|Touch support. Automatically enabled by `bevy_window`.|
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
+|type_label_buffers|Pre-populate buffer labels with buffer types for debugging.|
 |ui_picking|Provides an implementation for picking UI|
 |vorbis|OGG/VORBIS audio format support|
 |wav|WAV audio format support|

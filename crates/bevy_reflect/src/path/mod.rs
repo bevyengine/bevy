@@ -238,12 +238,12 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// );
 /// ```
 ///
-/// [`Struct`]: crate::Struct
-/// [`Tuple`]: crate::Tuple
-/// [`TupleStruct`]: crate::TupleStruct
-/// [`List`]: crate::List
-/// [`Array`]: crate::Array
-/// [`Enum`]: crate::Enum
+/// [`Struct`]: crate::structs::Struct
+/// [`Tuple`]: crate::tuple::Tuple
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
+/// [`List`]: crate::list::List
+/// [`Array`]: crate::array::Array
+/// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
@@ -274,7 +274,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
         path.element(self.as_partial_reflect())
     }
@@ -285,7 +285,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
         path.element_mut(self.as_partial_reflect_mut())
     }
@@ -295,7 +295,8 @@ pub trait GetPath: PartialReflect {
 impl<T: Reflect + ?Sized> GetPath for T {}
 
 /// An [`Access`] combined with an `offset` for more helpful error reporting.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
@@ -363,7 +364,8 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,
@@ -519,7 +521,7 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 )]
 mod tests {
     use super::*;
-    use crate::*;
+    use crate::{enums::VariantType, *};
     use alloc::vec;
 
     #[derive(Reflect, PartialEq, Debug)]

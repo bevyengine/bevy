@@ -23,15 +23,14 @@ use crate::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
     },
-    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, ErrorContext},
     event::{EntityEvent, Event},
     message::Message,
-    observer::Observer,
+    observer::{IntoEntityObserver, IntoObserver},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
-        SystemParamValidationError,
+        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -130,6 +129,7 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
+        #[track_caller]
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
@@ -177,36 +177,27 @@ const _: () = {
         }
 
         #[inline]
-        unsafe fn validate_param(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell,
-        ) -> Result<(), SystemParamValidationError> {
-            <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                &mut state.state,
-                system_meta,
-                world,
-            )
-        }
-
-        #[inline]
+        #[track_caller]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
-        ) -> Self::Item<'w, 's> {
-            let params = <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                &mut state.state,
-                system_meta,
-                world,
-                change_tick,
-            );
-            Commands {
+        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+            // SAFETY: Upheld by caller
+            let params = unsafe {
+                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                    &mut state.state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )?
+            };
+            Ok(Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,
                 entities: params.2,
-            }
+            })
         }
     }
     // SAFETY: Only reads Entities
@@ -226,7 +217,7 @@ enum InternalQueue<'s> {
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, &world.allocator, &world.entities)
+        Self::new_from_entities(queue, &world.entity_allocator, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -259,6 +250,20 @@ impl<'w, 's> Commands<'w, 's> {
             allocator,
             entities,
         }
+    }
+
+    /// Returns a new [`Commands`] that writes commands to the provided [`CommandQueue`] instead of the one from `self`.
+    ///
+    /// This is useful if you have a `Commands` that writes to one queue and you want one that writes to another.
+    ///
+    /// Note that you're responsible for ensuring the queue eventually writes its commands to the world. One way to
+    /// do this is calling [`Commands::append`] on a `Commands` that writes to the world queue. Failure to write a
+    /// queue may result in entities being allocated but never spawned, which means those entity IDs are never
+    /// freed for reuse.
+    ///
+    /// The original `Commands` isn't mutated or borrowed after this returns, so you can keep using it.
+    pub fn rebound_to<'q>(&self, queue: &'q mut CommandQueue) -> Commands<'w, 'q> {
+        Commands::new_from_entities(queue, self.allocator, self.entities)
     }
 
     /// Returns a [`Commands`] with a smaller lifetime.
@@ -608,7 +613,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -630,7 +637,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue(&mut self, command: impl Command) {
         self.queue_internal(command.handle_error());
     }
 
@@ -659,7 +666,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -681,20 +690,20 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl Command,
         error_handler: fn(BevyError, ErrorContext),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
 
     /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
-    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue_silenced(&mut self, command: impl Command) {
         self.queue_internal(command.ignore_error());
     }
 
-    fn queue_internal(&mut self, command: impl Command) {
+    fn queue_internal(&mut self, command: impl Command<Out = ()>) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -1104,6 +1113,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+    ///
     /// The first time this method is called for a particular system,
     /// it will register the system and store its [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
@@ -1152,7 +1163,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger_with(event, trigger));
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
+    /// Spawns an [`Observer`](crate::observer::Observer) and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
     /// `observer` can be any system whose first parameter is [`On`].
@@ -1166,11 +1177,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityCommands<'_> {
-        self.spawn(Observer::new(observer))
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> EntityCommands<'_> {
+        self.spawn(observer.into_observer())
     }
 
     /// Writes an arbitrary [`Message`].
@@ -1903,10 +1911,7 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands.queue(command.with_entity(self.entity));
         self
     }
@@ -1948,9 +1953,9 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl EntityCommand,
         error_handler: fn(BevyError, ErrorContext),
     ) -> &mut Self {
         self.commands
@@ -1961,10 +1966,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
-    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue_silenced(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands
             .queue_silenced(command.with_entity(self.entity));
         self
@@ -2022,12 +2024,9 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// Creates an [`Observer`](crate::observer::Observer) watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> &mut Self {
+    pub fn observe<M>(&mut self, observer: impl IntoEntityObserver<M>) -> &mut Self {
         self.queue(entity_command::observe(observer))
     }
 

@@ -152,8 +152,6 @@
 //! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
-#![deny(missing_docs)]
-
 extern crate alloc;
 
 pub mod backend;
@@ -193,7 +191,7 @@ pub mod prelude {
 /// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
 ///
 /// See the documentation on the fields for more details.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
@@ -432,6 +430,8 @@ impl Plugin for InteractionPlugin {
             .add_message::<Pointer<Move>>()
             .add_message::<Pointer<Out>>()
             .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Leave>>()
+            .add_message::<Pointer<Enter>>()
             .add_message::<Pointer<Release>>()
             .add_message::<Pointer<Scroll>>()
             .add_systems(

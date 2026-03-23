@@ -26,6 +26,10 @@ mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
 
+mod tile_orientation;
+
+pub use tile_orientation::*;
+
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
 pub struct TilemapChunkPlugin;
@@ -95,6 +99,8 @@ pub struct TileData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileData {
@@ -113,6 +119,7 @@ impl Default for TileData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }
@@ -182,7 +189,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
-fn update_tilemap_chunk_indices(
+pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
@@ -219,7 +226,7 @@ fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity

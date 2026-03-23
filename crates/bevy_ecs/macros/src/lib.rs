@@ -15,7 +15,9 @@ use crate::{
     component::map_entities, query_data::derive_query_data_impl,
     query_filter::derive_query_filter_impl,
 };
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
@@ -137,13 +139,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
             ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
-                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
             ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {
-                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
     };
@@ -173,7 +175,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: #ecs_path::ptr::MovingPtr<'_, core::mem::MaybeUninit<Self>>,
+                ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }
@@ -384,7 +386,7 @@ fn derive_system_param_impl(
         let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
-            struct #builder_name<#(#builder_type_parameters,)*> {
+            struct #builder_name<#(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters,)*> {
                 #(#field_members: #builder_type_parameters,)*
             }
         };
@@ -394,7 +396,7 @@ fn derive_system_param_impl(
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*
-                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
                 #punctuated_generics
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
@@ -450,32 +452,21 @@ fn derive_system_param_impl(
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s mut Self::State,
-                    _system_meta: &#path::system::SystemMeta,
-                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> Result<(), #path::system::SystemParamValidationError> {
-                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
-                    #(
-                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
-                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
-                    )*
-                    Result::Ok(())
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> Self::Item<'w, 's> {
-                    let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
+                ) -> Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                    let (#(#tuple_patterns,)*) = &mut state.state;
+                    #(
+                        let #field_locals = unsafe {
+                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                        }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
+                    )*
+                    Result::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
-                    }
+                    })
                 }
             }
 
@@ -567,6 +558,62 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+/// Implement the `SettingsGroup` trait.
+#[proc_macro_derive(SettingsGroup, attributes(settings_group))]
+pub fn derive_settings_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = &input.ident;
+
+    let (override_name, override_file) = {
+        let mut override_name: Option<String> = None;
+        let mut override_file: Option<String> = None;
+
+        input
+            .attrs
+            .iter()
+            .find(|attr| attr.path().is_ident("settings_group"))
+            .and_then(|attr| {
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("group") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_name = Some(s.value());
+                        Ok(())
+                    } else if meta.path.is_ident("file") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_file = Some(s.value());
+                        Ok(())
+                    } else {
+                        Err(meta.error("unsupported attribute"))
+                    }
+                })
+                .ok()
+            });
+
+        (override_name, override_file)
+    };
+
+    let group_name = override_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+    let file_name = override_file
+        .map(|f| quote! { Some(#f) })
+        .unwrap_or(quote! { None });
+
+    let expanded = quote! {
+        impl SettingsGroup for #name {
+            fn settings_group_name() -> &'static str {
+                #group_name
+            }
+            fn settings_source() -> Option<&'static str> {
+                #file_name
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
 /// Cheat sheet for derive syntax,
 /// see full explanation and examples on the `Component` trait doc.
 ///
@@ -629,9 +676,20 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// On despawn, also despawn all related entities:
 /// ```ignore
 /// #[derive(Component)]
-/// #[relationship_target(relationship_target = Children, linked_spawn)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+///
+/// Allow relationships to point to their own entity:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+/// ```
+/// ## Warning
+///
+/// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
+/// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
 /// ## Hooks
 /// ```ignore
@@ -639,7 +697,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// #[component(hook_name = function)]
 /// struct MyComponent;
 /// ```
-/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;  
+/// where `hook_name` is `on_add`, `on_insert`, `on_discard` or `on_remove`;
 /// `function` can be either a path, e.g. `some_function::<Self>`,
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.

@@ -2,7 +2,7 @@ use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{DynamicMap, Map};
+use bevy_reflect::map::{DynamicMap, Map};
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,

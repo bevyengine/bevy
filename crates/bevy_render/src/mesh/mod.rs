@@ -1,6 +1,12 @@
 pub mod allocator;
+#[cfg(feature = "morph")]
+pub mod morph;
+
+#[cfg(feature = "morph")]
+use crate::GpuResourceAppExt;
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
     RenderApp,
 };
@@ -14,10 +20,11 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-#[cfg(feature = "morph")]
-use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
-use bevy_mesh::*;
+pub use bevy_mesh::*;
 use wgpu::IndexFormat;
+
+#[cfg(feature = "morph")]
+use crate::mesh::morph::RenderMorphTargetAllocator;
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
 /// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
@@ -36,37 +43,14 @@ impl Plugin for MeshRenderAssetPlugin {
 
         render_app.init_resource::<MeshVertexBufferLayouts>();
     }
-}
 
-/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
-/// bevy mesh child entities (ie: glTF primitive).
-#[cfg(feature = "morph")]
-pub struct MorphPlugin;
-#[cfg(feature = "morph")]
-impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            bevy_app::PostUpdate,
-            inherit_weights.in_set(InheritWeightSystems),
-        );
-    }
-}
+    fn finish(&self, app: &mut App) {
+        let Some(_render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
-/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
-/// should be inherited by children meshes.
-///
-/// Only direct children are updated, to fulfill the expectations of glTF spec.
-#[cfg(feature = "morph")]
-pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
-) {
-    for (children, parent_weights) in &morph_nodes {
-        let mut iter = morph_primitives.iter_many_mut(children);
-        while let Some(mut child_weight) = iter.fetch_next() {
-            child_weight.clear_weights();
-            child_weight.extend_weights(parent_weights.weights());
-        }
+        #[cfg(feature = "morph")]
+        _render_app.init_gpu_resource::<RenderMorphTargetAllocator>();
     }
 }
 
@@ -75,10 +59,6 @@ pub fn inherit_weights(
 pub struct RenderMesh {
     /// The number of vertices in the mesh.
     pub vertex_count: u32,
-
-    /// Morph targets for the mesh, if present.
-    #[cfg(feature = "morph")]
-    pub morph_targets: Option<crate::render_resource::TextureView>,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -107,6 +87,11 @@ impl RenderMesh {
     pub fn indexed(&self) -> bool {
         matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
     }
+
+    #[inline]
+    pub fn has_morph_targets(&self) -> bool {
+        self.key_bits.contains(BaseMeshPipelineKey::MORPH_TARGETS)
+    }
 }
 
 /// The index/vertex buffer info of a [`RenderMesh`].
@@ -121,14 +106,34 @@ pub enum RenderMeshBufferInfo {
 
 impl RenderAsset for RenderMesh {
     type SourceAsset = Mesh;
+
+    #[cfg(not(feature = "morph"))]
     type Param = (
-        SRes<RenderAssets<GpuImage>>,
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
         SResMut<MeshVertexBufferLayouts>,
+        (),
+    );
+    #[cfg(feature = "morph")]
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
+        SResMut<MeshVertexBufferLayouts>,
+        SResMut<RenderMorphTargetAllocator>,
     );
 
     #[inline]
     fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
         mesh.asset_usage
+    }
+
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        source
+            .take_gpu_data()
+            .map_err(|_| AssetExtractionError::AlreadyExtracted)
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
@@ -146,21 +151,15 @@ impl RenderAsset for RenderMesh {
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        _: AssetId<Self::SourceAsset>,
-        (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _mesh_id: AssetId<Self::SourceAsset>,
+        (
+            _render_device,
+            _render_queue,
+            mesh_vertex_buffer_layouts,
+            _render_morph_targets_allocator,
+        ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        #[cfg(feature = "morph")]
-        let morph_targets = match mesh.morph_targets() {
-            Some(mt) => {
-                let Some(target_image) = _images.get(mt) else {
-                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
-                };
-                Some(target_image.texture_view.clone())
-            }
-            None => None,
-        };
-
         let buffer_info = match mesh.indices() {
             Some(indices) => RenderMeshBufferInfo::Indexed {
                 count: indices.len() as u32,
@@ -180,13 +179,32 @@ impl RenderAsset for RenderMesh {
             key_bits
         };
 
+        // Place the morph displacements in an image if necessary.
+        #[cfg(feature = "morph")]
+        if let Some(morph_targets) = mesh.morph_targets() {
+            _render_morph_targets_allocator.allocate(
+                _render_device,
+                _render_queue,
+                _mesh_id,
+                morph_targets,
+                mesh.count_vertices(),
+            );
+        }
+
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            #[cfg(feature = "morph")]
-            morph_targets,
         })
+    }
+
+    fn unload_asset(
+        _mesh_id: AssetId<Self::SourceAsset>,
+        (_, _, _, _render_morph_targets_allocator): &mut SystemParamItem<Self::Param>,
+    ) {
+        // Free the morph target images if necessary.
+        #[cfg(feature = "morph")]
+        _render_morph_targets_allocator.free(_mesh_id);
     }
 }

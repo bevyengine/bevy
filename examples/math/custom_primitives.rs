@@ -70,6 +70,7 @@ const PROJECTION_3D: Projection = Projection::Perspective(PerspectiveProjection 
     near: 0.1,
     far: 1000.0,
     aspect_ratio: 1.0,
+    near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
 });
 
 /// State for tracking the currently displayed shape
@@ -242,7 +243,7 @@ fn setup(
     // Point light for 3D
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
@@ -389,6 +390,7 @@ fn switch_shapes(
     };
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
     wireframe_config.global = !wireframe_config.global;
 }

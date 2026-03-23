@@ -10,22 +10,29 @@ mod render_asset_diagnostic_plugin;
 mod tracy_gpu;
 
 use alloc::{borrow::Cow, sync::Arc};
+use bevy_ecs::{
+    schedule::IntoScheduleConfigs,
+    system::{Res, ResMut},
+    world::{FromWorld, World},
+};
 use core::marker::PhantomData;
+use wgpu::{BufferSlice, CommandEncoder};
 
 use bevy_app::{App, Plugin, PreUpdate};
 
-use crate::{renderer::RenderAdapterInfo, RenderApp};
-
-use self::internal::{
-    sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
+use crate::{
+    renderer::{PendingCommandBuffers, RenderGraph, RenderGraphSystems},
+    GpuResourceAppExt, RenderApp,
 };
+
+use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
     erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
-    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    internal::DiagnosticsRecorder, mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::renderer::RenderDevice;
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
@@ -45,7 +52,7 @@ use crate::renderer::{RenderDevice, RenderQueue};
 ///     ```ignore
 ///     let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
 ///     ```
-///  3. End the span, providing the same encoder.
+///  3. End the span, providing the encoder (or the same render/compute pass).
 ///     ```ignore
 ///     time_span.end(render_context.command_encoder());
 ///     ```
@@ -72,11 +79,54 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
-        let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
-        let device = render_app.world().resource::<RenderDevice>();
-        let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(adapter_info, device, queue));
+        render_app.init_gpu_resource::<DiagnosticsRecorder>();
+
+        render_app.add_systems(
+            RenderGraph,
+            (
+                begin_diagnostics_frame.in_set(RenderGraphSystems::Begin),
+                resolve_encoder
+                    .after(RenderGraphSystems::Render)
+                    .before(RenderGraphSystems::Submit),
+                finish_diagnostics_frame.in_set(RenderGraphSystems::Finish),
+            ),
+        );
     }
+}
+
+impl FromWorld for DiagnosticsRecorder {
+    fn from_world(world: &mut World) -> Self {
+        DiagnosticsRecorder::new(world.resource(), world.resource(), world.resource())
+    }
+}
+
+/// Starts the diagnostics recorder for the frame.
+pub fn begin_diagnostics_frame(mut recorder: ResMut<DiagnosticsRecorder>) {
+    recorder.begin_frame();
+}
+
+/// Resolves the encoder used for diagnostic recording
+pub fn resolve_encoder(
+    mut recorder: ResMut<DiagnosticsRecorder>,
+    render_device: Res<RenderDevice>,
+    mut pending_buffers: ResMut<PendingCommandBuffers>,
+) {
+    let mut encoder =
+        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+    recorder.resolve(&mut encoder);
+    pending_buffers.push_encoder(encoder);
+}
+
+/// Ends the current frame for the diagnostics recorder and syncs it with the main world.
+fn finish_diagnostics_frame(
+    mut recorder: ResMut<DiagnosticsRecorder>,
+    render_device: Res<RenderDevice>,
+    mutex: Res<RenderDiagnosticsMutex>,
+) {
+    let mutex = mutex.0.clone();
+    recorder.finish_frame(&render_device, move |diagnostics| {
+        *mutex.lock().unwrap() = Some(diagnostics);
+    });
 }
 
 /// Allows recording diagnostic spans.
@@ -105,12 +155,28 @@ pub trait RecordDiagnostics: Send + Sync {
         P: Pass,
         N: Into<Cow<'static, str>>,
     {
-        self.begin_pass_span(pass, name.into());
+        let name = name.into();
+        self.begin_pass_span(pass, name.clone());
         PassSpanGuard {
             recorder: self,
+            name,
             marker: PhantomData,
         }
     }
+
+    /// Reads a f32 from the specified buffer and uploads it as a diagnostic.
+    ///
+    /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>;
+
+    /// Reads a u32 from the specified buffer and uploads it as a diagnostic.
+    ///
+    /// The provided buffer slice must be 4 bytes long, and the buffer must have [`wgpu::BufferUsages::COPY_SRC`];
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>;
 
     #[doc(hidden)]
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>);
@@ -134,7 +200,7 @@ pub struct TimeSpanGuard<'a, R: ?Sized, E> {
 }
 
 impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
-    /// End the span. You have to provide the same encoder which was used to begin the span.
+    /// End the span.
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
         core::mem::forget(self);
@@ -143,7 +209,7 @@ impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
 
 impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
     fn drop(&mut self) {
-        panic!("TimeSpanScope::end was never called")
+        bevy_log::error!("TimeSpanScope::end was never called");
     }
 }
 
@@ -152,6 +218,7 @@ impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
 /// Will panic on drop unless [`PassSpanGuard::end`] is called.
 pub struct PassSpanGuard<'a, R: ?Sized, P> {
     recorder: &'a R,
+    name: Cow<'static, str>,
     marker: PhantomData<P>,
 }
 
@@ -165,11 +232,29 @@ impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
 
 impl<R: ?Sized, P> Drop for PassSpanGuard<'_, R, P> {
     fn drop(&mut self) {
-        panic!("PassSpanScope::end was never called")
+        panic!("PassSpanGuard::end was never called for {}", self.name)
     }
 }
 
 impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = &self {
+            recorder.record_f32(command_encoder, buffer, name);
+        }
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = &self {
+            recorder.record_u32(command_encoder, buffer, name);
+        }
+    }
+
     fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
         if let Some(recorder) = &self {
             recorder.begin_time_span(encoder, name);
@@ -190,6 +275,50 @@ impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
 
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
         if let Some(recorder) = &self {
+            recorder.end_pass_span(pass);
+        }
+    }
+}
+
+impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_f32(command_encoder, buffer, name);
+        }
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_u32(command_encoder, buffer, name);
+        }
+    }
+
+    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_time_span(encoder, name);
+        }
+    }
+
+    fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
+        if let Some(recorder) = self {
+            recorder.end_time_span(encoder);
+        }
+    }
+
+    fn begin_pass_span<P: Pass>(&self, pass: &mut P, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_pass_span(pass, name);
+        }
+    }
+
+    fn end_pass_span<P: Pass>(&self, pass: &mut P) {
+        if let Some(recorder) = self {
             recorder.end_pass_span(pass);
         }
     }

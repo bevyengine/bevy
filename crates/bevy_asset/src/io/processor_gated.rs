@@ -1,5 +1,8 @@
 use crate::{
-    io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
+    io::{
+        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderNotSeekableError,
+        SeekableReader,
+    },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
@@ -10,7 +13,7 @@ use futures_io::AsyncRead;
 use std::path::Path;
 use tracing::trace;
 
-use super::{AsyncSeekForward, ErasedAssetReader};
+use super::ErasedAssetReader;
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
 /// given path until that path has been processed by [`AssetProcessor`].
@@ -135,21 +138,15 @@ impl AsyncRead for TransactionLockedReader<'_> {
     }
 }
 
-impl AsyncSeekForward for TransactionLockedReader<'_> {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-        offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
-        Pin::new(&mut self.reader).poll_seek_forward(cx, offset)
-    }
-}
-
 impl Reader for TransactionLockedReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         self.reader.read_to_end(buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        self.reader.seekable()
     }
 }

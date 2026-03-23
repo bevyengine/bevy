@@ -6,6 +6,7 @@ impl_reflect_opaque!(::smol_str::SmolStr(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Default,
     Serialize,
     Deserialize,

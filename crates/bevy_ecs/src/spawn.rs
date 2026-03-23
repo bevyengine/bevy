@@ -327,7 +327,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -336,12 +336,16 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
+        bevy_ptr::deconstruct_moving_ptr!({
+            let Self { list, marker: _ } = effect;
+        });
         let id = entity.id();
 
+        if entity.is_despawned() {
+            return;
+        }
+
         entity.world_scope(|world: &mut World| {
-            bevy_ptr::deconstruct_moving_ptr!({
-                let Self { list, marker: _ } = effect;
-            });
             L::spawn(list, world, id);
         });
     }
@@ -372,7 +376,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        unsafe { <R::RelationshipTarget as DynamicBundle>::get_components(target, func) };
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -381,6 +385,10 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
+        if entity.is_despawned() {
+            return;
+        }
+
         let effect = effect.read();
         entity.with_related::<R>(effect.bundle);
     }
@@ -461,7 +469,6 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::related;
-/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
 /// let mut world = World::new();
 /// world.spawn((
 ///     Name::new("Root"),
@@ -479,7 +486,7 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ty [$($child:expr),*$(,)?]) => {
-       <$relationship_target>::spawn($crate::recursive_spawn!($($child),*))
+       <$relationship_target as $crate::spawn::SpawnRelated>::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 

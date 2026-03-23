@@ -13,7 +13,7 @@ use bevy::{
 };
 use crossbeam_channel::{Receiver, Sender};
 use futures_timer::Delay;
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 
 const NUM_CUBES: i32 = 6;
@@ -143,7 +143,7 @@ fn setup_env(
     // Spawn a point light with shadows enabled
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, LIGHT_RADIUS, 4.0),

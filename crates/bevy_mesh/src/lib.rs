@@ -16,7 +16,7 @@ pub mod skinning;
 mod vertex;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AssetApp, AssetEventSystems};
-use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
@@ -89,7 +89,3 @@ impl BaseMeshPipelineKey {
         }
     }
 }
-
-/// `bevy_render::mesh::inherit_weights` runs in this `SystemSet`
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct InheritWeightSystems;

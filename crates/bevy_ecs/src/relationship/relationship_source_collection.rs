@@ -155,7 +155,9 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+        // Scan from the back. Recently added entities live at the tail and are more likely to be
+        // despawned. This exploits temporal locality to keep the search cheap.
+        if let Some(index) = <[Entity]>::iter(self).rposition(|e| *e == entity) {
             Vec::remove(self, index);
             return true;
         }

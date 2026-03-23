@@ -4,7 +4,6 @@ use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
-use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::DEFERRED_PREPASS_FORMAT};
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_ecs::query::Has;
 use bevy_ecs::{
@@ -20,8 +19,8 @@ use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+        Buffer, BufferDescriptor, BufferUsages, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages, TextureView, TextureViewDescriptor,
     },
     renderer::RenderDevice,
 };
@@ -46,12 +45,10 @@ pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 pub struct SolariLightingResources {
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub di_reservoirs_a: (Texture, TextureView),
-    pub di_reservoirs_b: (Texture, TextureView),
+    pub di_reservoirs_a: TextureView,
+    pub di_reservoirs_b: TextureView,
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
-    pub previous_gbuffer: (Texture, TextureView),
-    pub previous_depth: (Texture, TextureView),
     pub world_cache_checksums: Buffer,
     pub world_cache_life: Buffer,
     pub world_cache_radiance: Buffer,
@@ -124,18 +121,18 @@ pub fn prepare_solari_lighting_resources(
         });
 
         let di_reservoirs = |name| {
-            let tex = render_device.create_texture(&TextureDescriptor {
-                label: Some(name),
-                size: view_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba32Uint,
-                usage: TextureUsages::STORAGE_BINDING,
-                view_formats: &[],
-            });
-            let view = tex.create_view(&TextureViewDescriptor::default());
-            (tex, view)
+            render_device
+                .create_texture(&TextureDescriptor {
+                    label: Some(name),
+                    size: view_size.to_extents(),
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Rgba32Uint,
+                    usage: TextureUsages::STORAGE_BINDING,
+                    view_formats: &[],
+                })
+                .create_view(&TextureViewDescriptor::default())
         };
         let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
         let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
@@ -150,30 +147,6 @@ pub fn prepare_solari_lighting_resources(
         };
         let gi_reservoirs_a = gi_reservoirs("solari_lighting_gi_reservoirs_a");
         let gi_reservoirs_b = gi_reservoirs("solari_lighting_gi_reservoirs_b");
-
-        let previous_gbuffer = render_device.create_texture(&TextureDescriptor {
-            label: Some("solari_lighting_previous_gbuffer"),
-            size: view_size.to_extents(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: DEFERRED_PREPASS_FORMAT,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let previous_gbuffer_view = previous_gbuffer.create_view(&TextureViewDescriptor::default());
-
-        let previous_depth = render_device.create_texture(&TextureDescriptor {
-            label: Some("solari_lighting_previous_depth"),
-            size: view_size.to_extents(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: CORE_3D_DEPTH_FORMAT,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let previous_depth_view = previous_depth.create_view(&TextureViewDescriptor::default());
 
         let world_cache_checksums = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_checksums"),
@@ -241,7 +214,7 @@ pub fn prepare_solari_lighting_resources(
         let world_cache_active_cells_count = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_active_cells_count"),
             size: size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
@@ -259,8 +232,6 @@ pub fn prepare_solari_lighting_resources(
             di_reservoirs_b,
             gi_reservoirs_a,
             gi_reservoirs_b,
-            previous_gbuffer: (previous_gbuffer, previous_gbuffer_view),
-            previous_depth: (previous_depth, previous_depth_view),
             world_cache_checksums,
             world_cache_life,
             world_cache_radiance,

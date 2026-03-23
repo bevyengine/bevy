@@ -1,4 +1,3 @@
-use cosmic_text::CacheKey;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -8,12 +7,16 @@ pub enum TextError {
     /// that the font failed to load for some other reason
     #[error("font not found")]
     NoSuchFont,
+    /// Font was not found, this could be that the font has not yet been loaded, or
+    /// that the font failed to load for some other reason
+    #[error("No such font family {0:?}")]
+    NoSuchFontFamily(String),
     /// Failed to add glyph to a newly created atlas for some reason
     #[error("failed to add glyph to newly-created atlas {0:?}")]
     FailedToAddGlyph(u16),
     /// Failed to get scaled glyph image for cache key
     #[error("failed to get scaled glyph image for cache key: {0:?}")]
-    FailedToGetGlyphImage(CacheKey),
+    FailedToGetGlyphImage(u16),
     /// Missing texture atlas layout for the font
     #[error("missing texture atlas layout for the font")]
     MissingAtlasLayout,
@@ -23,4 +26,7 @@ pub enum TextError {
     /// Failed to find glyph in atlas after it was added
     #[error("failed to find glyph in atlas after it was added")]
     InconsistentAtlasState,
+    #[error("scale factor <= 0")]
+    /// Text cannot be rendered for a scale factor <= zero.
+    DegenerateScaleFactor,
 }

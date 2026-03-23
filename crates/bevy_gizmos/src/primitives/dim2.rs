@@ -358,8 +358,8 @@ where
                     primitive.half_diagonals.y * sign_y,
                 )
             });
-        let positions = [a, b, c, d, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c, d].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -706,8 +706,8 @@ where
         let isometry = isometry.into();
 
         let [a, b, c] = primitive.vertices;
-        let positions = [a, b, c, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -742,8 +742,8 @@ where
                     primitive.half_size.y * sign_y,
                 )
             });
-        let positions = [a, b, c, d, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c, d].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -771,24 +771,14 @@ where
 
         let isometry = isometry.into();
 
-        // Check if the polygon needs a closing point
-        let closing_point = {
-            let first = primitive.vertices.first();
-            (primitive.vertices.last() != first)
-                .then_some(first)
-                .flatten()
-                .cloned()
+        let vertices = if primitive.vertices.first() == primitive.vertices.last() {
+            // Strip closing point if there is one
+            &primitive.vertices[..primitive.vertices.len() - 1]
+        } else {
+            &primitive.vertices[..]
         };
 
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .chain(closing_point)
-                .map(|vec2| isometry * vec2),
-            color,
-        );
+        self.lineloop_2d(vertices.iter().map(|&vec2| isometry * vec2), color);
     }
 }
 
@@ -816,9 +806,9 @@ where
 
         let isometry = isometry.into();
 
-        let points = (0..=primitive.sides)
+        let points = (0..primitive.sides)
             .map(|n| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, n))
             .map(|vec2| isometry * vec2);
-        self.linestrip_2d(points, color);
+        self.lineloop_2d(points, color);
     }
 }

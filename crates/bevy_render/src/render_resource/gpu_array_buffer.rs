@@ -1,7 +1,9 @@
-use super::{
+use bevy_material::bind_group_layout_entries::{
     binding_types::{storage_buffer_read_only, uniform_buffer_sized},
-    BindGroupLayoutEntryBuilder, BufferVec,
+    BindGroupLayoutEntryBuilder,
 };
+
+use super::BufferVec;
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
     renderer::{RenderDevice, RenderQueue},

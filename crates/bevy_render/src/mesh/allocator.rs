@@ -17,21 +17,24 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::error;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
-use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
 };
+
+#[cfg(feature = "morph")]
+use bevy_mesh::morph::MorphAttributes;
 
 use crate::{
     mesh::{Mesh, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -69,6 +72,10 @@ pub struct MeshAllocator {
     /// Maps mesh asset IDs to the ID of the slabs that hold their index data.
     mesh_id_to_index_slab: HashMap<AssetId<Mesh>, SlabId>,
 
+    /// Maps mesh asset IDs to the ID of the slabs that hold their morph target
+    /// data.
+    mesh_id_to_morph_target_slab: HashMap<AssetId<Mesh>, SlabId>,
+
     /// The next slab ID to assign.
     next_slab_id: SlabId,
 
@@ -79,9 +86,6 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
-
-    /// Additional buffer usages to add to any vertex or index buffers created.
-    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -121,6 +125,9 @@ pub struct MeshAllocatorSettings {
     ///
     /// The default value is 1.5.
     pub growth_factor: f64,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 impl Default for MeshAllocatorSettings {
@@ -134,9 +141,21 @@ impl Default for MeshAllocatorSettings {
             large_threshold: 1024 * 1024 * 256,
             // 1.5× growth
             growth_factor: 1.5,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
+
+/// The [`ElementLayout`] for morph displacements.
+///
+/// All morph displacements currently have the same element layout, so we only
+/// need one of these.
+#[cfg(feature = "morph")]
+static MORPH_ATTRIBUTE_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
+    class: ElementClass::MorphTarget,
+    size: size_of::<MorphAttributes>() as u64,
+    elements_per_slot: 1,
+};
 
 /// The hardware buffer that mesh data lives in, as well as the range within
 /// that buffer.
@@ -173,11 +192,41 @@ enum Slab {
     LargeObject(LargeObjectSlab),
 }
 
+/// IDs of the slabs associated with a single mesh.
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct MeshSlabs {
+    /// The slab storing the mesh's vertex data.
+    pub vertex_slab_id: SlabId,
+    /// The slab storing the mesh's index data, if the mesh is indexed.
+    pub index_slab_id: Option<SlabId>,
+    /// The slab storing the mesh's morph target displacements, if the mesh has
+    /// morph targets.
+    pub morph_target_slab_id: Option<SlabId>,
+}
+
 impl Slab {
-    pub fn buffer_size(&self) -> u64 {
+    /// Returns the GPU buffer corresponding to this slab, if it's been
+    /// uploaded.
+    pub fn buffer(&self) -> Option<&Buffer> {
         match self {
-            Self::General(gs) => gs.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
-            Self::LargeObject(lo) => lo.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
+            Slab::General(general_slab) => general_slab.buffer.as_ref(),
+            Slab::LargeObject(large_object_slab) => large_object_slab.buffer.as_ref(),
+        }
+    }
+
+    pub fn buffer_size(&self) -> u64 {
+        match self.buffer() {
+            Some(buffer) => buffer.size(),
+            None => 0,
+        }
+    }
+
+    /// Returns the type of buffer that this is: vertex, index, or morph target.
+    #[cfg(feature = "morph")]
+    pub fn element_class(&self) -> ElementClass {
+        match self {
+            Slab::General(general_slab) => general_slab.element_layout.class,
+            Slab::LargeObject(large_object_slab) => large_object_slab.element_layout.class,
         }
     }
 }
@@ -239,6 +288,9 @@ enum ElementClass {
     Vertex,
     /// A vertex index.
     Index,
+    #[cfg(feature = "morph")]
+    /// Displacement data for a morph target.
+    MorphTarget,
 }
 
 /// The results of [`GeneralSlab::grow_if_necessary`].
@@ -297,6 +349,9 @@ struct SlabAllocation {
     allocation: Allocation,
     /// The number of slots that this allocation takes up.
     slot_count: u32,
+    /// The number of elements at the end that are padding.
+    /// This can happen when the size of each element is fewer than 4 bytes.
+    padding_elem_count: u32,
 }
 
 /// Holds information about all slabs scheduled to be allocated or reallocated.
@@ -340,7 +395,7 @@ impl Plugin for MeshAllocatorPlugin {
 
         // The `RenderAdapter` isn't available until now, so we can't do this in
         // [`Plugin::build`].
-        render_app.init_resource::<MeshAllocator>();
+        render_app.init_gpu_resource::<MeshAllocator>();
     }
 }
 
@@ -359,9 +414,9 @@ impl FromWorld for MeshAllocator {
             slab_layouts: HashMap::default(),
             mesh_id_to_vertex_slab: HashMap::default(),
             mesh_id_to_index_slab: HashMap::default(),
+            mesh_id_to_morph_target_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
-            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -406,17 +461,26 @@ impl MeshAllocator {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
+    /// Returns the buffer and range within that buffer of the morph target data
+    /// for the mesh with the given ID.
+    ///
+    /// If the mesh has no morph target data or wasn't allocated, returns None.
+    pub fn mesh_morph_target_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
+        self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_morph_target_slab.get(mesh_id)?)
+    }
+
     /// Returns the IDs of the vertex buffer and index buffer respectively for
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, or has no index data in the case of the
     /// index buffer, the corresponding element in the returned tuple will be
     /// None.
-    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> (Option<SlabId>, Option<SlabId>) {
-        (
-            self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),
-            self.mesh_id_to_index_slab.get(mesh_id).cloned(),
-        )
+    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshSlabs> {
+        Some(MeshSlabs {
+            vertex_slab_id: self.mesh_id_to_vertex_slab.get(mesh_id).cloned()?,
+            index_slab_id: self.mesh_id_to_index_slab.get(mesh_id).cloned(),
+            morph_target_slab_id: self.mesh_id_to_morph_target_slab.get(mesh_id).cloned(),
+        })
     }
 
     /// Get the number of allocated slabs
@@ -431,6 +495,24 @@ impl MeshAllocator {
 
     pub fn allocations(&self) -> usize {
         self.mesh_id_to_index_slab.len()
+    }
+
+    /// Returns an iterator over all slabs that contain morph targets.
+    #[cfg(feature = "morph")]
+    pub fn morph_target_slabs(&self) -> impl Iterator<Item = SlabId> {
+        self.slabs.iter().filter_map(|(slab_id, slab)| {
+            if matches!(slab.element_class(), ElementClass::MorphTarget) {
+                Some(*slab_id)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Returns the GPU buffer corresponding to the slab with the given ID if
+    /// that slab has been uploaded to the GPU.
+    pub fn buffer_for_slab(&self, slab_id: SlabId) -> Option<&Buffer> {
+        self.slabs.get(&slab_id).and_then(|slab| slab.buffer())
     }
 
     /// Given a slab and a mesh with data located with it, returns the buffer
@@ -448,7 +530,8 @@ impl MeshAllocator {
                     range: (slab_allocation.allocation.offset
                         * general_slab.element_layout.elements_per_slot)
                         ..((slab_allocation.allocation.offset + slab_allocation.slot_count)
-                            * general_slab.element_layout.elements_per_slot),
+                            * general_slab.element_layout.elements_per_slot)
+                            - slab_allocation.padding_elem_count,
                 })
             }
 
@@ -507,17 +590,44 @@ impl MeshAllocator {
                     mesh_allocator_settings,
                 );
             }
+
+            // Allocate morph target data.
+            #[cfg(feature = "morph")]
+            if let Some(morph_targets) = mesh.get_morph_targets() {
+                self.allocate(
+                    mesh_id,
+                    morph_targets.len() as u64 * size_of::<MorphAttributes>() as u64,
+                    MORPH_ATTRIBUTE_ELEMENT_LAYOUT,
+                    &mut slabs_to_grow,
+                    mesh_allocator_settings,
+                );
+            }
         }
 
+        let extra_usages = mesh_allocator_settings.extra_buffer_usages;
         // Perform growth.
         for (slab_id, slab_to_grow) in slabs_to_grow.0 {
-            self.reallocate_slab(render_device, render_queue, slab_id, slab_to_grow);
+            self.reallocate_slab(
+                render_device,
+                render_queue,
+                slab_id,
+                slab_to_grow,
+                extra_usages,
+            );
         }
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
-            self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
-            self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);
+            self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue, extra_usages);
+            self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue, extra_usages);
+            #[cfg(feature = "morph")]
+            self.copy_mesh_morph_target_data(
+                mesh_id,
+                mesh,
+                render_device,
+                render_queue,
+                extra_usages,
+            );
         }
     }
 
@@ -529,6 +639,7 @@ impl MeshAllocator {
         mesh: &Mesh,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(&slab_id) = self.mesh_id_to_vertex_slab.get(mesh_id) else {
             return;
@@ -539,10 +650,10 @@ impl MeshAllocator {
             mesh_id,
             mesh.get_vertex_buffer_size(),
             |slice| mesh.write_packed_vertex_buffer_data(slice),
-            BufferUsages::VERTEX,
             slab_id,
             render_device,
             render_queue,
+            extra_buffer_usages,
         );
     }
 
@@ -554,6 +665,7 @@ impl MeshAllocator {
         mesh: &Mesh,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(&slab_id) = self.mesh_id_to_index_slab.get(mesh_id) else {
             return;
@@ -567,10 +679,40 @@ impl MeshAllocator {
             mesh_id,
             index_data.len(),
             |slice| slice.copy_from_slice(index_data),
-            BufferUsages::INDEX,
             slab_id,
             render_device,
             render_queue,
+            extra_buffer_usages,
+        );
+    }
+
+    /// Copies morph target array data from a mesh into the appropriate spot in
+    /// the slab.
+    #[cfg(feature = "morph")]
+    fn copy_mesh_morph_target_data(
+        &mut self,
+        mesh_id: &AssetId<Mesh>,
+        mesh: &Mesh,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
+    ) {
+        let Some(&slab_id) = self.mesh_id_to_morph_target_slab.get(mesh_id) else {
+            return;
+        };
+        let Some(morph_targets) = mesh.get_morph_targets() else {
+            return;
+        };
+
+        // Call the generic function.
+        self.copy_element_data(
+            mesh_id,
+            size_of_val(morph_targets),
+            |slice| slice.copy_from_slice(bytemuck::cast_slice(morph_targets)),
+            slab_id,
+            render_device,
+            render_queue,
+            extra_buffer_usages,
         );
     }
 
@@ -580,10 +722,10 @@ impl MeshAllocator {
         mesh_id: &AssetId<Mesh>,
         len: usize,
         fill_data: impl Fn(&mut [u8]),
-        buffer_usages: BufferUsages,
         slab_id: SlabId,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(slab) = self.slabs.get_mut(&slab_id) else {
             return;
@@ -623,6 +765,8 @@ impl MeshAllocator {
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
+                let buffer_usages =
+                    large_object_slab.element_layout.class.buffer_usages() | extra_buffer_usages;
                 let buffer = render_device.create_buffer(&BufferDescriptor {
                     label: Some(&format!(
                         "large mesh slab {} ({}buffer)",
@@ -630,7 +774,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
+                    usage: buffer_usages | BufferUsages::COPY_DST,
                     mapped_at_creation: true,
                 });
                 {
@@ -722,6 +866,7 @@ impl MeshAllocator {
     ) {
         let data_element_count = data_byte_len.div_ceil(layout.size) as u32;
         let data_slot_count = data_element_count.div_ceil(layout.elements_per_slot);
+        let padding_elem_count = data_slot_count * layout.elements_per_slot - data_element_count;
 
         // If the mesh data is too large for a slab, give it a slab of its own.
         if data_slot_count as u64 * layout.slot_size()
@@ -729,7 +874,14 @@ impl MeshAllocator {
         {
             self.allocate_large(mesh_id, layout);
         } else {
-            self.allocate_general(mesh_id, data_slot_count, layout, slabs_to_grow, settings);
+            self.allocate_general(
+                mesh_id,
+                data_slot_count,
+                padding_elem_count,
+                layout,
+                slabs_to_grow,
+                settings,
+            );
         }
     }
 
@@ -739,6 +891,7 @@ impl MeshAllocator {
         &mut self,
         mesh_id: &AssetId<Mesh>,
         data_slot_count: u32,
+        padding_elem_count: u32,
         layout: ElementLayout,
         slabs_to_grow: &mut SlabsToReallocate,
         settings: &MeshAllocatorSettings,
@@ -779,6 +932,7 @@ impl MeshAllocator {
                 slab_allocation: SlabAllocation {
                     allocation,
                     slot_count: data_slot_count,
+                    padding_elem_count,
                 },
             });
             break;
@@ -795,6 +949,7 @@ impl MeshAllocator {
                 settings,
                 layout,
                 data_slot_count,
+                padding_elem_count,
             );
 
             self.slabs.insert(new_slab_id, Slab::General(new_slab));
@@ -845,6 +1000,7 @@ impl MeshAllocator {
         render_queue: &RenderQueue,
         slab_id: SlabId,
         slab_to_grow: SlabToReallocate,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
             error!("Couldn't find slab {} to grow", slab_id);
@@ -853,11 +1009,10 @@ impl MeshAllocator {
 
         let old_buffer = slab.buffer.take();
 
-        let mut buffer_usages = BufferUsages::COPY_SRC | BufferUsages::COPY_DST;
-        match slab.element_layout.class {
-            ElementClass::Vertex => buffer_usages |= BufferUsages::VERTEX,
-            ElementClass::Index => buffer_usages |= BufferUsages::INDEX,
-        };
+        let buffer_usages = BufferUsages::COPY_SRC
+            | BufferUsages::COPY_DST
+            | slab.element_layout.class.buffer_usages()
+            | extra_buffer_usages;
 
         // Create the buffer.
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
@@ -867,7 +1022,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages | self.extra_buffer_usages,
+            usage: buffer_usages,
             mapped_at_creation: false,
         });
 
@@ -909,6 +1064,10 @@ impl MeshAllocator {
             ElementClass::Index => {
                 self.mesh_id_to_index_slab.insert(*mesh_id, slab_id);
             }
+            #[cfg(feature = "morph")]
+            ElementClass::MorphTarget => {
+                self.mesh_id_to_morph_target_slab.insert(*mesh_id, slab_id);
+            }
         }
     }
 }
@@ -922,6 +1081,7 @@ impl GeneralSlab {
         settings: &MeshAllocatorSettings,
         layout: ElementLayout,
         data_slot_count: u32,
+        padding_elem_count: u32,
     ) -> GeneralSlab {
         let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
             as u32)
@@ -945,6 +1105,7 @@ impl GeneralSlab {
                 slab_allocation: SlabAllocation {
                     slot_count: data_slot_count,
                     allocation,
+                    padding_elem_count,
                 },
             });
         }
@@ -1037,6 +1198,19 @@ impl ElementLayout {
     }
 }
 
+impl ElementClass {
+    /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
+    /// class.
+    fn buffer_usages(&self) -> BufferUsages {
+        match *self {
+            ElementClass::Vertex => BufferUsages::VERTEX,
+            ElementClass::Index => BufferUsages::INDEX,
+            #[cfg(feature = "morph")]
+            ElementClass::MorphTarget => BufferUsages::STORAGE,
+        }
+    }
+}
+
 impl GeneralSlab {
     /// Returns true if this slab is empty.
     fn is_empty(&self) -> bool {
@@ -1050,6 +1224,8 @@ fn buffer_usages_to_str(buffer_usages: BufferUsages) -> &'static str {
         "vertex "
     } else if buffer_usages.contains(BufferUsages::INDEX) {
         "index "
+    } else if buffer_usages.contains(BufferUsages::STORAGE) {
+        "storage "
     } else {
         ""
     }

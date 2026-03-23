@@ -1,14 +1,18 @@
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashSet;
-use core::any::{Any, TypeId};
+use core::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
+
+use bevy_platform::hash::FixedHasher;
+use bevy_utils::TypeIdMap;
+use indexmap::IndexSet;
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
 use crate::{
     schedule::{graph::Dag, SystemKey, SystemSetKey},
     world::World,
 };
-use bevy_utils::TypeIdMap;
-use core::fmt::Debug;
 
 /// A pass for modular modification of the dependency graph.
 pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
@@ -24,7 +28,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &HashSet<SystemKey>,
+        systems: &IndexSet<SystemKey, FixedHasher>,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
@@ -49,7 +53,7 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &HashSet<SystemKey>,
+        systems: &IndexSet<SystemKey, FixedHasher>,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
@@ -68,7 +72,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &HashSet<SystemKey>,
+        systems: &IndexSet<SystemKey, FixedHasher>,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {

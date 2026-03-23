@@ -15,12 +15,12 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_pbr::atmosphere::{
-    functions::calculate_visible_sun_ratio,
+    functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{
-    globals, lights, view, clusterable_objects, 
+    globals, lights, view, clustered_lights,
     atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
@@ -28,7 +28,6 @@
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
-    ClusterableObject
 }
 #import bevy_pbr::shadow_sampling::{
     sample_shadow_map_hardware,
@@ -177,7 +176,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
-    let ray_length_view = abs(end_depth_view - start_depth_view);
+
+    let ray_length_view = max(0.0, end_depth_view - start_depth_view);
+    // If the end is behind the start of the first opaque pixel, then we know it
+    // is occluded, and we don't need to render it
+    if (ray_length_view == 0.0) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
 
@@ -309,10 +314,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 let P_scaled = P * vec3(atmosphere_data.settings.scene_units_to_m);
                 let O = vec3(0.0, atmosphere_data.atmosphere.bottom_radius, 0.0);
                 let P_as = P_scaled + O;
-                let r = length(P_as);
-                let local_up = normalize(P_as);
+                let P_clamped = clamp_to_surface(atmosphere_data.atmosphere, P_as);
+                let r = length(P_clamped);
+                let local_up = normalize(P_clamped);
                 let mu_light = dot(L, local_up);
-                
+
                 let transmittance = sample_transmittance_lut(r, mu_light);
                 let sun_visibility = calculate_visible_sun_ratio(atmosphere_data.atmosphere, r, mu_light, (*light).sun_disk_angular_size);
                 light_factors_per_step *= transmittance * sun_visibility;
@@ -332,14 +338,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Point lights and Spot lights
     let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
+    let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
-        let light = &clusterable_objects.data[light_id];
+        let light = &clustered_lights.data[light_id];
         if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
             continue;
         }
@@ -369,7 +375,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= shadow;
             } else {
@@ -391,7 +397,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
@@ -422,8 +428,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
-    let light = &clusterable_objects.data[light_id];
+fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+    let light = &clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -452,11 +458,11 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) ->
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
 }
 
-fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
-    let light = &clusterable_objects.data[light_id];
+fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+    let light = &clustered_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
 
@@ -505,6 +511,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
         shadow_uv,
         depth,
         i32(light_id) + lights.spot_light_shadowmap_offset,
+        frag_coord_xy,
         SPOT_SHADOW_TEXEL_SIZE
     );
 }
@@ -513,7 +520,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere_data.atmosphere, r, mu);
     return textureSampleLevel(
-        atmosphere_transmittance_texture, 
+        atmosphere_transmittance_texture,
         atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
 #endif  // ATMOSPHERE

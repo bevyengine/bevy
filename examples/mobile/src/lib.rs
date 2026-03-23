@@ -20,7 +20,7 @@ pub fn main() {
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
                 level: Level::DEBUG,
-                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                filter: "wgpu=error,naga=info,bevy_render=info,bevy_ecs=trace".to_string(),
                 ..Default::default()
             })
             .set(WindowPlugin {
@@ -122,7 +122,7 @@ fn setup_scene(
             // Shadows makes some Android devices segfault, this is under investigation
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -154,7 +154,7 @@ fn setup_scene(
         .with_child((
             Text::new("Test Button"),
             TextFont {
-                font_size: 30.0,
+                font_size: FontSize::Px(30.0),
                 ..default()
             },
             TextColor::BLACK,

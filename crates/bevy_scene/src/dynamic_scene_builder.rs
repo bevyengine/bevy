@@ -3,15 +3,16 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     world::World,
 };
-use bevy_reflect::PartialReflect;
+use bevy_reflect::{PartialReflect, TypeRegistry};
 use bevy_utils::default;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
@@ -54,27 +55,46 @@ use bevy_utils::default;
 /// # let mut world = World::default();
 /// # world.init_resource::<AppTypeRegistry>();
 /// # let entity = world.spawn(ComponentA).id();
-/// let dynamic_scene = DynamicSceneBuilder::from_world(&world).extract_entity(entity).build();
+/// let type_registry = world.resource::<AppTypeRegistry>().read();
+/// let dynamic_scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+///     .extract_entity(entity)
+///     .build();
 /// ```
 ///
+/// [`AppTypeRegistry`]: bevy_ecs::reflect::AppTypeRegistry
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
+    /// The resources that have been extracted so far.
     extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
+    /// The entities that have been extracted so far.
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
+    /// The filter to determine which components extract.
     component_filter: SceneFilter,
+    /// The filter to determine which resources to extract.
     resource_filter: SceneFilter,
+    /// The world from which to build the scene.
     original_world: &'w World,
+    /// The type registry to use for extracting items from the world.
+    type_registry: &'w TypeRegistry,
 }
 
 impl<'w> DynamicSceneBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
-    pub fn from_world(world: &'w World) -> Self {
+    ///
+    /// The `type_registry` provides type information for extracting components and resources
+    /// through reflection. If the `world` is the "real" world (e.g., not a world in a
+    /// [`Scene`](crate::Scene)), the `world` will contain the registry, which can be acquired using
+    /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "scene worlds", you
+    /// will need to get the type registry from the main world (you can clone the `AppTypeRegistry`
+    /// out of the world to avoid borrowing the world itself).
+    pub fn from_world(world: &'w World, type_registry: &'w TypeRegistry) -> Self {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),
             component_filter: SceneFilter::default(),
             resource_filter: SceneFilter::default(),
             original_world: world,
+            type_registry,
         }
     }
 
@@ -259,7 +279,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # let _entity = world.spawn(MyComponent).id();
     /// let mut query = world.query_filtered::<Entity, With<MyComponent>>();
     ///
-    /// let scene = DynamicSceneBuilder::from_world(&world)
+    /// let type_registry = world.resource::<AppTypeRegistry>().read();
+    /// let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
     ///     .extract_entities(query.iter(&world))
     ///     .build();
     /// ```
@@ -270,8 +291,6 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`deny`]: Self::deny_component
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
-        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
-
         for entity in entities {
             if self.extracted_scene.contains_key(&entity) {
                 continue;
@@ -283,6 +302,10 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
+            if original_entity.contains_id(IS_RESOURCE) {
+                continue;
+            }
+
             for &component_id in original_entity.archetype().components().iter() {
                 let mut extract_and_push = || {
                     let type_id = self
@@ -298,7 +321,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                         return None;
                     }
 
-                    let type_registration = type_registry.get(type_id)?;
+                    let type_registration = self.type_registry.get(type_id)?;
 
                     let component = type_registration
                         .data::<ReflectComponent>()?
@@ -338,7 +361,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # world.init_resource::<AppTypeRegistry>();
     /// world.insert_resource(MyResource);
     ///
-    /// let mut builder = DynamicSceneBuilder::from_world(&world).extract_resources();
+    /// let type_registry = world.resource::<AppTypeRegistry>().read();
+    /// let mut builder = DynamicSceneBuilder::from_world(&world, &type_registry)
+    ///     .extract_resources();
     /// let scene = builder.build();
     /// ```
     ///
@@ -350,19 +375,17 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
-        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
-
-        for (component_id, _) in self.original_world.storages().resources.iter() {
-            if Some(component_id) == original_world_dqf_id {
+        for (component_id, entity) in self.original_world.resource_entities().iter() {
+            if Some(*component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(component_id)?
+                    .get_info(*component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -372,23 +395,22 @@ impl<'w> DynamicSceneBuilder<'w> {
                     return None;
                 }
 
-                let type_registration = type_registry.get(type_id)?;
+                let type_registration = self.type_registry.get(type_id)?;
 
-                let resource = type_registration
-                    .data::<ReflectResource>()?
-                    .reflect(self.original_world)
-                    .ok()?;
+                type_registration.data::<ReflectResource>()?;
+                let component = type_registration
+                    .data::<ReflectComponent>()?
+                    .reflect(self.original_world.entity(*entity))?;
 
-                let resource =
-                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
+                let component =
+                    clone_reflect_value(component.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(component_id, resource);
+                self.extracted_resources.insert(*component_id, component);
                 Some(())
             };
             extract_and_push();
         }
 
-        drop(type_registry);
         self
     }
 }
@@ -399,11 +421,11 @@ mod tests {
         component::Component,
         prelude::{Entity, Resource},
         query::With,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+        reflect::{ReflectComponent, ReflectResource},
         world::World,
     };
 
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{Reflect, TypeRegistry};
 
     use super::DynamicSceneBuilder;
 
@@ -427,13 +449,12 @@ mod tests {
     fn extract_one_entity() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .build();
 
@@ -447,13 +468,12 @@ mod tests {
     fn extract_one_entity_twice() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .extract_entity(entity)
             .build();
@@ -468,17 +488,13 @@ mod tests {
     fn extract_one_entity_two_components() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
+        type_registry.register::<ComponentB>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .build();
 
@@ -492,7 +508,6 @@ mod tests {
     #[test]
     fn extract_entity_order() {
         let mut world = World::default();
-        world.init_resource::<AppTypeRegistry>();
 
         // Spawn entities in order
         let entity_a = world.spawn_empty().id();
@@ -501,7 +516,8 @@ mod tests {
         let entity_d = world.spawn_empty().id();
 
         // Insert entities out of order
-        let builder = DynamicSceneBuilder::from_world(&world)
+        let type_registry = TypeRegistry::default();
+        let builder = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entity(entity_b)
             .extract_entities([entity_d, entity_a].into_iter())
             .extract_entity(entity_c);
@@ -519,20 +535,16 @@ mod tests {
     fn extract_query() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
+        type_registry.register::<ComponentB>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
         let _entity_b = world.spawn(ComponentB).id();
 
         let mut query = world.query_filtered::<Entity, With<ComponentA>>();
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entities(query.iter(&world))
             .build();
 
@@ -546,14 +558,13 @@ mod tests {
     fn remove_componentless_entity() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
 
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_entities([entity_a, entity_b].into_iter())
             .remove_empty_entities()
             .build();
@@ -566,13 +577,12 @@ mod tests {
     fn extract_one_resource() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ResourceA>();
 
         world.insert_resource(ResourceA);
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .build();
 
@@ -584,13 +594,12 @@ mod tests {
     fn extract_one_resource_twice() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ResourceA>();
 
         world.insert_resource(ResourceA);
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .extract_resources()
             .build();
@@ -603,19 +612,15 @@ mod tests {
     fn should_extract_allowed_components() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
+        type_registry.register::<ComponentB>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .allow_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
@@ -630,19 +635,15 @@ mod tests {
     fn should_not_extract_denied_components() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ComponentA>();
+        type_registry.register::<ComponentB>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .deny_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
@@ -657,18 +658,14 @@ mod tests {
     fn should_extract_allowed_resources() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ResourceA>();
+        type_registry.register::<ResourceB>();
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .allow_resource::<ResourceA>()
             .extract_resources()
             .build();
@@ -681,18 +678,14 @@ mod tests {
     fn should_not_extract_denied_resources() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<ResourceA>();
+        type_registry.register::<ResourceB>();
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .deny_resource::<ResourceA>()
             .extract_resources()
             .build();
@@ -712,18 +705,14 @@ mod tests {
         struct SomeResource(i32);
 
         let mut world = World::default();
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<SomeType>();
-            register.register::<SomeResource>();
-        }
-        world.insert_resource(atr);
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<SomeType>();
+        type_registry.register::<SomeResource>();
 
         world.insert_resource(SomeResource(123));
         let entity = world.spawn(SomeType(123)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .extract_entities(vec![entity].into_iter())
             .build();

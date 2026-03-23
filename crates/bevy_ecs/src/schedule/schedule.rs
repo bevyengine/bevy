@@ -4,19 +4,23 @@
 )]
 use alloc::{
     boxed::Box,
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     format,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
+use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
@@ -129,6 +133,9 @@ impl Schedules {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to schedules added
+    /// in the future.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
@@ -144,7 +151,7 @@ impl Schedules {
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.components_registrator().register_resource::<T>());
+            .insert(world.components_registrator().register_component::<T>());
     }
 
     /// Iterate through the [`ComponentId`]'s that will be ignored.
@@ -225,14 +232,6 @@ impl Schedules {
         self.entry(schedule).ignore_ambiguity(a, b);
 
         self
-    }
-}
-
-fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
-    match kind {
-        ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
-        #[cfg(feature = "std")]
-        ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
     }
 }
 
@@ -367,7 +366,7 @@ impl Schedule {
             label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
-            executor: make_executor(ExecutorKind::default()),
+            executor: default_executor(),
             executor_initialized: false,
             warnings: Vec::new(),
         };
@@ -465,7 +464,7 @@ impl Schedule {
 
     /// Remove a custom build pass.
     pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
-        self.graph.passes.remove(&TypeId::of::<T>());
+        self.graph.passes.shift_remove(&TypeId::of::<T>());
     }
 
     /// Changes miscellaneous build settings.
@@ -496,17 +495,10 @@ impl Schedule {
         self.graph.settings.clone()
     }
 
-    /// Returns the schedule's current execution strategy.
-    pub fn get_executor_kind(&self) -> ExecutorKind {
-        self.executor.kind()
-    }
-
-    /// Sets the schedule's execution strategy.
-    pub fn set_executor_kind(&mut self, executor: ExecutorKind) -> &mut Self {
-        if executor != self.executor.kind() {
-            self.executor = make_executor(executor);
-            self.executor_initialized = false;
-        }
+    /// Replaces the schedule's executor.
+    pub fn set_executor(&mut self, executor: impl SystemExecutor + 'static) -> &mut Self {
+        self.executor = Box::new(executor);
+        self.executor_initialized = false;
         self
     }
 
@@ -697,7 +689,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
+    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, FixedHasher>,
 }
 
 impl ScheduleGraph {
@@ -842,6 +834,8 @@ impl ScheduleGraph {
                             &previous_result.nodes
                         };
 
+                        self.dependency
+                            .reserve_edges(previous_nodes.len() * current_nodes.len());
                         for previous_node in previous_nodes {
                             for current_node in current_nodes {
                                 self.dependency.add_edge(*previous_node, *current_node);
@@ -918,7 +912,7 @@ impl ScheduleGraph {
     pub fn systems_in_set(
         &self,
         system_set: InternedSystemSet,
-    ) -> Result<&HashSet<SystemKey>, ScheduleError> {
+    ) -> Result<&IndexSet<SystemKey, FixedHasher>, ScheduleError> {
         if self.changed {
             return Err(ScheduleError::Uninitialized);
         }
@@ -935,6 +929,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.hierarchy.neighbors_directed(node, Outgoing).collect();
 
+        self.hierarchy
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.hierarchy.add_edge(in_node, out_node);
@@ -944,6 +940,8 @@ impl ScheduleGraph {
         let in_nodes: Vec<_> = self.dependency.neighbors_directed(node, Incoming).collect();
         let out_nodes: Vec<_> = self.dependency.neighbors_directed(node, Outgoing).collect();
 
+        self.dependency
+            .reserve_edges(in_nodes.len() * out_nodes.len());
         for &in_node in &in_nodes {
             for &out_node in &out_nodes {
                 self.dependency.add_edge(in_node, out_node);
@@ -1008,7 +1006,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn remove_systems_by_keys(&mut self, keys: &HashSet<SystemKey>) {
+    fn remove_systems_by_keys(&mut self, keys: &IndexSet<SystemKey, FixedHasher>) {
         for &key in keys {
             self.systems.remove(key);
 
@@ -1580,14 +1578,17 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::any::TypeId;
+
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings,
-            ScheduleCleanupPolicy, SystemSet,
+            passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
+            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2564,5 +2565,59 @@ mod tests {
         assert!(result.is_ok());
         let conflicts = schedule.graph().conflicting_systems();
         assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn build_pass_iteration_order() {
+        #[derive(Debug)]
+        struct Pass<const N: usize>;
+
+        impl<const N: usize> ScheduleBuildPass for Pass<N> {
+            type EdgeOptions = ();
+            fn add_dependency(
+                &mut self,
+                _from: crate::schedule::NodeId,
+                _to: crate::schedule::NodeId,
+                _options: Option<&Self::EdgeOptions>,
+            ) {
+            }
+            fn build(
+                &mut self,
+                _world: &mut World,
+                _graph: &mut super::ScheduleGraph,
+                _dependency_flattened: &mut crate::schedule::graph::Dag<crate::schedule::SystemKey>,
+            ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
+                Ok(())
+            }
+            fn collapse_set(
+                &mut self,
+                _set: crate::schedule::SystemSetKey,
+                _systems: &indexmap::IndexSet<
+                    crate::schedule::SystemKey,
+                    bevy_platform::hash::FixedHasher,
+                >,
+                _dependency_flattening: &crate::schedule::graph::DiGraph<crate::schedule::NodeId>,
+            ) -> impl Iterator<Item = (crate::schedule::NodeId, crate::schedule::NodeId)>
+            {
+                core::iter::empty()
+            }
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_build_pass(Pass::<0>);
+        schedule.add_build_pass(Pass::<1>);
+        schedule.add_build_pass(Pass::<2>);
+
+        let pass_order: Vec<TypeId> = schedule.graph().passes.keys().cloned().collect();
+
+        assert_eq!(
+            pass_order,
+            vec![
+                TypeId::of::<AutoInsertApplyDeferredPass>(),
+                TypeId::of::<Pass<0>>(),
+                TypeId::of::<Pass<1>>(),
+                TypeId::of::<Pass<2>>()
+            ]
+        );
     }
 }

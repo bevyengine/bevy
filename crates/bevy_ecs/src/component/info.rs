@@ -20,7 +20,9 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
-    relationship::RelationshipAccessor,
+    relationship::{
+        MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
+    },
     resource::Resource,
     storage::SparseSetIndex,
 };
@@ -120,8 +122,8 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
-        if self.hooks().on_replace.is_some() {
-            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
+        if self.hooks().on_discard.is_some() {
+            flags.insert(ArchetypeFlags::ON_DISCARD_HOOK);
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
@@ -142,9 +144,10 @@ impl ComponentInfo {
         &self.required_components
     }
 
-    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+    /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
-        self.descriptor.relationship_accessor.as_ref()
+        self.descriptor.relationship_accessor.accessor()
     }
 }
 
@@ -167,9 +170,8 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// Given a type `T` which implements [`Component`] (including [`Resource`]), the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
-/// Access to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -225,7 +227,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
-    relationship_accessor: Option<RelationshipAccessor>,
+    relationship_accessor: MaybeRelationshipAccessor,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -266,7 +268,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
-            relationship_accessor: T::relationship_accessor().map(|v| v.accessor),
+            relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
     }
 
@@ -283,7 +285,7 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
-        relationship_accessor: Option<RelationshipAccessor>,
+        relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
         Self {
             name: name.into().into(),
@@ -294,27 +296,16 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
-            relationship_accessor,
+            relationship_accessor: relationship_accessor.into(),
         }
     }
 
     /// Create a new `ComponentDescriptor` for a resource.
     ///
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
+    #[deprecated(since = "0.19.0", note = "use ComponentDescriptor::new()")]
     pub fn new_resource<T: Resource>() -> Self {
-        Self {
-            name: DebugName::type_name::<T>(),
-            // PERF: `SparseStorage` may actually be a more
-            // reasonable choice as `storage_type` for resources.
-            storage_type: StorageType::Table,
-            is_send_and_sync: true,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: true,
-            clone_behavior: ComponentCloneBehavior::Default,
-            relationship_accessor: None,
-        }
+        Self::new::<T>()
     }
 
     pub(super) fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
@@ -327,7 +318,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
-            relationship_accessor: None,
+            relationship_accessor: None.into(),
         }
     }
 
@@ -355,6 +346,10 @@ impl ComponentDescriptor {
     pub fn mutable(&self) -> bool {
         self.mutable
     }
+
+    fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+        self.relationship_accessor.initialize(id, components);
+    }
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
@@ -362,7 +357,6 @@ impl ComponentDescriptor {
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
-    pub(super) resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
@@ -377,8 +371,9 @@ impl Components {
     pub(super) unsafe fn register_component_inner(
         &mut self,
         id: ComponentId,
-        descriptor: ComponentDescriptor,
+        mut descriptor: ComponentDescriptor,
     ) {
+        descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
@@ -407,7 +402,7 @@ impl Components {
     #[inline]
     pub fn num_queued(&self) -> usize {
         let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+        queued.components.len() + queued.dynamic_registrations.len()
     }
 
     /// Returns `true` if there are any components registered with this instance. Otherwise, this returns `false`.
@@ -423,7 +418,7 @@ impl Components {
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+        queued.components.len() + queued.dynamic_registrations.len()
     }
 
     /// A faster version of [`Self::any_queued`].
@@ -470,7 +465,6 @@ impl Components {
                 queued
                     .components
                     .values()
-                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| Cow::Owned(queued.descriptor.clone()))
@@ -492,7 +486,6 @@ impl Components {
                 queued
                     .components
                     .values()
-                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| queued.descriptor.name.clone())
@@ -592,7 +585,6 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::get_valid_id()`]
-    /// * [`Components::valid_resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
@@ -601,8 +593,9 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use get_valid_id")]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
@@ -626,8 +619,9 @@ impl Components {
     /// * [`Components::valid_component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use valid_component_id")]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<T>())
+        self.get_valid_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -670,7 +664,6 @@ impl Components {
     ///
     /// * [`ComponentIdFor`](super::ComponentIdFor)
     /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
@@ -679,12 +672,13 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use get_id")]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied().or_else(|| {
+        self.indices.get(&type_id).copied().or_else(|| {
             self.queued
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
-                .resources
+                .components
                 .get(&type_id)
                 .map(|queued| queued.id)
         })
@@ -718,8 +712,9 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use component_id")]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+        self.get_id(TypeId::of::<T>())
     }
 
     /// # Safety
@@ -728,7 +723,7 @@ impl Components {
     /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    pub(super) unsafe fn register_resource_unchecked(
+    pub(super) unsafe fn register_non_send_unchecked(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
@@ -738,12 +733,24 @@ impl Components {
         unsafe {
             self.register_component_inner(component_id, descriptor);
         }
-        let prev = self.resource_indices.insert(type_id, component_id);
+        let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter().filter_map(Option::as_ref)
+    }
+
+    pub(crate) fn get_relationship_accessor_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut MaybeRelationshipAccessor> {
+        self.components
+            .get_mut(component_id.index())
+            .and_then(|info| {
+                info.as_mut()
+                    .map(|info| &mut info.descriptor.relationship_accessor)
+            })
     }
 }

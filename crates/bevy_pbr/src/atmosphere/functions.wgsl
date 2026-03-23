@@ -196,9 +196,12 @@ fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
 
 // samples from the atmosphere scattering LUT. `neg_LdotV` is the dot product
 // of the light direction and the incoming view vector.
+// Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
+const PHASE_MAPPING_N: f32 = 0.5;
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
-    let uv = vec2(1.0 - normalized_altitude, neg_LdotV * 0.5 + 0.5);
+    let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));
+    let uv = vec2(1.0 - normalized_altitude, phase_uv);
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
 
@@ -281,6 +284,17 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
 
 // TRANSFORM UTILITIES
 
+/// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
+fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
+    let min_radius = atmosphere.bottom_radius + EPSILON;
+    let r = length(position);
+    if r < min_radius {
+        let up = normalize(position);
+        return up * min_radius;
+    }
+    return position;
+}
+
 fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
     let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
@@ -291,18 +305,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
     var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    
-    // If the camera is underground, clamp it to the ground surface along the local up.
-    let r = length(world_pos);
-    // Nudge r above ground to avoid sqrt cancellation, zero-length segments where 
-    // r is equal to bottom_radius, which show up as black pixels
-    let min_radius = atmosphere.bottom_radius + EPSILON;
-    if r < min_radius {
-        let up = normalize(world_pos);
-        world_pos = up * min_radius;
-    }
-
-    return world_pos;
+    return clamp_to_surface(atmosphere, world_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -329,16 +332,9 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 }
 
 /// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
-    // Camera forward in world space (-Z in view to world transform)
-    let forward_ws = (view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
-    let tangent_z = normalize(up * dot(forward_ws, up) - forward_ws);
-    let tangent_x = cross(up, tangent_z);
-    return vec3(
-        dot(dir_ws, tangent_x),
-        dot(dir_ws, up),
-        dot(dir_ws, tangent_z),
-    );
+fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
+    let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
+    return dir_as.xyz;
 }
 
 /// Converts a direction in atmosphere space to world space

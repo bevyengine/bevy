@@ -28,7 +28,7 @@ pub struct Observers {
     // Cached ECS observers to save a lookup for high-traffic built-in event types.
     add: CachedObservers,
     insert: CachedObservers,
-    replace: CachedObservers,
+    discard: CachedObservers,
     remove: CachedObservers,
     despawn: CachedObservers,
     // Map from event type to set of observers watching for that event
@@ -42,7 +42,7 @@ impl Observers {
         match event_key {
             ADD => &mut self.add,
             INSERT => &mut self.insert,
-            REPLACE => &mut self.replace,
+            DISCARD => &mut self.discard,
             REMOVE => &mut self.remove,
             DESPAWN => &mut self.despawn,
             _ => self.cache.entry(event_key).or_default(),
@@ -51,12 +51,12 @@ impl Observers {
 
     /// Attempts to get the observers for the given `event_key`.
     ///
-    /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
+    /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Discard`], [`Remove`], and [`Despawn`],
     /// use the [`EventKey`] constants from the [`lifecycle`](crate::lifecycle) module.
     ///
     /// [`Add`]: crate::lifecycle::Add
     /// [`Insert`]: crate::lifecycle::Insert
-    /// [`Replace`]: crate::lifecycle::Replace
+    /// [`Discard`]: crate::lifecycle::Discard
     /// [`Remove`]: crate::lifecycle::Remove
     /// [`Despawn`]: crate::lifecycle::Despawn
     pub fn try_get_observers(&self, event_key: EventKey) -> Option<&CachedObservers> {
@@ -65,7 +65,7 @@ impl Observers {
         match event_key {
             ADD => Some(&self.add),
             INSERT => Some(&self.insert),
-            REPLACE => Some(&self.replace),
+            DISCARD => Some(&self.discard),
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
             _ => self.cache.get(&event_key),
@@ -78,7 +78,7 @@ impl Observers {
         match event_key {
             ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
+            DISCARD => Some(ArchetypeFlags::ON_DISCARD_OBSERVER),
             REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
             DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
             _ => None,
@@ -98,8 +98,8 @@ impl Observers {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
         }
 
-        if self.replace.component_observers.contains_key(&component_id) {
-            flags.insert(ArchetypeFlags::ON_REPLACE_OBSERVER);
+        if self.discard.component_observers.contains_key(&component_id) {
+            flags.insert(ArchetypeFlags::ON_DISCARD_OBSERVER);
         }
 
         if self.remove.component_observers.contains_key(&component_id) {

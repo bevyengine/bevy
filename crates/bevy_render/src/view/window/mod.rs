@@ -2,10 +2,11 @@ use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_log::{debug, info, warn};
 use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
@@ -15,7 +16,6 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use tracing::{debug, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
@@ -32,8 +32,8 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
+                .init_gpu_resource::<ExtractedWindows>()
+                .init_gpu_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
@@ -41,7 +41,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::PrepareViews));
         }
     }
 }
@@ -60,15 +60,22 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
+    pub swap_chain_texture_view_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
+    /// Whether this window needs an initial buffer commit.
+    ///
+    /// On Wayland, windows must present at least once before they are shown.
+    /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
+    pub needs_initial_present: bool,
 }
 
 impl ExtractedWindow {
     fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
+        self.swap_chain_texture_view_format = Some(frame.texture.format().add_srgb_suffix());
         let texture_view_descriptor = TextureViewDescriptor {
-            format: Some(frame.texture.format().add_srgb_suffix()),
+            format: self.swap_chain_texture_view_format,
             ..default()
         };
         self.swap_chain_texture_view = Some(TextureView::from(
@@ -140,8 +147,10 @@ fn extract_windows(
             swap_chain_texture_view: None,
             size_changed: false,
             swap_chain_texture_format: None,
+            swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
+            needs_initial_present: true,
         });
 
         if extracted_window.swap_chain_texture.is_none() {
@@ -191,6 +200,7 @@ struct SurfaceData {
     // TODO: what lifetime should this be?
     surface: WgpuWrapper<wgpu::Surface<'static>>,
     configuration: SurfaceConfiguration,
+    texture_view_format: Option<TextureFormat>,
 }
 
 #[derive(Resource, Default)]
@@ -232,9 +242,25 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
+    sorted_cameras: Res<crate::camera::SortedCameras>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
+        // Skip acquiring a swap-chain texture for windows that no camera
+        // targets. This avoids a wasted clear pass in
+        // `handle_uncovered_swap_chains` that triggers a DMA-fence fd leak on
+        // Adreno 740 (Quest 3). The exception is windows that still need their
+        // initial present (required on Wayland).
+        let is_camera_target = sorted_cameras.0.iter().any(|c| {
+            matches!(
+                &c.target,
+                Some(bevy_camera::NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+            )
+        });
+        if !is_camera_target && !window.needs_initial_present {
+            continue;
+        }
+
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
@@ -254,15 +280,20 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| {
-                    let name = adapter.get_info().name;
-                    name.starts_with("Radeon")
-                        || name.starts_with("AMD")
-                        || name.starts_with("Intel")
-                })
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    render_instance
+                        .enumerate_adapters(wgpu::Backends::VULKAN)
+                        .await
+                        .iter()
+                        .any(|adapter| {
+                            let name = adapter.get_info().name;
+                            name.starts_with("Radeon")
+                                || name.starts_with("AMD")
+                                || name.starts_with("Intel")
+                        })
+                });
+            })[0]
         };
 
         let surface = &surface_data.surface;
@@ -285,13 +316,13 @@ pub fn prepare_windows(
             }
             #[cfg(target_os = "linux")]
             Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                tracing::trace!(
+                bevy_log::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
             }
             Err(err) => {
-                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+                bevy_log::error!("Couldn't get swap chain texture: {err}");
             }
         }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
@@ -348,6 +379,7 @@ pub fn create_surfaces(
                         .expect("Failed to create wgpu surface")
                 };
                 let caps = surface.get_capabilities(&render_adapter);
+                let present_mode = present_mode(window, &caps);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
@@ -363,19 +395,17 @@ pub fn create_surfaces(
                     }
                 }
 
+                let texture_view_format = if !format.is_srgb() {
+                    Some(format.add_srgb_suffix())
+                } else {
+                    None
+                };
                 let configuration = SurfaceConfiguration {
                     format,
                     width: window.physical_width,
                     height: window.physical_height,
                     usage: TextureUsages::RENDER_ATTACHMENT,
-                    present_mode: match window.present_mode {
-                        PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                        PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
-                        PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                        PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                        PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                        PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-                    },
+                    present_mode,
                     desired_maximum_frame_latency: window
                         .desired_maximum_frame_latency
                         .map(NonZero::<u32>::get)
@@ -391,10 +421,9 @@ pub fn create_surfaces(
                         }
                         CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
                     },
-                    view_formats: if !format.is_srgb() {
-                        vec![format.add_srgb_suffix()]
-                    } else {
-                        vec![]
+                    view_formats: match texture_view_format {
+                        Some(format) => vec![format],
+                        None => vec![],
                     },
                 };
 
@@ -403,6 +432,7 @@ pub fn create_surfaces(
                 SurfaceData {
                     surface: WgpuWrapper::new(surface),
                     configuration,
+                    texture_view_format,
                 }
             });
 
@@ -410,20 +440,65 @@ pub fn create_surfaces(
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
+            #[cfg_attr(
+                target_arch = "wasm32",
+                expect(clippy::drop_non_drop, reason = "texture views are not drop on wasm")
+            )]
+            drop(window.swap_chain_texture_view.take());
 
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;
-            data.configuration.present_mode = match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            };
+            let caps = data.surface.get_capabilities(&render_adapter);
+            data.configuration.present_mode = present_mode(window, &caps);
             render_device.configure_surface(&data.surface, &data.configuration);
         }
 
         window_surfaces.configured_windows.insert(window.entity);
     }
+}
+
+fn present_mode(
+    window: &mut ExtractedWindow,
+    caps: &wgpu::SurfaceCapabilities,
+) -> wgpu::PresentMode {
+    let present_mode = match window.present_mode {
+        PresentMode::Fifo => wgpu::PresentMode::Fifo,
+        PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+        PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+        PresentMode::Immediate => wgpu::PresentMode::Immediate,
+        PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+        PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+    };
+    let fallbacks = match present_mode {
+        wgpu::PresentMode::AutoVsync => {
+            &[wgpu::PresentMode::FifoRelaxed, wgpu::PresentMode::Fifo][..]
+        }
+        wgpu::PresentMode::AutoNoVsync => &[
+            wgpu::PresentMode::Immediate,
+            wgpu::PresentMode::Mailbox,
+            wgpu::PresentMode::Fifo,
+        ][..],
+        wgpu::PresentMode::Mailbox => &[
+            wgpu::PresentMode::Mailbox,
+            wgpu::PresentMode::Immediate,
+            wgpu::PresentMode::Fifo,
+        ][..],
+        // Always end in FIFO to make sure it's always supported
+        x => &[x, wgpu::PresentMode::Fifo][..],
+    };
+    let new_present_mode = fallbacks
+        .iter()
+        .copied()
+        .find(|fallback| caps.present_modes.contains(fallback))
+        .unwrap_or_else(|| {
+            unreachable!(
+                "Fallback system failed to choose present mode. \
+                            This is a bug. Mode: {:?}, Options: {:?}",
+                window.present_mode, &caps.present_modes
+            );
+        });
+    if new_present_mode != present_mode && fallbacks.contains(&present_mode) {
+        info!("PresentMode {present_mode:?} requested but not available. Falling back to {new_present_mode:?}");
+    }
+    new_present_mode
 }

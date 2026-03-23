@@ -21,11 +21,11 @@ use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
 
-use bevy_text::CosmicFontSystem;
+use bevy_text::FontCx;
 
 mod convert;
 pub mod debug;
-pub(crate) mod ui_surface;
+pub mod ui_surface;
 
 pub struct LayoutContext {
     pub scale_factor: f32,
@@ -37,7 +37,7 @@ impl LayoutContext {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
     };
-    /// create new a [`LayoutContext`] from the window's physical size and scale factor
+    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
     const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
@@ -92,7 +92,7 @@ pub fn ui_layout_system(
         Option<&IgnoreScroll>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
@@ -254,10 +254,8 @@ pub fn ui_layout_system(
             node.bypass_change_detection().content_size = content_size;
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
-                left: rect.left,
-                right: rect.right,
-                top: rect.top,
-                bottom: rect.bottom,
+                min_inset: Vec2::new(rect.left, rect.top),
+                max_inset: Vec2::new(rect.right, rect.bottom),
             };
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
@@ -359,28 +357,28 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::update_cameras_test_system;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
-    use bevy_camera::{Camera, Camera2d};
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
+    use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
-    use bevy_window::{PrimaryWindow, Window, WindowResolution};
+
     use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: u32 = 1000;
-    const WINDOW_HEIGHT: u32 = 100;
+    const TARGET_WIDTH: u32 = 1000;
+    const TARGET_HEIGHT: u32 = 100;
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
+        app.add_plugins(TaskPoolPlugin::default());
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
@@ -391,15 +389,15 @@ mod tests {
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
-        app.init_resource::<bevy_text::CosmicFontSystem>();
-        app.init_resource::<bevy_text::SwashCache>();
+        app.init_resource::<bevy_text::FontCx>();
+        app.init_resource::<bevy_text::ScaleCx>();
+        app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
         app.add_systems(
             PostUpdate,
             (
-                update_cameras_test_system,
-                propagate_ui_target_cameras,
                 ApplyDeferred,
+                propagate_ui_target_cameras,
                 ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
@@ -423,15 +421,24 @@ mod tests {
         );
 
         let world = app.world_mut();
-        // spawn a dummy primary window and camera
+        // spawn a camera with a dummy render target
         world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+            Camera2d,
+            Camera {
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
+                    }),
+                    ..Default::default()
+                },
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
+                ..Default::default()
             },
-            PrimaryWindow,
         ));
-        world.spawn(Camera2d);
 
         app
     }
@@ -467,8 +474,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
+            assert_eq!(layout.size.width, TARGET_WIDTH as f32);
+            assert_eq!(layout.size.height, TARGET_HEIGHT as f32);
         }
     }
 
@@ -801,21 +808,14 @@ mod tests {
         #[derive(Component)]
         struct MovingUiNode;
 
-        fn update_camera_viewports(
-            primary_window_query: Query<&Window, With<PrimaryWindow>>,
-            mut cameras: Query<&mut Camera>,
-        ) {
-            let primary_window = primary_window_query
-                .single()
-                .expect("missing primary window");
+        fn update_camera_viewports(mut cameras: Query<&mut Camera>) {
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
-                let viewport_width =
-                    primary_window.resolution.physical_width() / camera_count as u32;
-                let viewport_height = primary_window.resolution.physical_height();
+                let target_size = camera.physical_target_size().unwrap();
+                let viewport_width = target_size.x / camera_count as u32;
                 let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
-                let physical_size = UVec2::new(viewport_width, viewport_height);
-                camera.viewport = Some(bevy_camera::Viewport {
+                let physical_size = UVec2::new(target_size.x / camera_count as u32, target_size.y);
+                camera.viewport = Some(Viewport {
                     physical_position,
                     physical_size,
                     ..default()
@@ -885,6 +885,17 @@ mod tests {
             Camera2d,
             Camera {
                 order: 1,
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
+                    }),
+                    ..default()
+                },
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
                 ..default()
             },
         ));
@@ -1085,9 +1096,9 @@ mod tests {
 
         world.init_resource::<bevy_text::TextPipeline>();
 
-        world.init_resource::<bevy_text::CosmicFontSystem>();
+        world.init_resource::<bevy_text::FontCx>();
 
-        world.init_resource::<bevy_text::SwashCache>();
+        world.init_resource::<bevy_text::ScaleCx>();
 
         let ui_root = world
             .spawn(Node {
@@ -1127,7 +1138,7 @@ mod tests {
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
             mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
-            mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+            mut font_system: ResMut<bevy_text::FontCx>,
         ) {
             ui_surface.upsert_node(
                 &LayoutContext::TEST_CONTEXT,
@@ -1204,6 +1215,15 @@ mod tests {
             4
         );
 
+        // Should be two viewport nodes tracked in the root to viewport node map.
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            2
+        );
+
         // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
         // UI root entity.
         world
@@ -1220,5 +1240,18 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+
+        // The entry for `ui_root_entity_2` should have been removed from `root_entity_to_viewport_node`
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            1
+        );
+        assert!(world
+            .resource_mut::<UiSurface>()
+            .root_entity_to_viewport_node
+            .contains_key(&ui_root_entity_1));
     }
 }

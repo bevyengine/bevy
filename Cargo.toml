@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.88.0"
+rust-version = "1.92.0"
 
 [workspace]
 resolver = "2"
@@ -30,6 +30,12 @@ members = [
   "examples/no_std/*",
   # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
   "examples/reflection/auto_register_static",
+  # Examples of large bevy scenes.
+  "examples/large_scenes/bistro",
+  "examples/large_scenes/caldera_hotel",
+  "examples/large_scenes/bevy_city",
+  # Mipmap generator for testing large bevy scenes with mips and texture compression.
+  "examples/large_scenes/mipmap_generator",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -125,17 +131,15 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui"]
+default = ["2d", "3d", "ui", "audio"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
   "default_app",
   "default_platform",
-  "2d_api",
   "2d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -143,11 +147,9 @@ default = ["2d", "3d", "ui"]
 3d = [
   "default_app",
   "default_platform",
-  "3d_api",
   "3d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -158,8 +160,8 @@ ui = [
   "ui_api",
   "ui_bevy_render",
   "scene",
-  "audio",
   "picking",
+  "bevy_ui_widgets",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
@@ -175,7 +177,7 @@ audio = ["bevy_audio", "vorbis"]
 # COLLECTION: Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# COLLECTION: Enables picking functionality
+# COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
@@ -214,6 +216,7 @@ common_api = [
   "bevy_image",
   "bevy_mesh",
   "bevy_shader",
+  "bevy_material",
   "bevy_text",
   "hdr",
   "png",
@@ -222,7 +225,7 @@ common_api = [
 # COLLECTION: Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 2d_api = ["common_api", "bevy_sprite"]
 
-# COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render`.
 2d_bevy_render = [
   "2d_api",
   "bevy_render",
@@ -245,7 +248,7 @@ common_api = [
   "zstd_rust",
 ]
 
-# COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render`.
 3d_bevy_render = [
   "3d_api",
   "bevy_render",
@@ -261,7 +264,7 @@ common_api = [
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 ui_api = ["default_app", "common_api", "bevy_ui"]
 
-# COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render` 
+# COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
   "ui_api",
   "bevy_render",
@@ -269,7 +272,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications
+# COLLECTION: Recommended defaults for no_std applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -312,7 +315,7 @@ bevy_post_process = ["bevy_internal/bevy_post_process"]
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
-bevy_gilrs = ["bevy_internal/bevy_gilrs"]
+bevy_gilrs = ["gamepad", "bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf"]
@@ -320,7 +323,7 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 
-# Provides picking functionality
+# Provides picking functionality without any backend
 bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
@@ -371,6 +374,9 @@ bevy_light = ["bevy_internal/bevy_light"]
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
 
+# Provides materials.
+bevy_material = ["bevy_internal/bevy_material"]
+
 # Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
@@ -398,14 +404,14 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Experimental headless widget collection for Bevy UI.
-experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+# Headless widget collection for Bevy UI.
+bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+
+# Load and save user preferences
+bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = [
-  "bevy_internal/bevy_feathers",
-  "experimental_bevy_ui_widgets",
-]
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -416,11 +422,14 @@ statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_internal/type_label_buffers"]
+
 # Tracing support, saving a file in Chrome Tracing format
-trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_chrome = ["trace", "bevy_internal/trace_chrome", "debug"]
 
 # Tracing support, exposing a port for Tracy
-trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+trace_tracy = ["trace", "bevy_internal/trace_tracy", "debug"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
@@ -584,6 +593,9 @@ debug_glam_assert = ["bevy_internal/debug_glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+# Allows for discovery of preloaded system fonts
+system_font_discovery = ["bevy_internal/system_font_discovery"]
+
 # Enable support for shaders in GLSL
 shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 
@@ -691,6 +703,21 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Mouse support. Automatically enabled by `bevy_window`.
+mouse = ["bevy_internal/mouse"]
+
+# Keyboard support. Automatically enabled by `bevy_window`.
+keyboard = ["bevy_internal/keyboard"]
+
+# Gamepad support. Automatically enabled by `bevy_gilrs`.
+gamepad = ["bevy_internal/gamepad"]
+
+# Touch support. Automatically enabled by `bevy_window`.
+touch = ["bevy_internal/touch"]
+
+# Gestures support. Automatically enabled by `bevy_window`.
+gestures = ["bevy_internal/gestures"]
+
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
@@ -698,30 +725,30 @@ hotpatching = ["bevy_internal/hotpatching"]
 debug = ["bevy_internal/debug"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.18.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.9.0"
-rand_chacha = "0.9.0"
-ron = "0.11"
+rand = "0.10.0"
+chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
+ron = "0.12"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_animation = { path = "crates/bevy_animation", version = "0.18.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.18.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.18.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.18.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.18.0-dev", default-features = false }
-bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.19.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -730,14 +757,16 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.21"
+accesskit = "0.24"
 nonmax = "0.5"
+gltf = "1.4"
+indexmap = "2"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = { version = "0.3", default-features = false, features = [
+getrandom = { version = "0.4", default-features = false, features = [
   "wasm_js",
 ] }
 wasm-bindgen = { version = "0.2" }
@@ -797,12 +826,23 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "rotate_to_cursor"
+path = "examples/2d/rotate_to_cursor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.rotate_to_cursor]
+name = "2D Rotation to Cursor"
+description = "Demonstrates rotating entities in 2D to follow the cursor"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.rotation]
-name = "2D Rotation"
+name = "Generic 2D Rotation"
 description = "Demonstrates rotating entities in 2D with quaternions"
 category = "2D Rendering"
 wasm = true
@@ -973,6 +1013,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "editable_text"
+path = "examples/ui/text/editable_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text]
+name = "Editable Text"
+description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -992,6 +1043,18 @@ doc-scrape-examples = true
 [package.metadata.example.tilemap_chunk]
 name = "Tilemap Chunk"
 description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "tilemap_chunk_orientation"
+path = "examples/2d/tilemap_chunk_orientation.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_chunk_orientation]
+name = "Tilemap Chunk with Orientations"
+description = "Renders a tilemap chunk using tile orientations (mirrored, rotated)"
 category = "2D Rendering"
 wasm = true
 
@@ -1183,6 +1246,18 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "contact_shadows"
+path = "examples/3d/contact_shadows.rs"
+doc-scrape-examples = true
+required-features = ["bluenoise_texture"]
+
+[package.metadata.example.contact_shadows]
+name = "Contact Shadows"
+description = "Showcases how contact shadows add shadow detail"
 category = "3D Rendering"
 wasm = true
 
@@ -1822,6 +1897,28 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "externally_driven_headless_renderer"
+path = "examples/app/externally_driven_headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_headless_renderer]
+name = "Externally Driven Headless Renderer"
+description = "Using bevy with manually driven update to render images"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "render_recovery"
+path = "examples/app/render_recovery.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_recovery]
+name = "Render Recovery"
+description = "Demonstrates how bevy can recover from rendering failures."
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 doc-scrape-examples = true
@@ -1876,6 +1973,30 @@ name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
 wasm = false
+
+[[example]]
+name = "asset_saving"
+path = "examples/asset/asset_saving.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking", "sprite_picking", "png"]
+
+[package.metadata.example.asset_saving]
+name = "Asset Saving"
+description = "Demonstrates how to save an asset"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "asset_saving_with_subassets"
+path = "examples/asset/asset_saving_with_subassets.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving_with_subassets]
+name = "Asset Saving with Subassets"
+description = "Demonstrates how to save an asset with subassets"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "asset_settings"
@@ -1944,6 +2065,17 @@ description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "generated_assets"
+path = "examples/asset/generated_assets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.generated_assets]
+name = "Generated Assets"
+description = "Shows how to generate and store assets at runtime"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "web_asset"
@@ -2175,6 +2307,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "callbacks"
+path = "examples/ecs/callbacks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.callbacks]
+name = "Callbacks"
+description = "Store arbitrary systems in components and run them on demand"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true
@@ -2186,6 +2329,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_executor"
+path = "examples/ecs/custom_executor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_executor]
+name = "Custom Executor"
+description = "Demonstrates how to make a custom SystemExecutor"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_schedule"
 path = "examples/ecs/custom_schedule.rs"
 doc-scrape-examples = true
@@ -2193,6 +2347,18 @@ doc-scrape-examples = true
 [package.metadata.example.custom_schedule]
 name = "Custom Schedule"
 description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+
+[[example]]
+name = "extraction"
+path = "examples/ecs/extraction.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extraction]
+name = "Extraction"
+description = "Demonstrates different ways of extracting components, copying them from the main world to the render world"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2227,17 +2393,6 @@ doc-scrape-examples = true
 [package.metadata.example.message]
 name = "Message"
 description = "Illustrates message creation, activation, and reception"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "send_and_receive_messages"
-path = "examples/ecs/send_and_receive_messages.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.send_and_receive_messages]
-name = "Send and receive messages"
-description = "Demonstrates how to send and receive messages of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2397,6 +2552,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "delayed_commands"
+path = "examples/ecs/delayed_commands.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.delayed_commands]
+name = "Delayed Commands"
+description = "Demonstrates how to schedule ECS commands with a delay"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
@@ -2537,7 +2703,7 @@ wasm = false
 # Games
 [[example]]
 name = "alien_cake_addict"
-path = "examples/games/alien_cake_addict.rs"
+path = "examples/showcase/alien_cake_addict.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.alien_cake_addict]
@@ -2548,7 +2714,7 @@ wasm = true
 
 [[example]]
 name = "breakout"
-path = "examples/games/breakout.rs"
+path = "examples/showcase/breakout.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.breakout]
@@ -2559,7 +2725,7 @@ wasm = true
 
 [[example]]
 name = "contributors"
-path = "examples/games/contributors.rs"
+path = "examples/showcase/contributors.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.contributors]
@@ -2570,7 +2736,7 @@ wasm = true
 
 [[example]]
 name = "desk_toy"
-path = "examples/games/desk_toy.rs"
+path = "examples/showcase/desk_toy.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.desk_toy]
@@ -2581,7 +2747,7 @@ wasm = false
 
 [[example]]
 name = "game_menu"
-path = "examples/games/game_menu.rs"
+path = "examples/showcase/game_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.game_menu]
@@ -2592,7 +2758,7 @@ wasm = true
 
 [[example]]
 name = "loading_screen"
-path = "examples/games/loading_screen.rs"
+path = "examples/showcase/loading_screen.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.loading_screen]
@@ -2827,7 +2993,7 @@ wasm = false
 [[example]]
 name = "type_data"
 path = "examples/reflection/type_data.rs"
-# Causes an ICE on docs.rs
+# causes ICE due to impl in a fn: https://github.com/rust-lang/rust/issues/149089
 doc-scrape-examples = false
 
 [package.metadata.example.type_data]
@@ -3005,6 +3171,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "compute_mesh"
+path = "examples/shader_advanced/compute_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.compute_mesh]
+name = "Compute Shader Mesh"
+description = "A compute shader that generates a mesh that is controlled by a Handle"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
@@ -3087,7 +3264,7 @@ doc-scrape-examples = true
 [package.metadata.example.manual_material]
 name = "Manual Material Implementation"
 description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "Shader Advanced"
+category = "Shaders Advanced"
 wasm = true
 
 [[example]]
@@ -3110,6 +3287,17 @@ doc-scrape-examples = true
 name = "Specialized Mesh Pipeline"
 description = "Demonstrates how to write a specialized mesh pipeline"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader_advanced/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shaders Advanced"
 wasm = true
 
 # Stress tests
@@ -3137,6 +3325,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "bevymark_3d"
+path = "examples/stress_tests/bevymark_3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bevymark_3d]
+name = "Bevymark 3D"
+description = "A heavy 3D cube rendering workload to benchmark your system with Bevy"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_animated_sprites"
 path = "examples/stress_tests/many_animated_sprites.rs"
 doc-scrape-examples = true
@@ -3146,6 +3345,17 @@ name = "Many Animated Sprites"
 description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_animated_sprite_meshes]
+name = "Many Animated Sprite Meshes"
+description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_buttons"
@@ -3225,6 +3435,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_morph_targets"
+path = "examples/stress_tests/many_morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_morph_targets]
+name = "Many Morph Targets"
+description = "Simple benchmark to test rendering many meshes with animated morph targets."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
 doc-scrape-examples = true
@@ -3256,6 +3477,17 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_sprite_meshes]
+name = "Many Sprite Meshes"
+description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -3415,8 +3647,19 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "anchor_layout"
+path = "examples/ui/layout/anchor_layout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchor_layout]
+name = "Anchor Layout"
+description = "Shows an 'anchor layout' style of ui layout"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "borders"
-path = "examples/ui/borders.rs"
+path = "examples/ui/styling/borders.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.borders]
@@ -3427,7 +3670,7 @@ wasm = true
 
 [[example]]
 name = "box_shadow"
-path = "examples/ui/box_shadow.rs"
+path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.box_shadow]
@@ -3438,7 +3681,7 @@ wasm = true
 
 [[example]]
 name = "button"
-path = "examples/ui/button.rs"
+path = "examples/ui/widgets/button.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.button]
@@ -3459,13 +3702,35 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "font_query"
+path = "examples/ui/text/font_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_query]
+name = "Font Queries"
+description = "Demonstrates font querying"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
-path = "examples/ui/display_and_visibility.rs"
+path = "examples/ui/layout/display_and_visibility.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
 description = "Demonstrates how Display and Visibility work in the UI."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "font_weights"
+path = "examples/ui/text/font_weights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_weights]
+name = "Font Weights"
+description = "Demonstrates how to use font weights."
 category = "UI (User Interface)"
 wasm = true
 
@@ -3481,8 +3746,19 @@ category = "UI (User Interface)"
 wasm = false
 
 [[example]]
+name = "vertical_slider"
+path = "examples/ui/widgets/vertical_slider.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "font_atlas_debug"
-path = "examples/ui/font_atlas_debug.rs"
+path = "examples/ui/text/font_atlas_debug.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.font_atlas_debug]
@@ -3493,7 +3769,7 @@ wasm = true
 
 [[example]]
 name = "overflow"
-path = "examples/ui/overflow.rs"
+path = "examples/ui/scroll_and_overflow/overflow.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.overflow]
@@ -3504,7 +3780,7 @@ wasm = true
 
 [[example]]
 name = "overflow_clip_margin"
-path = "examples/ui/overflow_clip_margin.rs"
+path = "examples/ui/scroll_and_overflow/overflow_clip_margin.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.overflow_clip_margin]
@@ -3516,7 +3792,7 @@ wasm = true
 
 [[example]]
 name = "overflow_debug"
-path = "examples/ui/overflow_debug.rs"
+path = "examples/ui/scroll_and_overflow/overflow_debug.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.overflow_debug]
@@ -3549,7 +3825,7 @@ wasm = true
 
 [[example]]
 name = "size_constraints"
-path = "examples/ui/size_constraints.rs"
+path = "examples/ui/layout/size_constraints.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.size_constraints]
@@ -3560,7 +3836,7 @@ wasm = true
 
 [[example]]
 name = "strikethrough_and_underline"
-path = "examples/ui/strikethrough_and_underline.rs"
+path = "examples/ui/text/strikethrough_and_underline.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.strikethrough_and_underline]
@@ -3570,8 +3846,20 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "generic_font_families"
+path = "examples/ui/text/generic_font_families.rs"
+doc-scrape-examples = true
+required-features = ["system_font_discovery"]
+
+[package.metadata.example.generic_font_families]
+name = "Generic Font Families"
+description = "Demonstrates how to use generic font families"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
-path = "examples/ui/text.rs"
+path = "examples/ui/text/text.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.text]
@@ -3582,7 +3870,7 @@ wasm = true
 
 [[example]]
 name = "text_background_colors"
-path = "examples/ui/text_background_colors.rs"
+path = "examples/ui/text/text_background_colors.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.text_background_colors]
@@ -3593,7 +3881,7 @@ wasm = true
 
 [[example]]
 name = "text_debug"
-path = "examples/ui/text_debug.rs"
+path = "examples/ui/text/text_debug.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.text_debug]
@@ -3604,7 +3892,7 @@ wasm = true
 
 [[example]]
 name = "flex_layout"
-path = "examples/ui/flex_layout.rs"
+path = "examples/ui/layout/flex_layout.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.flex_layout]
@@ -3615,7 +3903,7 @@ wasm = true
 
 [[example]]
 name = "text_wrap_debug"
-path = "examples/ui/text_wrap_debug.rs"
+path = "examples/ui/text/text_wrap_debug.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.text_wrap_debug]
@@ -3625,8 +3913,19 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "letter_spacing"
+path = "examples/ui/text/letter_spacing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.letter_spacing]
+name = "Letter Spacing"
+description = "Demonstrates the letter spacing feature"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ghost_nodes"
-path = "examples/ui/ghost_nodes.rs"
+path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
 required-features = ["ghost_nodes"]
 
@@ -3638,7 +3937,7 @@ wasm = true
 
 [[example]]
 name = "grid"
-path = "examples/ui/grid.rs"
+path = "examples/ui/layout/grid.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.grid]
@@ -3649,7 +3948,7 @@ wasm = true
 
 [[example]]
 name = "gradients"
-path = "examples/ui/gradients.rs"
+path = "examples/ui/styling/gradients.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.gradients]
@@ -3660,7 +3959,7 @@ wasm = true
 
 [[example]]
 name = "stacked_gradients"
-path = "examples/ui/stacked_gradients.rs"
+path = "examples/ui/styling/stacked_gradients.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.stacked_gradients]
@@ -3671,7 +3970,7 @@ wasm = true
 
 [[example]]
 name = "scroll"
-path = "examples/ui/scroll.rs"
+path = "examples/ui/scroll_and_overflow/scroll.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.scroll]
@@ -3682,7 +3981,7 @@ wasm = true
 
 [[example]]
 name = "transparency_ui"
-path = "examples/ui/transparency_ui.rs"
+path = "examples/ui/styling/transparency_ui.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.transparency_ui]
@@ -3693,7 +3992,7 @@ wasm = true
 
 [[example]]
 name = "z_index"
-path = "examples/ui/z_index.rs"
+path = "examples/ui/layout/z_index.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.z_index]
@@ -3704,7 +4003,7 @@ wasm = true
 
 [[example]]
 name = "virtual_keyboard"
-path = "examples/ui/virtual_keyboard.rs"
+path = "examples/ui/widgets/virtual_keyboard.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
@@ -3727,7 +4026,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_atlas"
-path = "examples/ui/ui_texture_atlas.rs"
+path = "examples/ui/images/ui_texture_atlas.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_atlas]
@@ -3738,7 +4037,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_slice"
-path = "examples/ui/ui_texture_slice.rs"
+path = "examples/ui/images/ui_texture_slice.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_slice]
@@ -3749,7 +4048,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_slice_flip_and_tile"
-path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+path = "examples/ui/images/ui_texture_slice_flip_and_tile.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_slice_flip_and_tile]
@@ -3760,7 +4059,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_atlas_slice"
-path = "examples/ui/ui_texture_atlas_slice.rs"
+path = "examples/ui/images/ui_texture_atlas_slice.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_atlas_slice]
@@ -3792,24 +4091,35 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "viewport_debug"
-path = "examples/ui/viewport_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.viewport_debug]
-name = "Viewport Debug"
-description = "An example for debugging viewport coordinates"
-category = "UI (User Interface)"
-wasm = false
-
-[[example]]
 name = "viewport_node"
-path = "examples/ui/viewport_node.rs"
+path = "examples/ui/widgets/viewport_node.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.viewport_node]
 name = "Viewport Node"
 description = "Demonstrates how to create a viewport node with picking support"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node"
+path = "examples/ui/images/image_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.image_node]
+name = "Image Node"
+description = "Demonstrates how to create an image node"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node_resizing"
+path = "examples/ui/images/image_node_resizing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizing"
+description = "Demonstrates how to resize an image node"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3834,17 +4144,6 @@ required-features = ["custom_cursor"]
 [package.metadata.example.custom_cursor_image]
 name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
-category = "Window"
-wasm = true
-
-[[example]]
-name = "custom_user_event"
-path = "examples/window/custom_user_event.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_user_event]
-name = "Custom User Event"
-description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -3968,6 +4267,9 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.fallback_image]
+hidden = true
+
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
@@ -3979,9 +4281,6 @@ description = "Demonstrates reflection probes"
 category = "3D Rendering"
 wasm = false
 
-[package.metadata.example.fallback_image]
-hidden = true
-
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
@@ -3990,7 +4289,7 @@ wasm = true
 
 [[example]]
 name = "drag_to_scroll"
-path = "examples/ui/drag_to_scroll.rs"
+path = "examples/ui/scroll_and_overflow/drag_to_scroll.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.drag_to_scroll]
@@ -4033,17 +4332,6 @@ category = "Math"
 wasm = true
 
 # Math
-[[example]]
-name = "sampling_primitives"
-path = "examples/math/sampling_primitives.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.sampling_primitives]
-name = "Sampling Primitives"
-description = "Demonstrates all the primitives which can be sampled."
-category = "Math"
-wasm = true
-
 [[example]]
 name = "custom_primitives"
 path = "examples/math/custom_primitives.rs"
@@ -4124,6 +4412,63 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "2d_text_gizmos"
+path = "examples/gizmos/2d_text_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_text_gizmos]
+name = "Text Gizmos 2d"
+description = "A scene showcasing 2d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "anchored_text_gizmos"
+path = "examples/gizmos/anchored_text_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.anchored_text_gizmos]
+name = "Anchored Text Gizmos"
+description = "Demonstrates anchored text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_text_gizmos"
+path = "examples/gizmos/3d_text_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_text_gizmos]
+name = "Text Gizmos 3d"
+description = "A scene showcasing 3d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "text_gizmos_font"
+path = "examples/gizmos/text_gizmos_font.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_gizmos_font]
+name = "Text Gizmos Font"
+description = "Example displaying the font used by text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "debug_frustum_culling"
+path = "examples/usage/debug_frustum_culling.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.debug_frustum_culling]
+name = "Debug Frustum Culling"
+description = "Example demonstrating how to debug frustum culling"
+category = "Usage"
+wasm = true
+
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 doc-scrape-examples = true
@@ -4175,6 +4520,28 @@ doc-scrape-examples = true
 [package.metadata.example.load_gltf_extras]
 name = "Load glTF extras"
 description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_animation_graph"
+path = "examples/gltf/gltf_extension_animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_animation_graph]
+name = "glTF extension AnimationGraph"
+description = "Uses glTF data to build an AnimationGraph via extension processing"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_extension_mesh_2d"
+path = "examples/gltf/gltf_extension_mesh_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_extension_mesh_2d]
+name = "glTF extension processing to build Mesh2ds from glTF data"
+description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
 wasm = true
 
@@ -4316,6 +4683,7 @@ wasm = true
 name = "ssr"
 path = "examples/3d/ssr.rs"
 doc-scrape-examples = true
+required-features = ["bluenoise_texture"]
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
@@ -4498,7 +4866,7 @@ wasm = true
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_picking"]
+required-features = ["ui_picking"]
 
 [package.metadata.example.simple_picking]
 name = "Showcases simple picking events and usage"
@@ -4527,6 +4895,18 @@ required-features = ["bevy_dev_tools"]
 [package.metadata.example.debug_picking]
 name = "Picking Debug Tools"
 description = "Demonstrates picking debug overlay"
+category = "Picking"
+wasm = true
+
+[[example]]
+name = "dragdrop_picking"
+path = "examples/picking/dragdrop_picking.rs"
+doc-scrape-examples = true
+required-features = ["mesh_picking"]
+
+[package.metadata.example.dragdrop_picking]
+name = "Drag and Drop"
+description = "Demonstrates drag and drop using picking events"
 category = "Picking"
 wasm = true
 
@@ -4607,6 +4987,14 @@ doc-scrape-examples = true
 [package.metadata.example.test_invalid_skinned_mesh]
 hidden = true
 
+[[example]]
+name = "test_skinned_mesh_bounds"
+path = "tests/3d/test_skinned_mesh_bounds.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_skinned_mesh_bounds]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -4624,9 +5012,11 @@ panic = "abort"
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 rustdoc-args = [
   "-Zunstable-options",
   "--generate-link-to-definition",
+  "--generate-macro-expansion",
   # Embed tags to the top of documentation pages for common Bevy traits
   # that are implemented by the current type, like `Component` or `Resource`.
   # This makes it easier to see at a glance what types are used for.
@@ -4634,7 +5024,6 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [[example]]
 name = "monitor_info"
@@ -4676,14 +5065,13 @@ hidden = true
 name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
 
 [[example]]
 name = "tab_navigation"
-path = "examples/ui/tab_navigation.rs"
+path = "examples/ui/widgets/tab_navigation.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.tab_navigation]
@@ -4694,23 +5082,23 @@ wasm = true
 
 [[example]]
 name = "directional_navigation"
-path = "examples/ui/directional_navigation.rs"
+path = "examples/ui/navigation/directional_navigation.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
-description = "Demonstration of Directional Navigation between UI elements"
+description = "Demonstration of automatic directional navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_directional_navigation"
-path = "examples/ui/auto_directional_navigation.rs"
+name = "directional_navigation_overrides"
+path = "examples/ui/navigation/directional_navigation_overrides.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.auto_directional_navigation]
-name = "Automatic Directional Navigation"
-description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+[package.metadata.example.directional_navigation_overrides]
+name = "Directional Navigation Overrides"
+description = "Demonstration of automatic directional navigation between UI elements with manual overrides"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4809,9 +5197,8 @@ wasm = false
 
 [[example]]
 name = "standard_widgets"
-path = "examples/ui/standard_widgets.rs"
+path = "examples/ui/widgets/standard_widgets.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -4821,9 +5208,8 @@ wasm = true
 
 [[example]]
 name = "standard_widgets_observers"
-path = "examples/ui/standard_widgets_observers.rs"
+path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -4833,9 +5219,8 @@ wasm = true
 
 [[example]]
 name = "scrollbars"
-path = "examples/ui/scrollbars.rs"
+path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
@@ -4844,8 +5229,44 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "persisting_preferences"
+path = "examples/app/persisting_preferences.rs"
+doc-scrape-examples = true
+required-features = ["bevy_settings"]
+
+[package.metadata.example.persisting_preferences]
+name = "User Preferences"
+description = "Demonstrates persistence of user preferences"
+category = "Application"
+wasm = true
+
+[[example]]
+name = "persisting_window_settings"
+path = "examples/window/persisting_window_settings.rs"
+doc-scrape-examples = true
+required-features = ["bevy_settings"]
+
+[package.metadata.example.persisting_window_settings]
+name = "Save Window Position"
+description = "Demonstrates saving window position in preferences"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "system_fonts"
+path = "examples/ui/text/system_fonts.rs"
+doc-scrape-examples = true
+required-features = ["system_font_discovery"]
+
+[package.metadata.example.system_fonts]
+name = "System Fonts"
+description = "Demonstrates how to use system fonts"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "feathers"
-path = "examples/ui/feathers.rs"
+path = "examples/ui/widgets/feathers.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
@@ -4877,3 +5298,72 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "contiguous_query"
+path = "examples/ecs/contiguous_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.contiguous_query]
+name = "Contiguous Query"
+description = "Demonstrates contiguous queries"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "clustered_decal_maps"
+path = "examples/3d/clustered_decal_maps.rs"
+doc-scrape-examples = true
+required-features = ["pbr_clustered_decals", "https"]
+
+[package.metadata.example.clustered_decal_maps]
+name = "Clustered Decal Maps"
+description = "Demonstrates normal and metallic-roughness maps of decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "mirror"
+path = "examples/3d/mirror.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mirror]
+name = "Mirror"
+description = "Demonstrates how to create a mirror with a second camera"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "dynamic_mip_generation"
+path = "examples/2d/dynamic_mip_generation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_mip_generation]
+name = "Dynamic Mipmap Generation"
+description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
+category = "2D Rendering"
+wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "light_probe_blending"
+path = "examples/3d/light_probe_blending.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.light_probe_blending]
+name = "Light Probe Blending"
+description = "Demonstrates blending between multiple reflection probes"
+category = "3D Rendering"
+wasm = false

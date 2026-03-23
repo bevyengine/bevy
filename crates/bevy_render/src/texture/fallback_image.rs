@@ -134,10 +134,10 @@ fn fallback_image_new(
     GpuImage {
         texture,
         texture_view,
-        texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.texture_descriptor.size,
-        mip_level_count: image.texture_descriptor.mip_level_count,
+        texture_descriptor: image.texture_descriptor,
+        texture_view_descriptor: image.texture_view_descriptor,
+        had_data: true,
     }
 }
 

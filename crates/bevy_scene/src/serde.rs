@@ -1,6 +1,9 @@
 //! `serde` serialization and deserialization implementation for Bevy scenes.
 
 use crate::{DynamicEntity, DynamicScene};
+use bevy_asset::{
+    EphemeralHandleBehavior, HandleDeserializeProcessor, HandleSerializeProcessor, LoadFromPath,
+};
 use bevy_ecs::entity::Entity;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{
@@ -187,7 +190,14 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         for (type_path, partial_reflect) in sorted_entries {
             state.serialize_entry(
                 type_path,
-                &TypedReflectSerializer::new(partial_reflect, self.registry),
+                &TypedReflectSerializer::with_processor(
+                    partial_reflect,
+                    self.registry,
+                    &HandleSerializeProcessor {
+                        // TODO: Make this configurable.
+                        ephemeral_handle_behavior: EphemeralHandleBehavior::Warn,
+                    },
+                ),
             )?;
         }
         state.end()
@@ -211,6 +221,8 @@ enum EntityField {
 pub struct SceneDeserializer<'a> {
     /// Type registry in which the components and resources types used in the scene to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
+    /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
+    pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
@@ -225,13 +237,15 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
             &[SCENE_RESOURCES, SCENE_ENTITIES],
             SceneVisitor {
                 type_registry: self.type_registry,
+                load_from_path: self.load_from_path,
             },
         )
     }
 }
 
 struct SceneVisitor<'a> {
-    pub type_registry: &'a TypeRegistry,
+    type_registry: &'a TypeRegistry,
+    load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
@@ -248,12 +262,14 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         let resources = seq
             .next_element_seed(SceneMapDeserializer {
                 registry: self.type_registry,
+                load_from_path: self.load_from_path,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
 
         let entities = seq
             .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
+                load_from_path: self.load_from_path,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
@@ -277,6 +293,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     }
                     resources = Some(map.next_value_seed(SceneMapDeserializer {
                         registry: self.type_registry,
+                        load_from_path: self.load_from_path,
                     })?);
                 }
                 SceneField::Entities => {
@@ -285,6 +302,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     }
                     entities = Some(map.next_value_seed(SceneEntitiesDeserializer {
                         type_registry: self.type_registry,
+                        load_from_path: self.load_from_path,
                     })?);
                 }
             }
@@ -304,6 +322,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 pub struct SceneEntitiesDeserializer<'a> {
     /// Type registry in which the component types used by the entities to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
+    /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
+    pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
@@ -315,12 +335,14 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
     {
         deserializer.deserialize_map(SceneEntitiesVisitor {
             type_registry: self.type_registry,
+            load_from_path: self.load_from_path,
         })
     }
 }
 
 struct SceneEntitiesVisitor<'a> {
-    pub type_registry: &'a TypeRegistry,
+    type_registry: &'a TypeRegistry,
+    load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
@@ -339,6 +361,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
             let entity = map.next_value_seed(SceneEntityDeserializer {
                 entity,
                 type_registry: self.type_registry,
+                load_from_path: self.load_from_path,
             })?;
             entities.push(entity);
         }
@@ -353,6 +376,8 @@ pub struct SceneEntityDeserializer<'a> {
     pub entity: Entity,
     /// Type registry in which the component types used by the entity to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
+    /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
+    pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
@@ -368,14 +393,16 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
             SceneEntityVisitor {
                 entity: self.entity,
                 registry: self.type_registry,
+                load_from_path: self.load_from_path,
             },
         )
     }
 }
 
 struct SceneEntityVisitor<'a> {
-    pub entity: Entity,
-    pub registry: &'a TypeRegistry,
+    entity: Entity,
+    registry: &'a TypeRegistry,
+    load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
@@ -392,6 +419,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         let components = seq
             .next_element_seed(SceneMapDeserializer {
                 registry: self.registry,
+                load_from_path: self.load_from_path,
             })?
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
 
@@ -415,6 +443,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
 
                     components = Some(map.next_value_seed(SceneMapDeserializer {
                         registry: self.registry,
+                        load_from_path: self.load_from_path,
                     })?);
                 }
             }
@@ -434,6 +463,8 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
 pub struct SceneMapDeserializer<'a> {
     /// Type registry in which the types of the values to deserialize are registered.
     pub registry: &'a TypeRegistry,
+    /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
+    pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
@@ -445,12 +476,14 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
     {
         deserializer.deserialize_map(SceneMapVisitor {
             registry: self.registry,
+            load_from_path: self.load_from_path,
         })
     }
 }
 
 struct SceneMapVisitor<'a> {
-    pub registry: &'a TypeRegistry,
+    registry: &'a TypeRegistry,
+    load_from_path: &'a mut dyn LoadFromPath,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
@@ -488,8 +521,13 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 )));
             }
 
-            let value =
-                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?;
+            let value = map.next_value_seed(TypedReflectDeserializer::with_processor(
+                registration,
+                self.registry,
+                &mut HandleDeserializeProcessor {
+                    load_from_path: self.load_from_path,
+                },
+            ))?;
 
             // Attempt to convert using FromReflect.
             let value = self
@@ -513,6 +551,7 @@ mod tests {
         serde::{SceneDeserializer, SceneSerializer},
         DynamicScene, DynamicSceneBuilder,
     };
+    use bevy_asset::{Asset, AssetPath, Handle, LoadFromPath, ReflectAsset, UntypedHandle};
     use bevy_ecs::{
         entity::{Entity, EntityHashMap},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
@@ -521,9 +560,11 @@ mod tests {
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use core::any::TypeId;
     use ron;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
+    use uuid::Uuid;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -534,6 +575,14 @@ mod tests {
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
     struct Baz(i32);
+
+    #[derive(Asset, Reflect)]
+    #[reflect(Asset)]
+    struct FakeMesh;
+
+    #[derive(Component, Reflect, Clone, PartialEq, Eq, Debug)]
+    #[reflect(Component)]
+    struct FakeMesh3d(Handle<FakeMesh>);
 
     // De/serialize as hex.
     mod qux {
@@ -601,6 +650,9 @@ mod tests {
             registry.register::<Foo>();
             registry.register::<Bar>();
             registry.register::<Baz>();
+            registry.register::<FakeMesh>();
+            registry.register::<Handle<FakeMesh>>();
+            registry.register::<FakeMesh3d>();
             registry.register::<Qux>();
             registry.register::<MyComponent>();
             registry.register::<MyEnum>();
@@ -623,13 +675,17 @@ mod tests {
         let a = world.spawn(Foo(123)).id();
         let b = world.spawn((Foo(123), Bar(345))).id();
         let c = world.spawn((Foo(123), Bar(345), Baz(789))).id();
+        let d = world.spawn(FakeMesh3d(Uuid::from_u128(1).into())).id();
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let scene = DynamicSceneBuilder::from_world(&world)
-            .extract_entities([a, b, c].into_iter())
-            .extract_resources()
-            .build();
+        let scene = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicSceneBuilder::from_world(&world, &type_registry)
+                .extract_entities([a, b, c, d].into_iter())
+                .extract_resources()
+                .build()
+        };
 
         let expected = r#"(
   resources: {
@@ -638,20 +694,25 @@ mod tests {
     ),
   },
   entities: {
-    4294967293: (
+    4294967290: (
+      components: {
+        "bevy_scene::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+      },
+    ),
+    4294967291: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967294: (
+    4294967292: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967295: (
+    4294967293: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
@@ -662,6 +723,19 @@ mod tests {
             .serialize(&world.resource::<AppTypeRegistry>().read())
             .unwrap();
         assert_eq!(expected, output);
+    }
+
+    /// A fake handle creator for the purposes of testing scene loading.
+    struct FakeHandleCreator;
+
+    impl LoadFromPath for FakeHandleCreator {
+        fn load_from_path_erased(
+            &mut self,
+            _type_id: TypeId,
+            _path: AssetPath<'static>,
+        ) -> UntypedHandle {
+            unimplemented!()
+        }
     }
 
     #[test]
@@ -693,11 +767,17 @@ mod tests {
         "bevy_scene::serde::tests::Baz": (789),
       },
     ),
+    8589934588: (
+      components: {
+        "bevy_scene::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+      },
+    ),
   },
 )"#;
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let scene_deserializer = SceneDeserializer {
             type_registry: &world.resource::<AppTypeRegistry>().read(),
+            load_from_path: &mut FakeHandleCreator,
         };
         let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
@@ -707,7 +787,7 @@ mod tests {
             "expected `resources` to contain 1 resource"
         );
         assert_eq!(
-            3,
+            4,
             scene.entities.len(),
             "expected `entities` to contain 3 entities"
         );
@@ -724,6 +804,7 @@ mod tests {
         assert_eq!(3, dst_world.query::<&Foo>().iter(&dst_world).count());
         assert_eq!(2, dst_world.query::<&Bar>().iter(&dst_world).count());
         assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
+        assert_eq!(1, dst_world.query::<&FakeMesh3d>().iter(&dst_world).count());
     }
 
     fn roundtrip_ron(world: &World) -> (DynamicScene, DynamicScene) {
@@ -733,6 +814,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let scene_deserializer = SceneDeserializer {
             type_registry: &registry,
+            load_from_path: &mut FakeHandleCreator,
         };
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
         (scene, deserialized_scene)
@@ -796,6 +878,27 @@ mod tests {
     }
 
     #[test]
+    fn should_roundtrip_with_handles() {
+        let mut world = create_world();
+        let fake_mesh = FakeMesh3d(Uuid::from_u128(1).into());
+        world.spawn(fake_mesh.clone());
+
+        let (scene, deserialized_scene) = roundtrip_ron(&world);
+
+        assert_eq!(1, deserialized_scene.entities.len());
+        assert_scene_eq(&scene, &deserialized_scene);
+
+        let mut world = create_world();
+        deserialized_scene
+            .write_to_world(&mut world, &mut EntityHashMap::default())
+            .unwrap();
+        assert_eq!(
+            &fake_mesh,
+            world.query::<&FakeMesh3d>().single(&world).unwrap()
+        );
+    }
+
+    #[test]
     fn should_roundtrip_postcard() {
         let mut world = create_world();
 
@@ -815,7 +918,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 255, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                0, 1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
                 108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
@@ -825,6 +928,7 @@ mod tests {
 
         let scene_deserializer = SceneDeserializer {
             type_registry: registry,
+            load_from_path: &mut FakeHandleCreator,
         };
         let deserialized_scene = scene_deserializer
             .deserialize(&mut postcard::Deserializer::from_bytes(&serialized_scene))
@@ -856,7 +960,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 206, 255, 255, 255, 255, 145, 129, 217, 37, 98, 101, 118, 121, 95,
+                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
                 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
                 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
                 2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
@@ -867,56 +971,13 @@ mod tests {
 
         let scene_deserializer = SceneDeserializer {
             type_registry: registry,
+            load_from_path: &mut FakeHandleCreator,
         };
         let mut reader = BufReader::new(buf.as_slice());
 
         let deserialized_scene = scene_deserializer
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
-
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
-    }
-
-    #[test]
-    fn should_roundtrip_bincode() {
-        let mut world = create_world();
-
-        world.spawn(MyComponent {
-            foo: [1, 2, 3],
-            bar: (1.3, 3.7),
-            baz: MyEnum::Tuple("Hello World!".to_string()),
-        });
-
-        let registry = world.resource::<AppTypeRegistry>();
-        let registry = &registry.read();
-
-        let scene = DynamicScene::from_world(&world);
-
-        let config = bincode::config::standard().with_fixed_int_encoding();
-        let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = bincode::serde::encode_to_vec(&scene_serializer, config).unwrap();
-
-        assert_eq!(
-            vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 1,
-                0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101,
-                110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58,
-                77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0,
-                0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1,
-                0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108,
-                100, 33
-            ],
-            serialized_scene
-        );
-
-        let scene_deserializer = SceneDeserializer {
-            type_registry: registry,
-        };
-
-        let (deserialized_scene, _read_bytes) =
-            bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
-                .unwrap();
 
         assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);

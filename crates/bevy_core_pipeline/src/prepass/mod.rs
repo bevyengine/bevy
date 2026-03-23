@@ -25,7 +25,13 @@
 //!
 //! Currently only works for 3D.
 
+pub mod background_motion_vectors;
 pub mod node;
+
+pub use background_motion_vectors::{
+    BackgroundMotionVectorsBindGroup, BackgroundMotionVectorsPipelineId,
+    BackgroundMotionVectorsPlugin, NoBackgroundMotionVectors,
+};
 
 use core::ops::Range;
 
@@ -34,7 +40,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::allocator::SlabId;
+use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -76,6 +82,18 @@ pub struct MotionVectorPrepass;
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
+
+/// Allows querying the previous frame's [`DepthPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DepthPrepass)]
+pub struct DepthPrepassDoubleBuffer;
+
+/// Allows querying the previous frame's [`DeferredPrepass`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(DeferredPrepass)]
+pub struct DeferredPrepassDoubleBuffer;
 
 /// View matrices from the previous frame.
 ///
@@ -128,6 +146,12 @@ impl ViewPrepassTextures {
         self.depth.as_ref().map(|t| &t.texture.default_view)
     }
 
+    pub fn previous_depth_view(&self) -> Option<&TextureView> {
+        self.depth
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
+    }
+
     pub fn normal_view(&self) -> Option<&TextureView> {
         self.normal.as_ref().map(|t| &t.texture.default_view)
     }
@@ -140,6 +164,12 @@ impl ViewPrepassTextures {
 
     pub fn deferred_view(&self) -> Option<&TextureView> {
         self.deferred.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn previous_deferred_view(&self) -> Option<&TextureView> {
+        self.deferred
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
     }
 }
 
@@ -182,21 +212,18 @@ pub struct OpaqueNoLightmap3dBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 }
 
 impl PhaseItemBatchSetKey for OpaqueNoLightmap3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 

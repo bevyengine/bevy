@@ -1,5 +1,4 @@
 use crate::{
-    define_atomic_id,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
     renderer::{RenderDevice, WgpuWrapper},
@@ -7,8 +6,9 @@ use crate::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
-use bevy_render::render_resource::BindGroupLayoutDescriptor;
+use bevy_material::descriptor::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;
@@ -112,7 +112,7 @@ impl Deref for BindGroup {
 /// # use bevy_image::Image;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
-/// # use bevy_render::storage::ShaderStorageBuffer;
+/// # use bevy_render::storage::ShaderBuffer;
 ///
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -122,7 +122,7 @@ impl Deref for BindGroup {
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
 ///     #[storage(3, read_only)]
-///     storage_buffer: Handle<ShaderStorageBuffer>,
+///     storage_buffer: Handle<ShaderBuffer>,
 ///     #[storage(4, read_only, buffer)]
 ///     raw_buffer: Buffer,
 ///     #[storage_texture(5)]

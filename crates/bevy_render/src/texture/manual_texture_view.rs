@@ -13,7 +13,7 @@ use crate::render_resource::TextureView;
 pub struct ManualTextureView {
     pub texture_view: TextureView,
     pub size: UVec2,
-    pub format: TextureFormat,
+    pub view_format: TextureFormat,
 }
 
 impl ManualTextureView {
@@ -21,7 +21,7 @@ impl ManualTextureView {
         Self {
             texture_view,
             size,
-            format: TextureFormat::bevy_default(),
+            view_format: TextureFormat::bevy_default(),
         }
     }
 }

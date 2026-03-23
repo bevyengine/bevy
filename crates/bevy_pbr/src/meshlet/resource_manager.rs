@@ -2,7 +2,7 @@ use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMesh
 use crate::ShadowView;
 use bevy_camera::{visibility::RenderLayers, Camera3d};
 use bevy_core_pipeline::{
-    experimental::mip_generation::{self, ViewDepthPyramid},
+    mip_generation::experimental::depth::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},
 };
 use bevy_ecs::{
@@ -125,7 +125,7 @@ impl ResourceManager {
                 label: Some("meshlet_depth_pyramid_sampler"),
                 ..SamplerDescriptor::default()
             }),
-            depth_pyramid_dummy_texture: mip_generation::create_depth_pyramid_dummy_texture(
+            depth_pyramid_dummy_texture: depth::create_depth_pyramid_dummy_texture(
                 render_device,
                 "meshlet_depth_pyramid_dummy_texture",
                 "meshlet_depth_pyramid_dummy_texture_view",

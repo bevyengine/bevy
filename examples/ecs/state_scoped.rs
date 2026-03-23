@@ -3,6 +3,10 @@
 //!
 //! This pattern is useful for managing menus, levels, or other state-specific
 //! content that should only exist during certain states.
+//!
+//! If the entity was already despawned then no error will be logged. This means
+//! that you don't have to worry about duplicate [`DespawnOnExit`] and
+//! [`DespawnOnEnter`] components deep in your hierarchy.
 
 use bevy::prelude::*;
 
@@ -15,6 +19,8 @@ fn main() {
         .add_systems(OnEnter(GameState::B), on_b_enter)
         .add_systems(OnExit(GameState::A), on_a_exit)
         .add_systems(OnExit(GameState::B), on_b_exit)
+        .add_systems(OnEnter(GameState::C(1)), on_c_1_enter)
+        .add_systems(OnExit(GameState::C(1)), on_c_1_exit)
         .add_systems(Update, toggle)
         .insert_resource(TickTock(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .run();
@@ -25,6 +31,7 @@ enum GameState {
     #[default]
     A,
     B,
+    C(u8),
 }
 
 #[derive(Resource)]
@@ -36,7 +43,7 @@ fn on_a_enter(mut commands: Commands) {
         DespawnOnExit(GameState::A),
         Text::new("Game is in state 'A'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -46,6 +53,7 @@ fn on_a_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::A)]),
     ));
 }
 
@@ -55,7 +63,7 @@ fn on_a_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -65,6 +73,10 @@ fn on_a_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        // You can apply this even when the parent has a state scoped component.
+        // It is unnecessary but in complex hierarchies it saves you from having to
+        // mentally track which components are found at the top level.
+        (children![DespawnOnEnter(GameState::A)]),
     ));
 }
 
@@ -74,7 +86,7 @@ fn on_b_enter(mut commands: Commands) {
         DespawnOnExit(GameState::B),
         Text::new("Game is in state 'B'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -84,6 +96,7 @@ fn on_b_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::B)]),
     ));
 }
 
@@ -93,7 +106,7 @@ fn on_b_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -103,6 +116,53 @@ fn on_b_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        (children![DespawnOnEnter(GameState::B)]),
+    ));
+}
+
+fn on_c_1_enter(mut commands: Commands) {
+    info!("on_c_1_enter");
+    commands.spawn((
+        DespawnWhen::new(|transition| matches!(transition.exited, Some(GameState::C(_)))),
+        Text::new("Game is in state 'C(1)'"),
+        TextFont {
+            font_size: FontSize::Px(33.0),
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(100),
+            left: px(0),
+            ..default()
+        },
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.exited,
+            Some(GameState::C(_))
+        ))]),
+    ));
+}
+
+fn on_c_1_exit(mut commands: Commands) {
+    info!("on_c_1_exit");
+    commands.spawn((
+        DespawnWhen::new(|transition| matches!(transition.entered, Some(GameState::C(1)))),
+        Text::new("Game state 'C(1)' will be back in 1 second"),
+        TextFont {
+            font_size: FontSize::Px(33.0),
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(100),
+            left: px(500),
+            ..default()
+        },
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.entered,
+            Some(GameState::C(_))
+        ))]),
     ));
 }
 
@@ -121,6 +181,7 @@ fn toggle(
     }
     *next_state = match state.get() {
         GameState::A => NextState::Pending(GameState::B),
-        GameState::B => NextState::Pending(GameState::A),
+        GameState::B => NextState::Pending(GameState::C(1)),
+        GameState::C(_) => NextState::Pending(GameState::A),
     }
 }

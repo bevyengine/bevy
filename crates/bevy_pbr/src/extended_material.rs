@@ -2,11 +2,11 @@ use alloc::borrow::Cow;
 
 use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
+use bevy_material::{AlphaMode, OpaqueRendererMethod};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    alpha::AlphaMode,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
         BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
@@ -196,6 +196,10 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         }
     }
 
+    fn bindless_supported(render_device: &RenderDevice) -> bool {
+        B::bindless_supported(render_device) && E::bindless_supported(render_device)
+    }
+
     fn label() -> &'static str {
         E::label()
     }
@@ -216,7 +220,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
 
-        // add together the bindings of the base material and the user material
+        // add together the bindings of the base material and the extension
         let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
             &self.base,
             layout,
@@ -224,7 +228,9 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
             base_param,
             force_non_bindless,
         )?;
-        let extended_bindgroup = E::unprepared_bind_group(
+        let UnpreparedBindGroup {
+            bindings: extension_bindings,
+        } = E::unprepared_bind_group(
             &self.extension,
             layout,
             render_device,
@@ -232,7 +238,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
             force_non_bindless,
         )?;
 
-        bindings.extend(extended_bindgroup.bindings.0);
+        bindings.extend(extension_bindings.0);
 
         Ok(UnpreparedBindGroup { bindings })
     }
@@ -251,17 +257,16 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         // when bindless mode is on, because of the common bindless resource
         // arrays, and we need to eliminate the duplicates or `wgpu` will
         // complain.
-        let mut entries = vec![];
-        let mut seen_bindings = HashSet::<_>::with_hasher(FixedHasher);
-        for entry in B::bind_group_layout_entries(render_device, force_non_bindless)
+        let base_entries = B::bind_group_layout_entries(render_device, force_non_bindless);
+        let extension_entries = E::bind_group_layout_entries(render_device, force_non_bindless);
+
+        let mut seen_bindings = HashSet::<u32>::with_hasher(FixedHasher);
+
+        base_entries
             .into_iter()
-            .chain(E::bind_group_layout_entries(render_device, force_non_bindless).into_iter())
-        {
-            if seen_bindings.insert(entry.binding) {
-                entries.push(entry);
-            }
-        }
-        entries
+            .chain(extension_entries)
+            .filter(|entry| seen_bindings.insert(entry.binding))
+            .collect()
     }
 
     fn bindless_descriptor() -> Option<BindlessDescriptor> {
@@ -330,7 +335,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
         B::opaque_render_method(&self.base)
     }
 
@@ -347,7 +352,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn enable_shadows() -> bool {
-        E::enable_prepass()
+        E::enable_shadows()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {
