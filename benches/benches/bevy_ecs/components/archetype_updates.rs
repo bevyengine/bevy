@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::EntityWorldMut,
-    schedule::{ExecutorKind, Schedule},
+    schedule::{Schedule, SingleThreadedExecutor},
     world::World,
 };
 use criterion::{BenchmarkId, Criterion};
@@ -13,7 +13,7 @@ fn setup(system_count: usize) -> (World, Schedule) {
     let mut world = World::new();
     fn empty() {}
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    schedule.set_executor(SingleThreadedExecutor::new());
     for _ in 0..system_count {
         schedule.add_systems(empty);
     }

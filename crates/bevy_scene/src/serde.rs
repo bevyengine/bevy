@@ -679,10 +679,13 @@ mod tests {
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let scene = DynamicSceneBuilder::from_world(&world)
-            .extract_entities([a, b, c, d].into_iter())
-            .extract_resources()
-            .build();
+        let scene = {
+            let type_registry = world.resource::<AppTypeRegistry>().read();
+            DynamicSceneBuilder::from_world(&world, &type_registry)
+                .extract_entities([a, b, c, d].into_iter())
+                .extract_resources()
+                .build()
+        };
 
         let expected = r#"(
   resources: {
@@ -726,7 +729,7 @@ mod tests {
     struct FakeHandleCreator;
 
     impl LoadFromPath for FakeHandleCreator {
-        fn load_from_path_untyped(
+        fn load_from_path_erased(
             &mut self,
             _type_id: TypeId,
             _path: AssetPath<'static>,

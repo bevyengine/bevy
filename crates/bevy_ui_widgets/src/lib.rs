@@ -20,6 +20,7 @@
 
 mod button;
 mod checkbox;
+mod editable_text;
 mod menu;
 mod observe;
 pub mod popover;
@@ -29,6 +30,7 @@ mod slider;
 
 pub use button::*;
 pub use checkbox::*;
+pub use editable_text::*;
 pub use menu::*;
 pub use observe::*;
 pub use radio::*;
@@ -54,6 +56,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(RadioGroupPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(EditableTextInputPlugin)
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     extract_resource::ExtractResource,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_diagnostic::FrameCount;
@@ -18,7 +18,7 @@ impl Plugin for GlobalsPlugin {
         load_shader_library!(app, "globals.wgsl");
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<GlobalsBuffer>()
+                .init_gpu_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
                 .add_systems(

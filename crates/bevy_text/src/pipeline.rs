@@ -27,8 +27,18 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
+    TextFont, TextLayout,
 };
+
+struct TextSectionView<'a> {
+    index: usize,
+    text: &'a str,
+    text_font: &'a TextFont,
+    font_size: f32,
+    line_height: LineHeight,
+    letter_spacing: LetterSpacing,
+}
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 #[derive(Resource, Default)]
@@ -36,7 +46,7 @@ pub struct TextPipeline {
     /// Buffered vec for collecting text sections.
     ///
     /// See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-    sections_buffer: Vec<(usize, &'static str, &'static TextFont, f32, LineHeight)>,
+    sections_buffer: Vec<TextSectionView<'static>>,
     /// Buffered string for concatenated text content.
     text_buffer: String,
 }
@@ -48,7 +58,17 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -69,14 +89,13 @@ impl TextPipeline {
             return Err(TextError::DegenerateScaleFactor);
         }
 
-        let mut sections: Vec<(usize, &str, &TextFont, f32, LineHeight)> =
-            core::mem::take(&mut self.sections_buffer)
-                .into_iter()
-                .map(|_| -> (usize, &str, &TextFont, f32, LineHeight) { unreachable!() })
-                .collect();
+        let mut sections: Vec<TextSectionView<'_>> = core::mem::take(&mut self.sections_buffer)
+            .into_iter()
+            .map(|_| -> TextSectionView<'_> { unreachable!() })
+            .collect();
 
         let result = {
-            for (section_index, (entity, depth, span, text_font, _color, line_height)) in
+            for (index, (entity, depth, text, text_font, _color, line_height, letter_spacing)) in
                 text_spans.enumerate()
             {
                 match text_font.font_size {
@@ -94,7 +113,7 @@ impl TextPipeline {
                     font_smoothing: text_font.font_smoothing,
                 });
 
-                if span.is_empty() {
+                if text.is_empty() {
                     continue;
                 }
 
@@ -126,12 +145,19 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push((section_index, span, text_font, font_size, line_height));
+                sections.push(TextSectionView {
+                    index,
+                    text,
+                    text_font,
+                    font_size,
+                    line_height,
+                    letter_spacing,
+                });
             }
 
             self.text_buffer.clear();
-            for (_, span, _, _, _) in &sections {
-                self.text_buffer.push_str(span);
+            for section in &sections {
+                self.text_buffer.push_str(section.text);
             }
 
             let text = self.text_buffer.as_str();
@@ -157,10 +183,8 @@ impl TextPipeline {
             }
 
             let mut start = 0;
-            for (section_index, section_text, text_font, font_size, line_height) in
-                sections.drain(..)
-            {
-                let end = start + section_text.len();
+            for section in sections.drain(..) {
+                let end = start + section.text.len();
                 let range = start..end;
                 start = end;
 
@@ -168,7 +192,7 @@ impl TextPipeline {
                     continue;
                 }
 
-                let family = resolve_font_source(&text_font.font, fonts)?;
+                let family = resolve_font_source(&section.text_font.font, fonts)?;
 
                 builder.push(
                     StyleProperty::FontStack(FontStack::Single(family)),
@@ -176,30 +200,34 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
-                        section_index as u32,
-                        text_font.font_smoothing,
+                        section.index as u32,
+                        section.text_font.font_smoothing,
                     )),
                     range.clone(),
                 );
-                builder.push(StyleProperty::FontSize(font_size), range.clone());
+                builder.push(StyleProperty::FontSize(section.font_size), range.clone());
                 builder.push(
-                    StyleProperty::LineHeight(line_height.eval(font_size)),
+                    StyleProperty::LineHeight(section.line_height.eval()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWeight(text_font.weight.into()),
+                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontWidth(text_font.width.into()),
+                    StyleProperty::FontWeight(section.text_font.weight.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontStyle(text_font.style.into()),
+                    StyleProperty::FontWidth(section.text_font.width.into()),
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::FontFeatures((&text_font.font_features).into()),
+                    StyleProperty::FontStyle(section.text_font.style.into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontFeatures((&section.text_font.font_features).into()),
                     range,
                 );
             }
@@ -212,9 +240,7 @@ impl TextPipeline {
         sections.clear();
         self.sections_buffer = sections
             .into_iter()
-            .map(
-                |_| -> (usize, &'static str, &'static TextFont, f32, LineHeight) { unreachable!() },
-            )
+            .map(|_| -> TextSectionView<'static> { unreachable!() })
             .collect();
 
         result
@@ -225,7 +251,17 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+        text_spans: impl Iterator<
+            Item = (
+                Entity,
+                usize,
+                &'a str,
+                &'a TextFont,
+                Color,
+                LineHeight,
+                LetterSpacing,
+            ),
+        >,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
@@ -309,8 +345,7 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
-                    let hint =
-                        hinting.should_hint() && font_smoothing == FontSmoothing::AntiAliased;
+                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
                     let mut scaler = scale_cx
                         .0
                         .builder(font_ref)
@@ -375,18 +410,20 @@ impl TextPipeline {
         }
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
+
         Ok(())
     }
 }
 
-fn resolve_font_source<'a>(
+/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
+pub fn resolve_font_source<'a>(
     font: &'a FontSource,
-    fonts: &'a Assets<Font>,
+    fonts: &Assets<Font>,
 ) -> Result<FontFamily<'a>, TextError> {
     Ok(match font {
         FontSource::Handle(handle) => {
             let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Named(Cow::Borrowed(font.family_name.as_str()))
+            FontFamily::Named(Cow::Owned(font.family_name.as_str().to_owned()))
         }
         FontSource::Family(family) => FontFamily::Named(Cow::Borrowed(family.as_str())),
         FontSource::Serif => FontFamily::Generic(parley::GenericFamily::Serif),
@@ -424,6 +461,10 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+    /// Cursor size and position for editing
+    pub cursor: Option<Rect>,
+    /// Selection rects
+    pub selection_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
@@ -433,6 +474,8 @@ impl TextLayoutInfo {
         self.glyphs.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;
+        self.cursor = None;
+        self.selection_rects.clear();
     }
 }
 

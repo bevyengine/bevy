@@ -34,7 +34,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -86,9 +86,6 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
-
-    /// Additional buffer usages to add to any vertex or index buffers created.
-    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -128,6 +125,9 @@ pub struct MeshAllocatorSettings {
     ///
     /// The default value is 1.5.
     pub growth_factor: f64,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 impl Default for MeshAllocatorSettings {
@@ -141,6 +141,7 @@ impl Default for MeshAllocatorSettings {
             large_threshold: 1024 * 1024 * 256,
             // 1.5× growth
             growth_factor: 1.5,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -348,6 +349,9 @@ struct SlabAllocation {
     allocation: Allocation,
     /// The number of slots that this allocation takes up.
     slot_count: u32,
+    /// The number of elements at the end that are padding.
+    /// This can happen when the size of each element is fewer than 4 bytes.
+    padding_elem_count: u32,
 }
 
 /// Holds information about all slabs scheduled to be allocated or reallocated.
@@ -391,7 +395,7 @@ impl Plugin for MeshAllocatorPlugin {
 
         // The `RenderAdapter` isn't available until now, so we can't do this in
         // [`Plugin::build`].
-        render_app.init_resource::<MeshAllocator>();
+        render_app.init_gpu_resource::<MeshAllocator>();
     }
 }
 
@@ -413,7 +417,6 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_morph_target_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
-            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -527,7 +530,8 @@ impl MeshAllocator {
                     range: (slab_allocation.allocation.offset
                         * general_slab.element_layout.elements_per_slot)
                         ..((slab_allocation.allocation.offset + slab_allocation.slot_count)
-                            * general_slab.element_layout.elements_per_slot),
+                            * general_slab.element_layout.elements_per_slot)
+                            - slab_allocation.padding_elem_count,
                 })
             }
 
@@ -600,17 +604,30 @@ impl MeshAllocator {
             }
         }
 
+        let extra_usages = mesh_allocator_settings.extra_buffer_usages;
         // Perform growth.
         for (slab_id, slab_to_grow) in slabs_to_grow.0 {
-            self.reallocate_slab(render_device, render_queue, slab_id, slab_to_grow);
+            self.reallocate_slab(
+                render_device,
+                render_queue,
+                slab_id,
+                slab_to_grow,
+                extra_usages,
+            );
         }
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
-            self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
-            self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);
+            self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue, extra_usages);
+            self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue, extra_usages);
             #[cfg(feature = "morph")]
-            self.copy_mesh_morph_target_data(mesh_id, mesh, render_device, render_queue);
+            self.copy_mesh_morph_target_data(
+                mesh_id,
+                mesh,
+                render_device,
+                render_queue,
+                extra_usages,
+            );
         }
     }
 
@@ -622,6 +639,7 @@ impl MeshAllocator {
         mesh: &Mesh,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(&slab_id) = self.mesh_id_to_vertex_slab.get(mesh_id) else {
             return;
@@ -635,6 +653,7 @@ impl MeshAllocator {
             slab_id,
             render_device,
             render_queue,
+            extra_buffer_usages,
         );
     }
 
@@ -646,6 +665,7 @@ impl MeshAllocator {
         mesh: &Mesh,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(&slab_id) = self.mesh_id_to_index_slab.get(mesh_id) else {
             return;
@@ -662,6 +682,7 @@ impl MeshAllocator {
             slab_id,
             render_device,
             render_queue,
+            extra_buffer_usages,
         );
     }
 
@@ -674,6 +695,7 @@ impl MeshAllocator {
         mesh: &Mesh,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(&slab_id) = self.mesh_id_to_morph_target_slab.get(mesh_id) else {
             return;
@@ -690,6 +712,7 @@ impl MeshAllocator {
             slab_id,
             render_device,
             render_queue,
+            extra_buffer_usages,
         );
     }
 
@@ -702,6 +725,7 @@ impl MeshAllocator {
         slab_id: SlabId,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(slab) = self.slabs.get_mut(&slab_id) else {
             return;
@@ -741,7 +765,8 @@ impl MeshAllocator {
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
-                let buffer_usages = large_object_slab.element_layout.class.buffer_usages();
+                let buffer_usages =
+                    large_object_slab.element_layout.class.buffer_usages() | extra_buffer_usages;
                 let buffer = render_device.create_buffer(&BufferDescriptor {
                     label: Some(&format!(
                         "large mesh slab {} ({}buffer)",
@@ -749,7 +774,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
+                    usage: buffer_usages | BufferUsages::COPY_DST,
                     mapped_at_creation: true,
                 });
                 {
@@ -841,6 +866,7 @@ impl MeshAllocator {
     ) {
         let data_element_count = data_byte_len.div_ceil(layout.size) as u32;
         let data_slot_count = data_element_count.div_ceil(layout.elements_per_slot);
+        let padding_elem_count = data_slot_count * layout.elements_per_slot - data_element_count;
 
         // If the mesh data is too large for a slab, give it a slab of its own.
         if data_slot_count as u64 * layout.slot_size()
@@ -848,7 +874,14 @@ impl MeshAllocator {
         {
             self.allocate_large(mesh_id, layout);
         } else {
-            self.allocate_general(mesh_id, data_slot_count, layout, slabs_to_grow, settings);
+            self.allocate_general(
+                mesh_id,
+                data_slot_count,
+                padding_elem_count,
+                layout,
+                slabs_to_grow,
+                settings,
+            );
         }
     }
 
@@ -858,6 +891,7 @@ impl MeshAllocator {
         &mut self,
         mesh_id: &AssetId<Mesh>,
         data_slot_count: u32,
+        padding_elem_count: u32,
         layout: ElementLayout,
         slabs_to_grow: &mut SlabsToReallocate,
         settings: &MeshAllocatorSettings,
@@ -898,6 +932,7 @@ impl MeshAllocator {
                 slab_allocation: SlabAllocation {
                     allocation,
                     slot_count: data_slot_count,
+                    padding_elem_count,
                 },
             });
             break;
@@ -914,6 +949,7 @@ impl MeshAllocator {
                 settings,
                 layout,
                 data_slot_count,
+                padding_elem_count,
             );
 
             self.slabs.insert(new_slab_id, Slab::General(new_slab));
@@ -964,6 +1000,7 @@ impl MeshAllocator {
         render_queue: &RenderQueue,
         slab_id: SlabId,
         slab_to_grow: SlabToReallocate,
+        extra_buffer_usages: BufferUsages,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
             error!("Couldn't find slab {} to grow", slab_id);
@@ -974,7 +1011,8 @@ impl MeshAllocator {
 
         let buffer_usages = BufferUsages::COPY_SRC
             | BufferUsages::COPY_DST
-            | slab.element_layout.class.buffer_usages();
+            | slab.element_layout.class.buffer_usages()
+            | extra_buffer_usages;
 
         // Create the buffer.
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
@@ -984,7 +1022,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages | self.extra_buffer_usages,
+            usage: buffer_usages,
             mapped_at_creation: false,
         });
 
@@ -1043,6 +1081,7 @@ impl GeneralSlab {
         settings: &MeshAllocatorSettings,
         layout: ElementLayout,
         data_slot_count: u32,
+        padding_elem_count: u32,
     ) -> GeneralSlab {
         let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
             as u32)
@@ -1066,6 +1105,7 @@ impl GeneralSlab {
                 slab_allocation: SlabAllocation {
                     slot_count: data_slot_count,
                     allocation,
+                    padding_elem_count,
                 },
             });
         }
