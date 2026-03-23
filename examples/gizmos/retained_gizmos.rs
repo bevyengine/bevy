@@ -1,4 +1,21 @@
 //! This example demonstrates retained gizmos.
+//!
+//! Normally, gizmos are immediate. That is, a gizmo must be drawn through a
+//! ['Gizmos'] system parameter for each frame it is to be shown. A retained
+//! gizmo is spawned as an entity and is rendered so long as it is alive and
+//! visible.
+//!
+//! Retained gizmos are recommended for drawing a larger number of static elemnts.
+//! Retained gizmos also can undergo frustum culling.
+//!
+//! This example spawns gizmos on a jittery delay, choosing parameters randomly
+//! and implementing a cheap "twinkling" effect by toggling visibility randomly.
+//! The count is kept between 25 and about 150.
+//!
+//! This example uses the free camera plugin for observing the scene. Controls
+//! are printed to the console on startup.
+
+use std::ops::Range;
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
@@ -7,27 +24,13 @@ use bevy::{
 };
 use rand::RngExt;
 
-fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, FreeCameraPlugin))
-        .add_systems(Startup, setup)
-        .add_systems(Update, (spawn_gizmo, spin, twinkle))
-        .add_observer(on_spawn_gizmo)
-        .run();
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera {
-            clear_color: ClearColorConfig::Custom(BLACK.into()),
-            ..default()
-        },
-        Camera3d::default(),
-        Transform::from_xyz(0., 0., 6.).looking_at(Vec3::NEG_Z, Vec3::Y),
-        FreeCamera::default(),
-    ));
-}
-
+/// minimum gizmos to keep alive before rolling a change to despawn
+const MIN_COUNT: usize = 25;
+/// maximum gizmos to keep alive
+const SOFT_PEAK: f64 = 150.0;
+/// bounds period between spawns, in seconds
+const DELAY_RANGE: Range<f32> = 1.2..3.0;
+/// color choices for the spawned gizmos
 const COLORS: [Srgba; 7] = [
     CORNSILK,
     DARK_ORANGE,
@@ -37,6 +40,20 @@ const COLORS: [Srgba; 7] = [
     ANTIQUE_WHITE,
     BLUE_VIOLET,
 ];
+
+// spawn bounds
+const X_BOUNDS: Range<f32> = -31.0..31.0;
+const Y_BOUNDS: Range<f32> = -17.0..17.0;
+const Z_BOUNDS: Range<f32> = -50.0..-30.0;
+const RADIUS: Range<f32> = 0.5..2.0;
+const SPIN: Range<f32> = -0.5..0.5;
+
+const RESOLUTION: u32 = 1000;
+
+/// how long does a gizmo "blink" off, in seconds
+const OFF_TIME: Range<f32> = 0.1..0.3;
+/// delay between twinkles, in seconds
+const TWINKLE_DELAY: Range<f32> = 5.0..10.0;
 
 #[derive(Component)]
 struct Spin(f32);
@@ -67,11 +84,11 @@ fn spawn_gizmo(
         return;
     }
     let mut rng = rand::rng();
-    **timer = Timer::from_seconds(rng.random_range(1.2..3.8), TimerMode::Once);
+    **timer = Timer::from_seconds(rng.random_range(DELAY_RANGE), TimerMode::Once);
 
     let total = gizmos.iter().count();
 
-    if total > 25 && rng.random_bool((total as f64 / 150.0).min(1.0)) {
+    if total > MIN_COUNT && rng.random_bool((total as f64 / SOFT_PEAK).min(1.0)) {
         if let Some(entity) = gizmos.iter().nth(rng.random_range(0..total)) {
             commands.entity(entity).despawn();
         }
@@ -92,10 +109,11 @@ fn on_spawn_gizmo(
     let mut gizmo = GizmoAsset::new();
 
     let mut rng = rand::rng();
-    let radius = rng.random_range(0.5..2.0);
-    let x = rng.random_range(-31.0..31.0);
-    let y = rng.random_range(-17.0..17.0);
-    let z = rng.random_range(-50.0..-30.0);
+    let radius = rng.random_range(RADIUS);
+    let x = rng.random_range(X_BOUNDS);
+    let y = rng.random_range(Y_BOUNDS);
+    let z = rng.random_range(Z_BOUNDS);
+    // randomize an orientation
     let axis = Vec3::new(
         rng.random_range(-1.0..1.0),
         rng.random_range(-1.0..1.0),
@@ -103,7 +121,7 @@ fn on_spawn_gizmo(
     )
     .normalize_or(Vec3::Y);
     let up = axis.any_orthonormal_vector();
-    let spin_rate = rng.random_range(-0.5..0.5);
+    let spin_rate = rng.random_range(SPIN);
 
     // When drawing a lot of static lines a Gizmo component can have
     // far better performance than the Gizmos system parameter,
@@ -111,7 +129,7 @@ fn on_spawn_gizmo(
     let color = COLORS[rng.random_range(0..COLORS.len())];
     gizmo
         .sphere(Isometry3d::IDENTITY, radius, color)
-        .resolution(3_000 / 3);
+        .resolution(RESOLUTION);
 
     let color = COLORS[rng.random_range(0..COLORS.len())];
     gizmo.cross(Isometry3d::IDENTITY, radius, color);
@@ -153,9 +171,27 @@ fn twinkle(
         } else if rand::rng().random_bool(0.001) {
             *visibility = Visibility::Hidden;
             commands.entity(entity).insert(Twinkler {
-                timer: Timer::from_seconds(rand::rng().random_range(0.3..0.8), TimerMode::Once),
-                not_before: time.elapsed_secs() + rand::rng().random_range(5.0..15.0),
+                timer: Timer::from_seconds(rand::rng().random_range(OFF_TIME), TimerMode::Once),
+                not_before: time.elapsed_secs() + rand::rng().random_range(TWINKLE_DELAY),
             });
         }
     }
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0., 0., 6.).looking_at(Vec3::NEG_Z, Vec3::Y),
+        FreeCamera::default(),
+    ));
+}
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
+        .insert_resource(ClearColor(BLACK.into()))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (spawn_gizmo, spin, twinkle))
+        .add_observer(on_spawn_gizmo)
+        .run();
 }
