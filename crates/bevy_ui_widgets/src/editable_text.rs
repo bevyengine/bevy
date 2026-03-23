@@ -50,8 +50,8 @@ fn on_focused_keyboard_input(
         (Key::Control, Key::Control)
     };
 
-    // Bit flags representing states of modifier keys
-    // On macOS option is mapped to `Key::Alt` by `bevy_input`.
+    // Bitflags representing states of modifier keys.
+    // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
     let mod_flags = SUPER * u8::from(keys.pressed(Key::Super))
         | CTRL * u8::from(keys.pressed(Key::Control))
         | ALT * u8::from(keys.pressed(Key::Alt))
