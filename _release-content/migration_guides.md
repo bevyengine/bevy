@@ -11,7 +11,7 @@ Bevy asks authors (and reviewers) to write a draft migration guide as part of th
 ## Where to put your migration guides
 
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
-The draft migration guides for the current cycle are organized in the `bevyengine/bevy/release-content/migration-guides` folder.
+The draft migration guides for the current cycle are organized in the `bevyengine/bevy/_release-content/migration-guides` folder.
 
 When we publish our first release candidate for a cycle, these notes are merged together and moved from `bevyengine/bevy` into `bevyengine/bevy-website`,
 where they will receive a final editing pass.
