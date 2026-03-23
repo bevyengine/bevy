@@ -22,11 +22,11 @@ use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
-    mut trigger: On<FocusedInput<KeyboardInput>>,
+    mut keyboard_input: On<FocusedInput<KeyboardInput>>,
     mut query: Query<&mut EditableText>,
     keys: Res<ButtonInput<Key>>,
 ) {
-    let Ok(mut editable_text) = query.get_mut(trigger.focused_entity) else {
+    let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 
@@ -64,13 +64,13 @@ fn on_focused_keyboard_input(
     let mut should_propagate = true;
 
     let mut queue_edit = |edit| {
-        if trigger.input.state.is_pressed() {
+        if keyboard_input.input.state.is_pressed() {
             editable_text.queue_edit(edit);
         }
         should_propagate = false;
     };
 
-    match (mod_flags, &trigger.input.logical_key) {
+    match (mod_flags, &keyboard_input.input.logical_key) {
         (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
         (NONE, Key::Paste) => queue_edit(TextEdit::Paste),
@@ -102,7 +102,7 @@ fn on_focused_keyboard_input(
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
         (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
         (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
-            if let Some(text) = &trigger.input.text
+            if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
                 queue_edit(TextEdit::Insert(text.clone()));
@@ -119,7 +119,7 @@ fn on_focused_keyboard_input(
         _ => {}
     }
 
-    trigger.propagate(should_propagate);
+    keyboard_input.propagate(should_propagate);
 }
 
 /// Enables support for the [`EditableText`] widget.
