@@ -69,8 +69,6 @@ fn on_focused_keyboard_input(
         should_propagate = false;
     };
 
-    println!("logical key = {:?}", keyboard_input.input.logical_key);
-
     match (mod_flags, &keyboard_input.input.logical_key) {
         (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
