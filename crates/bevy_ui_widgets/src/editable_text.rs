@@ -14,6 +14,24 @@ use bevy_input_focus::FocusedInput;
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
 
+const NONE: u8 = 0;
+const SUPER: u8 = 1;
+const CTRL: u8 = 2;
+const ALT: u8 = 4;
+const SHIFT: u8 = 8;
+const COMMAND: u8 = if cfg!(target_os = "macos") {
+    SUPER
+} else {
+    CTRL
+};
+// Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
+const WORD: u8 = if cfg!(target_os = "macos") { ALT } else { CTRL };
+#[cfg(target_os = "macos")]
+const SHIFT_SUPER: u8 = SHIFT | SUPER;
+const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
+#[cfg(not(target_os = "macos"))]
+const SHIFT_ALT: u8 = SHIFT | ALT;
+
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
 /// See [`EditableText`] for more details on the standard mapping from keyboard events to text edit actions
@@ -29,24 +47,6 @@ fn on_focused_keyboard_input(
     let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
-
-    const NONE: u8 = 0;
-    const SUPER: u8 = 1;
-    const CTRL: u8 = 2;
-    const ALT: u8 = 4;
-    const SHIFT: u8 = 8;
-    const COMMAND: u8 = if cfg!(target_os = "macos") {
-        SUPER
-    } else {
-        CTRL
-    };
-    // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
-    const WORD: u8 = if cfg!(target_os = "macos") { ALT } else { CTRL };
-    #[cfg(target_os = "macos")]
-    const SHIFT_SUPER: u8 = SHIFT | SUPER;
-    const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
-    #[cfg(not(target_os = "macos"))]
-    const SHIFT_ALT: u8 = SHIFT | ALT;
 
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
