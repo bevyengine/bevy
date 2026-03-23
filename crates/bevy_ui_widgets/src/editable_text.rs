@@ -77,7 +77,7 @@ fn on_focused_keyboard_input(
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
         (NONE, Key::Paste) => queue_edit(TextEdit::Paste),
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
-            queue_edit(TextEdit::SelectAll)
+            queue_edit(TextEdit::SelectAll);
         }
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => queue_edit(TextEdit::Copy),
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => queue_edit(TextEdit::Cut),
