@@ -35,10 +35,15 @@ fn on_focused_keyboard_input(
     const CTRL: u8 = 2;
     const ALT: u8 = 4;
     const SHIFT: u8 = 8;
-    // Super on macOS, Control otherwise.
-    const COMMAND: u8 = 16;
+    #[cfg(target_os = "macos")]
+    const COMMAND: u8 = SUPER;
+    #[cfg(not(target_os = "macos"))]
+    const COMMAND: u8 = CTRL;
     // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
-    const WORD: u8 = 32;
+    #[cfg(target_os = "macos")]
+    const WORD: u8 = ALT;
+    #[cfg(not(target_os = "macos"))]
+    const WORD: u8 = CTRL;
     #[cfg(target_os = "macos")]
     const SHIFT_SUPER: u8 = SHIFT | SUPER;
     const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
@@ -46,20 +51,12 @@ fn on_focused_keyboard_input(
     const SHIFT_ALT: u8 = SHIFT | ALT;
     const SHIFT_WORD: u8 = SHIFT | WORD;
 
-    let (command_mod_key, word_mod_key) = if cfg!(target_os = "macos") {
-        (Key::Super, Key::Alt)
-    } else {
-        (Key::Control, Key::Control)
-    };
-
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
     let mod_flags = (SUPER * u8::from(keys.pressed(Key::Super)))
         | (CTRL * u8::from(keys.pressed(Key::Control)))
         | (ALT * u8::from(keys.pressed(Key::Alt)))
-        | (SHIFT * u8::from(keys.pressed(Key::Shift)))
-        | (COMMAND * (u8::from(keys.pressed(command_mod_key))))
-        | (WORD * (u8::from(keys.pressed(word_mod_key))));
+        | (SHIFT * u8::from(keys.pressed(Key::Shift)));
 
     let shift_pressed = (mod_flags & SHIFT) != 0;
 
@@ -72,6 +69,8 @@ fn on_focused_keyboard_input(
         should_propagate = false;
     };
 
+    println!("logical key = {:?}", keyboard_input.input.logical_key);
+
     match (mod_flags, &keyboard_input.input.logical_key) {
         (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
@@ -79,9 +78,15 @@ fn on_focused_keyboard_input(
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
             queue_edit(TextEdit::SelectAll);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => queue_edit(TextEdit::Copy),
+        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
+            queue_edit(TextEdit::Copy);
+        }
         (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => queue_edit(TextEdit::Cut),
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => queue_edit(TextEdit::Paste),
+        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
+            queue_edit(TextEdit::Paste);
+        }
+        #[cfg(not(target_os = "macos"))]
+        (SHIFT, Key::Delete) => queue_edit(TextEdit::Cut),
         (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord),
         (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord),
         #[cfg(target_os = "macos")]

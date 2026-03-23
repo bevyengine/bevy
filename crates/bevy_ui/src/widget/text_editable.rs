@@ -5,7 +5,6 @@ use bevy_asset::Assets;
 
 use bevy_ecs::{
     change_detection::DetectChanges,
-    resource::Resource,
     system::{Query, Res, ResMut},
     world::Ref,
 };
