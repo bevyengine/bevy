@@ -230,8 +230,8 @@ pub struct RenderMultidrawableBatchSetGpuBuffers {
     /// (`RenderBinnedMeshInstanceIndex`) to its input uniform index
     /// ([`InputUniformIndex`]) and bin index (`RenderBinIndex`).
     pub render_binned_mesh_instance_buffer: RawBufferVec<GpuRenderBinnedMeshInstance>,
-    /// A mapping from each [`RenderBinnedMeshInstanceIndex`] to the offset of
-    /// its indirect draw parameters.
+    /// A mapping from each `RenderBinnedMeshInstanceIndex` to the offset of its
+    /// indirect draw parameters.
     pub bin_index_to_indirect_parameters_offset_buffer: RawBufferVec<u32>,
 }
 
