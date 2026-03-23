@@ -354,10 +354,13 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
 ///
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(before_add = before_add_function)]`
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
 /// - `#[component(on_discard = on_discard_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
+/// - `#[component(on_despawn = on_despawn_function)]`
+/// - `#[component(after_remove = after_remove_function)]`
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
@@ -373,8 +376,8 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// // Another possible way of configuring hooks:
 /// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
-/// // We don't have a discard or remove hook, so we can leave them out:
-/// // #[component(on_discard = my_on_discard_hook, on_remove = my_on_remove_hook)]
+/// // We don't have other hooks, so we can leave them out:
+/// // #[component(before_add = .., on_discard = .., on_remove = .., on_despawn = .., after_remove = ..)]
 /// struct ComponentA;
 ///
 /// fn my_on_add_hook(world: DeferredWorld, context: HookContext) {
@@ -520,6 +523,11 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
+    /// Gets the `before_add` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn before_add() -> Option<ComponentHook> {
+        None
+    }
+
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
@@ -542,6 +550,11 @@ pub trait Component: Send + Sync + 'static {
 
     /// Gets the `on_despawn` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_despawn() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `after_remove` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn after_remove() -> Option<ComponentHook> {
         None
     }
 

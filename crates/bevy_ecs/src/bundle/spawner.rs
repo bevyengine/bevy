@@ -8,7 +8,7 @@ use crate::{
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, ADD, INSERT},
+    lifecycle::{Add, BeforeAdd, Insert, ADD, BEFORE_ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -96,6 +96,36 @@ impl<'w> BundleSpawner<'w> {
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
+
+        // Fire BeforeAdd before component data is written.
+        // The entity has been allocated but has no location or components yet.
+        // This matches the insert path where BeforeAdd fires before the archetype move.
+        // Ordering: observer → hooks (matching pre-modification event convention).
+        // SAFETY: All components in the bundle are guaranteed to exist in the World.
+        // DeferredWorld is dropped before we take mutable references below.
+        unsafe {
+            let mut deferred_world = self.world.into_deferred();
+            let archetype = self.archetype.as_ref();
+            if archetype.has_before_add_observer() {
+                deferred_world.trigger_raw(
+                    BEFORE_ADD,
+                    &mut BeforeAdd { entity },
+                    &mut EntityComponentsTrigger {
+                        components: bundle_info.contributed_components(),
+                        old_archetype: None,
+                        new_archetype: Some(archetype),
+                    },
+                    caller,
+                );
+            }
+            deferred_world.trigger_before_add(
+                archetype,
+                entity,
+                bundle_info.iter_contributed_components(),
+                caller,
+            );
+        }
+
         let location = {
             let table = self.table.as_mut();
             let archetype = self.archetype.as_mut();

@@ -7,7 +7,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
+    lifecycle::{AfterRemove, Despawn, Discard, Remove, AFTER_REMOVE, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
     query::{
         has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
@@ -1662,6 +1662,10 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
+        // Save flags before mutations invalidate the archetype reference.
+        let has_after_remove_hook = archetype.has_after_remove_hook();
+        let has_after_remove_observer = archetype.has_after_remove_observer();
+
         // do the despawn
         let change_tick = self.world.change_tick();
         for component_id in archetype.components() {
@@ -1738,6 +1742,43 @@ impl<'w> EntityWorldMut<'w> {
             }
             self.world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
+        }
+
+        // Trigger AfterRemove for all components after data has been dropped.
+        // The entity's location is None at this point (set above).
+        if has_after_remove_hook || has_after_remove_observer {
+            // Re-borrow archetype: the original reference from line 1587 was invalidated
+            // by `&mut self.world.archetypes` above. Type-level metadata (flags, component
+            // lists) is unchanged by entity-level swap_remove operations.
+            // SAFETY: Archetype cannot be mutably aliased by DeferredWorld.
+            let (archetype, mut deferred_world) = unsafe {
+                let archetype: *const Archetype = &self.world.archetypes[location.archetype_id];
+                let world = self.world.as_unsafe_world_cell();
+                (&*archetype, world.into_deferred())
+            };
+            // SAFETY: All component IDs in the archetype exist in the world.
+            unsafe {
+                deferred_world.trigger_after_remove(
+                    archetype,
+                    self.entity,
+                    archetype.iter_components(),
+                    caller,
+                );
+                if archetype.has_after_remove_observer() {
+                    deferred_world.trigger_raw(
+                        AFTER_REMOVE,
+                        &mut AfterRemove {
+                            entity: self.entity,
+                        },
+                        &mut EntityComponentsTrigger {
+                            components: archetype.components(),
+                            old_archetype: Some(archetype),
+                            new_archetype: None,
+                        },
+                        caller,
+                    );
+                }
+            }
         }
 
         // finish

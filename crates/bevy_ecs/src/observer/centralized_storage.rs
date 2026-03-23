@@ -26,11 +26,13 @@ use crate::{
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup for high-traffic built-in event types.
+    before_add: CachedObservers,
     add: CachedObservers,
     insert: CachedObservers,
     discard: CachedObservers,
     remove: CachedObservers,
     despawn: CachedObservers,
+    after_remove: CachedObservers,
     // Map from event type to set of observers watching for that event
     cache: HashMap<EventKey, CachedObservers>,
 }
@@ -40,34 +42,40 @@ impl Observers {
         use crate::lifecycle::*;
 
         match event_key {
+            BEFORE_ADD => &mut self.before_add,
             ADD => &mut self.add,
             INSERT => &mut self.insert,
             DISCARD => &mut self.discard,
             REMOVE => &mut self.remove,
             DESPAWN => &mut self.despawn,
+            AFTER_REMOVE => &mut self.after_remove,
             _ => self.cache.entry(event_key).or_default(),
         }
     }
 
     /// Attempts to get the observers for the given `event_key`.
     ///
-    /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Discard`], [`Remove`], and [`Despawn`],
+    /// When accessing the observers for lifecycle events, such as [`BeforeAdd`], [`Add`], [`Insert`], [`Discard`], [`Remove`], [`Despawn`], and [`AfterRemove`],
     /// use the [`EventKey`] constants from the [`lifecycle`](crate::lifecycle) module.
     ///
+    /// [`BeforeAdd`]: crate::lifecycle::BeforeAdd
     /// [`Add`]: crate::lifecycle::Add
     /// [`Insert`]: crate::lifecycle::Insert
     /// [`Discard`]: crate::lifecycle::Discard
     /// [`Remove`]: crate::lifecycle::Remove
     /// [`Despawn`]: crate::lifecycle::Despawn
+    /// [`AfterRemove`]: crate::lifecycle::AfterRemove
     pub fn try_get_observers(&self, event_key: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
         match event_key {
+            BEFORE_ADD => Some(&self.before_add),
             ADD => Some(&self.add),
             INSERT => Some(&self.insert),
             DISCARD => Some(&self.discard),
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
+            AFTER_REMOVE => Some(&self.after_remove),
             _ => self.cache.get(&event_key),
         }
     }
@@ -76,11 +84,13 @@ impl Observers {
         use crate::lifecycle::*;
 
         match event_key {
+            BEFORE_ADD => Some(ArchetypeFlags::ON_BEFORE_ADD_OBSERVER),
             ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
             DISCARD => Some(ArchetypeFlags::ON_DISCARD_OBSERVER),
             REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
             DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
+            AFTER_REMOVE => Some(ArchetypeFlags::ON_AFTER_REMOVE_OBSERVER),
             _ => None,
         }
     }
@@ -90,6 +100,14 @@ impl Observers {
         component_id: ComponentId,
         flags: &mut ArchetypeFlags,
     ) {
+        if self
+            .before_add
+            .component_observers
+            .contains_key(&component_id)
+        {
+            flags.insert(ArchetypeFlags::ON_BEFORE_ADD_OBSERVER);
+        }
+
         if self.add.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_ADD_OBSERVER);
         }
@@ -108,6 +126,14 @@ impl Observers {
 
         if self.despawn.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
+        }
+
+        if self
+            .after_remove
+            .component_observers
+            .contains_key(&component_id)
+        {
+            flags.insert(ArchetypeFlags::ON_AFTER_REMOVE_OBSERVER);
         }
     }
 }

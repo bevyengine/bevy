@@ -12,7 +12,7 @@ use crate::{
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
+    lifecycle::{Add, BeforeAdd, Discard, Insert, ADD, BEFORE_ADD, DISCARD, INSERT},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
@@ -193,6 +193,36 @@ impl<'w> BundleInserter<'w> {
                     archetype_after_insert.existing().iter().copied(),
                     caller,
                     relationship_hook_mode,
+                );
+            }
+
+            // Trigger BeforeAdd for newly added components (before the archetype move).
+            // The entity is still in the old archetype; component data has NOT been written yet.
+            if !archetype_after_insert.added().is_empty() {
+                let new_archetype = match archetype_move_type {
+                    ArchetypeMoveType::SameArchetype => archetype.as_ref(),
+                    ArchetypeMoveType::NewArchetypeSameTable { new_archetype }
+                    | ArchetypeMoveType::NewArchetypeNewTable { new_archetype, .. } => {
+                        new_archetype.as_ref()
+                    }
+                };
+                if new_archetype.has_before_add_observer() {
+                    deferred_world.trigger_raw(
+                        BEFORE_ADD,
+                        &mut BeforeAdd { entity },
+                        &mut EntityComponentsTrigger {
+                            components: archetype_after_insert.added(),
+                            old_archetype: Some(archetype.as_ref()),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+                deferred_world.trigger_before_add(
+                    new_archetype,
+                    entity,
+                    archetype_after_insert.added().iter().copied(),
+                    caller,
                 );
             }
         }
