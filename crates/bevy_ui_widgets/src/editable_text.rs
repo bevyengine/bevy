@@ -52,12 +52,12 @@ fn on_focused_keyboard_input(
 
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
-    let mod_flags = SUPER * u8::from(keys.pressed(Key::Super))
-        | CTRL * u8::from(keys.pressed(Key::Control))
-        | ALT * u8::from(keys.pressed(Key::Alt))
-        | SHIFT * u8::from(keys.pressed(Key::Shift))
-        | COMMAND * (u8::from(keys.pressed(command_mod_key)))
-        | WORD * (u8::from(keys.pressed(word_mod_key)));
+    let mod_flags = (SUPER * u8::from(keys.pressed(Key::Super)))
+        | (CTRL * u8::from(keys.pressed(Key::Control)))
+        | (ALT * u8::from(keys.pressed(Key::Alt)))
+        | (SHIFT * u8::from(keys.pressed(Key::Shift)))
+        | (COMMAND * (u8::from(keys.pressed(command_mod_key))))
+        | (WORD * (u8::from(keys.pressed(word_mod_key))));
 
     let shift_pressed = (mod_flags & SHIFT) != 0;
 
@@ -108,15 +108,11 @@ fn on_focused_keyboard_input(
                 queue_edit(TextEdit::Insert(text.clone()));
             }
         }
-        (NONE, Key::Tab) => {
-            // Parley doesn't support tabs yet.
-            // Ignore and propagate to allow for tab navigation.
+        _ => {
+            // Enter and Tab ignored for now.
+            // Enter needs extra logic for handling special cases and Parley doesn't support tabs yet.
+            // Ignore and propagate to allow for tab navigation and submit actions.
         }
-        (NONE, Key::Enter) => {
-            // Todo, Enter needs handling for special cases.
-            // Ignore and propagate to allow for submit.
-        }
-        _ => {}
     }
 
     keyboard_input.propagate(should_propagate);
