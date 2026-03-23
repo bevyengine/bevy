@@ -1,4 +1,8 @@
-use crate::{error::BevyError, never::Never, world::error::EntityMutableFetchError};
+use crate::{
+    error::BevyError, never::Never, system::entity_command::EntityCommandError,
+    world::error::EntityMutableFetchError,
+};
+use core::fmt::{Debug, Display};
 
 /// A trait implemented for types that can be used as the output of a [`Command`].
 ///
@@ -65,13 +69,13 @@ impl EntityCommandOutput for () {
 
 impl<T, E> EntityCommandOutput for Result<T, E>
 where
-    E: Into<BevyError> + From<EntityMutableFetchError>,
+    E: Debug + Display + Send + Sync + 'static,
 {
     type Out = T;
-    type Error = E;
+    type Error = EntityCommandError<E>;
 
     #[inline]
     fn into_result(self) -> Result<Self::Out, Self::Error> {
-        self
+        self.map_err(EntityCommandError::CommandFailed)
     }
 }
