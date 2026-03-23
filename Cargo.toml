@@ -4573,11 +4573,23 @@ path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
 [[example]]
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools", "free_camera"]
+
+[package.metadata.example.infinite_grid]
+name = "Infnite grid"
+description = "Shows how to use the infinite grid"
+category = "Dev tools"
+wasm = true
 
 [[example]]
 name = "2d_top_down_camera"
@@ -4666,12 +4678,6 @@ doc-scrape-examples = true
 name = "2D on Bevy UI"
 description = "Shows how to render 2D objects on top of Bevy UI"
 category = "Camera"
-wasm = true
-
-[package.metadata.example.fps_overlay]
-name = "FPS overlay"
-description = "Demonstrates FPS overlay"
-category = "Dev tools"
 wasm = true
 
 [[example]]
