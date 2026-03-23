@@ -206,8 +206,8 @@ impl RenderMultidrawableBin {
 }
 
 /// The index of a mesh instance in the
-/// [`RenderBatchSetBuffers::render_binned_mesh_instance_buffer`] and
-/// [`RenderMultidrawableBatchSet::render_binned_mesh_instance_buffer`]
+/// [`RenderMultidrawableBatchSetGpuBuffers::render_binned_mesh_instance_buffer`]
+/// and [`RenderMultidrawableBatchSet::render_binned_mesh_instances_cpu`]
 /// arrays.
 ///
 /// These two arrays are parallel and always have the same length.
@@ -227,11 +227,11 @@ pub(crate) struct RenderBinnedMeshInstanceIndex(pub(crate) u32);
 /// of this data structure.
 pub struct RenderMultidrawableBatchSetGpuBuffers {
     /// A mapping from each binned mesh instance
-    /// ([`RenderBinnedMeshInstanceIndex`]) to its input uniform index
-    /// ([`InputUniformIndex`]) and bin index ([`RenderBinIndex`]).
+    /// (`RenderBinnedMeshInstanceIndex`) to its input uniform index
+    /// ([`InputUniformIndex`]) and bin index (`RenderBinIndex`).
     pub render_binned_mesh_instance_buffer: RawBufferVec<GpuRenderBinnedMeshInstance>,
-    /// A mapping from each [`RenderBinIndex`] to the offset of its indirect
-    /// draw parameters.
+    /// A mapping from each [`RenderBinnedMeshInstanceIndex`] to the offset of
+    /// its indirect draw parameters.
     pub bin_index_to_indirect_parameters_offset_buffer: RawBufferVec<u32>,
 }
 
@@ -661,12 +661,12 @@ where
 /// A single mesh instance in a bin.
 ///
 /// This is a data structure shared between CPU and GPU. It is *not* sorted in
-/// the [`RenderBatchSetBuffers`]: mesh instances in any given bin are not
-/// guaranteed to be adjacent.
+/// the [`RenderMultidrawableBatchSetGpuBuffers`]: mesh instances in any given
+/// bin are not guaranteed to be adjacent.
 #[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct GpuRenderBinnedMeshInstance {
-    /// The index of the [`MeshInputUniform`] in the buffer.
+    /// The index of the `MeshInputUniform` in the buffer.
     ///
     /// This should be an [`InputUniformIndex`], but `encase` doesn't support
     /// newtype structs.
@@ -675,7 +675,6 @@ pub struct GpuRenderBinnedMeshInstance {
     /// The index of the bin in this batch set.
     ///
     /// This is the index tracked by [`RenderMultidrawableBatchSet::bins`].
-    /// For a [`RenderBatchableBin`], this is 0.
     ///
     /// This should be a [`RenderBinIndex`], but `encase` doesn't support that
     bin_index: u32,

@@ -1284,7 +1284,7 @@ where
     /// Reserves space for `count` new batches.
     ///
     /// This allocates in the [`Self::cpu_metadata`], [`Self::gpu_metadata`],
-    /// and [`Self::data`] buffers.
+    /// and [`Self::indirect_draw_parameters`] buffers.
     fn allocate(&mut self, count: u32) -> u32 {
         let length = self.indirect_draw_parameters.len();
         self.cpu_metadata.reserve_internal(count as usize);

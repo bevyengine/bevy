@@ -898,7 +898,7 @@ where
 
     /// Writes the buffer to the GPU.
     ///
-    /// [`Self::reserve`] is called automatically to ensure that the buffer has
+    /// `Self::reserve` is called automatically to ensure that the buffer has
     /// the correct length (including enough space to hold all the trailing
     /// uninitialized elements).
     pub fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
