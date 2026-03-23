@@ -35,21 +35,18 @@ fn on_focused_keyboard_input(
     const CTRL: u8 = 2;
     const ALT: u8 = 4;
     const SHIFT: u8 = 8;
-    #[cfg(target_os = "macos")]
-    const COMMAND: u8 = SUPER;
-    #[cfg(not(target_os = "macos"))]
-    const COMMAND: u8 = CTRL;
+    const COMMAND: u8 = if cfg!(target_os = "macos") {
+        SUPER
+    } else {
+        CTRL
+    };
     // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
-    #[cfg(target_os = "macos")]
-    const WORD: u8 = ALT;
-    #[cfg(not(target_os = "macos"))]
-    const WORD: u8 = CTRL;
+    const WORD: u8 = if cfg!(target_os = "macos") { ALT } else { CTRL };
     #[cfg(target_os = "macos")]
     const SHIFT_SUPER: u8 = SHIFT | SUPER;
     const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
     #[cfg(not(target_os = "macos"))]
     const SHIFT_ALT: u8 = SHIFT | ALT;
-    const SHIFT_WORD: u8 = SHIFT | WORD;
 
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
