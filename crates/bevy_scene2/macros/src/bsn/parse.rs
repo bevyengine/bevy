@@ -270,7 +270,24 @@ impl Parse for BsnFields {
             let content;
             braced![content in input];
             let mut fields = Vec::new();
-            parse_punctuated_vec!(fields, content, BsnNamedField, Comma);
+            // parse_punctuated_vec!(fields, content, BsnNamedField, Comma);
+            loop {
+                if content.is_empty() {
+                    break;
+                }
+                let value = content.parse::<BsnNamedField>()?;
+                fields.push(value);
+                if content.is_empty() {
+                    break;
+                }
+                // Try parsing without a comma separator first. This makes autocomplete
+                // work for fields that are being typed in the middle of a field list.
+                if content.peek(Ident) {
+                    let value = content.parse::<BsnNamedField>()?;
+                    fields.push(value)
+                }
+                content.parse::<Comma>()?;
+            }
             BsnFields::Named(fields)
         } else if input.peek(Paren) {
             let content;
