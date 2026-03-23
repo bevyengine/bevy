@@ -104,7 +104,7 @@ impl Schedules {
     }
 
     /// Gets a set of temporarily removed schedules
-    pub fn get_tempoararily_removed(&self) -> HashSet<InternedScheduleLabel> {
+    pub fn get_temporarily_removed(&self) -> HashSet<InternedScheduleLabel> {
         self.temporarily_removed.clone()
     }
 

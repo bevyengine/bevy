@@ -1550,24 +1550,22 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
     let schedules = world.resource::<Schedules>();
 
-    let mut response = BrpScheduleListResponse::default();
-
-    response.schedule_labels = schedules
-        .iter()
-        .map(|(label, _schedule)| format!("{:?}", label))
-        .collect::<Vec<_>>();
-
-    response.unavailable_schedule_labels = schedules
-        .get_tempoararily_removed()
-        .iter()
-        .map(|label| format!("{:?}", label))
-        .collect::<Vec<_>>();
-
-    response.empty_schedule_labels = schedules
-        .get_empty_labels()
-        .iter()
-        .map(|label| format!("{:?}", label))
-        .collect::<Vec<_>>();
+    let response = BrpScheduleListResponse {
+        schedule_labels: schedules
+            .iter()
+            .map(|(label, _schedule)| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        unavailable_schedule_labels: schedules
+            .get_temporarily_removed()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        empty_schedule_labels: schedules
+            .get_empty_labels()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+    };
 
     serde_json::to_value(response).map_err(BrpError::internal)
 }
