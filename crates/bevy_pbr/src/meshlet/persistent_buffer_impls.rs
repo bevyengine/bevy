@@ -24,8 +24,7 @@ impl PersistentGpuBufferable for Arc<[BvhNode]> {
             let bytes: [u8; SIZE] =
                 bytemuck::cast(node.offset_aabbs(base_meshlet_index, buffer_offset));
             buffer_slice
-                .slice(i * SIZE..)
-                .slice(..(i + 1) * SIZE)
+                .slice(i * SIZE..(i + 1) * SIZE)
                 .copy_from_slice(&bytes);
         }
     }
