@@ -17,7 +17,10 @@ use syn::{
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
 /// of allocating a new one inside [`Punctuated`](syn::punctuated::Punctuated). This exists to avoid allocating an intermediate Vec.
-macro_rules! parse_punctuated_vec {
+///
+/// This also attempts to parse $parse a second time _before_ parsing $separator, as this enables autocomplete to work in cases where
+/// it is being typed in the middle of a list
+macro_rules! parse_punctuated_vec_autocomplete_friendly {
     ($list:ident, $input:ident, $parse:ident, $separator:ident) => {
         loop {
             if $input.is_empty() {
@@ -27,6 +30,13 @@ macro_rules! parse_punctuated_vec {
             $list.push(value);
             if $input.is_empty() {
                 break;
+            }
+
+            // Try parsing without a comma separator first. This makes autocomplete
+            // work in more places
+            if !$input.is_empty() && !$input.peek($separator) {
+                let value = $input.parse::<$parse>()?;
+                $list.push(value);
             }
             $input.parse::<$separator>()?;
         }
@@ -182,7 +192,7 @@ impl Parse for BsnSceneList {
 impl Parse for BsnSceneListItems {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut scenes = Vec::new();
-        parse_punctuated_vec!(scenes, input, BsnSceneListItem, Comma);
+        parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
         Ok(BsnSceneListItems(scenes))
     }
 }
@@ -270,30 +280,13 @@ impl Parse for BsnFields {
             let content;
             braced![content in input];
             let mut fields = Vec::new();
-            // parse_punctuated_vec!(fields, content, BsnNamedField, Comma);
-            loop {
-                if content.is_empty() {
-                    break;
-                }
-                let value = content.parse::<BsnNamedField>()?;
-                fields.push(value);
-                if content.is_empty() {
-                    break;
-                }
-                // Try parsing without a comma separator first. This makes autocomplete
-                // work for fields that are being typed in the middle of a field list.
-                if content.peek(Ident) {
-                    let value = content.parse::<BsnNamedField>()?;
-                    fields.push(value)
-                }
-                content.parse::<Comma>()?;
-            }
+            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnNamedField, Comma);
             BsnFields::Named(fields)
         } else if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             let mut fields = Vec::new();
-            parse_punctuated_vec!(fields, content, BsnUnnamedField, Comma);
+            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnUnnamedField, Comma);
             BsnFields::Tuple(fields)
         } else {
             BsnFields::Named(Vec::new())
