@@ -76,6 +76,12 @@ use crate::{
 use bevy_ecs::prelude::*;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
+/// Resource containing the current contents of the clipboard.
+///
+/// Placeholder for a proper clipboard implementation with support for the OS clipboard and non-text content.
+#[derive(Resource, Default)]
+pub struct Clipboard(pub String);
+
 /// A plain-text text input field.
 ///
 /// Please see this module docs for more details on usage and functionality.
@@ -151,6 +157,7 @@ impl EditableText {
         &mut self,
         font_context: &mut FontContext,
         layout_context: &mut LayoutContext<TextBrush>,
+        clipboard_text: &mut String,
     ) {
         let Self {
             editor,
@@ -161,7 +168,7 @@ impl EditableText {
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            edit.apply(&mut driver, &mut String::new());
+            edit.apply(&mut driver, clipboard_text);
         }
     }
 
@@ -183,8 +190,13 @@ pub fn apply_text_edits(
     mut query: Query<&mut EditableText>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
+    mut clipboard_text: ResMut<Clipboard>,
 ) {
     for mut editable_text in query.iter_mut() {
-        editable_text.apply_pending_edits(&mut font_context.0, &mut layout_context.0);
+        editable_text.apply_pending_edits(
+            &mut font_context.0,
+            &mut layout_context.0,
+            &mut clipboard_text.0,
+        );
     }
 }
