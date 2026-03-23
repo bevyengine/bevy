@@ -582,6 +582,7 @@ impl ElementClass {
         match *self {
             ElementClass::Vertex => BufferUsages::VERTEX,
             ElementClass::Index => BufferUsages::INDEX,
+            #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,
         }
     }
