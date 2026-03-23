@@ -311,7 +311,7 @@ Example | Description
 Example | Description
 --- | ---
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
-[Infnite grid](../examples/dev_tools/infinite_grid.rs) | Shows how to use the infinite grid
+[Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
 ### Diagnostics
 
