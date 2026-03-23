@@ -34,66 +34,38 @@ fn on_focused_keyboard_input(
     let shift = keyboard_button_input.pressed(KeyCode::ShiftLeft)
         || keyboard_button_input.pressed(KeyCode::ShiftRight);
 
-    let mut consumed = true;
-    match &trigger.input {
-        KeyboardInput {
-            logical_key: Key::Character(c),
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            editable_text.queue_edit(TextEdit::Insert(c.clone()));
+    let mut should_propagate = true;
+
+    let mut queue_edit = |edit| {
+        if trigger.input.state.is_pressed() {
+            editable_text.queue_edit(edit);
         }
-        KeyboardInput {
-            logical_key: Key::Space,
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            editable_text.queue_edit(TextEdit::Insert(SmolStr::new_inline(" ")));
+        should_propagate = false;
+    };
+
+    match &trigger.input.logical_key {
+        Key::Character(c) => {
+            queue_edit(TextEdit::Insert(c.clone()));
         }
-        KeyboardInput {
-            logical_key: Key::Backspace,
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            editable_text.queue_edit(TextEdit::Backspace);
+        Key::Space => {
+            queue_edit(TextEdit::Insert(SmolStr::new_inline(" ")));
         }
-        KeyboardInput {
-            logical_key: Key::Delete,
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            editable_text.queue_edit(TextEdit::Delete);
+        Key::Backspace => {
+            queue_edit(TextEdit::Backspace);
         }
-        KeyboardInput {
-            logical_key: Key::ArrowRight,
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            if shift {
-                editable_text.queue_edit(TextEdit::SelectRight);
-            } else {
-                editable_text.queue_edit(TextEdit::MoveCursorRight);
-            }
+        Key::Delete => {
+            queue_edit(TextEdit::Delete);
         }
-        KeyboardInput {
-            logical_key: Key::ArrowLeft,
-            state: bevy_input::ButtonState::Pressed,
-            ..
-        } => {
-            if shift {
-                editable_text.queue_edit(TextEdit::SelectLeft);
-            } else {
-                editable_text.queue_edit(TextEdit::MoveCursorLeft);
-            }
+        Key::ArrowRight => {
+            queue_edit(TextEdit::Right(shift));
         }
-        _ => {
-            consumed = false;
+        Key::ArrowLeft => {
+            queue_edit(TextEdit::Left(shift));
         }
+        _ => {}
     }
 
-    if consumed {
-        trigger.propagate(false);
-    }
+    trigger.propagate(should_propagate);
 }
 
 /// Enables support for the [`EditableText`] widget.

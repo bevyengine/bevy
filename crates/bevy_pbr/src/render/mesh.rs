@@ -260,6 +260,10 @@ impl Plugin for MeshRenderPlugin {
                     .init_gpu_resource::<RenderMeshInstanceGpuQueues>()
                     .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
+                        RenderStartup,
+                        mark_all_meshes_for_reextraction,
+                    )
+                    .add_systems(
                         ExtractSchedule,
                             extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
                     )
@@ -288,12 +292,8 @@ impl Plugin for MeshRenderPlugin {
                         ),
                     );
             } else {
-                let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer = no_gpu_preprocessing::BatchedInstanceBuffer::<
-                    MeshUniform,
-                >::new(&render_device.limits());
                 render_app
-                    .insert_resource(cpu_batched_instance_buffer)
+                    .init_gpu_resource::<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>()
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
@@ -329,6 +329,23 @@ impl Plugin for MeshRenderPlugin {
             ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
             });
+    }
+}
+
+/// Drains all entities from [`RenderMeshInstances`] into [`MeshesToReextractNextFrame`].
+fn mark_all_meshes_for_reextraction(
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut meshes_to_reextract: ResMut<MeshesToReextractNextFrame>,
+) {
+    match *render_mesh_instances {
+        RenderMeshInstances::CpuBuilding(ref mut cpu) => {
+            meshes_to_reextract.extend(cpu.keys());
+            cpu.clear();
+        }
+        RenderMeshInstances::GpuBuilding(ref mut gpu) => {
+            meshes_to_reextract.extend(gpu.keys());
+            gpu.clear();
+        }
     }
 }
 
