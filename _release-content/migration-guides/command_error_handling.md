@@ -1,6 +1,6 @@
 ---
 title: "`Command` error handling has been simplified"
-pull_requests: [23432]
+pull_requests: [23432, 23477]
 ---
 
 The `Command` trait now takes `Out` as an associated type rather than as a generic
