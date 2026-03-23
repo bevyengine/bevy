@@ -75,6 +75,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let mut bindless_buffer_descriptors = Vec::new();
     // Whether this material needs buffer binding arrays (BUFFER_BINDING_ARRAY feature).
     // False when only #[data(...)], textures, and samplers are used.
+    // NOTE: When wgpu adds support for buffer binding arrays on Metal
+    // (see https://github.com/gfx-rs/wgpu/pull/9081), this conditional
+    // can be removed and BUFFER_BINDING_ARRAY required unconditionally.
     let mut has_buffer_binding_arrays = false;
     let mut attr_prepared_data_ident = None;
     // After the first attribute pass, this will be `None` if the object isn't
