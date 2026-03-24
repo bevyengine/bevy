@@ -12,7 +12,6 @@ repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.92.0"
 
-
 [workspace]
 resolver = "2"
 members = [
