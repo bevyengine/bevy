@@ -183,13 +183,11 @@ bitflags::bitflags! {
 pub struct GpuRectLight {
     color: Vec4,
     position: Vec3,
-    right: Vec3,
-    up: Vec3,
     width: f32,
+    right: Vec3,
     height: f32,
+    up: Vec3,
     range: f32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding_76b: f32,
 }
 
 #[derive(Copy, Clone, Debug, ShaderType)]
@@ -1600,8 +1598,6 @@ pub fn prepare_lights(
                 width: rect_light.width,
                 height: rect_light.height,
                 range: rect_light.range,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding_76b: 0.0,
             };
         }
         gpu_lights.n_rect_lights = rect_lights.len().min(MAX_RECT_LIGHTS) as u32;

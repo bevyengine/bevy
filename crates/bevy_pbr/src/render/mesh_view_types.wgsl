@@ -55,14 +55,11 @@ const DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32           = 1u <<
 struct RectLight {
     color: vec4<f32>,
     position: vec3<f32>,
-    right: vec3<f32>,
-    up: vec3<f32>,
     width: f32,
+    right: vec3<f32>,
     height: f32,
+    up: vec3<f32>,
     range: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
-    _webgl2_padding_76b: f32,
-#endif
 };
 
 struct Lights {
