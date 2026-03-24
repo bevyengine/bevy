@@ -116,7 +116,8 @@ pub struct ResolvedScene {
     related: TypeIdMap<RelatedResolvedScenes>,
     /// The inherited [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
     inherited: Option<Handle<ScenePatch>>,
-    /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should have
+    /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
+    /// here.
     template_indices: TypeIdMap<usize>,
     /// A list of all [`ScopedEntityIndex`] values associated with this entity. There can be more than one if this scene uses
     /// "flattened" inheritance.

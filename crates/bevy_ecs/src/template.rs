@@ -358,7 +358,6 @@ impl Template for EntityReference {
 
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         Ok(match self {
-            // unwrap is ok as this is "internals". when implemented correctly this will never panic
             EntityReference::ScopedEntityIndex(scoped_entity_index) => {
                 context.get_scoped_entity(*scoped_entity_index)
             }
