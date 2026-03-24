@@ -69,13 +69,12 @@
 // because doing so allows us to process `EditableText` in the various systems provided by `bevy_text`
 // and `bevy_ui`, such as text layout and font management.
 
-use std::time::Duration;
-
 use crate::{
     text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont,
     TextLayout,
 };
 use bevy_ecs::prelude::*;
+use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
 /// Resource containing the current contents of the clipboard.
