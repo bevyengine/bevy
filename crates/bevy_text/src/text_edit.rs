@@ -158,7 +158,7 @@ impl TextEdit {
             }
             TextEdit::Paste => {
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(|s| s.len()).unwrap_or(0);
+                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
                     if max
                         < driver.editor.text().chars().count() - select_len + clipboard_text.len()
                     {
@@ -169,7 +169,7 @@ impl TextEdit {
             }
             TextEdit::Insert(text) => {
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(|s| s.len()).unwrap_or(0);
+                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
                     if max < driver.editor.text().chars().count() - select_len + text.len() {
                         return;
                     }
