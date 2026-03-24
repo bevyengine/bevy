@@ -261,7 +261,7 @@ pub fn editable_text_system(
         {
             if input_focus.is_changed()
                 || editable_text.text_edited
-                ||  *cursor_timer >= editable_text.cursor_blink_period
+                || *cursor_timer >= editable_text.cursor_blink_period
             {
                 *cursor_timer = Duration::ZERO;
             }
