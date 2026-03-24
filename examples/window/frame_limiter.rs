@@ -181,7 +181,7 @@ fn update_overlay(
 
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(bevy::diagnostic::Diagnostic::smoothed)
         .map(|value| format!("{value:.1}"))
         .unwrap_or_else(|| "--".to_string());
     *writer.text(*text, 3) = fps;
