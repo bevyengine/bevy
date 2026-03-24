@@ -99,7 +99,6 @@ impl Plugin for InfiniteGridPlugin {
     Transform,
     Visibility,
     VisibilityClass,
-    RenderVisibleEntities,
     NoFrustumCulling,
     SyncToRenderWorld
 )]
@@ -279,20 +278,11 @@ fn prepare_grid_view_bind_groups(
 
 fn extract_infinite_grids(
     mut commands: Commands,
-    grids: Extract<
-        Query<(
-            RenderEntity,
-            &InfiniteGridSettings,
-            &GlobalTransform,
-            &RenderVisibleEntities,
-        )>,
-    >,
+    grids: Extract<Query<(RenderEntity, &InfiniteGridSettings, &GlobalTransform)>>,
 ) {
     let extracted: Vec<_> = grids
         .iter()
-        .map(|(entity, grid, transform, visible_entities)| {
-            (entity, (*transform, *grid, visible_entities.clone()))
-        })
+        .map(|(entity, grid, transform)| (entity, (*transform, *grid)))
         .collect();
     commands.try_insert_batch(extracted);
 }
