@@ -15,7 +15,7 @@ Additionally, `create_bindless_bind_group_layout_entries` now only creates bindi
 Benchmarked on Bistro Exterior (698 materials), 5-minute runs:
 
 | GPU | Avg FPS improvement | Min FPS improvement | Memory |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Apple M2 Max (Metal) | +18% | +77% | −57 MB RAM |
 | NVIDIA 5060 Ti | +84% | +174% | Same |
 | Intel i360P | +15% | Same | Same |
