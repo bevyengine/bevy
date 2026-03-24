@@ -69,10 +69,7 @@ impl Plugin for InfiniteGridPlugin {
             .init_resource::<InfiniteGridPipeline>()
             .init_resource::<SpecializedRenderPipelines<InfiniteGridPipeline>>()
             .add_render_command::<Transparent3d, DrawInfiniteGrid>()
-            .add_systems(
-                ExtractSchedule,
-                (extract_infinite_grids, extract_per_camera_settings),
-            )
+            .add_systems(ExtractSchedule, extract_infinite_grids)
             .add_systems(
                 Render,
                 prepare_infinite_grids.in_set(RenderSystems::PrepareResources),
@@ -282,18 +279,7 @@ fn extract_infinite_grids(
 ) {
     let extracted: Vec<_> = grids
         .iter()
-        .map(|(entity, grid, transform)| (entity, (*transform, *grid)))
-        .collect();
-    commands.try_insert_batch(extracted);
-}
-
-fn extract_per_camera_settings(
-    mut commands: Commands,
-    cameras: Extract<Query<(RenderEntity, &InfiniteGridSettings), With<Camera>>>,
-) {
-    let extracted: Vec<_> = cameras
-        .iter()
-        .map(|(entity, settings)| (entity, *settings))
+        .map(|(entity, grid, transform)| (entity, (*grid, *transform)))
         .collect();
     commands.try_insert_batch(extracted);
 }
