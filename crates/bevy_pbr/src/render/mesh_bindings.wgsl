@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::mesh_bindings
 
-#import bevy_pbr::mesh_types::{Mesh, MeshMetadata}
+#import bevy_pbr::mesh_types::Mesh
+#import bevy_render::mesh_metadata_types::MeshMetadata
 
 #ifndef MESHLET_MESH_MATERIAL_PASS
 #ifdef PER_OBJECT_BUFFER_BATCH_SIZE

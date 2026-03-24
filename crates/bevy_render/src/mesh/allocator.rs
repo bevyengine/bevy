@@ -162,6 +162,7 @@ impl MeshAllocationKey {
 /// The type of element that a mesh slab can store.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ElementClass {
+    /// Per mesh metadata.
     Metadata,
     /// Data for a vertex.
     Vertex,

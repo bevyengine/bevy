@@ -7,10 +7,11 @@
         VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE
     },
     mesh_bindings::{mesh, metadata},
-    mesh_types::{MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT, MeshMetadata},
+    mesh_types::{MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT},
     view_transformations::position_world_to_clip,
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::mesh_metadata_types::MeshMetadata
 
 #ifndef MESHLET_MESH_MATERIAL_PASS
 

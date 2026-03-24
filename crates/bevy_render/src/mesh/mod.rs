@@ -22,6 +22,7 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 pub use bevy_mesh::*;
+use bevy_shader::load_shader_library;
 use bytemuck::{Pod, Zeroable};
 use glam::{Vec3, Vec4};
 use wgpu::{util::BufferInitDescriptor, BufferUsages, IndexFormat};
@@ -35,6 +36,8 @@ pub struct MeshRenderAssetPlugin;
 
 impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "mesh_metadata_types.wgsl");
+
         app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
@@ -59,7 +62,7 @@ impl Plugin for MeshRenderAssetPlugin {
     }
 }
 
-/// Per-mesh metadata.
+/// Per mesh metadata, stored in [`crate::mesh::allocator::MeshAllocator`].
 #[derive(Default, Pod, Zeroable, Clone, Copy, Debug, ShaderType)]
 #[repr(C)]
 pub struct MeshMetadata {
@@ -73,6 +76,7 @@ pub struct MeshMetadata {
     pub uv_channels_min_and_extents: [Vec4; 2],
 }
 
+/// Fallback buffer to fill mesh bind group if the mesh has no metadata.
 #[derive(Resource)]
 pub struct MeshMetadataFallbackBuffer(pub Buffer);
 
@@ -84,7 +88,7 @@ impl FromWorld for MeshMetadataFallbackBuffer {
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("mesh metadata fallback buffer"),
                 contents: bytemuck::cast_slice(&[MeshMetadata::default()]),
-                usage: if bevy_render::storage_buffers_are_unsupported(&limits) {
+                usage: if crate::storage_buffers_are_unsupported(&limits) {
                     BufferUsages::UNIFORM
                 } else {
                     BufferUsages::STORAGE
