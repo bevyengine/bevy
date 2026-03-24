@@ -1,6 +1,5 @@
 //! This example demonstrates how to use BSN to compose scenes.
 use bevy::{
-    ecs::template::template,
     prelude::*,
     scene2::prelude::{Scene, *},
 };

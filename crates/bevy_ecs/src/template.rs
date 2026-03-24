@@ -401,10 +401,6 @@ impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedTemplate for T {
     }
 }
 
-/// This is used by the [`GetTemplate`] derive to work around [this Rust limitation](https://github.com/rust-lang/rust/issues/86935).
-/// A fix is implemented and on track for stabilization. If it is ever implemented, we can remove this.
-pub type Wrapper<T> = T;
-
 /// A [`Template`] driven by a function that returns an output. This is used to create "free floating" templates without
 /// defining a new type. See [`template`] for usage.
 pub struct FnTemplate<F: Fn(&mut TemplateContext) -> Result<O>, O>(pub F);
