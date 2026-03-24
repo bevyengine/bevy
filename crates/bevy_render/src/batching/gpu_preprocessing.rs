@@ -48,7 +48,7 @@ use crate::{
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchSetMeta, GetBatchData, GetFullBatchData};
@@ -66,10 +66,12 @@ impl Plugin for BatchingPlugin {
         };
 
         render_app
-            .insert_resource(IndirectParametersBuffers::new(
-                self.debug_flags
+            .insert_resource(IndirectParametersBuffersSettings {
+                allow_copies_from_indirect_parameter_buffers: self
+                    .debug_flags
                     .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
-            ))
+            })
+            .init_gpu_resource::<IndirectParametersBuffers>()
             .allow_ambiguous_resource::<IndirectParametersBuffers>()
             .add_systems(
                 Render,
@@ -86,7 +88,7 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.init_resource::<GpuPreprocessingSupport>();
+        render_app.init_gpu_resource::<GpuPreprocessingSupport>();
     }
 }
 
@@ -896,7 +898,7 @@ pub struct IndirectBatchSet {
 /// pass can determine how many meshes are actually to be drawn.
 ///
 /// These buffers will remain empty if indirect drawing isn't in use.
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 pub struct IndirectParametersBuffers {
     /// A mapping from a phase type ID to the indirect parameters buffers for
     /// that phase.
@@ -904,22 +906,17 @@ pub struct IndirectParametersBuffers {
     /// Examples of phase type IDs are `Opaque3d` and `AlphaMask3d`.
     #[deref]
     pub buffers: TypeIdMap<UntypedPhaseIndirectParametersBuffers>,
+}
+
+/// Configuration for [`IndirectParametersBuffers`].
+#[derive(Resource)]
+pub struct IndirectParametersBuffersSettings {
     /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
     /// that they can be read back to CPU.
     ///
     /// This is a debugging feature that may reduce performance. It primarily
     /// exists for the `occlusion_culling` example.
     pub allow_copies_from_indirect_parameter_buffers: bool,
-}
-
-impl IndirectParametersBuffers {
-    /// Initializes a new [`IndirectParametersBuffers`] resource.
-    pub fn new(allow_copies_from_indirect_parameter_buffers: bool) -> IndirectParametersBuffers {
-        IndirectParametersBuffers {
-            buffers: TypeIdMap::default(),
-            allow_copies_from_indirect_parameter_buffers,
-        }
-    }
 }
 
 /// The buffers containing all the information that indirect draw commands use
@@ -939,19 +936,25 @@ where
     phantom: PhantomData<PI>,
 }
 
-impl<PI> PhaseIndirectParametersBuffers<PI>
+impl<PI> FromWorld for PhaseIndirectParametersBuffers<PI>
 where
     PI: PhaseItem,
 {
-    pub fn new(allow_copies_from_indirect_parameter_buffers: bool) -> Self {
+    fn from_world(world: &mut World) -> Self {
+        let settings = world.resource::<IndirectParametersBuffersSettings>();
         PhaseIndirectParametersBuffers {
             buffers: UntypedPhaseIndirectParametersBuffers::new(
-                allow_copies_from_indirect_parameter_buffers,
+                settings.allow_copies_from_indirect_parameter_buffers,
             ),
             phantom: PhantomData,
         }
     }
+}
 
+impl<PI> PhaseIndirectParametersBuffers<PI>
+where
+    PI: PhaseItem,
+{
     /// Allocates a single set of indirect parameters in the appropriate buffer.
     fn allocate(&mut self, no_indirect_drawing: bool, item_is_indexed: bool) -> Option<u32> {
         if no_indirect_drawing {
@@ -1208,14 +1211,6 @@ where
     }
 }
 
-impl Default for IndirectParametersBuffers {
-    fn default() -> Self {
-        // By default, we don't allow GPU indirect parameter mapping, since
-        // that's a debugging option.
-        Self::new(false)
-    }
-}
-
 impl FromWorld for GpuPreprocessingSupport {
     fn from_world(world: &mut World) -> Self {
         let adapter = world.resource::<RenderAdapter>();
@@ -1234,7 +1229,9 @@ impl FromWorld for GpuPreprocessingSupport {
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
         // Depth downsampling for occlusion culling requires 12 textures
+        // and the early occlusion culling pass requires 10 storage buffers
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
+            device.limits().max_storage_buffers_per_shader_stage >= 10 &&
             // Even if the adapter supports compute, we might be simulating a lack of
             // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
             // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
@@ -2141,6 +2138,7 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    indirect_parameters_buffers_settings: Res<IndirectParametersBuffersSettings>,
 ) where
     PI: PhaseItem,
     GFBD: GetFullBatchData + Send + Sync + 'static,
@@ -2164,7 +2162,7 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
     let untyped_phase_indirect_parameters_buffers = mem::replace(
         &mut phase_indirect_parameters_buffers.buffers,
         UntypedPhaseIndirectParametersBuffers::new(
-            indirect_parameters_buffers.allow_copies_from_indirect_parameter_buffers,
+            indirect_parameters_buffers_settings.allow_copies_from_indirect_parameter_buffers,
         ),
     );
     if let Some(mut old_untyped_phase_indirect_parameters_buffers) = indirect_parameters_buffers
