@@ -365,10 +365,7 @@ pub(crate) enum ArchetypeMoveType {
     NewArchetypeSameTable { new_archetype: NonNull<Archetype> },
     /// If any [`table-stored`](StorageType::Table) components are being added,
     /// both the entity's archetype and table will change.
-    NewArchetypeNewTable {
-        new_archetype: NonNull<Archetype>,
-        new_table: NonNull<Table>,
-    },
+    NewArchetypeNewTable { new_archetype: NonNull<Archetype> },
 }
 
 /// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
