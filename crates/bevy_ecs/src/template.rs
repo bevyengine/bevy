@@ -10,9 +10,6 @@ use crate::{
     world::{EntityWorldMut, Mut, World},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform::collections::hash_map::Entry;
-use bevy_utils::TypeIdMap;
-use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use variadics_please::all_tuples;
 
@@ -38,10 +35,6 @@ pub trait Template {
 
     /// Clones this template. See [`Clone`].
     fn clone_template(&self) -> Self;
-
-    /// This is used to register information about the template, such as dependencies that should be loaded before it is instantiated.
-    #[inline]
-    fn register_data(&self, _data: &mut TemplateData) {}
 }
 
 /// The context used to apply the current [`Template`]. This contains a reference to the entity that the template is being
@@ -304,15 +297,6 @@ macro_rules! template_impl {
                 let ($($template,)*) = &self.0;
                 TemplateTuple(($($template.clone_template(),)*))
             }
-
-            fn register_data(&self, _data: &mut TemplateData) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($template,)*) = &self.0;
-                $($template.register_data(_data);)*
-            }
         }
     }
 }
@@ -440,37 +424,6 @@ impl<F: Fn(&mut TemplateContext) -> Result<O> + Clone, O> Template for FnTemplat
 /// Returns a "free floating" template for a given `func`. This prevents the need to define a custom type for one-off templates.
 pub fn template<F: Fn(&mut TemplateContext) -> Result<O>, O>(func: F) -> FnTemplate<F, O> {
     FnTemplate(func)
-}
-
-/// Arbitrary data storage which can be used by [`Template`] implementations to register metadata such as asset dependencies.
-#[derive(Default)]
-pub struct TemplateData(TypeIdMap<Box<dyn Any>>);
-
-impl TemplateData {
-    /// Adds the `value` to this storage. This will be added to the back of a list of other values of the same type.
-    pub fn add<T: Any + Send + Sync>(&mut self, value: T) {
-        match self.0.entry(TypeId::of::<T>()) {
-            Entry::Occupied(mut entry) => {
-                entry
-                    .get_mut()
-                    .downcast_mut::<Vec<T>>()
-                    .unwrap()
-                    .push(value);
-            }
-            Entry::Vacant(entry) => {
-                entry.insert(Box::new(vec![value]));
-            }
-        }
-    }
-
-    /// Iterates over all stored values of the given type `T`.
-    pub fn iter<T: Any>(&self) -> impl Iterator<Item = &T> {
-        self.0
-            .get(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_ref::<Vec<T>>())
-            .map(|v| v.iter())
-            .unwrap_or_default()
-    }
 }
 
 /// A [`Template`] for Option.
