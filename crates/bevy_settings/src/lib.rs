@@ -207,6 +207,8 @@ pub enum SavePreferencesSync {
 }
 
 impl Command for SavePreferencesSync {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         save_preferences(world, false, self == SavePreferencesSync::Always);
     }
@@ -223,6 +225,8 @@ pub enum SavePreferences {
 }
 
 impl Command for SavePreferences {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         save_preferences(world, true, self == SavePreferences::Always);
     }
@@ -241,6 +245,8 @@ impl Default for SavePreferencesDeferred {
 }
 
 impl Command for SavePreferencesDeferred {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         let Some(mut registry) = world.get_resource_mut::<PreferencesFileRegistry>() else {
             return;

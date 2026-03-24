@@ -146,7 +146,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -304,7 +307,10 @@ pub fn prepare_material_meshlet_meshes_prepass(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances

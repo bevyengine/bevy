@@ -31,7 +31,7 @@ use crate::{
     TextFont, TextLayout,
 };
 
-struct TextSection<'a> {
+struct TextSectionView<'a> {
     index: usize,
     text: &'a str,
     text_font: &'a TextFont,
@@ -46,7 +46,7 @@ pub struct TextPipeline {
     /// Buffered vec for collecting text sections.
     ///
     /// See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-    sections_buffer: Vec<TextSection<'static>>,
+    sections_buffer: Vec<TextSectionView<'static>>,
     /// Buffered string for concatenated text content.
     text_buffer: String,
 }
@@ -89,9 +89,9 @@ impl TextPipeline {
             return Err(TextError::DegenerateScaleFactor);
         }
 
-        let mut sections: Vec<TextSection<'_>> = core::mem::take(&mut self.sections_buffer)
+        let mut sections: Vec<TextSectionView<'_>> = core::mem::take(&mut self.sections_buffer)
             .into_iter()
-            .map(|_| -> TextSection<'_> { unreachable!() })
+            .map(|_| -> TextSectionView<'_> { unreachable!() })
             .collect();
 
         let result = {
@@ -145,7 +145,7 @@ impl TextPipeline {
                     );
                 }
 
-                sections.push(TextSection {
+                sections.push(TextSectionView {
                     index,
                     text,
                     text_font,
@@ -207,7 +207,7 @@ impl TextPipeline {
                 );
                 builder.push(StyleProperty::FontSize(section.font_size), range.clone());
                 builder.push(
-                    StyleProperty::LineHeight(section.line_height.eval(section.font_size)),
+                    StyleProperty::LineHeight(section.line_height.eval()),
                     range.clone(),
                 );
                 builder.push(
@@ -240,7 +240,7 @@ impl TextPipeline {
         sections.clear();
         self.sections_buffer = sections
             .into_iter()
-            .map(|_| -> TextSection<'static> { unreachable!() })
+            .map(|_| -> TextSectionView<'static> { unreachable!() })
             .collect();
 
         result
@@ -410,18 +410,20 @@ impl TextPipeline {
         }
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
+
         Ok(())
     }
 }
 
-fn resolve_font_source<'a>(
+/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
+pub fn resolve_font_source<'a>(
     font: &'a FontSource,
-    fonts: &'a Assets<Font>,
+    fonts: &Assets<Font>,
 ) -> Result<FontFamily<'a>, TextError> {
     Ok(match font {
         FontSource::Handle(handle) => {
             let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Named(Cow::Borrowed(font.family_name.as_str()))
+            FontFamily::Named(Cow::Owned(font.family_name.as_str().to_owned()))
         }
         FontSource::Family(family) => FontFamily::Named(Cow::Borrowed(family.as_str())),
         FontSource::Serif => FontFamily::Generic(parley::GenericFamily::Serif),
@@ -459,6 +461,10 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+    /// Cursor size and position for editing
+    pub cursor: Option<Rect>,
+    /// Selection rects
+    pub selection_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
@@ -468,6 +474,8 @@ impl TextLayoutInfo {
         self.glyphs.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;
+        self.cursor = None;
+        self.selection_rects.clear();
     }
 }
 
