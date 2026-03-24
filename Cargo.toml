@@ -4147,6 +4147,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "frame_limiter"
+path = "examples/window/frame_limiter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.frame_limiter]
+name = "Frame Limiter"
+description = "Demonstrates capping Bevy's framerate in the winit event loop"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
 doc-scrape-examples = true
