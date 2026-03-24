@@ -678,7 +678,7 @@ impl MeshAllocator {
         self.copy_element_data(
             mesh_id,
             index_data.len(),
-            |slice| slice.copy_from_slice(index_data),
+            |mut slice| slice.copy_from_slice(index_data),
             slab_id,
             render_device,
             render_queue,
@@ -708,7 +708,7 @@ impl MeshAllocator {
         self.copy_element_data(
             mesh_id,
             size_of_val(morph_targets),
-            |slice| slice.copy_from_slice(bytemuck::cast_slice(morph_targets)),
+            |mut slice| slice.copy_from_slice(bytemuck::cast_slice(morph_targets)),
             slab_id,
             render_device,
             render_queue,
@@ -721,7 +721,7 @@ impl MeshAllocator {
         &mut self,
         mesh_id: &AssetId<Mesh>,
         len: usize,
-        fill_data: impl Fn(&mut wgpu::WriteOnly<[u8]>),
+        fill_data: impl Fn(wgpu::WriteOnly<[u8]>),
         slab_id: SlabId,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
@@ -750,8 +750,7 @@ impl MeshAllocator {
                         allocated_range.allocation.offset as u64 * slot_size,
                         size,
                     ) {
-                        let slice = &mut buffer.slice(0..len);
-                        fill_data(slice);
+                        fill_data(buffer.slice(0..len));
                     }
                 }
 
@@ -779,7 +778,7 @@ impl MeshAllocator {
                 });
                 {
                     let mut buffer_view_mut = buffer.get_mapped_range_mut(..);
-                    fill_data(&mut buffer_view_mut.slice(0..len));
+                    fill_data(buffer_view_mut.slice(0..len));
                 }
                 buffer.unmap();
                 large_object_slab.buffer = Some(buffer);
