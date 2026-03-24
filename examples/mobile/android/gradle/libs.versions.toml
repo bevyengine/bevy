@@ -1,0 +1,17 @@
+[versions]
+agp = "9.1.0"
+appcompat = "1.7.1"
+core = "1.18.0"
+gamesActivity = "4.4.0" # Note: This must be compatible with `android-activity` crate used by bevy.
+material = "1.13.0"
+coreKtx = "1.18.0"
+
+[libraries]
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+core = { group = "androidx.core", name = "core", version.ref = "core" }
+games-activity = { group = "androidx.games", name = "games-activity", version.ref = "gamesActivity" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
