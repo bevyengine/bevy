@@ -55,6 +55,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             radiance += mis_weight * throughput * ray_hit.material.emissive;
 
             // Sample direct lighting, but only if the surface is not mirror-like
+            // TODO: randomly choose to use NEE or not with probability proportional to roughness and metallicness
             let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
