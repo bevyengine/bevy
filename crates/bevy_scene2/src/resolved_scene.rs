@@ -1,5 +1,5 @@
 use crate::{ResolveContext, ScenePatch};
-use bevy_asset::{AssetPath, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetId, AssetPath, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -144,17 +144,25 @@ impl ResolvedScene {
     pub fn apply(&self, context: &mut TemplateContext) -> Result<(), ApplySceneError> {
         if let Some(inherited) = &self.inherited {
             let scene_patches = context.resource::<Assets<ScenePatch>>();
-            if let Some(patch) = scene_patches.get(inherited)
-                && let Some(resolved_inherited) = &patch.resolved
-            {
-                let resolved_inherited = resolved_inherited.clone();
-                resolved_inherited.apply(context.entity).map_err(|e| {
-                    ApplySceneError::InheritedSceneApplyError {
-                        inherited: inherited.path().cloned(),
-                        error: Box::new(e),
-                    }
-                })?;
-            }
+            let Some(patch) = scene_patches.get(inherited) else {
+                return Err(ApplySceneError::MissingInheritedScene {
+                    path: inherited.path().cloned(),
+                    id: inherited.id(),
+                });
+            };
+            let Some(resolved_inherited) = &patch.resolved else {
+                return Err(ApplySceneError::UnresolvedInheritedScene {
+                    path: inherited.path().cloned(),
+                    id: inherited.id(),
+                });
+            };
+            let resolved_inherited = resolved_inherited.clone();
+            resolved_inherited.apply(context.entity).map_err(|e| {
+                ApplySceneError::InheritedSceneApplyError {
+                    inherited: inherited.path().cloned(),
+                    error: Box::new(e),
+                }
+            })?;
         }
 
         if let Some(scoped_entity_index) = self.entity_indices.first().copied() {
@@ -359,6 +367,22 @@ pub enum ApplySceneError {
         inherited: Option<AssetPath<'static>>,
         /// The error that occurred while applying the inherited scene.
         error: Box<ApplySceneError>,
+    },
+    /// Caused when an inherited scene is not present.
+    #[error("The inherited scene (id: {id:?}, path: \"{path:?}\") does not exist.")]
+    MissingInheritedScene {
+        /// The path of the inherited scene.
+        path: Option<AssetPath<'static>>,
+        /// The asset id of the inherited scene.
+        id: AssetId<ScenePatch>,
+    },
+    /// Caused when an inherited scene has not been resolved yet.
+    #[error("The inherited scene (id: {id:?}, path: \"{path:?}\") has not been resolved yet.")]
+    UnresolvedInheritedScene {
+        /// The path of the inherited scene.
+        path: Option<AssetPath<'static>>,
+        /// The asset id of the inherited scene.
+        id: AssetId<ScenePatch>,
     },
     /// Caused when a related [`ResolvedScene`] fails to [`ResolvedScene::apply`].
     #[error(
