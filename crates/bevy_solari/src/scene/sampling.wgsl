@@ -45,7 +45,7 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
 }
 
 fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
-    return ray_tangent.z <= 0.0 || isnan(ray_tangent.x) || isnan(ray_tangent.y) || isnan(ray_tangent.z);
+    return !(ray_tangent.z > 0.0);
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
