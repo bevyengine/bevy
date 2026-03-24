@@ -81,8 +81,8 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let wo = normalize(view.world_position - surface.world_position);
     var brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
+    // Only consider the specular lobe if the surface is not smooth, else leave it for the specular GI pass to handle
     if surface.material.roughness > SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
-        // If the surface is very smooth, let specular GI handle the specular lobe
         brdf += evaluate_specular_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
     }
 
