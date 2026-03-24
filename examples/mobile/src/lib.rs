@@ -20,7 +20,7 @@ pub fn main() {
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
                 level: Level::DEBUG,
-                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                filter: "wgpu=error,naga=info,bevy_render=info,bevy_ecs=trace".to_string(),
                 ..Default::default()
             })
             .set(WindowPlugin {

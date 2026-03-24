@@ -20,7 +20,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -61,6 +62,7 @@ pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
+pub mod uniform;
 pub mod view;
 
 /// The render prelude.
@@ -84,16 +86,16 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::PipelineCache,
+    render_resource::{PipelineCache, SparseBufferPlugin},
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
-    settings::RenderCreation,
+    settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
     texture::TexturePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
@@ -109,11 +111,11 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
-/// Rendering is done in a [`SubApp`](bevy_app::SubApp), which exchanges data with the main app
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
 /// between main schedule iterations.
 ///
 /// Rendering can be executed between iterations of the main schedule,
@@ -204,6 +206,31 @@ pub enum RenderSystems {
 /// this schedule runs to initialize any gpu resources needed for rendering on it.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
+
+/// Constructs a `T` resource with `from_world` and inserts it.
+pub fn init_gpu_resource<R: Resource + FromWorld>(world: &mut World) {
+    let res = R::from_world(world);
+    world.insert_resource(res);
+}
+
+/// Convenience methods for render-recovery-aware resource initialization.
+pub trait GpuResourceAppExt {
+    /// Causes the provided GPU resource to be re-initialized during [`RenderStartup`].
+    ///
+    /// This is useful when recovering from lost render devices.
+    ///
+    /// Shorthand for:
+    /// ```ignore
+    /// app.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all());
+    /// ```
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self;
+}
+
+impl GpuResourceAppExt for SubApp {
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all())
+    }
+}
 
 /// The render recovery schedule. This schedule runs the [`Render`] schedule if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
@@ -301,6 +328,7 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            SparseBufferPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));
@@ -313,7 +341,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
             render_app.insert_resource(asset_server);
             render_app.insert_resource(RenderState::Initializing);
@@ -328,6 +356,10 @@ impl Plugin for RenderPlugin {
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
+            render_app
+                .get_schedule_mut(RenderStartup)
+                .unwrap()
+                .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
             render_app.update_schedule = Some(RenderRecovery.intern());
             render_app.add_systems(
                 RenderRecovery,
@@ -471,4 +503,11 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
     }
 
     None
+}
+
+/// Returns true if storage buffers are unsupported on this platform or false
+/// if they are supported.
+pub fn storage_buffers_are_unsupported(limits: &WgpuLimits) -> bool {
+    static STORAGE_BUFFERS_UNSUPPORTED: OnceLock<bool> = OnceLock::new();
+    *STORAGE_BUFFERS_UNSUPPORTED.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
 }

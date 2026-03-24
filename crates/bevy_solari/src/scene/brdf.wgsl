@@ -56,5 +56,5 @@ fn evaluate_specular_brdf(
     let D = D_GGX(roughness, NdotH);
     let Vs = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     let F_ab = F_AB(perceptual_roughness, NdotV);
-    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * saturate(dot(N, L));
+    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * NdotL;
 }

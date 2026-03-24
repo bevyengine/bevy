@@ -89,7 +89,7 @@ pub fn render_system(
         let _span = info_span!("present_frames").entered();
 
         world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
-            let views = state.get(world);
+            let views = state.get(world).unwrap();
             for window in windows.values_mut() {
                 let view_needs_present = views.iter().any(|(view_target, camera)| {
                     matches!(

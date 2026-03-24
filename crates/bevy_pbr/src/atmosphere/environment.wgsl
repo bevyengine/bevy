@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
 
-    let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz, up);
+    let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
     var transmittance = sample_transmittance_lut(r, mu);
     var inscattering = sample_sky_view_lut(r, ray_dir_as);
 

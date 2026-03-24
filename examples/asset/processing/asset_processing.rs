@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -220,6 +220,7 @@ impl AssetSaver for CoolTextSaver {
         writer: &mut Writer,
         asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<TextSettings, Self::Error> {
         writer.write_all(asset.text.as_bytes()).await?;
         Ok(TextSettings::default())

@@ -462,7 +462,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn_empty().id();
         let entity2 = commands.spawn_empty().id();
@@ -508,7 +508,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn_empty().id();
 
@@ -538,7 +538,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn(ComponentA(0)).id();
 
@@ -567,7 +567,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn(ComponentA(0)).id();
 
@@ -596,7 +596,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn_empty().id();
         let bundle = Box::new(BundleA {
@@ -626,7 +626,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands.spawn_empty().id();
         let bundle = Box::new(BundleA {
@@ -656,7 +656,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands
             .spawn(BundleA {
@@ -694,7 +694,7 @@ mod tests {
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
-        let mut commands = system_state.get_mut(&mut world);
+        let mut commands = system_state.get_mut(&mut world).unwrap();
 
         let entity = commands
             .spawn(BundleA {

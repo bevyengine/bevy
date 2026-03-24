@@ -3,7 +3,7 @@
 use alloc::boxed::Box;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 
-use crate::{FromType, Reflect};
+use crate::{FromType, PartialReflect, Reflect};
 
 /// A struct used to provide the default value of a type.
 ///
@@ -35,9 +35,10 @@ impl<T: Reflect + Default> FromType<T> for ReflectDefault {
 pub struct ReflectAdd {
     /// Function pointer implementing [`ReflectAdd::add()`].
     pub add: fn(
-        Box<dyn Reflect>,
-        Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)>,
+        Box<dyn PartialReflect>,
+        Box<dyn PartialReflect>,
+    )
+        -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl ReflectAdd {
@@ -48,9 +49,9 @@ impl ReflectAdd {
     /// Returns `Err((a, b))` if the types are incompatible.
     pub fn add(
         &self,
-        a: Box<dyn Reflect>,
-        b: Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)> {
+        a: Box<dyn PartialReflect>,
+        b: Box<dyn PartialReflect>,
+    ) -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         (self.add)(a, b)
     }
 }
@@ -58,12 +59,16 @@ impl ReflectAdd {
 impl<T: Reflect + Add<Output: Reflect>> FromType<T> for ReflectAdd {
     fn from_type() -> Self {
         ReflectAdd {
-            add: |a: Box<dyn Reflect>, b: Box<dyn Reflect>| {
-                let (a, b) = match (a.downcast::<T>(), b.downcast::<T>()) {
+            add: |a: Box<dyn PartialReflect>, b: Box<dyn PartialReflect>| {
+                let (a, b) = match (a.try_downcast::<T>(), b.try_downcast::<T>()) {
                     (Ok(a), Ok(b)) => (a, b),
                     (a, b) => {
-                        let a = a.map(|a| a as Box<dyn Reflect>).unwrap_or_else(|e| e);
-                        let b = b.map(|b| b as Box<dyn Reflect>).unwrap_or_else(|e| e);
+                        let a = a
+                            .map(|a| a as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
+                        let b = b
+                            .map(|b| b as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
                         return Err((a, b));
                     }
                 };
@@ -80,9 +85,10 @@ impl<T: Reflect + Add<Output: Reflect>> FromType<T> for ReflectAdd {
 pub struct ReflectSub {
     /// Function pointer implementing [`ReflectSub::sub()`].
     pub sub: fn(
-        Box<dyn Reflect>,
-        Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)>,
+        Box<dyn PartialReflect>,
+        Box<dyn PartialReflect>,
+    )
+        -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl ReflectSub {
@@ -93,9 +99,9 @@ impl ReflectSub {
     /// Returns `Err((a, b))` if the types are incompatible.
     pub fn sub(
         &self,
-        a: Box<dyn Reflect>,
-        b: Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)> {
+        a: Box<dyn PartialReflect>,
+        b: Box<dyn PartialReflect>,
+    ) -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         (self.sub)(a, b)
     }
 }
@@ -103,12 +109,16 @@ impl ReflectSub {
 impl<T: Reflect + Sub<Output: Reflect>> FromType<T> for ReflectSub {
     fn from_type() -> Self {
         ReflectSub {
-            sub: |a: Box<dyn Reflect>, b: Box<dyn Reflect>| {
-                let (a, b) = match (a.downcast::<T>(), b.downcast::<T>()) {
+            sub: |a: Box<dyn PartialReflect>, b: Box<dyn PartialReflect>| {
+                let (a, b) = match (a.try_downcast::<T>(), b.try_downcast::<T>()) {
                     (Ok(a), Ok(b)) => (a, b),
                     (a, b) => {
-                        let a = a.map(|a| a as Box<dyn Reflect>).unwrap_or_else(|e| e);
-                        let b = b.map(|b| b as Box<dyn Reflect>).unwrap_or_else(|e| e);
+                        let a = a
+                            .map(|a| a as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
+                        let b = b
+                            .map(|b| b as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
                         return Err((a, b));
                     }
                 };
@@ -125,9 +135,10 @@ impl<T: Reflect + Sub<Output: Reflect>> FromType<T> for ReflectSub {
 pub struct ReflectMul {
     /// Function pointer implementing [`ReflectMul::mul()`].
     pub mul: fn(
-        Box<dyn Reflect>,
-        Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)>,
+        Box<dyn PartialReflect>,
+        Box<dyn PartialReflect>,
+    )
+        -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl ReflectMul {
@@ -138,9 +149,9 @@ impl ReflectMul {
     /// Returns `Err((a, b))` if the types are incompatible.
     pub fn mul(
         &self,
-        a: Box<dyn Reflect>,
-        b: Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)> {
+        a: Box<dyn PartialReflect>,
+        b: Box<dyn PartialReflect>,
+    ) -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         (self.mul)(a, b)
     }
 }
@@ -148,12 +159,16 @@ impl ReflectMul {
 impl<T: Reflect + Mul<Output: Reflect>> FromType<T> for ReflectMul {
     fn from_type() -> Self {
         ReflectMul {
-            mul: |a: Box<dyn Reflect>, b: Box<dyn Reflect>| {
-                let (a, b) = match (a.downcast::<T>(), b.downcast::<T>()) {
+            mul: |a: Box<dyn PartialReflect>, b: Box<dyn PartialReflect>| {
+                let (a, b) = match (a.try_downcast::<T>(), b.try_downcast::<T>()) {
                     (Ok(a), Ok(b)) => (a, b),
                     (a, b) => {
-                        let a = a.map(|a| a as Box<dyn Reflect>).unwrap_or_else(|e| e);
-                        let b = b.map(|b| b as Box<dyn Reflect>).unwrap_or_else(|e| e);
+                        let a = a
+                            .map(|a| a as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
+                        let b = b
+                            .map(|b| b as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
                         return Err((a, b));
                     }
                 };
@@ -170,9 +185,10 @@ impl<T: Reflect + Mul<Output: Reflect>> FromType<T> for ReflectMul {
 pub struct ReflectDiv {
     /// Function pointer implementing [`ReflectDiv::div()`].
     pub div: fn(
-        Box<dyn Reflect>,
-        Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)>,
+        Box<dyn PartialReflect>,
+        Box<dyn PartialReflect>,
+    )
+        -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl ReflectDiv {
@@ -183,9 +199,9 @@ impl ReflectDiv {
     /// Returns `Err((a, b))` if the types are incompatible.
     pub fn div(
         &self,
-        a: Box<dyn Reflect>,
-        b: Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)> {
+        a: Box<dyn PartialReflect>,
+        b: Box<dyn PartialReflect>,
+    ) -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         (self.div)(a, b)
     }
 }
@@ -193,12 +209,16 @@ impl ReflectDiv {
 impl<T: Reflect + Div<Output: Reflect>> FromType<T> for ReflectDiv {
     fn from_type() -> Self {
         ReflectDiv {
-            div: |a: Box<dyn Reflect>, b: Box<dyn Reflect>| {
-                let (a, b) = match (a.downcast::<T>(), b.downcast::<T>()) {
+            div: |a: Box<dyn PartialReflect>, b: Box<dyn PartialReflect>| {
+                let (a, b) = match (a.try_downcast::<T>(), b.try_downcast::<T>()) {
                     (Ok(a), Ok(b)) => (a, b),
                     (a, b) => {
-                        let a = a.map(|a| a as Box<dyn Reflect>).unwrap_or_else(|e| e);
-                        let b = b.map(|b| b as Box<dyn Reflect>).unwrap_or_else(|e| e);
+                        let a = a
+                            .map(|a| a as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
+                        let b = b
+                            .map(|b| b as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
                         return Err((a, b));
                     }
                 };
@@ -208,16 +228,17 @@ impl<T: Reflect + Div<Output: Reflect>> FromType<T> for ReflectDiv {
     }
 }
 
-/// A struct used to perform division on reflected values.
+/// A struct used to perform remainder on reflected values.
 ///
-/// A [`ReflectDiv`] for type `T` can be obtained via [`FromType::from_type`].
+/// A [`ReflectRem`] for type `T` can be obtained via [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectRem {
     /// Function pointer implementing [`ReflectRem::rem()`].
     pub rem: fn(
-        Box<dyn Reflect>,
-        Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)>,
+        Box<dyn PartialReflect>,
+        Box<dyn PartialReflect>,
+    )
+        -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
 }
 
 impl ReflectRem {
@@ -229,9 +250,9 @@ impl ReflectRem {
     /// Returns `Err((a, b))` if the types are incompatible.
     pub fn rem(
         &self,
-        a: Box<dyn Reflect>,
-        b: Box<dyn Reflect>,
-    ) -> Result<Box<dyn Reflect>, (Box<dyn Reflect>, Box<dyn Reflect>)> {
+        a: Box<dyn PartialReflect>,
+        b: Box<dyn PartialReflect>,
+    ) -> Result<Box<dyn Reflect>, (Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         (self.rem)(a, b)
     }
 }
@@ -239,12 +260,16 @@ impl ReflectRem {
 impl<T: Reflect + Rem<Output: Reflect>> FromType<T> for ReflectRem {
     fn from_type() -> Self {
         ReflectRem {
-            rem: |a: Box<dyn Reflect>, b: Box<dyn Reflect>| {
-                let (a, b) = match (a.downcast::<T>(), b.downcast::<T>()) {
+            rem: |a: Box<dyn PartialReflect>, b: Box<dyn PartialReflect>| {
+                let (a, b) = match (a.try_downcast::<T>(), b.try_downcast::<T>()) {
                     (Ok(a), Ok(b)) => (a, b),
                     (a, b) => {
-                        let a = a.map(|a| a as Box<dyn Reflect>).unwrap_or_else(|e| e);
-                        let b = b.map(|b| b as Box<dyn Reflect>).unwrap_or_else(|e| e);
+                        let a = a
+                            .map(|a| a as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
+                        let b = b
+                            .map(|b| b as Box<dyn PartialReflect>)
+                            .unwrap_or_else(|e| e);
                         return Err((a, b));
                     }
                 };
@@ -260,7 +285,10 @@ impl<T: Reflect + Rem<Output: Reflect>> FromType<T> for ReflectRem {
 #[derive(Clone)]
 pub struct ReflectAddAssign {
     /// Function pointer implementing [`ReflectAddAssign::add_assign()`].
-    pub add_assign: fn(&mut dyn Reflect, Box<dyn Reflect>) -> Result<(), Option<Box<dyn Reflect>>>,
+    pub add_assign: fn(
+        &mut dyn Reflect,
+        Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>>,
 }
 
 impl ReflectAddAssign {
@@ -273,8 +301,8 @@ impl ReflectAddAssign {
     pub fn add_assign(
         &self,
         a: &mut dyn Reflect,
-        b: Box<dyn Reflect>,
-    ) -> Result<(), Option<Box<dyn Reflect>>> {
+        b: Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>> {
         (self.add_assign)(a, b)
     }
 }
@@ -282,11 +310,11 @@ impl ReflectAddAssign {
 impl<T: Reflect + AddAssign> FromType<T> for ReflectAddAssign {
     fn from_type() -> Self {
         ReflectAddAssign {
-            add_assign: |a: &mut dyn Reflect, b: Box<dyn Reflect>| {
+            add_assign: |a: &mut dyn Reflect, b: Box<dyn PartialReflect>| {
                 let Some(a) = a.downcast_mut::<T>() else {
                     return Err(None);
                 };
-                let b = match b.downcast::<T>() {
+                let b = match b.try_downcast::<T>() {
                     Ok(b) => b,
                     Err(b) => return Err(Some(b)),
                 };
@@ -303,7 +331,10 @@ impl<T: Reflect + AddAssign> FromType<T> for ReflectAddAssign {
 #[derive(Clone)]
 pub struct ReflectSubAssign {
     /// Function pointer implementing [`ReflectSubAssign::sub_assign()`].
-    pub sub_assign: fn(&mut dyn Reflect, Box<dyn Reflect>) -> Result<(), Option<Box<dyn Reflect>>>,
+    pub sub_assign: fn(
+        &mut dyn Reflect,
+        Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>>,
 }
 
 impl ReflectSubAssign {
@@ -316,8 +347,8 @@ impl ReflectSubAssign {
     pub fn sub_assign(
         &self,
         a: &mut dyn Reflect,
-        b: Box<dyn Reflect>,
-    ) -> Result<(), Option<Box<dyn Reflect>>> {
+        b: Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>> {
         (self.sub_assign)(a, b)
     }
 }
@@ -325,11 +356,11 @@ impl ReflectSubAssign {
 impl<T: Reflect + SubAssign> FromType<T> for ReflectSubAssign {
     fn from_type() -> Self {
         ReflectSubAssign {
-            sub_assign: |a: &mut dyn Reflect, b: Box<dyn Reflect>| {
+            sub_assign: |a: &mut dyn Reflect, b: Box<dyn PartialReflect>| {
                 let Some(a) = a.downcast_mut::<T>() else {
                     return Err(None);
                 };
-                let b = match b.downcast::<T>() {
+                let b = match b.try_downcast::<T>() {
                     Ok(b) => b,
                     Err(b) => return Err(Some(b)),
                 };
@@ -346,7 +377,10 @@ impl<T: Reflect + SubAssign> FromType<T> for ReflectSubAssign {
 #[derive(Clone)]
 pub struct ReflectMulAssign {
     /// Function pointer implementing [`ReflectMulAssign::mul_assign()`].
-    pub mul_assign: fn(&mut dyn Reflect, Box<dyn Reflect>) -> Result<(), Option<Box<dyn Reflect>>>,
+    pub mul_assign: fn(
+        &mut dyn Reflect,
+        Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>>,
 }
 
 impl ReflectMulAssign {
@@ -359,8 +393,8 @@ impl ReflectMulAssign {
     pub fn mul_assign(
         &self,
         a: &mut dyn Reflect,
-        b: Box<dyn Reflect>,
-    ) -> Result<(), Option<Box<dyn Reflect>>> {
+        b: Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>> {
         (self.mul_assign)(a, b)
     }
 }
@@ -368,11 +402,11 @@ impl ReflectMulAssign {
 impl<T: Reflect + MulAssign> FromType<T> for ReflectMulAssign {
     fn from_type() -> Self {
         ReflectMulAssign {
-            mul_assign: |a: &mut dyn Reflect, b: Box<dyn Reflect>| {
+            mul_assign: |a: &mut dyn Reflect, b: Box<dyn PartialReflect>| {
                 let Some(a) = a.downcast_mut::<T>() else {
                     return Err(None);
                 };
-                let b = match b.downcast::<T>() {
+                let b = match b.try_downcast::<T>() {
                     Ok(b) => b,
                     Err(b) => return Err(Some(b)),
                 };
@@ -389,7 +423,10 @@ impl<T: Reflect + MulAssign> FromType<T> for ReflectMulAssign {
 #[derive(Clone)]
 pub struct ReflectDivAssign {
     /// Function pointer implementing [`ReflectDivAssign::div_assign()`].
-    pub div_assign: fn(&mut dyn Reflect, Box<dyn Reflect>) -> Result<(), Option<Box<dyn Reflect>>>,
+    pub div_assign: fn(
+        &mut dyn Reflect,
+        Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>>,
 }
 
 impl ReflectDivAssign {
@@ -402,8 +439,8 @@ impl ReflectDivAssign {
     pub fn div_assign(
         &self,
         a: &mut dyn Reflect,
-        b: Box<dyn Reflect>,
-    ) -> Result<(), Option<Box<dyn Reflect>>> {
+        b: Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>> {
         (self.div_assign)(a, b)
     }
 }
@@ -411,11 +448,11 @@ impl ReflectDivAssign {
 impl<T: Reflect + DivAssign> FromType<T> for ReflectDivAssign {
     fn from_type() -> Self {
         ReflectDivAssign {
-            div_assign: |a: &mut dyn Reflect, b: Box<dyn Reflect>| {
+            div_assign: |a: &mut dyn Reflect, b: Box<dyn PartialReflect>| {
                 let Some(a) = a.downcast_mut::<T>() else {
                     return Err(None);
                 };
-                let b = match b.downcast::<T>() {
+                let b = match b.try_downcast::<T>() {
                     Ok(b) => b,
                     Err(b) => return Err(Some(b)),
                 };
@@ -432,7 +469,10 @@ impl<T: Reflect + DivAssign> FromType<T> for ReflectDivAssign {
 #[derive(Clone)]
 pub struct ReflectRemAssign {
     /// Function pointer implementing [`ReflectRemAssign::rem_assign()`].
-    pub rem_assign: fn(&mut dyn Reflect, Box<dyn Reflect>) -> Result<(), Option<Box<dyn Reflect>>>,
+    pub rem_assign: fn(
+        &mut dyn Reflect,
+        Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>>,
 }
 
 impl ReflectRemAssign {
@@ -445,8 +485,8 @@ impl ReflectRemAssign {
     pub fn rem_assign(
         &self,
         a: &mut dyn Reflect,
-        b: Box<dyn Reflect>,
-    ) -> Result<(), Option<Box<dyn Reflect>>> {
+        b: Box<dyn PartialReflect>,
+    ) -> Result<(), Option<Box<dyn PartialReflect>>> {
         (self.rem_assign)(a, b)
     }
 }
@@ -454,11 +494,11 @@ impl ReflectRemAssign {
 impl<T: Reflect + RemAssign> FromType<T> for ReflectRemAssign {
     fn from_type() -> Self {
         ReflectRemAssign {
-            rem_assign: |a: &mut dyn Reflect, b: Box<dyn Reflect>| {
+            rem_assign: |a: &mut dyn Reflect, b: Box<dyn PartialReflect>| {
                 let Some(a) = a.downcast_mut::<T>() else {
                     return Err(None);
                 };
-                let b = match b.downcast::<T>() {
+                let b = match b.try_downcast::<T>() {
                     Ok(b) => b,
                     Err(b) => return Err(Some(b)),
                 };

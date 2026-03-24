@@ -12,7 +12,7 @@ use bevy_ecs::{
     relationship::RelationshipHookMode,
     world::World,
 };
-use bevy_reflect::TypePath;
+use bevy_reflect::{TypePath, TypeRegistry};
 
 /// A composition of [`World`] objects.
 ///
@@ -34,7 +34,7 @@ impl Scene {
     /// Create a new scene from a given dynamic scene.
     pub fn from_dynamic_scene(
         dynamic_scene: &DynamicScene,
-        type_registry: &AppTypeRegistry,
+        type_registry: &TypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
         let mut entity_map = EntityHashMap::default();

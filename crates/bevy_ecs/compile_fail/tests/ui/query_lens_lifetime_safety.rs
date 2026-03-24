@@ -13,7 +13,7 @@ fn main() {
 
     let mut system_state = SystemState::<(Query<&mut Foo>, Query<&mut Bar>)>::new(&mut world);
     {
-        let (mut foo_query, mut bar_query) = system_state.get_mut(&mut world);
+        let (mut foo_query, mut bar_query) = system_state.get_mut(&mut world).unwrap();
         dbg!("hi");
         {
             let mut lens = foo_query.as_query_lens();

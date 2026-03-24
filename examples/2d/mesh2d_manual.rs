@@ -3,7 +3,7 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 //!
-//! [`Material2d`]: bevy::sprite::Material2d
+//! [`Material2d`]: bevy::sprite_render::Material2d
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -200,6 +200,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
@@ -404,7 +405,10 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
+        let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
+            continue;
+        };
+        for (render_entity, visible_entity) in visible_entities.iter_visible() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
@@ -413,7 +417,10 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
+                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                );
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);

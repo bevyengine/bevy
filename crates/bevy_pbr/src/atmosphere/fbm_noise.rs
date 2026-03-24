@@ -13,7 +13,7 @@ use bevy_math::UVec2;
 use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
+    texture::CachedTexture,
 };
 use bevy_utils::default;
 
@@ -142,9 +142,11 @@ pub struct FbmNoiseParamsBuffer {
     pub buffer: Buffer,
 }
 
-/// System to initialize the FBM noise texture
+/// System to initialize the FBM noise texture.
+///
+/// Allocates GPU memory directly instead of the render [`TextureCache`](bevy_render::texture::TextureCache)
+/// so this `RenderStartup` system does not need to run after `init_gpu_resource::<TextureCache>`.
 pub fn init_fbm_noise_texture(
-    mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     mut commands: bevy_ecs::system::Commands,
 ) {
@@ -166,10 +168,14 @@ pub fn init_fbm_noise_texture(
         view_formats: &[],
     };
 
-    let texture = texture_cache.get(&render_device, texture_descriptor);
+    let texture = render_device.create_texture(&texture_descriptor);
+    let default_view = texture.create_view(&TextureViewDescriptor::default());
 
     commands.insert_resource(FbmNoiseTexture {
-        texture,
+        texture: CachedTexture {
+            texture,
+            default_view,
+        },
         size: size.size,
     });
 }

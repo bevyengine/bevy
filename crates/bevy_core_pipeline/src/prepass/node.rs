@@ -13,7 +13,9 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
 };
 
-use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
+use crate::prepass::background_motion_vectors::{
+    BackgroundMotionVectorsBindGroup, BackgroundMotionVectorsPipelineId,
+};
 
 use super::{
     AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, PreviousViewUniformOffset,
@@ -31,8 +33,8 @@ type PrepassViewQueryData = (
     ),
     (
         Option<&'static DeferredPrepass>,
-        Option<&'static RenderSkyboxPrepassPipeline>,
-        Option<&'static SkyboxPrepassBindGroup>,
+        Option<&'static BackgroundMotionVectorsPipelineId>,
+        Option<&'static BackgroundMotionVectorsBindGroup>,
         Option<&'static PreviousViewUniformOffset>,
         Option<&'static MainPassResolutionOverride>,
     ),
@@ -56,8 +58,8 @@ pub fn early_prepass(
         (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
-            skybox_prepass_pipeline,
-            skybox_prepass_bind_group,
+            background_motion_vectors_pipeline,
+            background_motion_vectors_bind_group,
             view_prev_uniform_offset,
             resolution_override,
         ),
@@ -73,8 +75,8 @@ pub fn early_prepass(
         view_prepass_textures,
         view_uniform_offset,
         deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
         has_deferred,
@@ -99,8 +101,8 @@ pub fn late_prepass(
         (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
-            skybox_prepass_pipeline,
-            skybox_prepass_bind_group,
+            background_motion_vectors_pipeline,
+            background_motion_vectors_bind_group,
             view_prev_uniform_offset,
             resolution_override,
         ),
@@ -120,8 +122,8 @@ pub fn late_prepass(
         view_prepass_textures,
         view_uniform_offset,
         deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
         has_deferred,
@@ -147,8 +149,8 @@ fn run_prepass_system(
     view_prepass_textures: &ViewPrepassTextures,
     view_uniform_offset: &ViewUniformOffset,
     deferred_prepass: Option<&DeferredPrepass>,
-    skybox_prepass_pipeline: Option<&RenderSkyboxPrepassPipeline>,
-    skybox_prepass_bind_group: Option<&SkyboxPrepassBindGroup>,
+    background_motion_vectors_pipeline: Option<&BackgroundMotionVectorsPipelineId>,
+    background_motion_vectors_bind_group: Option<&BackgroundMotionVectorsBindGroup>,
     view_prev_uniform_offset: Option<&PreviousViewUniformOffset>,
     resolution_override: Option<&MainPassResolutionOverride>,
     has_deferred: bool,
@@ -232,19 +234,20 @@ fn run_prepass_system(
     }
 
     if let (
-        Some(skybox_prepass_pipeline),
-        Some(skybox_prepass_bind_group),
+        Some(background_motion_vectors_pipeline),
+        Some(background_motion_vectors_bind_group),
         Some(view_prev_uniform_offset),
     ) = (
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
-    ) && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_prepass_pipeline.0)
+    ) && let Some(pipeline) =
+        pipeline_cache.get_render_pipeline(background_motion_vectors_pipeline.0)
     {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &skybox_prepass_bind_group.0,
+            &background_motion_vectors_bind_group.0,
             &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
         );
         render_pass.draw(0..3, 0..1);

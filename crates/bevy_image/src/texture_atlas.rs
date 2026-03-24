@@ -186,6 +186,7 @@ impl TextureAtlasLayout {
         self.textures.len()
     }
 
+    /// Returns `true` if the atlas contains no textures.
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }

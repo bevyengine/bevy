@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
@@ -93,7 +93,7 @@ impl Plugin for TonemappingPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
@@ -427,7 +427,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         CompressedImageFormats::NONE,
         false,
         image_sampler,
-        RenderAssetUsages::RENDER_WORLD,
+        // LUT must be kept in main world for render recovery reasons
+        RenderAssetUsages::default(),
     )
     .unwrap()
 }

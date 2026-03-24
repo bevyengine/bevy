@@ -551,7 +551,7 @@ pub struct MismatchedUnitsError;
 /// even though they are the same Rust type.
 ///
 /// Fallible interpolation can be used for animated transitions, which can be set up to fail
-/// gracefully if the the values cannot be interpolated. For example, the a transition could smoothly
+/// gracefully if the values cannot be interpolated. For example, a transition could smoothly
 /// go from `Val::Px(10)` to `Val::Px(20)`, but if the user attempts to go from `Val::Px(10)` to
 /// `Val::Percent(10)`, the animation player can detect the failure and simply snap to the new
 /// value without interpolating.
@@ -559,7 +559,7 @@ pub struct MismatchedUnitsError;
 /// An animation clip system can incorporate fallible interpolation to support a broad set of
 /// sequenced parameter values. This can include numeric types, which always interpolate,
 /// enum types, which may or may not interpolate depending on the units, and non-interpolable
-/// types, which always jump immediately to the new value without interpolation. This meaas, for
+/// types, which always jump immediately to the new value without interpolation. This means, for
 /// example, that you can have an animation track whose value type is a boolean or a string.
 ///
 /// Interpolation for simple number and coordinate types will always succeed, as will any type

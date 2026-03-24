@@ -25,7 +25,7 @@ pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
         reason = "`GltfError` is only barely past the threshold for large errors."
     )
 )]
-pub(crate) fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
+pub fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
         Mode::Lines => Ok(PrimitiveTopology::LineList),

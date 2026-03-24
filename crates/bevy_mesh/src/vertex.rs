@@ -236,42 +236,100 @@ pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
 #[derive(Clone, Debug, EnumVariantMeta, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum VertexAttributeValues {
-    Float32(Vec<f32>),
-    Sint32(Vec<i32>),
-    Uint32(Vec<u32>),
-    Float32x2(Vec<[f32; 2]>),
-    Sint32x2(Vec<[i32; 2]>),
-    Uint32x2(Vec<[u32; 2]>),
-    Float32x3(Vec<[f32; 3]>),
-    Sint32x3(Vec<[i32; 3]>),
-    Uint32x3(Vec<[u32; 3]>),
-    Float32x4(Vec<[f32; 4]>),
-    Sint32x4(Vec<[i32; 4]>),
-    Uint32x4(Vec<[u32; 4]>),
-    Sint16x2(Vec<[i16; 2]>),
-    Snorm16x2(Vec<[i16; 2]>),
-    Uint16x2(Vec<[u16; 2]>),
-    Unorm16x2(Vec<[u16; 2]>),
-    Sint16x4(Vec<[i16; 4]>),
-    Snorm16x4(Vec<[i16; 4]>),
-    Uint16x4(Vec<[u16; 4]>),
-    Unorm16x4(Vec<[u16; 4]>),
-    Sint8x2(Vec<[i8; 2]>),
-    Snorm8x2(Vec<[i8; 2]>),
+    /// One unsigned byte (u8). `u32` in shaders.
+    Uint8(Vec<u8>),
+    /// Two unsigned bytes (u8). `vec2<u32>` in shaders.
     Uint8x2(Vec<[u8; 2]>),
-    Unorm8x2(Vec<[u8; 2]>),
-    Sint8x4(Vec<[i8; 4]>),
-    Snorm8x4(Vec<[i8; 4]>),
+    /// Four unsigned bytes (u8). `vec4<u32>` in shaders.
     Uint8x4(Vec<[u8; 4]>),
+    /// One signed byte (i8). `i32` in shaders.
+    Sint8(Vec<i8>),
+    /// Two signed bytes (i8). `vec2<i32>` in shaders.
+    Sint8x2(Vec<[i8; 2]>),
+    /// Four signed bytes (i8). `vec4<i32>` in shaders.
+    Sint8x4(Vec<[i8; 4]>),
+    /// One unsigned byte (u8). [0, 255] converted to float [0, 1] `f32` in shaders.
+    Unorm8(Vec<u8>),
+    /// Two unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec2<f32>` in shaders.
+    Unorm8x2(Vec<[u8; 2]>),
+    /// Four unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec4<f32>` in shaders.
     Unorm8x4(Vec<[u8; 4]>),
+    /// One signed byte (i8). [&minus;127, 127] converted to float [&minus;1, 1] `f32` in shaders.
+    Snorm8(Vec<i8>),
+    /// Two signed bytes (i8). [&minus;127, 127] converted to float [&minus;1, 1] `vec2<f32>` in shaders.
+    Snorm8x2(Vec<[i8; 2]>),
+    /// Four signed bytes (i8). [&minus;127, 127] converted to float [&minus;1, 1] `vec4<f32>` in shaders.
+    Snorm8x4(Vec<[i8; 4]>),
+    /// One unsigned short (u16). `u32` in shaders.
+    Uint16(Vec<u16>),
+    /// Two unsigned shorts (u16). `vec2<u32>` in shaders.
+    Uint16x2(Vec<[u16; 2]>),
+    /// Four unsigned shorts (u16). `vec4<u32>` in shaders.
+    Uint16x4(Vec<[u16; 4]>),
+    /// One signed short (i16). `i32` in shaders.
+    Sint16(Vec<i16>),
+    /// Two signed shorts (i16). `vec2<i32>` in shaders.
+    Sint16x2(Vec<[i16; 2]>),
+    /// Four signed shorts (i16). `vec4<i32>` in shaders.
+    Sint16x4(Vec<[i16; 4]>),
+    /// One unsigned short (u16). [0, 65535] converted to float [0, 1] `f32` in shaders.
+    Unorm16(Vec<u16>),
+    /// Two unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec2<f32>` in shaders.
+    Unorm16x2(Vec<[u16; 2]>),
+    /// Four unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec4<f32>` in shaders.
+    Unorm16x4(Vec<[u16; 4]>),
+    /// One signed short (i16). [&minus;32767, 32767] converted to float [&minus;1, 1] `f32` in shaders.
+    Snorm16(Vec<i16>),
+    /// Two signed shorts (i16). [&minus;32767, 32767] converted to float [&minus;1, 1] `vec2<f32>` in shaders.
+    Snorm16x2(Vec<[i16; 2]>),
+    /// Four signed shorts (i16). [&minus;32767, 32767] converted to float [&minus;1, 1] `vec4<f32>` in shaders.
+    Snorm16x4(Vec<[i16; 4]>),
+    /// One half-precision float (no Rust equiv). `f32` in shaders.
+    Float16(Vec<half::f16>),
+    /// Two half-precision floats (no Rust equiv). `vec2<f32>` in shaders.
+    Float16x2(Vec<[half::f16; 2]>),
+    /// Four half-precision floats (no Rust equiv). `vec4<f32>` in shaders.
+    Float16x4(Vec<[half::f16; 4]>),
+    /// One single-precision float (f32). `f32` in shaders.
+    Float32(Vec<f32>),
+    /// Two single-precision floats (f32). `vec2<f32>` in shaders.
+    Float32x2(Vec<[f32; 2]>),
+    /// Three single-precision floats (f32). `vec3<f32>` in shaders.
+    Float32x3(Vec<[f32; 3]>),
+    /// Four single-precision floats (f32). `vec4<f32>` in shaders.
+    Float32x4(Vec<[f32; 4]>),
+    /// One unsigned int (u32). `u32` in shaders.
+    Uint32(Vec<u32>),
+    /// Two unsigned ints (u32). `vec2<u32>` in shaders.
+    Uint32x2(Vec<[u32; 2]>),
+    /// Three unsigned ints (u32). `vec3<u32>` in shaders.
+    Uint32x3(Vec<[u32; 3]>),
+    /// Four unsigned ints (u32). `vec4<u32>` in shaders.
+    Uint32x4(Vec<[u32; 4]>),
+    /// One signed int (i32). `i32` in shaders.
+    Sint32(Vec<i32>),
+    /// Two signed ints (i32). `vec2<i32>` in shaders.
+    Sint32x2(Vec<[i32; 2]>),
+    /// Three signed ints (i32). `vec3<i32>` in shaders.
+    Sint32x3(Vec<[i32; 3]>),
+    /// Four signed ints (i32). `vec4<i32>` in shaders.
+    Sint32x4(Vec<[i32; 4]>),
+    /// One double-precision float (f64). `f32` in shaders. Requires [`wgpu_types::Features::VERTEX_ATTRIBUTE_64BIT`].
+    Float64(Vec<f64>),
+    /// Two double-precision floats (f64). `vec2<f32>` in shaders. Requires [`wgpu_types::Features::VERTEX_ATTRIBUTE_64BIT`].
+    Float64x2(Vec<[f64; 2]>),
+    /// Three double-precision floats (f64). `vec3<f32>` in shaders. Requires [`wgpu_types::Features::VERTEX_ATTRIBUTE_64BIT`].
+    Float64x3(Vec<[f64; 3]>),
+    /// Four double-precision floats (f64). `vec4<f32>` in shaders. Requires [`wgpu_types::Features::VERTEX_ATTRIBUTE_64BIT`].
+    Float64x4(Vec<[f64; 4]>),
+    /// Three unsigned 10-bit integers and one 2-bit integer, packed into a 32-bit integer (u32). [0, 1023] and [0, 3] converted to float [0, 1] `vec4<f32>` in shaders.
+    Unorm10_10_10_2(Vec<u32>),
+    /// Four unsigned 8-bit integers (u8) in BGRA. [0, 255] converted to float [0, 1] `vec4<f32>` RGBA in shaders.
+    Unorm8x4Bgra(Vec<[u8; 4]>),
 }
 
 impl VertexAttributeValues {
     /// Creates a new [`VertexAttributeValues`] with the storage for given [`VertexFormat`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`VertexFormat`] is not supported.
     pub(crate) fn new(format: VertexFormat) -> Self {
         match format {
             VertexFormat::Uint8x2 => VertexAttributeValues::Uint8x2(Vec::new()),
@@ -302,23 +360,23 @@ impl VertexAttributeValues {
             VertexFormat::Sint32x2 => VertexAttributeValues::Sint32x2(Vec::new()),
             VertexFormat::Sint32x3 => VertexAttributeValues::Sint32x3(Vec::new()),
             VertexFormat::Sint32x4 => VertexAttributeValues::Sint32x4(Vec::new()),
-            VertexFormat::Uint8 => panic!("Uint8 is not supported"),
-            VertexFormat::Sint8 => panic!("Sint8 is not supported"),
-            VertexFormat::Snorm8 => panic!("Snorm8 is not supported"),
-            VertexFormat::Unorm8 => panic!("Unorm8 is not supported"),
-            VertexFormat::Uint16 => panic!("Uint16 is not supported"),
-            VertexFormat::Sint16 => panic!("Sint16 is not supported"),
-            VertexFormat::Snorm16 => panic!("Snorm16 is not supported"),
-            VertexFormat::Unorm16 => panic!("Unorm16 is not supported"),
-            VertexFormat::Float16 => panic!("Float16 is not supported"),
-            VertexFormat::Float16x2 => panic!("Float16x2 is not supported"),
-            VertexFormat::Float16x4 => panic!("Float16x4 is not supported"),
-            VertexFormat::Float64 => panic!("Float64 is not supported"),
-            VertexFormat::Float64x2 => panic!("Float64x2 is not supported"),
-            VertexFormat::Float64x3 => panic!("Float64x3 is not supported"),
-            VertexFormat::Float64x4 => panic!("Float64x4 is not supported"),
-            VertexFormat::Unorm8x4Bgra => panic!("Unorm8x4Bgra is not supported"),
-            VertexFormat::Unorm10_10_10_2 => panic!("Unorm10_10_10_2 is not supported"),
+            VertexFormat::Uint8 => VertexAttributeValues::Uint8(Vec::new()),
+            VertexFormat::Sint8 => VertexAttributeValues::Sint8(Vec::new()),
+            VertexFormat::Snorm8 => VertexAttributeValues::Snorm8(Vec::new()),
+            VertexFormat::Unorm8 => VertexAttributeValues::Unorm8(Vec::new()),
+            VertexFormat::Uint16 => VertexAttributeValues::Uint16(Vec::new()),
+            VertexFormat::Sint16 => VertexAttributeValues::Sint16(Vec::new()),
+            VertexFormat::Snorm16 => VertexAttributeValues::Snorm16(Vec::new()),
+            VertexFormat::Unorm16 => VertexAttributeValues::Unorm16(Vec::new()),
+            VertexFormat::Float16 => VertexAttributeValues::Float16(Vec::new()),
+            VertexFormat::Float16x2 => VertexAttributeValues::Float16x2(Vec::new()),
+            VertexFormat::Float16x4 => VertexAttributeValues::Float16x4(Vec::new()),
+            VertexFormat::Float64 => VertexAttributeValues::Float64(Vec::new()),
+            VertexFormat::Float64x2 => VertexAttributeValues::Float64x2(Vec::new()),
+            VertexFormat::Float64x3 => VertexAttributeValues::Float64x3(Vec::new()),
+            VertexFormat::Float64x4 => VertexAttributeValues::Float64x4(Vec::new()),
+            VertexFormat::Unorm8x4Bgra => VertexAttributeValues::Unorm8x4Bgra(Vec::new()),
+            VertexFormat::Unorm10_10_10_2 => VertexAttributeValues::Unorm10_10_10_2(Vec::new()),
         }
     }
 
@@ -358,6 +416,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => values.len(),
             VertexAttributeValues::Uint8x4(values) => values.len(),
             VertexAttributeValues::Unorm8x4(values) => values.len(),
+            VertexAttributeValues::Uint8(values) => values.len(),
+            VertexAttributeValues::Sint8(values) => values.len(),
+            VertexAttributeValues::Unorm8(values) => values.len(),
+            VertexAttributeValues::Snorm8(values) => values.len(),
+            VertexAttributeValues::Uint16(values) => values.len(),
+            VertexAttributeValues::Sint16(values) => values.len(),
+            VertexAttributeValues::Unorm16(values) => values.len(),
+            VertexAttributeValues::Snorm16(values) => values.len(),
+            VertexAttributeValues::Float16(values) => values.len(),
+            VertexAttributeValues::Float16x2(values) => values.len(),
+            VertexAttributeValues::Float16x4(values) => values.len(),
+            VertexAttributeValues::Float64(values) => values.len(),
+            VertexAttributeValues::Float64x2(values) => values.len(),
+            VertexAttributeValues::Float64x3(values) => values.len(),
+            VertexAttributeValues::Float64x4(values) => values.len(),
+            VertexAttributeValues::Unorm10_10_10_2(values) => values.len(),
+            VertexAttributeValues::Unorm8x4Bgra(values) => values.len(),
         }
     }
 
@@ -411,6 +486,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => cast_slice(values),
             VertexAttributeValues::Uint8x4(values) => cast_slice(values),
             VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
+            VertexAttributeValues::Uint8(values) => cast_slice(values),
+            VertexAttributeValues::Sint8(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8(values) => cast_slice(values),
+            VertexAttributeValues::Snorm8(values) => cast_slice(values),
+            VertexAttributeValues::Uint16(values) => cast_slice(values),
+            VertexAttributeValues::Sint16(values) => cast_slice(values),
+            VertexAttributeValues::Unorm16(values) => cast_slice(values),
+            VertexAttributeValues::Snorm16(values) => cast_slice(values),
+            VertexAttributeValues::Float16(values) => cast_slice(values),
+            VertexAttributeValues::Float16x2(values) => cast_slice(values),
+            VertexAttributeValues::Float16x4(values) => cast_slice(values),
+            VertexAttributeValues::Float64(values) => cast_slice(values),
+            VertexAttributeValues::Float64x2(values) => cast_slice(values),
+            VertexAttributeValues::Float64x3(values) => cast_slice(values),
+            VertexAttributeValues::Float64x4(values) => cast_slice(values),
+            VertexAttributeValues::Unorm10_10_10_2(values) => cast_slice(values),
+            VertexAttributeValues::Unorm8x4Bgra(values) => cast_slice(values),
         }
     }
 
@@ -448,6 +540,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Uint8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Unorm8x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Uint8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Sint8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Snorm8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Uint16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Sint16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Snorm16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x3(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm10_10_10_2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm8x4Bgra(values) => bytes_of(&values[i]),
         }
     }
 
@@ -583,6 +692,94 @@ impl VertexAttributeValues {
                 this.push(source[i]);
             }
             (VertexAttributeValues::Unorm8x4(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Uint8(this), VertexAttributeValues::Uint8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Uint8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Sint8(this), VertexAttributeValues::Sint8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Sint8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Unorm8(this), VertexAttributeValues::Unorm8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Snorm8(this), VertexAttributeValues::Snorm8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Snorm8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Uint16(this), VertexAttributeValues::Uint16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Uint16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Sint16(this), VertexAttributeValues::Sint16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Sint16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Unorm16(this), VertexAttributeValues::Unorm16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Snorm16(this), VertexAttributeValues::Snorm16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Snorm16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float16(this), VertexAttributeValues::Float16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float16x2(this), VertexAttributeValues::Float16x2(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float16x4(this), VertexAttributeValues::Float16x4(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x4(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64(this), VertexAttributeValues::Float64(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float64x2(this), VertexAttributeValues::Float64x2(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64x3(this), VertexAttributeValues::Float64x3(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x3(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64x4(this), VertexAttributeValues::Float64x4(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x4(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (
+                VertexAttributeValues::Unorm10_10_10_2(this),
+                VertexAttributeValues::Unorm10_10_10_2(source),
+            ) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm10_10_10_2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (
+                VertexAttributeValues::Unorm8x4Bgra(this),
+                VertexAttributeValues::Unorm8x4Bgra(source),
+            ) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm8x4Bgra(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
         }
     }
 
@@ -620,6 +817,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Uint8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Unorm8x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Uint8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Sint8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Snorm8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Uint16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Sint16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Snorm16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x3(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm10_10_10_2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm8x4Bgra(v) => v.shrink_to_fit(),
         }
     }
 }
@@ -655,6 +869,23 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Snorm8x4(_) => VertexFormat::Snorm8x4,
             VertexAttributeValues::Uint8x4(_) => VertexFormat::Uint8x4,
             VertexAttributeValues::Unorm8x4(_) => VertexFormat::Unorm8x4,
+            VertexAttributeValues::Uint8(_) => VertexFormat::Uint8,
+            VertexAttributeValues::Sint8(_) => VertexFormat::Sint8,
+            VertexAttributeValues::Unorm8(_) => VertexFormat::Unorm8,
+            VertexAttributeValues::Snorm8(_) => VertexFormat::Snorm8,
+            VertexAttributeValues::Uint16(_) => VertexFormat::Uint16,
+            VertexAttributeValues::Sint16(_) => VertexFormat::Sint16,
+            VertexAttributeValues::Unorm16(_) => VertexFormat::Unorm16,
+            VertexAttributeValues::Snorm16(_) => VertexFormat::Snorm16,
+            VertexAttributeValues::Float16(_) => VertexFormat::Float16,
+            VertexAttributeValues::Float16x2(_) => VertexFormat::Float16x2,
+            VertexAttributeValues::Float16x4(_) => VertexFormat::Float16x4,
+            VertexAttributeValues::Float64(_) => VertexFormat::Float64,
+            VertexAttributeValues::Float64x2(_) => VertexFormat::Float64x2,
+            VertexAttributeValues::Float64x3(_) => VertexFormat::Float64x3,
+            VertexAttributeValues::Float64x4(_) => VertexFormat::Float64x4,
+            VertexAttributeValues::Unorm10_10_10_2(_) => VertexFormat::Unorm10_10_10_2,
+            VertexAttributeValues::Unorm8x4Bgra(_) => VertexFormat::Unorm8x4Bgra,
         }
     }
 }

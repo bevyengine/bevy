@@ -157,6 +157,8 @@ struct FakeCommandA;
 struct FakeCommandB(u64);
 
 impl Command for FakeCommandA {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
@@ -164,6 +166,8 @@ impl Command for FakeCommandA {
 }
 
 impl Command for FakeCommandB {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
@@ -201,6 +205,8 @@ pub fn fake_commands(criterion: &mut Criterion) {
 struct SizedCommand<T: Default + Send + Sync + 'static>(T);
 
 impl<T: Default + Send + Sync + 'static> Command for SizedCommand<T> {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);

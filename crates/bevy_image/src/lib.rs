@@ -1,7 +1,8 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! The Bevy game engine's GPU-oriented image type.
 
 extern crate alloc;
 
+/// The image prelude.
 pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
@@ -35,6 +36,7 @@ mod hdr_texture_loader;
 mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
+mod saver;
 mod texture_atlas;
 mod texture_atlas_builder;
 
@@ -50,6 +52,7 @@ pub use hdr_texture_loader::*;
 pub use image_loader::*;
 #[cfg(feature = "ktx2")]
 pub use ktx2::*;
+pub use saver::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 

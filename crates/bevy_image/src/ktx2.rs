@@ -18,8 +18,14 @@ use wgpu_types::{
     TextureViewDimension,
 };
 
-use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
+use super::{CompressedImageFormats, Image, TextureChannelLayout, TextureError, TranscodeFormat};
 
+/// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
+///
+/// # Errors
+///
+/// Returns an error if the provided buffer contained invalid data, decompression fails, or transcoding
+/// of unsupported data formats fails.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],
@@ -298,14 +304,16 @@ pub fn ktx2_buffer_to_image(
     Ok(image)
 }
 
+/// Determines an appropriate wgpu-compatible format based on compressed format support, and a
+/// basis universal [`TextureChannelLayout`].
 #[cfg(feature = "basis-universal")]
 pub fn get_transcoded_formats(
     supported_compressed_formats: CompressedImageFormats,
-    data_format: DataFormat,
+    data_format: TextureChannelLayout,
     is_srgb: bool,
 ) -> (TranscoderBlockFormat, TextureFormat) {
     match data_format {
-        DataFormat::Rrr => {
+        TextureChannelLayout::Rrr => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC4, TextureFormat::Bc4RUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -317,7 +325,7 @@ pub fn get_transcoded_formats(
                 (TranscoderBlockFormat::RGBA32, TextureFormat::R8Unorm)
             }
         }
-        DataFormat::Rrrg | DataFormat::Rg => {
+        TextureChannelLayout::Rrrg | TextureChannelLayout::Rg => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC5, TextureFormat::Bc5RgUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -331,7 +339,7 @@ pub fn get_transcoded_formats(
         }
         // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
         // basis-universal, nor is ASTC_HDR supported by wgpu
-        DataFormat::Rgb | DataFormat::Rgba => {
+        TextureChannelLayout::Rgb | TextureChannelLayout::Rgba => {
             // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
             // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
             // transcoding speed and quality.
@@ -379,6 +387,11 @@ pub fn get_transcoded_formats(
     }
 }
 
+/// Reads the [`TextureFormat`] from a [`ktx2::Reader`].
+///
+/// # Errors
+///
+/// Returns an error for invalid KTX2 data, or unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     ktx2: &ktx2::Reader<Data>,
@@ -465,6 +478,11 @@ fn sample_information_to_data_type(
     )
 }
 
+/// Reads the [`TextureFormat`] from a KTX2 data format descriptor header.
+///
+/// # Errors
+///
+/// Returns an error for invalid or unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_header_to_texture_format(
     data_format_descriptor: &DfdBlockHeaderBasic,
@@ -1160,11 +1178,11 @@ pub fn ktx2_dfd_header_to_texture_format(
         Some(ColorModel::UASTC) => {
             return Err(TextureError::FormatRequiresTranscodingError(
                 TranscodeFormat::Uastc(match sample_information[0].channel_type {
-                    0 => DataFormat::Rgb,
-                    3 => DataFormat::Rgba,
-                    4 => DataFormat::Rrr,
-                    5 => DataFormat::Rrrg,
-                    6 => DataFormat::Rg,
+                    0 => TextureChannelLayout::Rgb,
+                    3 => TextureChannelLayout::Rgba,
+                    4 => TextureChannelLayout::Rrr,
+                    5 => TextureChannelLayout::Rrrg,
+                    6 => TextureChannelLayout::Rg,
                     channel_type => {
                         return Err(TextureError::UnsupportedTextureFormat(format!(
                             "Invalid KTX2 UASTC channel type: {channel_type}",
@@ -1187,6 +1205,11 @@ pub fn ktx2_dfd_header_to_texture_format(
     })
 }
 
+/// Converts a KTX2 texture format identifier to a [`TextureFormat`].
+///
+/// # Errors
+///
+/// Returns an error for unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_format_to_texture_format(
     ktx2_format: ktx2::Format,

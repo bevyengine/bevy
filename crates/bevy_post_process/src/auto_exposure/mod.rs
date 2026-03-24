@@ -13,7 +13,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod buffers;
@@ -63,7 +63,7 @@ impl Plugin for AutoExposurePlugin {
         };
 
         render_app
-            .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
             .add_systems(
                 RenderStartup,

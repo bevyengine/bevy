@@ -40,6 +40,12 @@ impl Default for GameState {
     }
 }
 
+#[derive(Resource)]
+struct AtmospherePresets {
+    earth: Handle<ScatteringMedium>,
+    mars: Handle<ScatteringMedium>,
+}
+
 fn main() {
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
@@ -64,6 +70,8 @@ fn print_controls() {
     println!("Atmosphere Example Controls:");
     println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
+    println!("    3          - Switch to Earth atmosphere");
+    println!("    4          - Switch to Mars atmosphere");
     println!("    C          - Toggle cloud layer");
     println!("    Left/Right - Decrease/Increase cloud density");
     println!("    Enter      - Pause/Resume sun motion");
@@ -76,10 +84,26 @@ fn atmosphere_controls(
     mut cloud_layers: Query<&mut CloudLayer>,
     mut commands: Commands,
     cameras: Query<Entity, With<Camera3d>>,
+    mut atmosphere_query: Query<&mut Atmosphere>,
+    atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Digit3) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            println!("Switched to Earth atmosphere");
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Digit4) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            println!("Switched to Mars atmosphere");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Digit1) {
         for mut settings in &mut atmosphere_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
@@ -149,19 +173,29 @@ fn atmosphere_controls(
 fn setup_camera_fog(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let mut medium = ScatteringMedium::earthlike(256, 256);
+    let mut medium = ScatteringMedium::earth(256, 256);
     medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(2e-5),
         scattering: Vec3::splat(1e-4),
         falloff: Falloff::Exponential { scale: 0.2 / 60.0 },
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
+    let earth_medium = scattering_mediums.add(medium);
+    let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
+    let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
+
+    commands.insert_resource(AtmospherePresets {
+        earth: earth_medium.clone(),
+        mars: mars_medium.clone(),
+    });
+
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // Earthlike atmosphere with low, dense fog (mie) added
-        Atmosphere::earthlike(scattering_mediums.add(medium)),
+        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Earth atmosphere
+        Atmosphere::earth(earth_medium),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
             rendering_method: AtmosphereMode::Raymarched,
@@ -209,7 +243,10 @@ fn setup_camera_fog(
         },
         Msaa::Off,
         TemporalAntiAliasing::default(),
-        ScreenSpaceReflections::default(),
+        ScreenSpaceReflections {
+            min_perceptual_roughness: 0.0..0.0,
+            ..default()
+        },
     ));
 }
 
@@ -255,14 +292,6 @@ fn setup_terrain_scene(
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        first_cascade_far_bound: 0.3,
-        maximum_distance: 15.0,
-        ..default()
-    }
-    .build();
-
     // Sun
     commands.spawn((
         DirectionalLight {
@@ -277,7 +306,6 @@ fn setup_terrain_scene(
         },
         Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        cascade_shadow_config,
     ));
 
     // // spawn the fog volume
@@ -286,7 +314,7 @@ fn setup_terrain_scene(
     //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     // ));
 
-    // // Terrain
+    // Terrain
     // commands.spawn((
     //     Terrain,
     //     SceneRoot(

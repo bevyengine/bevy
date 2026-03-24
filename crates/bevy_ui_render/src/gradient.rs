@@ -30,7 +30,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
@@ -51,8 +51,8 @@ impl Plugin for GradientPlugin {
                 .add_render_command::<TransparentUi, DrawGradientFns>()
                 .init_resource::<ExtractedGradients>()
                 .init_resource::<ExtractedColorStops>()
-                .init_resource::<GradientMeta>()
-                .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
+                .init_gpu_resource::<GradientMeta>()
+                .init_gpu_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(RenderStartup, init_gradient_pipeline)
                 .add_systems(
                     ExtractSchedule,
@@ -397,7 +397,7 @@ pub fn extract_gradients(
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         z_order: uinode.stack_index as f32
                             + match node_type {
-                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
                         image: AssetId::default(),
@@ -616,14 +616,14 @@ pub fn queue_gradient(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
             sort_key: FloatOrd(
                 gradient.stack_index as f32
                     + match gradient.node_type {
-                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                         NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                     },
             ),

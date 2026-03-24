@@ -27,7 +27,7 @@ jobs:
         shell: bash {0}
         run: |
           git fetch --depth=1 origin $BASE_SHA
-          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./release-content/migration-guides
+          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./_release-content/migration-guides
           echo "found_changes=$?" >> $GITHUB_OUTPUT
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -42,7 +42,7 @@ jobs:
               repo: context.repo.repo,
               body: `It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
 
-              Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/release-content/migration-guides) to reflect your changes.`
+              Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/_release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/_release-content/migration-guides) to reflect your changes.`
             })
   comment-on-release-note-label:
     permissions:
@@ -60,7 +60,7 @@ jobs:
         shell: bash {0}
         run: |
           git fetch --depth=1 origin $BASE_SHA
-          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./release-content/release-notes
+          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./_release-content/release-notes
           echo "found_changes=$?" >> $GITHUB_OUTPUT
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -75,5 +75,5 @@ jobs:
               repo: context.repo.repo,
               body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
 
-              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release-notes) to showcase your changes.`
+              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/_release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/_release-content/release-notes) to showcase your changes.`
             })

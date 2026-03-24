@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use rand::{rng, seq::IteratorRandom, Rng};
+use rand::{rng, seq::IteratorRandom, RngExt};
 
 fn main() {
     App::new()

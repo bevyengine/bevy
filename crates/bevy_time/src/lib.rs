@@ -14,6 +14,7 @@ extern crate alloc;
 
 /// Common run conditions
 pub mod common_conditions;
+mod delayed_commands;
 mod fixed;
 mod real;
 mod stopwatch;
@@ -21,6 +22,7 @@ mod time;
 mod timer;
 mod virt;
 
+pub use delayed_commands::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
@@ -33,7 +35,7 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -83,6 +85,7 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystems)
                 .ambiguous_with(message_update_system),
         )
+        .add_systems(PreUpdate, check_delayed_command_queues)
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),

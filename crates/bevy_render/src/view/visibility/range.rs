@@ -21,7 +21,7 @@ use crate::{
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, MainEntityHashMap},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 /// We need at least 4 storage buffer bindings available to enable the
@@ -48,7 +48,7 @@ impl Plugin for RenderVisibilityRangePlugin {
         };
 
         render_app
-            .init_resource::<RenderVisibilityRanges>()
+            .init_gpu_resource::<RenderVisibilityRanges>()
             .add_systems(ExtractSchedule, extract_visibility_ranges)
             .add_systems(
                 Render,

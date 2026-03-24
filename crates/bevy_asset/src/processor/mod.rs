@@ -436,7 +436,7 @@ impl AssetProcessor {
         let path = path.into();
         let Some(processor) = path
             .get_full_extension()
-            .and_then(|extension| self.get_default_processor(&extension))
+            .and_then(|extension| self.get_default_processor(extension))
         else {
             return self
                 .server
@@ -444,7 +444,16 @@ impl AssetProcessor {
                 .await;
         };
 
-        let meta = processor.default_meta();
+        let short_type_path = processor.short_type_path();
+        // Try to get the processor using the short type - if it fails, that must mean that the
+        // short type path is insufficient, so we'll have to fall back to the long path.
+        let processor_path_kind = if self.get_processor(short_type_path).is_ok() {
+            MetaTypePathKind::Short
+        } else {
+            MetaTypePathKind::Long
+        };
+
+        let meta = processor.default_meta(processor_path_kind);
         let serialized_meta = meta.serialize();
 
         let source = self.get_source(path.source())?;
@@ -1064,9 +1073,12 @@ impl AssetProcessor {
             Err(AssetReaderError::NotFound(_path)) => {
                 let (meta, processor) = if let Some(processor) = asset_path
                     .get_full_extension()
-                    .and_then(|ext| self.get_default_processor(&ext))
+                    .and_then(|ext| self.get_default_processor(ext))
                 {
-                    let meta = processor.default_meta();
+                    // Note: It doesn't matter whether we use the Long or Short kind, since we're
+                    // returning the processor here anyway, and we're only using this meta to pass
+                    // along the processor settings.
+                    let meta = processor.default_meta(MetaTypePathKind::Long);
                     (meta, Some(processor))
                 } else {
                     match server.get_path_asset_loader(asset_path.clone()).await {

@@ -38,7 +38,7 @@ pub enum EntityCursor {
     System(SystemCursorIcon),
 }
 
-/// A component used to override any [`EntityCursor`] cursor changes.
+/// A resource used to override any [`EntityCursor`] cursor changes.
 ///
 /// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.

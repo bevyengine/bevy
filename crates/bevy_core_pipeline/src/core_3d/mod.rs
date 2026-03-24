@@ -24,29 +24,30 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use core::ops::Range;
+use core::{f32, ops::Range};
 
 use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
-    mesh::allocator::SlabId,
+    mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
-    render_phase::PhaseItemBatchSetKey,
+    render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::CachedTexture,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
+use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHash, prelude::*};
 use bevy_image::ToExtents;
 use bevy_log::warn;
-use bevy_math::FloatOrd;
+use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -194,16 +195,13 @@ pub struct Opaque3dBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
@@ -212,7 +210,7 @@ pub struct Opaque3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -371,6 +369,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 }
 
 pub struct Transparent3d {
+    pub sorting_info: TransparentSortingInfo3d,
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: (Entity, MainEntity),
@@ -428,8 +427,19 @@ impl SortedPhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transparent3d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = item.sorting_info.sort_distance(&rangefinder);
+        }
     }
 
     #[inline]
@@ -442,6 +452,38 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
+    }
+}
+
+/// Information needed to perform a depth sort.
+#[derive(Clone, Copy)]
+pub enum TransparentSortingInfo3d {
+    /// No information is needed because this object should always appear on top
+    /// of other objects.
+    AlwaysOnTop,
+    /// Information needed to sort the object based on distance to the view.
+    Sorted {
+        /// The center of the mesh.
+        ///
+        /// This is the point that is used to sort.
+        mesh_center: Vec3,
+        /// An additional value that's artificially added to the distance before
+        /// sorting.
+        depth_bias: f32,
+    },
+}
+
+impl TransparentSortingInfo3d {
+    /// Calculates the value used for distance sorting for an item.
+    /// For [`Self::AlwaysOnTop`], this is [`f32::NEG_INFINITY`].
+    pub fn sort_distance(&self, rangefinder: &ViewRangefinder3d) -> f32 {
+        match *self {
+            TransparentSortingInfo3d::AlwaysOnTop => f32::NEG_INFINITY,
+            TransparentSortingInfo3d::Sorted {
+                mesh_center,
+                depth_bias,
+            } => rangefinder.distance(&mesh_center) + depth_bias,
+        }
     }
 }
 
@@ -473,7 +515,7 @@ pub fn extract_core_3d_camera_phases(
 
         opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-        transparent_3d_phases.insert_or_clear(retained_view_entity);
+        transparent_3d_phases.prepare_for_new_frame(retained_view_entity);
 
         live_entities.insert(retained_view_entity);
     }

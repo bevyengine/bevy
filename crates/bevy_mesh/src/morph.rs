@@ -1,25 +1,30 @@
 use super::Mesh;
-use bevy_asset::{Handle, RenderAssetUsages};
+use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use encase::ShaderType;
 use thiserror::Error;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-const MAX_TEXTURE_WIDTH: u32 = 2048;
-// NOTE: "component" refers to the element count of math objects,
-// Vec3 has 3 components, Mat2 has 4 components.
-const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
+/// The maximum size of the morph target texture, if morph target textures are
+/// in use on the current platform.
+pub const MAX_TEXTURE_WIDTH: u32 = 2048;
 
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 256;
 
+/// The maximum number of morph target components, if morph target textures are
+/// in use on the current platform.
+///
+/// NOTE: "component" refers to the element count of math objects,
+/// Vec3 has 3 components, Mat2 has 4 components.
+const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
+
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
     #[error(
-        "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
+        "Too many vertex components in morph target, max is {MAX_COMPONENTS}, \
         got {vertex_count}×{component_count} = {}",
         *vertex_count * *component_count as usize
     )]
@@ -35,70 +40,12 @@ pub enum MorphBuildError {
     TooManyTargets { target_count: usize },
 }
 
-/// An image formatted for use with [`MorphWeights`] for rendering the morph target.
-#[derive(Debug)]
-pub struct MorphTargetImage(pub Image);
-
-impl MorphTargetImage {
-    /// Generate textures for each morph target.
-    ///
-    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item iterated in the top level
-    /// iterator corresponds "the attributes of a specific morph target".
-    ///
-    /// Each pixel of the texture is a component of morph target animated
-    /// attributes. So a set of 9 pixels is this morph's displacement for
-    /// position, normal and tangents of a single vertex (each taking 3 pixels).
-    pub fn new(
-        targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
-        vertex_count: usize,
-        asset_usage: RenderAssetUsages,
-    ) -> Result<Self, MorphBuildError> {
-        let max = MAX_TEXTURE_WIDTH;
-        let target_count = targets.len();
-        if target_count > MAX_MORPH_WEIGHTS {
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
-        let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
-            return Err(MorphBuildError::TooManyAttributes {
-                vertex_count,
-                component_count,
-            });
-        };
-        let data = targets
-            .flat_map(|mut attributes| {
-                let layer_byte_count = (padding + component_count) as usize * size_of::<f32>();
-                let mut buffer = Vec::with_capacity(layer_byte_count);
-                for _ in 0..vertex_count {
-                    let Some(to_add) = attributes.next() else {
-                        break;
-                    };
-                    buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
-                }
-                // Pad each layer so that they fit width * height
-                buffer.extend(core::iter::repeat_n(0, padding as usize * size_of::<f32>()));
-                debug_assert_eq!(buffer.len(), layer_byte_count);
-                buffer
-            })
-            .collect();
-        let extents = Extent3d {
-            width,
-            height,
-            depth_or_array_layers: target_count as u32,
-        };
-        let image = Image::new(
-            extents,
-            TextureDimension::D3,
-            data,
-            TextureFormat::R32Float,
-            asset_usage,
-        );
-        Ok(MorphTargetImage(image))
-    }
-}
-
-/// A component that controls the [morph targets] of one or more
-/// [`Mesh3d`](crate::Mesh3d) components.
+/// Controls the [morph targets] for all child [`Mesh3d`](crate::Mesh3d)
+/// entities. In most cases, [`MorphWeights`] should be considered the "source
+/// of truth" when writing [morph targets] for meshes. However you can choose to
+/// write child [`MeshMorphWeights`] if your situation requires more
+/// granularity. Just note that if you set [`MorphWeights`], it will overwrite
+/// child [`MeshMorphWeights`] values.
 ///
 /// `MorphWeights` works together with the [`MeshMorphWeights`] component. When
 /// a `MeshMorphWeights` is set to `MeshMorphWeights::Reference`, it references
@@ -183,20 +130,25 @@ pub enum MeshMorphWeights {
 }
 
 /// Attributes **differences** used for morph targets.
-///
-/// See [`MorphTargetImage`] for more information.
-#[derive(Copy, Clone, PartialEq, Pod, Zeroable, Default)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, ShaderType, Pod, Zeroable, Default)]
+#[reflect(Clone, Default)]
 #[repr(C)]
 pub struct MorphAttributes {
     /// The vertex position difference between base mesh and this target.
     pub position: Vec3,
+    /// Padding to ensure that vectors start on 16-byte boundaries.
+    pub pad_a: f32,
     /// The vertex normal difference between base mesh and this target.
     pub normal: Vec3,
+    /// Padding to ensure that vectors start on 16-byte boundaries.
+    pub pad_b: f32,
     /// The vertex tangent difference between base mesh and this target.
     ///
     /// Note that tangents are a `Vec4`, but only the `xyz` components are
     /// animated, as the `w` component is the sign and cannot be animated.
     pub tangent: Vec3,
+    /// Padding to ensure that vectors start on 16-byte boundaries.
+    pub pad_c: f32,
 }
 
 impl From<[Vec3; 3]> for MorphAttributes {
@@ -205,6 +157,9 @@ impl From<[Vec3; 3]> for MorphAttributes {
             position,
             normal,
             tangent,
+            pad_a: 0.0,
+            pad_b: 0.0,
+            pad_c: 0.0,
         }
     }
 }
@@ -220,36 +175,9 @@ impl MorphAttributes {
             position,
             normal,
             tangent,
+            pad_a: 0.0,
+            pad_b: 0.0,
+            pad_c: 0.0,
         }
     }
-}
-
-struct Rect(u32, u32);
-
-/// Find the smallest rectangle of maximum edge size `max_edge` that contains
-/// at least `min_includes` cells. `u32` is how many extra cells the rectangle
-/// has.
-///
-/// The following rectangle contains 27 cells, and its longest edge is 9:
-/// ```text
-/// ----------------------------
-/// |1 |2 |3 |4 |5 |6 |7 |8 |9 |
-/// ----------------------------
-/// |2 |  |  |  |  |  |  |  |  |
-/// ----------------------------
-/// |3 |  |  |  |  |  |  |  |  |
-/// ----------------------------
-/// ```
-///
-/// Returns `None` if `max_edge` is too small to build a rectangle
-/// containing `min_includes` cells.
-fn lowest_2d(min_includes: u32, max_edge: u32) -> Option<(Rect, u32)> {
-    (1..=max_edge)
-        .filter_map(|a| {
-            let b = min_includes.div_ceil(a);
-            let diff = (a * b).checked_sub(min_includes)?;
-            Some((Rect(a, b), diff))
-        })
-        .filter_map(|(rect, diff)| (rect.1 <= max_edge).then_some((rect, diff)))
-        .min_by_key(|(_, diff)| *diff)
 }

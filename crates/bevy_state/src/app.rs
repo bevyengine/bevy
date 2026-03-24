@@ -9,7 +9,10 @@ use crate::{
         PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
         States, SubStates,
     },
-    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
+    state_scoped::{
+        despawn_entities_on_enter_state, despawn_entities_on_exit_state,
+        despawn_entities_when_state,
+    },
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -258,6 +261,10 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
     .add_systems(
         StateTransition,
         despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+    )
+    .add_systems(
+        StateTransition,
+        despawn_entities_when_state::<S>.in_set(StateTransitionSystems::TransitionSchedules),
     );
 }
 

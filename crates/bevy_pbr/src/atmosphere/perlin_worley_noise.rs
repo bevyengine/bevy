@@ -16,7 +16,7 @@ use bevy_math::UVec3;
 use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
+    texture::CachedTexture,
 };
 use bevy_utils::default;
 
@@ -140,8 +140,8 @@ pub struct PerlinWorleyNoiseParamsBuffer {
 #[derive(Resource, Default)]
 pub struct PerlinWorleyNoiseGenerated(pub bool);
 
+/// Allocates GPU memory directly for the same reason as `init_fbm_noise_texture` in `fbm_noise`.
 pub fn init_perlin_worley_noise_texture(
-    mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     mut commands: bevy_ecs::system::Commands,
 ) {
@@ -162,9 +162,13 @@ pub fn init_perlin_worley_noise_texture(
         view_formats: &[],
     };
 
-    let texture = texture_cache.get(&render_device, texture_descriptor);
+    let texture = render_device.create_texture(&texture_descriptor);
+    let default_view = texture.create_view(&TextureViewDescriptor::default());
     commands.insert_resource(PerlinWorleyNoiseTexture {
-        texture,
+        texture: CachedTexture {
+            texture,
+            default_view,
+        },
         size: size.size,
     });
 }

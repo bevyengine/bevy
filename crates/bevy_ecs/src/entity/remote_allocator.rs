@@ -885,7 +885,7 @@ impl SharedAllocator {
 /// The allocator assumes that it is the only one with [`FreeList::free`] permissions.
 /// If this were cloned, that assumption would be broken, leading to undefined behavior.
 /// This is in contrast to the [`RemoteAllocator`], which may be cloned freely.
-pub(super) struct Allocator {
+pub(crate) struct Allocator {
     /// The shared allocator state, which we share with any [`RemoteAllocator`]s.
     shared: Arc<SharedAllocator>,
     /// The local free list.
@@ -917,7 +917,7 @@ impl Allocator {
 
     /// The total number of indices given out.
     #[inline]
-    fn total_entity_indices(&self) -> u32 {
+    pub(crate) fn total_entity_indices(&self) -> u32 {
         self.shared.fresh.total_entity_indices()
     }
 
@@ -928,9 +928,11 @@ impl Allocator {
         self.shared.free.num_free()
     }
 
-    /// Flushes the [`local_free`](Self::local_free) list to the shared allocator.
+    /// Flushes the entities that have been freed locally into the full allocator.
+    /// This is not exposed publicly because it is subject to change.
+    /// It is sometimes useful to call this for tests that depend on the entity allocator behaving more predictably.
     #[inline]
-    fn flush_freed(&mut self) {
+    pub(crate) fn flush_freed(&mut self) {
         // SAFETY: We have `&mut self`.
         unsafe {
             self.shared.free.free(self.local_free.as_slice());
@@ -1024,7 +1026,7 @@ impl Drop for AllocEntitiesIterator<'_> {
 }
 
 /// This is a stripped down entity allocator that operates on fewer assumptions than [`EntityAllocator`](super::EntityAllocator).
-/// As a result, using this will be slower than than the main allocator but this offers additional freedoms.
+/// As a result, using this will be slower than the main allocator but this offers additional freedoms.
 /// In particular, this type is fully owned, allowing you to allocate entities for a world without locking or holding reference to the world.
 /// This is especially useful in async contexts.
 #[derive(Clone)]

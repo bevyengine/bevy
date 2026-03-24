@@ -116,7 +116,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.31.0", default-features = false, features = [
+glam = { version = "0.32.0", default-features = false, features = [
   "serde",
 ], optional = true }
 indexmap = { version = "2.5.0", default-features = false, optional = true }
@@ -124,7 +124,7 @@ petgraph = { version = "0.8", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
-uuid = { version = "1.13.1", default-features = false, optional = true, features = [
+uuid = { version = "1.21.0", default-features = false, optional = true, features = [
   "v4",
   "serde",
 ] }
@@ -153,5 +153,9 @@ required-features = ["reflect_documentation"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

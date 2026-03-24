@@ -17,7 +17,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -93,7 +93,7 @@ impl Plugin for FxaaPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(RenderStartup, init_fxaa_pipeline)
             .add_systems(
                 Render,

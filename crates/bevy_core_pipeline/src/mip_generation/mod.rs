@@ -51,7 +51,7 @@ use bevy_render::{
     texture::GpuImage,
     RenderStartup,
 };
-use bevy_render::{Render, RenderApp, RenderSystems};
+use bevy_render::{GpuResourceAppExt, Render, RenderApp, RenderSystems};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
@@ -288,7 +288,7 @@ impl Plugin for MipGenerationPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
             .init_resource::<MipGenerationJobs>()
             .init_resource::<MipGenerationPipelines>()
             .insert_resource(downsample_shaders)
@@ -334,7 +334,7 @@ impl Plugin for MipGenerationPlugin {
 
         // This needs to be done here so that we have access to the
         // `RenderDevice`.
-        render_app.init_resource::<MipGenerationResources>();
+        render_app.init_gpu_resource::<MipGenerationResources>();
     }
 }
 

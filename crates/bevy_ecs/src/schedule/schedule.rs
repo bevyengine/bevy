@@ -235,14 +235,6 @@ impl Schedules {
     }
 }
 
-fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
-    match kind {
-        ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
-        #[cfg(feature = "std")]
-        ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
-    }
-}
-
 /// Chain systems into dependencies
 #[derive(Default)]
 pub enum Chain {
@@ -374,7 +366,7 @@ impl Schedule {
             label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
-            executor: make_executor(ExecutorKind::default()),
+            executor: default_executor(),
             executor_initialized: false,
             warnings: Vec::new(),
         };
@@ -503,17 +495,10 @@ impl Schedule {
         self.graph.settings.clone()
     }
 
-    /// Returns the schedule's current execution strategy.
-    pub fn get_executor_kind(&self) -> ExecutorKind {
-        self.executor.kind()
-    }
-
-    /// Sets the schedule's execution strategy.
-    pub fn set_executor_kind(&mut self, executor: ExecutorKind) -> &mut Self {
-        if executor != self.executor.kind() {
-            self.executor = make_executor(executor);
-            self.executor_initialized = false;
-        }
+    /// Replaces the schedule's executor.
+    pub fn set_executor(&mut self, executor: impl SystemExecutor + 'static) -> &mut Self {
+        self.executor = Box::new(executor);
+        self.executor_initialized = false;
         self
     }
 

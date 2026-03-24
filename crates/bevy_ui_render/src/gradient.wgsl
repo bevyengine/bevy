@@ -124,7 +124,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     if enabled(in.flags, BORDER_ANY) {
         return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
     } else {
-        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border);
+        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
     }
 }
 

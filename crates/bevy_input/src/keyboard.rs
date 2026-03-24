@@ -66,6 +66,8 @@
 // --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
 
 use crate::{ButtonInput, ButtonState};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -99,7 +101,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash, Clone)
+    reflect(Debug, PartialEq, Hash, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -145,7 +147,11 @@ pub struct KeyboardInput {
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Message)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

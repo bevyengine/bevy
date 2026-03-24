@@ -46,7 +46,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let sun_radiance = sample_sun_radiance(ray_dir_ws);
 
     if depth == 0.0 {
-        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws, up);
+        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering = sample_sky_view_lut(r, ray_dir_as);
         if should_raymarch {

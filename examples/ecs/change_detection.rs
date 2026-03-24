@@ -1,7 +1,7 @@
 //! This example illustrates how to react to component and resource changes.
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 
 fn main() {
     App::new()

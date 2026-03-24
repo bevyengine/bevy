@@ -21,7 +21,7 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 
 |Profile|Description|
 |-|-|
-|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui|
+|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio|
 |2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.|
 |3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
 |ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
@@ -93,6 +93,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
+|bevy_settings|Load and save user preferences|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|

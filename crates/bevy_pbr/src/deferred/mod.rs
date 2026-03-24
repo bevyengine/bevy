@@ -1,13 +1,10 @@
 use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
-};
-use crate::{
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
+    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
-    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -23,7 +20,6 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
-use bevy_render::RenderStartup;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -33,6 +29,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
@@ -108,11 +105,14 @@ impl Plugin for DeferredPbrLightingPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
-            .add_systems(RenderStartup, init_deferred_lighting_layout)
+            .init_gpu_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
+            .add_systems(
+                RenderStartup,
+                init_deferred_lighting_layout.after(MeshPipelineSet),
+            )
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
+                prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),
             )
             .add_systems(
                 Core3d,
@@ -310,6 +310,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
+        shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());

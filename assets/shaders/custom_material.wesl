@@ -6,7 +6,7 @@ struct VertexOutput {
 }
 
 struct CustomMaterial {
-    // Needed for 16-bit alignment on WebGL2
+    // Needed for 16 byte alignment on WebGL2
     time: vec4<f32>,
 }
 

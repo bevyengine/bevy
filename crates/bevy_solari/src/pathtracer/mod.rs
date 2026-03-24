@@ -6,7 +6,10 @@ use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
-use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
+use bevy_core_pipeline::{
+    schedule::{Core3d, Core3dSystems},
+    tonemapping::tonemapping,
+};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -48,7 +51,12 @@ impl Plugin for PathtracingPlugin {
                 Render,
                 prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
-            .add_systems(Core3d, pathtracer.after(Core3dSystems::MainPass));
+            .add_systems(
+                Core3d,
+                pathtracer
+                    .after(Core3dSystems::MainPass)
+                    .before(tonemapping),
+            );
     }
 }
 
