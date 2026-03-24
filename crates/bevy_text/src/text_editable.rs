@@ -118,6 +118,11 @@ pub struct EditableText {
     pub cursor_blink_period: Duration,
     /// True if a `TextEdit` was applied this frame
     pub text_edited: bool,
+    /// Maximum number of characters the text input can contain.
+    ///
+    /// Edits which would cause the length to exceed the maximum are ignored.
+    /// Does not stop setting a string longer than the maximum using `set_text`.
+    pub max_characters: Option<usize>,
     /// Sets the input’s height in number of visible lines.
     pub visible_lines: Option<f32>,
 }
@@ -131,6 +136,7 @@ impl Default for EditableText {
             cursor_width: 0.2,
             cursor_blink_period: Duration::from_secs(1),
             text_edited: false,
+            max_characters: None,
             visible_lines: Some(1.),
         }
     }
@@ -172,13 +178,14 @@ impl EditableText {
         let Self {
             editor,
             pending_edits,
+            max_characters,
             ..
         } = self;
 
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            edit.apply(&mut driver, clipboard_text);
+            edit.apply(&mut driver, clipboard_text, *max_characters);
         }
     }
 
