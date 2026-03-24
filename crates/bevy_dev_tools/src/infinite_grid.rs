@@ -129,9 +129,11 @@ pub struct InfiniteGridSettings {
 impl Default for InfiniteGridSettings {
     fn default() -> Self {
         Self {
-            x_axis_color: Color::srgb(1.0, 0.2, 0.2),
-            z_axis_color: Color::srgb(0.2, 0.2, 1.0),
-            minor_line_color: Color::srgb(0.1, 0.1, 0.1),
+            // These colors are copied from bevy_feathers but we don't need to depend on it just
+            // for that
+            x_axis_color: Color::oklcha(0.5232, 0.1404, 13.84, 1.0),
+            z_axis_color: Color::oklcha(0.4847, 0.1249, 253.08, 1.0),
+            minor_line_color: Color::srgb(0.2, 0.2, 0.2),
             major_line_color: Color::srgb(0.25, 0.25, 0.25),
             fadeout_distance: 100.,
             dot_fadeout_strength: 0.25,
