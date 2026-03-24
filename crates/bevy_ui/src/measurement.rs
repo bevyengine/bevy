@@ -67,8 +67,8 @@ impl Measure for FixedMeasure {
     }
 }
 
-/// The `ContentSize` component can be used to set an optional intrinsic size `Measure` for a UI node.
-/// By default, no measure is set and the size is determined solely from `Node`.
+/// A node with a `ContentSize` component is a node where its size
+/// is based on its content.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct ContentSize {
