@@ -80,22 +80,25 @@ impl Default for MeshAllocatorSettings {
     }
 }
 
-/// The [`ElementLayout`] for mesh metadata displacements.
-static MESH_METADATA_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
-    class: ElementClass::Metadata,
-    size: size_of::<MeshMetadata>() as u64,
-    elements_per_slot: 1,
-};
+const fn mesh_metadata_element_layout(storage_buffers_are_usable: bool) -> ElementLayout {
+    ElementLayout {
+        class: ElementClass::Metadata,
+        size: size_of::<MeshMetadata>() as u64,
+        elements_per_slot: 1,
+        storage_buffers_are_usable,
+    }
+}
 
 /// The [`ElementLayout`] for morph displacements.
 ///
 /// All morph displacements currently have the same element layout, so we only
 /// need one of these.
 #[cfg(feature = "morph")]
-static MORPH_ATTRIBUTE_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
+const MORPH_ATTRIBUTE_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
     class: ElementClass::MorphTarget,
     size: size_of::<MorphAttributes>() as u64,
     elements_per_slot: 1,
+    storage_buffers_are_usable: true,
 };
 
 /// The ID of a single slab.
@@ -196,6 +199,8 @@ pub struct ElementLayout {
     /// isn't divisible by 4. See the comment in [`ElementLayout`] for more
     /// details.
     elements_per_slot: u32,
+
+    storage_buffers_are_usable: bool,
 }
 
 impl Plugin for MeshAllocatorPlugin {
@@ -420,13 +425,13 @@ impl MeshAllocator {
                 if crate::storage_buffers_are_unsupported(&render_device.limits()) {
                     allocation_stage.allocate_large(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
-                        MESH_METADATA_ELEMENT_LAYOUT,
+                        mesh_metadata_element_layout(false),
                     );
                 } else {
                     allocation_stage.allocate(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
                         size_of::<MeshMetadata>() as u64,
-                        MESH_METADATA_ELEMENT_LAYOUT,
+                        mesh_metadata_element_layout(true),
                         mesh_allocator_settings,
                     );
                 }
@@ -638,6 +643,7 @@ impl ElementLayout {
             // Make sure that slot boundaries begin and end on
             // `COPY_BUFFER_ALIGNMENT`-byte (4-byte) boundaries.
             elements_per_slot,
+            storage_buffers_are_usable: true,
         }
     }
 
@@ -675,21 +681,21 @@ impl SlabItemLayout for ElementLayout {
         self.elements_per_slot
     }
 
-    fn buffer_usages(&self, render_device: &RenderDevice) -> BufferUsages {
-        self.class.buffer_usages(render_device)
+    fn buffer_usages(&self) -> BufferUsages {
+        self.class.buffer_usages(self.storage_buffers_are_usable)
     }
 }
 
 impl ElementClass {
     /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
     /// class.
-    fn buffer_usages(&self, render_device: &RenderDevice) -> BufferUsages {
+    fn buffer_usages(&self, storage_buffers_are_usable: bool) -> BufferUsages {
         match *self {
             ElementClass::Metadata => {
-                if crate::storage_buffers_are_unsupported(&render_device.limits()) {
-                    BufferUsages::UNIFORM
-                } else {
+                if storage_buffers_are_usable {
                     BufferUsages::STORAGE
+                } else {
+                    BufferUsages::UNIFORM
                 }
             }
             ElementClass::Vertex => BufferUsages::VERTEX,

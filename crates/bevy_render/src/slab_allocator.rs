@@ -120,7 +120,7 @@ pub trait SlabItemLayout: Clone + PartialEq + Eq + Hash {
     ///
     /// `BufferUsages::COPY_DST` and `BufferUsages::COPY_SRC` are always
     /// included, regardless of what you specify here.
-    fn buffer_usages(&self, device: &RenderDevice) -> BufferUsages;
+    fn buffer_usages(&self) -> BufferUsages;
 }
 
 /// Internal helper methods for [`SlabItemLayout`]s.
@@ -818,7 +818,7 @@ where
 
         let buffer_usages = BufferUsages::COPY_SRC
             | BufferUsages::COPY_DST
-            | slab.element_layout.buffer_usages(render_device)
+            | slab.element_layout.buffer_usages()
             | self.extra_buffer_usages;
 
         // Create the buffer.
@@ -979,9 +979,7 @@ where
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
-                let buffer_usages = large_object_slab
-                    .element_layout
-                    .buffer_usages(render_device)
+                let buffer_usages = large_object_slab.element_layout.buffer_usages()
                     | BufferUsages::COPY_DST
                     | self.extra_buffer_usages;
                 let buffer = render_device.create_buffer(&BufferDescriptor {
