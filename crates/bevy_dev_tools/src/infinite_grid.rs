@@ -488,8 +488,8 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Greater,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Greater),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
