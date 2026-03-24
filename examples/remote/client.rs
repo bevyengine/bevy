@@ -45,9 +45,9 @@ fn main() -> AnyhowResult<()> {
     let host_part2 = format!("{DEFAULT_ADDR}:{DEFAULT_RENDER_PORT}");
     let url2 = format!("http://{host_part2}/");
 
-    run_transform_only_query(&url)?;
-    run_query_root_entities(&url)?;
-    run_query_all_components_and_entities(&url)?;
+    run_transform_only_query(&url2)?;
+    run_query_root_entities(&url2)?;
+    run_query_all_components_and_entities(&url2)?;
 
     Ok(())
 }
