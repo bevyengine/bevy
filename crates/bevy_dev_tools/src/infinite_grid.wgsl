@@ -1,4 +1,5 @@
 #import bevy_render::view::View
+#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
 struct InfiniteGridPosition {
     planar_rotation_matrix: mat3x3<f32>,
@@ -23,30 +24,11 @@ struct InfiniteGridSettings {
 @group(1) @binding(0) var<uniform> grid_position: InfiniteGridPosition;
 @group(1) @binding(1) var<uniform> grid_settings: InfiniteGridSettings;
 
-// Same as view_transformations::position_ndc_to_world but we can't use it since 
+// Same as view_transformations::position_ndc_to_world but we can't use it since
 // it relies on bevy's view bind group
 fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
-}
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) near_point: vec3<f32>,
-    @location(1) far_point: vec3<f32>,
-};
-
-@vertex
-fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    // fullscreen triangle, see fullscreen.wgsl for how this works
-    let uv = vec2(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
-    let clip_xy = uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
-
-    var out: VertexOutput;
-    out.clip_position = vec4(clip_xy, 0.0, 1.0);
-    out.near_point = position_ndc_to_world(vec3(clip_xy, 1.0));
-    out.far_point = position_ndc_to_world(vec3(clip_xy, 0.001));
-    return out;
 }
 
 struct FragmentOutput {
@@ -55,10 +37,15 @@ struct FragmentOutput {
 };
 
 @fragment
-fn fragment(in: VertexOutput) -> FragmentOutput {
+fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
+    // Reconstruct clip-space XY from UV, then unproject to world space
+    let clip_xy = in.uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+    let near_point = position_ndc_to_world(vec3(clip_xy, 1.0));
+    let far_point = position_ndc_to_world(vec3(clip_xy, 0.001));
+
     // Cast a ray from the near plane towards the far plane
-    let ray_origin = in.near_point;
-    let ray_direction = normalize(in.far_point - in.near_point);
+    let ray_origin = near_point;
+    let ray_direction = normalize(far_point - near_point);
     let plane_normal = grid_position.normal;
     let plane_origin = grid_position.origin;
 

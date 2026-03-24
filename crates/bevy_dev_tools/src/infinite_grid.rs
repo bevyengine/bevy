@@ -10,7 +10,10 @@ use bevy_camera::{
     visibility::{self, NoFrustumCulling, VisibilityClass},
 };
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::{Transparent3d, TransparentSortingInfo3d};
+use bevy_core_pipeline::{
+    core_3d::{Transparent3d, TransparentSortingInfo3d},
+    FullscreenShader,
+};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -33,7 +36,7 @@ use bevy_render::{
         BindGroupLayoutEntries, BlendState, ColorTargetState, ColorWrites, CompareFunction,
         DepthStencilState, DynamicUniformBuffer, FragmentState, MultisampleState, PipelineCache,
         PrimitiveState, RenderPipelineDescriptor, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, VertexState,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, SyncToRenderWorld},
@@ -203,51 +206,40 @@ struct InfiniteGridBindGroup {
 }
 
 #[derive(Component)]
-struct GridViewBindGroup {
+struct ViewBindGroup {
     value: BindGroup,
 }
 
-struct SetGridViewBindGroup<const I: usize>;
+struct DrawInfiniteGridCommand;
 
-impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetGridViewBindGroup<I> {
-    type Param = ();
-    type ViewQuery = (Read<ViewUniformOffset>, Read<GridViewBindGroup>);
-    type ItemQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        (view_uniform, bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
-        _entity: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(I, &bind_group.value, &[view_uniform.offset]);
-        RenderCommandResult::Success
-    }
-}
-
-struct SetInfiniteGridBindGroup<const I: usize>;
-
-impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetInfiniteGridBindGroup<I> {
+impl<P: PhaseItem> RenderCommand<P> for DrawInfiniteGridCommand {
     type Param = SRes<InfiniteGridBindGroup>;
-    type ViewQuery = Option<Read<PerCameraSettingsUniformOffset>>;
+    type ViewQuery = (
+        Read<ViewUniformOffset>,
+        Read<ViewBindGroup>,
+        Option<Read<PerCameraSettingsUniformOffset>>,
+    );
     type ItemQuery = Read<InfiniteGridUniformOffsets>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        camera_settings_offset: ROQueryItem<'w, '_, Self::ViewQuery>,
-        base_offsets: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
+        (view_uniform, view_bind_group, camera_settings_offset): ROQueryItem<
+            'w,
+            '_,
+            Self::ViewQuery,
+        >,
+        maybe_base_offsets: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(base_offsets) = base_offsets else {
+        let Some(base_offsets) = maybe_base_offsets else {
             bevy_log::warn!("InfiniteGridUniformOffsets missing");
             return RenderCommandResult::Skip;
         };
+        pass.set_bind_group(0, &view_bind_group.value, &[view_uniform.offset]);
         pass.set_bind_group(
-            I,
+            1,
             &bind_group.into_inner().value,
             &[
                 base_offsets.position_offset,
@@ -256,36 +248,12 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetInfiniteGridBindGroup
                     .unwrap_or(base_offsets.settings_offset),
             ],
         );
-        RenderCommandResult::Success
-    }
-}
-
-struct FinishDrawInfiniteGrid;
-
-impl<P: PhaseItem> RenderCommand<P> for FinishDrawInfiniteGrid {
-    type Param = ();
-    type ViewQuery = ();
-    type ItemQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
-        _entity: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
         pass.draw(0..3, 0..1);
         RenderCommandResult::Success
     }
 }
 
-type DrawInfiniteGrid = (
-    SetItemPipeline,
-    SetGridViewBindGroup<0>,
-    SetInfiniteGridBindGroup<1>,
-    FinishDrawInfiniteGrid,
-);
+type DrawInfiniteGrid = (SetItemPipeline, DrawInfiniteGridCommand);
 
 fn prepare_grid_view_bind_groups(
     mut commands: Commands,
@@ -304,7 +272,7 @@ fn prepare_grid_view_bind_groups(
             );
             commands
                 .entity(entity)
-                .insert(GridViewBindGroup { value: bind_group });
+                .insert(ViewBindGroup { value: bind_group });
         }
     }
 }
@@ -480,6 +448,7 @@ struct InfiniteGridPipeline {
     view_layout: BindGroupLayoutDescriptor,
     infinite_grid_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
 }
 
 impl FromWorld for InfiniteGridPipeline {
@@ -502,11 +471,13 @@ impl FromWorld for InfiniteGridPipeline {
             ),
         );
         let shader = load_embedded_asset!(world.resource::<AssetServer>(), "infinite_grid.wgsl");
+        let fullscreen_shader = world.resource::<FullscreenShader>().clone();
 
         Self {
             view_layout,
             infinite_grid_layout,
             shader,
+            fullscreen_shader,
         }
     }
 }
@@ -530,10 +501,7 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
         RenderPipelineDescriptor {
             label: Some("infinite_grid_render_pipeline".into()),
             layout: vec![self.view_layout.clone(), self.infinite_grid_layout.clone()],
-            vertex: VertexState {
-                shader: self.shader.clone(),
-                ..Default::default()
-            },
+            vertex: self.fullscreen_shader.to_vertex_state(),
             primitive: PrimitiveState {
                 cull_mode: None,
                 ..Default::default()
