@@ -325,6 +325,7 @@ pub fn prepare_windows(
                 };
                 window.set_swapchain_texture(frame);
             }
+            wgpu::CurrentSurfaceTexture::Occluded => {}
             other => {
                 bevy_log::error!("Couldn't get swap chain texture: {other:?}");
             }
