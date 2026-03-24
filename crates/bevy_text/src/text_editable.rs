@@ -108,6 +108,7 @@ pub struct EditableText {
     /// Cursor width, relative to font size
     pub cursor_width: f32,
     /// Maximum number of characters the text input can contain.
+    ///
     /// Edits which would cause the length to exceed the maximum are ignored.
     /// Does not stop setting a string longer than the maximum using `set_text`.
     pub max_characters: Option<usize>,
