@@ -27,7 +27,7 @@ impl crate::Measure for TextInputMeasure {
     fn measure(&mut self, measure_args: crate::MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
         let x = measure_args
             .width
-            .unwrap_or_else(|| match measure_args.available_width {
+            .unwrap_or(match measure_args.available_width {
                 crate::AvailableSpace::Definite(x) => x,
                 crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
             });
