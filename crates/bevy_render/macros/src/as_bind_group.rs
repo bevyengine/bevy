@@ -1112,7 +1112,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 match #actual_bindless_slot_count {
                     Some(bindless_slot_count) => {
                         let bindless_index_table_range = #bindless_index_table_range;
-                        let used_resource_types: &[#render_path::render_resource::BindlessResourceType] = &[
+                        let used_resource_types = &[
                             #(#bindless_resource_types),*
                         ];
                         #bind_group_layout_entries.extend(

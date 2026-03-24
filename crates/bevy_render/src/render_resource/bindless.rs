@@ -245,57 +245,49 @@ pub fn create_bindless_bind_group_layout_entries(
         .build(*bindless_index_table_binding_number, stages),
     ];
 
-    // binding arrays only for types that this material uses
-    // Specifically Metal where each binding array uses the buffer slot (limited to 31)
+    // Create binding arrays only for types that this material uses.
+    // This is important for platforms like Metal where each binding array uses a buffer slot
+    // (limited to 31 per the Metal Feature Set Tables:
+    // https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)
     for &(resource_type, ref binding_number) in BINDING_NUMBERS.iter() {
         if !used_resource_types.contains(&resource_type) {
             continue;
         }
-        let entry = match resource_type {
-            BindlessResourceType::SamplerFiltering => sampler(SamplerBindingType::Filtering)
-                .count(bindless_slab_resource_limit)
-                .build(**binding_number, stages),
-            BindlessResourceType::SamplerNonFiltering => sampler(SamplerBindingType::NonFiltering)
-                .count(bindless_slab_resource_limit)
-                .build(**binding_number, stages),
-            BindlessResourceType::SamplerComparison => sampler(SamplerBindingType::Comparison)
-                .count(bindless_slab_resource_limit)
-                .build(**binding_number, stages),
+        let Some(binding_type) = (match resource_type {
+            BindlessResourceType::SamplerFiltering => Some(sampler(SamplerBindingType::Filtering)),
+            BindlessResourceType::SamplerNonFiltering => {
+                Some(sampler(SamplerBindingType::NonFiltering))
+            }
+            BindlessResourceType::SamplerComparison => Some(sampler(SamplerBindingType::Comparison)),
             BindlessResourceType::Texture1d => {
-                texture_1d(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_1d(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::Texture2d => {
-                texture_2d(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_2d(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::Texture2dArray => {
-                texture_2d_array(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_2d_array(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::Texture3d => {
-                texture_3d(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_3d(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::TextureCube => {
-                texture_cube(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_cube(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::TextureCubeArray => {
-                texture_cube_array(TextureSampleType::Float { filterable: true })
-                    .count(bindless_slab_resource_limit)
-                    .build(**binding_number, stages)
+                Some(texture_cube_array(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::None
             | BindlessResourceType::Buffer
-            | BindlessResourceType::DataBuffer => continue,
+            | BindlessResourceType::DataBuffer => None,
+        }) else {
+            continue;
         };
-        entries.push(entry);
+        entries.push(
+            binding_type
+                .count(bindless_slab_resource_limit)
+                .build(**binding_number, stages),
+        );
     }
 
     entries
