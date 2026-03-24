@@ -1,5 +1,5 @@
 use core::hash::BuildHasher;
-use std::time::Duration;
+use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
