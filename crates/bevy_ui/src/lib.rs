@@ -73,7 +73,6 @@ pub mod prelude {
     };
 }
 
-use crate::widget::update_editable_text_content_size;
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
