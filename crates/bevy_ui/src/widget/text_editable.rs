@@ -211,9 +211,9 @@ pub fn editable_text_system(
             }
 
             if editable_text.cursor_blink_period / 2 < *cursor_timer {
-                info.cursor = None;
-            } else {
                 info.cursor = geom.map(bounding_box_to_rect);
+            } else {
+                info.cursor = None;
             }
 
             info.selection_rects = editable_text
