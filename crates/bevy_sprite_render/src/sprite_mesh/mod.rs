@@ -38,25 +38,21 @@ fn add_mesh(
     mut quad: Local<Option<Handle<Mesh>>>,
     mut commands: Commands,
 ) {
-    if quad.is_none() {
-        *quad = Some(
-            meshes.add(
-                Rectangle::from_size(vec2(1.0, 1.0))
-                    .mesh()
-                    .build()
-                    .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
-                    .compressed_mesh(
-                        MeshAttributeCompressionFlags::COMPRESS_POSITION
-                            | MeshAttributeCompressionFlags::COMPRESS_UV0,
-                        true,
-                    ),
-            ),
-        );
-    }
+    let quad = quad.get_or_insert_with(|| {
+        meshes.add(
+            Rectangle::from_size(vec2(1.0, 1.0))
+                .mesh()
+                .build()
+                .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
+                .compressed_mesh(
+                    MeshAttributeCompressionFlags::COMPRESS_POSITION
+                        | MeshAttributeCompressionFlags::COMPRESS_UV0,
+                    true,
+                ),
+        )
+    });
     for entity in sprites {
-        if let Some(quad) = quad.clone() {
-            commands.entity(entity).insert(Mesh2d(quad));
-        }
+        commands.entity(entity).insert(Mesh2d(quad.clone()));
     }
 }
 
