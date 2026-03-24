@@ -649,7 +649,7 @@ impl MeshAllocator {
         self.copy_element_data(
             mesh_id,
             mesh.get_vertex_buffer_size(),
-            |slice| mesh.write_packed_vertex_buffer_data_write_only(slice),
+            |slice| mesh.write_packed_vertex_buffer_data(slice),
             slab_id,
             render_device,
             render_queue,
