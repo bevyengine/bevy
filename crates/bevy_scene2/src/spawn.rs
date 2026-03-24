@@ -6,7 +6,7 @@ use bevy_platform::collections::HashMap;
 use tracing::error;
 
 /// Adds scene spawning functionality to [`World`].
-pub trait WorldScenes {
+pub trait WorldSceneExt {
     /// Spawns the given [`Scene`] immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
@@ -177,7 +177,7 @@ pub trait WorldScenes {
     fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
 
-impl WorldScenes for World {
+impl WorldSceneExt for World {
     fn spawn_scene<S: Scene>(&mut self, scene: S) -> Result<EntityWorldMut<'_>, SpawnSceneError> {
         let assets = self.resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
@@ -213,7 +213,7 @@ impl WorldScenes for World {
 }
 
 /// Adds scene spawning functionality to [`Commands`].
-pub trait CommandsSpawnScene {
+pub trait CommandsSceneExt {
     /// Spawns the given [`Scene`] as soon as [`Commands`] are applied. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
@@ -317,7 +317,6 @@ pub trait CommandsSpawnScene {
     ///     )
     /// });
     /// ```
-    // PERF: ideally this is an iterator
     fn spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 
     /// Queues the `scene_list` to be spawned. This will evaluate the `scene_list`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved
@@ -355,7 +354,7 @@ pub trait CommandsSpawnScene {
     fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
 
-impl<'w, 's> CommandsSpawnScene for Commands<'w, 's> {
+impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
     fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_> {
         let mut entity_commands = self.spawn_empty();
         let id = entity_commands.id();
@@ -396,7 +395,7 @@ impl<'w, 's> CommandsSpawnScene for Commands<'w, 's> {
 }
 
 /// Adds scene functionality to [`EntityWorldMut`].
-pub trait EntityWorldMutScenes {
+pub trait EntityWorldMutSceneExt {
     /// Spawns a [`SceneList`], where each entity is related to the current entity using [`RelationshipTarget::Relationship`].
     ///
     /// This will evaluate the `scene_list`'s dependencies (via [`SceneList::register_dependencies`]) and queue it to be resolved
@@ -459,7 +458,7 @@ pub trait EntityWorldMutScenes {
     fn queue_apply_scene<S: Scene>(&mut self, scene: S);
 }
 
-impl EntityWorldMutScenes for EntityWorldMut<'_> {
+impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
     fn queue_spawn_related_scenes<T: RelationshipTarget>(mut self, scenes: impl SceneList) -> Self {
         let assets = self.resource::<AssetServer>();
         let patch = SceneListPatch::load(assets, scenes);
@@ -497,7 +496,7 @@ impl EntityWorldMutScenes for EntityWorldMut<'_> {
 }
 
 /// Adds scene functionality to [`EntityWorldMut`].
-pub trait EntityCommandsScenes {
+pub trait EntityCommandsSceneExt {
     /// Spawns a [`SceneList`], where each entity is related to the current entity using [`RelationshipTarget::Relationship`].
     ///
     /// This will evaluate the `scene_list`'s dependencies (via [`SceneList::register_dependencies`]) and queue it to be resolved
@@ -558,7 +557,7 @@ pub trait EntityCommandsScenes {
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 }
 
-impl EntityCommandsScenes for EntityCommands<'_> {
+impl EntityCommandsSceneExt for EntityCommands<'_> {
     fn queue_spawn_related_scenes<T: RelationshipTarget>(
         &mut self,
         scenes: impl SceneList,
