@@ -18,8 +18,8 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
-    CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
-    ValidateShader,
+    CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderCompiler,
+    ShaderDefVal, ShaderLanguage, ValidateShader,
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
@@ -113,22 +113,11 @@ impl LayoutCache {
     }
 }
 
-fn load_module(
+fn create_shader_module(
     render_device: &RenderDevice,
-    shader_source: ShaderCacheSource,
+    shader_source: ShaderSource<'_>,
     validate_shader: &ValidateShader,
 ) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
-    let shader_source = match shader_source {
-        #[cfg(feature = "shader_format_spirv")]
-        ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
-        #[cfg(not(feature = "shader_format_spirv"))]
-        ShaderCacheSource::SpirV(_) => {
-            unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
-        }
-        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
-        #[cfg(not(feature = "decoupled_naga"))]
-        ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
-    };
     let module_descriptor = ShaderModuleDescriptor {
         label: None,
         source: shader_source,
@@ -163,6 +152,35 @@ fn load_module(
     }
 
     Ok(shader_module)
+}
+
+fn load_module(
+    render_device: &RenderDevice,
+    shader_source: ShaderCacheSource,
+    validate_shader: &ValidateShader,
+) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
+    match shader_source {
+        #[cfg(feature = "shader_format_spirv")]
+        ShaderCacheSource::SpirV(data) => {
+            let spirv_source = wgpu::util::make_spirv(&data);
+            create_shader_module(render_device, spirv_source, validate_shader)
+        }
+        #[cfg(not(feature = "shader_format_spirv"))]
+        ShaderCacheSource::SpirV(_) => {
+            unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+        }
+        ShaderCacheSource::Wgsl(src) => create_shader_module(
+            render_device,
+            ShaderSource::Wgsl(Cow::Owned(src)),
+            validate_shader,
+        ),
+        #[cfg(not(feature = "decoupled_naga"))]
+        ShaderCacheSource::Naga(src) => create_shader_module(
+            render_device,
+            ShaderSource::Naga(Cow::Owned(src)),
+            validate_shader,
+        ),
+    }
 }
 
 #[derive(Default)]
@@ -266,6 +284,20 @@ impl PipelineCache {
             synchronous_pipeline_compilation,
             needs_shader_reload: true,
         }
+    }
+
+    /// Register a shader compiler for a specific shader language.
+    pub fn register_shader_compiler<Compiler>(
+        &mut self,
+        language: ShaderLanguage,
+        compiler: Compiler,
+    ) where
+        Compiler: ShaderCompiler,
+    {
+        self.shader_cache
+            .lock()
+            .unwrap()
+            .register_compiler(language, compiler);
     }
 
     /// Get the state of a cached render pipeline.
@@ -688,20 +720,18 @@ impl PipelineCache {
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
-                // Shader could not be processed ... retrying won't help
-                ShaderCacheError::ProcessShaderError(err) => {
-                    let error_detail =
-                        err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
+                ShaderCacheError::CreateShaderModule(description) => {
+                    error!("failed to create shader module: {}", description);
+                    return;
+                }
+                ShaderCacheError::CompileError(description) => {
+                    let description = mem::take(description);
                     if std::env::var("VERBOSE_SHADER_ERROR")
                         .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
                         error!("{}", pipeline_error_context(cached_pipeline));
                     }
-                    error!("failed to process shader error:\n{}", error_detail);
-                    return;
-                }
-                ShaderCacheError::CreateShaderModule(description) => {
-                    error!("failed to create shader module: {}", description);
+                    error!("failed to compile shader:\n{}", description);
                     return;
                 }
             },
