@@ -5,7 +5,7 @@
 //! that includes e.g. a background, border, and text label.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::css::{DARK_GREY, YELLOW};
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputDispatchPlugin, InputFocus,
@@ -86,6 +86,7 @@ fn setup(
         .spawn((
             Node {
                 display: Display::Flex,
+                align_items: AlignItems::Start,
                 ..default()
             },
             TabGroup::new(0),
@@ -140,12 +141,8 @@ fn build_input_text(
     let outer = commands
         .spawn((
             Node {
-                border: UiRect {
-                    left: px(5),
-                    right: px(5),
-                    top: px(5),
-                    bottom: px(5),
-                },
+                border: px(5).all(),
+                padding: px(5).all(),
                 ..Default::default()
             },
             BorderColor::from(Color::from(YELLOW)),
@@ -160,7 +157,6 @@ fn build_input_text(
         .spawn((
             Node {
                 width: px(200),
-                height: px(100),
                 ..Default::default()
             },
             Name::new(if is_left { "Left" } else { "Right" }),
@@ -175,10 +171,7 @@ fn build_input_text(
             },
             TextCursorStyle::default(),
             TabIndex(if is_left { 0 } else { 1 }),
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(10.0),
-                y: Val::Px(10.0),
-            }),
+            BackgroundColor(DARK_GREY.into()),
         ))
         .id();
 
