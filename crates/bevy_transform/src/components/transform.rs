@@ -672,7 +672,7 @@ impl Mul<Vec3> for Transform {
 )]
 pub struct TransformTreeChanged;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serialize"))]
 mod tests {
     use super::*;
     use ron;
