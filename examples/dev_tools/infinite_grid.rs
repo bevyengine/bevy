@@ -48,13 +48,21 @@ fn setup_system(
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(standard_materials.add(StandardMaterial::default())),
+        MeshMaterial3d(
+            standard_materials.add(StandardMaterial::from_color(Color::srgba(
+                1.0, 1.0, 1.0, 0.5,
+            ))),
+        ),
         Transform::from_xyz(0.0, 2.0, 0.0),
     ));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(standard_materials.add(StandardMaterial::default())),
+        MeshMaterial3d(
+            standard_materials.add(StandardMaterial::from_color(Color::srgba(
+                1.0, 1.0, 1.0, 0.5,
+            ))),
+        ),
         Transform::from_xyz(0.0, -2.0, 0.0),
     ));
 }
