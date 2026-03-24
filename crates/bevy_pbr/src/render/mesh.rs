@@ -547,6 +547,7 @@ pub struct MeshUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// The index of the mesh metadata buffer.
     pub metadata_index: u32,
 }
 
@@ -3964,7 +3965,7 @@ fn prepare_mesh_bind_groups_for_phase(
 
     for metadata_slab_id in mesh_allocator
         .metadata_slabs()
-        .map(|id| Some(id))
+        .map(Some)
         .chain(iter::once(None))
     {
         let metadata_buffer = if let Some(metadata_slab_id) = metadata_slab_id {

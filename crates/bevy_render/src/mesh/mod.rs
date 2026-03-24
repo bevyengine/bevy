@@ -63,6 +63,7 @@ impl Plugin for MeshRenderAssetPlugin {
 }
 
 /// Per mesh metadata, stored in [`crate::mesh::allocator::MeshAllocator`].
+/// Currently this is used to decompress vertex.
 #[derive(Default, Pod, Zeroable, Clone, Copy, Debug, ShaderType)]
 #[repr(C)]
 pub struct MeshMetadata {

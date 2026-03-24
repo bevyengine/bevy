@@ -14,5 +14,6 @@ struct Mesh2d {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     tag: u32,
+    /// The index of the mesh metadata buffer.
     metadata_index: u32,
 };

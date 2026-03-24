@@ -356,11 +356,7 @@ impl CachedRenderPipelinePhaseItem for Stencil3d {
 }
 
 impl GetBatchData for StencilPipeline {
-    type Param = (
-        SRes<RenderMeshInstances>,
-        SRes<RenderAssets<RenderMesh>>,
-        SRes<MeshAllocator>,
-    );
+    type Param = (SRes<RenderMeshInstances>, SRes<MeshAllocator>);
     // Placing `AssetId<Mesh>` in the batch set compare data prevents Bevy from
     // trying to multi-draw items with different meshes together. This is fine
     // for this simple example.
@@ -369,7 +365,7 @@ impl GetBatchData for StencilPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(
         Self::BufferData,
@@ -388,6 +384,10 @@ impl GetBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id())
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+
         let mesh_uniform = MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
@@ -396,7 +396,7 @@ impl GetBatchData for StencilPipeline {
             None,
             None,
             Some(mesh_instance.tag()),
-            meshes.get(mesh_instance.mesh_asset_id()),
+            metadata_index,
         );
         Some((mesh_uniform, None))
     }
@@ -406,7 +406,7 @@ impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<(
         NonMaxU32,
@@ -430,7 +430,7 @@ impl GetFullBatchData for StencilPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -445,6 +445,9 @@ impl GetFullBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id())
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -453,8 +456,8 @@ impl GetFullBatchData for StencilPipeline {
             None,
             None,
             None,
-            None,
-            None,
+            Some(mesh_instance.tag()),
+            metadata_index,
         ))
     }
 

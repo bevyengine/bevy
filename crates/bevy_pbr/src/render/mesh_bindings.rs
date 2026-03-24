@@ -48,7 +48,7 @@ mod layout_entry {
             .visibility(ShaderStages::VERTEX_FRAGMENT)
     }
     pub(super) fn metadata(limits: &WgpuLimits) -> BindGroupLayoutEntryBuilder {
-        if bevy_render::storage_buffers_are_unsupported(&limits) {
+        if bevy_render::storage_buffers_are_unsupported(limits) {
             uniform_buffer_sized(false, BufferSize::new(size_of::<MeshMetadata>() as u64))
         } else {
             storage_buffer_read_only::<MeshMetadata>(false)

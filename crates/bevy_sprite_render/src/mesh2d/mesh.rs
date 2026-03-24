@@ -787,7 +787,7 @@ pub fn prepare_mesh2d_bind_group(
     };
     for metadata_slab_id in mesh_allocator
         .metadata_slabs()
-        .map(|id| Some(id))
+        .map(Some)
         .chain(core::iter::once(None))
     {
         let metadata_buffer = if let Some(metadata_slab_id) = metadata_slab_id {
@@ -912,7 +912,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         };
 
         let Some(bind_group) = &mesh_allocator
-            .mesh_slabs(&mesh_asset_id)
+            .mesh_slabs(mesh_asset_id)
             .map(|slabs| slabs.metadata_slab_id)
             .and_then(|metadata_slab_id| mesh2d_bind_group.value.get(&metadata_slab_id))
         else {

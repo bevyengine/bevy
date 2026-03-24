@@ -136,7 +136,7 @@ pub struct MeshSlabs {
 }
 
 impl Slab<MeshSlabItem> {
-    /// Returns the type of buffer that this is: vertex, index, or morph target.
+    /// Returns the type of buffer that this is: vertex, index, metadata or morph target.
     pub fn element_class(&self) -> ElementClass {
         self.element_layout().class
     }
@@ -422,7 +422,7 @@ impl MeshAllocator {
             }
 
             // Allocate metadata.
-            if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(|uv| uv.is_some()) {
+            if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(Option::is_some) {
                 if crate::storage_buffers_are_unsupported(&render_device.limits()) {
                     allocation_stage.allocate_large(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
