@@ -41,7 +41,7 @@ use bevy_mesh::{
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
 use bevy_render::impl_atomic_pod;
-use bevy_render::mesh::allocator::{MeshSlabs, SlabId};
+use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
 };
@@ -3641,7 +3641,7 @@ pub enum MeshMorphTargetBindGroups {
 
     /// Maps a morph target slab ID that the mesh allocator manages to the bind
     /// groups for morph displacements in that slab.
-    Storage(HashMap<SlabId, MeshMorphTargetStorageBindGroups>),
+    Storage(HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>),
 }
 
 /// The bind groups associated with a single morph displacements slab.
@@ -3793,7 +3793,7 @@ pub enum MeshMorphBindGroupKey {
     ///
     /// In this case, there's a bind group per morph displacement slab (managed
     /// by the mesh allocator).
-    Storage(SlabId),
+    Storage(MeshSlabId),
 }
 
 /// Creates the per-mesh bind groups for each type of mesh and each phase.
@@ -4068,7 +4068,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
-    morph_target_storage_bind_groups: &mut HashMap<SlabId, MeshMorphTargetStorageBindGroups>,
+    morph_target_storage_bind_groups: &mut HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>,
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     let weights = weights_uniform

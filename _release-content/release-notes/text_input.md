@@ -1,7 +1,7 @@
 ---
 title: "Text input"
 authors: ["@ickshonpe", "@Zeophlite", "@alice-i-cecile"]
-pull_requests: [23282, 23455]
+pull_requests: [23282, 23455, 23475]
 ---
 
 Entering text into an application is a common task, even for games.
@@ -14,6 +14,7 @@ Our initial text entry supports:
 - Press keys on your keyboard, get text (wow!)
 - A cursor that can be moved forward and back in response to the left and right arrow keys
 - Selection rectangles (hold shift)
+- Pointer support, click to place the cursor and drag to extend selection
 - Backspace and Delete
 - Unicode-aware navigation and editing: 1 byte/char != 1 character
 - Bidirectional text support, allowing both left-to-right and right-to-left scripts
