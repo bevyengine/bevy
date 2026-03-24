@@ -27,7 +27,7 @@ use bevy_ecs::{
     query::With,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Query, Res, ResMut, Single},
 };
 use bevy_input::{mouse::MouseButton, ButtonInput};
@@ -70,8 +70,17 @@ struct TransformGizmoGroup;
 /// Only one entity should carry this at a time. If multiple entities have it,
 /// the gizmo picks the first one returned by the query.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[component(storage = "SparseSet")]
 #[reflect(Component, Default)]
 pub struct TransformGizmoFocus;
+
+/// Marker component for the camera the transform gizmo should use.
+///
+/// If no camera has this component, the gizmo systems will silently do nothing.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[component(storage = "SparseSet")]
+#[reflect(Component, Default)]
+pub struct TransformGizmoCamera;
 
 /// Which manipulation mode the gizmo is in.
 #[derive(Resource, Default, PartialEq, Eq, Clone, Copy, Debug, Reflect)]
@@ -181,6 +190,15 @@ impl Default for TransformGizmoConfig {
     }
 }
 
+/// System set for the transform gizmo. All transform gizmo systems run in [`Update`] within this set.
+///
+/// Add a run condition to control when the gizmo is active:
+/// ```ignore
+/// app.configure_sets(Update, TransformGizmoSystems.run_if(in_state(AppState::Editor)));
+/// ```
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct TransformGizmoSystems;
+
 /// Opt-in plugin that adds the interactive transform gizmo.
 ///
 /// Add this alongside your camera and mark entities with [`TransformGizmoFocus`]
@@ -201,6 +219,7 @@ impl Plugin for TransformGizmoPlugin {
             .register_type::<TransformGizmoDragState>()
             .register_type::<TransformGizmoHoverState>()
             .register_type::<TransformGizmoConfig>()
+            .register_type::<TransformGizmoCamera>()
             .add_systems(Startup, configure_transform_gizmo_group)
             .add_systems(
                 Update,
@@ -210,7 +229,8 @@ impl Plugin for TransformGizmoPlugin {
                     transform_gizmo_drag,
                     transform_gizmo_draw,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(TransformGizmoSystems),
             );
     }
 }
@@ -236,7 +256,7 @@ fn sync_transform_gizmo_config(
 
 fn transform_gizmo_hover(
     focus: Option<Single<&GlobalTransform, With<TransformGizmoFocus>>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Option<Single<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>>,
     window: Single<&Window, With<PrimaryWindow>>,
     mode: Res<TransformGizmoMode>,
     space: Res<TransformGizmoSpace>,
@@ -251,6 +271,9 @@ fn transform_gizmo_hover(
     }
 
     let Some(global_tf) = focus else {
+        return;
+    };
+    let Some(camera) = camera else {
         return;
     };
     let (camera, cam_tf) = *camera;
@@ -315,7 +338,7 @@ fn transform_gizmo_hover(
 
 fn transform_gizmo_drag(
     mut focus_query: Query<(Entity, &GlobalTransform, &mut Transform), With<TransformGizmoFocus>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Option<Single<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>>,
     primary_window: Single<(&Window, &mut CursorOptions), With<PrimaryWindow>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mode: Res<TransformGizmoMode>,
@@ -324,6 +347,9 @@ fn transform_gizmo_drag(
     hover: Res<TransformGizmoHoverState>,
     mut drag_state: ResMut<TransformGizmoDragState>,
 ) {
+    let Some(camera) = camera else {
+        return;
+    };
     let (camera, cam_tf) = *camera;
     let (window, mut cursor_opts) = primary_window.into_inner();
     let Some(cursor_pos) = window.cursor_position() else {
@@ -458,7 +484,7 @@ fn transform_gizmo_drag(
 fn transform_gizmo_draw(
     mut gizmos: Gizmos<TransformGizmoGroup>,
     focus: Option<Single<&GlobalTransform, With<TransformGizmoFocus>>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Option<Single<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>>,
     mode: Res<TransformGizmoMode>,
     space: Res<TransformGizmoSpace>,
     config: Res<TransformGizmoConfig>,
@@ -466,6 +492,9 @@ fn transform_gizmo_draw(
     drag_state: Res<TransformGizmoDragState>,
 ) {
     let Some(global_tf) = focus else {
+        return;
+    };
+    let Some(camera) = camera else {
         return;
     };
 

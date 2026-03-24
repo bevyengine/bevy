@@ -8,7 +8,8 @@
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     gizmos::transform_gizmo::{
-        TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin, TransformGizmoSpace,
+        TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin,
+        TransformGizmoSpace,
     },
     picking::Pickable,
     prelude::*,
@@ -95,6 +96,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
+        TransformGizmoCamera,
     ));
 }
 

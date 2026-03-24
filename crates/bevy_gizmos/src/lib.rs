@@ -68,9 +68,9 @@ pub mod prelude {
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         transform_gizmo::{
-            TransformGizmoAxis, TransformGizmoConfig, TransformGizmoDragState, TransformGizmoFocus,
-            TransformGizmoHoverState, TransformGizmoMode, TransformGizmoPlugin,
-            TransformGizmoSpace,
+            TransformGizmoAxis, TransformGizmoCamera, TransformGizmoConfig,
+            TransformGizmoDragState, TransformGizmoFocus, TransformGizmoHoverState,
+            TransformGizmoMode, TransformGizmoPlugin, TransformGizmoSpace, TransformGizmoSystems,
         },
         AppGizmoBuilder, GizmoAsset,
     };
