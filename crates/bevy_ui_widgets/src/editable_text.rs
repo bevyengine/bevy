@@ -10,9 +10,14 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::ButtonInput;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::{FocusedInput, InputFocus};
+use bevy_picking::events::{Drag, Pointer, Press};
+use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
-use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
+use bevy_ui::{
+    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
+    UiGlobalTransform, UiScale,
+};
 
 const NONE: u8 = 0;
 const SUPER: u8 = 1;
@@ -125,6 +130,89 @@ fn on_focused_keyboard_input(
     keyboard_input.propagate(should_propagate);
 }
 
+/// System that processes pointer press events into text edit actions for [`EditableText`] widgets.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
+fn on_pointer_press(
+    mut press: On<Pointer<Press>>,
+    mut text_input_query: Query<(
+        &mut EditableText,
+        &ComputedNode,
+        &ComputedUiRenderTargetInfo,
+        &UiGlobalTransform,
+    )>,
+    keys: Res<ButtonInput<Key>>,
+    mut input_focus: ResMut<InputFocus>,
+    ui_scale: Res<UiScale>,
+) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
+
+    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(press.entity)
+    else {
+        return;
+    };
+
+    let Some(local_pos) = transform.try_inverse().map(|inverse| {
+        inverse
+            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
+            + 0.5 * node.size()
+    }) else {
+        return;
+    };
+
+    editable_text
+        .pending_edits
+        .push(if keys.pressed(Key::Shift) {
+            TextEdit::ShiftClickExtension
+        } else {
+            TextEdit::MoveToPoint
+        }(local_pos));
+
+    input_focus.set(press.entity);
+
+    press.propagate(false);
+}
+
+/// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
+fn on_pointer_drag(
+    mut drag: On<Pointer<Drag>>,
+    mut text_input_query: Query<(
+        &mut EditableText,
+        &ComputedNode,
+        &ComputedUiRenderTargetInfo,
+        &UiGlobalTransform,
+    )>,
+    ui_scale: Res<UiScale>,
+) {
+    if drag.button != PointerButton::Primary {
+        return;
+    }
+
+    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(drag.entity)
+    else {
+        return;
+    };
+
+    let Some(local_pos) = transform.try_inverse().map(|inverse| {
+        inverse
+            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
+            + 0.5 * node.size()
+    }) else {
+        return;
+    };
+
+    editable_text
+        .pending_edits
+        .push(TextEdit::ExtendSelectionToPoint(local_pos));
+    drag.propagate(false);
+}
+
 /// Enables support for the [`EditableText`] widget.
 ///
 /// Contains the systems and observers necessary to update widget state and handle user input.
@@ -138,7 +226,9 @@ pub struct EditableTextInputPlugin;
 
 impl Plugin for EditableTextInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(on_focused_keyboard_input);
+        app.add_observer(on_focused_keyboard_input)
+            .add_observer(on_pointer_drag)
+            .add_observer(on_pointer_press);
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.

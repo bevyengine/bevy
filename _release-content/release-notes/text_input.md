@@ -1,7 +1,7 @@
 ---
 title: "Text input"
 authors: ["@ickshonpe", "@Zeophlite", "@alice-i-cecile"]
-pull_requests: [23282, 23455, 23479]
+pull_requests: [23282, 23455, 23475, 23479]
 ---
 
 Entering text into an application is a common task, even for games.
@@ -15,6 +15,7 @@ Our initial text entry supports:
 - Navigation using the arrow keys and standard keyboard shortcuts.
 - Selection rectangles (hold shift)
 - Backspace and Delete, both for single characters and words.
+- Pointer support, click to place the cursor and drag to extend selection
 - Unicode-aware navigation and editing: 1 byte/char != 1 character
 - Bidirectional text support, allowing both left-to-right and right-to-left scripts
 - Placeholder clipboard implementation using a `Clipboard` resource. It can't access the OS clipboard, but allows local copy, cut and paste actions to be used inside a bevy app.
