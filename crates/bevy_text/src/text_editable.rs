@@ -107,7 +107,7 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
-    /// Set height of input in number of lines
+    /// Sets the input’s height in number of visible lines.
     pub visible_lines: Option<f32>,
 }
 
