@@ -2,8 +2,10 @@
 //!
 //! This module provides an opt-in transform gizmo that renders visual handles on a
 //! focused entity, allowing the user to click-and-drag to translate, rotate, or scale
-//! it. The plugin does **not** handle keyboard input — users set [`TransformGizmoMode`]
-//! as a resource however they like (keyboard shortcuts, UI buttons, gamepad, etc.).
+//! it.
+//!
+//! The plugin does **not** handle user input — users should modify
+//! the [`TransformGizmoMode`] resource in response to input such as keyboard shortcuts, UI buttons, gamepad, etc.
 //!
 //! # Quick start
 //!
