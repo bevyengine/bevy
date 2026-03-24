@@ -69,6 +69,8 @@
 // because doing so allows us to process `EditableText` in the various systems provided by `bevy_text`
 // and `bevy_ui`, such as text layout and font management.
 
+use std::time::Duration;
+
 use crate::{
     text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont,
     TextLayout,
@@ -107,6 +109,8 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
+    /// Cursor blink period in seconds.
+    pub cursor_blink_period: Duration,
 }
 
 impl Default for EditableText {
@@ -116,6 +120,7 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: Vec::new(),
             cursor_width: 0.2,
+            cursor_blink_period: Duration::from_secs(1),
         }
     }
 }
