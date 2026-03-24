@@ -59,7 +59,7 @@ use crate::{
         GetFullBatchData,
     },
     render_resource::{GpuArrayBufferIndex, PipelineCache},
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_ecs::{
     prelude::*,
@@ -1024,9 +1024,9 @@ where
         };
 
         render_app
-            .init_resource::<ViewBinnedRenderPhases<BPI>>()
+            .init_gpu_resource::<ViewBinnedRenderPhases<BPI>>()
             .allow_ambiguous_resource::<ViewBinnedRenderPhases<BPI>>()
-            .init_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
+            .init_gpu_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<BPI>::new(
                 self.debug_flags
                     .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
@@ -1139,9 +1139,9 @@ where
         };
 
         render_app
-            .init_resource::<ViewSortedRenderPhases<SPI>>()
+            .init_gpu_resource::<ViewSortedRenderPhases<SPI>>()
             .allow_ambiguous_resource::<ViewSortedRenderPhases<SPI>>()
-            .init_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
+            .init_gpu_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<SPI>::new(
                 self.debug_flags
                     .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),

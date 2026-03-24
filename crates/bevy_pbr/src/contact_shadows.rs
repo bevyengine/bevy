@@ -18,7 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponent,
     view::ExtractedView,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::default;
 
@@ -107,7 +107,7 @@ impl Plugin for ContactShadowsPlugin {
         };
 
         render_app
-            .init_resource::<ContactShadowsBuffer>()
+            .init_gpu_resource::<ContactShadowsBuffer>()
             .add_systems(
                 Render,
                 prepare_contact_shadows_settings.in_set(RenderSystems::PrepareResources),

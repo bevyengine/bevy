@@ -5,7 +5,7 @@
 //! variant of the returned `Result`.
 //!
 //! All [`BevyError`]s returned by a system, observer or command are handled by an "error handler". By default, the
-//! [`panic`] error handler function is used, resulting in a panic with the error message attached.
+//! [`match_severity`] error handler function is used, which defers to an error's [`Severity`].
 //!
 //! You can change the default behavior by registering a custom error handler:
 //! Use [`DefaultErrorHandler`] to set a custom error handler function for a world,
@@ -15,6 +15,7 @@
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
 //!
+//! - [`match_severity`] defers to an error's [`Severity`], using one of the handlers listed below.
 //! - [`panic`] – panics with the system error
 //! - [`error`] – logs the system error at the `error` level
 //! - [`warn`] – logs the system error at the `warn` level
