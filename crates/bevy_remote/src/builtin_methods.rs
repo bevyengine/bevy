@@ -2109,7 +2109,6 @@ mod tests {
         let res = schedule_graph(In(Some(params)), &mut world);
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
-        println!("res3 = {:?}", res3);
 
         assert_eq!(res3.systemsets.len(), 6);
         assert_eq!(res3.hierarchy_nodes.len(), 10);
