@@ -12,6 +12,7 @@ mod color_space;
 mod gradient;
 mod pipeline;
 mod render_pass;
+mod text;
 pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
@@ -77,7 +78,9 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::{shader_flags::INVERT, utils::pack_uv};
+use crate::shader_flags::INVERT;
+use crate::text::extract_text_cursor;
+use crate::utils::pack_uv;
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -112,6 +115,8 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
+    pub const TEXT_SELECTION: f32 = 0.08;
+    pub const TEXT_CURSOR: f32 = 0.085;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -126,6 +131,7 @@ pub enum RenderUiSystems {
     ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
+    ExtractCursor,
     ExtractDebug,
     ExtractGradient,
 }
@@ -223,6 +229,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractTextBackgrounds,
                     RenderUiSystems::ExtractTextShadows,
                     RenderUiSystems::ExtractText,
+                    RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
                     .chain(),
@@ -239,6 +246,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -1074,7 +1082,13 @@ pub fn extract_text_shadows(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.section_index].entity;
+            let Some(section_entity) = computed_block
+                .entities()
+                .get(run.section_index)
+                .map(|t| t.entity)
+            else {
+                continue;
+            };
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
                 continue;
@@ -1184,7 +1198,13 @@ pub fn extract_text_decorations(
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.section_index].entity;
+            let Some(section_entity) = computed_block
+                .entities()
+                .get(run.section_index)
+                .map(|t| t.entity)
+            else {
+                continue;
+            };
             let Ok((
                 (text_background_color, maybe_strikethrough, maybe_underline),
                 text_color,

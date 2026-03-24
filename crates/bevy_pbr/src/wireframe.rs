@@ -35,7 +35,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs},
+        allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -138,7 +138,7 @@ impl Plugin for WireframePlugin {
         // we need storage for vertex pulling in the wide wireframe path
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::STORAGE;
 
         render_app
@@ -1432,7 +1432,10 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
