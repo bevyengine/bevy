@@ -1,7 +1,7 @@
 //! Demonstrates capping Bevy's frame rate in the `winit` event loop.
 //!
-//! Press space to toggle the limiter, up and down to change the target FPS, and V to toggle
-//! VSync. The on-screen text shows the requested limit alongside the measured smoothed FPS.
+//! Press space to toggle the limiter and up and down to change the target FPS.
+//! The on-screen text shows the requested limit alongside the measured smoothed FPS.
 
 use bevy::{
     color::palettes::basic::{LIME, YELLOW},
@@ -48,7 +48,6 @@ fn main() {
 struct FrameLimiterSettings {
     enabled: bool,
     max_fps: u16,
-    vsync: bool,
 }
 
 impl Default for FrameLimiterSettings {
@@ -56,7 +55,6 @@ impl Default for FrameLimiterSettings {
         Self {
             enabled: true,
             max_fps: DEFAULT_FPS,
-            vsync: false,
         }
     }
 }
@@ -70,27 +68,11 @@ impl FrameLimiterSettings {
         }
     }
 
-    fn present_mode(&self) -> PresentMode {
-        if self.vsync {
-            PresentMode::AutoVsync
-        } else {
-            PresentMode::AutoNoVsync
-        }
-    }
-
     fn limiter_label(&self) -> String {
         if self.enabled {
             format!("capped at {} FPS", self.max_fps)
         } else {
             "uncapped".to_string()
-        }
-    }
-
-    fn vsync_label(&self) -> &'static str {
-        if self.vsync {
-            "VSync on"
-        } else {
-            "VSync off"
         }
     }
 }
@@ -133,7 +115,7 @@ fn setup(
         },
         OverlayText,
         children![
-            TextSpan::new("Space: toggle limiter | Up/Down: target FPS | V: toggle vsync\n"),
+            TextSpan::new("Space: toggle limiter | Up/Down: target FPS\n"),
             (TextSpan::default(), TextColor(LIME.into())),
             (TextSpan::new("\nSmoothed FPS: "), TextColor(YELLOW.into())),
             (TextSpan::new(""), TextColor(YELLOW.into())),
@@ -152,11 +134,6 @@ fn adjust_frame_limiter(
         changed = true;
     }
 
-    if input.just_pressed(KeyCode::KeyV) {
-        settings.vsync = !settings.vsync;
-        changed = true;
-    }
-
     if input.just_pressed(KeyCode::ArrowUp) {
         settings.max_fps = (settings.max_fps + FPS_STEP).min(MAX_FPS);
         settings.enabled = true;
@@ -170,11 +147,7 @@ fn adjust_frame_limiter(
     }
 
     if changed {
-        info!(
-            "Frame limiter updated: {}, {}",
-            settings.limiter_label(),
-            settings.vsync_label()
-        );
+        info!("Frame limiter updated: {}", settings.limiter_label());
     }
 }
 
@@ -188,12 +161,7 @@ fn apply_frame_limiter(
     }
 
     *winit_settings = settings.winit_settings();
-    window.present_mode = settings.present_mode();
-    window.title = format!(
-        "Frame limiter | {} | {}",
-        settings.limiter_label(),
-        settings.vsync_label()
-    );
+    window.title = format!("Frame limiter | {}", settings.limiter_label());
 }
 
 fn rotate_cube(time: Res<Time>, mut cube_transform: Query<&mut Transform, With<Rotator>>) {
@@ -210,9 +178,8 @@ fn update_overlay(
     mut writer: TextUiWriter,
 ) {
     *writer.text(*text, 1) = format!(
-        "Mode: {} | {}",
+        "Mode: {}",
         settings.limiter_label(),
-        settings.vsync_label()
     );
 
     let fps = diagnostics
