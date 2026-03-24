@@ -1,15 +1,14 @@
 use crate::{
     ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
 };
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::AssetId;
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
 };
-use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
@@ -26,7 +25,6 @@ pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
         Query<(
             Entity,
@@ -80,7 +78,7 @@ pub fn extract_text2d_sprite(
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
@@ -122,15 +120,10 @@ pub fn extract_text2d_sprite(
                 },
             ) in text_layout_info.glyphs.iter().enumerate()
             {
-                let rect = texture_atlases
-                    .get(atlas_info.texture_atlas)
-                    .unwrap()
-                    .textures[atlas_info.location.glyph_index]
-                    .as_rect();
                 extracted_slices.slices.push(ExtractedSlice {
                     offset: *position,
-                    rect,
-                    size: rect.size(),
+                    rect: atlas_info.rect,
+                    size: atlas_info.rect.size(),
                 });
 
                 if text_layout_info
@@ -158,7 +151,7 @@ pub fn extract_text2d_sprite(
             }
 
             for run in text_layout_info.run_geometry.iter() {
-                let section_entity = computed_block.entities()[run.span_index].entity;
+                let section_entity = computed_block.entities()[run.section_index].entity;
                 let Ok((_, has_strikethrough, has_underline, _, _)) =
                     decoration_query.get(section_entity)
                 else {
@@ -214,44 +207,40 @@ pub fn extract_text2d_sprite(
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
-        let mut current_span = usize::MAX;
+        let mut current_section = usize::MAX;
 
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+                section_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            if *span_index != current_span {
+            if *section_index != current_section {
                 color = text_colors
                     .get(
                         computed_block
                             .entities()
-                            .get(*span_index)
+                            .get(*section_index)
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
-                current_span = *span_index;
+                current_section = *section_index;
             }
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_slices.slices.push(ExtractedSlice {
                 offset: *position,
-                rect,
-                size: rect.size(),
+                rect: atlas_info.rect,
+                size: atlas_info.rect.size(),
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+                info.section_index != current_section
+                    || info.atlas_info.texture != atlas_info.texture
             }) {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
@@ -273,7 +262,7 @@ pub fn extract_text2d_sprite(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let section_entity = computed_block.entities()[run.section_index].entity;
             let Ok((
                 text_color,
                 has_strike_through,

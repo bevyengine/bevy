@@ -30,6 +30,32 @@ use bevy_ui::{
 use crate::ValueChange;
 use bevy_ecs::entity::Entity;
 
+/// Controls the orientation of the slider.
+#[derive(Debug, Default, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Clone, PartialEq, Default)]
+pub enum SliderOrientation {
+    /// Automatically detect orientation based on the slider's dimensions.
+    /// If height > width, the slider is vertical; otherwise, horizontal.
+    #[default]
+    Auto,
+    /// Force horizontal orientation regardless of dimensions.
+    Horizontal,
+    /// Force vertical orientation regardless of dimensions.
+    Vertical,
+}
+
+impl SliderOrientation {
+    /// Resolve the orientation to a boolean indicating whether the slider is vertical,
+    /// using the node dimensions for auto-detection.
+    pub fn is_vertical(self, node: &ComputedNode) -> bool {
+        match self {
+            SliderOrientation::Auto => node.size().y > node.size().x,
+            SliderOrientation::Horizontal => false,
+            SliderOrientation::Vertical => true,
+        }
+    }
+}
+
 /// Defines how the slider should behave when you click on the track (not the thumb).
 #[derive(Debug, Default, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Clone, PartialEq, Default)]
@@ -50,13 +76,6 @@ pub enum TrackClick {
 ///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
-///
-/// The presence of the `on_change` property controls whether the slider uses internal or external
-/// state management. If the `on_change` property is `None`, then the slider updates its own state
-/// automatically. Otherwise, the `on_change` property contains the id of a one-shot system which is
-/// passed the new slider value. In this case, the slider value is not modified, it is the
-/// responsibility of the callback to trigger whatever data-binding mechanism is used to update the
-/// slider's value.
 ///
 /// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
 /// slider makes no assumptions about the hierarchical structure of these elements, but expects that
@@ -83,7 +102,8 @@ pub enum TrackClick {
 pub struct Slider {
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
-    // TODO: Think about whether we want a "vertical" option.
+    /// Set the slider orientation. Defaults to auto-detection based on dimensions.
+    pub orientation: SliderOrientation,
 }
 
 /// Marker component that identifies which descendant element is the slider thumb.
@@ -264,8 +284,7 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
-        // Detect orientation: vertical if height > width
-        let is_vertical = node.size().y > node.size().x;
+        let is_vertical = slider.orientation.is_vertical(node);
 
         // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
@@ -357,6 +376,7 @@ pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
     mut q_slider: Query<
         (
+            &Slider,
             &ComputedNode,
             &SliderRange,
             Option<&SliderPrecision>,
@@ -371,12 +391,12 @@ pub(crate) fn slider_on_drag(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, range, precision, transform, drag, disabled)) = q_slider.get_mut(event.entity)
+    if let Ok((slider, node, range, precision, transform, drag, disabled)) =
+        q_slider.get_mut(event.entity)
     {
         event.propagate(false);
         if drag.dragging && !disabled {
-            // Detect orientation: vertical if height > width
-            let is_vertical = node.size().y > node.size().x;
+            let is_vertical = slider.orientation.is_vertical(node);
 
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
@@ -472,8 +492,16 @@ fn slider_on_key_input(
 
 pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
+    let orientation = entity
+        .get::<Slider>()
+        .map(|s| s.orientation)
+        .unwrap_or_default();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
-        accessibility.set_orientation(Orientation::Horizontal);
+        let a11y_orientation = match orientation {
+            SliderOrientation::Vertical => Orientation::Vertical,
+            _ => Orientation::Horizontal,
+        };
+        accessibility.set_orientation(a11y_orientation);
     }
 }
 
@@ -502,7 +530,9 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
     }
 }
 
-/// An [`EntityEvent`] that can be triggered on a slider to modify its value (using the `on_change` callback).
+/// An [`EntityEvent`] that can be triggered on a slider to modify its value (it will actually trigger
+/// a [`ValueChange`] event, hooking up a corresponding change to [`SliderValue`] is still the app's responsibility,
+/// see [`slider_self_update`]).
 /// This can be used to control the slider via gamepad buttons or other inputs. The value will be
 /// clamped when the event is processed.
 ///

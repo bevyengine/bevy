@@ -161,6 +161,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -287,6 +289,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -306,11 +310,9 @@ mod tests {
         assert!(app.world().entity(scene_entity).get::<Children>().is_none());
 
         let create_dynamic_scene = |mut scene: Scene, world: &World| {
-            scene
-                .world
-                .insert_resource(world.resource::<AppTypeRegistry>().clone());
+            let type_registry = world.resource::<AppTypeRegistry>().read();
             let entities: Vec<Entity> = scene.world.query::<Entity>().iter(&scene.world).collect();
-            DynamicSceneBuilder::from_world(&scene.world)
+            DynamicSceneBuilder::from_world(&scene.world, &type_registry)
                 .extract_entities(entities.into_iter())
                 .build()
         };

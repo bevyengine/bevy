@@ -1,8 +1,9 @@
 use core::ops::Range;
 
 use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHash},
     query::With,
     system::{Local, Query, ResMut},
 };
@@ -15,11 +16,13 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     sync_world::MainEntity,
-    view::RetainedViewEntity,
+    view::{ExtractedView, RetainedViewEntity},
     Extract,
 };
+use indexmap::IndexMap;
 
 pub struct Transmissive3d {
+    pub sorting_info: TransparentSortingInfo3d,
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: (Entity, MainEntity),
@@ -89,8 +92,19 @@ impl SortedPhaseItem for Transmissive3d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transmissive3d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = item.sorting_info.sort_distance(&rangefinder);
+        }
     }
 
     #[inline]
@@ -121,7 +135,7 @@ pub fn extract_transmissive_camera_phases(
         // This is the main camera, so use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        transmissive_3d_phases.insert_or_clear(retained_view_entity);
+        transmissive_3d_phases.prepare_for_new_frame(retained_view_entity);
         live_entities.insert(retained_view_entity);
     }
 

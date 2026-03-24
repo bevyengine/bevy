@@ -1,6 +1,13 @@
 //! Batching functionality when GPU preprocessing is in use.
 
-use core::{any::TypeId, marker::PhantomData, mem};
+use alloc::sync::Arc;
+use core::{
+    any::TypeId,
+    marker::PhantomData,
+    mem,
+    ops::Range,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
@@ -33,14 +40,18 @@ use crate::{
         SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
-    render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
+    render_resource::{
+        AtomicPod, AtomicRawBufferVec, AtomicSparseBufferVec, Buffer, GpuArrayBufferable,
+        PipelineCache, RawBufferVec, SparseBufferUpdateBindGroups, SparseBufferUpdateJobs,
+        SparseBufferUpdatePipelines, UninitBufferVec,
+    },
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
-use super::{BatchMeta, GetBatchData, GetFullBatchData};
+use super::{BatchSetMeta, GetBatchData, GetFullBatchData};
 
 #[derive(Default)]
 pub struct BatchingPlugin {
@@ -55,17 +66,20 @@ impl Plugin for BatchingPlugin {
         };
 
         render_app
-            .insert_resource(IndirectParametersBuffers::new(
-                self.debug_flags
+            .insert_resource(IndirectParametersBuffersSettings {
+                allow_copies_from_indirect_parameter_buffers: self
+                    .debug_flags
                     .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
-            ))
+            })
+            .init_gpu_resource::<IndirectParametersBuffers>()
+            .allow_ambiguous_resource::<IndirectParametersBuffers>()
             .add_systems(
                 Render,
                 write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::PrepareViews),
             );
     }
 
@@ -74,7 +88,7 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.init_resource::<GpuPreprocessingSupport>();
+        render_app.init_gpu_resource::<GpuPreprocessingSupport>();
     }
 }
 
@@ -153,7 +167,7 @@ pub enum GpuPreprocessingMode {
 pub struct BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod + Default,
+    BDI: AtomicPod,
 {
     /// The uniform data inputs for the current frame.
     ///
@@ -167,7 +181,7 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: InstanceInputUniformBuffer<BDI>,
+    pub previous_input_buffer: PreviousInstanceInputUniformBuffer<BDI>,
 
     /// The data needed to render buffers for each phase.
     ///
@@ -179,12 +193,12 @@ where
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod + Sync + Send + Default + 'static,
+    BDI: AtomicPod,
 {
     fn default() -> Self {
         BatchedInstanceBuffers {
             current_input_buffer: InstanceInputUniformBuffer::new(),
-            previous_input_buffer: InstanceInputUniformBuffer::new(),
+            previous_input_buffer: PreviousInstanceInputUniformBuffer::new(),
             phase_instance_buffers: HashMap::default(),
         }
     }
@@ -272,10 +286,10 @@ where
 /// shader is expected to expand to the full *buffer data* type.
 pub struct InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod + Default,
+    BDI: AtomicPod,
 {
     /// The buffer containing the data that will be uploaded to the GPU.
-    buffer: RawBufferVec<BDI>,
+    buffer: AtomicSparseBufferVec<BDI>,
 
     /// Indices of slots that are free within the buffer.
     ///
@@ -286,12 +300,16 @@ where
 
 impl<BDI> InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod + Default,
+    BDI: AtomicPod,
 {
     /// Creates a new, empty buffer.
     pub fn new() -> InstanceInputUniformBuffer<BDI> {
         InstanceInputUniformBuffer {
-            buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            buffer: AtomicSparseBufferVec::new(
+                BufferUsages::STORAGE,
+                8,
+                Arc::from("instance input uniform buffer"),
+            ),
             free_uniform_indices: vec![],
         }
     }
@@ -302,9 +320,10 @@ where
         self.free_uniform_indices.clear();
     }
 
-    /// Returns the [`RawBufferVec`] corresponding to this input uniform buffer.
+    /// Returns the [`AtomicSparseBufferVec`] corresponding to this input
+    /// uniform buffer.
     #[inline]
-    pub fn buffer(&self) -> &RawBufferVec<BDI> {
+    pub fn buffer(&self) -> &AtomicSparseBufferVec<BDI> {
         &self.buffer
     }
 
@@ -313,10 +332,10 @@ where
     pub fn add(&mut self, element: BDI) -> u32 {
         match self.free_uniform_indices.pop() {
             Some(uniform_index) => {
-                self.buffer.values_mut()[uniform_index as usize] = element;
+                self.buffer.set(uniform_index, element);
                 uniform_index
             }
-            None => self.buffer.push(element) as u32,
+            None => self.buffer.push(element),
         }
     }
 
@@ -331,8 +350,7 @@ where
     ///
     /// Returns [`None`] if the index is out of bounds or the data is removed.
     pub fn get(&self, uniform_index: u32) -> Option<BDI> {
-        if (uniform_index as usize) >= self.buffer.len()
-            || self.free_uniform_indices.contains(&uniform_index)
+        if uniform_index >= self.buffer.len() || self.free_uniform_indices.contains(&uniform_index)
         {
             None
         } else {
@@ -346,15 +364,15 @@ where
     /// # Panics
     /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn get_unchecked(&self, uniform_index: u32) -> BDI {
-        self.buffer.values()[uniform_index as usize]
+        self.buffer.get(uniform_index)
     }
 
     /// Stores a piece of buffered data at the given index.
     ///
     /// # Panics
     /// if `uniform_index` is not in bounds of [`Self::buffer`].
-    pub fn set(&mut self, uniform_index: u32, element: BDI) {
-        self.buffer.values_mut()[uniform_index as usize] = element;
+    pub fn set(&self, uniform_index: u32, element: BDI) {
+        self.buffer.set(uniform_index, element);
     }
 
     // Ensures that the buffers are nonempty, which the GPU requires before an
@@ -367,7 +385,7 @@ where
 
     /// Returns the number of instances in this buffer.
     pub fn len(&self) -> usize {
-        self.buffer.len()
+        self.buffer.len() as usize
     }
 
     /// Returns true if this buffer has no instances or false if it contains any
@@ -378,14 +396,112 @@ where
 
     /// Consumes this [`InstanceInputUniformBuffer`] and returns the raw buffer
     /// ready to be uploaded to the GPU.
-    pub fn into_buffer(self) -> RawBufferVec<BDI> {
+    pub fn into_buffer(self) -> AtomicSparseBufferVec<BDI> {
         self.buffer
     }
 }
 
 impl<BDI> Default for InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod + Default,
+    BDI: AtomicPod,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Stores the input uniforms for the previous frame.
+///
+/// This doesn't use a sparse buffer because it's cleared out every frame and
+/// only ever pushed onto. The length is stored in an atomic field, so multiple
+/// threads can push simultaneously.
+///
+/// The [`AtomicRawBufferVec`] serves as a backing store only. We reserve a
+/// large size, enough to hold all push operations that could possibly occur on
+/// the worker threads, and only synchronize the changed portion of the buffer
+/// to the GPU on each frame.
+pub struct PreviousInstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
+{
+    /// The buffer containing the data that will be uploaded to the GPU.
+    buffer: AtomicRawBufferVec<BDI>,
+
+    /// The number of elements pushed since the last [`Self::reserve`].
+    atomic_len: AtomicU32,
+}
+
+impl<BDI> PreviousInstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
+{
+    /// Creates a new, empty buffer.
+    pub fn new() -> PreviousInstanceInputUniformBuffer<BDI> {
+        PreviousInstanceInputUniformBuffer {
+            buffer: AtomicRawBufferVec::with_label(
+                BufferUsages::STORAGE,
+                "previous instance input uniform buffer",
+            ),
+            atomic_len: AtomicU32::new(0),
+        }
+    }
+
+    /// Writes the buffer to the GPU.
+    fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        // `Self::ensure_nonempty` must have been called first.
+        debug_assert!(!self.buffer.is_empty());
+        // Only write the modified portion of this buffer. Typically, that
+        // portion will be much smaller than the full size of the buffer.
+        self.buffer.write_buffer_range(
+            0..(self.atomic_len.load(Ordering::Relaxed) as usize).max(1),
+            render_device,
+            render_queue,
+        );
+    }
+
+    /// Clears out the buffer in preparation for a new frame.
+    pub fn clear(&mut self) {
+        // Don't actually clear the underlying buffer out, as then we'd have to
+        // grow it again and that would be slow.
+        self.atomic_len.store(0, Ordering::Relaxed);
+    }
+
+    /// Pre-allocates capacity for concurrent [`Self::push`] calls.
+    pub fn reserve(&mut self, capacity: u32) {
+        self.buffer.grow(capacity);
+        *self.atomic_len.get_mut() = 0;
+    }
+
+    /// Appends a value and returns its index. Thread-safe.
+    ///
+    /// [`Self::reserve`] must have been called first with sufficient capacity.
+    pub fn push(&self, value: BDI) -> u32 {
+        let index = self.atomic_len.fetch_add(1, Ordering::Relaxed);
+        debug_assert!(
+            (index as usize) < self.buffer.len() as usize,
+            "push exceeded pre-allocated capacity"
+        );
+        self.buffer.set(index, value);
+        index
+    }
+
+    /// Pushes a dummy element onto the backing store of this buffer, if this
+    /// buffer is empty.
+    pub fn ensure_nonempty(&mut self) {
+        if self.buffer.is_empty() {
+            self.buffer.push(default());
+        }
+    }
+
+    /// Returns the GPU buffer, if allocated.
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.buffer()
+    }
+}
+
+impl<BDI> Default for PreviousInstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
 {
     fn default() -> Self {
         Self::new()
@@ -782,7 +898,7 @@ pub struct IndirectBatchSet {
 /// pass can determine how many meshes are actually to be drawn.
 ///
 /// These buffers will remain empty if indirect drawing isn't in use.
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 pub struct IndirectParametersBuffers {
     /// A mapping from a phase type ID to the indirect parameters buffers for
     /// that phase.
@@ -790,22 +906,17 @@ pub struct IndirectParametersBuffers {
     /// Examples of phase type IDs are `Opaque3d` and `AlphaMask3d`.
     #[deref]
     pub buffers: TypeIdMap<UntypedPhaseIndirectParametersBuffers>,
+}
+
+/// Configuration for [`IndirectParametersBuffers`].
+#[derive(Resource)]
+pub struct IndirectParametersBuffersSettings {
     /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
     /// that they can be read back to CPU.
     ///
     /// This is a debugging feature that may reduce performance. It primarily
     /// exists for the `occlusion_culling` example.
     pub allow_copies_from_indirect_parameter_buffers: bool,
-}
-
-impl IndirectParametersBuffers {
-    /// Initializes a new [`IndirectParametersBuffers`] resource.
-    pub fn new(allow_copies_from_indirect_parameter_buffers: bool) -> IndirectParametersBuffers {
-        IndirectParametersBuffers {
-            buffers: TypeIdMap::default(),
-            allow_copies_from_indirect_parameter_buffers,
-        }
-    }
 }
 
 /// The buffers containing all the information that indirect draw commands use
@@ -825,16 +936,33 @@ where
     phantom: PhantomData<PI>,
 }
 
+impl<PI> FromWorld for PhaseIndirectParametersBuffers<PI>
+where
+    PI: PhaseItem,
+{
+    fn from_world(world: &mut World) -> Self {
+        let settings = world.resource::<IndirectParametersBuffersSettings>();
+        PhaseIndirectParametersBuffers {
+            buffers: UntypedPhaseIndirectParametersBuffers::new(
+                settings.allow_copies_from_indirect_parameter_buffers,
+            ),
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl<PI> PhaseIndirectParametersBuffers<PI>
 where
     PI: PhaseItem,
 {
-    pub fn new(allow_copies_from_indirect_parameter_buffers: bool) -> Self {
-        PhaseIndirectParametersBuffers {
-            buffers: UntypedPhaseIndirectParametersBuffers::new(
-                allow_copies_from_indirect_parameter_buffers,
-            ),
-            phantom: PhantomData,
+    /// Allocates a single set of indirect parameters in the appropriate buffer.
+    fn allocate(&mut self, no_indirect_drawing: bool, item_is_indexed: bool) -> Option<u32> {
+        if no_indirect_drawing {
+            None
+        } else if item_is_indexed {
+            Some(self.buffers.indexed.allocate(1))
+        } else {
+            Some(self.buffers.non_indexed.allocate(1))
         }
     }
 }
@@ -1083,14 +1211,6 @@ where
     }
 }
 
-impl Default for IndirectParametersBuffers {
-    fn default() -> Self {
-        // By default, we don't allow GPU indirect parameter mapping, since
-        // that's a debugging option.
-        Self::new(false)
-    }
-}
-
 impl FromWorld for GpuPreprocessingSupport {
     fn from_world(world: &mut World) -> Self {
         let adapter = world.resource::<RenderAdapter>();
@@ -1109,7 +1229,9 @@ impl FromWorld for GpuPreprocessingSupport {
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
         // Depth downsampling for occlusion culling requires 12 textures
+        // and the early occlusion culling pass requires 10 storage buffers
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
+            device.limits().max_storage_buffers_per_shader_stage >= 10 &&
             // Even if the adapter supports compute, we might be simulating a lack of
             // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
             // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
@@ -1147,7 +1269,7 @@ impl FromWorld for GpuPreprocessingSupport {
 impl<BD, BDI> BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod + Sync + Send + Default + 'static,
+    BDI: AtomicPod,
 {
     /// Creates new buffers.
     pub fn new() -> Self {
@@ -1211,9 +1333,9 @@ where
     }
 }
 
-/// Information about a render batch that we're building up during a sorted
-/// render phase.
-struct SortedRenderBatch<F>
+/// Information about a single render batch set that we're building up during a
+/// sorted render phase.
+struct SortedRenderBatchSet<F>
 where
     F: GetBatchData,
 {
@@ -1231,16 +1353,16 @@ where
     /// [`IndirectParametersBuffers`].
     ///
     /// If CPU culling is being used, then this will be `None`.
-    indirect_parameters_index: Option<NonMaxU32>,
+    indirect_parameters_index_range: Option<Range<u32>>,
 
     /// Metadata that can be used to determine whether an instance can be placed
     /// into this batch.
     ///
     /// If `None`, the item inside is unbatchable.
-    meta: Option<BatchMeta<F::CompareData>>,
+    meta: Option<(BatchSetMeta<F::BatchSetCompareData>, F::BatchCompareData)>,
 }
 
-impl<F> SortedRenderBatch<F>
+impl<F> SortedRenderBatchSet<F>
 where
     F: GetBatchData,
 {
@@ -1260,17 +1382,18 @@ where
         let (batch_range, batch_extra_index) =
             phase.items[self.phase_item_start_index as usize].batch_range_and_extra_index_mut();
         *batch_range = self.instance_start_index..instance_end_index;
-        *batch_extra_index = match self.indirect_parameters_index {
-            Some(indirect_parameters_index) => PhaseItemExtraIndex::IndirectParametersIndex {
-                range: u32::from(indirect_parameters_index)
-                    ..(u32::from(indirect_parameters_index) + 1),
-                batch_set_index: None,
-            },
+        *batch_extra_index = match self.indirect_parameters_index_range {
+            Some(ref indirect_parameters_index_range) => {
+                PhaseItemExtraIndex::IndirectParametersIndex {
+                    range: (*indirect_parameters_index_range).clone(),
+                    batch_set_index: None,
+                }
+            }
             None => PhaseItemExtraIndex::None,
         };
-        if let Some(indirect_parameters_index) = self.indirect_parameters_index {
+        if let Some(ref indirect_parameters_index_range) = self.indirect_parameters_index_range {
             phase_indirect_parameters_buffers
-                .add_batch_set(self.indexed, indirect_parameters_index.into());
+                .add_batch_set(self.indexed, indirect_parameters_index_range.start);
         }
     }
 }
@@ -1371,7 +1494,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         );
 
         // Walk through the list of phase items, building up batches as we go.
-        let mut batch: Option<SortedRenderBatch<GFBD>> = None;
+        let mut batch_set: Option<SortedRenderBatchSet<GFBD>> = None;
 
         for current_index in 0..phase.items.len() {
             // Get the index of the input data, and comparison metadata, for
@@ -1388,8 +1511,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // If the index isn't present the item is not part of this pipeline and so will be skipped.
             let Some((current_input_index, current_meta)) = current_batch_input_index else {
                 // Break a batch if we need to.
-                if let Some(batch) = batch.take() {
-                    batch.flush(
+                if let Some(batch_set) = batch_set.take() {
+                    batch_set.flush(
                         data_buffer.len() as u32,
                         phase,
                         &mut phase_indirect_parameters_buffers.buffers,
@@ -1398,85 +1521,124 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
                 continue;
             };
-            let current_meta =
-                current_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
+            let current_meta = current_meta.map(|(batch_set_meta, batch_meta)| {
+                (
+                    BatchSetMeta::new(&phase.items[current_index], batch_set_meta),
+                    batch_meta,
+                )
+            });
 
             // Determine if this entity can be included in the batch we're
             // building up.
-            let can_batch = batch.as_ref().is_some_and(|batch| {
-                // `None` for metadata indicates that the items are unbatchable.
-                match (&current_meta, &batch.meta) {
-                    (Some(current_meta), Some(batch_meta)) => current_meta == batch_meta,
-                    (_, _) => false,
-                }
-            });
+            let can_batch = match batch_set.as_ref() {
+                None => SortedPhaseItemBatchability::BreakBatchSet,
+                Some(batch_set) => match (&current_meta, &batch_set.meta) {
+                    (
+                        &Some((ref current_batch_set_key, ref current_bin_key)),
+                        &Some((ref batch_set_key, ref bin_key)),
+                    ) => {
+                        if *current_batch_set_key == *batch_set_key {
+                            if *current_bin_key == *bin_key {
+                                SortedPhaseItemBatchability::BatchOk
+                            } else {
+                                SortedPhaseItemBatchability::BreakBatch
+                            }
+                        } else {
+                            SortedPhaseItemBatchability::BreakBatchSet
+                        }
+                    }
+                    _ => SortedPhaseItemBatchability::BreakBatchSet,
+                },
+            };
 
             // Make space in the data buffer for this instance.
             let output_index = data_buffer.add() as u32;
 
-            // If we can't batch, break the existing batch and make a new one.
-            if !can_batch {
-                // Break a batch if we need to.
-                if let Some(batch) = batch.take() {
-                    batch.flush(
-                        output_index,
-                        phase,
-                        &mut phase_indirect_parameters_buffers.buffers,
-                    );
+            // If we can't batch, break the existing batch or batch set and make
+            // a new one.
+            match can_batch {
+                SortedPhaseItemBatchability::BreakBatchSet => {
+                    // Flush the existing batch set.
+                    if let Some(batch_set) = batch_set.take() {
+                        batch_set.flush(
+                            output_index,
+                            phase,
+                            &mut phase_indirect_parameters_buffers.buffers,
+                        );
+                    }
+
+                    let indirect_parameters_index = phase_indirect_parameters_buffers
+                        .allocate(no_indirect_drawing, item_is_indexed);
+
+                    // Start a new batch.
+                    if let Some(indirect_parameters_index) = indirect_parameters_index {
+                        GFBD::write_batch_indirect_parameters_metadata(
+                            item_is_indexed,
+                            output_index,
+                            None,
+                            &mut phase_indirect_parameters_buffers.buffers,
+                            indirect_parameters_index,
+                        );
+
+                        batch_set = Some(SortedRenderBatchSet {
+                            phase_item_start_index: current_index as u32,
+                            instance_start_index: output_index,
+                            indexed: item_is_indexed,
+                            indirect_parameters_index_range: Some(
+                                indirect_parameters_index..(indirect_parameters_index + 1),
+                            ),
+                            meta: current_meta,
+                        });
+                    };
                 }
 
-                let indirect_parameters_index = if no_indirect_drawing {
-                    None
-                } else if item_is_indexed {
-                    Some(
-                        phase_indirect_parameters_buffers
-                            .buffers
-                            .indexed
-                            .allocate(1),
-                    )
-                } else {
-                    Some(
-                        phase_indirect_parameters_buffers
-                            .buffers
-                            .non_indexed
-                            .allocate(1),
-                    )
-                };
+                SortedPhaseItemBatchability::BreakBatch => {
+                    // Allocate the indirect parameters.
+                    let maybe_indirect_parameters_index = phase_indirect_parameters_buffers
+                        .allocate(no_indirect_drawing, item_is_indexed);
 
-                // Start a new batch.
-                if let Some(indirect_parameters_index) = indirect_parameters_index {
-                    GFBD::write_batch_indirect_parameters_metadata(
-                        item_is_indexed,
-                        output_index,
-                        None,
-                        &mut phase_indirect_parameters_buffers.buffers,
-                        indirect_parameters_index,
-                    );
-                };
+                    if let (&mut Some(ref mut batch_set), Some(indirect_parameters_index)) =
+                        (&mut batch_set, maybe_indirect_parameters_index)
+                    {
+                        GFBD::write_batch_indirect_parameters_metadata(
+                            item_is_indexed,
+                            output_index,
+                            None,
+                            &mut phase_indirect_parameters_buffers.buffers,
+                            indirect_parameters_index,
+                        );
 
-                batch = Some(SortedRenderBatch {
-                    phase_item_start_index: current_index as u32,
-                    instance_start_index: output_index,
-                    indexed: item_is_indexed,
-                    indirect_parameters_index: indirect_parameters_index.and_then(NonMaxU32::new),
-                    meta: current_meta,
-                });
-            }
+                        batch_set.meta = current_meta;
+
+                        let indirect_parameters_index_range = batch_set
+                            .indirect_parameters_index_range
+                            .as_mut()
+                            .expect("Can't allocate in a multidraw set if we aren't multidrawing");
+                        debug_assert_eq!(
+                            indirect_parameters_index,
+                            indirect_parameters_index_range.end
+                        );
+                        indirect_parameters_index_range.end += 1;
+                    }
+                }
+
+                SortedPhaseItemBatchability::BatchOk => {}
+            };
 
             // Add a new preprocessing work item so that the preprocessing
             // shader will copy the per-instance data over.
-            if let Some(batch) = batch.as_ref() {
+            if let Some(batch_set) = batch_set.as_ref() {
                 work_item_buffer.push(
                     item_is_indexed,
                     PreprocessWorkItem {
                         input_index: current_input_index.into(),
                         output_or_indirect_parameters_index: match (
                             no_indirect_drawing,
-                            batch.indirect_parameters_index,
+                            &batch_set.indirect_parameters_index_range,
                         ) {
                             (true, _) => output_index,
-                            (false, Some(indirect_parameters_index)) => {
-                                indirect_parameters_index.into()
+                            (false, Some(indirect_parameters_index_range)) => {
+                                indirect_parameters_index_range.end - 1
                             }
                             (false, None) => 0,
                         },
@@ -1485,15 +1647,29 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             }
         }
 
-        // Flush the final batch if necessary.
-        if let Some(batch) = batch.take() {
-            batch.flush(
+        // Flush the final batch set if necessary.
+        if let Some(batch_set) = batch_set.take() {
+            batch_set.flush(
                 data_buffer.len() as u32,
                 phase,
                 &mut phase_indirect_parameters_buffers.buffers,
             );
         }
     }
+}
+
+/// How a single sorted phase item can be batched with the previous phase item.
+#[derive(Clone, Copy, PartialEq)]
+enum SortedPhaseItemBatchability {
+    /// The item can be batched with the previous item.
+    BatchOk,
+    /// The item can't be batched with the previous item, but can still go in
+    /// the same batch set.
+    ///
+    /// That is, the item can be multi-drawn with the previous item.
+    BreakBatch,
+    /// The item needs to create a new batch set.
+    BreakBatchSet,
 }
 
 /// Creates batches for a render phase that uses bins.
@@ -1962,6 +2138,7 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    indirect_parameters_buffers_settings: Res<IndirectParametersBuffersSettings>,
 ) where
     PI: PhaseItem,
     GFBD: GetFullBatchData + Send + Sync + 'static,
@@ -1985,7 +2162,7 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
     let untyped_phase_indirect_parameters_buffers = mem::replace(
         &mut phase_indirect_parameters_buffers.buffers,
         UntypedPhaseIndirectParametersBuffers::new(
-            indirect_parameters_buffers.allow_copies_from_indirect_parameter_buffers,
+            indirect_parameters_buffers_settings.allow_copies_from_indirect_parameter_buffers,
         ),
     );
     if let Some(mut old_untyped_phase_indirect_parameters_buffers) = indirect_parameters_buffers
@@ -2004,6 +2181,10 @@ pub fn write_batched_instance_buffers<GFBD>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut sparse_buffer_update_jobs: ResMut<SparseBufferUpdateJobs>,
+    mut sparse_buffer_update_bind_groups: ResMut<SparseBufferUpdateBindGroups>,
+    sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
 ) where
     GFBD: GetFullBatchData,
 {
@@ -2021,13 +2202,11 @@ pub fn write_batched_instance_buffers<GFBD>(
             let _span = bevy_log::info_span!("write_current_input_buffers").entered();
             current_input_buffer
                 .buffer
-                .write_buffer(render_device, render_queue);
+                .write_buffers(render_device, render_queue);
         });
         scope.spawn(async {
             let _span = bevy_log::info_span!("write_previous_input_buffers").entered();
-            previous_input_buffer
-                .buffer
-                .write_buffer(render_device, render_queue);
+            previous_input_buffer.write_buffer(render_device, render_queue);
         });
 
         for phase_instance_buffers in phase_instance_buffers.values_mut() {
@@ -2081,6 +2260,16 @@ pub fn write_batched_instance_buffers<GFBD>(
             }
         }
     });
+
+    // Create the resources necessary to perform sparse uploads of the current
+    // input buffer if necessary.
+    current_input_buffer.buffer.prepare_to_populate_buffers(
+        render_device,
+        &pipeline_cache,
+        &mut sparse_buffer_update_jobs,
+        &mut sparse_buffer_update_bind_groups,
+        &sparse_buffer_update_pipelines,
+    );
 }
 
 pub fn clear_indirect_parameters_buffers(
@@ -2165,18 +2354,28 @@ pub fn write_indirect_parameters_buffers(
 
 #[cfg(test)]
 mod tests {
+    use bytemuck::{Pod, Zeroable};
+
+    use crate::impl_atomic_pod;
+
     use super::*;
+
+    #[derive(Clone, Copy, Default, PartialEq, Debug, Pod, Zeroable)]
+    #[repr(C)]
+    struct TestData(u32);
+
+    impl_atomic_pod!(TestData, TestDataBlob);
 
     #[test]
     fn instance_buffer_correct_behavior() {
         let mut instance_buffer = InstanceInputUniformBuffer::new();
 
-        let index = instance_buffer.add(2);
+        let index = instance_buffer.add(TestData(2));
         instance_buffer.remove(index);
-        assert_eq!(instance_buffer.get_unchecked(index), 2);
+        assert_eq!(instance_buffer.get_unchecked(index), TestData(2));
         assert_eq!(instance_buffer.get(index), None);
 
-        instance_buffer.add(5);
+        instance_buffer.add(TestData(5));
         assert_eq!(instance_buffer.buffer().len(), 1);
     }
 }

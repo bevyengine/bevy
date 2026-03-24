@@ -17,6 +17,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -40,7 +41,6 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::default;
 use bitflags::bitflags;
-use tracing::debug;
 
 /// The maximum number of mip levels that we can produce.
 ///

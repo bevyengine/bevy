@@ -104,9 +104,15 @@ pub enum ImageFormatSetting {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ImageArrayLayout {
     /// Interpret the image as a vertical stack of *n* images.
-    RowCount { rows: u32 },
+    RowCount {
+        /// The total number of images in the stack.
+        rows: u32,
+    },
     /// Interpret the image as a vertical stack of images, each *n* pixels tall.
-    RowHeight { pixels: u32 },
+    RowHeight {
+        /// The height of a single image in the stack.
+        pixels: u32,
+    },
 }
 
 /// Settings for loading an [`Image`] using an [`ImageLoader`].

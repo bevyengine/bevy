@@ -2,7 +2,7 @@ use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -32,8 +32,8 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
+                .init_gpu_resource::<ExtractedWindows>()
+                .init_gpu_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
@@ -41,7 +41,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::PrepareViews));
         }
     }
 }
@@ -242,9 +242,25 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
+    sorted_cameras: Res<crate::camera::SortedCameras>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
+        // Skip acquiring a swap-chain texture for windows that no camera
+        // targets. This avoids a wasted clear pass in
+        // `handle_uncovered_swap_chains` that triggers a DMA-fence fd leak on
+        // Adreno 740 (Quest 3). The exception is windows that still need their
+        // initial present (required on Wayland).
+        let is_camera_target = sorted_cameras.0.iter().any(|c| {
+            matches!(
+                &c.target,
+                Some(bevy_camera::NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+            )
+        });
+        if !is_camera_target && !window.needs_initial_present {
+            continue;
+        }
+
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
@@ -306,7 +322,7 @@ pub fn prepare_windows(
                 );
             }
             Err(err) => {
-                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+                bevy_log::error!("Couldn't get swap chain texture: {err}");
             }
         }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);

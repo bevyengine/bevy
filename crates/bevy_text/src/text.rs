@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -8,21 +8,11 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Family, Metrics, Stretch};
+use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 use tracing::warn;
-
-/// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Deref, DerefMut, Debug, Clone)]
-pub struct CosmicBuffer(pub Buffer);
-
-impl Default for CosmicBuffer {
-    fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(20.0, 20.0)))
-    }
-}
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -43,17 +33,12 @@ pub struct TextEntity {
 /// See [`TextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
-    ///
-    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) buffer: CosmicBuffer,
+    pub(crate) layout: Layout<TextBrush>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -81,10 +66,22 @@ pub struct ComputedTextBlock {
     pub(crate) uses_rem_sizes: bool,
 }
 
+impl Debug for ComputedTextBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ComputedTextBlock")
+            .field("layout", &"Layout(..)")
+            .field("entities", &self.entities)
+            .field("needs_rerender", &self.needs_rerender)
+            .field("uses_viewport_sizes", &self.uses_viewport_sizes)
+            .field("uses_rem_sizes", &self.uses_rem_sizes)
+            .finish()
+    }
+}
+
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -103,22 +100,17 @@ impl ComputedTextBlock {
             || (is_viewport_size_changed && self.uses_viewport_sizes)
             || (is_rem_size_changed && self.uses_rem_sizes)
     }
-    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
-    /// or calculating a cursor position.
-    ///
-    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
-    /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    pub fn buffer(&self) -> &CosmicBuffer {
-        &self.buffer
+
+    /// Accesses the shaped layout buffer.
+    pub fn buffer(&self) -> &Layout<TextBrush> {
+        &self.layout
     }
 }
 
 impl Default for ComputedTextBlock {
     fn default() -> Self {
         Self {
-            buffer: CosmicBuffer::default(),
+            layout: Layout::new(),
             entities: SmallVec::default(),
             needs_rerender: true,
             uses_rem_sizes: false,
@@ -196,7 +188,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, LineHeight)]
+#[require(TextFont, TextColor, LineHeight, LetterSpacing)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -206,13 +198,11 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
+impl TextSection for TextSpan {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -254,15 +244,21 @@ pub enum Justify {
     /// align with their margins.
     /// Bounds start from the render position and advance equally left & right.
     Justified,
+    /// `TextAlignment::Left` for LTR text and `TextAlignment::Right` for RTL text.
+    Start,
+    /// `TextAlignment::Left` for RTL text and `TextAlignment::Right` for LTR text.
+    End,
 }
 
-impl From<Justify> for cosmic_text::Align {
+impl From<Justify> for parley::Alignment {
     fn from(justify: Justify) -> Self {
         match justify {
-            Justify::Left => cosmic_text::Align::Left,
-            Justify::Center => cosmic_text::Align::Center,
-            Justify::Right => cosmic_text::Align::Right,
-            Justify::Justified => cosmic_text::Align::Justified,
+            Justify::Start => parley::Alignment::Start,
+            Justify::End => parley::Alignment::End,
+            Justify::Left => parley::Alignment::Left,
+            Justify::Center => parley::Alignment::Center,
+            Justify::Right => parley::Alignment::Right,
+            Justify::Justified => parley::Alignment::Justify,
         }
     }
 }
@@ -270,27 +266,18 @@ impl From<Justify> for cosmic_text::Align {
 #[derive(Clone, Debug, Reflect, PartialEq)]
 /// Determines how the font face for a text sections is selected.
 ///
-/// A `FontSource` can be a handle to a font asset, a font family name,
-/// or a generic font category that is resolved using Cosmic Text's font database.
+/// A [`FontSource`] can be a handle to a font asset, a font family name,
+/// or a generic font category that is resolved using Parley's font database.
 ///
-/// The `CosmicFontSystem` resource can be used to change the font family
-/// associated to a generic font variant:
-/// ```
-/// # use bevy_text::CosmicFontSystem;
-/// # use bevy_text::FontSource;
-/// let mut font_system = CosmicFontSystem::default();
-/// let mut font_database = font_system.db_mut();
-/// font_database.set_serif_family("Allegro");
-/// font_database.set_sans_serif_family("Encode Sans");
-/// font_database.set_cursive_family("Cedarville Cursive");
-/// font_database.set_fantasy_family("Argusho");
-/// font_database.set_monospace_family("Lucida Console");
+/// Font family fallback (selection of a font when the requested font is not found)
+/// is automatically handled by [`parley::fontique`].
+/// Be sure to enable the `parley/system` feature for automatic discovery of system fonts.
 ///
-/// // `CosmicFontSystem::get_family` can be used to look up the name
-/// // of a `FontSource`'s associated family
-/// let family_name = font_system.get_family(&FontSource::Serif).unwrap();
-/// assert_eq!(family_name.as_str(), "Allegro");
-/// ```
+/// Generally speaking, these fallbacks are OS-specific,
+/// and do not require manual configuration.
+///
+/// You can check which font family is used for a given [`FontSource`]
+/// by calling [`FontCx::get_family`](crate::FontCx::get_family).
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -327,22 +314,27 @@ pub enum FontSource {
     /// Monospace fonts are commonly used for code, tabular data, and text
     /// where vertical alignment is important.
     Monospace,
-}
-
-impl FontSource {
-    /// Returns this `FontSource` as a `fontdb` family, or `None`
-    /// if this source is a `Handle`.
-    pub(crate) fn as_family<'a>(&'a self) -> Option<Family<'a>> {
-        Some(match self {
-            FontSource::Family(family) => Family::Name(family.as_str()),
-            FontSource::Serif => Family::Serif,
-            FontSource::SansSerif => Family::SansSerif,
-            FontSource::Cursive => Family::Cursive,
-            FontSource::Fantasy => Family::Fantasy,
-            FontSource::Monospace => Family::Monospace,
-            _ => return None,
-        })
-    }
+    /// The default user interface system font.
+    SystemUi,
+    /// Alternative serif font for user interfaces.
+    UiSerif,
+    /// Alternative sans-erif font for user interfaces.
+    UiSansSerif,
+    /// Alternative monospace font for user interfaces.
+    UiMonospace,
+    /// Fonts that have rounded features.
+    UiRounded,
+    /// Fonts that are specifically designed to render emoji.
+    Emoji,
+    /// This is for the particular stylistic concerns of representing
+    /// mathematics: superscript and subscript, brackets that cross several
+    /// lines, nesting expressions, and double struck glyphs with distinct
+    /// meanings.
+    Math,
+    /// A particular style of Chinese characters that are between serif-style
+    /// Song and cursive-style Kai forms. This style is often used for
+    /// government documents.
+    FangSong,
 }
 
 impl Default for FontSource {
@@ -383,7 +375,9 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// or a generic font category that is resolved using Parley's
+    /// [`FontContext`](`parley::FontContext`) which is accessible through the
+    /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -416,6 +410,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified font weight
+    pub fn from_font_weight(weight: impl Into<FontWeight>) -> Self {
+        Self::default().with_font_weight(weight)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = FontSource::Handle(font);
@@ -437,6 +436,12 @@ impl TextFont {
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified [`FontWeight`].
+    pub fn with_font_weight(mut self, weight: impl Into<FontWeight>) -> Self {
+        self.weight = weight.into();
         self
     }
 }
@@ -638,9 +643,9 @@ impl Default for FontWeight {
     }
 }
 
-impl From<FontWeight> for cosmic_text::Weight {
+impl From<FontWeight> for parley::style::FontWeight {
     fn from(value: FontWeight) -> Self {
-        cosmic_text::Weight(value.clamp().0)
+        parley::style::FontWeight::new(value.clamp().0 as f32)
     }
 }
 
@@ -683,24 +688,24 @@ impl Default for FontWidth {
     }
 }
 
-impl From<FontWidth> for Stretch {
+impl From<FontWidth> for parley::FontWidth {
     fn from(value: FontWidth) -> Self {
         match value.0 {
-            1 => Stretch::UltraCondensed,
-            2 => Stretch::ExtraCondensed,
-            3 => Stretch::Condensed,
-            4 => Stretch::SemiCondensed,
-            6 => Stretch::SemiExpanded,
-            7 => Stretch::Expanded,
-            8 => Stretch::ExtraExpanded,
-            9 => Stretch::UltraExpanded,
-            _ => Stretch::Normal,
+            1 => parley::FontWidth::ULTRA_CONDENSED,
+            2 => parley::FontWidth::EXTRA_CONDENSED,
+            3 => parley::FontWidth::CONDENSED,
+            4 => parley::FontWidth::SEMI_CONDENSED,
+            6 => parley::FontWidth::SEMI_EXPANDED,
+            7 => parley::FontWidth::EXPANDED,
+            8 => parley::FontWidth::EXTRA_EXPANDED,
+            9 => parley::FontWidth::ULTRA_EXPANDED,
+            _ => parley::FontWidth::NORMAL,
         }
     }
 }
 
 /// The slant style of a font face: normal, italic, or oblique.
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Hash, Reflect)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
 pub enum FontStyle {
     /// A face that is neither italic nor obliqued.
     #[default]
@@ -708,15 +713,17 @@ pub enum FontStyle {
     /// A form that is generally cursive in nature.
     Italic,
     /// A typically sloped version of the regular face.
-    Oblique,
+    ///
+    /// The contained f32 is the slant angle of the text, in degrees.
+    Oblique(Option<f32>),
 }
 
-impl From<FontStyle> for cosmic_text::Style {
+impl From<FontStyle> for parley::FontStyle {
     fn from(value: FontStyle) -> Self {
         match value {
-            FontStyle::Normal => cosmic_text::Style::Normal,
-            FontStyle::Italic => cosmic_text::Style::Italic,
-            FontStyle::Oblique => cosmic_text::Style::Oblique,
+            FontStyle::Normal => parley::FontStyle::Normal,
+            FontStyle::Italic => parley::FontStyle::Italic,
+            FontStyle::Oblique(value) => parley::FontStyle::Oblique(value),
         }
     }
 }
@@ -760,7 +767,7 @@ impl FontFeatureTag {
     pub const ORDINALS: FontFeatureTag = FontFeatureTag::new(b"ordn");
 
     /// Uses a slashed version of zero (0) to differentiate from O.
-    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"ordn");
+    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"zero");
 
     /// Replaces figures with superscript figures, e.g. for indicating footnotes.
     pub const SUPERSCRIPT: FontFeatureTag = FontFeatureTag::new(b"sups");
@@ -891,18 +898,18 @@ where
     }
 }
 
-impl From<&FontFeatures> for cosmic_text::FontFeatures {
+impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
     fn from(font_features: &FontFeatures) -> Self {
-        cosmic_text::FontFeatures {
-            features: font_features
+        parley::style::FontSettings::List(
+            font_features
                 .features
                 .iter()
-                .map(|(tag, value)| cosmic_text::Feature {
-                    tag: cosmic_text::FeatureTag::new(&tag.0),
-                    value: *value,
+                .map(|(tag, value)| FontFeature {
+                    tag: u32::from_be_bytes(tag.0),
+                    value: *value as u16,
                 })
                 .collect(),
-        }
+        )
     }
 }
 
@@ -918,9 +925,46 @@ pub enum LineHeight {
     RelativeToFont(f32),
 }
 
+impl LineHeight {
+    /// eval a line height
+    pub fn eval(self) -> parley::LineHeight {
+        match self {
+            LineHeight::Px(px) => parley::LineHeight::Absolute(px),
+            LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
+        }
+    }
+}
+
 impl Default for LineHeight {
     fn default() -> Self {
         LineHeight::RelativeToFont(1.2)
+    }
+}
+
+/// Specifies the space between each letter of text for `Text` and `Text2d`
+///
+/// Default is 0
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub enum LetterSpacing {
+    /// Set letter spacing to a specific number of logical pixels
+    Px(f32),
+    /// Set letter spacing to a multiple of the font size
+    Rem(f32),
+}
+
+impl LetterSpacing {
+    pub(crate) fn eval(self, rem_size: f32) -> f32 {
+        match self {
+            LetterSpacing::Px(px) => px,
+            LetterSpacing::Rem(rem) => rem * rem_size,
+        }
+    }
+}
+
+impl Default for LetterSpacing {
+    fn default() -> Self {
+        Self::Px(0.0)
     }
 }
 
@@ -1060,22 +1104,41 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
+#[derive(Component, Debug, Copy, Clone, Default, Reflect, PartialEq, Hash, Eq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+/// Font hinting strategy, which controls the rasterization for fonts.
+///
+/// Font hinting specializes the vector outlines to make them more clearer / more legible at a specific font size.
+/// It is particularly noticeable with small text and low resolutions.
+pub enum FontHinting {
+    #[default]
+    /// Glyphs are rasterized without hinting.
+    Disabled,
+    /// Glyphs are rasterized with hinting.
+    Enabled,
+}
+
+impl FontHinting {
+    /// Returns true if font hinting is enabled.
+    pub fn is_enabled(self) -> bool {
+        matches!(self, FontHinting::Enabled)
+    }
+}
+
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
+/// Does not check root text components (e.g. `Text`/`Text2d`) for changes. Their systems must handle change detection.
+pub fn detect_text_needs_rerender(
     changed_roots: Query<
         Entity,
         (
             Or<(
-                Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
             )>,
-            With<Root>,
             With<TextFont>,
             With<TextLayout>,
         ),
@@ -1087,6 +1150,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
@@ -1108,8 +1172,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
+            once!(warn!("found entity {} with a root text component but no ComputedTextBlock; this warning only \
+                prints once", root));
             continue;
         };
         computed.needs_rerender = true;
@@ -1122,16 +1186,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
+                text entities; this warning only prints once",
+                entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
+                with a root text component; this warning only prints once",
+                entity
             ));
             continue;
         };
@@ -1160,39 +1223,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
-                    entity,
-                    core::any::type_name::<Root>()
+                    component; this warning only prints once",
+                    entity
                 ));
                 break;
             };
             parent = next_child_of.parent();
-        }
-    }
-}
-
-#[derive(Component, Debug, Copy, Clone, Default, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, Clone, PartialEq)]
-/// Font hinting strategy.
-///
-/// The text bounds can underflow or overflow slightly with `FontHinting::Enabled`.
-///
-/// <https://docs.rs/cosmic-text/latest/cosmic_text/enum.Hinting.html>
-pub enum FontHinting {
-    #[default]
-    /// Glyphs will have subpixel coordinates.
-    Disabled,
-    /// Glyphs will be snapped to integral coordinates in the X-axis during layout.
-    ///
-    /// The text bounds can underflow or overflow slightly with this enabled.
-    Enabled,
-}
-
-impl From<FontHinting> for cosmic_text::Hinting {
-    fn from(value: FontHinting) -> Self {
-        match value {
-            FontHinting::Disabled => cosmic_text::Hinting::Disabled,
-            FontHinting::Enabled => cosmic_text::Hinting::Enabled,
         }
     }
 }

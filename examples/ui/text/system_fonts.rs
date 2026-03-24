@@ -1,9 +1,8 @@
 //! This example displays a scrollable list of all available system fonts.
-//! Demonstrates loading and querying system fonts via cosmic-text.
+//! Demonstrates querying system fonts via `FontCx`.
 
 use bevy::{
-    diagnostic::FrameTimeDiagnosticsPlugin, input::mouse::MouseScrollUnit, prelude::*,
-    text::CosmicFontSystem,
+    diagnostic::FrameTimeDiagnosticsPlugin, input::mouse::MouseScrollUnit, prelude::*, text::FontCx,
 };
 
 fn main() {
@@ -11,15 +10,20 @@ fn main() {
     app.add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup);
 
-    app.world_mut()
-        .resource_mut::<CosmicFontSystem>()
-        .db_mut()
-        .load_system_fonts();
-
     app.run();
 }
 
-fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
+fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
+    let mut families: Vec<String> = font_system
+        .0
+        .collection
+        .family_names()
+        .map(ToOwned::to_owned)
+        .collect();
+    families.sort_unstable();
+    families.dedup();
+    let family_count = families.len();
+
     commands.spawn(Camera2d);
 
     commands
@@ -34,10 +38,10 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
             },
             BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         ))
-        .with_children(|builder| {
+        .with_children(move |builder| {
             builder.spawn(Text::new(format!(
                 "Total available fonts: {}",
-                font_system.db().len(),
+                family_count,
             )));
 
             builder
@@ -49,20 +53,12 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    let mut families: Vec<(String, String)> = Vec::new();
-                    for face in font_system.db().faces() {
-                        for (name, lang) in &face.families {
-                            families.push((name.to_string(), lang.to_string()));
-                        }
-                    }
-                    families.sort_unstable();
-                    families.dedup();
-                    for (family, language) in families {
+                    for family in families {
+                        let font = FontSource::Family(family.clone().into());
                         builder.spawn((
                             Node {
                                 display: Display::Grid,
                                 grid_template_columns: vec![
-                                    GridTrack::flex(1.),
                                     GridTrack::flex(1.),
                                     GridTrack::flex(1.),
                                 ],
@@ -74,21 +70,10 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                             children![
                                 (
                                     Text::new(&family),
-                                    TextFont {
-                                        font: FontSource::Family(family.as_str().into()),
-                                        ..default()
-                                    },
+                                    TextFont { font, ..default() },
                                     TextLayout::new_with_no_wrap()
                                 ),
                                 (Text::new(family), TextLayout::new_with_no_wrap()),
-                                (
-                                    Text::new(language),
-                                    TextLayout::new_with_no_wrap(),
-                                    Node {
-                                        justify_self: JustifySelf::End,
-                                        ..default()
-                                    }
-                                )
                             ],
                         ));
                     }

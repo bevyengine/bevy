@@ -22,6 +22,8 @@ use bevy_ecs::{
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -471,11 +473,18 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
+    /// of the same type.
+    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.insert_non_send(resource)
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
-    /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
-    /// resources that implement [`Default`]
+    /// There is also an [`init_non_send`](Self::init_non_send) for [`!Send`](Send) data
+    /// that implement [`Default`]
     ///
     /// # Examples
     ///
@@ -488,20 +497,26 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
+    ///     .insert_non_send(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+    pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world_mut().insert_non_send(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.init_non_send::<R>()
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.
     ///
     /// `R` must implement [`FromWorld`].
     /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
     /// initialize the [`Resource`] with [`Default::default`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
+    pub fn init_non_send<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.world_mut().init_non_send::<R>();
         self
     }
 
@@ -637,7 +652,7 @@ impl App {
     }
 
     /// Registers the type `T` in the [`AppTypeRegistry`] resource,
-    /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
+    /// adding reflect data as specified in the [`Reflect`] derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
@@ -653,7 +668,7 @@ impl App {
     /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
-    /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
+    /// type you derived [`Reflect`] for. However, in cases where you want to
     /// add a piece of type data that was not included in the list of `#[reflect(...)]` type data in
     /// the derive, or where the type is generic and cannot register e.g. `ReflectSerialize`
     /// unconditionally without knowing the specific type parameters, this method can be used to
@@ -672,10 +687,7 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<
-        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
-        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
-    >(
+    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
         &mut self,
     ) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
@@ -1473,6 +1485,11 @@ fn run_once(mut app: App) -> AppExit {
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
 #[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone, Message)
+)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1961,7 +1978,7 @@ mod tests {
         }
 
         App::new()
-            .init_non_send_resource::<NonSendTestResource>()
+            .init_non_send::<NonSendTestResource>()
             .init_resource::<TestResource>();
     }
 

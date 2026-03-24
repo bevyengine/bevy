@@ -21,7 +21,7 @@ use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
 
-use bevy_text::CosmicFontSystem;
+use bevy_text::FontCx;
 
 mod convert;
 pub mod debug;
@@ -92,7 +92,7 @@ pub fn ui_layout_system(
         Option<&IgnoreScroll>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
@@ -361,7 +361,7 @@ mod tests {
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
@@ -378,6 +378,7 @@ mod tests {
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
+        app.add_plugins(TaskPoolPlugin::default());
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
@@ -388,8 +389,8 @@ mod tests {
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
-        app.init_resource::<bevy_text::CosmicFontSystem>();
-        app.init_resource::<bevy_text::SwashCache>();
+        app.init_resource::<bevy_text::FontCx>();
+        app.init_resource::<bevy_text::ScaleCx>();
         app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
         app.add_systems(
@@ -1095,9 +1096,9 @@ mod tests {
 
         world.init_resource::<bevy_text::TextPipeline>();
 
-        world.init_resource::<bevy_text::CosmicFontSystem>();
+        world.init_resource::<bevy_text::FontCx>();
 
-        world.init_resource::<bevy_text::SwashCache>();
+        world.init_resource::<bevy_text::ScaleCx>();
 
         let ui_root = world
             .spawn(Node {
@@ -1137,7 +1138,7 @@ mod tests {
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
             mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
-            mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+            mut font_system: ResMut<bevy_text::FontCx>,
         ) {
             ui_surface.upsert_node(
                 &LayoutContext::TEST_CONTEXT,
@@ -1214,6 +1215,15 @@ mod tests {
             4
         );
 
+        // Should be two viewport nodes tracked in the root to viewport node map.
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            2
+        );
+
         // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
         // UI root entity.
         world
@@ -1230,5 +1240,18 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+
+        // The entry for `ui_root_entity_2` should have been removed from `root_entity_to_viewport_node`
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            1
+        );
+        assert!(world
+            .resource_mut::<UiSurface>()
+            .root_entity_to_viewport_node
+            .contains_key(&ui_root_entity_1));
     }
 }

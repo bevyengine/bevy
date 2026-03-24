@@ -1,5 +1,5 @@
 use bevy_asset::{Assets, Handle, RenderAssetUsages};
-use bevy_camera::visibility::Visibility;
+use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
 use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
@@ -9,6 +9,8 @@ use bevy_transform::components::Transform;
 use wgpu_types::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
+
+use crate::cluster::ClusterVisibilityClass;
 
 /// A marker component for a light probe, which is a cuboid region that provides
 /// global illumination to all fragments inside it.
@@ -67,7 +69,8 @@ use wgpu_types::{
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(Transform, Visibility)]
+#[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct LightProbe {
     /// The distance over which the effect of the light probe becomes weaker, on
     /// each axis.

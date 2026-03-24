@@ -32,7 +32,6 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
   "bevy_mikktspace",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
@@ -75,5 +74,9 @@ bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

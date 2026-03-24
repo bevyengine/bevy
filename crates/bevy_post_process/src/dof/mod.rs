@@ -51,7 +51,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::{default, once};
@@ -211,18 +211,19 @@ impl Plugin for DepthOfFieldPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
             .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
                 (
-                    configure_depth_of_field_view_targets,
+                    configure_depth_of_field_view_targets
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_auxiliary_depth_of_field_textures,
                 )
                     .after(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             )
             .add_systems(
                 Render,

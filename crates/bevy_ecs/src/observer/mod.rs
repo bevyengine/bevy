@@ -243,15 +243,17 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
+    use core::any::type_name;
 
     use bevy_ptr::OwningPtr;
 
     use crate::{
+        archetype::{Archetype, ArchetypeId},
         change_detection::MaybeLocation,
         error::Result,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
-        observer::{Observer, Replace},
+        observer::{Discard, Observer},
         prelude::*,
         world::DeferredWorld,
     };
@@ -302,15 +304,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -322,8 +324,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -332,7 +334,7 @@ mod tests {
         entity.remove::<A>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -344,8 +346,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, S>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, S>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, S>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, S>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, S>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -354,7 +356,7 @@ mod tests {
         entity.remove::<S>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -368,15 +370,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
         entity.flush();
-        assert_eq!(vec!["replace", "insert"], world.resource::<Order>().0);
+        assert_eq!(vec!["discard", "insert"], world.resource::<Order>().0);
     }
 
     #[test]
@@ -599,6 +601,8 @@ mod tests {
             EntityComponentsEvent(entity_1),
             EntityComponentsTrigger {
                 components: &[component_a],
+                old_archetype: None,
+                new_archetype: None,
             },
         );
         // only observer that doesn't trigger is the one only watching entity_2
@@ -608,11 +612,19 @@ mod tests {
         // trigger for both entities, but no components: trigger once per entity target
         world.trigger_with(
             EntityComponentsEvent(entity_1),
-            EntityComponentsTrigger { components: &[] },
+            EntityComponentsTrigger {
+                components: &[],
+                old_archetype: None,
+                new_archetype: None,
+            },
         );
         world.trigger_with(
             EntityComponentsEvent(entity_2),
-            EntityComponentsTrigger { components: &[] },
+            EntityComponentsTrigger {
+                components: &[],
+                old_archetype: None,
+                new_archetype: None,
+            },
         );
 
         // only the observer that doesn't require components triggers - once per entity
@@ -625,12 +637,16 @@ mod tests {
             EntityComponentsEvent(entity_1),
             EntityComponentsTrigger {
                 components: &[component_a, component_b],
+                old_archetype: None,
+                new_archetype: None,
             },
         );
         world.trigger_with(
             EntityComponentsEvent(entity_2),
             EntityComponentsTrigger {
                 components: &[component_a, component_b],
+                old_archetype: None,
+                new_archetype: None,
             },
         );
         assert_eq!(2222211, world.resource::<R>().0);
@@ -1310,5 +1326,58 @@ mod tests {
         world.resource_mut::<RunConditionFlag>().0 = false;
         world.trigger(EventA);
         assert!(world.resource::<Order>().0.is_empty());
+    }
+
+    #[test]
+    fn observer_new_old_archetypes() {
+        #[derive(Resource, Default)]
+        struct Changes(Vec<(&'static str, Option<ArchetypeId>, Option<ArchetypeId>)>);
+
+        let mut world = World::new();
+        world.init_resource::<Changes>();
+
+        fn observer<E: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>>(
+            e: On<E, A>,
+            mut c: ResMut<Changes>,
+        ) {
+            c.0.push((
+                type_name::<E>(),
+                e.trigger().old_archetype.map(Archetype::id),
+                e.trigger().new_archetype.map(Archetype::id),
+            ));
+        }
+
+        let empty = world.spawn(()).archetype().id();
+        let a = world.spawn(A).archetype().id();
+        let ab = world.spawn((A, B)).archetype().id();
+
+        world.add_observer(observer::<Add>);
+        world.add_observer(observer::<Insert>);
+        world.add_observer(observer::<Discard>);
+        world.add_observer(observer::<Remove>);
+        world.add_observer(observer::<Despawn>);
+
+        let mut entity = world.spawn((A, B));
+        entity.remove::<(A, B)>();
+        entity.insert(A);
+        entity.insert(A);
+        entity.despawn();
+
+        assert_eq!(
+            &world.resource_mut::<Changes>().0,
+            &[
+                ("bevy_ecs::lifecycle::Add", None, Some(ab)),
+                ("bevy_ecs::lifecycle::Insert", None, Some(ab)),
+                ("bevy_ecs::lifecycle::Discard", Some(ab), Some(empty)),
+                ("bevy_ecs::lifecycle::Remove", Some(ab), Some(empty)),
+                ("bevy_ecs::lifecycle::Add", Some(empty), Some(a)),
+                ("bevy_ecs::lifecycle::Insert", Some(empty), Some(a)),
+                ("bevy_ecs::lifecycle::Discard", Some(a), Some(a)),
+                ("bevy_ecs::lifecycle::Insert", Some(a), Some(a)),
+                ("bevy_ecs::lifecycle::Despawn", Some(a), None),
+                ("bevy_ecs::lifecycle::Discard", Some(a), None),
+                ("bevy_ecs::lifecycle::Remove", Some(a), None),
+            ],
+        );
     }
 }

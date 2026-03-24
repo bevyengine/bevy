@@ -144,6 +144,8 @@ impl<'w> BundleSpawner<'w> {
                     &mut Add { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
+                        old_archetype: None,
+                        new_archetype: Some(archetype),
                     },
                     caller,
                 );
@@ -162,6 +164,8 @@ impl<'w> BundleSpawner<'w> {
                     &mut Insert { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
+                        old_archetype: None,
+                        new_archetype: Some(archetype),
                     },
                     caller,
                 );

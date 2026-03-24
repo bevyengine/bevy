@@ -3,8 +3,8 @@ use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     resource::Resource,
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
-        SystemSet,
+        InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
+        SingleThreadedExecutor, SystemSet,
     },
     system::Local,
     world::{Mut, World},
@@ -303,11 +303,11 @@ impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
-        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        main_schedule.set_executor(SingleThreadedExecutor::new());
         let mut fixed_main_schedule = Schedule::new(FixedMain);
-        fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        fixed_main_schedule.set_executor(SingleThreadedExecutor::new());
         let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
-        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        fixed_main_loop_schedule.set_executor(SingleThreadedExecutor::new());
 
         app.add_schedule(main_schedule)
             .add_schedule(fixed_main_schedule)

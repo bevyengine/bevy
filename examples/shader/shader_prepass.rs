@@ -233,7 +233,7 @@ fn toggle_prepass_view(
             color.0 = Color::WHITE;
         });
 
-        let mat = materials.get_mut(*material_handle).unwrap();
+        let mut mat = materials.get_mut(*material_handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;

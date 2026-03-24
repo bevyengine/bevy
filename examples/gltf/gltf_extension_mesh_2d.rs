@@ -3,7 +3,7 @@
 use bevy::{
     asset::LoadContext,
     gltf::{
-        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
         GltfPlugin,
     },
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
@@ -44,7 +44,7 @@ fn main() {
                         .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
                 )
                 .set(PbrPlugin {
-                    gltf_render_enabled: false,
+                    gltf_enable_standard_materials: false,
                     ..Default::default()
                 }),
             GltfToMesh2dPlugin,
@@ -92,7 +92,7 @@ impl Plugin for GltfToMesh2dPlugin {
 struct GltfExtensionHandlerToMesh2d;
 
 impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 

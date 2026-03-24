@@ -25,7 +25,7 @@ fn iter_frag_empty(c: &mut Criterion) {
         spawn_empty_frag_archetype::<Table>(&mut world);
         let mut q: SystemState<Query<(Entity, &Table)>> =
             SystemState::<Query<(Entity, &Table<0>)>>::new(&mut world);
-        let query = q.get(&world);
+        let query = q.get(&world).unwrap();
         b.iter(move || {
             let mut res = 0;
             query.iter().for_each(|(e, t)| {
@@ -39,7 +39,7 @@ fn iter_frag_empty(c: &mut Criterion) {
         spawn_empty_frag_archetype::<Sparse>(&mut world);
         let mut q: SystemState<Query<(Entity, &Sparse)>> =
             SystemState::<Query<(Entity, &Sparse<0>)>>::new(&mut world);
-        let query = q.get(&world);
+        let query = q.get(&world).unwrap();
         b.iter(move || {
             let mut res = 0;
             query.iter().for_each(|(e, t)| {

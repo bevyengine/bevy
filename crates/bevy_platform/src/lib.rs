@@ -11,6 +11,8 @@
 
 cfg::std! {
     extern crate std;
+
+    pub mod dirs;
 }
 
 cfg::alloc! {

@@ -408,7 +408,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
-    mut debug_options: ResMut<UiDebugOptions>,
+    mut debug_options: ResMut<GlobalUiDebugOptions>,
     mut root_node_query: Query<&mut Visibility, (With<Node>, Without<ChildOf>)>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");

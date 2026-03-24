@@ -182,11 +182,11 @@ impl InheritedVisibility {
 /// Bevy's various rendering subsystems (3D, 2D, etc.) want to be able to
 /// quickly winnow the set of entities to only those that the subsystem is
 /// tasked with rendering, to avoid spending time examining irrelevant entities.
-/// At the same time, Bevy wants the [`check_visibility`] system to determine
-/// all entities' visibilities at the same time, regardless of what rendering
-/// subsystem is responsible for drawing them. Additionally, your application
-/// may want to add more types of renderable objects that Bevy determines
-/// visibility for just as it does for Bevy's built-in objects.
+/// At the same time, Bevy wants the [`check_visibility_cpu_culling`] system to
+/// determine all entities' visibilities at the same time, regardless of what
+/// rendering subsystem is responsible for drawing them. Additionally, your
+/// application may want to add more types of renderable objects that Bevy
+/// determines visibility for just as it does for Bevy's built-in objects.
 ///
 /// The solution to this problem is *visibility classes*. A visibility class is
 /// a type, typically the type of a component, that represents the subsystem
@@ -216,11 +216,6 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// Not to be confused with [`Visibility`] and [`InheritedVisibility`].
 /// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 ///
-/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in
-/// [`PostUpdate`]. Later in the frame, systems in [`CheckVisibility`] will mark any visible
-/// entities using [`ViewVisibility::set`]. Because of this, values of this type will be marked as
-/// changed every frame, even when they do not change.
-///
 /// If you wish to add a custom visibility system that sets this value, be sure to add it to the
 /// [`CheckVisibility`] set.
 ///
@@ -248,7 +243,14 @@ pub struct ViewVisibility(
 
 impl ViewVisibility {
     /// An entity that cannot be seen from any views.
-    pub const HIDDEN: Self = Self(0);
+    pub const HIDDEN: Self = Self(0b00);
+
+    /// An entity that is visible and was visible last frame.
+    ///
+    /// Entities that have opted out of CPU culling, if not hidden due to
+    /// inherited visibility, will have their [`ViewVisibility`] set to this
+    /// value.
+    pub const VISIBLE: Self = Self(0b11);
 
     /// Returns `true` if the entity is visible in any view.
     /// Otherwise, returns `false`.
@@ -337,11 +339,26 @@ pub struct DynamicSkinnedMeshBounds;
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
-#[derive(Clone, Component, Default, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
     #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<Entity>>,
+}
+
+impl Default for VisibleEntities {
+    fn default() -> VisibleEntities {
+        // Pre-populate with `Mesh3d`.
+        // Otherwise, if all meshes happen to be tagged with `NoCpuCulling`,
+        // then they won't appear at all, because the extraction systems won't
+        // see any `Mesh3d` entities.
+        // We could handle this case in the `DirtySpecializations` methods
+        // instead, but that would complicate what are already some very
+        // complicated method signatures. So it's simpler to just do this.
+        let mut entities = TypeIdMap::default();
+        entities.insert(TypeId::of::<Mesh3d>(), vec![]);
+        VisibleEntities { entities }
+    }
 }
 
 impl VisibleEntities {
@@ -388,11 +405,31 @@ impl VisibleEntities {
 ///
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by `bevy_pbr::SimulationLightSystems`.
-#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct VisibleMeshEntities {
     #[reflect(ignore, clone)]
     pub entities: Vec<Entity>,
+}
+
+impl VisibleMeshEntities {
+    /// Resizes the entity vector so that its capacity isn't too much higher
+    /// than its size.
+    pub fn shrink(&mut self) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = self.entities.capacity();
+        let reserved = capacity
+            .checked_div(self.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        self.entities.shrink_to(reserved);
+    }
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
@@ -438,12 +475,14 @@ pub enum VisibilitySystems {
     /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
-    /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.\
+    /// Label for the [`check_visibility_cpu_culling`] and
+    /// [`check_visibility_gpu_culling`] systems updating [`ViewVisibility`] of
+    /// each entity and the [`VisibleEntities`] of each view.
     ///
-    /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as [`check_visibility`]
-    /// assumes that its operations are irreversible during the frame.
+    /// System order ambiguities between systems in this set are ignored: the
+    /// order of systems within this set is irrelevant, as
+    /// [`check_visibility_cpu_culling`] assumes that its operations are
+    /// irreversible during the frame.
     CheckVisibility,
     /// Label for the `mark_newly_hidden_entities_invisible` system, which sets
     /// [`ViewVisibility`] to [`ViewVisibility::HIDDEN`] for entities that no
@@ -489,7 +528,8 @@ impl Plugin for VisibilityPlugin {
                         .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
-                    check_visibility.in_set(CheckVisibility),
+                    (check_visibility_cpu_culling, check_visibility_gpu_culling)
+                        .in_set(CheckVisibility),
                     mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
                 ),
             );
@@ -605,6 +645,7 @@ fn visibility_propagate_system(
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    mut removed_child_of: RemovedComponents<ChildOf>,
 ) {
     for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
@@ -627,6 +668,28 @@ fn visibility_propagate_system(
 
             // Recursively update the visibility of each child.
             for &child in children.into_iter().flatten() {
+                let _ =
+                    propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
+            }
+        }
+    }
+
+    // Previous loop did not consider entities who just had their ChildOf component removed.
+    for entity in removed_child_of.read() {
+        let Ok((visibility, mut inherited_visibility)) = visibility_query.get_mut(entity) else {
+            continue;
+        };
+
+        let is_visible = match visibility {
+            // If a entity has no parent, fall back to true
+            Visibility::Visible | Visibility::Inherited => true,
+            Visibility::Hidden => false,
+        };
+
+        if inherited_visibility.get() != is_visible {
+            inherited_visibility.0 = is_visible;
+
+            for &child in children_query.get(entity).ok().into_iter().flatten() {
                 let _ =
                     propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
             }
@@ -665,15 +728,16 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// Track entities that were visible last frame, used to granularly update [`ViewVisibility`] this
-/// frame without spurious `Change` detecation.
-fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    query.par_iter_mut().for_each(|mut view_visibility| {
+/// Track entities that were visible last frame, used to granularly update
+/// [`ViewVisibility`] this frame without spurious `Change` detecation.
+fn reset_view_visibility(mut reset_query: Query<&mut ViewVisibility, Without<NoCpuCulling>>) {
+    reset_query.par_iter_mut().for_each(|mut view_visibility| {
         view_visibility.bypass_change_detection().update();
     });
 }
 
-/// System updating the visibility of entities each frame.
+/// System updating the visibility of entities, other than those that have opted
+/// out of CPU culling, each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
 /// frame, it updates the [`ViewVisibility`] of all entities, and for each view
@@ -681,7 +745,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 ///
 /// To ensure that an entity is checked for visibility, make sure that it has a
 /// [`VisibilityClass`] component and that that component is nonempty.
-pub fn check_visibility(
+pub fn check_visibility_cpu_culling(
     mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
     mut view_query: Query<(
         Entity,
@@ -691,18 +755,21 @@ pub fn check_visibility(
         &Camera,
         Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<(
-        Entity,
-        &InheritedVisibility,
-        &mut ViewVisibility,
-        Option<&VisibilityClass>,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        &GlobalTransform,
-        Has<NoFrustumCulling>,
-        Has<VisibilityRange>,
-        Has<NoCpuCulling>,
-    )>,
+    mut visible_aabb_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&VisibilityClass>,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&Sphere>,
+            &GlobalTransform,
+            Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
+        ),
+        Without<NoCpuCulling>,
+    >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -726,10 +793,10 @@ pub fn check_visibility(
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
+                    maybe_model_sphere,
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
-                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -752,23 +819,26 @@ pub fn check_visibility(
                     return;
                 }
 
-                // If we have an aabb, do frustum culling
-                if !no_frustum_culling
-                    && !no_cpu_culling_camera
-                    && !no_cpu_culling_entity
-                    && let Some(model_aabb) = maybe_model_aabb
-                {
-                    let world_from_local = transform.affine();
-                    let model_sphere = Sphere {
-                        center: world_from_local.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                // If we have an aabb or a bounding sphere, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling_camera {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
+                        }
+                    } else if let Some(model_sphere) = maybe_model_sphere
+                        && !frustum.intersects_sphere(model_sphere, false)
+                    {
+                        // Do sphere-based frustum culling in this case
                         return;
                     }
                 }
@@ -796,13 +866,48 @@ pub fn check_visibility(
                 visible_entities.get_mut(*class).append(entities);
             }
         }
+
+        // The list must be sorted in order for the O(n) diffing algorithm that
+        // visibility determination uses to work, so do that now.
+        for visible_entities in visible_entities.entities.values_mut() {
+            visible_entities.sort_unstable();
+        }
     }
+}
+
+/// Updates the visibility of entities marked with [`NoCpuCulling`].
+///
+/// In this case, the [`ViewVisibility`] of each such mesh simply becomes equal
+/// to its [`InheritedVisibility`], as the CPU has been instructed to perform no
+/// other checks. For performance, we avoid examining any entity that hasn't
+/// changed its inherited visibility.
+pub fn check_visibility_gpu_culling(
+    mut query: Query<
+        (&mut ViewVisibility, &InheritedVisibility),
+        (
+            With<NoCpuCulling>,
+            Or<(Changed<InheritedVisibility>, Added<NoCpuCulling>)>,
+        ),
+    >,
+) {
+    query
+        .par_iter_mut()
+        .for_each(|(mut view_visibility, inherited_visibility)| {
+            let new_view_visibility = if inherited_visibility.0 {
+                ViewVisibility::VISIBLE
+            } else {
+                ViewVisibility::HIDDEN
+            };
+            view_visibility.set_if_neq(new_view_visibility);
+        });
 }
 
 /// The last step in the visibility pipeline. Looks at entities that were visible last frame but not
 /// marked as visible this frame and marks them as hidden by setting the [`ViewVisibility`]. This
 /// process is needed to ensure we only trigger change detection on [`ViewVisibility`] when needed.
-fn mark_newly_hidden_entities_invisible(mut view_visibilities: Query<&mut ViewVisibility>) {
+fn mark_newly_hidden_entities_invisible(
+    mut view_visibilities: Query<&mut ViewVisibility, Without<NoCpuCulling>>,
+) {
     view_visibilities
         .par_iter_mut()
         .for_each(|mut view_visibility| {
@@ -980,6 +1085,47 @@ mod test {
             is_visible(child2),
             "Child2 should inherit visibility from parent"
         );
+    }
+
+    #[test]
+    fn test_visibility_propagation_on_parent_removed() {
+        // Setup the world and schedule
+        let mut app = App::new();
+
+        app.add_systems(Update, visibility_propagate_system);
+
+        // Create entities with visibility and hierarchy
+        let parent = app.world_mut().spawn((Visibility::Hidden,)).id();
+        let child = app.world_mut().spawn((Visibility::Inherited,)).id();
+
+        // Build hierarchy
+        app.world_mut().entity_mut(parent).add_children(&[child]);
+
+        // Run the system initially to set up visibility
+        app.update();
+
+        let is_visible = |app: &App, e: Entity| {
+            app.world()
+                .entity(e)
+                .get::<InheritedVisibility>()
+                .unwrap()
+                .get()
+        };
+
+        assert!(
+            !is_visible(&app, child),
+            "Child should inherit visibility from parent"
+        );
+
+        // Detach a child from the invisible parent
+        app.world_mut().entity_mut(child).remove::<ChildOf>(); // example of changing parent
+
+        // Run the system again to propagate changes
+        app.update();
+
+        // The child should now be visible as there is not parent to inherit
+        // invisibility from.
+        assert!(is_visible(&app, child), "Child should have become visible");
     }
 
     #[test]

@@ -3,6 +3,7 @@
 use bevy_app::prelude::*;
 use bevy_camera::Camera3d;
 use bevy_ecs::{component::*, prelude::*};
+use bevy_log::trace;
 use bevy_math::UVec2;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -19,7 +20,6 @@ use bevy_render::{
 };
 use bevy_shader::load_shader_library;
 use resolve::OitResolvePlugin;
-use tracing::trace;
 
 use crate::{
     core_3d::main_transparent_pass_3d,
@@ -99,7 +99,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );

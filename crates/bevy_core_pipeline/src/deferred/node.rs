@@ -2,6 +2,9 @@ use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
 use bevy_render::occlusion_culling::OcclusionCulling;
 
+use bevy_log::error;
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -11,9 +14,6 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     view::ViewDepthTexture,
 };
-use tracing::error;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 use crate::prepass::ViewPrepassTextures;
 

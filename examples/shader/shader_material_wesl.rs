@@ -77,7 +77,7 @@ fn update(
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     for (material, mut transform) in query.iter_mut() {
-        let material = materials.get_mut(material).unwrap();
+        let mut material = materials.get_mut(material).unwrap();
         material.time.x = time.elapsed_secs();
         if keys.just_pressed(KeyCode::Space) {
             material.party_mode = !material.party_mode;
@@ -93,7 +93,7 @@ fn update(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
-    // Needed for 16 bit alignment in WebGL2
+    // Needed for 16 byte alignment on WebGL2
     #[uniform(0)]
     time: Vec4,
     party_mode: bool,

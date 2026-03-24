@@ -153,7 +153,7 @@ fn shift_hue(
     app_status.hue += HUE_SHIFT_SPEED;
 
     for material_handle in objects_with_materials.iter() {
-        let Some(material) = standard_materials.get_mut(material_handle) else {
+        let Some(mut material) = standard_materials.get_mut(material_handle) else {
             continue;
         };
         material.specular_tint = Color::hsva(app_status.hue, 1.0, 1.0, 1.0);
@@ -192,7 +192,7 @@ fn toggle_specular_map(
     };
 
     for material_handle in objects_with_materials.iter() {
-        let Some(material) = standard_materials.get_mut(material_handle) else {
+        let Some(mut material) = standard_materials.get_mut(material_handle) else {
             continue;
         };
 

@@ -8,7 +8,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
+use super::{IntoSystem, SystemStateFlags};
 
 /// See [`IntoSystem::with_input`] for details.
 pub struct WithInputWrapper<S, T>
@@ -82,14 +82,6 @@ where
 
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
@@ -181,14 +173,6 @@ where
 
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {

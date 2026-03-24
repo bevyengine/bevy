@@ -58,7 +58,7 @@ pub enum GltfAssetLabel {
     Material {
         /// Index of this material
         index: usize,
-        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material,
+        /// Used to set the [`Face`](wgpu_types::Face) of the material,
         /// useful if it is used with negative scale
         is_scale_inverted: bool,
     },
