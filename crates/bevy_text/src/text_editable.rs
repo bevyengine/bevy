@@ -111,6 +111,8 @@ pub struct EditableText {
     pub cursor_width: f32,
     /// Cursor blink period in seconds.
     pub cursor_blink_period: Duration,
+    /// True if a `TextEdit` was applied this frame
+    pub text_edited: bool,
 }
 
 impl Default for EditableText {
@@ -121,6 +123,7 @@ impl Default for EditableText {
             pending_edits: Vec::new(),
             cursor_width: 0.2,
             cursor_blink_period: Duration::from_secs(1),
+            text_edited: false,
         }
     }
 }
@@ -190,6 +193,7 @@ pub fn apply_text_edits(
     mut layout_context: ResMut<LayoutCx>,
 ) {
     for mut editable_text in query.iter_mut() {
+        editable_text.text_edited = !editable_text.pending_edits.is_empty();
         editable_text.apply_pending_edits(&mut font_context.0, &mut layout_context.0);
     }
 }

@@ -204,13 +204,13 @@ pub fn editable_text_system(
             && Some(entity) == input_focus.0
         {
             if input_focus.is_changed()
-                || editable_text.is_changed()
+                || editable_text.text_edited
                 || editable_text.cursor_blink_period < *cursor_timer
             {
                 *cursor_timer = Duration::ZERO;
             }
 
-            if editable_text.cursor_blink_period / 2 < *cursor_timer {
+            if *cursor_timer < editable_text.cursor_blink_period / 2 {
                 info.cursor = geom.map(bounding_box_to_rect);
             } else {
                 info.cursor = None;
