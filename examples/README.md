@@ -712,7 +712,7 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk build --link-libcxx-shared -t <target_name> --release -o <project_path>/android/app/src/main/jniLibs
+cargo ndk build --link-libcxx-shared -t <target_name> --release -o <project_path>/app/src/main/jniLibs
 ```
 
 For example, to compile to a 64-bit ARM platform:
@@ -763,7 +763,7 @@ Users of older phones may want to use an older API when testing. By default, Bev
 To use `NativeActivity`, you need to write a custom `MainActivity.kt` using `NativeActivity` instead of `GameActivity` and add the `android-native-activity` feature to Bevy in your `Cargo.toml` like this:
 
 ```toml
-bevy = { version = "0.19", default-features = false, features = ["android-native-activity", <...>] }
+bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
 ```
 
 ### iOS
