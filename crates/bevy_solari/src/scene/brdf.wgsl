@@ -23,7 +23,8 @@ fn evaluate_and_sample_brdf(
     material: ResolvedMaterial,
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
-    let NdotV = max(dot(world_normal, wo), 0.0001);
+    let NdotV = dot(world_normal, wo);
+    if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let df = 1.0 - luminance(fresnel(F0, NdotV));
 
@@ -51,7 +52,10 @@ fn evaluate_and_sample_brdf(
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
     }
 
-    let diffuse_pdf = saturate(dot(wi, world_normal)) / PI;
+    let NdotL = dot(world_normal, wi);
+    if NdotL < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
+
+    let diffuse_pdf = NdotL / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
     let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 
@@ -77,20 +81,22 @@ fn evaluate_brdf(
 fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
     let diffuse_color = calculate_diffuse_color(material.base_color, material.metallic, 0.0, 0.0) / PI;
 
-    let NdotL = saturate(dot(world_normal, wi));
-    let NdotV = max(dot(world_normal, wo), 0.0001);
+    let NdotL = dot(world_normal, wi);
+    let NdotV = dot(world_normal, wo);
+    if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let layering = (1.0 - fresnel(F0, NdotL)) * (1.0 - fresnel(F0, NdotV));
 
-    return diffuse_color * layering * saturate(dot(world_normal, wi));
+    return diffuse_color * layering * NdotL;
 }
 
 fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
     let H = normalize(wi + wo);
-    let NdotL = saturate(dot(world_normal, wi));
-    let NdotH = saturate(dot(world_normal, H));
-    let LdotH = saturate(dot(wi, H));
-    let NdotV = max(dot(world_normal, wo), 0.0001);
+    let NdotL = dot(world_normal, wi);
+    let NdotH = dot(world_normal, H);
+    let LdotH = dot(wi, H);
+    let NdotV = dot(world_normal, wo);
+    if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
 
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let F = fresnel(F0, LdotH);
