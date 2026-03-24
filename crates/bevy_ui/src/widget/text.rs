@@ -21,8 +21,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextWriter,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -118,13 +117,11 @@ impl Text {
     }
 }
 
-impl TextRoot for Text {}
-
-impl TextSpanAccess for Text {
-    fn read_span(&self) -> &str {
+impl TextSection for Text {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }

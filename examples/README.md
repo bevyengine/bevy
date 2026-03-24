@@ -592,6 +592,7 @@ Example | Description
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Editable Text](../examples/ui/text/editable_text.rs) | Demonstrates a simple, unstyled text input widget
 [Feathers Widgets](../examples/ui/widgets/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)

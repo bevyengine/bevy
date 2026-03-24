@@ -23,7 +23,7 @@ use crate::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
     },
-    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, ErrorContext},
     event::{EntityEvent, Event},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
@@ -613,7 +613,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -635,7 +637,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue(&mut self, command: impl Command) {
         self.queue_internal(command.handle_error());
     }
 
@@ -664,7 +666,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -686,20 +690,20 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl Command,
         error_handler: fn(BevyError, ErrorContext),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
 
     /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
-    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue_silenced(&mut self, command: impl Command) {
         self.queue_internal(command.ignore_error());
     }
 
-    fn queue_internal(&mut self, command: impl Command) {
+    fn queue_internal(&mut self, command: impl Command<Out = ()>) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -1907,10 +1911,7 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands.queue(command.with_entity(self.entity));
         self
     }
@@ -1952,9 +1953,9 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl EntityCommand,
         error_handler: fn(BevyError, ErrorContext),
     ) -> &mut Self {
         self.commands
@@ -1965,10 +1966,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
-    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue_silenced(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands
             .queue_silenced(command.with_entity(self.entity));
         self
