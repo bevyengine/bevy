@@ -12,7 +12,7 @@ use bevy_reflect::prelude::*;
 
 pub trait MeshAabb {
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space,
-    /// or return `Mesh::final_aabb` if it is not `None`.
+    /// or return [`Mesh::final_aabb`] if it is not `None`.
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
     /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
