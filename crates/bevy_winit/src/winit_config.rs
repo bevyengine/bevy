@@ -82,7 +82,10 @@ impl WinitSettings {
     ///
     /// Panics if `max_fps` is zero, negative, or not finite.
     pub fn game_with_max_fps(max_fps: f64) -> Self {
-        assert!(max_fps.is_sign_positive(), "max_fps must be greater than zero");
+        assert!(
+            max_fps.is_sign_positive(),
+            "max_fps must be greater than zero"
+        );
         assert!(max_fps.is_finite(), "max_fps must be finite");
 
         WinitSettings {

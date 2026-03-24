@@ -177,10 +177,7 @@ fn update_overlay(
     text: Single<Entity, With<OverlayText>>,
     mut writer: TextUiWriter,
 ) {
-    *writer.text(*text, 1) = format!(
-        "Mode: {}",
-        settings.limiter_label(),
-    );
+    *writer.text(*text, 1) = format!("Mode: {}", settings.limiter_label(),);
 
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)

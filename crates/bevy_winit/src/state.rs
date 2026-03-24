@@ -712,8 +712,7 @@ impl WinitAppRunnerState {
                 if self.wait_elapsed {
                     self.redraw_requested = true;
 
-                    let begin_instant =
-                        self.scheduled_tick_start.unwrap_or(begin_frame_time);
+                    let begin_instant = self.scheduled_tick_start.unwrap_or(begin_frame_time);
                     if let Some(next) = begin_instant.checked_add(wait) {
                         let now = Instant::now();
                         if next < now {
