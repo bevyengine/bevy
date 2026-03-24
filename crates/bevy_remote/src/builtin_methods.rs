@@ -500,13 +500,13 @@ pub type BrpQueryResponse = Vec<BrpQueryRow>;
 /// The graph can be though of two Directed Acylic Graph's (DAG's) overlaid.
 ///
 /// Each system (f1) creates a corresponding system set (F1).
+/// Both the regular systemsets, and the "system derived" system sets are in `systemsets`
 /// There is a hierarchy edge between the system set and the system (F1 -> f1).
 /// If a system (f2) is placed in a set (S1), then there is a hierarchy edge (S1, f2)
 ///
 /// If a schedule adds a condition f1.after(S1) , then an dependency edge is added (S1 -> f1)
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct BrpScheduleGraphResponse {
-    systems: Vec<BrpSystem>,
     systemsets: Vec<BrpSystemSet>,
 
     hierarchy_nodes: Vec<String>,
@@ -516,14 +516,10 @@ pub struct BrpScheduleGraphResponse {
     dependency_edges: Vec<(String, String)>,
 }
 
-/// Details on a system
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpSystem {
-    key: String,
-    method: String,
-}
-
 /// Details on a system set
+///
+/// The `key` is used in the nodes and edges in [`BrpScheduleGraphResponse`]
+/// The `method` is either the fully qualified system name, or the system set name
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSystemSet {
     key: String,
@@ -1602,12 +1598,6 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
     let (_label, schedule) = matching_schedule.unwrap();
 
     let g = schedule.graph();
-    for (systemkey, method, _b) in g.systems.iter() {
-        response.systems.push(BrpSystem {
-            key: format!("{:?}", systemkey),
-            method: format!("{:?}", method),
-        });
-    }
     for (systemsetkey, method, _b) in g.system_sets.iter() {
         response.systemsets.push(BrpSystemSet {
             key: format!("{:?}", systemsetkey),
@@ -2098,6 +2088,8 @@ mod tests {
         schedule.add_systems(f4.in_set(S2).after(S1));
 
         let mut world = World::default();
+
+        let _ = schedule.initialize(&mut world);
         world.add_schedule(schedule);
 
         let params = serde_json::to_value(&BrpScheduleGraphParams {
@@ -2117,8 +2109,8 @@ mod tests {
         let res = schedule_graph(In(Some(params)), &mut world);
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
+        println!("res3 = {:?}", res3);
 
-        assert_eq!(res3.systems.len(), 4);
         assert_eq!(res3.systemsets.len(), 6);
         assert_eq!(res3.hierarchy_nodes.len(), 10);
         assert_eq!(res3.dependency_nodes.len(), 10);
