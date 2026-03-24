@@ -258,7 +258,9 @@ pub fn create_bindless_bind_group_layout_entries(
             BindlessResourceType::SamplerNonFiltering => {
                 Some(sampler(SamplerBindingType::NonFiltering))
             }
-            BindlessResourceType::SamplerComparison => Some(sampler(SamplerBindingType::Comparison)),
+            BindlessResourceType::SamplerComparison => {
+                Some(sampler(SamplerBindingType::Comparison))
+            }
             BindlessResourceType::Texture1d => {
                 Some(texture_1d(TextureSampleType::Float { filterable: true }))
             }
@@ -266,7 +268,9 @@ pub fn create_bindless_bind_group_layout_entries(
                 Some(texture_2d(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::Texture2dArray => {
-                Some(texture_2d_array(TextureSampleType::Float { filterable: true }))
+                Some(texture_2d_array(TextureSampleType::Float {
+                    filterable: true,
+                }))
             }
             BindlessResourceType::Texture3d => {
                 Some(texture_3d(TextureSampleType::Float { filterable: true }))
@@ -275,7 +279,9 @@ pub fn create_bindless_bind_group_layout_entries(
                 Some(texture_cube(TextureSampleType::Float { filterable: true }))
             }
             BindlessResourceType::TextureCubeArray => {
-                Some(texture_cube_array(TextureSampleType::Float { filterable: true }))
+                Some(texture_cube_array(TextureSampleType::Float {
+                    filterable: true,
+                }))
             }
             BindlessResourceType::None
             | BindlessResourceType::Buffer
