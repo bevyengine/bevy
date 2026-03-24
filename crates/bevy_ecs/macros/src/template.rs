@@ -9,7 +9,7 @@ use syn::{
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
 const TEMPLATE_ATTRIBUTE: &str = "template";
 
-pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
+pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs = BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"));
 
@@ -312,7 +312,7 @@ pub(crate) fn derive_get_template(input: TokenStream) -> TokenStream {
         .push(parse_quote! { for<'a> [()]: Sized });
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs::template::GetTemplate for #type_ident #type_generics #where_clause {
+        impl #impl_generics #bevy_ecs::template::FromTemplate for #type_ident #type_generics #where_clause {
             type Template = #template_ident #type_generics;
         }
 
@@ -355,7 +355,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
         }
 
         if template_type.is_none() {
-            template_type = Some(quote!(<#ty as #bevy_ecs::template::GetTemplate>::Template));
+            template_type = Some(quote!(<#ty as #bevy_ecs::template::FromTemplate>::Template));
         }
 
         if is_named {

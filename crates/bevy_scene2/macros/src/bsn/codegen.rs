@@ -74,7 +74,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                         })
                     }
                 }
-                BsnEntry::GetTemplatePatch(bsn_type) => {
+                BsnEntry::FromTemplatePatch(bsn_type) => {
                     let mut assignments = Vec::new();
                     bsn_type.to_patch_tokens(
                         bevy_ecs,
@@ -90,7 +90,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     );
                     let path = &bsn_type.path;
                     quote! {
-                        <#path as #bevy_scene::PatchGetTemplate>::patch(move |value, _context| {
+                        <#path as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
                             #(#assignments)*
                         })
                     }
@@ -123,16 +123,16 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                         )
                     }
                 }
-                BsnEntry::GetTemplateConstructor(BsnConstructor {
+                BsnEntry::FromTemplateConstructor(BsnConstructor {
                     type_path,
                     function,
                     args,
                 }) => {
                     // NOTE: The odd turbofish line break below avoids breaking rustfmt
                     quote! {
-                        <#type_path as #bevy_scene::PatchGetTemplate>::patch(
+                        <#type_path as #bevy_scene::PatchFromTemplate>::patch(
                             move |value, _context| {
-                                *value = <#type_path as #bevy_ecs::template::GetTemplate>
+                                *value = <#type_path as #bevy_ecs::template::FromTemplate>
                                     ::Template::#function(#args);
                             }
                         )
@@ -177,7 +177,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 }
                 BsnEntry::NameExpression(expr_tokens) => {
                     quote! {
-                        <#bevy_ecs::name::Name as #bevy_scene::PatchGetTemplate>::patch(
+                        <#bevy_ecs::name::Name as #bevy_scene::PatchFromTemplate>::patch(
                             move |value, _context| {
                                 *value = #bevy_ecs::Name({#expr_tokens}.into());
                             }
@@ -249,10 +249,10 @@ impl BsnType {
                     });
                     let field_names = fields.iter().map(|f| &f.name);
                     assignments.push(quote! {
-                        if !matches!(#(#field_path).*, #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant { .. }) {
-                            #maybe_deref #(#field_path).* = #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant_default_name();
+                        if !matches!(#(#field_path).*, #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant { .. }) {
+                            #maybe_deref #(#field_path).* = #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant_default_name();
                         }
-                        if let #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant { #(#field_names, )*.. } = #maybe_borrow_mut #(#field_path).* {
+                        if let #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant { #(#field_names, )*.. } = #maybe_borrow_mut #(#field_path).* {
                             #(#field_assignments)*
                         }
                     })
@@ -287,10 +287,10 @@ impl BsnType {
                         .enumerate()
                         .map(|(index, _)| format_ident!("t{}", index));
                     assignments.push(quote! {
-                        if !matches!(#(#field_path).*, #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant(..)) {
-                            #maybe_deref #(#field_path).* = #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant_default_name();
+                        if !matches!(#(#field_path).*, #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant(..)) {
+                            #maybe_deref #(#field_path).* = #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant_default_name();
                         }
-                        if let #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::GetTemplate>::Template>::#variant (#(#field_names, )*.. ) = #maybe_borrow_mut #(#field_path).* {
+                        if let #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template>::#variant (#(#field_names, )*.. ) = #maybe_borrow_mut #(#field_path).* {
                             #(#field_assignments)*
                         }
                     })

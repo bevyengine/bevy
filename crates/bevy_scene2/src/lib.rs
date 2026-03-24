@@ -6,7 +6,7 @@
 pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, CommandsSpawnScene, EntityCommandsScenes, EntityWorldMutScenes,
-        PatchGetTemplate, PatchTemplate, Scene, SceneList, ScenePatchInstance, WorldScenes,
+        PatchFromTemplate, PatchTemplate, Scene, SceneList, ScenePatchInstance, WorldScenes,
     };
 }
 
@@ -70,7 +70,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate)]
+        #[derive(Component, FromTemplate)]
         struct Position {
             x: f32,
             y: f32,
@@ -117,7 +117,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate)]
+        #[derive(Component, FromTemplate)]
         struct Position {
             x: f32,
             y: f32,
@@ -223,7 +223,7 @@ mod tests {
         const X_AXIS: usize = 1;
         const XAXIS: usize = 2;
 
-        #[derive(Component, GetTemplate)]
+        #[derive(Component, FromTemplate)]
         struct Value(usize);
 
         fn x_axis() -> impl Scene {
@@ -241,7 +241,7 @@ mod tests {
         assert_eq!(entity.get::<Value>().unwrap().0, 2);
     }
 
-    #[derive(Component, GetTemplate)]
+    #[derive(Component, FromTemplate)]
     struct Reference(Entity);
 
     #[test]
@@ -403,7 +403,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         enum Foo {
             #[default]
             Bar {
@@ -465,7 +465,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Foo {
             x: u32,
             y: u32,
@@ -473,7 +473,7 @@ mod tests {
             nested: Bar,
         }
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Bar(usize, usize, usize);
 
         fn a() -> impl Scene {
@@ -527,7 +527,7 @@ mod tests {
 
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Sprite(Handle<Image>);
 
         fn scene() -> impl Scene {
@@ -585,13 +585,13 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
-        struct Foo<T: GetTemplate<Template: Default + Template<Output = T>>> {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
             value: T,
             number: u32,
         }
 
-        #[derive(Component, GetTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Position {
             x: u32,
             y: u32,

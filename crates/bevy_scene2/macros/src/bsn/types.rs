@@ -16,9 +16,9 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 pub enum BsnEntry {
     Name(Ident),
     NameExpression(TokenStream),
-    GetTemplatePatch(BsnType),
+    FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
-    GetTemplateConstructor(BsnConstructor),
+    FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     TemplateConst { type_path: Path, const_ident: Ident },
     SceneExpression(TokenStream),

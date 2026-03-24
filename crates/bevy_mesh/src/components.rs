@@ -3,7 +3,7 @@ use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut, component::Component, message::MessageReader,
-    reflect::ReflectComponent, system::Query, template::GetTemplate,
+    reflect::ReflectComponent, system::Query, template::FromTemplate,
 };
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -93,7 +93,7 @@ impl AsAssetId for Mesh2d {
 /// }
 /// ```
 #[derive(
-    Component, GetTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
 )]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]

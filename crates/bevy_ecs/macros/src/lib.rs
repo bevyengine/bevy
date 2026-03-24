@@ -778,10 +778,10 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives `GetTemplate`.
-#[proc_macro_derive(GetTemplate, attributes(template, default))]
-pub fn derive_get_template(input: TokenStream) -> TokenStream {
-    template::derive_get_template(input)
+/// Derives `FromTemplate`.
+#[proc_macro_derive(FromTemplate, attributes(template, default))]
+pub fn derive_from_template(input: TokenStream) -> TokenStream {
+    template::derive_from_template(input)
 }
 
 /// Derives `VariantDefaults`.

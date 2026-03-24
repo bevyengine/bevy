@@ -1,6 +1,6 @@
 //! Functionality that relates to the [`Template`] trait.
 
-pub use bevy_ecs_macros::GetTemplate;
+pub use bevy_ecs_macros::FromTemplate;
 
 use crate::{
     bundle::Bundle,
@@ -25,7 +25,7 @@ use variadics_please::all_tuples;
 /// Likewise [`Entity`] on its own has no reasonable default. A type with an [`Entity`] reference could use an "entity path" template to point to a specific entity, relative
 /// to the current spawn context.
 ///
-/// See [`GetTemplate`], which defines the canonical [`Template`] for a type. This can be derived, which will generate a [`Template`] for the deriving type.
+/// See [`FromTemplate`], which defines the canonical [`Template`] for a type. This can be derived, which will generate a [`Template`] for the deriving type.
 pub trait Template {
     /// The type of value produced by this [`Template`].
     type Output;
@@ -180,37 +180,37 @@ impl ScopedEntities {
     }
 }
 
-/// [`GetTemplate`] is implemented for types that can be produced by a specific, canonical [`Template`]. This creates a way to correlate to the [`Template`] using the
+/// [`FromTemplate`] is implemented for types that can be produced by a specific, canonical [`Template`]. This creates a way to correlate to the [`Template`] using the
 /// desired template output type. This is used by Bevy's scene system.
 ///
-/// Both [`GetTemplate`] and [`Template`] are blanket implemented for types that implement [`Default`] and [`Clone`], meaning most types you would want to use
+/// Both [`FromTemplate`] and [`Template`] are blanket implemented for types that implement [`Default`] and [`Clone`], meaning most types you would want to use
 /// _already have templates_.
 ///
-/// It is best to think of [`GetTemplate`] as an alternative to [`Default`] for types that require world/spawn context to instantiate. Note that because of the blanket
-/// impl, you cannot implement [`GetTemplate`], [`Default`], and [`Clone`] together on the same type, as it would result in two conflicting [`GetTemplate`] impls.
+/// It is best to think of [`FromTemplate`] as an alternative to [`Default`] for types that require world/spawn context to instantiate. Note that because of the blanket
+/// impl, you cannot implement [`FromTemplate`], [`Default`], and [`Clone`] together on the same type, as it would result in two conflicting [`FromTemplate`] impls.
 /// This is also why [`Template`] has its own [`Template::clone_template`] method (to avoid using the [`Clone`] impl, which would pull in the auto-impl).
 ///
-/// You can _and should_ prefer deriving [`Default`] and [`Clone`] instead of an explicit [`GetTemplate`] impl, unless your type uses something that requires (or uses)
+/// You can _and should_ prefer deriving [`Default`] and [`Clone`] instead of an explicit [`FromTemplate`] impl, unless your type uses something that requires (or uses)
 /// a [`Template`]. Handles in an asset system or [`Entity`] are examples of "templated" types. If you want your type to support templates of them, you probably want
-/// to derive [`GetTemplate`].
+/// to derive [`FromTemplate`].
 ///
-/// [`GetTemplate`] can be derived for types whose fields _also_ implement [`GetTemplate`]:
+/// [`FromTemplate`] can be derived for types whose fields _also_ implement [`FromTemplate`]:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Default, Clone)]
 /// # struct Handle<T>(core::marker::PhantomData<T>);
 /// # #[derive(Default, Clone)]
 /// # struct Image;
-/// #[derive(GetTemplate)]
+/// #[derive(FromTemplate)]
 /// struct Player {
 ///     image: Handle<Image>
 /// }
 /// ```
 ///
-/// Deriving [`GetTemplate`] will generate a [`Template`] type for the deriving type. The example above would generate a `PlayerTemplate` like this:
+/// Deriving [`FromTemplate`] will generate a [`Template`] type for the deriving type. The example above would generate a `PlayerTemplate` like this:
 /// ```
 /// # use bevy_ecs::{prelude::*, template::TemplateContext};
-/// # #[derive(GetTemplate)]
+/// # #[derive(FromTemplate)]
 /// # struct Handle<T: core::marker::Unpin>(core::marker::PhantomData<T>);
 /// # #[derive(Default, Clone)]
 /// # struct Image;
@@ -218,7 +218,7 @@ impl ScopedEntities {
 ///     image: Handle<Image>
 /// }
 ///
-/// impl GetTemplate for Player {
+/// impl FromTemplate for Player {
 ///     type Template = PlayerTemplate;
 /// }
 ///
@@ -242,11 +242,11 @@ impl ScopedEntities {
 /// }
 /// ```
 ///
-/// [`GetTemplate`] derives can specify custom templates to use instead of a canonical [`GetTemplate`]:
+/// [`FromTemplate`] derives can specify custom templates to use instead of a canonical [`FromTemplate`]:
 /// ```
 /// # use bevy_ecs::{prelude::*, template::TemplateContext};
 /// # struct Image;
-/// #[derive(GetTemplate)]
+/// #[derive(FromTemplate)]
 /// struct Counter {
 ///     #[template(Always10)]
 ///     count: usize
@@ -267,7 +267,7 @@ impl ScopedEntities {
 ///     }
 /// }
 /// ```
-pub trait GetTemplate: Sized {
+pub trait FromTemplate: Sized {
     /// The [`Template`] for this type.
     type Template: Template;
 }
@@ -323,7 +323,7 @@ impl<T: Clone + Default + Unpin> Template for T {
 
 // This includes `Unpin` to enable specialization for Templates that also implement Default, by using the
 // ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
-impl<T: Clone + Default + Unpin> GetTemplate for T {
+impl<T: Clone + Default + Unpin> FromTemplate for T {
     type Template = T;
 }
 
@@ -373,7 +373,7 @@ impl Template for EntityReference {
     }
 }
 
-impl GetTemplate for Entity {
+impl FromTemplate for Entity {
     type Template = EntityReference;
 }
 

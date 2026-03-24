@@ -133,7 +133,7 @@ impl BsnEntry {
                         if is_template {
                             BsnEntry::TemplatePatch(bsn_type)
                         } else {
-                            BsnEntry::GetTemplatePatch(bsn_type)
+                            BsnEntry::FromTemplatePatch(bsn_type)
                         }
                     }
                 }
@@ -168,7 +168,7 @@ impl BsnEntry {
                     if is_template {
                         BsnEntry::TemplateConstructor(bsn_constructor)
                     } else {
-                        BsnEntry::GetTemplateConstructor(bsn_constructor)
+                        BsnEntry::FromTemplateConstructor(bsn_constructor)
                     }
                 }
                 PathType::Function => {

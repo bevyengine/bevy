@@ -8,7 +8,7 @@ use bevy_ecs::{
     relationship::Relationship,
     system::IntoObserverSystem,
     template::{
-        EntityScopes, FnTemplate, GetTemplate, ScopedEntityIndex, Template, TemplateContext,
+        EntityScopes, FnTemplate, FromTemplate, ScopedEntityIndex, Template, TemplateContext,
     },
 };
 use core::marker::PhantomData;
@@ -184,14 +184,14 @@ all_tuples!(scene_impl, 0, 12, P);
 /// template if it does not already exist in the [`ResolvedScene`], then it will apply the patch on top
 /// of the current [`Template`] in the [`ResolvedScene`].
 ///
-/// This is usually created by the [`PatchTemplate`] or [`PatchGetTemplate`] traits.
+/// This is usually created by the [`PatchTemplate`] or [`PatchFromTemplate`] traits.
 ///
 /// This enables defining things like "field" patches, which set specific fields without overriding
 /// any other fields:
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_scene2::PatchGetTemplate;
-/// #[derive(GetTemplate)]
+/// # use bevy_scene2::PatchFromTemplate;
+/// #[derive(FromTemplate)]
 /// struct Position {
 ///     x: usize,
 ///     y: usize,
@@ -219,9 +219,9 @@ pub fn template_value<T: Template + Clone>(
     )
 }
 
-/// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`GetTemplate`].
-/// It will use [`GetTemplate::Template`] as the "patched template".
-pub trait PatchGetTemplate {
+/// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
+/// It will use [`FromTemplate::Template`] as the "patched template".
+pub trait PatchFromTemplate {
     /// The [`Template`] that will be patched.
     type Template;
 
@@ -231,7 +231,7 @@ pub trait PatchGetTemplate {
     ) -> TemplatePatch<F, Self::Template>;
 }
 
-impl<G: GetTemplate> PatchGetTemplate for G {
+impl<G: FromTemplate> PatchFromTemplate for G {
     type Template = G::Template;
     fn patch<F: Fn(&mut Self::Template, &mut ResolveContext)>(
         func: F,
