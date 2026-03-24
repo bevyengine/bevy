@@ -30,7 +30,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
-        FullscreenEffect { intensity: 0.005 },
+        FullscreenEffect::new(0.005),
     ));
 
     commands.spawn((
@@ -48,6 +48,19 @@ fn setup(
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
 struct FullscreenEffect {
     intensity: f32,
+    // WebGL2 structs must be 16 byte aligned.
+    // Intensity is an `f32`, which is 4 bytes, so 12 more bytes (3 floats) are needed.
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding: Vec3,
+}
+
+impl FullscreenEffect {
+    fn new(intensity: f32) -> Self {
+        Self {
+            intensity,
+            ..Default::default()
+        }
+    }
 }
 
 impl FullscreenMaterial for FullscreenEffect {
