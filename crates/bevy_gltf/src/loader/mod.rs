@@ -2363,14 +2363,18 @@ fn create_label_maker<T: Clone>(
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{
+        Gltf, GltfAssetLabel, GltfLabelMode, GltfLoaderSettings, GltfMaterial, GltfMesh, GltfNode,
+        GltfSkin,
+    };
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
             AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
+        Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext,
+        LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
@@ -2396,6 +2400,9 @@ mod test {
             crate::GltfPlugin::default(),
         ));
 
+        #[cfg(feature = "bevy_animation")]
+        app.init_asset::<bevy_animation::AnimationClip>();
+
         app.finish();
         app.cleanup();
 
@@ -2415,7 +2422,7 @@ mod test {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
+    fn load_gltf_into_app(gltf_path: &str, gltf: &str, label_mode: GltfLabelMode) -> App {
         #[expect(
             dead_code,
             reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
@@ -2428,7 +2435,13 @@ mod test {
         let mut app = test_app(dir);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
+        let handle: Handle<Gltf> = asset_server.load_with_settings(
+            gltf_path.to_string(),
+            // This makes the test invariant to any feature flag business.
+            move |settings: &mut GltfLoaderSettings| {
+                settings.label_mode = Some(label_mode);
+            },
+        );
         let handle_id = handle.id();
         app.insert_resource(GltfHandle(handle));
         app.update();
@@ -2462,6 +2475,7 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#,
+            GltfLabelMode::Indices,
         );
         let asset_server = app.world().resource::<AssetServer>();
         let handle = asset_server.load(gltf_path);
@@ -2504,6 +2518,7 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#,
+            GltfLabelMode::Indices,
         );
         let asset_server = app.world().resource::<AssetServer>();
         let handle = asset_server.load(gltf_path);
@@ -2545,6 +2560,7 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#,
+            GltfLabelMode::Indices,
         );
         let asset_server = app.world().resource::<AssetServer>();
         let handle = asset_server.load(gltf_path);
@@ -2604,6 +2620,7 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#,
+            GltfLabelMode::Indices,
         );
         let asset_server = app.world().resource::<AssetServer>();
         let handle = asset_server.load(gltf_path);
@@ -2770,6 +2787,7 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#,
+            GltfLabelMode::Indices,
         );
         let asset_server = app.world().resource::<AssetServer>();
         let handle = asset_server.load(gltf_path);
@@ -2948,5 +2966,197 @@ mod test {
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
         });
+    }
+
+    fn get_subasset_name<A: Asset>(handle: &Handle<A>) -> String {
+        handle.path().unwrap().label().unwrap().to_string()
+    }
+
+    #[test]
+    fn single_named_node() {
+        let gltf_path = "test.gltf";
+        let app = load_gltf_into_app(
+            gltf_path,
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "nodes": [
+        {},
+        {},
+        {},
+        {},
+        {
+            "name": "TestSingleNode"
+        },
+        {},
+        {}
+    ],
+    "scene": 0,
+    "scenes": [{ "nodes": [0, 1, 2, 3, 4, 5, 6] }]
+}
+"#,
+            GltfLabelMode::Names,
+        );
+        let asset_server = app.world().resource::<AssetServer>();
+        let handle = asset_server.load(gltf_path);
+        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
+        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+        assert_eq!(gltf_root.nodes.len(), 7);
+        let mut node_labels = gltf_root
+            .nodes
+            .iter()
+            .map(get_subasset_name)
+            .collect::<Vec<_>>();
+        // This index is the only one that should be named.
+        assert_eq!(node_labels[4], "Node:TestSingleNode");
+        node_labels.remove(4);
+
+        assert_eq!(node_labels.len(), 6);
+        for (index, node_label) in node_labels.into_iter().enumerate() {
+            assert!(node_label.starts_with(&format!("__node_{index}_")));
+        }
+    }
+
+    #[test]
+    fn named_and_unnamed_elements() {
+        let gltf_path = "test.gltf";
+        let app = load_gltf_into_app(
+            gltf_path,
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "buffers": [
+        {
+            "uri" : "data:application/gltf-buffer;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "byteLength" : 12
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 12
+        }
+    ],
+    "accessors": [
+        {
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 1,
+            "type" : "VEC3",
+            "min": [0.0, 0.0, 0.0],
+            "max": [0.0, 0.0, 0.0]
+        }
+    ],
+    "meshes": [
+        {
+            "name": "Net",
+            "primitives": [
+                {
+                    "mode": 4,
+                    "attributes": { "POSITION": 0 },
+                    "material": 0
+                },
+                {
+                    "mode": 4,
+                    "attributes": { "POSITION": 0 },
+                    "material": 1
+                }
+            ]
+        },
+        {
+            "primitives": [
+                {
+                    "mode": 4,
+                    "attributes": { "POSITION": 0 },
+                    "material": 0
+                }
+            ]
+        }
+    ],
+    "materials": [
+        {},
+        { "name": "Fireball" }
+    ],
+    "animations": [
+        { "name": "MoonWalk", "channels": [], "samplers": [] },
+        { "channels": [], "samplers": [] }
+    ],
+    "nodes": [
+        {},
+        { "name": "No-duh" },
+        { "mesh": 0, "scale": [-1, 1, 1] }
+    ],
+    "scene": 0,
+    "scenes": [{
+        "name": "HelloWorld",
+        "nodes": [0]
+    }, {
+        "nodes": [1]
+    }]
+}
+"#,
+            GltfLabelMode::Names,
+        );
+        let asset_server = app.world().resource::<AssetServer>();
+        let handle = asset_server.load(gltf_path);
+        let gltf_root_assets = app.world().resource::<Assets<Gltf>>();
+        let gltf_meshes = app.world().resource::<Assets<GltfMesh>>();
+        let gltf_root = gltf_root_assets.get(&handle).unwrap();
+
+        fn handles_to_labels<A: Asset>(handles: &[Handle<A>]) -> Vec<String> {
+            let mut names = handles
+                .iter()
+                .map(get_subasset_name)
+                .map(|name| {
+                    if !name.starts_with('_') {
+                        return name;
+                    }
+                    // Return everything before the last _.
+                    name.rsplit_once('_').unwrap().0.to_string()
+                })
+                .collect::<Vec<_>>();
+            names.sort();
+            names
+        }
+
+        assert_eq!(
+            handles_to_labels(&gltf_root.scenes),
+            ["Scene:HelloWorld", "__scene_0"]
+        );
+        assert_eq!(
+            handles_to_labels(&gltf_root.meshes),
+            ["Mesh:Net", "__mesh_0"]
+        );
+        assert_eq!(
+            handles_to_labels(&gltf_root.materials),
+            ["Material:Fireball", "__mat_0"]
+        );
+        assert_eq!(
+            handles_to_labels(&gltf_root.nodes),
+            ["Node:No-duh", "__node_0", "__node_1"]
+        );
+
+        let primitives = gltf_root
+            .meshes
+            .iter()
+            .flat_map(|gltf_mesh_handle| {
+                gltf_meshes.get(gltf_mesh_handle).unwrap().primitives.iter()
+            })
+            .map(|primitive| primitive.mesh.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            handles_to_labels(&primitives),
+            ["Primitive:Net/0", "Primitive:Net/1", "__prim_0"]
+        );
+
+        #[cfg(feature = "bevy_animation")]
+        assert_eq!(
+            handles_to_labels(&gltf_root.animations),
+            ["Animation:MoonWalk", "__anim_0"]
+        );
     }
 }
