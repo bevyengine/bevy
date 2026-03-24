@@ -1,8 +1,8 @@
 #import bevy_render::view::View
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-struct InfiniteGridPosition {
-    planar_rotation_matrix: mat3x3<f32>,
+struct InfiniteGridUniform {
+    rot_matrix: mat3x3<f32>,
     origin: vec3<f32>,
     normal: vec3<f32>,
 };
@@ -21,7 +21,7 @@ struct InfiniteGridSettings {
 
 @group(0) @binding(0) var<uniform> view: View;
 
-@group(1) @binding(0) var<uniform> grid_position: InfiniteGridPosition;
+@group(1) @binding(0) var<uniform> infinite_grid: InfiniteGridUniform;
 @group(1) @binding(1) var<uniform> grid_settings: InfiniteGridSettings;
 
 // Same as view_transformations::position_ndc_to_world but we can't use it since
@@ -46,8 +46,8 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     // Cast a ray from the near plane towards the far plane
     let ray_origin = near_point;
     let ray_direction = normalize(far_point - near_point);
-    let plane_normal = grid_position.normal;
-    let plane_origin = grid_position.origin;
+    let plane_normal = infinite_grid.normal;
+    let plane_origin = infinite_grid.origin;
 
     // Ray-plane intersection
     // t is the signed distance to the plane
@@ -58,7 +58,7 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     // Project the 3D hit point into the grid's local 2D coordinate space so
     // that grid lines are always axis-aligned regardless of the grid's rotation.
     let planar_offset = frag_pos_3d - plane_origin;
-    let rotation_matrix = grid_position.planar_rotation_matrix;
+    let rotation_matrix = infinite_grid.rot_matrix;
     let plane_coords = (rotation_matrix * planar_offset).xz;
 
     // Compute the clip-space depth of the hit point to make the lines opaque
@@ -95,7 +95,7 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
 
     // Fade the grid linearly with distance from the camera.
     let dist_fadeout = min(1., 1. - grid_settings.one_over_fadeout_distance * real_depth);
-    let dot_fadeout = abs(dot(grid_position.normal, normalize(view.world_position - frag_pos_3d)));
+    let dot_fadeout = abs(dot(infinite_grid.normal, normalize(view.world_position - frag_pos_3d)));
     let alpha_fadeout = mix(dist_fadeout, 1., dot_fadeout) 
         * min(grid_settings.one_over_dot_fadeout * dot_fadeout, 1.);
 
@@ -106,7 +106,11 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     alpha = clamp(alpha, vec3(0.0), vec3(1.0));
 
     // Choose the axis color based on which axis this fragment is closest to
-    let axis_color = mix(grid_settings.x_axis_col, grid_settings.z_axis_col, step(grid3.x, grid3.y));
+    let axis_color = mix(
+        grid_settings.x_axis_col, 
+        grid_settings.z_axis_col, 
+        step(grid3.x, grid3.y)
+    );
 
     var grid_color = vec4(
         axis_color * alpha.x 

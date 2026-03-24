@@ -78,7 +78,7 @@ impl Plugin for InfiniteGridPlugin {
                 Render,
                 (
                     prepare_bind_groups_for_infinite_grids,
-                    prepare_grid_view_bind_groups,
+                    prepare_view_bind_groups,
                 )
                     .in_set(RenderSystems::PrepareBindGroups),
             )
@@ -251,7 +251,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawInfiniteGridCommand {
 
 type DrawInfiniteGrid = (SetItemPipeline, DrawInfiniteGridCommand);
 
-fn prepare_grid_view_bind_groups(
+fn prepare_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
@@ -259,17 +259,18 @@ fn prepare_grid_view_bind_groups(
     pipeline_cache: Res<PipelineCache>,
     views: Query<Entity, With<ViewUniformOffset>>,
 ) {
-    if let Some(binding) = view_uniforms.uniforms.binding() {
-        for entity in views.iter() {
-            let bind_group = render_device.create_bind_group(
-                "infinite_grid_view_bind_group",
-                &pipeline_cache.get_bind_group_layout(&pipeline.view_layout),
-                &BindGroupEntries::single(binding.clone()),
-            );
-            commands
-                .entity(entity)
-                .insert(ViewBindGroup { value: bind_group });
-        }
+    let Some(binding) = view_uniforms.uniforms.binding() else {
+        return;
+    };
+    for entity in views.iter() {
+        let bind_group = render_device.create_bind_group(
+            "infinite_grid_view_bind_group",
+            &pipeline_cache.get_bind_group_layout(&pipeline.view_layout),
+            &BindGroupEntries::single(binding.clone()),
+        );
+        commands
+            .entity(entity)
+            .insert(ViewBindGroup { value: bind_group });
     }
 }
 
@@ -333,13 +334,13 @@ fn prepare_infinite_grids(
 
 fn prepare_bind_groups_for_infinite_grids(
     mut commands: Commands,
-    position_uniforms: Res<InfiniteGridUniforms>,
+    infinite_grid_uniforms: Res<InfiniteGridUniforms>,
     settings_uniforms: Res<InfiniteGridDisplaySettingsUniforms>,
     pipeline: Res<InfiniteGridPipeline>,
     pipeline_cache: Res<PipelineCache>,
     render_device: Res<RenderDevice>,
 ) {
-    let Some((position_binding, settings_binding)) = position_uniforms
+    let Some((infinite_grid_uniform_binding, settings_binding)) = infinite_grid_uniforms
         .uniforms
         .binding()
         .zip(settings_uniforms.uniforms.binding())
@@ -350,7 +351,10 @@ fn prepare_bind_groups_for_infinite_grids(
     let bind_group = render_device.create_bind_group(
         "infinite_grid_bind_group",
         &pipeline_cache.get_bind_group_layout(&pipeline.infinite_grid_layout),
-        &BindGroupEntries::sequential((position_binding.clone(), settings_binding.clone())),
+        &BindGroupEntries::sequential((
+            infinite_grid_uniform_binding.clone(),
+            settings_binding.clone(),
+        )),
     );
     commands.insert_resource(InfiniteGridBindGroup { value: bind_group });
 }
