@@ -50,7 +50,7 @@ fn update_intensity(effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
     for mut effect in effects {
         let phase = time.elapsed_secs() * FullscreenEffect::FREQUENCY;
         // Make it loop periodically
-        let mut intensity = phase.sin();
+        let mut intensity = ops::sin(phase);
 
         // We need to remap the intensity to be between 0 and 1 instead of -1 and 1
         intensity = (intensity + 1.0) / 2.0;
