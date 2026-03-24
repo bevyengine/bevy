@@ -982,8 +982,7 @@ impl Mesh {
             attribute_offset += attribute_size;
         }
     }
-    /// Does the same as [`Mesh::write_packed_vertex_buffer_data`], but accepts wgpu's
-    /// `WriteOnly`
+    /// Does the same as [`Mesh::write_packed_vertex_buffer_data`], but accepts wgpu's [`WriteOnly`]
     pub fn write_packed_vertex_buffer_data_write_only(&self, slice: &mut WriteOnly<'_, [u8]>) {
         let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
