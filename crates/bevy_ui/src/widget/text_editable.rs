@@ -1,15 +1,19 @@
 use core::hash::BuildHasher;
+use std::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
     change_detection::DetectChanges,
-    system::{Query, Res, ResMut},
+    entity::Entity,
+    system::{Local, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_image::prelude::*;
+use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
+use bevy_picking::input;
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
@@ -31,6 +35,7 @@ pub fn editable_text_system(
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut textures: ResMut<Assets<Image>>,
     mut input_field_query: Query<(
+        Entity,
         &TextFont,
         &LineHeight,
         &FontHinting,
@@ -40,9 +45,19 @@ pub fn editable_text_system(
         Ref<ComputedNode>,
     )>,
     rem_size: Res<RemSize>,
+    input_focus: Option<Res<InputFocus>>,
+    mut cursor_timer: Local<Duration>,
 ) {
-    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
-        input_field_query.iter_mut()
+    for (
+        entity,
+        text_font,
+        line_height,
+        hinting,
+        target,
+        mut editable_text,
+        mut info,
+        computed_node,
+    ) in input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
@@ -182,14 +197,31 @@ pub fn editable_text_system(
             .editor
             .cursor_geometry(editable_text.cursor_width * font_size);
 
-        info.cursor = geom.map(bounding_box_to_rect);
+        if let Some(input_focus) = input_focus.as_ref()
+            && Some(entity) == input_focus.0
+        {
+            if input_focus.is_changed()
+                || editable_text.is_changed()
+                || editable_text.cursor_blink_period < *cursor_timer
+            {
+                *cursor_timer = Duration::ZERO;
+            }
 
-        info.selection_rects = editable_text
-            .editor
-            .selection_geometry()
-            .iter()
-            .map(|&b| bounding_box_to_rect(b.0))
-            .collect();
+            if editable_text.cursor_blink_period / 2 < *cursor_timer {
+                info.cursor = None;
+            } else {
+                info.cursor = geom.map(bounding_box_to_rect);
+            }
+
+            info.selection_rects = editable_text
+                .editor
+                .selection_geometry()
+                .iter()
+                .map(|&b| bounding_box_to_rect(b.0))
+                .collect();
+        } else {
+            info.cursor = None;
+        }
     }
 }
 
