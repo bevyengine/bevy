@@ -10,14 +10,19 @@ struct Mesh2d {
     // [2].z
     // Use bevy_render::maths::mat2x4_f32_to_mat3x3_unpack to unpack
     local_from_world_transpose_a: mat2x4<f32>,
-    // AABB for decompressing positions.
-    aabb_center: vec3<f32>,
     local_from_world_transpose_b: f32,
-    // AABB for decompressing positions.
-    aabb_half_extents: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
-    /// UV channels range for decompressing UVs coordinates.
-    uv_channels_min_and_extents: array<vec4<f32>, 1>,
     tag: u32,
+    metadata_index: u32,
+};
+
+struct MeshMetadata {
+    // AABB for decompressing positions.
+    aabb_center: vec3<f32>,
+    pad_a: u32,
+    aabb_half_extents: vec3<f32>,
+    pad_b: u32,
+    // UV channels range for decompressing UVs coordinates.
+    uv_channels_min_and_extents: array<vec4<f32>, 2>,
 };

@@ -2,7 +2,8 @@
 
 #import bevy_sprite::{
     mesh2d_view_bindings::view,
-    mesh2d_bindings::mesh,
+    mesh2d_bindings::{mesh, metadata},
+    mesh2d_types::MeshMetadata,
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
@@ -46,4 +47,12 @@ fn mesh2d_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: 
 
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
+}
+
+fn get_metadata(instance_index: u32) -> MeshMetadata {
+#ifdef METADATA_USE_UNIFORM_BUFFERS
+    return metadata;
+#else
+    return metadata[mesh[instance_index].metadata_index];
+#endif
 }

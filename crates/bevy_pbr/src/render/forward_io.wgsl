@@ -81,12 +81,12 @@ struct Vertex {
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
 fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
+    let mesh_metadata = bevy_pbr::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
 #ifdef VERTEX_POSITIONS
 #ifdef VERTEX_POSITIONS_COMPRESSED
-    let mesh_uniform = bevy_pbr::mesh_bindings::mesh[instance_index];
-    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_uniform.aabb_center, mesh_uniform.aabb_half_extents);
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
 #else
     uncompressed_vertex.position = vertex_in.position;
 #endif
@@ -100,7 +100,7 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 #endif
 #ifdef VERTEX_UVS_A
 #ifdef VERTEX_UVS_A_COMPRESSED
-    let uv_min_and_extents_a = bevy_pbr::mesh_bindings::mesh[instance_index].uv_channels_min_and_extents[0];
+    let uv_min_and_extents_a = mesh_metadata.uv_channels_min_and_extents[0];
     uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv, uv_min_and_extents_a);
 #else
     uncompressed_vertex.uv = vertex_in.uv;
@@ -108,7 +108,7 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 #endif
 #ifdef VERTEX_UVS_B
 #ifdef VERTEX_UVS_B_COMPRESSED
-    let uv_min_and_extents_b = bevy_pbr::mesh_bindings::mesh[instance_index].uv_channels_min_and_extents[1];
+    let uv_min_and_extents_b = mesh_metadata.uv_channels_min_and_extents[1];
     uncompressed_vertex.uv_b = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv_b, uv_min_and_extents_b);
 #else
     uncompressed_vertex.uv_b = vertex_in.uv_b;

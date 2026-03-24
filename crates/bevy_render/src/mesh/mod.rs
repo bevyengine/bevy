@@ -2,10 +2,10 @@ pub mod allocator;
 #[cfg(feature = "morph")]
 pub mod morph;
 
-#[cfg(feature = "morph")]
 use crate::GpuResourceAppExt;
 use crate::{
     render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
     RenderApp,
@@ -20,9 +20,11 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::bounding::{Aabb2d, Aabb3d};
+use bevy_encase_derive::ShaderType;
 pub use bevy_mesh::*;
-use wgpu::IndexFormat;
+use bytemuck::{Pod, Zeroable};
+use glam::{Vec3, Vec4};
+use wgpu::{util::BufferInitDescriptor, BufferUsages, IndexFormat};
 
 #[cfg(feature = "morph")]
 use crate::mesh::morph::RenderMorphTargetAllocator;
@@ -42,7 +44,9 @@ impl Plugin for MeshRenderAssetPlugin {
             return;
         };
 
-        render_app.init_resource::<MeshVertexBufferLayouts>();
+        render_app
+            .init_resource::<MeshVertexBufferLayouts>()
+            .init_gpu_resource::<MeshMetadataFallbackBuffer>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -52,6 +56,41 @@ impl Plugin for MeshRenderAssetPlugin {
 
         #[cfg(feature = "morph")]
         _render_app.init_gpu_resource::<RenderMorphTargetAllocator>();
+    }
+}
+
+/// Per-mesh metadata.
+#[derive(Default, Pod, Zeroable, Clone, Copy, Debug, ShaderType)]
+#[repr(C)]
+pub struct MeshMetadata {
+    // AABB for decompressing positions.
+    pub aabb_center: Vec3,
+    pub pad1: u32,
+    // AABB for decompressing positions.
+    pub aabb_half_extents: Vec3,
+    pub pad2: u32,
+    // UV channels range for decompressing UVs coordinates.
+    pub uv_channels_min_and_extents: [Vec4; 2],
+}
+
+#[derive(Resource)]
+pub struct MeshMetadataFallbackBuffer(pub Buffer);
+
+impl FromWorld for MeshMetadataFallbackBuffer {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource_mut::<RenderDevice>();
+        let limits = render_device.limits();
+        Self(
+            render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("mesh metadata fallback buffer"),
+                contents: bytemuck::cast_slice(&[MeshMetadata::default()]),
+                usage: if bevy_render::storage_buffers_are_unsupported(&limits) {
+                    BufferUsages::UNIFORM
+                } else {
+                    BufferUsages::STORAGE
+                },
+            }),
+        )
     }
 }
 
@@ -73,12 +112,6 @@ pub struct RenderMesh {
     /// Combined with [`RenderMesh::buffer_info`], this specifies the complete
     /// layout of the buffers associated with this mesh.
     pub layout: MeshVertexBufferLayoutRef,
-
-    /// AABB used for decompressing vertex positions.
-    /// None if the positions of the mesh is empty or the format isn't Float32x3.
-    pub aabb: Option<Aabb3d>,
-    /// UV ranges for decompressing UV0 and UV1 coordinates.
-    pub uv_ranges: [Option<Aabb2d>; 2],
 }
 
 impl RenderMesh {
@@ -217,8 +250,6 @@ impl RenderAsset for RenderMesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            aabb: mesh.final_aabb,
-            uv_ranges: mesh.final_uv_ranges,
         })
     }
 

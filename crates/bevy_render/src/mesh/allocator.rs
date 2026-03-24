@@ -1,8 +1,6 @@
 //! Manages mesh vertex and index buffers.
 
 use alloc::borrow::Cow;
-use bevy_mesh::Indices;
-
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
@@ -12,13 +10,16 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_math::bounding::{Aabb2d, BoundingVolume};
+use bevy_mesh::Indices;
+use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
 #[cfg(feature = "morph")]
 use bevy_mesh::morph::MorphAttributes;
 
 use crate::{
-    mesh::{Mesh, MeshVertexBufferLayouts, RenderMesh},
+    mesh::{Mesh, MeshMetadata, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     slab_allocator::{
@@ -79,6 +80,13 @@ impl Default for MeshAllocatorSettings {
     }
 }
 
+/// The [`ElementLayout`] for mesh metadata displacements.
+static MESH_METADATA_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
+    class: ElementClass::Metadata,
+    size: size_of::<MeshMetadata>() as u64,
+    elements_per_slot: 1,
+};
+
 /// The [`ElementLayout`] for morph displacements.
 ///
 /// All morph displacements currently have the same element layout, so we only
@@ -116,6 +124,8 @@ pub struct MeshSlabs {
     pub vertex_slab_id: MeshSlabId,
     /// The slab storing the mesh's index data, if the mesh is indexed.
     pub index_slab_id: Option<MeshSlabId>,
+    /// The slab storing the mesh's metadata.
+    pub metadata_slab_id: Option<MeshSlabId>,
     /// The slab storing the mesh's morph target displacements, if the mesh has
     /// morph targets.
     #[cfg(feature = "morph")]
@@ -124,7 +134,6 @@ pub struct MeshSlabs {
 
 impl Slab<MeshSlabItem> {
     /// Returns the type of buffer that this is: vertex, index, or morph target.
-    #[cfg(feature = "morph")]
     pub fn element_class(&self) -> ElementClass {
         self.element_layout().class
     }
@@ -150,6 +159,7 @@ impl MeshAllocationKey {
 /// The type of element that a mesh slab can store.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ElementClass {
+    Metadata,
     /// Data for a vertex.
     Vertex,
     /// A vertex index.
@@ -262,6 +272,17 @@ pub fn allocate_and_free_meshes(
 }
 
 impl MeshAllocator {
+    /// Returns the buffer and range within that buffer of the metadata data for
+    /// the mesh with the given ID.
+    ///
+    /// If the mesh wasn't allocated, returns None.
+    pub fn mesh_metadata_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
+        self.slab_allocation_slice(
+            &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
+            *self.mesh_id_to_metadata_slab(mesh_id)?,
+        )
+    }
+
     /// Returns the buffer and range within that buffer of the vertex data for
     /// the mesh with the given ID.
     ///
@@ -306,6 +327,7 @@ impl MeshAllocator {
         Some(MeshSlabs {
             vertex_slab_id: self.mesh_id_to_vertex_slab(mesh_id).cloned()?,
             index_slab_id: self.mesh_id_to_index_slab(mesh_id).cloned(),
+            metadata_slab_id: self.mesh_id_to_metadata_slab(mesh_id).cloned(),
             #[cfg(feature = "morph")]
             morph_target_slab_id: self.mesh_id_to_morph_target_slab(mesh_id).cloned(),
         })
@@ -318,6 +340,13 @@ impl MeshAllocator {
             .keys()
             .filter(|key| key.class == ElementClass::Index)
             .count()
+    }
+
+    /// Given the ID of a mesh, returns the ID of the slab that contains the
+    /// metadata for that mesh, if it exists.
+    fn mesh_id_to_metadata_slab(&self, mesh_id: &AssetId<Mesh>) -> Option<&SlabId<MeshSlabItem>> {
+        self.key_to_slab
+            .get(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata))
     }
 
     /// Given the ID of a mesh, returns the ID of the slab that contains the
@@ -357,6 +386,16 @@ impl MeshAllocator {
         })
     }
 
+    pub fn metadata_slabs(&self) -> impl Iterator<Item = MeshSlabId> {
+        self.slabs.iter().filter_map(|(slab_id, slab)| {
+            if matches!(slab.element_class(), ElementClass::Metadata) {
+                Some(*slab_id)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Processes newly-loaded meshes, allocating room in the slabs for their
     /// mesh data and performing upload operations as appropriate.
     fn allocate_meshes(
@@ -374,6 +413,23 @@ impl MeshAllocator {
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
                 continue;
+            }
+
+            // Allocate metadata.
+            if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(|uv| uv.is_some()) {
+                if crate::storage_buffers_are_unsupported(&render_device.limits()) {
+                    allocation_stage.allocate_large(
+                        &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
+                        MESH_METADATA_ELEMENT_LAYOUT,
+                    );
+                } else {
+                    allocation_stage.allocate(
+                        &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
+                        size_of::<MeshMetadata>() as u64,
+                        MESH_METADATA_ELEMENT_LAYOUT,
+                        mesh_allocator_settings,
+                    );
+                }
             }
 
             // Allocate vertex data. Note that we can only pack mesh vertex data
@@ -422,11 +478,59 @@ impl MeshAllocator {
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            self.copy_mesh_metadata(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);
             #[cfg(feature = "morph")]
             self.copy_mesh_morph_target_data(mesh_id, mesh, render_device, render_queue);
         }
+    }
+
+    /// Copies vertex array data from a mesh into the appropriate spot in the
+    /// slab.
+    fn copy_mesh_metadata(
+        &mut self,
+        mesh_id: &AssetId<Mesh>,
+        mesh: &Mesh,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+    ) {
+        const UV_RANGES_NONE: [Option<Aabb2d>; 2] = [None; 2];
+        let metadata = match (mesh.final_aabb, mesh.final_uv_ranges) {
+            (None, UV_RANGES_NONE) => return,
+            _ => {
+                let (aabb_center, aabb_half_extents) = mesh
+                    .final_aabb
+                    .map(|aabb| (aabb.center().into(), aabb.half_size().into()))
+                    .unwrap_or_default();
+                let uv_channels_min_and_extents = mesh.final_uv_ranges.map(|maybe_uv| {
+                    maybe_uv
+                        .map(|aabb2d| {
+                            Vec4::new(
+                                aabb2d.min.x,
+                                aabb2d.min.y,
+                                aabb2d.max.x - aabb2d.min.x,
+                                aabb2d.max.y - aabb2d.min.y,
+                            )
+                        })
+                        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+                });
+                MeshMetadata {
+                    aabb_center,
+                    aabb_half_extents,
+                    uv_channels_min_and_extents,
+                    ..Default::default()
+                }
+            }
+        };
+        // Call the generic function.
+        self.copy_element_data(
+            &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
+            size_of::<MeshMetadata>(),
+            |slice| slice.copy_from_slice(bytemuck::cast_slice(&[metadata])),
+            render_device,
+            render_queue,
+        );
     }
 
     /// Copies vertex array data from a mesh into the appropriate spot in the
@@ -507,6 +611,7 @@ impl MeshAllocator {
             .chain(extracted_meshes.modified.iter());
 
         for mesh_id in meshes_to_free {
+            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata));
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
             #[cfg(feature = "morph")]
@@ -570,16 +675,23 @@ impl SlabItemLayout for ElementLayout {
         self.elements_per_slot
     }
 
-    fn buffer_usages(&self) -> BufferUsages {
-        self.class.buffer_usages()
+    fn buffer_usages(&self, render_device: &RenderDevice) -> BufferUsages {
+        self.class.buffer_usages(render_device)
     }
 }
 
 impl ElementClass {
     /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
     /// class.
-    fn buffer_usages(&self) -> BufferUsages {
+    fn buffer_usages(&self, render_device: &RenderDevice) -> BufferUsages {
         match *self {
+            ElementClass::Metadata => {
+                if crate::storage_buffers_are_unsupported(&render_device.limits()) {
+                    BufferUsages::UNIFORM
+                } else {
+                    BufferUsages::STORAGE
+                }
+            }
             ElementClass::Vertex => BufferUsages::VERTEX,
             ElementClass::Index => BufferUsages::INDEX,
             #[cfg(feature = "morph")]

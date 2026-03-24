@@ -6,8 +6,8 @@
         visibility_ranges,
         VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE
     },
-    mesh_bindings::mesh,
-    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    mesh_bindings::{mesh, metadata},
+    mesh_types::{MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT, MeshMetadata},
     view_transformations::position_world_to_clip,
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
@@ -164,5 +164,13 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 #ifndef MESHLET_MESH_MATERIAL_PASS
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
+}
+
+fn get_metadata(instance_index: u32) -> MeshMetadata {
+#ifdef SKINS_USE_UNIFORM_BUFFERS
+    return metadata;
+#else
+    return metadata[mesh[instance_index].metadata_index];
+#endif
 }
 #endif

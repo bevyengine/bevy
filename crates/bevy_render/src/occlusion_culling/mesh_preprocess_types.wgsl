@@ -26,11 +26,7 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
-    // AABB for decompressing positions.
-    aabb_center: vec3<f32>,
-    aabb_half_extents: vec3<f32>,
-    // UV channels range for decompressing UVs coordinates.
-    uv_channels_min_and_extents: array<vec4<f32>, 2>,
+    metadata_index: u32
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
