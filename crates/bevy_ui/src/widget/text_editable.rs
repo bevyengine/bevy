@@ -13,13 +13,13 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
-use bevy_picking::input;
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
     FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
+use bevy_time::{Real, Time};
 use parley::{swash::FontRef, BoundingBox};
 use parley::{FontFamily, FontStack, PositionedLayoutItem};
 
@@ -47,7 +47,10 @@ pub fn editable_text_system(
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
     mut cursor_timer: Local<Duration>,
+    time: Res<Time<Real>>,
 ) {
+    *cursor_timer += time.delta();
+
     for (
         entity,
         text_font,
