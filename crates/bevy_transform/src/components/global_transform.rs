@@ -344,7 +344,7 @@ impl Mul<Vec3> for GlobalTransform {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serialize"))]
 mod test {
     use super::*;
 
