@@ -145,7 +145,10 @@ impl BsnEntry {
                     }
                 }
                 PathType::Const => {
-                    todo!("A floating type-unknown const should be assumed to be a const scene right?")
+                    return Err(syn::Error::new(
+                        path.span(),
+                        "Consts are not currently supported in this position",
+                    ))
                 }
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
@@ -398,9 +401,7 @@ impl Parse for BsnValue {
             input.parse::<Token![#]>()?;
             BsnValue::Name(input.parse::<Ident>()?)
         } else {
-            return Err(input.error(
-                "BsnValue parse for this input is not supported yet, nor is proper error handling :)"
-            ));
+            return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
         })
     }
 }
