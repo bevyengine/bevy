@@ -17,7 +17,7 @@ use crate::{
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
 pub struct ComponentIds {
-    next: bevy_platform::sync::atomic::AtomicUsize,
+    next: bevy_platform::sync::atomic::AtomicU32,
 }
 
 impl ComponentIds {
@@ -52,7 +52,7 @@ impl ComponentIds {
 
     /// Returns the number of [`ComponentId`]s generated.
     pub fn len(&self) -> usize {
-        self.peek().0
+        self.peek().index()
     }
 
     /// Returns true if and only if no ids have been generated.
@@ -250,7 +250,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
+                .get_mut(id.index())
                 .debug_checked_unwrap()
                 .as_mut()
                 .debug_checked_unwrap()

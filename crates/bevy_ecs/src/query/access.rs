@@ -1466,7 +1466,7 @@ impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
     type Item = ComponentId;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(ComponentId::new)
+        self.0.next().map(|i| ComponentId::new(i as u32))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1476,7 +1476,7 @@ impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
 
 impl<I: DoubleEndedIterator<Item = usize>> DoubleEndedIterator for ComponentIdIter<I> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(ComponentId::new)
+        self.0.next_back().map(|i| ComponentId::new(i as u32))
     }
 }
 

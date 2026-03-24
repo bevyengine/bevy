@@ -178,7 +178,7 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(pub(super) u32);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
@@ -186,14 +186,14 @@ impl ComponentId {
     /// The `index` is a unique value associated with each type of component in a given world.
     /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
+    pub const fn new(index: u32) -> ComponentId {
         ComponentId(index)
     }
 
     /// Returns the index of the current component.
     #[inline]
-    pub fn index(self) -> usize {
-        self.0
+    pub const fn index(self) -> usize {
+        self.0 as usize
     }
 }
 
@@ -205,7 +205,7 @@ impl SparseSetIndex for ComponentId {
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value as u32)
     }
 }
 
@@ -375,12 +375,12 @@ impl Components {
     ) {
         descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
-        let least_len = id.0 + 1;
+        let least_len = id.index() + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);
         }
         // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
+        let slot = unsafe { self.components.get_mut(id.index()).debug_checked_unwrap() };
         // Caller ensures id is unique
         debug_assert!(slot.is_none());
         *slot = Some(info);
@@ -445,7 +445,9 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0).and_then(|info| info.as_ref())
+        self.components
+            .get(id.index())
+            .and_then(|info| info.as_ref())
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
@@ -457,7 +459,7 @@ impl Components {
     #[inline]
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
-            .get(id.0)
+            .get(id.index())
             .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
@@ -478,7 +480,7 @@ impl Components {
     #[inline]
     pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
-            .get(id.0)
+            .get(id.index())
             .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
@@ -501,7 +503,7 @@ impl Components {
         // SAFETY: The caller ensures `id` is valid.
         unsafe {
             self.components
-                .get(id.0)
+                .get(id.index())
                 .debug_checked_unwrap()
                 .as_ref()
                 .debug_checked_unwrap()
@@ -511,14 +513,14 @@ impl Components {
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
         self.components
-            .get_mut(id.0)
+            .get_mut(id.index())
             .and_then(|info| info.as_mut().map(|info| &mut info.hooks))
     }
 
     #[inline]
     pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
         self.components
-            .get(id.0)
+            .get(id.index())
             .and_then(|info| info.as_ref().map(|info| &info.required_components))
     }
 
@@ -528,7 +530,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
         self.components
-            .get_mut(id.0)
+            .get_mut(id.index())
             .and_then(|info| info.as_mut().map(|info| &mut info.required_components))
     }
 
@@ -538,7 +540,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
         self.components
-            .get(id.0)
+            .get(id.index())
             .and_then(|info| info.as_ref().map(|info| &info.required_by))
     }
 
@@ -548,7 +550,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
-            .get_mut(id.0)
+            .get_mut(id.index())
             .and_then(|info| info.as_mut().map(|info| &mut info.required_by))
     }
 
@@ -557,7 +559,7 @@ impl Components {
     /// Those ids are still correct, but they are not usable in every context yet.
     #[inline]
     pub fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.get(id.0).is_some_and(Option::is_some)
+        self.components.get(id.index()).is_some_and(Option::is_some)
     }
 
     /// Type-erased equivalent of [`Components::valid_component_id()`].

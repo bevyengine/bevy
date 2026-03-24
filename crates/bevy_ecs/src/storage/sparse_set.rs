@@ -851,7 +851,7 @@ mod tests {
             vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
         );
 
-        fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
+        fn register_component<T: Component>(sets: &mut SparseSets, id: u32) {
             let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
             let info = ComponentInfo::new(id, descriptor);
