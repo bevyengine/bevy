@@ -140,6 +140,7 @@ impl TextEdit {
         self,
         driver: &'a mut PlainEditorDriver<TextBrush>,
         clipboard_text: &mut String,
+        max_characters: Option<usize>,
     ) {
         match self {
             TextEdit::Copy => {
@@ -156,9 +157,25 @@ impl TextEdit {
                 }
             }
             TextEdit::Paste => {
+                if let Some(max) = max_characters {
+                    let select_len = driver.editor.selected_text().map(|s| s.len()).unwrap_or(0);
+                    if max
+                        < driver.editor.text().chars().count() - select_len + clipboard_text.len()
+                    {
+                        return;
+                    }
+                }
                 driver.insert_or_replace_selection(clipboard_text.as_str());
             }
-            TextEdit::Insert(text) => driver.insert_or_replace_selection(text.as_str()),
+            TextEdit::Insert(text) => {
+                if let Some(max) = max_characters {
+                    let select_len = driver.editor.selected_text().map(|s| s.len()).unwrap_or(0);
+                    if max < driver.editor.text().chars().count() - select_len + text.len() {
+                        return;
+                    }
+                }
+                driver.insert_or_replace_selection(text.as_str());
+            }
             TextEdit::Backspace => driver.backdelete(),
             TextEdit::BackspaceWord => driver.backdelete_word(),
             TextEdit::Delete => driver.delete(),

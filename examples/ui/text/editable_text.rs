@@ -164,7 +164,10 @@ fn build_input_text(
                 ..Default::default()
             },
             Name::new(if is_left { "Left" } else { "Right" }),
-            EditableText::default(),
+            EditableText {
+                max_characters: (!is_left).then_some(7),
+                ..Default::default()
+            },
             TextFont {
                 font: font.clone(),
                 font_size: FontSize::Px(font_size),

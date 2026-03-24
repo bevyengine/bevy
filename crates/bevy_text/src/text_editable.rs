@@ -107,6 +107,10 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
+    /// Maximum number of characters the text input can contain.
+    /// Edits which would cause the length to exceed the maximum are ignored.
+    /// Does not stop setting a string longer than the maximum using `set_text`.
+    pub max_characters: Option<usize>,
 }
 
 impl Default for EditableText {
@@ -116,6 +120,7 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: Vec::new(),
             cursor_width: 0.2,
+            max_characters: None,
         }
     }
 }
@@ -155,13 +160,14 @@ impl EditableText {
         let Self {
             editor,
             pending_edits,
+            max_characters,
             ..
         } = self;
 
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            edit.apply(&mut driver, &mut String::new());
+            edit.apply(&mut driver, &mut String::new(), *max_characters);
         }
     }
 
