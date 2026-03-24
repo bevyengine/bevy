@@ -1,6 +1,6 @@
 use core::hash::BuildHasher;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
@@ -18,6 +18,62 @@ use bevy_text::{
 };
 use parley::{swash::FontRef, BoundingBox};
 use parley::{FontFamily, FontStack, PositionedLayoutItem};
+
+struct TextInputMeasure {
+    height: f32,
+}
+
+impl crate::Measure for TextInputMeasure {
+    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
+        let x = measure_args
+            .width
+            .unwrap_or_else(|| match measure_args.available_width {
+                crate::AvailableSpace::Definite(x) => x,
+                crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
+            });
+        let y = measure_args.height.unwrap_or(self.height);
+        Vec2::new(x, y).ceil()
+    }
+}
+
+/// If `visible_lines` is `Some`, sets a `ContentSize` that determines the node's height
+/// as `line_height * visible_lines`, using the resolved font line height.
+pub fn update_editable_text_content_size(
+    mut text_input_query: Query<(
+        Ref<EditableText>,
+        Ref<TextFont>,
+        Ref<LineHeight>,
+        Ref<ComputedUiRenderTargetInfo>,
+        &mut ContentSize,
+    )>,
+    fonts: Res<Assets<Font>>,
+    rem_size: Res<RemSize>,
+) {
+    for (editable_text, text_font, line_height, target, mut content_size) in &mut text_input_query {
+        if !(editable_text.is_changed()
+            || text_font.is_changed()
+            || line_height.is_changed()
+            || target.is_changed()
+            || fonts.is_changed()
+            || rem_size.is_changed())
+        {
+            continue;
+        }
+
+        if let Some(visible_lines) = editable_text.visible_lines {
+            let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+            let logical_line_height = match *line_height {
+                LineHeight::Px(px) => px,
+                LineHeight::RelativeToFont(scale) => scale * font_size,
+            };
+            content_size.set(NodeMeasure::Custom(Box::new(TextInputMeasure {
+                height: visible_lines * logical_line_height * target.scale_factor(),
+            })));
+        } else {
+            content_size.measure = None;
+        }
+    }
+}
 
 /// Updates [`EditableText::editor`] to match e.g. [`TextFont`]
 /// Writes layout to [`TextLayoutInfo`] for rendering

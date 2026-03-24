@@ -107,6 +107,8 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
+    /// Set height of input in number of lines
+    pub visible_lines: Option<f32>,
 }
 
 impl Default for EditableText {
@@ -116,6 +118,7 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: Vec::new(),
             cursor_width: 0.2,
+            visible_lines: Some(1.),
         }
     }
 }

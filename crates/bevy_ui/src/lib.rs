@@ -73,6 +73,7 @@ pub mod prelude {
     };
 }
 
+use crate::widget::update_editable_text_content_size;
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
@@ -240,6 +241,7 @@ fn build_text_interop(app: &mut App) {
                 // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
+            update_editable_text_content_size.in_set(UiSystems::Content),
             widget::text_system
                 .in_set(UiSystems::PostLayout)
                 .after(bevy_text::load_font_assets_into_font_collection)
