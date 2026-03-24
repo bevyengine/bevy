@@ -58,6 +58,7 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+pub mod slab_allocator;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
