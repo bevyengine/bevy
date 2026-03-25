@@ -533,7 +533,7 @@ impl MeshAllocator {
         self.copy_element_data(
             &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
             size_of::<MeshMetadata>(),
-            |slice| slice.copy_from_slice(bytemuck::cast_slice(&[metadata])),
+            |mut slice| slice.copy_from_slice(bytemuck::cast_slice(&[metadata])),
             render_device,
             render_queue,
         );
