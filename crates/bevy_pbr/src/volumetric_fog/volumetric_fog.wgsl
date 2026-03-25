@@ -388,7 +388,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 }
                 let light_to_frag = (*light).position_radius.xyz - P_world;
 
-                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
                 // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
                 let cd = dot(-spot_dir, normalize(light_to_frag));

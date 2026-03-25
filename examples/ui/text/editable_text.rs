@@ -74,13 +74,11 @@ fn setup(
         .id();
 
     // Set up an EditableText widget
-    let (text_input_left, text_input_left_edit) =
-        build_input_text(&mut commands, &font, true, 30.0);
-    let (text_input_right, _text_input_right_edit) =
-        build_input_text(&mut commands, &font, false, 50.0);
+    let text_input_left = build_input_text(&mut commands, &font, true, 30.0);
+    let text_input_right = build_input_text(&mut commands, &font, false, 50.0);
 
     // Set the focus to our text input so we can start typing right away
-    input_focus.set(text_input_left_edit);
+    input_focus.set(text_input_left);
 
     let input_container = commands
         .spawn((
@@ -137,28 +135,16 @@ fn build_input_text(
     font: &FontSource,
     is_left: bool,
     font_size: f32,
-) -> (Entity, Entity) {
-    let outer = commands
+) -> Entity {
+    commands
         .spawn((
             Node {
+                width: px(200),
                 border: px(5).all(),
                 padding: px(5).all(),
                 ..Default::default()
             },
             BorderColor::from(Color::from(YELLOW)),
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
-                y: Val::Px(50.0),
-            }),
-        ))
-        .id();
-
-    let edit = commands
-        .spawn((
-            Node {
-                width: px(200),
-                ..Default::default()
-            },
             Name::new(if is_left { "Left" } else { "Right" }),
             EditableText {
                 max_characters: (!is_left).then_some(7),
@@ -172,12 +158,12 @@ fn build_input_text(
             TextCursorStyle::default(),
             TabIndex(if is_left { 0 } else { 1 }),
             BackgroundColor(DARK_GREY.into()),
+            UiTransform::from_translation(Val2 {
+                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
+                y: Val::Px(50.0),
+            }),
         ))
-        .id();
-
-    commands.entity(outer).add_children(&[edit]);
-
-    (outer, edit)
+        .id()
 }
 
 // Submit the text when Ctrl+Enter is pressed
