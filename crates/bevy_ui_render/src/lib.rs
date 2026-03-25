@@ -503,7 +503,7 @@ pub fn extract_uinode_images(
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             || image.image_mode.uses_slices()
-            || uinode.is_empty()
+            || uinode.content_size == Vec2::ZERO
         {
             continue;
         }
@@ -521,7 +521,7 @@ pub fn extract_uinode_images(
         let mut rect = match (atlas_rect, image.rect) {
             (None, None) => Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: uinode.content_size,
             },
             (None, Some(image_rect)) => image_rect,
             (Some(atlas_rect), None) => atlas_rect,
@@ -533,7 +533,7 @@ pub fn extract_uinode_images(
         };
 
         let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
-            let atlas_scaling = uinode.size() / rect.size();
+            let atlas_scaling = uinode.content_size / rect.size();
             rect.min *= atlas_scaling;
             rect.max *= atlas_scaling;
             Some(atlas_scaling)
@@ -547,14 +547,15 @@ pub fn extract_uinode_images(
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
-            transform: transform.into(),
+            transform: Affine2::from(*transform)
+                * Affine2::from_translation(uinode.content_box().center()),
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 rect,
                 atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                border: uinode.border,
+                border: BorderRect::ZERO,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
             },
@@ -936,7 +937,8 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+        let transform =
+            Affine2::from(*transform) * Affine2::from_translation(uinode.content_box().min);
 
         let mut color = text_color.0.to_linear();
 
@@ -1040,7 +1042,7 @@ pub fn extract_text_shadows(
 
         let node_transform = Affine2::from(*transform)
             * Affine2::from_translation(
-                -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
+                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor(),
             );
 
         for (
@@ -1193,7 +1195,7 @@ pub fn extract_text_decorations(
         };
 
         let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
+            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
 
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
@@ -1230,8 +1232,8 @@ pub fn extract_text_decorations(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: uinode.border(),
-                        border_radius: uinode.border_radius(),
+                        border: BorderRect::ZERO,
+                        border_radius: ResolvedBorderRadius::ZERO,
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
