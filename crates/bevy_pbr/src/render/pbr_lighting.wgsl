@@ -293,7 +293,7 @@ fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
 // A simpler, but nonphysical, alternative to Smith-GGX. We use this for
 // clearcoat, per the Filament spec.
 //
-// https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel#toc4.9.1
+// https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 fn V_Kelemen(LdotH: f32) -> f32 {
     return 0.25 / (LdotH * LdotH);
 }
