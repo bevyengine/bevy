@@ -755,21 +755,19 @@ pub fn check_visibility_cpu_culling(
         &Camera,
         Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<
-        (
-            Entity,
-            &InheritedVisibility,
-            &mut ViewVisibility,
-            Option<&VisibilityClass>,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            Option<&Sphere>,
-            &GlobalTransform,
-            Has<NoFrustumCulling>,
-            Has<VisibilityRange>,
-        ),
-        Without<NoCpuCulling>,
-    >,
+    mut visible_aabb_query: Query<(
+        Entity,
+        &InheritedVisibility,
+        &mut ViewVisibility,
+        Option<&VisibilityClass>,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&Sphere>,
+        &GlobalTransform,
+        Has<NoFrustumCulling>,
+        Has<VisibilityRange>,
+        Has<NoCpuCulling>,
+    )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -797,6 +795,7 @@ pub fn check_visibility_cpu_culling(
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
+                    has_no_cpu_culling,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -810,36 +809,38 @@ pub fn check_visibility_cpu_culling(
                     return;
                 }
 
-                // If outside of the visibility range, cull.
-                if has_visibility_range
-                    && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
-                    })
-                {
-                    return;
-                }
-
-                // If we have an aabb or a bounding sphere, do frustum culling
-                if !no_frustum_culling && !no_cpu_culling_camera {
-                    if let Some(model_aabb) = maybe_model_aabb {
-                        let world_from_local = transform.affine();
-                        let model_sphere = Sphere {
-                            center: world_from_local.transform_point3a(model_aabb.center),
-                            radius: transform.radius_vec3a(model_aabb.half_extents),
-                        };
-                        // Do quick sphere-based frustum culling
-                        if !frustum.intersects_sphere(&model_sphere, false) {
-                            return;
-                        }
-                        // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
-                            return;
-                        }
-                    } else if let Some(model_sphere) = maybe_model_sphere
-                        && !frustum.intersects_sphere(model_sphere, false)
+                if !has_no_cpu_culling {
+                    // If outside of the visibility range, cull.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                        })
                     {
-                        // Do sphere-based frustum culling in this case
                         return;
+                    }
+
+                    // If we have an aabb or a bounding sphere, do frustum culling
+                    if !no_frustum_culling && !no_cpu_culling_camera {
+                        if let Some(model_aabb) = maybe_model_aabb {
+                            let world_from_local = transform.affine();
+                            let model_sphere = Sphere {
+                                center: world_from_local.transform_point3a(model_aabb.center),
+                                radius: transform.radius_vec3a(model_aabb.half_extents),
+                            };
+                            // Do quick sphere-based frustum culling
+                            if !frustum.intersects_sphere(&model_sphere, false) {
+                                return;
+                            }
+                            // Do aabb-based frustum culling
+                            if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                                return;
+                            }
+                        } else if let Some(model_sphere) = maybe_model_sphere
+                            && !frustum.intersects_sphere(model_sphere, false)
+                        {
+                            // Do sphere-based frustum culling in this case
+                            return;
+                        }
                     }
                 }
 
