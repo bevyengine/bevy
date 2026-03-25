@@ -69,7 +69,7 @@ pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
 /// A texture added to a [`TextureAtlasBuilder`].
 #[derive(Debug, Clone, Copy)]
-pub struct TextureAtlasBuilderTexture<'a> {
+pub struct UnplacedAtlasTexture<'a> {
     /// The optional asset id for the texture.
     pub image_id: Option<AssetId<Image>>,
     /// The source image to add to the texture atlas.
@@ -86,7 +86,7 @@ pub struct TextureAtlasPartialBuildResult<'a> {
     /// The atlas texture containing the successfully placed textures.
     pub texture: Image,
     /// Textures that could not be placed into the atlas.
-    pub unplaced_textures: Vec<TextureAtlasBuilderTexture<'a>>,
+    pub unplaced_textures: Vec<UnplacedAtlasTexture<'a>>,
 }
 
 impl<'a> TextureAtlasBuilder<'a> {
@@ -387,7 +387,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                 placed_texture_indices.push(index);
             } else {
                 let (image_id, texture) = self.textures_to_place[index];
-                unplaced_textures.push(TextureAtlasBuilderTexture { image_id, texture });
+                unplaced_textures.push(UnplacedAtlasTexture { image_id, texture });
             }
         }
 
