@@ -8,11 +8,11 @@
 use std::time::Duration;
 
 use bevy::{
-    prelude::*,
-    settings::{
+    preferences::{
         PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
         SettingsGroup,
     },
+    prelude::*,
     window::{ExitCondition, WindowCloseRequested, WindowMode, WindowResized, WindowResolution},
 };
 
