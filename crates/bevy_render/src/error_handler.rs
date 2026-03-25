@@ -12,7 +12,7 @@ use crate::{
     render_resource::PipelineCache,
     renderer::{RenderDevice, WgpuWrapper},
     settings::RenderCreation,
-    FutureRenderResources, RenderStartup,
+    FutureRenderResources, PreRenderStartup, RenderStartup,
 };
 
 /// Resource to indicate renderer behavior upon error.
@@ -65,6 +65,10 @@ impl Default for RenderErrorHandler {
         Self(|_, _, _| RenderErrorPolicy::Ignore)
     }
 }
+
+/// Exists in the render world if [`PreRenderStartup`] has run.
+#[derive(Resource, Debug)]
+pub(crate) struct FirstRenderRun;
 
 /// An error encountered during rendering.
 #[derive(Debug)]
@@ -165,6 +169,11 @@ impl DeviceErrorHandler {
 ///
 /// We need both the main and render world to properly handle errors, so we wedge ourselves into [extract](bevy_app::SubApp::set_extract).
 pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) {
+    if render_world.get_resource::<FirstRenderRun>().is_none() {
+        render_world.run_schedule(PreRenderStartup);
+        render_world.insert_resource(FirstRenderRun);
+    }
+
     if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
         render_world.insert_resource(RenderState::Errored(error));
     };
