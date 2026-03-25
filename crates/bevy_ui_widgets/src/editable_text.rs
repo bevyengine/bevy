@@ -11,6 +11,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::ButtonInput;
 use bevy_input_focus::{FocusedInput, InputFocus};
+use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
@@ -158,7 +159,7 @@ fn on_pointer_press(
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
-            + 0.5 * node.size()
+            - node.content_box().min
     }) else {
         return;
     };
@@ -202,7 +203,7 @@ fn on_pointer_drag(
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
-            + 0.5 * node.size()
+            - node.content_box().min
     }) else {
         return;
     };
