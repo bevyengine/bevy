@@ -12,7 +12,7 @@ const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
 
 // From the Filament design doc
-// https://google.github.io/filament/Filament.html#table_symbols
+// https://google.github.io/filament/Filament.md.html#table_symbols
 // Symbol Definition
 // v    View unit vector
 // l    Incident light unit vector
@@ -136,12 +136,12 @@ fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 
 }
 
 // Normal distribution function (specular D)
-// Based on https://google.github.io/filament/Filament.html#citation-walter07
+// Based on https://google.github.io/filament/Filament.md.html#citation-walter07
 
 // D_GGX(h,α) = α^2 / { π ((n⋅h)^2 (α2−1) + 1)^2 }
 
 // Simple implementation, has precision problems when using fp16 instead of fp32
-// see https://google.github.io/filament/Filament.html#listing_speculardfp16
+// see https://google.github.io/filament/Filament.md.html#listing_speculardfp16
 fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
     let a = NdotH * roughness;
@@ -180,7 +180,7 @@ fn D_GGX_anisotropic(at: f32, ab: f32, NdotH: f32, TdotH: f32, BdotH: f32) -> f3
 // f_r(v,l) = D(h,α) V(v,l,α) F(v,h,f0)
 // where
 // V(v,l,α) = 0.5 / { n⋅l sqrt((n⋅v)^2 (1−α2) + α2) + n⋅v sqrt((n⋅l)^2 (1−α2) + α2) }
-// Note the two sqrt's, that may be slow on mobile, see https://google.github.io/filament/Filament.html#listing_approximatedspecularv
+// Note the two sqrt's, that may be slow on mobile, see https://google.github.io/filament/Filament.md.html#listing_approximatedspecularv
 fn V_SmithGGXCorrelated(roughness: f32, NdotV: f32, NdotL: f32) -> f32 {
     let a2 = roughness * roughness;
     let lambdaV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
@@ -293,13 +293,13 @@ fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
 // A simpler, but nonphysical, alternative to Smith-GGX. We use this for
 // clearcoat, per the Filament spec.
 //
-// https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel#toc4.9.1
+// https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 fn V_Kelemen(LdotH: f32) -> f32 {
     return 0.25 / (LdotH * LdotH);
 }
 
 // Fresnel function
-// see https://google.github.io/filament/Filament.html#citation-schlick94
+// see https://google.github.io/filament/Filament.md.html#citation-schlick94
 // F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
 fn F_Schlick_vec(f0: vec3<f32>, f90: f32, VdotH: f32) -> vec3<f32> {
     // not using mix to keep the vec3 and float versions identical
@@ -313,7 +313,7 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     // f_90 suitable for ambient occlusion
-    // see https://google.github.io/filament/Filament.html#lighting/occlusion
+    // see https://google.github.io/filament/Filament.md.html#lighting/occlusion
     let f90 = saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
     return F_Schlick_vec(f0, f90, LdotH);
 }
@@ -322,7 +322,7 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 // specular light.
 //
 // Multiscattering approximation:
-// <https://google.github.io/filament/Filament.html#listing_energycompensationimpl>
+// <https://google.github.io/filament/Filament.md.html#listing_energycompensationimpl>
 fn specular_multiscatter(
     D: f32,
     V: f32,
@@ -332,12 +332,14 @@ fn specular_multiscatter(
     specular_intensity: f32,
 ) -> vec3<f32> {
     var Fr = (specular_intensity * D * V) * F;
-    Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
+    // F_ab.x + F_ab.y is dfg.y in Filament
+    // See section 9.5 and listing 29 in the Filament spec
+    Fr *= 1.0 + F0 * (1.0 / (F_ab.x + F_ab.y) - 1.0);
     return Fr;
 }
 
 // Specular BRDF
-// https://google.github.io/filament/Filament.html#materialsystem/specularbrdf
+// https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf
 
 // N, V, and L must all be normalized.
 fn derive_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> DerivedLightingInput {
@@ -424,7 +426,7 @@ fn specular(
 // Fresnel term, in the first channel, and Frc, the specular clearcoat light, in
 // the second channel.
 //
-// <https://google.github.io/filament/Filament.html#listing_clearcoatbrdf>
+// <https://google.github.io/filament/Filament.md.html#listing_clearcoatbrdf>
 fn specular_clearcoat(
     input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
@@ -490,7 +492,7 @@ fn specular_anisotropy(
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // Diffuse BRDF
-// https://google.github.io/filament/Filament.html#materialsystem/diffusebrdf
+// https://google.github.io/filament/Filament.md.html#materialsystem/diffusebrdf
 // fd(v,l) = σ/π * 1 / { |n⋅v||n⋅l| } ∫Ω D(m,α) G(v,l,m) (v⋅m) (l⋅m) dm
 //
 // simplest approximation
@@ -501,7 +503,7 @@ fn specular_anisotropy(
 // vec3 Fd = diffuseColor * Fd_Lambert();
 //
 // Disney approximation
-// See https://google.github.io/filament/Filament.html#citation-burley12
+// See https://google.github.io/filament/Filament.md.html#citation-burley12
 // minimal quality difference
 fn Fd_Burley(
     input: ptr<function, LightingInput>,
@@ -731,7 +733,7 @@ fn point_light(
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
-    // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
+    // See https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminanceEquation
     // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
     // where
     // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
@@ -740,7 +742,7 @@ fn point_light(
 
     // For a point light, luminous intensity, I, in lumens per steradian is given by:
     // I = Φ / 4 π
-    // The derivation of this can be seen here: https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+    // The derivation of this can be seen here: https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminousPower
 
     // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
@@ -748,7 +750,7 @@ fn point_light(
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
-    // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
+    // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
     color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
 #else   // STANDARD_MATERIAL_CLEARCOAT
     color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
@@ -794,7 +796,7 @@ fn spot_light(
     }
     let light_to_frag = (*light).position_radius.xyz - (*input).P.xyz;
 
-    // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+    // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
     // spot_scale and spot_offset have been precomputed
     // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
     let cd = dot(-spot_dir, normalize(light_to_frag));
@@ -872,7 +874,7 @@ fn directional_light(
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
-    // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
+    // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
     color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL +
         Frc * derived_clearcoat_input.NdotL;
 #else   // STANDARD_MATERIAL_CLEARCOAT

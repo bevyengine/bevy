@@ -29,7 +29,7 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
-use bevy_render::view::RetainedViewEntity;
+use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     mesh::RenderMesh,
     render_asset::{
@@ -47,7 +47,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, RenderVisibleEntities},
+    view::ExtractedView,
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
@@ -830,7 +830,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                )
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(

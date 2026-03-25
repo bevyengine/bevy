@@ -267,7 +267,7 @@ fn queue_custom_phase_item(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for entity_pair in dirty_specializations.iter_to_queue(
+        for (render_entity, main_entity) in dirty_specializations.iter_to_queue(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_phase_item_queues.prev_frame,
@@ -302,7 +302,7 @@ fn queue_custom_phase_item(
                 Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
-                *entity_pair,
+                (*render_entity, *main_entity),
                 InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
             );
@@ -362,8 +362,8 @@ impl FromWorld for CustomPhasePipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: default(),
                 bias: default(),
             }),

@@ -10,6 +10,8 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+extern crate alloc;
+
 pub mod auto_directional_navigation;
 pub mod interaction_states;
 pub mod measurement;
@@ -35,7 +37,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_text::detect_text_needs_rerender;
+use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -44,6 +46,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
 pub use ui_transform::*;
+pub use widget::TextNodeFlags;
 
 /// The UI prelude.
 ///
@@ -244,6 +247,15 @@ fn build_text_interop(app: &mut App) {
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            widget::update_editable_text_content_size
+                .in_set(UiSystems::Content)
+                .ambiguous_with(widget::update_image_content_size_system)
+                .ambiguous_with(widget::measure_text_system),
+            widget::editable_text_system
+                .in_set(UiSystems::PostLayout)
+                .ambiguous_with(ui_stack_system)
+                .ambiguous_with(widget::text_system)
+                .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
 
@@ -265,4 +277,7 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
+
+    // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
+    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Prepare));
 }

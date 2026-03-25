@@ -21,8 +21,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextWriter,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -118,13 +117,11 @@ impl Text {
     }
 }
 
-impl TextRoot for Text {}
-
-impl TextSpanAccess for Text {
-    fn read_span(&self) -> &str {
+impl TextSection for Text {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -361,8 +358,8 @@ pub fn text_system(
                 // With `NoWrap` set, no constraints are placed on the width of the text.
                 TextBounds::UNBOUNDED
             } else {
-                // `scale_factor` is already multiplied by `UiScale`
-                TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
+                let content_box_size = node.content_box().size();
+                TextBounds::new(content_box_size.x, content_box_size.y)
             };
 
             match text_pipeline.update_text_layout_info(

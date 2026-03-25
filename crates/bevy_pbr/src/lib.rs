@@ -26,7 +26,6 @@ pub mod experimental {
 
 mod atmosphere;
 mod cluster;
-mod components;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
@@ -61,7 +60,6 @@ pub use atmosphere::*;
 use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
-pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
