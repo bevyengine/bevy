@@ -9,6 +9,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
     world::{Mut, World},
 };
+use bevy_platform::time::Instant;
 use bevy_utils::default;
 
 /// Plugin that sets up the [`RenderApp`] and handles extracting data from the
@@ -113,11 +114,25 @@ struct ScratchMainWorld(World);
 /// Executes the [`ExtractSchedule`] step of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 pub fn extract(main_world: &mut World, render_world: &mut World) {
+    let benchmark_measurements = render_world
+        .get_resource::<crate::diagnostic::RenderBenchmarkMeasurements>()
+        .cloned()
+        .or_else(|| {
+            main_world
+                .get_resource::<crate::diagnostic::RenderBenchmarkMeasurements>()
+                .cloned()
+        });
     // temporarily add the app world to the render world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = core::mem::replace(main_world, scratch_world.0);
     render_world.insert_resource(MainWorld(inserted_world));
+    let extract_start = Instant::now();
+    #[cfg(feature = "trace")]
+    let _stage_span = bevy_log::info_span!("extract_schedule").entered();
     render_world.run_schedule(ExtractSchedule);
+    if let Some(benchmark_measurements) = benchmark_measurements {
+        benchmark_measurements.record_extract_schedule(extract_start.elapsed());
+    }
 
     // move the app world back, as if nothing happened.
     let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();

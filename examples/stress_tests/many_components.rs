@@ -12,9 +12,12 @@
 //!
 //! If no valid number is provided, for each argument there's a reasonable default.
 
+mod benchmark;
+
 use bevy::{
     diagnostic::{
         DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
+        SystemInformationDiagnosticsPlugin,
     },
     ecs::{
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
@@ -77,7 +80,12 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
 }
 
 #[expect(unsafe_code, reason = "Using dynamic components requires unsafe")]
-fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
+fn stress_test(
+    num_entities: u32,
+    num_components: u32,
+    num_systems: u32,
+    metadata: benchmark::BenchmarkMetadata,
+) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let mut app = App::default();
     let world = app.world_mut();
@@ -165,6 +173,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         .add_plugins(DiagnosticsPlugin)
         .add_plugins(LogPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(SystemInformationDiagnosticsPlugin)
+        .add_plugins(benchmark::BenchmarkOutputPlugin::new("many_components"))
+        .insert_resource(metadata)
         .add_plugins(LogDiagnosticsPlugin::filtered(HashSet::from_iter([
             DiagnosticPath::new("fps"),
         ])));
@@ -202,5 +213,16 @@ fn main() {
             DEFAULT_NUM_SYSTEMS
         });
 
-    stress_test(num_entities, num_components, num_systems);
+    let mut metadata = benchmark::BenchmarkMetadata::default();
+    metadata
+        .0
+        .insert("entity_count".into(), num_entities.to_string());
+    metadata
+        .0
+        .insert("component_count".into(), num_components.to_string());
+    metadata
+        .0
+        .insert("system_count".into(), num_systems.to_string());
+
+    stress_test(num_entities, num_components, num_systems, metadata);
 }

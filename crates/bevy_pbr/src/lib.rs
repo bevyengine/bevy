@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+mod mass_instance;
 #[cfg(feature = "meshlet")]
 mod meshlet;
 pub mod wireframe;
@@ -15,10 +16,15 @@ pub mod wireframe;
 /// Experimental features that are not yet finished. Please report any issues you encounter!
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
-#[cfg(feature = "meshlet")]
 pub mod experimental {
+    pub use crate::mass_instance::{
+        ChunkId, MassInstanceChunk, MassInstanceChunkBatchKey, MassInstanceChunkIndex,
+        MassInstancePassFlags, MassInstanceRenderingPlugin, MassInstanceRenderingSettings,
+    };
+
     /// Render high-poly 3d meshes using an efficient GPU-driven method.
     /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
+    #[cfg(feature = "meshlet")]
     pub mod meshlet {
         pub use crate::meshlet::*;
     }

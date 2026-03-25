@@ -1309,6 +1309,11 @@ impl<I> SortedRenderPhase<I>
 where
     I: SortedPhaseItem,
 {
+    #[inline]
+    pub fn item_count(&self) -> usize {
+        self.items.len()
+    }
+
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {

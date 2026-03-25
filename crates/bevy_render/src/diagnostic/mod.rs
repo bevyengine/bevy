@@ -2,6 +2,7 @@
 //!
 //! For more info, see [`RenderDiagnosticsPlugin`].
 
+mod benchmark;
 mod erased_render_asset_diagnostic_plugin;
 pub(crate) mod internal;
 mod mesh_allocator_diagnostic_plugin;
@@ -26,8 +27,14 @@ use crate::{
 
 use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
+    benchmark::{
+        ensure_render_benchmark_measurements, RenderBenchmarkDiagnosticsPlugin,
+        RenderBenchmarkMeasurements, RenderBenchmarkPhaseCount, RenderBenchmarkSnapshot,
+        RenderBenchmarkViewCount, RenderBenchmarkViewId,
+    },
     erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
-    internal::DiagnosticsRecorder, mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    internal::DiagnosticsRecorder,
+    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 

@@ -12,6 +12,7 @@ use bevy_ecs::{
     world::{EntityWorldMut, Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -212,11 +213,28 @@ pub(crate) struct PendingSyncEntity {
 }
 
 pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
+    #[cfg(feature = "trace")]
+    let _stage_span = bevy_log::info_span!("entity_sync_system").entered();
+    let benchmark_measurements = main_world
+        .get_resource::<crate::diagnostic::RenderBenchmarkMeasurements>()
+        .cloned()
+        .or_else(|| {
+            render_world
+                .get_resource::<crate::diagnostic::RenderBenchmarkMeasurements>()
+                .cloned()
+        });
+    let sync_start = Instant::now();
+    let mut record_count = 0usize;
+    let mut added_count = 0usize;
+    let mut removed_count = 0usize;
+    let mut component_removed_count = 0usize;
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
+        record_count = pending.len();
         // TODO : batching record
         for record in pending.drain(..) {
             match record {
                 EntityRecord::Added(e) => {
+                    added_count += 1;
                     if let Ok(mut main_entity) = world.get_entity_mut(e) {
                         match main_entity.entry::<RenderEntity>() {
                             bevy_ecs::world::ComponentEntry::Occupied(_) => {
@@ -231,11 +249,13 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     }
                 }
                 EntityRecord::Removed(render_entity) => {
+                    removed_count += 1;
                     if let Ok(ec) = render_world.get_entity_mut(render_entity.id()) {
                         ec.despawn();
                     };
                 }
                 EntityRecord::ComponentRemoved(main_entity, removal_function) => {
+                    component_removed_count += 1;
                     let Some(render_entity) = world.get::<RenderEntity>(main_entity) else {
                         continue;
                     };
@@ -246,6 +266,15 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
             }
         }
     });
+    if let Some(benchmark_measurements) = benchmark_measurements {
+        benchmark_measurements.record_entity_sync(
+            sync_start.elapsed(),
+            record_count,
+            added_count,
+            removed_count,
+            component_removed_count,
+        );
+    }
 }
 
 pub(crate) fn despawn_temporary_render_entities(

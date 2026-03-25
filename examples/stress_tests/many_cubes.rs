@@ -8,13 +8,17 @@
 //!
 //! See `cargo run --example many_cubes --release -- --help` for more options.
 
+mod benchmark;
+
 use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{
+        FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin, SystemInformationDiagnosticsPlugin,
+    },
     light::NotShadowCaster,
     math::{
         ops::{cbrt, sqrt},
@@ -135,7 +139,14 @@ fn main() {
         }),
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
+        SystemInformationDiagnosticsPlugin,
+        bevy::render::diagnostic::RenderBenchmarkDiagnosticsPlugin,
+        bevy::render::diagnostic::MeshAllocatorDiagnosticPlugin,
+        bevy::pbr::diagnostic::PbrBenchmarkDiagnosticsPlugin,
+        bevy::pbr::diagnostic::MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+        benchmark::BenchmarkOutputPlugin::new("many_cubes"),
     ))
+    .insert_resource(benchmark_metadata(&args))
     .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup)
     .add_systems(Update, print_mesh_count);
@@ -153,6 +164,55 @@ fn main() {
     }
 
     app.insert_resource(args).run();
+}
+
+fn benchmark_metadata(args: &Args) -> benchmark::BenchmarkMetadata {
+    benchmark::BenchmarkMetadata(
+        [
+            ("layout".into(), layout_name(&args.layout).into()),
+            ("instance_count".into(), args.instance_count.to_string()),
+            ("mesh_count".into(), args.mesh_count.to_string()),
+            (
+                "material_texture_count".into(),
+                args.material_texture_count.to_string(),
+            ),
+            (
+                "vary_material_data_per_instance".into(),
+                args.vary_material_data_per_instance.to_string(),
+            ),
+            (
+                "no_frustum_culling".into(),
+                args.no_frustum_culling.to_string(),
+            ),
+            (
+                "no_automatic_batching".into(),
+                args.no_automatic_batching.to_string(),
+            ),
+            (
+                "no_indirect_drawing".into(),
+                args.no_indirect_drawing.to_string(),
+            ),
+            ("no_cpu_culling".into(), args.no_cpu_culling.to_string()),
+            ("shadows".into(), args.shadows.to_string()),
+            ("rotate_cubes".into(), args.rotate_cubes.to_string()),
+            (
+                "animate_materials".into(),
+                args.animate_materials.to_string(),
+            ),
+            ("motion_blur".into(), args.motion_blur.to_string()),
+            ("benchmark".into(), args.benchmark.to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    )
+}
+
+fn layout_name(layout: &Layout) -> &'static str {
+    match layout {
+        Layout::Cube => "cube",
+        Layout::Sphere => "sphere",
+        Layout::Dense => "dense",
+    }
 }
 
 const WIDTH: usize = 200;

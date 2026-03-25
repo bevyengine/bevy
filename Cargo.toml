@@ -3402,6 +3402,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_chunk_instances"
+path = "examples/stress_tests/many_chunk_instances.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_chunk_instances]
+name = "Many Chunk Instances"
+description = "Benchmark scaffolding for static, sparse-visibility, and mixed-dirty million-scale instance scenes"
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_gizmos"
 path = "examples/stress_tests/many_gizmos.rs"
 doc-scrape-examples = true
