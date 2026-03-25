@@ -40,11 +40,11 @@ use variadics_please::all_tuples;
 /// A [`Scene`] can have dependencies (defined with [`Scene::register_dependencies`]), which _must_ be loaded before calling [`Scene::resolve`], or it
 /// might return a [`ResolveSceneError`].
 ///
-/// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::queue_spawn_scene`]
+/// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::spawn_scene_immediate`]
 ///
 /// [`World::spawn`]: crate::World::spawn
 /// [`World::spawn_scene`]: crate::SpawnScene::spawn_scene
-/// [`World::queue_spawn_scene`]: crate::SpawnScene::queue_spawn_scene
+/// [`World::spawn_scene_immediate`]: crate::SpawnScene::spawn_scene_immediate
 /// [`Entity`]: bevy_ecs::entity::Entity
 /// [`Component`]: bevy_ecs::component::Component
 pub trait Scene: Send + Sync + 'static {

@@ -147,7 +147,7 @@ fn spawn(c: &mut Criterion) {
         app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene2::ScenePlugin));
 
         b.iter(move || {
-            app.world_mut().spawn_scene(ui()).unwrap();
+            app.world_mut().spawn_scene_immediate(ui()).unwrap();
         });
     });
     group.bench_function("ui_immediate_loaded_scene", |b| {
@@ -208,7 +208,9 @@ fn spawn(c: &mut Criterion) {
         assert!(patch.resolved.is_some());
 
         b.iter(move || {
-            app.world_mut().spawn_scene(ui_loaded_asset()).unwrap();
+            app.world_mut()
+                .spawn_scene_immediate(ui_loaded_asset())
+                .unwrap();
         });
 
         drop(handle);
