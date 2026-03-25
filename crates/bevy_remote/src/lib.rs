@@ -582,9 +582,29 @@ impl RemotePlugin {
         }
     }
 
-    /// Add a remote method to the plugin using the given `name` and `handler`.
+    /// Add a remote method to the plugin using the given `name` and `handler` to main app.
+    #[inline]
+    pub fn with_method_main<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+    ) -> Self {
+        self.with_method(name, handler, true)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to render app.
+    #[inline]
+    pub fn with_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+    ) -> Self {
+        self.with_method(name, handler, false)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to given app.
     #[must_use]
-    pub fn with_method<M>(
+    fn with_method<M>(
         mut self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
@@ -603,9 +623,29 @@ impl RemotePlugin {
         self
     }
 
-    /// Add a remote method with a watching handler to the plugin using the given `name`.
+    /// Add a remote method with a watching handler to the plugin using the given `name` to main app.
+    #[inline]
+    pub fn with_watching_method_main<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+    ) -> Self {
+        self.with_watching_method(name, handler, true)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to render app.
+    #[inline]
+    pub fn with_watching_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+    ) -> Self {
+        self.with_watching_method(name, handler, false)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to given app.
     #[must_use]
-    pub fn with_watching_method<M>(
+    fn with_watching_method<M>(
         mut self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
