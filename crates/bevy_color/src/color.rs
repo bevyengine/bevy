@@ -180,12 +180,11 @@ impl Color {
     /// let red = Color::srgb_u32(0xff0000);
     /// ```
     pub fn srgb_u32(color: u32) -> Self {
-        Self::Srgba(Srgba {
-            red: ((color >> 16) & 0xff) as f32 / 255.,
-            green: ((color >> 8) & 0xff) as f32 / 255.,
-            blue: (color & 0xff) as f32 / 255.,
-            alpha: 1.0,
-        })
+        Self::Srgba(Srgba::rgb(
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
@@ -200,12 +199,12 @@ impl Color {
     /// let semi_transparent_red = Color::srgba_u32(0xff000080);
     /// ```
     pub fn srgba_u32(color: u32) -> Self {
-        Self::Srgba(Srgba {
-            red: ((color >> 24) & 0xff) as f32 / 255.,
-            green: ((color >> 16) & 0xff) as f32 / 255.,
-            blue: ((color >> 8) & 0xff) as f32 / 255.,
-            alpha: (color & 0xff) as f32 / 255.,
-        })
+        Self::Srgba(Srgba::new(
+            ((color >> 24) & 0xff) as f32 / 255.,
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
