@@ -3159,4 +3159,52 @@ mod test {
             ["Animation:MoonWalk", "__anim_0"]
         );
     }
+
+    #[test]
+    fn duplicate_name_returns_error() {
+        let gltf_path = "test.gltf";
+        let gltf_str = r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "nodes": [
+        { "name": "l1" },
+        { "name": "l2" }
+    ],
+    "scene": 0,
+    "scenes": [
+        { "name": "MainWorld", "nodes": [0] },
+        { "name": "MainWorld", "nodes": [1] }
+    ]
+}
+"#;
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(gltf_path), gltf_str);
+        let mut app = test_app(dir);
+        app.update();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> =
+            asset_server.load_with_settings(gltf_path, |settings: &mut GltfLoaderSettings| {
+                settings.label_mode = Some(GltfLabelMode::Names);
+            });
+        let handle_id = handle.id();
+        app.update();
+        run_app_until(&mut app, |_world| {
+            let load_state = asset_server.get_load_state(handle_id).unwrap();
+            if load_state.is_failed() {
+                Some(())
+            } else {
+                None
+            }
+        });
+        let load_state = asset_server.get_load_state(handle_id).unwrap();
+        match load_state {
+            LoadState::Failed(err) => {
+                assert!(err.to_string().contains("duplicate subasset label: Scene:MainWorld"), "expected to contain \"duplicate subasset label: Scene:MainWorld\", but got: {err}");
+            }
+            state => panic!("expected state to be LoadState::Failed but got {state:?}"),
+        }
+    }
 }
