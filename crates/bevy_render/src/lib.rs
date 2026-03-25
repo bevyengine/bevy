@@ -99,7 +99,10 @@ use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_ecs::{
+    prelude::*,
+    schedule::{InternedScheduleLabel, ScheduleLabel},
+};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
@@ -238,10 +241,47 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// The render recovery schedule. This schedule runs the [`RenderMainScheduleOrder`] schedules if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
+
+/// Defines the schedules to be run for the main rendering, including their order.
+#[derive(Resource, Debug)]
+pub struct RenderMainScheduleOrder {
+    /// The labels to run for the main rendering schedule (in the order they will be run).
+    pub labels: Vec<InternedScheduleLabel>,
+}
+
+impl Default for RenderMainScheduleOrder {
+    fn default() -> Self {
+        Self {
+            labels: vec![PreRender.intern(), Render.intern(), PostRender.intern()],
+        }
+    }
+}
+
+impl RenderMainScheduleOrder {
+    /// Adds the given `schedule` after the `after` schedule
+    pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
+        self.labels.insert(index + 1, schedule.intern());
+    }
+
+    /// Adds the given `schedule` before the `before` schedule
+    pub fn insert_before(&mut self, before: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&before))
+            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
+        self.labels.insert(index, schedule.intern());
+    }
+}
 
 /// Runs immediately before the main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -376,6 +416,8 @@ impl Plugin for RenderPlugin {
             #[cfg(feature = "reflect_functions")]
             render_app.init_resource::<AppFunctionRegistry>();
 
+            render_app.init_resource::<RenderMainScheduleOrder>();
+
             render_app.init_schedule(PreRender);
             render_app.add_schedule(RenderGraph::base_schedule());
             render_app.init_schedule(PostRender);
@@ -441,9 +483,11 @@ fn renderer_is_ready(state: Res<RenderState>) -> bool {
 }
 
 fn run_render_schedule(world: &mut World) {
-    world.run_schedule(PreRender);
-    world.run_schedule(Render);
-    world.run_schedule(PostRender);
+    world.resource_scope(|world, order: Mut<RenderMainScheduleOrder>| {
+        for &label in &order.labels {
+            let _ = world.try_run_schedule(label);
+        }
+    });
 }
 
 fn send_time(time_sender: Res<TimeSender>) {
