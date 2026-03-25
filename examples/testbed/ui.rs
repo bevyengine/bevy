@@ -47,6 +47,7 @@ fn main() {
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
+    .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -86,6 +87,7 @@ enum Scene {
     DebugOutlines,
     ViewportCoords,
     OuterColor,
+    BoxedContent,
 }
 
 impl std::str::FromStr for Scene {
@@ -124,7 +126,8 @@ impl Next for Scene {
             Scene::RadialGradient => Scene::Transformations,
             Scene::Transformations => Scene::ViewportCoords,
             Scene::ViewportCoords => Scene::OuterColor,
-            Scene::OuterColor => Scene::Image,
+            Scene::OuterColor => Scene::BoxedContent,
+            Scene::BoxedContent => Scene::Image,
         }
     }
 }
@@ -1767,6 +1770,85 @@ mod outer_color {
                         .insert_if(BackgroundColor(Color::WHITE), || !invert)
                         .insert_if(OuterColor(Color::WHITE), || invert);
                 }
+            });
+    }
+}
+
+mod boxed_content {
+    use bevy::color::palettes::css::RED;
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::BoxedContent)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    row_gap: px(20),
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::BoxedContent),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node::default(),
+                    Text::new("This text has\nno border or padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        border: px(10).all(),
+                        ..default()
+                    },
+                    Text::new("This text has\na border but no padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        padding: px(10).all(),
+                        ..default()
+                    },
+                    Text::new("This text has\npadding but no border."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        border: px(10).all(),
+                        padding: px(10).all(),
+                        ..default()
+                    },
+                    Text::new("This text has\nborder and padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
             });
     }
 }
