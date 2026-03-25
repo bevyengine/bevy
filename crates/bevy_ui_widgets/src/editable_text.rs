@@ -11,7 +11,6 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::ButtonInput;
 use bevy_input_focus::{FocusedInput, InputFocus};
-use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
