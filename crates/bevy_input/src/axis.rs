@@ -1,7 +1,7 @@
 //! The generic axis type.
 
-use bevy_ecs::system::Resource;
-use bevy_utils::HashMap;
+use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashMap;
 use core::hash::Hash;
 
 #[cfg(feature = "bevy_reflect")]

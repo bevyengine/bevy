@@ -23,9 +23,9 @@ struct WaterSettings {
 
 @group(0) @binding(1) var<uniform> globals: Globals;
 
-@group(2) @binding(100) var water_normals_texture: texture_2d<f32>;
-@group(2) @binding(101) var water_normals_sampler: sampler;
-@group(2) @binding(102) var<uniform> water_settings: WaterSettings;
+@group(#{MATERIAL_BIND_GROUP}) @binding(100) var water_normals_texture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(101) var water_normals_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(102) var<uniform> water_settings: WaterSettings;
 
 // Samples a single octave of noise and returns the resulting normal.
 fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {

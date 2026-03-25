@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -8,14 +8,16 @@ use xshell::cmd;
 pub struct DocTestCommand {}
 
 impl Prepare for DocTestCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let no_fail_fast = flags
-            .contains(Flag::KEEP_GOING)
-            .then_some("--no-fail-fast")
-            .unwrap_or_default();
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let no_fail_fast = args.keep_going();
+        let jobs = args.build_jobs();
+        let test_threads = args.test_threads();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo test --workspace --doc {no_fail_fast}"),
+            cmd!(
+                sh,
+                "cargo test --workspace --doc {no_fail_fast...} {jobs...} -- {test_threads...}"
+            ),
             "Please fix failing doc tests in output above.",
         )]
     }

@@ -1,8 +1,10 @@
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::{
     func::{
-        args::FromArg, macros::count_tokens, ArgList, FunctionError, FunctionResult, IntoReturn,
+        args::{ArgCount, FromArg},
+        macros::count_tokens,
+        ArgList, FunctionError, FunctionResult, IntoReturn,
     },
     Reflect, TypePath,
 };
@@ -48,7 +50,7 @@ use crate::{
 ///   list.insert(index, value);
 /// };
 ///
-/// let args = ArgList::new().push_owned(1_usize).push_owned(2_i32);
+/// let args = ArgList::new().with_owned(1_usize).with_owned(2_i32);
 ///
 /// insert.reflect_call_mut(args).unwrap();
 /// assert_eq!(list, vec![1, 2, 3]);
@@ -93,13 +95,20 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::This` is the same type as `Arg`
             Function: for<'a> FnMut($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
-            #[allow(unused_mut)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This lint is part of a macro, which may not always trigger the `unused_mut` lint."
+            )]
+            #[allow(
+                unused_mut,
+                reason = "Some invocations of this macro may trigger the `unused_mut` lint, where others won't."
+            )]
             fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -128,7 +137,7 @@ macro_rules! impl_reflect_fn_mut {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -158,7 +167,7 @@ macro_rules! impl_reflect_fn_mut {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -188,7 +197,7 @@ macro_rules! impl_reflect_fn_mut {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }

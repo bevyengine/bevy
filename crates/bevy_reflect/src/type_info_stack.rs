@@ -1,4 +1,5 @@
 use crate::TypeInfo;
+use alloc::vec::Vec;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -29,7 +30,7 @@ impl TypeInfoStack {
     }
 
     /// Get an iterator over the stack in the order they were pushed.
-    pub fn iter(&self) -> Iter<&'static TypeInfo> {
+    pub fn iter(&self) -> Iter<'_, &'static TypeInfo> {
         self.stack.iter()
     }
 }

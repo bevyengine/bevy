@@ -29,7 +29,7 @@ struct PbrDeferredLightingDepthId {
     _webgl2_padding_2: f32,
 #endif
 }
-@group(1) @binding(0)
+@group(2) @binding(0)
 var<uniform> depth_id: PbrDeferredLightingDepthId;
 
 @vertex

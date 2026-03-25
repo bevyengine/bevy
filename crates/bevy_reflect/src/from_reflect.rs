@@ -1,4 +1,5 @@
 use crate::{FromType, PartialReflect, Reflect};
+use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -19,7 +20,7 @@ use crate::{FromType, PartialReflect, Reflect};
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [derive macro]: bevy_reflect_derive::FromReflect
-/// [`DynamicStruct`]: crate::DynamicStruct
+/// [`DynamicStruct`]: crate::structs::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
@@ -37,8 +38,8 @@ pub trait FromReflect: Reflect + Sized {
     /// rather than a boxed dynamic type (e.g. [`DynamicStruct`], [`DynamicList`], etc.).
     ///
     /// [`from_reflect`]: Self::from_reflect
-    /// [`DynamicStruct`]: crate::DynamicStruct
-    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
     ) -> Result<Self, Box<dyn PartialReflect>> {
@@ -61,7 +62,7 @@ pub trait FromReflect: Reflect + Sized {
 /// However, to do this, you normally need to specify the exact concrete type:
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect};
+/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, FromReflect, Reflect};
 /// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
@@ -81,7 +82,7 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
+/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
 /// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
@@ -99,8 +100,8 @@ pub trait FromReflect: Reflect + Sized {
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```
 ///
-/// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicEnum`]: crate::DynamicEnum
+/// [`DynamicStruct`]: crate::structs::DynamicStruct
+/// [`DynamicEnum`]: crate::enums::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
     from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
@@ -111,7 +112,6 @@ impl ReflectFromReflect {
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
-    #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
         (self.from_reflect)(reflect_value)
     }

@@ -17,9 +17,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
@@ -174,8 +175,8 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Loading...".to_owned()),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
     ));
@@ -195,7 +196,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
@@ -257,7 +258,7 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
-        if let Ok(mut text) = text.get_single_mut() {
+        if let Ok(mut text) = text.single_mut() {
             "Loaded!".clone_into(&mut **text);
         }
     }
@@ -267,7 +268,7 @@ fn get_async_loading_state(
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     // Despawn resources used in the loading phase.

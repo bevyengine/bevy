@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     ColorToPacked, Gray, Luminance, Mix, StandardColor,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
@@ -13,7 +13,11 @@ use bytemuck::{Pod, Zeroable};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -302,11 +306,11 @@ impl ColorToComponents for LinearRgba {
 impl ColorToPacked for LinearRgba {
     fn to_u8_array(self) -> [u8; 4] {
         [self.red, self.green, self.blue, self.alpha]
-            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+            .map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn to_u8_array_no_alpha(self) -> [u8; 3] {
-        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        [self.red, self.green, self.blue].map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn from_u8_array(color: [u8; 4]) -> Self {
@@ -332,6 +336,7 @@ impl From<LinearRgba> for wgpu_types::Color {
 
 // [`LinearRgba`] is intended to be used with shaders
 // So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+#[cfg(feature = "encase")]
 impl encase::ShaderType for LinearRgba {
     type ExtraMetadata = ();
 
@@ -353,6 +358,7 @@ impl encase::ShaderType for LinearRgba {
     const UNIFORM_COMPAT_ASSERT: fn() = || {};
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::WriteInto for LinearRgba {
     fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
         for el in &[self.red, self.green, self.blue, self.alpha] {
@@ -361,6 +367,7 @@ impl encase::private::WriteInto for LinearRgba {
     }
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::ReadFrom for LinearRgba {
     fn read_from<B: encase::private::BufferRef>(
         &mut self,
@@ -380,6 +387,7 @@ impl encase::private::ReadFrom for LinearRgba {
     }
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::CreateFrom for LinearRgba {
     fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
     where
@@ -400,6 +408,7 @@ impl encase::private::CreateFrom for LinearRgba {
     }
 }
 
+#[cfg(feature = "encase")]
 impl encase::ShaderSize for LinearRgba {}
 
 #[cfg(test)]

@@ -28,6 +28,7 @@ fn main() {
                 print_components_iter_mut,
                 print_components_iter,
                 print_components_tuple,
+                print_components_contiguous_iter,
             )
                 .chain(),
         )
@@ -66,7 +67,7 @@ fn print_components_read_only(
 ) {
     println!("Print components (read_only):");
     for e in &query {
-        println!("Entity: {:?}", e.entity);
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -111,7 +112,7 @@ struct NestedQuery {
 }
 
 #[derive(QueryData)]
-#[query_data(derive(Debug))]
+#[query_data(derive(Debug), contiguous(mutable))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
@@ -137,8 +138,8 @@ fn print_components_iter_mut(
     println!("Print components (iter_mut):");
     for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Optional nested: {:?}", e.optional_nested);
@@ -155,8 +156,8 @@ fn print_components_iter(
     println!("Print components (iter):");
     for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryReadOnlyItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryReadOnlyItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -186,10 +187,41 @@ fn print_components_tuple(
 ) {
     println!("Print components (tuple):");
     for (entity, a, b, nested, (generic_c, generic_d)) in &query {
-        println!("Entity: {entity:?}");
+        println!("Entity: {entity}");
         println!("A: {a:?}");
         println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
         println!("Generic: {generic_c:?} {generic_d:?}");
+    }
+    println!();
+}
+
+/// If you are going to contiguously iterate the data in a query, you must mark it with the `contiguous` attribute,
+/// which accepts one of 3 targets (`all`, `immutable` and `mutable`)
+///
+/// - `all` will make read only query as well as mutable query both be able to be iterated contiguosly
+/// - `mutable` will only make the original query (i.e., in that case [`CustomContiguousQuery`]) be able to be iterated contiguously
+/// - `immutable` will only make the read only query (which is only useful when you mark the original query as `mutable`)
+///   be able to be iterated contiguously
+#[derive(QueryData)]
+#[query_data(derive(Debug), contiguous(all))]
+struct CustomContiguousQuery<T: Component + Debug, P: Component + Debug> {
+    entity: Entity,
+    a: Ref<'static, ComponentA>,
+    b: Option<&'static ComponentB>,
+    generic: GenericQuery<T, P>,
+}
+
+fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<ComponentC, ComponentD>>) {
+    println!("Print components (contiguous_iter):");
+    for e in query.contiguous_iter().unwrap() {
+        let e: CustomContiguousQueryContiguousItem<'_, '_, _, _> = e;
+        println!("Entity: {:?}", e.entity);
+        println!("A: {:?}", e.a);
+        println!("B: {:?}", e.b);
+        println!(
+            "Generic: {:?} {:?}",
+            e.generic.generic.0, e.generic.generic.1
+        );
     }
 }

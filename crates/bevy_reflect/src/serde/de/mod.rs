@@ -1,5 +1,6 @@
 pub use deserialize_with_registry::*;
 pub use deserializer::*;
+pub use processor::*;
 pub use registrations::*;
 
 mod arrays;
@@ -11,6 +12,7 @@ mod helpers;
 mod lists;
 mod maps;
 mod options;
+mod processor;
 mod registration_utils;
 mod registrations;
 mod sets;
@@ -22,17 +24,25 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
-    use bincode::Options;
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
-
     use serde::{de::DeserializeSeed, Deserialize};
+    use serde::{de::IgnoredAny, Deserializer};
 
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform::collections::{HashMap, HashSet};
 
-    use crate as bevy_reflect;
     use crate::{
-        serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
-        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
+        enums::DynamicEnum,
+        serde::{
+            ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
+            TypedReflectDeserializer,
+        },
+        FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -143,10 +153,10 @@ mod tests {
     }
 
     fn get_my_struct() -> MyStruct {
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(64, 32);
 
-        let mut set = HashSet::new();
+        let mut set = <HashSet<_>>::default();
         set.insert(64);
 
         MyStruct {
@@ -275,15 +285,14 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
-        let reflect_deserializer = TypedReflectDeserializer::new_internal(registration, &registry);
+        let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
         let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
-                .unwrap();
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -443,26 +452,19 @@ mod tests {
         let registry = get_registry();
 
         let input = vec![
-            1, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
-            108, 101, 99, 116, 58, 58, 115, 101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101,
-            115, 116, 115, 58, 58, 77, 121, 83, 116, 114, 117, 99, 116, 123, 1, 12, 0, 0, 0, 0, 0,
-            0, 0, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 1, 123, 0, 0, 0, 0, 0,
-            0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
-            255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
-            255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
-            0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0,
-            0, 0, 0, 0, 0, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1,
-            0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3,
-            0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105,
-            97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0,
-            0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            1, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115, 101, 114,
+            100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 83, 116,
+            114, 117, 99, 116, 123, 1, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33,
+            1, 246, 1, 219, 15, 73, 64, 185, 10, 5, 3, 1, 0, 2, 4, 3, 1, 0, 2, 4, 1, 64, 32, 1, 64,
+            254, 167, 214, 185, 7, 12, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0,
+            1, 123, 2, 164, 112, 157, 63, 164, 112, 77, 64, 3, 20, 83, 116, 114, 117, 99, 116, 32,
+            118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 100, 202, 1,
         ];
 
         let deserializer = ReflectDeserializer::new(&registry);
 
-        let dynamic_output = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .deserialize_seed(deserializer, &input)
+        let dynamic_output = deserializer
+            .deserialize(&mut postcard::Deserializer::from_bytes(&input))
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
@@ -515,6 +517,243 @@ mod tests {
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+    }
+
+    #[test]
+    fn should_use_processor_for_custom_deserialization() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectDeserializerProcessor for FooProcessor {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                registration: &TypeRegistration,
+                _: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                if registration.type_id() == TypeId::of::<i64>() {
+                    let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                    Ok(Ok(Box::new(456_i64)))
+                } else {
+                    Ok(Err(deserializer))
+                }
+            }
+        }
+
+        let expected = Foo { bar: 123, qux: 456 };
+
+        let input = r#"(
+            bar: 123,
+            qux: 123,
+        )"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = FooProcessor;
+        let reflect_deserializer =
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output =
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_use_processor_for_multiple_registrations() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectDeserializerProcessor for FooProcessor {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                registration: &TypeRegistration,
+                _: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                if registration.type_id() == TypeId::of::<i32>() {
+                    let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                    Ok(Ok(Box::new(123_i32)))
+                } else if registration.type_id() == TypeId::of::<i64>() {
+                    let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                    Ok(Ok(Box::new(456_i64)))
+                } else {
+                    Ok(Err(deserializer))
+                }
+            }
+        }
+
+        let expected = Foo { bar: 123, qux: 456 };
+
+        let input = r#"(
+            bar: 0,
+            qux: 0,
+        )"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = FooProcessor;
+        let reflect_deserializer =
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output =
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_propagate_processor_deserialize_error() {
+        struct ErroringProcessor;
+
+        impl ReflectDeserializerProcessor for ErroringProcessor {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                registration: &TypeRegistration,
+                _: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                if registration.type_id() == TypeId::of::<i32>() {
+                    Err(serde::de::Error::custom("my custom deserialize error"))
+                } else {
+                    Ok(Err(deserializer))
+                }
+            }
+        }
+
+        let registry = get_registry();
+
+        let input = r#"{"i32":123}"#;
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let mut processor = ErroringProcessor;
+        let reflect_deserializer = ReflectDeserializer::with_processor(&registry, &mut processor);
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error (stack: `i32`)".to_string())
+        );
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error".to_string())
+        );
+    }
+
+    #[test]
+    fn should_access_local_scope_in_processor() {
+        struct ValueCountingProcessor<'a> {
+            values_found: &'a mut usize,
+        }
+
+        impl ReflectDeserializerProcessor for ValueCountingProcessor<'_> {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                _: &TypeRegistration,
+                _: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let _ = deserializer.deserialize_ignored_any(IgnoredAny)?;
+                *self.values_found += 1;
+                Ok(Ok(Box::new(123_i32)))
+            }
+        }
+
+        let registry = get_registry();
+
+        let input = r#"{"i32":0}"#;
+
+        let mut values_found = 0_usize;
+        let mut deserializer_processor = ValueCountingProcessor {
+            values_found: &mut values_found,
+        };
+
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let reflect_deserializer =
+            ReflectDeserializer::with_processor(&registry, &mut deserializer_processor);
+        reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        assert_eq!(1, values_found);
+    }
+
+    #[test]
+    fn should_fail_from_reflect_if_processor_returns_wrong_typed_value() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct WrongTypeProcessor;
+
+        impl ReflectDeserializerProcessor for WrongTypeProcessor {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                registration: &TypeRegistration,
+                _registry: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                if registration.type_id() == TypeId::of::<i32>() {
+                    let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                    Ok(Ok(Box::new(42_i64)))
+                } else {
+                    Ok(Err(deserializer))
+                }
+            }
+        }
+
+        let input = r#"(
+            bar: 123,
+            qux: 123,
+        )"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = WrongTypeProcessor;
+        let reflect_deserializer =
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
     }
 
     #[cfg(feature = "functions")]

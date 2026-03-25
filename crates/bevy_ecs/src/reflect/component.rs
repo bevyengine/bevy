@@ -60,14 +60,18 @@
 use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
-    component::{Component, ComponentId},
-    entity::Entity,
+    component::{ComponentId, ComponentMutability},
+    entity::{Entity, EntityMapper},
+    prelude::Component,
+    relationship::RelationshipHookMode,
     world::{
         unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
         FilteredEntityRef, World,
     },
 };
+use alloc::boxed::Box;
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -102,16 +106,26 @@ pub struct ReflectComponentFns {
     pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
     pub apply: fn(EntityMut, &dyn PartialReflect),
-    /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectComponent::apply_or_insert_mapped()`].
+    pub apply_or_insert_mapped: fn(
+        &mut EntityWorldMut,
+        &dyn PartialReflect,
+        &TypeRegistry,
+        &mut dyn EntityMapper,
+        RelationshipHookMode,
+    ),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
+    /// Function pointer implementing [`ReflectComponent::take()`].
+    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(FilteredEntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
+    pub reflect: for<'w> fn(FilteredEntityRef<'w, '_>) -> Option<&'w dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(FilteredEntityMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::map_entities()`].
+    pub map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -150,18 +164,26 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
+    ///
+    /// Will also panic if [`Component`] is immutable.
     pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn PartialReflect) {
         (self.0.apply)(entity.into(), component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
-    pub fn apply_or_insert(
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
+    pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
         component: &dyn PartialReflect,
         registry: &TypeRegistry,
+        map: &mut dyn EntityMapper,
+        relationship_hook_mode: RelationshipHookMode,
     ) {
-        (self.0.apply_or_insert)(entity, component, registry);
+        (self.0.apply_or_insert_mapped)(entity, component, registry, map, relationship_hook_mode);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -169,21 +191,33 @@ impl ReflectComponent {
         (self.0.remove)(entity);
     }
 
+    /// Removes this [`Component`] from the entity and returns its previous value.
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
+        (self.0.take)(entity)
+    }
+
     /// Returns whether entity contains this [`Component`]
-    pub fn contains<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> bool {
+    pub fn contains<'w, 's>(&self, entity: impl Into<FilteredEntityRef<'w, 's>>) -> bool {
         (self.0.contains)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'w, 's>(
+        &self,
+        entity: impl Into<FilteredEntityRef<'w, 's>>,
+    ) -> Option<&'w dyn Reflect> {
         (self.0.reflect)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
-    pub fn reflect_mut<'a>(
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
+    pub fn reflect_mut<'w, 's>(
         &self,
-        entity: impl Into<FilteredEntityMut<'a>>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+        entity: impl Into<FilteredEntityMut<'w, 's>>,
+    ) -> Option<Mut<'w, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -192,6 +226,10 @@ impl ReflectComponent {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method with a [`UnsafeEntityCell`] that may be used to mutably access the component on the entity `entity`
     /// * Don't call this method more than once in the same scope for a given [`Component`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
         entity: UnsafeEntityCell<'a>,
@@ -261,10 +299,17 @@ impl ReflectComponent {
     pub fn fn_pointers(&self) -> &ReflectComponentFns {
         &self.0
     }
+
+    /// Calls a dynamic version of [`Component::map_entities`].
+    pub fn map_entities(&self, component: &mut dyn Reflect, func: &mut dyn EntityMapper) {
+        (self.0.map_entities)(component, func);
+    }
 }
 
 impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
+        // TODO: Currently we panic if a component is immutable and you use
+        // reflection to mutate it. Perhaps the mutation methods should be fallible?
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {
@@ -273,21 +318,49 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 entity.insert(component);
             },
             apply: |mut entity, reflected_component| {
-                let mut component = entity.get_mut::<C>().unwrap();
+                if !C::Mutability::MUTABLE {
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
+                    panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
+                }
+
+                // SAFETY: guard ensures `C` is a mutable component
+                let mut component = unsafe { entity.get_mut_assume_mutable::<C>() }.unwrap();
                 component.apply(reflected_component);
             },
-            apply_or_insert: |entity, reflected_component, registry| {
-                if let Some(mut component) = entity.get_mut::<C>() {
-                    component.apply(reflected_component.as_partial_reflect());
+            apply_or_insert_mapped: |entity,
+                                     reflected_component,
+                                     registry,
+                                     mut mapper,
+                                     relationship_hook_mode| {
+                if C::Mutability::MUTABLE {
+                    // SAFETY: guard ensures `C` is a mutable component
+                    if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
+                        component.apply(reflected_component.as_partial_reflect());
+                        C::map_entities(&mut component, &mut mapper);
+                    } else {
+                        let mut component = entity.world_scope(|world| {
+                            from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                        });
+                        C::map_entities(&mut component, &mut mapper);
+                        entity
+                            .insert_with_relationship_hook_mode(component, relationship_hook_mode);
+                    }
                 } else {
-                    let component = entity.world_scope(|world| {
+                    let mut component = entity.world_scope(|world| {
                         from_reflect_with_fallback::<C>(reflected_component, world, registry)
                     });
-                    entity.insert(component);
+                    C::map_entities(&mut component, &mut mapper);
+                    entity.insert_with_relationship_hook_mode(component, relationship_hook_mode);
                 }
             },
             remove: |entity| {
                 entity.remove::<C>();
+            },
+            take: |entity| {
+                entity
+                    .take::<C>()
+                    .map(|component| Box::new(component).into_reflect())
             },
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {
@@ -300,18 +373,38 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
-                entity
-                    .into_mut::<C>()
-                    .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
+                if !C::Mutability::MUTABLE {
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
+                    panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
+                }
+
+                // SAFETY: guard ensures `C` is a mutable component
+                unsafe {
+                    entity
+                        .into_mut_assume_mutable::<C>()
+                        .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
+                }
             },
             reflect_unchecked_mut: |entity| {
+                if !C::Mutability::MUTABLE {
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
+                    panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
+                }
+
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
-                let c = unsafe { entity.get_mut::<C>() };
+                // guard ensures `C` is a mutable component
+                let c = unsafe { entity.get_mut_assume_mutable::<C>() };
                 c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()
+            },
+            map_entities: |reflect: &mut dyn Reflect, mut mapper: &mut dyn EntityMapper| {
+                let component = reflect.downcast_mut::<C>().unwrap();
+                Component::map_entities(component, &mut mapper);
             },
         })
     }

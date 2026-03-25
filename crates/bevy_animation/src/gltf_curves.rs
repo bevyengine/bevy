@@ -5,8 +5,8 @@ use bevy_math::{
     vec4, Quat, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
-use derive_more::derive::{Display, Error, From};
 use either::Either;
+use thiserror::Error;
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
 #[derive(Debug, Clone, Reflect)]
@@ -55,7 +55,7 @@ pub struct CubicKeyframeCurve<T> {
 
 impl<V> Curve<V> for CubicKeyframeCurve<V>
 where
-    V: VectorSpace,
+    V: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -111,6 +111,7 @@ impl<T> CubicKeyframeCurve<T> {
 /// A keyframe-defined curve that uses cubic spline interpolation, special-cased for quaternions
 /// since it uses `Vec4` internally.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct CubicRotationCurve {
     // Note: The sample width here should be 3.
     core: ChunkedUnevenCore<Vec4>,
@@ -178,7 +179,7 @@ pub struct WideLinearKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideLinearKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -288,7 +289,7 @@ pub struct WideCubicKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideCubicKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -319,11 +320,11 @@ where
 }
 
 /// An error indicating that a multisampling keyframe curve could not be constructed.
-#[derive(Debug, Error, Display, From)]
-#[display("unable to construct a curve using this data")]
+#[derive(Debug, Error)]
+#[error("unable to construct a curve using this data")]
 pub enum WideKeyframeCurveError {
     /// The number of given values was not divisible by a multiple of the number of keyframes.
-    #[display("number of values ({values_given}) is not divisible by {divisor}")]
+    #[error("number of values ({values_given}) is not divisible by {divisor}")]
     LengthMismatch {
         /// The number of values given.
         values_given: usize,
@@ -331,7 +332,8 @@ pub enum WideKeyframeCurveError {
         divisor: usize,
     },
     /// An error was returned by the internal core constructor.
-    CoreError(ChunkedUnevenCoreError),
+    #[error(transparent)]
+    CoreError(#[from] ChunkedUnevenCoreError),
 }
 
 impl<T> WideCubicKeyframeCurve<T> {
@@ -351,7 +353,7 @@ impl<T> WideCubicKeyframeCurve<T> {
         let values: Vec<T> = values.into_iter().collect();
         let divisor = times.len() * 3;
 
-        if values.len() % divisor != 0 {
+        if !values.len().is_multiple_of(divisor) {
             return Err(WideKeyframeCurveError::LengthMismatch {
                 values_given: values.len(),
                 divisor,
@@ -362,31 +364,6 @@ impl<T> WideCubicKeyframeCurve<T> {
             core: ChunkedUnevenCore::new_width_inferred(times, values)?,
         })
     }
-}
-
-/// A curve specifying the [`MorphWeights`] for a mesh in animation. The variants are broken
-/// down by interpolation mode (with the exception of `Constant`, which never interpolates).
-///
-/// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
-/// recommended to use its implementation of the [`IterableCurve`] trait, which allows iterating
-/// directly over information derived from the curve without allocating.
-///
-/// [`MorphWeights`]: bevy_render::prelude::MorphWeights
-#[derive(Debug, Clone, Reflect)]
-pub enum WeightsCurve {
-    /// A curve which takes a constant value over its domain. Notably, this is how animations with
-    /// only a single keyframe are interpreted.
-    Constant(ConstantCurve<Vec<f32>>),
-
-    /// A curve which interpolates weights linearly between keyframes.
-    Linear(WideLinearKeyframeCurve<f32>),
-
-    /// A curve which interpolates weights between keyframes in steps.
-    Step(WideSteppedKeyframeCurve<f32>),
-
-    /// A curve which interpolates between keyframes by using auxiliary tangent data to join
-    /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
-    CubicSpline(WideCubicKeyframeCurve<f32>),
 }
 
 //---------//
@@ -403,7 +380,7 @@ fn cubic_spline_interpolation<T>(
     step_duration: f32,
 ) -> T
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     let coeffs = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
     value_start * (coeffs.x * lerp + 1.0)
@@ -412,7 +389,7 @@ where
         + tangent_in_end * step_duration * lerp * coeffs.w
 }
 
-fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
+fn cubic_spline_interpolate_slices<'a, T: VectorSpace<Scalar = f32>>(
     width: usize,
     first: &'a [T],
     second: &'a [T],

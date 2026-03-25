@@ -1,28 +1,23 @@
 use crate::{
+    enums::{Enum, VariantInfo, VariantType},
     serde::{ser::error_utils::make_custom_error, TypedReflectSerializer},
-    Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    TypeInfo, TypeRegistry,
 };
 use serde::{
     ser::{SerializeStructVariant, SerializeTupleVariant},
     Serialize,
 };
 
+use super::ReflectSerializerProcessor;
+
 /// A serializer for [`Enum`] values.
-pub(super) struct EnumSerializer<'a> {
-    enum_value: &'a dyn Enum,
-    registry: &'a TypeRegistry,
+pub(super) struct EnumSerializer<'a, P> {
+    pub enum_value: &'a dyn Enum,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a P>,
 }
 
-impl<'a> EnumSerializer<'a> {
-    pub fn new(enum_value: &'a dyn Enum, registry: &'a TypeRegistry) -> Self {
-        Self {
-            enum_value,
-            registry,
-        }
-    }
-}
-
-impl<'a> Serialize for EnumSerializer<'a> {
+impl<P: ReflectSerializerProcessor> Serialize for EnumSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -86,7 +81,11 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     let field_info = struct_info.field_at(index).unwrap();
                     state.serialize_field(
                         field_info.name(),
-                        &TypedReflectSerializer::new_internal(field.value(), self.registry),
+                        &TypedReflectSerializer::new_internal(
+                            field.value(),
+                            self.registry,
+                            self.processor,
+                        ),
                     )?;
                 }
                 state.end()
@@ -97,14 +96,17 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 if type_info.type_path_table().module_path() == Some("core::option")
                     && type_info.type_path_table().ident() == Some("Option")
                 {
-                    serializer
-                        .serialize_some(&TypedReflectSerializer::new_internal(field, self.registry))
+                    serializer.serialize_some(&TypedReflectSerializer::new_internal(
+                        field,
+                        self.registry,
+                        self.processor,
+                    ))
                 } else {
                     serializer.serialize_newtype_variant(
                         enum_name,
                         variant_index,
                         variant_name,
-                        &TypedReflectSerializer::new_internal(field, self.registry),
+                        &TypedReflectSerializer::new_internal(field, self.registry, self.processor),
                     )
                 }
             }
@@ -119,6 +121,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     state.serialize_field(&TypedReflectSerializer::new_internal(
                         field.value(),
                         self.registry,
+                        self.processor,
                     ))?;
                 }
                 state.end()

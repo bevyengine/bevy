@@ -15,13 +15,13 @@
 
 use bevy::{
     color::palettes::css::*,
-    core_pipeline::Skybox,
+    light::Skybox,
+    light::{IrradianceVolume, NotShadowCaster},
     math::{uvec3, vec3},
-    pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
-    },
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
     window::PrimaryWindow,
 };
 
@@ -157,9 +157,10 @@ fn main() {
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
@@ -248,8 +249,8 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
         IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         },
-        LightProbe,
     ));
 }
 
@@ -257,7 +258,7 @@ fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
@@ -292,8 +293,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -413,7 +414,7 @@ fn toggle_irradiance_volumes(
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -431,6 +432,7 @@ fn toggle_irradiance_volumes(
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         });
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
@@ -464,12 +466,12 @@ fn handle_mouse_clicks(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(plane_intersection) =
+        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+    else {
         return;
     };
-    let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
-
-    // Move all the main objeccts.
+    // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,
@@ -599,7 +601,7 @@ fn draw_gizmo(
 ) {
     if app_status.voxels_visible {
         for transform in irradiance_volume_query.iter() {
-            gizmos.cuboid(*transform, GIZMO_COLOR);
+            gizmos.cube(*transform, GIZMO_COLOR);
         }
     }
 }

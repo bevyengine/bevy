@@ -2,11 +2,11 @@ use crate::ButtonInput;
 use bevy_ecs::system::Res;
 use core::hash::Hash;
 
-/// Stateful run condition that can be toggled via a input press using [`ButtonInput::just_pressed`].
+/// Stateful run condition that can be toggled via an input press using [`ButtonInput::just_pressed`].
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_ecs::prelude::IntoScheduleConfigs;
 /// # use bevy_input::{common_conditions::input_toggle_active, prelude::KeyCode};
 ///
 /// fn main() {
@@ -25,7 +25,7 @@ use core::hash::Hash;
 /// you should use a custom resource or a state for that:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::{IntoSystemConfigs, Res, ResMut, Resource};
+/// # use bevy_ecs::prelude::{IntoScheduleConfigs, Res, ResMut, Resource};
 /// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 ///
 /// #[derive(Resource, Default)]
@@ -53,11 +53,11 @@ pub fn input_toggle_active<T>(
     input: T,
 ) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Send + Sync + 'static,
 {
     let mut active = default;
     move |inputs: Res<ButtonInput<T>>| {
-        active ^= inputs.just_pressed(input);
+        active ^= inputs.just_pressed(input.clone());
         active
     }
 }
@@ -65,16 +65,16 @@ where
 /// Run condition that is active if [`ButtonInput::pressed`] is true for the given input.
 pub fn input_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.pressed(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.pressed(input.clone())
 }
 
 /// Run condition that is active if [`ButtonInput::just_pressed`] is true for the given input.
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_ecs::prelude::IntoScheduleConfigs;
 /// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 /// fn main() {
 ///     App::new()
@@ -87,24 +87,24 @@ where
 /// ```
 pub fn input_just_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_pressed(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.just_pressed(input.clone())
 }
 
 /// Run condition that is active if [`ButtonInput::just_released`] is true for the given input.
 pub fn input_just_released<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_released(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.just_released(input.clone())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::KeyCode;
-    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+    use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 
     fn test_system() {}
 

@@ -1,7 +1,6 @@
-use downcast_rs::{impl_downcast, Downcast};
-
 use crate::App;
 use core::any::Any;
+use downcast_rs::{impl_downcast, Downcast};
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -129,7 +128,8 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-    use bevy_utils::all_tuples;
+    use alloc::boxed::Box;
+    use variadics_please::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 
@@ -168,7 +168,10 @@ mod sealed {
             where
                 $($plugins: Plugins<$param>),*
             {
-                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[expect(
+                    clippy::allow_attributes,
+                    reason = "This is inside a macro, and as such, may not trigger in all cases."
+                )]
                 #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
                 #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]

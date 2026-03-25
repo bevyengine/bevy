@@ -1,4 +1,4 @@
-use bitflags::bitflags;
+use crate::args::Args;
 
 /// Trait for preparing a subcommand to be run.
 pub trait Prepare {
@@ -7,7 +7,7 @@ pub trait Prepare {
     /// # Example
     ///
     /// ```
-    /// # use crate::{Flag, Prepare, PreparedCommand};
+    /// # use crate::{args::Args, Prepare, PreparedCommand};
     /// # use argh::FromArgs;
     /// # use xshell::Shell;
     /// #
@@ -16,7 +16,7 @@ pub trait Prepare {
     /// struct CheckCommand {}
     ///
     /// impl Prepare for CheckCommand {
-    ///     fn prepare<'a>(&self, sh: &'a Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
+    ///     fn prepare<'a>(&self, sh: &'a Shell, args: Args) -> Vec<PreparedCommand<'a>> {
     ///         vec![PreparedCommand::new::<Self>(
     ///             cmd!(sh, "cargo check --workspace"),
     ///             "Please fix linter errors",
@@ -24,16 +24,7 @@ pub trait Prepare {
     ///     }
     /// }
     /// ```
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>>;
-}
-
-bitflags! {
-    /// Flags that modify how commands are run.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub struct Flag: u32 {
-        /// Forces certain checks to continue running even if they hit an error.
-        const KEEP_GOING = 1 << 0;
-    }
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>>;
 }
 
 /// A command with associated metadata, created from a command that implements [`Prepare`].

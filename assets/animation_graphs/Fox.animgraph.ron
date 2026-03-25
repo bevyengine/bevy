@@ -9,20 +9,20 @@
             (
                 node_type: Blend,
                 mask: 0,
-                weight: 1.0,
+                weight: 0.5,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation0")),
+                node_type: Clip("models/animated/Fox.glb#Animation0"),
                 mask: 0,
                 weight: 1.0,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation1")),
+                node_type: Clip("models/animated/Fox.glb#Animation1"),
                 mask: 0,
                 weight: 1.0,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation2")),
+                node_type: Clip("models/animated/Fox.glb#Animation2"),
                 mask: 0,
                 weight: 1.0,
             ),

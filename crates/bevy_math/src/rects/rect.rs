@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -356,6 +356,20 @@ impl Rect {
         }
     }
 
+    /// Return the area of this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(0., 0., 10., 10.); // w=10 h=10
+    /// assert_eq!(r.area(), 100.0);
+    /// ```
+    #[inline]
+    pub fn area(&self) -> f32 {
+        self.width() * self.height()
+    }
+
     /// Returns self as [`IRect`] (i32)
     #[inline]
     pub fn as_irect(&self) -> IRect {
@@ -371,6 +385,8 @@ impl Rect {
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
 
     #[test]
@@ -382,8 +398,8 @@ mod tests {
 
         assert!(r.center().abs_diff_eq(Vec2::new(3., -5.), 1e-5));
 
-        assert!((r.width() - 8.).abs() <= 1e-5);
-        assert!((r.height() - 11.).abs() <= 1e-5);
+        assert!(ops::abs(r.width() - 8.) <= 1e-5);
+        assert!(ops::abs(r.height() - 11.) <= 1e-5);
         assert!(r.size().abs_diff_eq(Vec2::new(8., 11.), 1e-5));
         assert!(r.half_size().abs_diff_eq(Vec2::new(4., 5.5), 1e-5));
 

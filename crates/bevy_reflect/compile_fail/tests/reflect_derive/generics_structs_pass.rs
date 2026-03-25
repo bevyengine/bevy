@@ -1,5 +1,5 @@
 //@check-pass
-use bevy_reflect::{GetField, Reflect};
+use bevy_reflect::{structs::GetField, Reflect};
 
 #[derive(Reflect)]
 #[reflect(from_reflect = false)]

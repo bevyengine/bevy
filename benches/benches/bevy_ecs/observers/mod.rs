@@ -1,8 +1,15 @@
-use criterion::criterion_group;
-
+mod custom;
+mod lifecycle;
 mod propagation;
-mod simple;
-use propagation::*;
-use simple::*;
 
-criterion_group!(observer_benches, event_propagation, observe_simple);
+use criterion::criterion_group;
+use custom::*;
+use lifecycle::*;
+use propagation::*;
+
+criterion_group!(
+    benches,
+    event_propagation,
+    observer_custom,
+    observer_lifecycle
+);

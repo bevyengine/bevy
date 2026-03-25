@@ -1,9 +1,8 @@
 //! Shows how to modify texture assets after spawning.
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    render::{render_asset::RenderAssetUsages, texture::ImageLoaderSettings},
+    asset::RenderAssetUsages, image::ImageLoaderSettings,
+    input::common_conditions::input_just_pressed, prelude::*,
 };
 
 fn main() {
@@ -98,8 +97,8 @@ fn spawn_text(mut commands: Commands) {
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -124,11 +123,11 @@ fn alter_handle(
 
 fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(&left_bird.image) else {
+    let Some(mut image) = images.get_mut(&left_bird.image) else {
         return;
     };
 
-    for pixel in &mut image.data {
+    for pixel in image.data.as_mut().unwrap() {
         // Directly modify the asset data, which will affect all users of this asset. By
         // contrast, mutating the handle (as we did above) affects only one copy. In this case,
         // we'll just invert the colors, by way of demonstration. Notice that both uses of the

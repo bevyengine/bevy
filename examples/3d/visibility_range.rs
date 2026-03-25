@@ -3,12 +3,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::visibility::{NoCpuCulling, VisibilityRange},
+    core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
+    light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
-    render::view::VisibilityRange,
 };
+
+use argh::FromArgs;
 
 // Where the camera is focused.
 const CAMERA_FOCAL_POINT: Vec3 = vec3(0.0, 0.3, 0.0);
@@ -26,10 +29,12 @@ const MIN_ZOOM_DISTANCE: f32 = 0.5;
 static NORMAL_VISIBILITY_RANGE_HIGH_POLY: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 3.0..4.0,
+    use_aabb: false,
 };
 static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
     start_margin: 3.0..4.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility model that we use to always show a model (until the camera is so
@@ -37,12 +42,14 @@ static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
 static SINGLE_MODEL_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility range that we use to completely hide a model.
 static INVISIBLE_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 0.0..0.0,
+    use_aabb: false,
 };
 
 // Allows us to identify the main model.
@@ -59,10 +66,24 @@ enum MainModel {
 struct AppStatus {
     // Whether to show only one model.
     show_one_model_only: Option<MainModel>,
+    // Whether to enable the prepass.
+    prepass: bool,
 }
 
-// Sets up the app.
+/// Demonstrates visibility ranges, also known as HLODs
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// whether to use GPU culling only
+    #[argh(switch)]
+    no_cpu_culling: bool,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -72,6 +93,7 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -80,6 +102,7 @@ fn main() {
                 set_visibility_ranges,
                 update_help_text,
                 update_mode,
+                toggle_prepass,
             ),
         )
         .run();
@@ -123,7 +146,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -153,8 +176,8 @@ fn setup(
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -167,19 +190,20 @@ fn setup(
 fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
+    args: Res<Args>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
         // Search for the nearest ancestor `MainModel` component.
         let (mut current, mut main_model) = (new_mesh, None);
-        while let Ok((parent, maybe_main_model)) = parents.get(current) {
+        while let Ok((child_of, maybe_main_model)) = children.get(current) {
             if let Some(model) = maybe_main_model {
                 main_model = Some(model);
                 break;
             }
-            match parent {
-                Some(parent) => current = **parent,
+            match child_of {
+                Some(child_of) => current = child_of.parent(),
                 None => break,
             }
         }
@@ -187,16 +211,22 @@ fn set_visibility_ranges(
         // Add the `VisibilityRange` component.
         match main_model {
             Some(MainModel::HighPoly) => {
-                commands
-                    .entity(new_mesh)
+                let mut entity_commands = commands.entity(new_mesh);
+                entity_commands
                     .insert(NORMAL_VISIBILITY_RANGE_HIGH_POLY.clone())
                     .insert(MainModel::HighPoly);
+                if args.no_cpu_culling {
+                    entity_commands.insert(NoCpuCulling);
+                }
             }
             Some(MainModel::LowPoly) => {
-                commands
-                    .entity(new_mesh)
+                let mut entity_commands = commands.entity(new_mesh);
+                entity_commands
                     .insert(NORMAL_VISIBILITY_RANGE_LOW_POLY.clone())
                     .insert(MainModel::LowPoly);
+                if args.no_cpu_culling {
+                    entity_commands.insert(NoCpuCulling);
+                }
             }
             None => {}
         }
@@ -206,7 +236,7 @@ fn set_visibility_ranges(
 // Process the movement controls.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera3d>>,
 ) {
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
@@ -226,8 +256,8 @@ fn move_camera(
     }
 
     // Process zoom in and out via the mouse wheel.
-    for event in mouse_wheel_events.read() {
-        zoom_delta -= event.y * CAMERA_MOUSE_MOVEMENT_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        zoom_delta -= mouse_wheel.y * CAMERA_MOUSE_MOVEMENT_SPEED;
     }
 
     // Update the camera transform.
@@ -284,6 +314,34 @@ fn update_mode(
     }
 }
 
+// Toggles the prepass if the user requests.
+fn toggle_prepass(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera3d>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut app_status: ResMut<AppStatus>,
+) {
+    if !keyboard_input.just_pressed(KeyCode::Space) {
+        return;
+    }
+
+    app_status.prepass = !app_status.prepass;
+
+    for camera in cameras.iter() {
+        if app_status.prepass {
+            commands
+                .entity(camera)
+                .insert(DepthPrepass)
+                .insert(NormalPrepass);
+        } else {
+            commands
+                .entity(camera)
+                .remove::<DepthPrepass>()
+                .remove::<NormalPrepass>();
+        }
+    }
+}
+
 // A system that updates the help text.
 fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
@@ -300,7 +358,8 @@ impl AppStatus {
 {} (2) Show only the high-poly model
 {} (3) Show only the low-poly model
 Press 1, 2, or 3 to switch which model is shown
-Press WASD or use the mouse wheel to move the camera",
+Press WASD or use the mouse wheel to move the camera
+Press Space to {} the prepass",
             if self.show_one_model_only.is_none() {
                 '>'
             } else {
@@ -316,6 +375,7 @@ Press WASD or use the mouse wheel to move the camera",
             } else {
                 ' '
             },
+            if self.prepass { "disable" } else { "enable" }
         )
         .into()
     }

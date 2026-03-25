@@ -1,12 +1,15 @@
 use core::marker::PhantomData;
 
 use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::{
+    render_resource::make_buffer_label,
+    renderer::{RenderDevice, RenderQueue},
+};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferSize, BufferUsages};
 
 use super::IntoBinding;
 
@@ -22,14 +25,13 @@ use super::IntoBinding;
 /// is automatically enforced by this structure.
 ///
 /// Other options for storing GPU-accessible data are:
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicStorageBuffer`]
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct StorageBuffer<T: ShaderType> {
@@ -39,6 +41,7 @@ pub struct StorageBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    last_written_size: Option<BufferSize>,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -50,6 +53,7 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
         }
     }
 }
@@ -63,6 +67,7 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
         }
     }
 }
@@ -74,10 +79,12 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: self.last_written_size,
+        }))
     }
 
     pub fn set(&mut self, value: T) {
@@ -129,7 +136,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
         if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -137,20 +144,21 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+
+        self.last_written_size = BufferSize::new(size);
     }
 }
 
 impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
-        self.buffer()
-            .expect("Failed to get buffer")
-            .as_entire_buffer_binding()
-            .into_binding()
+        self.binding().expect("Failed to get buffer")
     }
 }
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
+///
+/// This is just a [`StorageBuffer`], but also allows you to set dynamic offsets.
 ///
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
 /// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
@@ -164,14 +172,13 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`]
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`StorageBuffer`]
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
@@ -180,6 +187,7 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    last_written_size: Option<BufferSize>,
     _marker: PhantomData<fn() -> T>,
 }
 
@@ -191,6 +199,7 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
             _marker: PhantomData,
         }
     }
@@ -203,11 +212,11 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
-            size: Some(T::min_size()),
+            size: self.last_written_size,
         }))
     }
 
@@ -252,7 +261,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
         if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -260,6 +269,8 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+
+        self.last_written_size = BufferSize::new(size);
     }
 
     #[inline]
@@ -272,6 +283,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicStorageBuffer<T> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
-        self.binding().unwrap()
+        self.binding().expect("Failed to get buffer")
     }
 }

@@ -11,7 +11,7 @@
 //!
 //! This Bevy example is inspired by the corresponding three.js example [3].
 //!
-//! [1]: https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel
+//! [1]: https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 //!
 //! [2]: https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
 //!
@@ -20,11 +20,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
+    image::ImageLoaderSettings,
+    light::Skybox,
     math::vec3,
     prelude::*,
-    render::texture::ImageLoaderSettings,
 };
 
 /// The size of each sphere.
@@ -191,10 +193,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
-            Camera {
-                hdr: true,
-                ..default()
-            },
+            Hdr,
             Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
@@ -221,8 +220,8 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
         light_mode.create_help_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

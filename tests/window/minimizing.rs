@@ -1,6 +1,6 @@
 //! A test to confirm that `bevy` allows minimizing the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::{core::FrameCount, prelude::*};
+use bevy::{diagnostic::FrameCount, prelude::*};
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
@@ -46,7 +46,7 @@ fn setup_3d(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

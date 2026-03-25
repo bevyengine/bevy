@@ -1,8 +1,8 @@
 //! Shows how to iterate over combinations of query results.
 
 use bevy::{color::palettes::css::ORANGE_RED, math::FloatPow, prelude::*};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
@@ -50,34 +50,34 @@ fn generate_bodies(
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
-        let radius: f32 = rng.gen_range(0.1..0.7);
+        let radius: f32 = rng.random_range(0.1..0.7);
         let mass_value = FloatPow::cubed(radius) * 10.;
 
         let position = Vec3::new(
-            rng.gen_range(-1.0..1.0),
-            rng.gen_range(-1.0..1.0),
-            rng.gen_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
         )
         .normalize()
-            * ops::cbrt(rng.gen_range(0.2f32..1.0))
+            * ops::cbrt(rng.random_range(0.2f32..1.0))
             * 15.;
 
         commands.spawn((
             BodyBundle {
                 mesh: Mesh3d(mesh.clone()),
                 material: MeshMaterial3d(materials.add(Color::srgb(
-                    rng.gen_range(color_range.clone()),
-                    rng.gen_range(color_range.clone()),
-                    rng.gen_range(color_range.clone()),
+                    rng.random_range(color_range.clone()),
+                    rng.random_range(color_range.clone()),
+                    rng.random_range(color_range.clone()),
                 ))),
                 mass: Mass(mass_value),
                 acceleration: Acceleration(Vec3::ZERO),
                 last_pos: LastPos(
                     position
                         - Vec3::new(
-                            rng.gen_range(vel_range.clone()),
-                            rng.gen_range(vel_range.clone()),
-                            rng.gen_range(vel_range.clone()),
+                            rng.random_range(vel_range.clone()),
+                            rng.random_range(vel_range.clone()),
+                            rng.random_range(vel_range.clone()),
                         ) * time.timestep().as_secs_f32(),
                 ),
             },

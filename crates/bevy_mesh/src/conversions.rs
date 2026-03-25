@@ -26,10 +26,10 @@
 
 use super::VertexAttributeValues;
 use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
-#[derive(Debug, Clone, Error, Display)]
-#[display("cannot convert VertexAttributeValues::{variant} to {into}")]
+#[derive(Debug, Clone, Error)]
+#[error("cannot convert VertexAttributeValues::{variant} to {into}")]
 pub struct FromVertexAttributeError {
     from: VertexAttributeValues,
     variant: &'static str,
@@ -445,9 +445,8 @@ mod tests {
         let buffer = vec![[0_u32; 4]; 3];
         let values = VertexAttributeValues::from(buffer);
         let error_result: Result<Vec<u32>, _> = values.try_into();
-        let error = match error_result {
-            Ok(..) => unreachable!(),
-            Err(error) => error,
+        let Err(error) = error_result else {
+            unreachable!()
         };
         assert_eq!(
             error.to_string(),

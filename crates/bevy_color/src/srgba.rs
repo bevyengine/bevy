@@ -2,10 +2,12 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
+#[cfg(feature = "alloc")]
+use alloc::{format, string::String};
 use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
 #[doc = include_str!("../docs/conversion.md")]
@@ -13,7 +15,11 @@ use derive_more::derive::{Display, Error, From};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -38,37 +44,25 @@ impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
-    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully black color with full alpha.
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully transparent color with no alpha (alpha = 0.0).
     #[doc(alias = "transparent")]
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
-    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully white color with full alpha.
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
-
+    /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully red color with full alpha.
-    pub const RED: Self = Self {
-        red: 1.0,
-        green: 0.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully green color with full alpha.
-    pub const GREEN: Self = Self {
-        red: 0.0,
-        green: 1.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const GREEN: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully blue color with full alpha.
-    pub const BLUE: Self = Self {
-        red: 0.0,
-        green: 0.0,
-        blue: 1.0,
-        alpha: 1.0,
-    };
+    pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///
@@ -139,17 +133,17 @@ impl Srgba {
             3 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b) = (l & 0x0F, (b & 0xF0) >> 4, b & 0x0F);
-                Ok(Self::rgb_u8(r << 4 | r, g << 4 | g, b << 4 | b))
+                Ok(Self::rgb_u8((r << 4) | r, (g << 4) | g, (b << 4) | b))
             }
             // RGBA
             4 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b, a) = ((l & 0xF0) >> 4, l & 0xF, (b & 0xF0) >> 4, b & 0x0F);
                 Ok(Self::rgba_u8(
-                    r << 4 | r,
-                    g << 4 | g,
-                    b << 4 | b,
-                    a << 4 | a,
+                    (r << 4) | r,
+                    (g << 4) | g,
+                    (b << 4) | b,
+                    (a << 4) | a,
                 ))
             }
             // RRGGBB
@@ -167,11 +161,12 @@ impl Srgba {
     }
 
     /// Convert this color to CSS-style hexadecimal notation.
+    #[cfg(feature = "alloc")]
     pub fn to_hex(&self) -> String {
         let [r, g, b, a] = self.to_u8_array();
         match a {
-            255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
-            _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
+            255 => format!("#{r:02X}{g:02X}{b:02X}"),
+            _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
     }
 
@@ -366,11 +361,11 @@ impl ColorToComponents for Srgba {
 impl ColorToPacked for Srgba {
     fn to_u8_array(self) -> [u8; 4] {
         [self.red, self.green, self.blue, self.alpha]
-            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+            .map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn to_u8_array_no_alpha(self) -> [u8; 3] {
-        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        [self.red, self.green, self.blue].map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn from_u8_array(color: [u8; 4]) -> Self {
@@ -421,17 +416,16 @@ impl From<Srgba> for Xyza {
 }
 
 /// Error returned if a hex string could not be parsed as a color.
-#[derive(Debug, Error, Display, PartialEq, Eq, From)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
     /// Parsing error.
-    #[display("Invalid hex string")]
-    Parse(core::num::ParseIntError),
+    #[error("Invalid hex string")]
+    Parse(#[from] core::num::ParseIntError),
     /// Invalid length.
-    #[display("Unexpected length of hex string")]
+    #[error("Unexpected length of hex string")]
     Length,
     /// Invalid character.
-    #[display("Invalid hex char")]
-    #[error(ignore)]
+    #[error("Invalid hex char")]
     Char(char),
 }
 

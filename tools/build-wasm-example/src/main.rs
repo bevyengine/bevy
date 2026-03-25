@@ -39,6 +39,10 @@ struct Args {
     #[arg(long)]
     /// Additional features to enable
     features: Vec<String>,
+
+    #[arg(long)]
+    /// Build the example in debug mode instead of release
+    debug: bool,
 }
 
 fn main() {
@@ -73,15 +77,26 @@ fn main() {
             parameters.push("--features");
             parameters.push(&features_string);
         }
+
+        let (profile, out_dir) = if cli.debug {
+            ("dev", "debug")
+        } else if cli.optimize_size {
+            ("wasm-release", "wasm-release")
+        } else {
+            ("release", "release")
+        };
+
         let cmd = cmd!(
             sh,
-            "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
+            "cargo build {parameters...} --profile {profile} --target wasm32-unknown-unknown --example {example}"
         );
-        cmd.run().expect("Error building example");
+        cmd.env("RUSTFLAGS", "--cfg getrandom_backend=\"wasm_js\"")
+            .run()
+            .expect("Error building example");
 
         cmd!(
             sh,
-            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/release/examples/{example}.wasm"
+            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{out_dir}/examples/{example}.wasm"
         )
         .run()
         .expect("Error creating wasm binding");

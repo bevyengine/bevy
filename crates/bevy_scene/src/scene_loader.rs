@@ -1,21 +1,26 @@
-#[cfg(feature = "serialize")]
-use crate::serde::SceneDeserializer;
-use crate::{ron, DynamicScene};
-use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},
 };
-use bevy_reflect::TypeRegistryArc;
-use derive_more::derive::{Display, Error, From};
+use bevy_reflect::{TypePath, TypeRegistryArc};
+
 #[cfg(feature = "serialize")]
-use serde::de::DeserializeSeed;
+use {
+    crate::{serde::SceneDeserializer, DynamicScene},
+    bevy_asset::{io::Reader, AssetLoader, LoadContext},
+    serde::de::DeserializeSeed,
+    thiserror::Error,
+};
 
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
 /// The loader handles assets serialized with [`DynamicScene::serialize`].
-#[derive(Debug)]
+#[derive(Debug, TypePath)]
 pub struct SceneLoader {
+    #[cfg_attr(
+        not(feature = "serialize"),
+        expect(dead_code, reason = "only used with `serialize` feature")
+    )]
     type_registry: TypeRegistryArc,
 }
 
@@ -29,15 +34,16 @@ impl FromWorld for SceneLoader {
 }
 
 /// Possible errors that can be produced by [`SceneLoader`]
+#[cfg(feature = "serialize")]
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum SceneLoaderError {
     /// An [IO Error](std::io::Error)
-    #[display("Error while trying to read the scene file: {_0}")]
-    Io(std::io::Error),
+    #[error("Error while trying to read the scene file: {0}")]
+    Io(#[from] std::io::Error),
     /// A [RON Error](ron::error::SpannedError)
-    #[display("Could not parse RON: {_0}")]
-    RonSpannedError(ron::error::SpannedError),
+    #[error("Could not parse RON: {0}")]
+    RonSpannedError(#[from] ron::error::SpannedError),
 }
 
 #[cfg(feature = "serialize")]
@@ -50,13 +56,14 @@ impl AssetLoader for SceneLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
         let scene_deserializer = SceneDeserializer {
             type_registry: &self.type_registry.read(),
+            load_from_path: load_context,
         };
         Ok(scene_deserializer
             .deserialize(&mut deserializer)

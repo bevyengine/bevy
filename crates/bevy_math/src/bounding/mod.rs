@@ -14,7 +14,7 @@ pub trait BoundingVolume: Sized {
     /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
     type Translation: Clone + Copy + PartialEq;
 
-    /// The rotation type used for the volume. This should be `f32` for 2D and `Quat` for 3D.
+    /// The rotation type used for the volume. This should be `Rot2` for 2D and `Quat` for 3D.
     type Rotation: Clone + Copy + PartialEq;
 
     /// The type used for the size of the bounding volume. Usually a half size. For example an

@@ -1,3 +1,7 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::{
     fmt,
     fmt::{Debug, Display, Formatter},

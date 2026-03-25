@@ -1,27 +1,34 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
+use alloc::boxed::Box;
+use bevy_platform::{
+    hash::{DefaultHasher, FixedHasher, NoOpHash},
+    sync::{OnceLock, PoisonError, RwLock},
+};
+use bevy_utils::TypeIdMap;
 use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
 };
-use std::sync::{OnceLock, PoisonError, RwLock};
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
 ///
 /// [`Non`]: NonGenericTypeCell
 pub trait TypedProperty: sealed::Sealed {
+    /// The type of the value stored in [`GenericTypeCell`].
     type Stored: 'static;
 }
 
 /// Used to store a [`String`] in a [`GenericTypePathCell`] as part of a [`TypePath`] implementation.
 ///
 /// [`TypePath`]: crate::TypePath
+/// [`String`]: alloc::string::String
 pub struct TypePathComponent;
 
 mod sealed {
     use super::{TypeInfo, TypePathComponent, TypedProperty};
+    use alloc::string::String;
 
     pub trait Sealed {}
 
@@ -48,8 +55,8 @@ mod sealed {
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use core::any::Any;
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -79,10 +86,9 @@ mod sealed {
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for Foo {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -137,8 +143,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// Implementing [`TypeInfo`] with generics.
 ///
 /// ```
-/// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
+/// # use core::any::Any;
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -167,10 +173,9 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -186,7 +191,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///  Implementing [`TypePath`] with generics.
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::TypePath;
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
@@ -197,7 +202,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
 ///     }
-///     
+///
 ///     fn short_type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))
@@ -269,9 +274,9 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     }
 
     fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
-        self.0
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
+        let mut write_lock = self.0.write().unwrap_or_else(PoisonError::into_inner);
+
+        write_lock
             .entry(type_id)
             .insert({
                 // We leak here in order to obtain a `&'static` reference.
@@ -298,6 +303,6 @@ impl<T: TypedProperty> Default for GenericTypeCell<T> {
 ///
 /// [`Reflect::reflect_hash`]: crate::Reflect
 #[inline]
-pub fn reflect_hasher() -> bevy_utils::AHasher {
-    FixedState.build_hasher()
+pub fn reflect_hasher() -> DefaultHasher<'static> {
+    FixedHasher.build_hasher()
 }

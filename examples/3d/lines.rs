@@ -1,17 +1,12 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
+    asset::RenderAssetUsages,
+    mesh::{Indices, PrimitiveTopology},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
-    },
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -49,8 +44,11 @@ fn setup(
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
-                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(2.0, 0.0, 0.0),
+                Vec3::new(2.0, 1.0, 0.0),
+                Vec3::new(3.0, 1.0, 0.0),
             ],
+            indices: Indices::U16(vec![0, 1, u16::MAX /* primitive restart */, 2, 3, 4]),
         })),
         MeshMaterial3d(materials.add(LineMaterial {
             color: LinearRgba::BLUE,
@@ -74,17 +72,6 @@ struct LineMaterial {
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
-    }
-
-    fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        // This is the important part to tell bevy to render this material as a line between vertices
-        descriptor.primitive.polygon_mode = PolygonMode::Line;
-        Ok(())
     }
 }
 
@@ -113,6 +100,7 @@ impl From<LineList> for Mesh {
 #[derive(Debug, Clone)]
 struct LineStrip {
     points: Vec<Vec3>,
+    indices: Indices,
 }
 
 impl From<LineStrip> for Mesh {
@@ -125,5 +113,6 @@ impl From<LineStrip> for Mesh {
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
+        .with_inserted_indices(line.indices)
     }
 }

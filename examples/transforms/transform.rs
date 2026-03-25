@@ -113,7 +113,7 @@ fn rotate_cube(
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
         let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
-        // when looking a the sphere,  with a given turn speed to get a smooth motion.
+        // when looking at the sphere, with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.
         let incremental_turn_weight = cube.turn_speed * timer.delta_secs();
         let old_rotation = transform.rotation;

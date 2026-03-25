@@ -1,14 +1,20 @@
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    array::{ArrayInfo, DynamicArray},
+    enums::{DynamicEnum, EnumInfo},
+    list::{DynamicList, ListInfo},
+    map::{DynamicMap, MapInfo},
+    set::SetInfo,
+    structs::{DynamicStruct, StructInfo},
+    tuple::{DynamicTuple, TupleInfo},
+    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    Generics, PartialReflect, Reflect, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Formatter},
     hash::Hash,
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
@@ -32,8 +38,8 @@ use derive_more::derive::{Display, Error};
 /// # Example
 ///
 /// ```
-/// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use core::any::Any;
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -69,10 +75,9 @@ use derive_more::derive::{Display, Error};
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for MyStruct {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -163,14 +168,16 @@ impl<T: Typed> DynamicTyped for T {
 }
 
 /// A [`TypeInfo`]-specific error.
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum TypeInfoError {
     /// Caused when a type was expected to be of a certain [kind], but was not.
     ///
     /// [kind]: ReflectKind
-    #[display("kind mismatch: expected {expected:?}, received {received:?}")]
+    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
+        /// Expected kind.
         expected: ReflectKind,
+        /// Received kind.
         received: ReflectKind,
     },
 }
@@ -184,7 +191,7 @@ pub enum TypeInfoError {
 /// 3. [`PartialReflect::get_represented_type_info`]
 /// 4. [`TypeRegistry::get_type_info`]
 ///
-/// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
+/// Each returns a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
 /// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
 /// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
@@ -200,14 +207,40 @@ pub enum TypeInfoError {
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
+    /// Type information for a [struct-like] type.
+    ///
+    /// [struct-like]: crate::structs::Struct
     Struct(StructInfo),
+    /// Type information for a [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: crate::tuple_struct::TupleStruct
     TupleStruct(TupleStructInfo),
+    /// Type information for a [tuple-like] type.
+    ///
+    /// [tuple-like]: crate::tuple::Tuple
     Tuple(TupleInfo),
+    /// Type information for a [list-like] type.
+    ///
+    /// [list-like]: crate::list::List
     List(ListInfo),
+    /// Type information for an [array-like] type.
+    ///
+    /// [array-like]: crate::array::Array
     Array(ArrayInfo),
+    /// Type information for a [map-like] type.
+    ///
+    /// [map-like]: crate::map::Map
     Map(MapInfo),
+    /// Type information for a [set-like] type.
+    ///
+    /// [set-like]: crate::set::Set
     Set(SetInfo),
+    /// Type information for an [enum-like] type.
+    ///
+    /// [enum-like]: crate::enums::Enum
     Enum(EnumInfo),
+    /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
+    /// a discussion of opaque types.
     Opaque(OpaqueInfo),
 }
 
@@ -262,7 +295,7 @@ impl TypeInfo {
     }
 
     /// The docstring of the underlying type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&str> {
         match self {
             Self::Struct(info) => info.docs(),
@@ -498,7 +531,7 @@ macro_rules! impl_type_methods {
 
         /// The [`TypeId`] of this type.
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
             self.ty().id()
         }
@@ -528,7 +561,7 @@ macro_rules! impl_type_methods {
         /// and does not verify they share the same [`TypePath`]
         /// (though it implies they do).
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn is<T: ::core::any::Any>(&self) -> bool {
             self.ty().is::<T>()
@@ -547,26 +580,29 @@ pub(crate) use impl_type_methods;
 /// For example, [`i32`] cannot be broken down any further, so it is represented by an [`OpaqueInfo`].
 /// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as an [`OpaqueInfo`].
+///
+/// [`String`]: alloc::string::String
 #[derive(Debug, Clone)]
 pub struct OpaqueInfo {
     ty: Type,
     generics: Generics,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
 impl OpaqueInfo {
+    /// Creates a new [`OpaqueInfo`].
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this type.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, doc: Option<&'static str>) -> Self {
         Self { docs: doc, ..self }
     }
@@ -574,7 +610,7 @@ impl OpaqueInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this dynamic type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -585,6 +621,7 @@ impl OpaqueInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn should_return_error_on_invalid_cast() {

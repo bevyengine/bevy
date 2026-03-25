@@ -41,7 +41,7 @@ use crate::Reflect;
 /// ```
 ///
 /// [reflectable]: Reflect
-/// [`transmute`]: std::mem::transmute
+/// [`transmute`]: core::mem::transmute
 /// [very unsafe]: https://doc.rust-lang.org/1.71.0/nomicon/transmutes.html
 /// [`FromReflect`]: crate::FromReflect
 pub trait ReflectRemote: Reflect {

@@ -45,7 +45,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
-            alpha_mode: AlphaMode::Mask(0.5),
+            alpha_mode: AlphaMode::Mask(0.1),
             unlit: true,
             ..default()
         })),
@@ -83,7 +83,7 @@ fn setup(
     // Light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -100,7 +100,7 @@ fn setup(
 /// Each blend mode responds differently to this:
 /// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay completely opaque.
 /// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's threshold, disappears
-///                when the alpha value goes back below the threshold.
+///   when the alpha value goes back below the threshold.
 /// - [`Blend`](AlphaMode::Blend): Object fades in and out smoothly.
 /// - [`AlphaToCoverage`](AlphaMode::AlphaToCoverage): Object fades in and out
 ///   in steps corresponding to the number of multisample antialiasing (MSAA)

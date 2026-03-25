@@ -1,16 +1,16 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Sphere};
+use bevy_reflect::prelude::*;
 use core::f32::consts::PI;
-use derive_more::derive::{Display, Error};
 use hexasphere::shapes::IcoSphere;
-use wgpu::PrimitiveTopology;
+use thiserror::Error;
 
 /// An error when creating an icosphere [`Mesh`] from a [`SphereMeshBuilder`].
-#[derive(Clone, Copy, Debug, Error, Display)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum IcosphereError {
     /// The icosphere has too many vertices.
-    #[display("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
+    #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
     TooManyVertices {
         /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be generated.
         subdivisions: u32,
@@ -20,7 +20,8 @@ pub enum IcosphereError {
 }
 
 /// A type of sphere mesh.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub enum SphereKind {
     /// An icosphere, a spherical mesh that consists of similar sized triangles.
     Ico {
@@ -47,7 +48,8 @@ impl Default for SphereKind {
 }
 
 /// A builder used for creating a [`Mesh`] with an [`Sphere`] shape.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Default, Debug, Clone)]
 pub struct SphereMeshBuilder {
     /// The [`Sphere`] shape.
     pub sphere: Sphere,

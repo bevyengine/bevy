@@ -1,6 +1,8 @@
 use core::ops::{Deref, DerefMut};
 
-use crate::{bundle::Bundle, prelude::Trigger, system::System};
+use variadics_please::all_tuples;
+
+use crate::{bundle::Bundle, event::Event, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -9,8 +11,30 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 /// - [`In<T>`]: For values
 /// - [`InRef<T>`]: For read-only references to values
 /// - [`InMut<T>`]: For mutable references to values
-/// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
+/// - [`On<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
+/// - Tuples of [`SystemInput`]s up to 8 elements
+///
+/// For advanced usecases, you can implement this trait for your own types.
+///
+/// # Examples
+///
+/// ## Tuples of [`SystemInput`]s
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn add((InMut(a), In(b)): (InMut<usize>, In<usize>)) {
+///     *a += b;
+/// }
+/// # let mut world = World::new();
+/// # let mut add = IntoSystem::into_system(add);
+/// # add.initialize(&mut world);
+/// # let mut a = 12;
+/// # let b = 24;
+/// # add.run((&mut a, b), &mut world);
+/// # assert_eq!(a, 36);
+/// ```
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
 pub trait SystemInput: Sized {
@@ -31,12 +55,28 @@ pub trait SystemInput: Sized {
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
 pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 
-/// [`SystemInput`] type for systems that take no input.
-impl SystemInput for () {
-    type Param<'i> = ();
-    type Inner<'i> = ();
+/// A type that may be constructed from the input of a [`System`].
+/// This is used to allow systems whose first parameter is a `StaticSystemInput<In>`
+/// to take an `In` as input, and can be implemented for user types to allow
+/// similar conversions.
+pub trait FromInput<In: SystemInput>: SystemInput {
+    /// Converts the system input's inner representation into this type's
+    /// inner representation.
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i>;
+}
 
-    fn wrap(_this: Self::Inner<'_>) -> Self::Param<'_> {}
+impl<In: SystemInput> FromInput<In> for In {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
+}
+
+impl<'a, In: SystemInput> FromInput<In> for StaticSystemInput<'a, In> {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
 }
 
 /// A [`SystemInput`] type which denotes that a [`System`] receives
@@ -46,6 +86,8 @@ impl SystemInput for () {
 /// are being [`run`](System::run). For [`FunctionSystem`]s the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
 /// means a system can only have one or zero input parameters.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 ///
 /// # Examples
 ///
@@ -62,7 +104,7 @@ impl SystemInput for () {
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
 ///
-/// assert_eq!(square_system.run(12, &mut world), 144);
+/// assert_eq!(square_system.run(12, &mut world).unwrap(), 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
@@ -98,6 +140,8 @@ impl<T> DerefMut for In<T> {
 ///
 /// This is similar to [`In`] but takes a reference to a value instead of the value itself.
 /// See [`InMut`] for the mutable version.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 ///
 /// # Examples
 ///
@@ -150,6 +194,8 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 /// This is similar to [`In`] but takes a mutable reference to a value instead of the value itself.
 /// See [`InRef`] for the read-only version.
 ///
+/// See [`SystemInput`] to learn more about system inputs in general.
+///
 /// # Examples
 ///
 /// Here is a simple example of a system that takes a `&mut usize` and squares it.
@@ -200,9 +246,13 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
-    type Param<'i> = Trigger<'i, E, B>;
-    type Inner<'i> = Trigger<'i, E, B>;
+impl<E: Event, B: Bundle> SystemInput for On<'_, '_, E, B> {
+    // Note: the fact that we must use a shared lifetime here is
+    // a key piece of the complicated safety story documented above
+    // the `&mut E::Trigger<'_>` cast in `observer_system_runner` and in
+    // the `On` implementation.
+    type Param<'i> = On<'i, 'i, E, B>;
+    type Inner<'i> = On<'i, 'i, E, B>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
@@ -217,6 +267,8 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
 ///
 /// This makes it useful for having arbitrary [`SystemInput`]s in
 /// function systems.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 pub struct StaticSystemInput<'a, I: SystemInput>(pub I::Inner<'a>);
 
 impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
@@ -225,5 +277,93 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         StaticSystemInput(this)
+    }
+}
+
+macro_rules! impl_system_input_tuple {
+    ($(#[$meta:meta])* $($name:ident),*) => {
+        $(#[$meta])*
+        impl<$($name: SystemInput),*> SystemInput for ($($name,)*) {
+            type Param<'i> = ($($name::Param<'i>,)*);
+            type Inner<'i> = ($($name::Inner<'i>,)*);
+
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is in a macro; as such, the below lints may not always apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Certain variable names are provided by the caller, not by us."
+            )]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples won't have anything to wrap."
+            )]
+            fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+                let ($($name,)*) = this;
+                ($($name::wrap($name),)*)
+            }
+        }
+    };
+}
+
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_input_tuple,
+    0,
+    8,
+    I
+);
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        system::{assert_is_system, In, InMut, InRef, IntoSystem, StaticSystemInput, System},
+        world::World,
+    };
+
+    #[test]
+    fn two_tuple() {
+        fn by_value((In(a), In(b)): (In<usize>, In<usize>)) -> usize {
+            a + b
+        }
+        fn by_ref((InRef(a), InRef(b)): (InRef<usize>, InRef<usize>)) -> usize {
+            *a + *b
+        }
+        fn by_mut((InMut(a), In(b)): (InMut<usize>, In<usize>)) {
+            *a += b;
+        }
+
+        let mut world = World::new();
+        let mut by_value = IntoSystem::into_system(by_value);
+        let mut by_ref = IntoSystem::into_system(by_ref);
+        let mut by_mut = IntoSystem::into_system(by_mut);
+
+        by_value.initialize(&mut world);
+        by_ref.initialize(&mut world);
+        by_mut.initialize(&mut world);
+
+        let mut a = 12;
+        let b = 24;
+
+        assert_eq!(by_value.run((a, b), &mut world).unwrap(), 36);
+        assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
+        by_mut.run((&mut a, b), &mut world).unwrap();
+        assert_eq!(a, 36);
+    }
+
+    #[test]
+    fn compatible_input() {
+        fn takes_usize(In(a): In<usize>) -> usize {
+            a
+        }
+
+        fn takes_static_usize(StaticSystemInput(b): StaticSystemInput<In<usize>>) -> usize {
+            b
+        }
+
+        assert_is_system::<In<usize>, usize, _>(takes_usize);
+        // test if StaticSystemInput is compatible with its inner type
+        assert_is_system::<In<usize>, usize, _>(takes_static_usize);
     }
 }

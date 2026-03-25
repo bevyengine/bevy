@@ -1,25 +1,23 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate::{self as bevy_gizmos};
+use bevy_camera::visibility::RenderLayers;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
-use {crate::LineGizmo, bevy_asset::Handle, bevy_ecs::component::Component};
+use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
+    hash::Hash,
     ops::{Deref, DerefMut},
     panic,
 };
 
 /// An enum configuring how line joints will be drawn.
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 pub enum GizmoLineJoint {
     /// Does not draw any line joints.
     #[default]
@@ -36,7 +34,8 @@ pub enum GizmoLineJoint {
 }
 
 /// An enum used to configure the style of gizmo lines, similar to CSS line-style
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 #[non_exhaustive]
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
@@ -44,6 +43,34 @@ pub enum GizmoLineStyle {
     Solid,
     /// A dotted line
     Dotted,
+    /// A dashed line with configurable gap and line sizes
+    Dashed {
+        /// The length of the gap in `line_width`s
+        gap_scale: f32,
+        /// The length of the visible line in `line_width`s
+        line_scale: f32,
+    },
+}
+
+impl Eq for GizmoLineStyle {}
+
+impl Hash for GizmoLineStyle {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Solid => {
+                0u64.hash(state);
+            }
+            Self::Dotted => 1u64.hash(state),
+            Self::Dashed {
+                gap_scale,
+                line_scale,
+            } => {
+                2u64.hash(state);
+                gap_scale.to_bits().hash(state);
+                line_scale.to_bits().hash(state);
+            }
+        }
+    }
 }
 
 /// A trait used to create gizmo configs groups.
@@ -55,7 +82,14 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup)]
+#[reflect(Default)]
 pub struct DefaultGizmoConfigGroup;
+
+/// Used when the gizmo config group needs to be type-erased.
+/// Also used for retained gizmos, which can't have a gizmo config group.
+#[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
+#[reflect(Default, Clone)]
+pub struct ErasedGizmoConfigGroup;
 
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
@@ -76,13 +110,31 @@ impl GizmoConfigStore {
     }
 
     /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    ///
+    /// # Panics
+    /// If the config does not exist for [`GizmoConfigGroup`] `T`
+    ///
+    /// For a non-panicking version, see [`get_config`].
+    ///
+    /// [`get_config`]: Self::get_config
     pub fn config<T: GizmoConfigGroup>(&self) -> (&GizmoConfig, &T) {
-        let Some((config, ext)) = self.get_config_dyn(&TypeId::of::<T>()) else {
+        let Some(configs) = self.get_config() else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
+        configs
+    }
+
+    /// Returns Some([`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T` if they exist,
+    /// else None.
+    ///
+    /// If the configs will always be present, use [`config`].
+    ///
+    /// [`config`]: Self::config
+    pub fn get_config<T: GizmoConfigGroup>(&self) -> Option<(&GizmoConfig, &T)> {
+        let (config, ext) = self.get_config_dyn(&TypeId::of::<T>())?;
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
-        (config, ext)
+        Some((config, ext))
     }
 
     /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
@@ -95,13 +147,31 @@ impl GizmoConfigStore {
     }
 
     /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    ///
+    /// # Panics
+    /// If the config does not exist for [`GizmoConfigGroup`] `T`
+    ///
+    /// For a non-panicking version, see [`get_config_mut`].
+    ///
+    /// [`get_config_mut`]: Self::get_config_mut
     pub fn config_mut<T: GizmoConfigGroup>(&mut self) -> (&mut GizmoConfig, &mut T) {
-        let Some((config, ext)) = self.get_config_mut_dyn(&TypeId::of::<T>()) else {
+        let Some(configs) = self.get_config_mut() else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
+        configs
+    }
+
+    /// Returns mutable Some([`GizmoConfig`] and [`GizmoConfigGroup`]) associated with [`GizmoConfigGroup`] `T` if they exist,
+    /// else None
+    ///
+    /// If the configs will always be present, use [`config_mut`].
+    ///
+    /// [`config_mut`]: Self::config_mut
+    pub fn get_config_mut<T: GizmoConfigGroup>(&mut self) -> Option<(&mut GizmoConfig, &mut T)> {
+        let (config, ext) = self.get_config_mut_dyn(&TypeId::of::<T>())?;
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();
-        (config, ext)
+        Some((config, ext))
     }
 
     /// Returns an iterator over all [`GizmoConfig`]s.
@@ -133,27 +203,16 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
-#[derive(Clone, Reflect)]
+#[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
     /// Defaults to `true`.
     pub enabled: bool,
-    /// Line width specified in pixels.
-    ///
-    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
-    ///
-    /// Defaults to `2.0`.
-    pub line_width: f32,
-    /// Apply perspective to gizmo lines.
-    ///
-    /// This setting only affects 3D, non-orthographic cameras.
-    ///
-    /// Defaults to `false`.
-    pub line_perspective: bool,
-    /// Determine the style of gizmo lines.
-    pub line_style: GizmoLineStyle,
-    /// How closer to the camera than real geometry the line should be.
+    /// Line settings.
+    pub line: GizmoLineConfig,
+    /// How closer to the camera than real geometry the gizmos should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
     ///
@@ -169,37 +228,70 @@ pub struct GizmoConfig {
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
-    #[cfg(feature = "bevy_render")]
-    pub render_layers: bevy_render::view::RenderLayers,
-
-    /// Describe how lines should join
-    pub line_joints: GizmoLineJoint,
+    pub render_layers: RenderLayers,
 }
 
 impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            line_width: 2.,
-            line_perspective: false,
-            line_style: GizmoLineStyle::Solid,
+            line: Default::default(),
             depth_bias: 0.,
-            #[cfg(feature = "bevy_render")]
             render_layers: Default::default(),
-
-            line_joints: GizmoLineJoint::None,
         }
     }
 }
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+/// A struct that stores configuration for gizmos.
+#[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
+pub struct GizmoLineConfig {
+    /// Line width specified in pixels.
+    ///
+    /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `2.0`.
+    pub width: f32,
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
+    pub perspective: bool,
+    /// Determine the style of gizmo lines.
+    pub style: GizmoLineStyle,
+    /// Describe how lines should join.
+    pub joints: GizmoLineJoint,
+}
+
+impl Default for GizmoLineConfig {
+    fn default() -> Self {
+        Self {
+            width: 2.,
+            perspective: false,
+            style: GizmoLineStyle::Solid,
+            joints: GizmoLineJoint::None,
+        }
+    }
+}
+
+/// Configuration for gizmo meshes.
 #[derive(Component)]
-pub(crate) struct GizmoMeshConfig {
+pub struct GizmoMeshConfig {
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
     pub line_perspective: bool,
+    /// Determine the style of gizmo lines.
     pub line_style: GizmoLineStyle,
-    pub render_layers: bevy_render::view::RenderLayers,
-    pub handle: Handle<LineGizmo>,
+    /// Describe how lines should join.
+    pub line_joints: GizmoLineJoint,
+    /// Describes which rendering layers gizmos will be rendered to.
+    ///
+    /// Gizmos will only be rendered to cameras with intersecting layers.
+    pub render_layers: RenderLayers,
+    /// Handle of the gizmo asset.
+    pub handle: Handle<GizmoAsset>,
 }

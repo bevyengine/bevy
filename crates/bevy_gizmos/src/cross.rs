@@ -1,15 +1,16 @@
-//! Additional [`Gizmos`] Functions -- Crosses
+//! Additional [`GizmoBuffer`] Functions -- Crosses
 //!
-//! Includes the implementation of [`Gizmos::cross`] and [`Gizmos::cross_2d`],
+//! Includes the implementation of [`GizmoBuffer::cross`] and [`GizmoBuffer::cross_2d`],
 //! and assorted support items.
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 
-impl<Config> Gizmos<'_, '_, Config>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     /// Draw a cross in 3D with the given `isometry` applied.
     ///
@@ -17,8 +18,6 @@ where
     ///
     /// - the center is at `Vec3::ZERO`
     /// - the `half_size`s are aligned with the `Vec3::X`, `Vec3::Y` and `Vec3::Z` axes.
-    ///
-    /// This should be called for each frame the cross needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -52,8 +51,6 @@ where
     ///
     /// - the center is at `Vec3::ZERO`
     /// - the `half_size`s are aligned with the `Vec3::X` and `Vec3::Y` axes.
-    ///
-    /// This should be called for each frame the cross needs to be rendered.
     ///
     /// # Example
     /// ```

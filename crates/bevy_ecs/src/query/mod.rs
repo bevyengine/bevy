@@ -1,6 +1,12 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -11,6 +17,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
@@ -25,7 +32,8 @@ pub use world_query::*;
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
-pub(crate) trait DebugCheckedUnwrap {
+#[doc(hidden)]
+pub trait DebugCheckedUnwrap {
     type Item;
     /// # Panics
     /// Panics if the value is `None` or `Err`, only in debug mode.
@@ -102,19 +110,22 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         component::Component,
         prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
-        query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData},
-        schedule::{IntoSystemConfigs, Schedule},
+        query::{
+            ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
+            ReadOnlyQueryData,
+        },
+        schedule::{IntoScheduleConfigs, Schedule},
         system::{IntoSystem, Query, System, SystemState},
         world::World,
     };
-    use bevy_ecs_macros::{QueryData, QueryFilter};
+    use alloc::{vec, vec::Vec};
     use core::{any::type_name, fmt::Debug, hash::Hash};
-    use std::collections::HashSet;
+    use std::{collections::HashSet, println};
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);
@@ -157,7 +168,7 @@ mod tests {
         }
         fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -171,7 +182,7 @@ mod tests {
         }
         fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -433,6 +444,18 @@ mod tests {
     }
 
     #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
+    }
+
+    #[test]
     fn multi_storage_query() {
         let mut world = World::new();
 
@@ -489,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn self_conflicting_worldquery() {
         #[derive(QueryData)]
         #[query_data(mutable)]
@@ -699,7 +722,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -710,7 +733,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -723,7 +746,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
     }
 
@@ -746,12 +769,12 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world);
+        let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
@@ -759,9 +782,8 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -791,5 +813,42 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23352
+    #[test]
+    // presence/lack of trailing commas are significant in this test, so skip rustfmt
+    #[rustfmt::skip]
+    fn query_data_derive_where_clause() {
+        #[derive(QueryData)]
+        struct QueryDataA<C>
+        where
+            C: Component,
+        {
+            component: &'static C,
+        }
+
+        #[derive(QueryData)]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component;
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
+    #[test]
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
+        let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
     }
 }

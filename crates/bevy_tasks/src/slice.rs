@@ -1,4 +1,5 @@
 use super::TaskPool;
+use alloc::vec::Vec;
 
 /// Provides functions for mapping read-only slices across a provided [`TaskPool`].
 pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
@@ -214,6 +215,7 @@ impl<S, T: Send> ParallelSliceMut<T> for S where S: AsMut<[T]> {}
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use alloc::vec;
 
     #[test]
     fn test_par_chunks_map() {

@@ -1,5 +1,7 @@
 use crate::iter::ParallelIterator;
 
+/// Chains two [`ParallelIterator`]s `T` and `U`, first returning
+/// batches from `T`, and then from `U`.
 #[derive(Debug)]
 pub struct Chain<T, U> {
     pub(crate) left: T,
@@ -24,6 +26,7 @@ where
     }
 }
 
+/// Maps a [`ParallelIterator`] `P` using the provided function `F`.
 #[derive(Debug)]
 pub struct Map<P, F> {
     pub(crate) iter: P,
@@ -41,6 +44,7 @@ where
     }
 }
 
+/// Filters a [`ParallelIterator`] `P` using the provided predicate `F`.
 #[derive(Debug)]
 pub struct Filter<P, F> {
     pub(crate) iter: P,
@@ -60,6 +64,7 @@ where
     }
 }
 
+/// Filter-maps a [`ParallelIterator`] `P` using the provided function `F`.
 #[derive(Debug)]
 pub struct FilterMap<P, F> {
     pub(crate) iter: P,
@@ -77,6 +82,7 @@ where
     }
 }
 
+/// Flat-maps a [`ParallelIterator`] `P` using the provided function `F`.
 #[derive(Debug)]
 pub struct FlatMap<P, F> {
     pub(crate) iter: P,
@@ -98,6 +104,7 @@ where
     }
 }
 
+/// Flattens a [`ParallelIterator`] `P`.
 #[derive(Debug)]
 pub struct Flatten<P> {
     pub(crate) iter: P,
@@ -117,6 +124,8 @@ where
     }
 }
 
+/// Fuses a [`ParallelIterator`] `P`, ensuring once it returns [`None`] once, it always
+/// returns [`None`].
 #[derive(Debug)]
 pub struct Fuse<P> {
     pub(crate) iter: Option<P>,
@@ -138,6 +147,7 @@ where
     }
 }
 
+/// Inspects a [`ParallelIterator`] `P` using the provided function `F`.
 #[derive(Debug)]
 pub struct Inspect<P, F> {
     pub(crate) iter: P,
@@ -155,6 +165,7 @@ where
     }
 }
 
+/// Copies a [`ParallelIterator`] `P`'s returned values.
 #[derive(Debug)]
 pub struct Copied<P> {
     pub(crate) iter: P,
@@ -171,6 +182,7 @@ where
     }
 }
 
+/// Clones a [`ParallelIterator`] `P`'s returned values.
 #[derive(Debug)]
 pub struct Cloned<P> {
     pub(crate) iter: P,
@@ -187,6 +199,7 @@ where
     }
 }
 
+/// Cycles a [`ParallelIterator`] `P` indefinitely.
 #[derive(Debug)]
 pub struct Cycle<P> {
     pub(crate) iter: P,

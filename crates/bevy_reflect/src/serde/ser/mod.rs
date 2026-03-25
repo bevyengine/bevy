@@ -1,3 +1,4 @@
+pub use processor::*;
 pub use serializable::*;
 pub use serialize_with_registry::*;
 pub use serializer::*;
@@ -8,6 +9,7 @@ mod enums;
 mod error_utils;
 mod lists;
 mod maps;
+mod processor;
 mod serializable;
 mod serialize_with_registry;
 mod serializer;
@@ -19,13 +21,21 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, serde::ReflectSerializer, PartialReflect, Reflect, ReflectSerialize,
-        Struct, TypeRegistry,
+        serde::{ReflectSerializer, ReflectSerializerProcessor},
+        structs::Struct,
+        PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
     };
-    use bevy_utils::{HashMap, HashSet};
-    use core::{f32::consts::PI, ops::RangeInclusive};
+    #[cfg(feature = "functions")]
+    use alloc::boxed::Box;
+    use alloc::{
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
+    use bevy_platform::collections::{HashMap, HashSet};
+    use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
-    use serde::Serialize;
+    use serde::{Serialize, Serializer};
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -124,10 +134,10 @@ mod tests {
     }
 
     fn get_my_struct() -> MyStruct {
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(64, 32);
 
-        let mut set = HashSet::new();
+        let mut set = <HashSet<_>>::default();
         set.insert(64);
 
         MyStruct {
@@ -340,22 +350,22 @@ mod tests {
         let registry = get_registry();
 
         let serializer = ReflectSerializer::new(&input, &registry);
-        let bytes = bincode::serialize(&serializer).unwrap();
+
+        let mut postcard = postcard::Serializer {
+            output: postcard::ser_flavors::AllocVec::default(),
+        };
+        serializer.serialize(&mut postcard).unwrap();
+        let bytes = postcard::ser_flavors::Flavor::finalize(postcard.output).unwrap();
 
         let expected: Vec<u8> = vec![
-            1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
-            108, 101, 99, 116, 58, 58, 115, 101, 114, 100, 101, 58, 58, 115, 101, 114, 58, 58, 116,
-            101, 115, 116, 115, 58, 58, 77, 121, 83, 116, 114, 117, 99, 116, 123, 1, 12, 0, 0, 0,
-            0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 1, 123, 0, 0, 0,
-            0, 0, 0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255,
-            255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255,
-            255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32,
-            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0,
-            0, 0, 0, 0, 0, 0, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0,
-            1, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64,
-            3, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105,
-            97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0,
-            0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            1, 41, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115, 101, 114,
+            100, 101, 58, 58, 115, 101, 114, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 83,
+            116, 114, 117, 99, 116, 123, 1, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108,
+            100, 33, 1, 246, 1, 219, 15, 73, 64, 185, 10, 5, 3, 1, 0, 2, 4, 3, 1, 0, 2, 4, 1, 64,
+            32, 1, 64, 254, 167, 214, 185, 7, 12, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117,
+            99, 116, 0, 1, 123, 2, 164, 112, 157, 63, 164, 112, 77, 64, 3, 20, 83, 116, 114, 117,
+            99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 100,
+            202, 1,
         ];
 
         assert_eq!(expected, bytes);
@@ -398,7 +408,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.clone_dynamic();
+        let dynamic = value.to_dynamic_struct();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();
@@ -474,10 +484,177 @@ mod tests {
         );
     }
 
+    #[test]
+    fn should_use_processor_for_custom_serialization() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectSerializerProcessor for FooProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i64>() {
+                    Ok(Ok(serializer.serialize_str("custom!")?))
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = Foo { bar: 123, qux: 456 };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Foo>();
+
+        let processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
+
+        let config = PrettyConfig::default().new_line(String::from("\n"));
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+
+        let expected = r#"{
+    "bevy_reflect::serde::ser::tests::Foo": (
+        bar: 123,
+        qux: "custom!",
+    ),
+}"#;
+
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_use_processor_for_multiple_registrations() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            sub: SubFoo,
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct SubFoo {
+            val: i32,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectSerializerProcessor for FooProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i32>() {
+                    Ok(Ok(serializer.serialize_str("an i32")?))
+                } else if type_id == TypeId::of::<SubFoo>() {
+                    Ok(Ok(serializer.serialize_str("a SubFoo")?))
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = Foo {
+            bar: 123,
+            sub: SubFoo { val: 456 },
+        };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Foo>();
+        registry.register::<SubFoo>();
+
+        let processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
+
+        let config = PrettyConfig::default().new_line(String::from("\n"));
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+
+        let expected = r#"{
+    "bevy_reflect::serde::ser::tests::Foo": (
+        bar: "an i32",
+        sub: "a SubFoo",
+    ),
+}"#;
+
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_propagate_processor_serialize_error() {
+        struct ErroringProcessor;
+
+        impl ReflectSerializerProcessor for ErroringProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i32>() {
+                    Err(serde::ser::Error::custom("my custom serialize error"))
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = 123_i32;
+
+        let registry = TypeRegistry::new();
+
+        let processor = ErroringProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
+        let error = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom serialize error (stack: `i32`)".to_string())
+        );
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom serialize error".to_string())
+        );
+    }
+
     #[cfg(feature = "functions")]
     mod functions {
         use super::*;
         use crate::func::{DynamicFunction, IntoFunction};
+        use alloc::string::ToString;
 
         #[test]
         fn should_not_serialize_function() {

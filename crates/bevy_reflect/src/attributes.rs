@@ -1,4 +1,7 @@
+//! Types and functions for creating, manipulating and querying [`CustomAttributes`].
+
 use crate::Reflect;
+use alloc::boxed::Box;
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
@@ -16,7 +19,7 @@ use core::{
 ///
 /// ```
 /// # use bevy_reflect::{Reflect, Typed, TypeInfo};
-/// use std::ops::RangeInclusive;
+/// use core::ops::RangeInclusive;
 /// #[derive(Reflect)]
 /// struct Slider {
 ///   #[reflect(@RangeInclusive::<f32>::new(0.0, 1.0))]
@@ -97,16 +100,19 @@ struct CustomAttribute {
 }
 
 impl CustomAttribute {
+    /// Creates a new [`CustomAttribute`] containing `value`.
     pub fn new<T: Reflect>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
+    /// Returns a reference to the attribute's value if it is of type `T`, or [`None`] if not.
     pub fn value<T: Reflect>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
+    /// Returns a reference to the attribute's value as a [`Reflect`] trait object.
     pub fn reflect_value(&self) -> &dyn Reflect {
         &*self.value
     }
@@ -151,8 +157,7 @@ macro_rules! impl_custom_attribute_methods {
             $self.custom_attributes().get::<T>()
         }
 
-        #[allow(rustdoc::redundant_explicit_links)]
-        /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
+        /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
         pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
@@ -178,8 +183,8 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
-    use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use crate::{enums::VariantInfo, type_info::Typed, TypeInfo};
+    use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -213,7 +218,7 @@ mod tests {
     fn should_debug_custom_attributes() {
         let attributes = CustomAttributes::default().with_attribute("My awesome custom attribute!");
 
-        let debug = format!("{:?}", attributes);
+        let debug = format!("{attributes:?}");
 
         assert_eq!(r#"{"My awesome custom attribute!"}"#, debug);
 
@@ -224,7 +229,7 @@ mod tests {
 
         let attributes = CustomAttributes::default().with_attribute(Foo { value: 42 });
 
-        let debug = format!("{:?}", attributes);
+        let debug = format!("{attributes:?}");
 
         assert_eq!(
             r#"{bevy_reflect::attributes::tests::Foo { value: 42 }}"#,

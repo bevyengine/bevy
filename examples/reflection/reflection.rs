@@ -8,7 +8,8 @@ use bevy::{
     prelude::*,
     reflect::{
         serde::{ReflectDeserializer, ReflectSerializer},
-        DynamicStruct, PartialReflect,
+        structs::DynamicStruct,
+        PartialReflect,
     },
 };
 use serde::de::DeserializeSeed;
@@ -16,8 +17,6 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Bar will be automatically registered as it's a dependency of Foo
-        .register_type::<Foo>()
         .add_systems(Startup, setup)
         .run();
 }

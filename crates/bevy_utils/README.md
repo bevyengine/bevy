@@ -6,4 +6,4 @@
 [![Docs](https://docs.rs/bevy_utils/badge.svg)](https://docs.rs/bevy_utils/latest/bevy_utils/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
-A Collection of Utilities for the [Bevy Engine](https://bevyengine.org/).
+A Collection of Utilities for the [Bevy Engine](https://bevy.org/).

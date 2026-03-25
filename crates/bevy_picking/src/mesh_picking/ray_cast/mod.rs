@@ -6,9 +6,13 @@ mod intersections;
 
 use bevy_derive::{Deref, DerefMut};
 
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{InheritedVisibility, ViewVisibility},
+};
 use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh;
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
@@ -16,26 +20,26 @@ pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMesh
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
 use bevy_math::FloatOrd;
-use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::tracing::*;
+use tracing::*;
 
-/// How a ray cast should handle [`Visibility`].
+/// How a ray cast should handle [`Visibility`](bevy_camera::visibility::Visibility).
 #[derive(Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum RayCastVisibility {
-    /// Completely ignore visibility checks. Hidden items can still be ray casted against.
+    /// Completely ignore visibility checks. Hidden items can still be ray cast against.
     Any,
-    /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`].
+    /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`](bevy_camera::visibility::Visibility).
     Visible,
     /// Only cast rays against entities that are visible in the hierarchy and visible to a camera or
-    /// light. See [`Visibility`].
+    /// light. See [`Visibility`](bevy_camera::visibility::Visibility).
     VisibleInView,
 }
 
 /// Settings for a ray cast.
 #[derive(Clone)]
-pub struct RayCastSettings<'a> {
-    /// Determines how ray casting should consider [`Visibility`].
+pub struct MeshRayCastSettings<'a> {
+    /// Determines how ray casting should consider [`Visibility`](bevy_camera::visibility::Visibility).
     pub visibility: RayCastVisibility,
     /// A predicate that is applied for every entity that ray casts are performed against.
     /// Only entities that return `true` will be considered.
@@ -45,7 +49,7 @@ pub struct RayCastSettings<'a> {
     pub early_exit_test: &'a dyn Fn(Entity) -> bool,
 }
 
-impl<'a> RayCastSettings<'a> {
+impl<'a> MeshRayCastSettings<'a> {
     /// Set the filter to apply to the ray cast.
     pub fn with_filter(mut self, filter: &'a impl Fn(Entity) -> bool) -> Self {
         self.filter = filter;
@@ -75,7 +79,7 @@ impl<'a> RayCastSettings<'a> {
     }
 }
 
-impl<'a> Default for RayCastSettings<'a> {
+impl<'a> Default for MeshRayCastSettings<'a> {
     fn default() -> Self {
         Self {
             visibility: RayCastVisibility::VisibleInView,
@@ -89,7 +93,7 @@ impl<'a> Default for RayCastSettings<'a> {
 ///
 /// By default, backfaces are culled.
 #[derive(Copy, Clone, Default, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub enum Backfaces {
     /// Cull backfaces.
     #[default]
@@ -100,14 +104,14 @@ pub enum Backfaces {
 
 /// Disables backface culling for [ray casts](MeshRayCast) on this entity.
 #[derive(Component, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct RayCastBackfaces;
 
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 pub struct SimplifiedMesh(pub Handle<Mesh>);
 
 type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
@@ -128,15 +132,15 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// # use bevy_picking::prelude::*;
 /// fn ray_cast_system(mut ray_cast: MeshRayCast) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-///     let hits = ray_cast.cast_ray(ray, &RayCastSettings::default());
+///     let hits = ray_cast.cast_ray(ray, &MeshRayCastSettings::default());
 /// }
 /// ```
 ///
 /// ## Configuration
 ///
-/// You can specify the behavior of the ray cast using [`RayCastSettings`]. This allows you to filter out
-/// entities, configure early-out behavior, and set whether the [`Visibility`] of an entity should be
-/// considered.
+/// You can specify the behavior of the ray cast using [`MeshRayCastSettings`]. This allows you to filter out
+/// entities, configure early-out behavior, and set whether the [`Visibility`](bevy_camera::visibility::Visibility)
+/// of an entity should be considered.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -156,7 +160,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 ///     // Ignore the visibility of entities. This allows ray casting hidden entities.
 ///     let visibility = RayCastVisibility::Any;
 ///
-///     let settings = RayCastSettings::default()
+///     let settings = MeshRayCastSettings::default()
 ///         .with_filter(&filter)
 ///         .with_early_exit_test(&early_exit_test)
 ///         .with_visibility(visibility);
@@ -205,7 +209,11 @@ pub struct MeshRayCast<'w, 's> {
 
 impl<'w, 's> MeshRayCast<'w, 's> {
     /// Casts the `ray` into the world and returns a sorted list of intersections, nearest first.
-    pub fn cast_ray(&mut self, ray: Ray3d, settings: &RayCastSettings) -> &[(Entity, RayMeshHit)] {
+    pub fn cast_ray(
+        &mut self,
+        ray: Ray3d,
+        settings: &MeshRayCastSettings,
+    ) -> &[(Entity, RayMeshHit)] {
         let ray_cull = info_span!("ray culling");
         let ray_cull_guard = ray_cull.enter();
 
@@ -224,14 +232,14 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     RayCastVisibility::Visible => inherited_visibility.get(),
                     RayCastVisibility::VisibleInView => view_visibility.get(),
                 };
-                if should_ray_cast {
-                    if let Some(distance) = ray_aabb_intersection_3d(
+                if should_ray_cast
+                    && let Some(distance) = ray_aabb_intersection_3d(
                         ray,
                         &Aabb3d::new(aabb.center, aabb.half_extents),
-                        &transform.compute_matrix(),
-                    ) {
-                        aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
-                    }
+                        &transform.affine(),
+                    )
+                {
+                    aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
                 }
             },
         );
@@ -274,14 +282,15 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
-                let backfaces = match has_backfaces {
-                    true => Backfaces::Include,
-                    false => Backfaces::Cull,
+                // Backfaces of 2d meshes are never culled, unlike 3d meshes.
+                let backfaces = match (has_backfaces, mesh2d.is_some()) {
+                    (false, false) => Backfaces::Cull,
+                    _ => Backfaces::Include,
                 };
 
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
-                let transform = transform.compute_matrix();
+                let transform = transform.affine();
                 let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {
