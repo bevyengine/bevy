@@ -11,7 +11,7 @@ Bevy asks authors (and reviewers) to write draft release notes as part of the pu
 ## Where to put your release notes
 
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own set of release notes.
-The draft release notes are organized in the `bevyengine/bevy/release-content/release-notes` folder.
+The draft release notes are organized in the `bevyengine/bevy/_release-content/release-notes` folder.
 
 When we publish our first release candidate for a cycle, these notes are merged together and moved from `bevyengine/bevy` into `bevyengine/bevy-website`,
 where they will receive a final editing pass and any multimedia.

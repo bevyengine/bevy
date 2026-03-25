@@ -19,8 +19,8 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, ComponentCloneBehavior, ComponentId, Components, Mutable},
     entity::{ComponentCloneCtx, Entity},
-    error::CommandWithEntity,
     lifecycle::HookContext,
+    system::EntityCommand,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;

@@ -35,10 +35,10 @@ pub(crate) struct SystemNode {
 /// A [`ScheduleSystem`] stored alongside the access returned from [`System::initialize`].
 pub struct SystemWithAccess {
     /// The system itself.
-    pub system: ScheduleSystem,
+    pub(crate) system: ScheduleSystem,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet,
+    pub(crate) access: FilteredAccessSet,
 }
 
 impl SystemWithAccess {

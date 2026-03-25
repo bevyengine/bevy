@@ -729,7 +729,7 @@ mod tests {
     struct FakeHandleCreator;
 
     impl LoadFromPath for FakeHandleCreator {
-        fn load_from_path_untyped(
+        fn load_from_path_erased(
             &mut self,
             _type_id: TypeId,
             _path: AssetPath<'static>,
