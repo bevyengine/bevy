@@ -7,53 +7,8 @@ use tracing::error;
 
 /// Adds scene spawning functionality to [`World`].
 pub trait WorldSceneExt {
-    /// Spawns the given `scene`. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene will be resolved and spawned immediately. If an error occurs, a [`SpawnSceneError`] will be returned.
-    /// 2. If there are dependencies, the scene will be resolved and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
-    ///    If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
-    ///
-    /// If you know your scene has no dependencies and want to ensure it will spawn immediately, use [`World::spawn_scene_immediate`].
-    ///
-    /// See [`Scene`] for the features of the scene system (and how to use it).
-    ///
-    /// ```
-    /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_asset::AssetPlugin;
-    /// # use bevy_app::TaskPoolPlugin;
-    /// # let mut app = App::new();
-    /// # app.add_plugins((
-    /// #     TaskPoolPlugin::default(),
-    /// #     AssetPlugin::default(),
-    /// #     ScenePlugin::default(),
-    /// # ));
-    /// # let world = app.world_mut();
-    /// #[derive(Component, Default, Clone)]
-    /// struct Score(usize);
-    ///
-    /// #[derive(Component, Default, Clone)]
-    /// struct Sword;
-    ///
-    /// #[derive(Component, Default, Clone)]
-    /// struct Shield;
-    ///
-    /// // This scene inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
-    /// // is fully loaded.
-    /// world.spawn_scene(bsn! {
-    ///     :"player.bsn"
-    ///     #Player
-    ///     Score(0)
-    ///     Children [
-    ///         Sword,
-    ///         Shield,
-    ///     ]
-    /// });
-    /// ```
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> Result<EntityWorldMut<'_>, SpawnSceneError>;
-
-    /// Queues the `scene_list` to be spawned. This will evaluate the `scene_list`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved
-    /// and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    /// Spawns the given [`Scene`] immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
     /// If resolving and spawning is successful, it will return a new [`EntityWorldMut`] containing the full contents of the spawned scene.
     ///
@@ -83,7 +38,7 @@ pub trait WorldSceneExt {
     /// #[derive(Component, Default, Clone)]
     /// struct Shield;
     ///
-    /// world.spawn_scene_immediate(bsn! {
+    /// world.spawn_scene(bsn! {
     ///     #Player
     ///     Score(0)
     ///     Children [
@@ -92,20 +47,99 @@ pub trait WorldSceneExt {
     ///     ]
     /// }).unwrap();
     /// ```
-    fn spawn_scene_immediate<S: Scene>(
-        &mut self,
-        scene: S,
-    ) -> Result<EntityWorldMut<'_>, SpawnSceneError>;
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> Result<EntityWorldMut<'_>, SpawnSceneError>;
 
-    /// Spawns the given `scene_list`. This will evaluate the `scene_list`'s dependencies (via [`SceneList::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene list will be resolved and spawned immediately. If an error occurs, a [`SpawnSceneError`] will be returned.
-    /// 2. If there are dependencies, the scene list will be resolved and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
-    ///    If the dependencies are already loaded (or there are no dependencies), then the scene list will be spawned this frame.
+    /// Queues the `scene` to be spawned. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
+    /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    ///
+    /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    ///
+    /// ```
+    /// # use bevy_app::App;
+    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::AssetPlugin;
+    /// # use bevy_app::TaskPoolPlugin;
+    /// # let mut app = App::new();
+    /// # app.add_plugins((
+    /// #     TaskPoolPlugin::default(),
+    /// #     AssetPlugin::default(),
+    /// #     ScenePlugin::default(),
+    /// # ));
+    /// # let world = app.world_mut();
+    /// #[derive(Component, Default, Clone)]
+    /// struct Score(usize);
+    ///
+    /// #[derive(Component, Default, Clone)]
+    /// struct Sword;
+    ///
+    /// #[derive(Component, Default, Clone)]
+    /// struct Shield;
+    ///
+    /// // This scene inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
+    /// // is fully loaded.
+    /// world.queue_spawn_scene(bsn! {
+    ///     :"player.bsn"
+    ///     #Player
+    ///     Score(0)
+    ///     Children [
+    ///         Sword,
+    ///         Shield,
+    ///     ]
+    /// });
+    /// ```
+    fn queue_spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut<'_>;
+
+    /// Spawns the given [`SceneList`] immediately. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`SceneList`] is successful, the scene list will be spawned.
+    ///
+    /// If resolving and spawning is successful, it will return a [`Vec<Entity>`] containing each entity described in the [`SceneList`].
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    ///
+    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::queue_spawn_scene_list`].
+    ///
+    /// ```
+    /// # use bevy_app::App;
+    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::AssetPlugin;
+    /// # use bevy_app::TaskPoolPlugin;
+    /// # let mut app = App::new();
+    /// # app.add_plugins((
+    /// #     TaskPoolPlugin::default(),
+    /// #     AssetPlugin::default(),
+    /// #     ScenePlugin::default(),
+    /// # ));
+    /// # let world = app.world_mut();
+    /// #[derive(Component, FromTemplate)]
+    /// enum Team {
+    ///     #[default]
+    ///     Red,
+    ///     Blue,
+    /// }
+    ///
+    /// world.spawn_scene_list(bsn_list! {
+    ///     (
+    ///         #Player1
+    ///         Team::Red
+    ///     ),
+    ///     (
+    ///         #Player2
+    ///         Team::Blue
+    ///     )
+    /// }).unwrap();
+    /// ```
+    // PERF: ideally this is an iterator
+    fn spawn_scene_list<L: SceneList>(&mut self, scenes: L)
+        -> Result<Vec<Entity>, SpawnSceneError>;
+
+    /// Queues the `scene_list` to be spawned. This will evaluate the `scene_list`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved
+    /// and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
     ///
     /// If the dependencies are already loaded (or there are no dependencies), then the scene list will be spawned this frame.
-    ///
-    /// If you know your scene list has no dependencies and want to ensure it will spawn immediately, use [`World::spawn_scene_list_immediate`].
-    ///
     /// ```
     /// # use bevy_app::App;
     /// # use bevy_scene2::{prelude::*, ScenePlugin};
@@ -127,7 +161,7 @@ pub trait WorldSceneExt {
     /// }
     /// // This scene list inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// world.spawn_scene_list(bsn_list! [
+    /// world.queue_spawn_scene_list(bsn_list! [
     ///     (
     ///         :"player.bsn"
     ///         #Player1
@@ -140,94 +174,25 @@ pub trait WorldSceneExt {
     ///     )
     /// ]);
     /// ```
-    fn spawn_scene_list<L: SceneList>(&mut self, scenes: L) -> Result<(), SpawnSceneError>;
-
-    /// Spawns the given [`SceneList`] immediately. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
-    /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`SceneList`] is successful, the scene list will be spawned.
-    ///
-    /// If resolving and spawning is successful, it will return a [`Vec<Entity>`] containing each entity described in the [`SceneList`].
-    ///
-    /// See [`Scene`] for the features of the scene system (and how to use it).
-    ///
-    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::spawn_scene_list`].
-    ///
-    /// ```
-    /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_asset::AssetPlugin;
-    /// # use bevy_app::TaskPoolPlugin;
-    /// # let mut app = App::new();
-    /// # app.add_plugins((
-    /// #     TaskPoolPlugin::default(),
-    /// #     AssetPlugin::default(),
-    /// #     ScenePlugin::default(),
-    /// # ));
-    /// # let world = app.world_mut();
-    /// #[derive(Component, FromTemplate)]
-    /// enum Team {
-    ///     #[default]
-    ///     Red,
-    ///     Blue,
-    /// }
-    ///
-    /// world.spawn_scene_list_immediate(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
-    /// }).unwrap();
-    /// ```
-    // PERF: ideally this is an iterator
-    fn spawn_scene_list_immediate<L: SceneList>(
-        &mut self,
-        scenes: L,
-    ) -> Result<Vec<Entity>, SpawnSceneError>;
+    fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
 
 impl WorldSceneExt for World {
     fn spawn_scene<S: Scene>(&mut self, scene: S) -> Result<EntityWorldMut<'_>, SpawnSceneError> {
         let assets = self.resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
-        if patch.dependencies.is_empty() {
-            patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
-            patch.spawn(self)
-        } else {
-            let handle = assets.add(patch);
-            Ok(self.spawn(ScenePatchInstance(handle)))
-        }
-    }
-
-    fn spawn_scene_immediate<S: Scene>(
-        &mut self,
-        scene: S,
-    ) -> Result<EntityWorldMut<'_>, SpawnSceneError> {
-        let assets = self.resource::<AssetServer>();
-        let mut patch = ScenePatch::load(assets, scene);
         patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
         patch.spawn(self)
     }
 
-    fn spawn_scene_list<L: SceneList>(&mut self, scenes: L) -> Result<(), SpawnSceneError> {
+    fn queue_spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut<'_> {
         let assets = self.resource::<AssetServer>();
-        let mut patch = SceneListPatch::load(assets, scenes);
-        if patch.dependencies.is_empty() {
-            patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
-            patch.spawn(self).map(|_| ())
-        } else {
-            let handle = assets.add(patch);
-            self.resource_mut::<QueuedScenes>()
-                .scene_list_spawns
-                .push(handle);
-            Ok(())
-        }
+        let patch = ScenePatch::load(assets, scene);
+        let handle = assets.add(patch);
+        self.spawn(ScenePatchInstance(handle))
     }
 
-    fn spawn_scene_list_immediate<L: SceneList>(
+    fn spawn_scene_list<L: SceneList>(
         &mut self,
         scenes: L,
     ) -> Result<Vec<Entity>, SpawnSceneError> {
@@ -236,15 +201,55 @@ impl WorldSceneExt for World {
         patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
         patch.spawn(self)
     }
+
+    fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L) {
+        let assets = self.resource::<AssetServer>();
+        let patch = SceneListPatch::load(assets, scenes);
+        let handle = assets.add(patch);
+        self.resource_mut::<QueuedScenes>()
+            .scene_list_spawns
+            .push(handle);
+    }
 }
 
 /// Adds scene spawning functionality to [`Commands`].
 pub trait CommandsSceneExt {
-    /// Spawns the given `scene`. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene will be resolved and spawned immediately when Commands are applied.
-    /// 2. If there are dependencies, the scene will be resolved and spawned after all of the dependencies have been loaded.
+    /// Spawns the given [`Scene`] as soon as [`Commands`] are applied. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
-    /// If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    /// This is essentially a [`Command`] that runs [`World::spawn_scene`].
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    ///
+    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene`].
+    ///
+    /// ```
+    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let mut commands = world.commands();
+    /// #[derive(Component, Default, Clone)]
+    /// struct Score(usize);
+    ///
+    /// #[derive(Component, Default, Clone)]
+    /// struct Sword;
+    ///
+    /// #[derive(Component, Default, Clone)]
+    /// struct Shield;
+    ///
+    /// commands.spawn_scene(bsn! {
+    ///     #Player
+    ///     Score(0)
+    ///     Children [
+    ///         Sword,
+    ///         Shield,
+    ///     ]
+    /// });
+    /// ```
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_>;
+
+    /// Queues the `scene` to be spawned. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
+    /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
     ///
     /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
     ///
@@ -266,7 +271,7 @@ pub trait CommandsSceneExt {
     ///
     /// // This scene inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
     /// // is fully loaded.
-    /// commands.spawn_scene(bsn! {
+    /// commands.queue_spawn_scene(bsn! {
     ///     :"player.bsn"
     ///     #Player
     ///     Score(0)
@@ -276,46 +281,46 @@ pub trait CommandsSceneExt {
     ///     ]
     /// });
     /// ```
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_>;
+    fn queue_spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_>;
 
-    /// Spawns the given [`Scene`] as soon as [`Commands`] are applied. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
-    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene will be spawned.
+    /// Spawns the given [`SceneList`] as soon as [`Commands`] are applied. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene list will be spawned.
     ///
-    /// This is essentially a [`Command`] that runs [`World::spawn_scene_immediate`].
+    /// This is essentially a [`Command`] that performs [`World::spawn_scene_list`].
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::spawn_scene`].
+    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene_list`].
     ///
     /// ```
     /// # use bevy_scene2::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let mut commands = world.commands();
-    /// #[derive(Component, Default, Clone)]
-    /// struct Score(usize);
+    /// #[derive(Component, FromTemplate)]
+    /// enum Team {
+    ///     #[default]
+    ///     Red,
+    ///     Blue,
+    /// }
     ///
-    /// #[derive(Component, Default, Clone)]
-    /// struct Sword;
-    ///
-    /// #[derive(Component, Default, Clone)]
-    /// struct Shield;
-    ///
-    /// commands.spawn_scene_immediate(bsn! {
-    ///     #Player
-    ///     Score(0)
-    ///     Children [
-    ///         Sword,
-    ///         Shield,
-    ///     ]
+    /// commands.spawn_scene_list(bsn_list! {
+    ///     (
+    ///         :"player.bsn"
+    ///         #Player1
+    ///         Team::Red
+    ///     ),
+    ///     (
+    ///         :"player.bsn"
+    ///         #Player2
+    ///         Team::Blue
+    ///     )
     /// });
     /// ```
-    fn spawn_scene_immediate<S: Scene>(&mut self, scene: S) -> EntityCommands<'_>;
+    fn spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 
-    /// Spawns the given `scene_list`. This will evaluate the `scene_list`'s dependencies (via [`SceneList::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene list will be resolved and spawned immediately when Commands are applied.
-    /// 2. If there are dependencies, the scene list will be resolved and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
-    ///    If the dependencies are already loaded (or there are no dependencies), then the scene list will be spawned this frame.
+    /// Queues the `scene_list` to be spawned. This will evaluate the `scene_list`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved
+    /// and spawned after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
     ///
     /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
     ///
@@ -333,7 +338,7 @@ pub trait CommandsSceneExt {
     ///
     /// // This scene list inherits from the "player.bsn" asset. It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// commands.spawn_scene_list(bsn_list! [
+    /// commands.queue_spawn_scene_list(bsn_list! [
     ///     (
     ///         :"player.bsn"
     ///         #Player1
@@ -346,43 +351,7 @@ pub trait CommandsSceneExt {
     ///     )
     /// ]);
     /// ```
-    fn spawn_scene_list<L: SceneList>(&mut self, scenes: L);
-
-    /// Spawns the given [`SceneList`] as soon as [`Commands`] are applied. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
-    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene list will be spawned.
-    ///
-    /// This is essentially a [`Command`] that performs [`World::spawn_scene_list_immediate`].
-    ///
-    /// See [`Scene`] for the features of the scene system (and how to use it).
-    ///
-    /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::spawn_scene_list`].
-    ///
-    /// ```
-    /// # use bevy_scene2::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let mut commands = world.commands();
-    /// #[derive(Component, FromTemplate)]
-    /// enum Team {
-    ///     #[default]
-    ///     Red,
-    ///     Blue,
-    /// }
-    ///
-    /// commands.spawn_scene_list_immediate(bsn_list! {
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
-    /// });
-    /// ```
-    fn spawn_scene_list_immediate<L: SceneList>(&mut self, scenes: L);
+    fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
 
 impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
@@ -399,14 +368,12 @@ impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
         entity_commands
     }
 
-    fn spawn_scene_immediate<S: Scene>(&mut self, scene: S) -> EntityCommands<'_> {
+    fn queue_spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_> {
         let mut entity_commands = self.spawn_empty();
         let id = entity_commands.id();
         entity_commands.commands().queue(move |world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(id)
-                && let Err(err) = entity.apply_scene_immediate(scene)
-            {
-                error!("{err}");
+            if let Ok(mut entity) = world.get_entity_mut(id) {
+                entity.queue_apply_scene(scene);
             }
         });
         entity_commands
@@ -420,11 +387,9 @@ impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
         });
     }
 
-    fn spawn_scene_list_immediate<L: SceneList>(&mut self, scenes: L) {
+    fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L) {
         self.queue(move |world: &mut World| {
-            if let Err(err) = world.spawn_scene_list_immediate(scenes) {
-                error!("{err}");
-            }
+            world.queue_spawn_scene_list(scenes);
         });
     }
 }
@@ -458,7 +423,7 @@ pub trait EntityWorldMutSceneExt {
     ///     Blue,
     /// }
     ///
-    /// world.spawn_empty().spawn_related_scenes::<Children>(bsn_list! {
+    /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
     ///     (
     ///         #Player1
     ///         Team::Red
@@ -469,35 +434,32 @@ pub trait EntityWorldMutSceneExt {
     ///     )
     /// });
     /// ```
-    fn spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
-
-    /// Applies the given `scene`. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene will be resolved and applied immediately. If an error occurs, a [`SpawnSceneError`] will be returned.
-    /// 2. If there are dependencies, the scene will be resolved and applied after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
-    ///    If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
-    ///
-    /// If the dependencies are already loaded (or there are no dependencies), then the scene will be applied this frame.
-    ///
-    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::queue_spawn_scene`].
-    ///
-    /// See [`Scene`] for the features of the scene system (and how to use it).
-    fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
+    fn queue_spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
 
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
-    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene_immediate`].
+    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene`].
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
-    fn apply_scene_immediate<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
+    fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
+
+    /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
+    /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    ///
+    /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
+    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::queue_spawn_scene`].
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    fn queue_apply_scene<S: Scene>(&mut self, scene: S);
 }
 
 impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
-    fn spawn_related_scenes<T: RelationshipTarget>(mut self, scenes: impl SceneList) -> Self {
+    fn queue_spawn_related_scenes<T: RelationshipTarget>(mut self, scenes: impl SceneList) -> Self {
         let assets = self.resource::<AssetServer>();
         let patch = SceneListPatch::load(assets, scenes);
         let handle = assets.add(patch);
@@ -521,21 +483,15 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
         let assets = self.resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
-        if patch.dependencies.is_empty() {
-            patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
-            patch.apply(self)
-        } else {
-            let handle = assets.add(patch);
-            self.insert(ScenePatchInstance(handle));
-            Ok(())
-        }
-    }
-
-    fn apply_scene_immediate<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
-        let assets = self.resource::<AssetServer>();
-        let mut patch = ScenePatch::load(assets, scene);
         patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
         patch.apply(self)
+    }
+
+    fn queue_apply_scene<S: Scene>(&mut self, scene: S) {
+        let assets = self.resource::<AssetServer>();
+        let patch = ScenePatch::load(assets, scene);
+        let handle = assets.add(patch);
+        self.insert(ScenePatchInstance(handle));
     }
 }
 
@@ -563,7 +519,7 @@ pub trait EntityCommandsSceneExt {
     ///     Blue,
     /// }
     ///
-    /// commands.spawn_empty().spawn_related_scenes::<Children>(bsn_list! {
+    /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
     ///     (
     ///         #Player1
     ///         Team::Red
@@ -574,49 +530,51 @@ pub trait EntityCommandsSceneExt {
     ///     )
     /// });
     /// ```
-    fn spawn_related_scenes<T: RelationshipTarget>(&mut self, scenes: impl SceneList) -> &mut Self;
-
-    /// Applies the given `scene`. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]):
-    /// 1. If there are no dependencies, the scene will be resolved and applied immediately when Commands are applied.
-    /// 2. If there are dependencies, the scene will be resolved and applied after all of the dependencies have been loaded.
-    ///
-    /// If a [`SpawnSceneError`] occurs, it will be logged as an error.
-    ///
-    /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
-    ///
-    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`Commands::queue_spawn_scene`].
-    ///
-    /// See [`Scene`] for the features of the scene system (and how to use it).
-    fn apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
+    fn queue_spawn_related_scenes<T: RelationshipTarget>(
+        &mut self,
+        scenes: impl SceneList,
+    ) -> &mut Self;
 
     /// Applies the given [`Scene`] to the current entity as soon as [`Commands`] are applied. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
-    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`Commands::spawn_scene_immediate`].
+    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`Commands::spawn_scene`].
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::spawn_scene`].
-    fn apply_scene_immediate<S: Scene>(&mut self, scene: S) -> &mut Self;
+    fn apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
+
+    /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
+    /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    ///
+    /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
+    /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`Commands::queue_spawn_scene`].
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 }
 
 impl EntityCommandsSceneExt for EntityCommands<'_> {
-    fn spawn_related_scenes<T: RelationshipTarget>(&mut self, scenes: impl SceneList) -> &mut Self {
+    fn queue_spawn_related_scenes<T: RelationshipTarget>(
+        &mut self,
+        scenes: impl SceneList,
+    ) -> &mut Self {
         self.queue(move |entity: EntityWorldMut| {
-            entity.spawn_related_scenes::<T>(scenes);
+            entity.queue_spawn_related_scenes::<T>(scenes);
         });
-        self
-    }
-
-    fn apply_scene_immediate<S: Scene>(&mut self, scene: S) -> &mut Self {
-        self.queue(move |mut entity: EntityWorldMut| entity.apply_scene_immediate(scene));
         self
     }
 
     fn apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| entity.apply_scene(scene));
+        self
+    }
+
+    fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| entity.queue_apply_scene(scene));
         self
     }
 }
