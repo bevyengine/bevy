@@ -1822,7 +1822,7 @@ mod boxed_content {
 
                 builder.spawn((
                     Node {
-                        padding: px(10).all(),
+                        padding: px(20).all(),
                         ..default()
                     },
                     Text::new("This text has\npadding but no border."),
@@ -1837,10 +1837,101 @@ mod boxed_content {
                 builder.spawn((
                     Node {
                         border: px(10).all(),
-                        padding: px(10).all(),
+                        padding: px(20).all(),
                         ..default()
                     },
                     Text::new("This text has\nborder and padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        border: px(10).left(),
+                        ..default()
+                    },
+                    Text::new("This text has\na left border and no padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        border: px(10).right(),
+                        ..default()
+                    },
+                    Text::new("This text has\na right border and no padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        border: px(10).left(),
+                        ..default()
+                    },
+                    Text::new("This text has\na left border and no padding."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        padding: px(20).top().with_left(px(20)),
+                        ..default()
+                    },
+                    Text::new("This text has\npadding on its top and right."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        padding: px(20).top().with_right(px(20)),
+                        ..default()
+                    },
+                    Text::new("This text has\npadding on its bottom and left."),
+                    TextLayout::new_with_justify(Justify::Center),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(2),
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                ));
+
+                builder.spawn((
+                    Node {
+                        padding: px(20).top().with_left(px(20)),
+                        border: px(10).bottom().with_right(px(10)),
+                        ..default()
+                    },
+                    Text::new("This text has\npadding on its top and left and a border on its bottom and right."),
                     TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
