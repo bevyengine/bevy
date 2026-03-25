@@ -1924,7 +1924,7 @@ mod boxed_content {
                         border: px(10).bottom().with_right(px(10)),
                         ..default()
                     },
-                    Text::new("This text has\npadding on its top and left and a border on its bottom and right."),
+                    Text::new("This text has\npadding on its top and left\nand a border on its bottom and right."),
                     TextFont::from_font_size(FontSize::Px(10.)),
                     TextLayout::new_with_justify(Justify::Left),
                     BorderColor::all(RED),
