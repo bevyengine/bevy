@@ -970,6 +970,52 @@ mod tests {
     }
 
     #[test]
+    fn measured_node_includes_border_and_padding() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let ui_node = world
+            .spawn((
+                Node {
+                    align_self: AlignSelf::Start,
+                    border: UiRect {
+                        left: px(2.0),
+                        right: px(6.0),
+                        top: px(4.0),
+                        bottom: px(8.0),
+                    },
+                    padding: UiRect {
+                        left: px(3.0),
+                        right: px(5.0),
+                        top: px(7.0),
+                        bottom: px(11.0),
+                    },
+                    ..default()
+                },
+                ContentSize::fixed_size(Vec2::new(50.0, 25.0)),
+            ))
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        let layout = ui_surface.get_layout(ui_node, true).unwrap().0;
+
+        assert_eq!(layout.border.left, 2.0);
+        assert_eq!(layout.border.right, 6.0);
+        assert_eq!(layout.border.top, 4.0);
+        assert_eq!(layout.border.bottom, 8.0);
+        assert_eq!(layout.padding.left, 3.0);
+        assert_eq!(layout.padding.right, 5.0);
+        assert_eq!(layout.padding.top, 7.0);
+        assert_eq!(layout.padding.bottom, 11.0);
+        assert_eq!(layout.size.width, 66.0);
+        assert_eq!(layout.size.height, 55.0);
+        assert_eq!(layout.content_size.width, 50.0);
+        assert_eq!(layout.content_size.height, 25.0);
+    }
+
+    #[test]
     fn measure_funcs_should_be_removed_on_content_size_clear() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
