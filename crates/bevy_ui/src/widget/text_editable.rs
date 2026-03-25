@@ -143,7 +143,9 @@ pub fn editable_text_system(
         }
 
         if computed_node.is_changed() {
-            editable_text.editor.set_width(Some(computed_node.size().x));
+            editable_text
+                .editor
+                .set_width(Some(computed_node.content_size().x));
         }
 
         let mut driver = editable_text
