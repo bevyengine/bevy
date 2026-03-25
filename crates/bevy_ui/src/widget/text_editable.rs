@@ -1,14 +1,17 @@
 use core::hash::BuildHasher;
+use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
     change_detection::DetectChanges,
-    system::{Query, Res, ResMut},
+    entity::Entity,
+    system::{Local, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_image::prelude::*;
+use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
@@ -16,6 +19,7 @@ use bevy_text::{
     FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
+use bevy_time::{Real, Time};
 use parley::{swash::FontRef, BoundingBox};
 use parley::{FontFamily, FontStack, PositionedLayoutItem};
 
@@ -87,6 +91,7 @@ pub fn editable_text_system(
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut textures: ResMut<Assets<Image>>,
     mut input_field_query: Query<(
+        Entity,
         &TextFont,
         &LineHeight,
         &FontHinting,
@@ -96,9 +101,22 @@ pub fn editable_text_system(
         Ref<ComputedNode>,
     )>,
     rem_size: Res<RemSize>,
+    input_focus: Option<Res<InputFocus>>,
+    mut cursor_timer: Local<Duration>,
+    time: Res<Time<Real>>,
 ) {
-    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
-        input_field_query.iter_mut()
+    *cursor_timer += time.delta();
+
+    for (
+        entity,
+        text_font,
+        line_height,
+        hinting,
+        target,
+        mut editable_text,
+        mut info,
+        computed_node,
+    ) in input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
@@ -238,14 +256,31 @@ pub fn editable_text_system(
             .editor
             .cursor_geometry(editable_text.cursor_width * font_size);
 
-        info.cursor = geom.map(bounding_box_to_rect);
+        if let Some(input_focus) = input_focus.as_ref()
+            && Some(entity) == input_focus.0
+        {
+            if input_focus.is_changed()
+                || editable_text.text_edited
+                || *cursor_timer >= editable_text.cursor_blink_period
+            {
+                *cursor_timer = Duration::ZERO;
+            }
 
-        info.selection_rects = editable_text
-            .editor
-            .selection_geometry()
-            .iter()
-            .map(|&b| bounding_box_to_rect(b.0))
-            .collect();
+            if *cursor_timer < editable_text.cursor_blink_period / 2 {
+                info.cursor = geom.map(bounding_box_to_rect);
+            } else {
+                info.cursor = None;
+            }
+
+            info.selection_rects = editable_text
+                .editor
+                .selection_geometry()
+                .iter()
+                .map(|&b| bounding_box_to_rect(b.0))
+                .collect();
+        } else {
+            info.cursor = None;
+        }
     }
 }
 

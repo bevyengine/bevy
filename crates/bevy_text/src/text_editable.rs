@@ -74,6 +74,7 @@ use crate::{
     TextLayout,
 };
 use bevy_ecs::prelude::*;
+use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
 /// Resource containing the current contents of the clipboard.
@@ -113,6 +114,10 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
+    /// Cursor blink period in seconds.
+    pub cursor_blink_period: Duration,
+    /// True if a `TextEdit` was applied this frame
+    pub text_edited: bool,
     /// Maximum number of characters the text input can contain.
     ///
     /// Edits which would cause the length to exceed the maximum are ignored.
@@ -129,6 +134,8 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: Vec::new(),
             cursor_width: 0.2,
+            cursor_blink_period: Duration::from_secs(1),
+            text_edited: false,
             max_characters: None,
             visible_lines: Some(1.),
         }
@@ -203,6 +210,7 @@ pub fn apply_text_edits(
     mut clipboard_text: ResMut<Clipboard>,
 ) {
     for mut editable_text in query.iter_mut() {
+        editable_text.text_edited = !editable_text.pending_edits.is_empty();
         editable_text.apply_pending_edits(
             &mut font_context.0,
             &mut layout_context.0,
