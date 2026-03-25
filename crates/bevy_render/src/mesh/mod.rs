@@ -85,7 +85,7 @@ impl Plugin for MeshRenderAssetPlugin {
 
 /// A handle to a one-point compressed mesh, with 1 position and 1 index.
 /// This is used to hold a metadata buffer in [`crate::mesh::allocator::MeshAllocator`] and used for fallback.
-const METADATA_PLACEHOLDER_MESH_HANDLE: Handle<Mesh> =
+pub const METADATA_PLACEHOLDER_MESH_HANDLE: Handle<Mesh> =
     uuid_handle!("c79a00de-d4b9-45ac-8c12-0e65010b411b");
 
 /// Fallback mesh metadata slab referenced by [`METADATA_PLACEHOLDER_MESH_HANDLE`].
