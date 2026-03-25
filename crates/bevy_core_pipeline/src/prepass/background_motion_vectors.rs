@@ -155,8 +155,8 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),

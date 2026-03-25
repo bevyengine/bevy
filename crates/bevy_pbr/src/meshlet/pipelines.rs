@@ -386,8 +386,8 @@ pub fn init_meshlet_pipelines(
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -406,8 +406,8 @@ pub fn init_meshlet_pipelines(
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
@@ -426,8 +426,8 @@ pub fn init_meshlet_pipelines(
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth16Unorm,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),
                 bias: DepthBiasState::default(),
             }),
