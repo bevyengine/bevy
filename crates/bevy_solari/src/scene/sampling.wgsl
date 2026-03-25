@@ -5,7 +5,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, resolve_triangle_data_emissive, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
@@ -91,11 +91,6 @@ struct LightContribution {
     brdf_rays_can_hit: bool,
 }
 
-struct LightContributionNoPdf {
-    radiance: vec3<f32>,
-    wi: vec3<f32>,
-}
-
 struct GenerateRandomLightSampleResult {
     light_sample: LightSample,
     resolved_light_sample: ResolvedLightSample,
@@ -114,10 +109,18 @@ fn random_emissive_light_pdf(hit: ResolvedRayHitFull) -> f32 {
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
-    let light_count = arrayLength(&light_sources);
-    let light_id = rand_range_u(light_count, rng);
+    let light_sample = LightSample(select_random_light(rng), rand_u(rng));
 
-    let light_source = light_sources[light_id];
+    var resolved_light_sample = resolve_light_sample(light_sample);
+    resolved_light_sample.inverse_pdf *= f32(arrayLength(&light_sources));
+
+    return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
+}
+
+fn select_random_light(rng: ptr<function, u32>) -> u32 {
+    let light_count = arrayLength(&light_sources);
+    let light_index = rand_range_u(light_count, rng);
+    let light_source = light_sources[light_index];
 
     var triangle_id = 0u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
@@ -125,16 +128,21 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
         triangle_id = rand_range_u(triangle_count, rng);
     }
 
-    let seed = rand_u(rng);
-    let light_sample = LightSample((light_id << 16u) | triangle_id, seed);
-
-    var resolved_light_sample = resolve_light_sample(light_sample, light_source);
-    resolved_light_sample.inverse_pdf *= f32(light_count);
-
-    return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
+    return (light_index << 16u) | triangle_id;
 }
 
-fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
+fn select_random_light_inverse_pdf(light_id: u32) -> f32 {
+    let light_count = arrayLength(&light_sources);
+    let light_source = light_sources[light_id >> 16u];
+    var triangle_count = 1u;
+    if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
+        triangle_count = light_source.kind >> 1u;
+    }
+    return f32(light_count) * f32(triangle_count);
+}
+
+fn resolve_light_sample(light_sample: LightSample) -> ResolvedLightSample {
+    let light_source = light_sources[light_sample.light_id >> 16u];
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
@@ -190,10 +198,9 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     return LightContribution(radiance, resolved_light_sample.inverse_pdf, wi, resolved_light_sample.world_position.w == 1.0);
 }
 
-fn resolve_and_calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContributionNoPdf {
-    let resolved_light_sample = resolve_light_sample(light_sample, light_sources[light_sample.light_id >> 16u]);
-    let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, origin_world_normal);
-    return LightContributionNoPdf(light_contribution.radiance, light_contribution.wi);
+fn resolve_and_calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+    let resolved_light_sample = resolve_light_sample(light_sample);
+    return calculate_resolved_light_contribution(resolved_light_sample, ray_origin, origin_world_normal);
 }
 
 fn trace_light_visibility(ray_origin: vec3<f32>, light_sample_world_position: vec4<f32>) -> f32 {
