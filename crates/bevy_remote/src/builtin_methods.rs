@@ -2041,7 +2041,7 @@ mod tests {
             commands.insert_resource(Resource1);
         }
 
-        let mut schedule1 = Schedule::new(Schedule2);
+        let mut schedule1 = Schedule::new(Schedule1);
         schedule1.add_systems(f1);
 
         let _ = schedule1.initialize(&mut world);
