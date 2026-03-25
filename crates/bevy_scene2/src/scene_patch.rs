@@ -42,7 +42,7 @@ impl ScenePatch {
         scene.register_dependencies(&mut dependencies);
         let dependencies = dependencies
             .iter()
-            .map(|i| load_from_path.load_from_path_untyped(i.type_id, i.path.clone()))
+            .map(|i| load_from_path.load_from_path_erased(i.type_id, i.path.clone()))
             .collect::<Vec<_>>();
         ScenePatch {
             scene: Box::new(scene),

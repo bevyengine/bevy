@@ -311,6 +311,7 @@ Example | Description
 Example | Description
 --- | ---
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
+[Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
 ### Diagnostics
 
@@ -328,6 +329,7 @@ Example | Description
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
+[Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay
@@ -591,6 +593,7 @@ Example | Description
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Editable Text](../examples/ui/text/editable_text.rs) | Demonstrates a simple, unstyled text input widget
 [Feathers Widgets](../examples/ui/widgets/feathers.rs) | Gallery of Feathers Widgets
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
@@ -703,13 +706,13 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
+cargo ndk -t <target_name> -P 26 -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
+cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
@@ -756,10 +759,12 @@ In its examples, Bevy targets the minimum Android API that Play Store  <!-- mark
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
+Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
+
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.

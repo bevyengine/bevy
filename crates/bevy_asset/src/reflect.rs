@@ -399,17 +399,12 @@ pub trait LoadFromPath {
     /// Initiates the load for the given expected type ID, and the path.
     ///
     /// See [`AssetServer::load_erased`] for more.
-    fn load_from_path_untyped(
-        &mut self,
-        type_id: TypeId,
-        path: AssetPath<'static>,
-    ) -> UntypedHandle;
-
-    // TODO: Consider providing an "unknown type" variant.
+    fn load_from_path_erased(&mut self, type_id: TypeId, path: AssetPath<'static>)
+        -> UntypedHandle;
 }
 
 impl LoadFromPath for LoadContext<'_> {
-    fn load_from_path_untyped(
+    fn load_from_path_erased(
         &mut self,
         type_id: TypeId,
         path: AssetPath<'static>,
@@ -419,7 +414,7 @@ impl LoadFromPath for LoadContext<'_> {
 }
 
 impl LoadFromPath for AssetServer {
-    fn load_from_path_untyped(
+    fn load_from_path_erased(
         &mut self,
         type_id: TypeId,
         path: AssetPath<'static>,
@@ -429,7 +424,7 @@ impl LoadFromPath for AssetServer {
 }
 
 impl LoadFromPath for &AssetServer {
-    fn load_from_path_untyped(
+    fn load_from_path_erased(
         &mut self,
         type_id: TypeId,
         path: AssetPath<'static>,
@@ -474,7 +469,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
             let type_id = asset_type.type_id();
             return Ok(Ok(Box::new(match typed_handle_reference.reference {
                 HandleReference::Path(path) => {
-                    self.load_from_path.load_from_path_untyped(type_id, path)
+                    self.load_from_path.load_from_path_erased(type_id, path)
                 }
                 HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
             })));
@@ -492,9 +487,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
 
         let type_id = reflect_handle.asset_type_id;
         Ok(Ok(reflect_handle.typed(match handle_reference {
-            HandleReference::Path(path) => {
-                self.load_from_path.load_from_path_untyped(type_id, path)
-            }
+            HandleReference::Path(path) => self.load_from_path.load_from_path_erased(type_id, path),
             HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
         })))
     }
