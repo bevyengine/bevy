@@ -770,7 +770,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
 #[derive(Resource, Default)]
 pub struct Mesh2dBindGroup {
-    pub value: HashMap<Option<MeshSlabId>, BindGroup>,
+    /// Maps metadata slab ID to bind group.
+    pub value: HashMap<MeshSlabId, BindGroup>,
 }
 
 pub fn prepare_mesh2d_bind_group(
@@ -785,30 +786,25 @@ pub fn prepare_mesh2d_bind_group(
     let Some(binding) = mesh2d_uniforms.instance_data_binding() else {
         return;
     };
-    for metadata_slab_id in mesh_allocator
-        .metadata_slabs()
-        .map(Some)
-        .chain(core::iter::once(None))
-    {
-        let metadata_buffer = if let Some(metadata_slab_id) = metadata_slab_id {
-            mesh_allocator
-                .buffer_for_slab(metadata_slab_id)
-                .unwrap_or(&metadata_fallback_buffer.0)
-        } else {
-            &metadata_fallback_buffer.0
-        };
+    for metadata_slab_id in mesh_allocator.metadata_slabs() {
+        let metadata_buffer = mesh_allocator
+            .buffer_for_slab(metadata_slab_id)
+            .unwrap_or(&metadata_fallback_buffer.buffer);
         mesh2d_bind_group.value.insert(
             metadata_slab_id,
             render_device.create_bind_group(
                 "mesh2d_bind_group",
                 &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
-                &BindGroupEntries::sequential((
-                    binding.clone(),
-                    BindingResource::Buffer(BufferBinding {
-                        buffer: metadata_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
+                &BindGroupEntries::with_indices((
+                    (0, binding.clone()),
+                    (
+                        1,
+                        BindingResource::Buffer(BufferBinding {
+                            buffer: metadata_buffer,
+                            offset: 0,
+                            size: None,
+                        }),
+                    ),
                 )),
             ),
         );
@@ -885,6 +881,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         SRes<Mesh2dBindGroup>,
         SRes<RenderMesh2dInstances>,
         SRes<MeshAllocator>,
+        SRes<MeshMetadataFallbackBuffer>,
     );
     type ViewQuery = ();
     type ItemQuery = ();
@@ -894,7 +891,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        (mesh2d_bind_group, render_mesh2d_instances, mesh_allocator): SystemParamItem<
+        (mesh2d_bind_group, render_mesh2d_instances, mesh_allocator,metadata_fallback_buffer): SystemParamItem<
             'w,
             '_,
             Self::Param,
@@ -910,12 +907,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         else {
             return RenderCommandResult::Skip;
         };
-
-        let Some(bind_group) = &mesh_allocator
-            .mesh_slabs(mesh_asset_id)
-            .map(|slabs| slabs.metadata_slab_id)
-            .and_then(|metadata_slab_id| mesh2d_bind_group.value.get(&metadata_slab_id))
-        else {
+        let metadata_slab_id = mesh_allocator
+            .key_to_slab
+            .get(&bevy_render::mesh::allocator::MeshAllocationKey::new(
+                *mesh_asset_id,
+                bevy_render::mesh::allocator::ElementClass::Metadata,
+            ))
+            .cloned()
+            .unwrap_or(metadata_fallback_buffer.slab_id);
+        let Some(bind_group) = &mesh2d_bind_group.value.get(&metadata_slab_id) else {
             return RenderCommandResult::Failure(
                 "The mesh2d bind group wasn't set in the render phase. \
             It should be set by the `prepare_mesh2d_bind_group` system.\n\

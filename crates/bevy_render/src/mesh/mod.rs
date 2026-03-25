@@ -2,17 +2,19 @@ pub mod allocator;
 #[cfg(feature = "morph")]
 pub mod morph;
 
-use crate::GpuResourceAppExt;
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    mesh::allocator::{ElementClass, MeshAllocationKey, MeshAllocator, MeshSlabId},
+    render_asset::{
+        prepare_assets, AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin,
+    },
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
-    RenderApp,
+    Render, RenderApp, RenderSystems,
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{uuid_handle, AssetId, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -25,7 +27,7 @@ pub use bevy_mesh::*;
 use bevy_shader::load_shader_library;
 use bytemuck::{Pod, Zeroable};
 use glam::{Vec3, Vec4};
-use wgpu::{util::BufferInitDescriptor, BufferUsages, IndexFormat};
+use wgpu::IndexFormat;
 
 #[cfg(feature = "morph")]
 use crate::mesh::morph::RenderMorphTargetAllocator;
@@ -49,20 +51,67 @@ impl Plugin for MeshRenderAssetPlugin {
 
         render_app
             .init_resource::<MeshVertexBufferLayouts>()
-            .init_gpu_resource::<MeshMetadataFallbackBuffer>();
+            .add_systems(
+                Render,
+                prepare_mesh_metadata_fallback_buffer
+                    .in_set(RenderSystems::PrepareAssets)
+                    .after(prepare_assets::<RenderMesh>),
+            );
     }
 
     fn finish(&self, app: &mut App) {
+        let mut mesh_assets = app.world_mut().resource_mut::<Assets<Mesh>>();
+        mesh_assets
+            .insert(
+                METADATA_PLACEHOLDER_MESH_HANDLE.id(),
+                Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
+                    .with_inserted_attribute(
+                        Mesh::ATTRIBUTE_POSITION,
+                        VertexAttributeValues::Float32x3(vec![[0.0; 3]]),
+                    )
+                    .with_inserted_indices(Indices::U16(vec![0]))
+                    .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_POSITION, false),
+            )
+            .unwrap();
+
         let Some(_render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         #[cfg(feature = "morph")]
-        _render_app.init_gpu_resource::<RenderMorphTargetAllocator>();
+        crate::GpuResourceAppExt::init_gpu_resource::<RenderMorphTargetAllocator>(_render_app);
     }
 }
 
-/// Per mesh metadata, stored in [`crate::mesh::allocator::MeshAllocator`].
+/// A handle to a one-point compressed mesh, with 1 position and 1 index.
+/// This is used to hold a metadata buffer in [`crate::mesh::allocator::MeshAllocator`] and used for fallback.
+const METADATA_PLACEHOLDER_MESH_HANDLE: Handle<Mesh> =
+    uuid_handle!("c79a00de-d4b9-45ac-8c12-0e65010b411b");
+
+/// Fallback mesh metadata slab referenced by [`PLACEHOLDER_MESH_HANDLE`].
+#[derive(Resource)]
+pub struct MeshMetadataFallbackBuffer {
+    pub slab_id: MeshSlabId,
+    pub buffer: Buffer,
+}
+
+pub fn prepare_mesh_metadata_fallback_buffer(
+    mut commands: Commands,
+    mesh_allocator: Res<MeshAllocator>,
+) {
+    let slab_id = mesh_allocator
+        .key_to_slab
+        .get(&MeshAllocationKey::new(
+            METADATA_PLACEHOLDER_MESH_HANDLE.id(),
+            ElementClass::Metadata,
+        ))
+        .cloned()
+        .unwrap();
+    let buffer = mesh_allocator.buffer_for_slab(slab_id).unwrap().clone();
+    commands.insert_resource(MeshMetadataFallbackBuffer { slab_id, buffer });
+}
+
+/// Per-mesh metadata, stored in [`crate::mesh::allocator::MeshAllocator`].
 /// Currently this is used to decompress vertex.
 #[derive(Default, Pod, Zeroable, Clone, Copy, Debug, ShaderType)]
 #[repr(C)]
@@ -75,28 +124,6 @@ pub struct MeshMetadata {
     pub pad2: u32,
     // UV channels range for decompressing UVs coordinates.
     pub uv_channels_min_and_extents: [Vec4; 2],
-}
-
-/// Fallback buffer to fill mesh bind group if the mesh has no metadata.
-#[derive(Resource)]
-pub struct MeshMetadataFallbackBuffer(pub Buffer);
-
-impl FromWorld for MeshMetadataFallbackBuffer {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource_mut::<RenderDevice>();
-        let limits = render_device.limits();
-        Self(
-            render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("mesh metadata fallback buffer"),
-                contents: bytemuck::cast_slice(&[MeshMetadata::default()]),
-                usage: if crate::storage_buffers_are_unsupported(&limits) {
-                    BufferUsages::UNIFORM
-                } else {
-                    BufferUsages::STORAGE
-                },
-            }),
-        )
-    }
 }
 
 /// The render world representation of a [`Mesh`].
