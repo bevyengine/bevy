@@ -733,7 +733,12 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                clusterable_object_index_lists.write_buffer(render_device);
+                // Ensure the buffer is always allocated even when empty (GPU clustering is disabled)
+                if clusterable_object_index_lists.is_empty() {
+                    clusterable_object_index_lists.reserve(1, render_device);
+                } else {
+                    clusterable_object_index_lists.write_buffer(render_device);
+                }
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
         }
