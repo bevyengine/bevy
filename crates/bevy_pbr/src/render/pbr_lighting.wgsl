@@ -332,7 +332,9 @@ fn specular_multiscatter(
     specular_intensity: f32,
 ) -> vec3<f32> {
     var Fr = (specular_intensity * D * V) * F;
-    Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
+    // F_ab.x + F_ab.y is dfg.y in Filament
+    // See section 9.5 and listing 29 in the Filament spec
+    Fr *= 1.0 + F0 * (1.0 / (F_ab.x + F_ab.y) - 1.0);
     return Fr;
 }
 
