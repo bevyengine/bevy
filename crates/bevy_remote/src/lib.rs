@@ -546,7 +546,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{PostRender, PreRenderStartup, RenderApp};
+use bevy_render::{PostRender, PreRenderStartup, RenderApp, RenderMainScheduleOrder};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
@@ -849,16 +849,22 @@ impl Plugin for RemotePlugin {
             }
 
             render_app
+                .init_schedule(RemoteLast)
+                .world_mut()
+                .resource_mut::<RenderMainScheduleOrder>()
+                .insert_after(PostRender, RemoteLast);
+
+            render_app
                 .insert_resource(render_remote_methods)
                 .init_resource::<schemas::SchemaTypesMetadata>()
                 .init_resource::<RemoteWatchingRequests>()
                 .add_systems(PreRenderStartup, setup_mailbox_channel)
                 .configure_sets(
-                    PostRender,
+                    RemoteLast,
                     (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
                 )
                 .add_systems(
-                    PostRender,
+                    RemoteLast,
                     (
                         (process_remote_requests, process_ongoing_watching_requests)
                             .chain()
