@@ -88,7 +88,7 @@ impl Plugin for MeshRenderAssetPlugin {
 const METADATA_PLACEHOLDER_MESH_HANDLE: Handle<Mesh> =
     uuid_handle!("c79a00de-d4b9-45ac-8c12-0e65010b411b");
 
-/// Fallback mesh metadata slab referenced by [`PLACEHOLDER_MESH_HANDLE`].
+/// Fallback mesh metadata slab referenced by [`METADATA_PLACEHOLDER_MESH_HANDLE`].
 #[derive(Resource)]
 pub struct MeshMetadataFallbackBuffer {
     pub slab_id: MeshSlabId,
