@@ -1783,10 +1783,8 @@ mod boxed_content {
         commands
             .spawn((
                 Node {
-                    width: percent(100),
-                    height: percent(100),
-                    column_gap: px(30),
                     margin: auto().all(),
+                    column_gap: px(30),
                     ..default()
                 },
                 DespawnOnExit(super::Scene::BoxedContent),
