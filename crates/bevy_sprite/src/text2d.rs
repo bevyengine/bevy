@@ -195,7 +195,7 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.size())
         .unwrap_or(Vec2::splat(1000.));
 
-    let viewport_size_changed = *last_logical_viewport_size == logical_viewport_size;
+    let viewport_size_changed = *last_logical_viewport_size != logical_viewport_size;
 
     *last_logical_viewport_size = logical_viewport_size;
 

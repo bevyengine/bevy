@@ -3222,7 +3222,7 @@ mod tests {
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
-            assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
+            assert!((iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len()) == 0);
             _ = iter.next();
             println!(
                 "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
