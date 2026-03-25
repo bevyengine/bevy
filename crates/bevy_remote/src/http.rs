@@ -24,7 +24,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs as _;
 use bevy_ecs::system::Res;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{RenderApp, PreRenderStartup};
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,
@@ -150,7 +150,7 @@ impl Plugin for RemoteHttpPlugin {
                 .insert_resource(HostPort(self.render_port))
                 .insert_resource(HostHeaders(self.headers.clone()))
                 .add_systems(
-                    RenderStartup,
+                    PreRenderStartup,
                     start_http_server.after(setup_mailbox_channel),
                 );
         }
