@@ -182,10 +182,7 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
     }
 
     if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
-        mesh_bindings_shader_defs.push(ShaderDefVal::Bool(
-            "METADATA_USE_UNIFORM_BUFFERS".into(),
-            true,
-        ));
+        mesh_bindings_shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
     }
 
     // Load the mesh_bindings shader module here as it depends on runtime information about

@@ -10,7 +10,7 @@
 @group(2) @binding(0) var<storage> mesh: array<Mesh>;
 #endif // PER_OBJECT_BUFFER_BATCH_SIZE
 
-#ifdef SKINS_USE_UNIFORM_BUFFERS
+#ifdef METADATA_USE_UNIFORM_BUFFERS
 @group(2) @binding(9) var<uniform> metadata: MeshMetadata;
 #else
 @group(2) @binding(9) var<storage> metadata: array<MeshMetadata>;

@@ -2689,6 +2689,10 @@ pub struct MeshPipeline {
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
+
+    /// Whether mesh metadata will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub metadata_use_uniform_buffers: bool,
 }
 
 fn init_mesh_pipeline(
@@ -2717,6 +2721,9 @@ fn init_mesh_pipeline(
             &render_adapter,
         ),
         skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
+        metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
+            &render_device.limits(),
+        ),
     };
 
     commands.insert_resource(res);
@@ -3372,6 +3379,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
         };
+
+        if self.metadata_use_uniform_buffers {
+            shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
+        }
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
