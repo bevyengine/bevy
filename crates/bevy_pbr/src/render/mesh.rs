@@ -3589,8 +3589,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(depth_write_enabled),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

@@ -74,7 +74,14 @@ use crate::{
     TextLayout,
 };
 use bevy_ecs::prelude::*;
+use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
+
+/// Resource containing the current contents of the clipboard.
+///
+/// Placeholder for a proper clipboard implementation with support for the OS clipboard and non-text content.
+#[derive(Resource, Default)]
+pub struct Clipboard(pub String);
 
 /// A plain-text text input field.
 ///
@@ -107,6 +114,17 @@ pub struct EditableText {
     pub pending_edits: Vec<TextEdit>,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
+    /// Cursor blink period in seconds.
+    pub cursor_blink_period: Duration,
+    /// True if a `TextEdit` was applied this frame
+    pub text_edited: bool,
+    /// Maximum number of characters the text input can contain.
+    ///
+    /// Edits which would cause the length to exceed the maximum are ignored.
+    /// Does not stop setting a string longer than the maximum using `set_text`.
+    pub max_characters: Option<usize>,
+    /// Sets the input’s height in number of visible lines.
+    pub visible_lines: Option<f32>,
 }
 
 impl Default for EditableText {
@@ -116,6 +134,10 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: Vec::new(),
             cursor_width: 0.2,
+            cursor_blink_period: Duration::from_secs(1),
+            text_edited: false,
+            max_characters: None,
+            visible_lines: Some(1.),
         }
     }
 }
@@ -151,17 +173,19 @@ impl EditableText {
         &mut self,
         font_context: &mut FontContext,
         layout_context: &mut LayoutContext<TextBrush>,
+        clipboard_text: &mut String,
     ) {
         let Self {
             editor,
             pending_edits,
+            max_characters,
             ..
         } = self;
 
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            edit.apply(&mut driver, &mut String::new());
+            edit.apply(&mut driver, clipboard_text, *max_characters);
         }
     }
 
@@ -183,8 +207,14 @@ pub fn apply_text_edits(
     mut query: Query<&mut EditableText>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
+    mut clipboard_text: ResMut<Clipboard>,
 ) {
     for mut editable_text in query.iter_mut() {
-        editable_text.apply_pending_edits(&mut font_context.0, &mut layout_context.0);
+        editable_text.text_edited = !editable_text.pending_edits.is_empty();
+        editable_text.apply_pending_edits(
+            &mut font_context.0,
+            &mut layout_context.0,
+            &mut clipboard_text.0,
+        );
     }
 }
