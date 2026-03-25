@@ -201,6 +201,11 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
+/// The prestartup schedule of the [`RenderApp`].
+/// This runs only once, and runs before [`RenderStartup`]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PreRenderStartup;
+
 /// The startup schedule of the [`RenderApp`].
 /// This can potentially run multiple times, and not on a fresh render world.
 /// Every time a new [`RenderDevice`](renderer::RenderDevice) is acquired,
@@ -237,6 +242,14 @@ impl GpuResourceAppExt for SubApp {
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
+
+/// Runs immediately before the main render schedule.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PreRender;
+
+/// Runs immediately after the main render schedule.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PostRender;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -354,7 +367,11 @@ impl Plugin for RenderPlugin {
                 ),
             );
 
+            render_app.init_schedule(PreRender);
             render_app.add_schedule(RenderGraph::base_schedule());
+            render_app.init_schedule(PostRender);
+
+            render_app.init_schedule(PreRenderStartup);
 
             render_app.init_schedule(RenderStartup);
             render_app
@@ -415,7 +432,9 @@ fn renderer_is_ready(state: Res<RenderState>) -> bool {
 }
 
 fn run_render_schedule(world: &mut World) {
+    world.run_schedule(PreRender);
     world.run_schedule(Render);
+    world.run_schedule(PostRender);
 }
 
 fn send_time(time_sender: Res<TimeSender>) {
