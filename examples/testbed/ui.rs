@@ -1797,7 +1797,7 @@ mod boxed_content {
                 builder.spawn((
                     Node::default(),
                     Text::new("This text has\nno border or padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     Outline {
                         width: px(2),
                         color: Color::WHITE,
@@ -1811,7 +1811,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\na border but no padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1826,7 +1826,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\npadding but no border."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     Outline {
                         width: px(2),
                         color: Color::WHITE,
@@ -1841,7 +1841,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\nborder and padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1856,7 +1856,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\na left border and no padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1871,7 +1871,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\na right border and no padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1886,7 +1886,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\na left border and no padding."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1901,7 +1901,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\npadding on its top and right."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1916,7 +1916,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\npadding on its bottom and left."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
@@ -1932,7 +1932,7 @@ mod boxed_content {
                         ..default()
                     },
                     Text::new("This text has\npadding on its top and left and a border on its bottom and right."),
-                    TextLayout::new_with_justify(Justify::Center),
+                    TextFont::from_font_size(FontSize::Px(10.)), TextLayout::new_with_justify(Justify::Center),
                     BorderColor::all(RED),
                     Outline {
                         width: px(2),
