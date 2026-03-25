@@ -337,9 +337,14 @@ pub struct BrpWriteMessageParams {
 }
 
 /// `schedule.graph`:
+///
+/// The server responds with [`BrpScheduleGraphResponse`] if the schedule is found,
+/// or a `resource_error` if not found.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct BrpScheduleGraphParams {
     /// The schedule to describe.
+    ///
+    /// A list of describable schedules can be fetched from the `schedule.list` endpoint.
     pub schedule_label: String,
 }
 
@@ -496,15 +501,15 @@ pub type BrpQueryResponse = Vec<BrpQueryRow>;
 ///
 /// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
 /// A system can be placed inside a systemset in order to organize them.
-/// Relative ordering can be set between systems and/or sets.
-/// The graph can be though of two Directed Acylic Graph's (DAG's) overlaid.
+/// Relative ordering can be defined between systems and/or systemsets.
+/// The graph can be thought of as two Directed Acylic Graph's (DAG's) overlaid.
 ///
 /// Each system (f1) creates a corresponding system set (F1).
-/// Both the regular systemsets, and the "system derived" system sets are in `systemsets`
+/// Both these "system derived" system sets and developer-created systemsets are in `systemsets`.
 /// There is a hierarchy edge between the system set and the system (F1 -> f1).
-/// If a system (f2) is placed in a set (S1), then there is a hierarchy edge (S1, f2)
+/// If a system (f2) is placed in a developer-created set (S1), then there is a hierarchy edge (S1 -> f2).
 ///
-/// If a schedule adds a condition f1.after(S1) , then an dependency edge is added (S1 -> f1)
+/// If a schedule adds a condition f1.after(S1) , then a dependency edge is added (S1 -> f1)
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct BrpScheduleGraphResponse {
     systemsets: Vec<BrpSystemSet>,
