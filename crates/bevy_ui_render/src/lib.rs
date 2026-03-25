@@ -498,12 +498,13 @@ pub fn extract_uinode_images(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+        let content_box = uinode.content_box();
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             || image.image_mode.uses_slices()
-            || uinode.content_size == Vec2::ZERO
+            || content_box.size().cmple(Vec2::ZERO).any()
         {
             continue;
         }
@@ -521,7 +522,7 @@ pub fn extract_uinode_images(
         let mut rect = match (atlas_rect, image.rect) {
             (None, None) => Rect {
                 min: Vec2::ZERO,
-                max: uinode.content_size,
+                max: content_box.size(),
             },
             (None, Some(image_rect)) => image_rect,
             (Some(atlas_rect), None) => atlas_rect,
@@ -533,7 +534,7 @@ pub fn extract_uinode_images(
         };
 
         let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
-            let atlas_scaling = uinode.content_size / rect.size();
+            let atlas_scaling = content_box.size() / rect.size();
             rect.min *= atlas_scaling;
             rect.max *= atlas_scaling;
             Some(atlas_scaling)
@@ -547,8 +548,7 @@ pub fn extract_uinode_images(
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
-            transform: Affine2::from(*transform)
-                * Affine2::from_translation(uinode.content_box().center()),
+            transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 rect,
