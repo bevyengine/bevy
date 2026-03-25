@@ -239,6 +239,7 @@ pub fn extract_ui_texture_slices(
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || uinode.content_size == Vec2::ZERO
         {
             continue;
         }
@@ -283,11 +284,12 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.into(),
+            transform: Affine2::from(*transform)
+                * Affine2::from_translation(uinode.content_box().center()),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: uinode.content_size,
             },
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
