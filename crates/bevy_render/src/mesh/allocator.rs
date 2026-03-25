@@ -575,7 +575,7 @@ impl MeshAllocator {
         self.copy_element_data(
             &MeshAllocationKey::new(*mesh_id, ElementClass::Index),
             index_data.len(),
-            |slice| slice.copy_from_slice(index_data),
+            |mut slice| slice.copy_from_slice(index_data),
             render_device,
             render_queue,
         );
@@ -599,7 +599,7 @@ impl MeshAllocator {
         self.copy_element_data(
             &MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget),
             size_of_val(morph_targets),
-            |slice| slice.copy_from_slice(bytemuck::cast_slice(morph_targets)),
+            |mut slice| slice.copy_from_slice(bytemuck::cast_slice(morph_targets)),
             render_device,
             render_queue,
         );

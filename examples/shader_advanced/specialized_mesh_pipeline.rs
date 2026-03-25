@@ -264,8 +264,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),

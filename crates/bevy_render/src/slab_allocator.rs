@@ -13,7 +13,7 @@ use core::{
 };
 use nonmax::NonMaxU32;
 use offset_allocator::{Allocation, Allocator};
-use wgpu::{BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor};
+use wgpu::{BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, WriteOnly};
 
 use crate::{
     render_resource::Buffer,
@@ -931,7 +931,7 @@ where
         &mut self,
         key: &I::Key,
         len: usize,
-        fill_data: impl Fn(&mut [u8]),
+        fill_data: impl Fn(WriteOnly<[u8]>),
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
@@ -964,7 +964,7 @@ where
                         allocated_range.allocation.offset as u64 * slot_size,
                         size,
                     ) {
-                        let slice = &mut buffer.as_mut()[..len];
+                        let slice = buffer.slice(..len);
                         fill_data(slice);
                     }
                 }
@@ -994,8 +994,9 @@ where
                     mapped_at_creation: true,
                 });
                 {
-                    let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
-                    fill_data(slice);
+                    let mut slice = buffer.slice(..).get_mapped_range_mut();
+
+                    fill_data(slice.slice(..len));
                 }
                 buffer.unmap();
                 large_object_slab.buffer = Some(buffer);
