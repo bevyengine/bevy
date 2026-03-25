@@ -4084,7 +4084,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     mesh_id_to_image,
                     morph_targets,
                     mesh_allocator,
-                    &metadata_fallback_buffer,
+                    metadata_fallback_buffer,
                 );
             }
 
