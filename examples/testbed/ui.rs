@@ -1897,7 +1897,7 @@ mod boxed_content {
 
                 builder.spawn((
                     Node {
-                        padding: px(20).top().with_left(px(20)),
+                        padding: px(20).top().with_right(px(20)),
                         ..default()
                     },
                     Text::new("This text has\npadding on its top and right."),
@@ -1912,7 +1912,7 @@ mod boxed_content {
 
                 builder.spawn((
                     Node {
-                        padding: px(20).top().with_right(px(20)),
+                        padding: px(20).bottom().with_left(px(20)),
                         ..default()
                     },
                     Text::new("This text has\npadding on its bottom and left."),
