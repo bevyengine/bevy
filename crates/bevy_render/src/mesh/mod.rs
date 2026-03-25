@@ -14,7 +14,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{uuid_handle, AssetId, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{AssetId, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -61,34 +61,32 @@ impl Plugin for MeshRenderAssetPlugin {
 
     fn finish(&self, app: &mut App) {
         let mut mesh_assets = app.world_mut().resource_mut::<Assets<Mesh>>();
-        mesh_assets
-            .insert(
-                METADATA_PLACEHOLDER_MESH_HANDLE.id(),
-                Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
-                    .with_inserted_attribute(
-                        Mesh::ATTRIBUTE_POSITION,
-                        VertexAttributeValues::Float32x3(vec![[0.0; 3]]),
-                    )
-                    .with_inserted_indices(Indices::U16(vec![0]))
-                    .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_POSITION, false),
-            )
-            .unwrap();
+        let handle = mesh_assets.add(
+            Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
+                .with_inserted_attribute(
+                    Mesh::ATTRIBUTE_POSITION,
+                    VertexAttributeValues::Float32x3(vec![[0.0; 3]]),
+                )
+                .with_inserted_indices(Indices::U16(vec![0]))
+                .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_POSITION, false),
+        );
 
-        let Some(_render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
+        render_app.insert_resource(MeshMetadataFallbackMesh(handle));
+
         #[cfg(feature = "morph")]
-        crate::GpuResourceAppExt::init_gpu_resource::<RenderMorphTargetAllocator>(_render_app);
+        crate::GpuResourceAppExt::init_gpu_resource::<RenderMorphTargetAllocator>(render_app);
     }
 }
 
-/// A handle to a one-point compressed mesh, with 1 position and 1 index.
-/// This is used to hold a metadata buffer in [`crate::mesh::allocator::MeshAllocator`] and used for fallback.
-pub const METADATA_PLACEHOLDER_MESH_HANDLE: Handle<Mesh> =
-    uuid_handle!("c79a00de-d4b9-45ac-8c12-0e65010b411b");
+#[derive(Resource)]
+pub struct MeshMetadataFallbackMesh(pub Handle<Mesh>);
 
-/// Fallback mesh metadata slab referenced by [`METADATA_PLACEHOLDER_MESH_HANDLE`].
+/// Metadata slab ID and buffer of [`MeshMetadataFallbackMesh`],
+/// used to fill bind group for mesh without metadata.
 #[derive(Resource)]
 pub struct MeshMetadataFallbackBuffer {
     pub slab_id: MeshSlabId,
@@ -98,11 +96,12 @@ pub struct MeshMetadataFallbackBuffer {
 pub fn prepare_mesh_metadata_fallback_buffer(
     mut commands: Commands,
     mesh_allocator: Res<MeshAllocator>,
+    metadata_fallback_mesh: Res<MeshMetadataFallbackMesh>,
 ) {
     let slab_id = mesh_allocator
         .key_to_slab
         .get(&MeshAllocationKey::new(
-            METADATA_PLACEHOLDER_MESH_HANDLE.id(),
+            metadata_fallback_mesh.0.id(),
             ElementClass::Metadata,
         ))
         .cloned()
