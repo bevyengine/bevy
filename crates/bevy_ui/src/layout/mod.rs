@@ -1011,8 +1011,10 @@ mod tests {
         assert_eq!(layout.padding.bottom, 11.0);
         assert_eq!(layout.size.width, 66.0);
         assert_eq!(layout.size.height, 55.0);
-        assert_eq!(layout.content_size.width, 50.0);
-        assert_eq!(layout.content_size.height, 25.0);
+        assert_eq!(layout.content_size.width, 58.0);
+        assert_eq!(layout.content_size.height, 43.0);
+        assert_eq!(layout.content_box_width(), 50.0);
+        assert_eq!(layout.content_box_height(), 25.0);
     }
 
     #[test]
