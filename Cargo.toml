@@ -410,7 +410,7 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Load and save user preferences
-bevy_settings = ["bevy_internal/bevy_settings"]
+bevy_preferences = ["bevy_internal/bevy_preferences"]
 
 # Feathers widget collection.
 experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
@@ -5239,7 +5239,7 @@ wasm = true
 name = "persisting_preferences"
 path = "examples/app/persisting_preferences.rs"
 doc-scrape-examples = true
-required-features = ["bevy_settings"]
+required-features = ["bevy_preferences"]
 
 [package.metadata.example.persisting_preferences]
 name = "User Preferences"
@@ -5251,7 +5251,7 @@ wasm = true
 name = "persisting_window_settings"
 path = "examples/window/persisting_window_settings.rs"
 doc-scrape-examples = true
-required-features = ["bevy_settings"]
+required-features = ["bevy_preferences"]
 
 [package.metadata.example.persisting_window_settings]
 name = "Save Window Position"

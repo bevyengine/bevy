@@ -91,10 +91,10 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality without any backend|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
+|bevy_preferences|Load and save user preferences|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
-|bevy_settings|Load and save user preferences|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|

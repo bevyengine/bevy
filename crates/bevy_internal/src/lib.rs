@@ -70,6 +70,8 @@ pub use bevy_picking as picking;
 pub use bevy_platform as platform;
 #[cfg(feature = "bevy_post_process")]
 pub use bevy_post_process as post_process;
+#[cfg(feature = "bevy_preferences")]
+pub use bevy_preferences as preferences;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]
@@ -78,8 +80,6 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
-#[cfg(feature = "bevy_settings")]
-pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
 #[cfg(feature = "bevy_solari")]

@@ -1,10 +1,10 @@
 ---
-title: "User settings"
+title: "User preferences"
 authors: ["@viridia"]
 pull_requests: [23034]
 ---
 
-The new `bevy_settings` crate provides a framework for user settings and persistent preferences.
+The new `bevy_preferences` crate provides a framework for user settings and persistent preferences.
 This can include things like:
 
 - Music and sound volume controls
@@ -17,6 +17,6 @@ In general, a user preference is any persistent property that is set by user act
 explicitly or implicitly), and whose lifetime isn't limited to a single saved game file.
 
 Preferences are defined using `bevy_reflect` annotations, and are automatically inserted as
-resources when the settings framework starts up.
+resources when the preferences framework starts up.
 
 See the `examples/app/persisting_preferences` for a simple example of how to use the framework.
