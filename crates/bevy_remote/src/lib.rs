@@ -546,7 +546,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{PostRender, RenderApp, PreRenderStartup};
+use bevy_render::{PostRender, PreRenderStartup, RenderApp};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;

@@ -24,7 +24,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs as _;
 use bevy_ecs::system::Res;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{RenderApp, PreRenderStartup};
+use bevy_render::{PreRenderStartup, RenderApp};
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,
