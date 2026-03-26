@@ -108,7 +108,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     }
                 }
                 BsnEntry::SceneExpression(block) => {
-                    quote! {#block}
+                    quote! {{#block}}
                 }
                 BsnEntry::TemplateConstructor(BsnConstructor {
                     type_path,

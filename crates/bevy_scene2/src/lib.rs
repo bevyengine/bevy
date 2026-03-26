@@ -628,4 +628,16 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn empty_scene_expressions() {
+        let mut app = test_app();
+        let world = app.world_mut();
+        fn a() -> impl Scene {
+            bsn! {
+                {}
+            }
+        }
+        world.spawn_scene(a()).unwrap();
+    }
 }
