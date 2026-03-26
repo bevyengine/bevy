@@ -1,7 +1,7 @@
 ---
 title: Assets in glTF files can now be referenced by name.
 authors: ["@andriyDev"]
-pull_requests: []
+pull_requests: [23505]
 ---
 
 In previous versions of Bevy, subassets from a glTF file needed to be loaded by the **index** in the
