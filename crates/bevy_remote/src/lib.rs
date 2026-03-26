@@ -766,6 +766,16 @@ impl RemotePlugin {
             builtin_methods::export_registry_types,
             to_main,
         )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_LIST,
+            builtin_methods::schedule_list,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_GRAPH,
+            builtin_methods::schedule_graph,
+            to_main,
+        )
     }
 }
 
