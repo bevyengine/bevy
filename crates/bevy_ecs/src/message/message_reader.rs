@@ -15,7 +15,7 @@ use crate::{
 ///
 /// #[derive(Message)]
 /// pub struct MyMessage; // Custom message type.
-/// fn my_system(mut reader: MesssageReader<MyMessage>) {
+/// fn my_system(mut reader: MessageReader<MyMessage>) {
 ///     for _ in reader.read() {
 ///         println("Message was read!")
 ///     }
