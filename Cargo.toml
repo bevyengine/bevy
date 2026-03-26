@@ -648,6 +648,9 @@ https = ["bevy_internal/https"]
 # Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
 web_asset_cache = ["bevy_internal/web_asset_cache"]
 
+# Set the default for loading glTF files to use the name of the subasset instead of the index.
+gltf_named_subassets_default = ["bevy_internal/gltf_named_subassets_default"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
   "bevy_internal/bevy_debug_stepping",
