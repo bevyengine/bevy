@@ -9,6 +9,21 @@ use crate::{
 ///
 /// Use [`PopulatedMessageReader<T>`] to skip the system if there are no messages.
 ///
+/// # Usage
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Message)]
+/// pub struct MyMessage; // Custom message type.
+/// fn my_system(mut reader: MesssageReader<MyMessage>) {
+///     for _ in reader.read() {
+///         println("Message was read!")
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
 /// # Concurrency
 ///
 /// Unlike [`MessageWriter<T>`], systems with `MessageReader<T>` param can be executed concurrently
