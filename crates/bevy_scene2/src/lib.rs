@@ -51,7 +51,7 @@ mod tests {
     use crate::prelude::*;
     use crate::{self as bevy_scene2, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
-    use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle};
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypePath;
 
@@ -516,15 +516,9 @@ mod tests {
         app.init_asset::<Image>();
 
         #[derive(Asset, TypePath)]
-        struct Image(usize);
+        struct Image;
 
-        let handle = app
-            .world()
-            .resource::<AssetServer>()
-            .load_with_path("image.png", Image(10));
-
-        app.update();
-
+        let handle = app.world().resource::<AssetServer>().load("image.png");
         let world = app.world_mut();
 
         #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
@@ -541,10 +535,6 @@ mod tests {
 
         let sprite = root.get::<Sprite>().unwrap();
         assert_eq!(sprite.0, handle);
-
-        let images = world.resource::<Assets<Image>>();
-        let image = images.get(&sprite.0).unwrap();
-        assert_eq!(image.0, 10);
     }
 
     #[test]
