@@ -67,12 +67,14 @@ pub mod prelude {
         global::gizmo,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
-        transform_gizmo::{
-            TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode,
-            TransformGizmoPlugin, TransformGizmoSettings, TransformGizmoSpace, TransformGizmoState,
-            TransformGizmoSystems,
-        },
         AppGizmoBuilder, GizmoAsset,
+    };
+
+    #[doc(hidden)]
+    pub use crate::transform_gizmo::{
+        TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode,
+        TransformGizmoPlugin, TransformGizmoSettings, TransformGizmoSpace, TransformGizmoState,
+        TransformGizmoSystems,
     };
 }
 
