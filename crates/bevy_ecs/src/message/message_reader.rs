@@ -14,10 +14,10 @@ use crate::{
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Message)]
-/// pub struct MyMessage; // Custom message type.
+/// pub struct MyMessage(String); // Custom message type.
 /// fn my_system(mut reader: MessageReader<MyMessage>) {
-///     for _ in reader.read() {
-///         println("Message was read!")
+///     for msg in reader.read() {
+///         println!("{}", msg.0)
 ///     }
 /// }
 ///
