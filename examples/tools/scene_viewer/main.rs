@@ -14,6 +14,7 @@ use bevy::{
     camera::primitives::{Aabb, Sphere},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
@@ -58,6 +59,9 @@ struct Args {
     /// enable `GltfPlugin::convert_coordinates::rotate_meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
+    /// disables the infinite grid
+    #[argh(switch)]
+    no_infinite_grid: bool,
     /// add an axis gizmo to show the scene orientation
     #[argh(switch)]
     axis: Option<bool>,
@@ -112,6 +116,7 @@ fn main() {
         FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
+        InfiniteGridPlugin,
     ))
     .insert_resource(args)
     .add_systems(Startup, setup)
@@ -146,6 +151,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     let scene_path = &args.scene_path;
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene((*scene_path).clone());
+
+    if !args.no_infinite_grid {
+        commands.spawn(InfiniteGrid);
+    }
 
     commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }

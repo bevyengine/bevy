@@ -11,7 +11,7 @@
 //!
 //! This Bevy example is inspired by the corresponding three.js example [3].
 //!
-//! [1]: https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel
+//! [1]: https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 //!
 //! [2]: https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
 //!

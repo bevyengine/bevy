@@ -5,7 +5,7 @@
 //! that includes e.g. a background, border, and text label.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::css::{DARK_GREY, YELLOW};
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputDispatchPlugin, InputFocus,
@@ -74,18 +74,17 @@ fn setup(
         .id();
 
     // Set up an EditableText widget
-    let (text_input_left, text_input_left_edit) =
-        build_input_text(&mut commands, &font, true, 30.0);
-    let (text_input_right, _text_input_right_edit) =
-        build_input_text(&mut commands, &font, false, 50.0);
+    let text_input_left = build_input_text(&mut commands, &font, true, 30.0);
+    let text_input_right = build_input_text(&mut commands, &font, false, 50.0);
 
     // Set the focus to our text input so we can start typing right away
-    input_focus.set(text_input_left_edit);
+    input_focus.set(text_input_left);
 
     let input_container = commands
         .spawn((
             Node {
                 display: Display::Flex,
+                align_items: AlignItems::Start,
                 ..default()
             },
             TabGroup::new(0),
@@ -136,35 +135,21 @@ fn build_input_text(
     font: &FontSource,
     is_left: bool,
     font_size: f32,
-) -> (Entity, Entity) {
-    let outer = commands
-        .spawn((
-            Node {
-                border: UiRect {
-                    left: px(5),
-                    right: px(5),
-                    top: px(5),
-                    bottom: px(5),
-                },
-                ..Default::default()
-            },
-            BorderColor::from(Color::from(YELLOW)),
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
-                y: Val::Px(50.0),
-            }),
-        ))
-        .id();
-
-    let edit = commands
+) -> Entity {
+    commands
         .spawn((
             Node {
                 width: px(200),
-                height: px(100),
+                border: px(5).all(),
+                padding: px(5).all(),
                 ..Default::default()
             },
+            BorderColor::from(Color::from(YELLOW)),
             Name::new(if is_left { "Left" } else { "Right" }),
-            EditableText::default(),
+            EditableText {
+                max_characters: (!is_left).then_some(7),
+                ..Default::default()
+            },
             TextFont {
                 font: font.clone(),
                 font_size: FontSize::Px(font_size),
@@ -172,16 +157,13 @@ fn build_input_text(
             },
             TextCursorStyle::default(),
             TabIndex(if is_left { 0 } else { 1 }),
+            BackgroundColor(DARK_GREY.into()),
             UiTransform::from_translation(Val2 {
-                x: Val::Px(10.0),
-                y: Val::Px(10.0),
+                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
+                y: Val::Px(50.0),
             }),
         ))
-        .id();
-
-    commands.entity(outer).add_children(&[edit]);
-
-    (outer, edit)
+        .id()
 }
 
 // Submit the text when Ctrl+Enter is pressed
