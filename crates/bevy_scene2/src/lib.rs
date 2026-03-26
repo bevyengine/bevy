@@ -28,7 +28,7 @@ pub use scene_list::*;
 pub use scene_patch::*;
 pub use spawn::*;
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
@@ -41,7 +41,13 @@ impl Plugin for ScenePlugin {
         app.init_resource::<QueuedScenes>()
             .init_asset::<ScenePatch>()
             .init_asset::<SceneListPatch>()
-            .add_systems(Update, (resolve_scene_patches, spawn_queued).chain())
+            .add_systems(
+                SpawnScene,
+                (resolve_scene_patches, spawn_queued)
+                    .chain()
+                    .in_set(SceneSpawnerSystems::Scene2Spawn)
+                    .after(SceneSpawnerSystems::SceneSpawn),
+            )
             .add_observer(on_add_scene_patch_instance);
     }
 }
