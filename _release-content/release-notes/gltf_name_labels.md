@@ -34,7 +34,7 @@ let mesh1 = asset_server.load::<Mesh>(GltfNamedAssetLabel::Primitive {
 }.from_asset("my.gltf"));
 ```
 
-This can be enabled through:
+This can be enabled through any of the following (in increasing order of specificity):
 
 1. Enabling the new `gltf_named_subassets_default` feature on `bevy_gltf`. This is a temporary
    feature, and will be removed in Bevy 0.20 when this behavior becomes the default.
