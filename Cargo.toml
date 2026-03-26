@@ -3519,7 +3519,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
