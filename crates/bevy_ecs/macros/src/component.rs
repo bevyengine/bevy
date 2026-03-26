@@ -48,6 +48,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     });
 
     let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+    let change_mode = change_mode(&bevy_ecs_path, ChangeMode::Default);
 
     let on_add_path = None;
     let on_remove_path = None;
@@ -87,6 +88,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let component_derive_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            const CHANGE_MODE: #bevy_ecs_path::component::ChangeMode = #change_mode;
             type Mutability = #bevy_ecs_path::component::Mutable;
             fn register_required_components(
                 _requiree: #bevy_ecs_path::component::ComponentId,
@@ -245,6 +247,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
+    let change_mode = change_mode(&bevy_ecs_path, attrs.change_mode);
+
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
     if let Some(requires) = requires {
@@ -330,6 +334,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            const CHANGE_MODE: #bevy_ecs_path::component::ChangeMode = #change_mode;
             type Mutability = #mutable_type;
             fn register_required_components(
                 _requiree: #bevy_ecs_path::component::ComponentId,
@@ -459,6 +464,7 @@ pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
+pub const CHANGE: &str = "change";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
@@ -593,12 +599,19 @@ struct Attrs {
     immutable: bool,
     clone_behavior: Option<Expr>,
     map_entities: Option<MapEntitiesAttributeKind>,
+    change_mode: ChangeMode,
 }
 
 #[derive(Clone, Copy)]
 enum StorageTy {
     Table,
     SparseSet,
+}
+
+#[derive(Clone, Copy)]
+enum ChangeMode {
+    Default,
+    Indexed,
 }
 
 struct Require {
@@ -620,6 +633,9 @@ struct RelationshipTarget {
 const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
 
+const DEFAULT: &str = "default";
+const INDEXED: &str = "indexed";
+
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut attrs = Attrs {
         storage: StorageTy::Table,
@@ -634,6 +650,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
         clone_behavior: None,
         map_entities: None,
+        change_mode: ChangeMode::Default,
     };
 
     let mut require_paths = HashSet::new();
@@ -684,6 +701,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(MAP_ENTITIES) {
                     attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
+                    Ok(())
+                } else if nested.path.is_ident(CHANGE) {
+                    attrs.change_mode = match nested.value()?.parse::<LitStr>()?.value() {
+                        s if s == DEFAULT => ChangeMode::Default,
+                        s if s == INDEXED => ChangeMode::Indexed,
+                        s => {
+                            return Err(nested.error(format!(
+                                "Invalid change mode `{s}`, expected '{DEFAULT}' or '{INDEXED}'.",
+                            )));
+                        }
+                    };
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
@@ -795,6 +823,15 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     };
 
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }
+}
+
+fn change_mode(bevy_ecs_path: &Path, change_mode: ChangeMode) -> TokenStream2 {
+    let change_mode = match change_mode {
+        ChangeMode::Default => Ident::new("Default", Span::call_site()),
+        ChangeMode::Indexed => Ident::new("Indexed", Span::call_site()),
+    };
+
+    quote! { #bevy_ecs_path::component::ChangeMode::#change_mode }
 }
 
 fn hook_register_function_call(

@@ -6,6 +6,7 @@ use indexmap::{IndexMap, IndexSet};
 use thiserror::Error;
 
 use crate::{
+    archetype::Archetype,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, Tick},
     component::{Component, ComponentId, Components, ComponentsRegistrator},
@@ -25,7 +26,7 @@ pub struct RequiredComponent {
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     // Note: this function makes `unsafe` assumptions, so it cannot be public.
-    Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)>,
+    Arc<dyn Fn(&mut Table, &mut SparseSets, &mut Archetype, Tick, TableRow, Entity, MaybeLocation)>,
 );
 
 impl RequiredComponentConstructor {
@@ -48,9 +49,10 @@ impl RequiredComponentConstructor {
             #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
-            type Constructor = dyn for<'a, 'b> Fn(
+            type Constructor = dyn for<'a, 'b, 'c> Fn(
                 &'a mut Table,
                 &'b mut SparseSets,
+                &'c mut Archetype,
                 Tick,
                 TableRow,
                 Entity,
@@ -64,7 +66,7 @@ impl RequiredComponentConstructor {
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(
-                move |table, sparse_sets, change_tick, table_row, entity, caller| {
+                move |table, sparse_sets, _, change_tick, table_row, entity, caller| {
                     OwningPtr::make(constructor(), |ptr| {
                         // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
                         // pass in a valid table_row and entity requiring a C constructor
@@ -81,6 +83,7 @@ impl RequiredComponentConstructor {
                                 C::STORAGE_TYPE,
                                 ptr,
                                 caller,
+                                C::CHANGE_MODE,
                             );
                         }
                     });
@@ -104,12 +107,21 @@ impl RequiredComponentConstructor {
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        archetype: &mut Archetype,
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
         caller: MaybeLocation,
     ) {
-        (self.0)(table, sparse_sets, change_tick, table_row, entity, caller);
+        (self.0)(
+            table,
+            sparse_sets,
+            archetype,
+            change_tick,
+            table_row,
+            entity,
+            caller,
+        );
     }
 }
 

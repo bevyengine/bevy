@@ -66,6 +66,7 @@ use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d,
 /// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
 ///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
+#[component(change = "indexed")]
 pub struct NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -78,6 +79,7 @@ pub struct NoCpuCulling;
 /// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
 /// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
@@ -161,6 +163,7 @@ impl PartialEq<&Visibility> for Visibility {
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[component(change = "indexed")]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -223,6 +226,7 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[component(change = "indexed")]
 pub struct ViewVisibility(
     /// Bit packed booleans to track current and previous view visibility state.
     ///
@@ -314,6 +318,7 @@ impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
 ///   to appear in the reflection of a [`Mesh`] within.
 #[derive(Debug, Component, Default, Reflect, Clone, PartialEq)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
 
@@ -647,7 +652,7 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
     mut removed_child_of: RemovedComponents<ChildOf>,
 ) {
-    for (entity, visibility, child_of, children) in &changed {
+    for (entity, visibility, child_of, children) in changed.iter() {
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,

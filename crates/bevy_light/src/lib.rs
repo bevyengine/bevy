@@ -244,6 +244,7 @@ pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLigh
 
 /// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default, Clone, PartialEq)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh3d`] not receive shadows.
@@ -252,6 +253,7 @@ pub struct NotShadowCaster;
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
 #[derive(Debug, Component, Reflect, Default)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
 /// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
@@ -262,6 +264,7 @@ pub struct NotShadowReceiver;
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
 #[derive(Debug, Component, Reflect, Default)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 

@@ -133,7 +133,7 @@ impl<'w> BundleInserter<'w> {
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
     ) -> (
-        &'a Archetype,
+        &'a mut Archetype,
         EntityLocation,
         &'a mut SparseSets,
         &'a mut Table,
@@ -181,7 +181,7 @@ impl<'w> BundleInserter<'w> {
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = archetype.as_mut();
 
-        match archetype_move_type {
+        let insert_result = match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let (sparse_sets, table) = {
@@ -193,7 +193,7 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 (
-                    &*archetype,
+                    &mut *archetype,
                     location,
                     sparse_sets,
                     table,
@@ -232,7 +232,7 @@ impl<'w> BundleInserter<'w> {
                 entities.update_existing_location(entity.index(), Some(new_location));
 
                 (
-                    &*new_archetype,
+                    &mut *new_archetype,
                     new_location,
                     sparse_sets,
                     table,
@@ -279,10 +279,12 @@ impl<'w> BundleInserter<'w> {
                 // - We will not drop any components.
                 // - Valid values will be written to new components by the caller (`Self::insert`).
                 let move_result = unsafe {
+                    // FIXME: this calls `note_added` twice
                     tables.move_row::<true>(
                         location.table_id,
                         new_archetype.table_id(),
                         result.table_row,
+                        world.change_tick(),
                     )
                 };
 
@@ -319,14 +321,22 @@ impl<'w> BundleInserter<'w> {
                 }
 
                 (
-                    &*new_archetype,
+                    &mut *new_archetype,
                     new_location,
                     sparse_sets,
                     move_result.new_table,
                     move_result.new_row,
                 )
             }
+        };
+
+        // FIXME: Only do this if the archetype changed or if one or more of the
+        // components to be inserted is indexed.
+        if let Some(change_index) = insert_result.3.change_index_mut() {
+            change_index.note_added(insert_result.1.table_row, world.change_tick());
         }
+
+        insert_result
     }
 
     /// # Safety
@@ -368,6 +378,7 @@ impl<'w> BundleInserter<'w> {
             self.bundle_info.as_ref().write_components(
                 table,
                 sparse_sets,
+                new_archetype,
                 archetype_after_insert,
                 archetype_after_insert.required_components.iter(),
                 entity,

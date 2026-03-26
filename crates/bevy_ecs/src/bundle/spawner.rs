@@ -110,6 +110,7 @@ impl<'w> BundleSpawner<'w> {
             bundle_info.write_components(
                 table,
                 sparse_sets,
+                archetype,
                 &SpawnBundleStatus,
                 bundle_info.required_component_constructors.iter(),
                 entity,
@@ -121,6 +122,9 @@ impl<'w> BundleSpawner<'w> {
             );
             entities.set_location(entity.index(), Some(location));
             entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
+            if let Some(change_index) = table.change_index_mut() {
+                change_index.note_added(table_row, self.change_tick);
+            }
             location
         };
 

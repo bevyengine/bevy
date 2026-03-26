@@ -47,7 +47,11 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    component(change = "indexed")
+)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

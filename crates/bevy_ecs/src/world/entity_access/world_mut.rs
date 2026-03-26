@@ -4,7 +4,7 @@ use crate::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
-    component::{Component, ComponentId, Components, Mutable, StorageType},
+    component::{ChangeMode, Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
@@ -1132,12 +1132,19 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
+        let change_mode = match self.world.components.get_descriptor(component_id) {
+            Some(descriptor) => descriptor.change_mode(),
+            None => ChangeMode::default(),
+        };
         let bundle_id = self.world.bundles.init_component_info(
             &mut self.world.storages,
             &self.world.components,
             component_id,
         );
-        let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        let storage_type_and_change_mode = (
+            self.world.bundles.get_storage_unchecked(bundle_id),
+            change_mode,
+        );
 
         let bundle_inserter =
             BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
@@ -1147,7 +1154,7 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             location,
             Some(component).into_iter(),
-            Some(storage_type).iter().cloned(),
+            Some(storage_type_and_change_mode).iter().cloned(),
             mode,
             caller,
             relationship_hook_insert_mode,
@@ -1191,13 +1198,25 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
+
+        // FIXME: this is slow
+        let change_modes = component_ids
+            .iter()
+            .map(
+                |component_id| match self.world.components.get_descriptor(*component_id) {
+                    Some(descriptor) => descriptor.change_mode(),
+                    None => ChangeMode::default(),
+                },
+            )
+            .collect::<Vec<_>>();
+
         let bundle_id = self.world.bundles.init_dynamic_info(
             &mut self.world.storages,
             &self.world.components,
             component_ids,
         );
-        let mut storage_types =
-            core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
+        let mut storages = core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
+        let storage_types_and_change_modes = storages.iter().cloned().zip(change_modes);
         let bundle_inserter =
             BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
 
@@ -1206,12 +1225,12 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             location,
             iter_components,
-            (*storage_types).iter().cloned(),
+            storage_types_and_change_modes,
             InsertMode::Replace,
             MaybeLocation::caller(),
             relationship_hook_insert_mode,
         ));
-        *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
+        *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storages);
         self.world.flush();
         self.update_location();
         self
@@ -1734,6 +1753,7 @@ impl<'w> EntityWorldMut<'w> {
             moved_entity = unsafe {
                 self.world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
+            // TODO: set changed tick
         };
 
         // Handle displaced entity
@@ -2323,30 +2343,30 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
 unsafe fn insert_dynamic_bundle<
     'a,
     I: Iterator<Item = OwningPtr<'a>>,
-    S: Iterator<Item = StorageType>,
+    S: Iterator<Item = (StorageType, ChangeMode)>,
 >(
     mut bundle_inserter: BundleInserter<'_>,
     entity: Entity,
     location: EntityLocation,
     components: I,
-    storage_types: S,
+    storage_types_and_change_modes: S,
     mode: InsertMode,
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
 ) -> EntityLocation {
-    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
+    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, ChangeMode, OwningPtr<'a>)>> {
         components: I,
     }
 
-    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+    impl<'a, I: Iterator<Item = (StorageType, ChangeMode, OwningPtr<'a>)>> DynamicBundle
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
         unsafe fn get_components(
             mut ptr: MovingPtr<'_, Self>,
-            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+            func: &mut impl FnMut(StorageType, ChangeMode, OwningPtr<'_>),
         ) {
-            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr));
+            (&mut ptr.components).for_each(|(t, c, ptr)| func(t, c, ptr));
         }
 
         unsafe fn apply_effect(
@@ -2357,7 +2377,9 @@ unsafe fn insert_dynamic_bundle<
     }
 
     let bundle = DynamicInsertBundle {
-        components: storage_types.zip(components),
+        components: storage_types_and_change_modes
+            .zip(components)
+            .map(|((storage_type, change_mode), component)| (storage_type, change_mode, component)),
     };
 
     move_as_ptr!(bundle);

@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     ptr::OwningPtr,
 };
+use bevy_ecs::component::ChangeMode;
 use core::alloc::Layout;
 
 /// This component is mutable, the default case. This is indicated by components
@@ -150,6 +151,7 @@ fn demo_3(world: &mut World) {
                 ComponentDescriptor::new_with_layout(
                     name.to_string(),
                     StorageType::Table,
+                    ChangeMode::Default,
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,

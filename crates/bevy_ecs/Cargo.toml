@@ -52,6 +52,8 @@ bevy_debug_stepping = []
 ## This will often provide more detailed error messages.
 track_location = []
 
+big_pages = []
+
 # Executor Backend
 
 ## Uses `async-executor` as a task execution backend.

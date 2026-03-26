@@ -1,6 +1,6 @@
 use crate::{
     change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
-    component::{ComponentId, ComponentInfo, Components},
+    component::{ChangeIndex, ChangeMode, ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
@@ -115,7 +115,7 @@ impl TableRow {
         self.0.get() as usize
     }
 
-    /// Gets the index of the row as a [`usize`].
+    /// Gets the index of the row as a [`u32`].
     #[inline]
     pub const fn index_u32(self) -> u32 {
         self.0.get()
@@ -139,6 +139,7 @@ impl TableRow {
 pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
+    needs_change_index: bool,
 }
 
 impl TableBuilder {
@@ -148,6 +149,7 @@ impl TableBuilder {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             entities: Vec::with_capacity(capacity),
+            needs_change_index: false,
         }
     }
 
@@ -163,6 +165,8 @@ impl TableBuilder {
             component_info.id(),
             Column::with_capacity(component_info, self.entities.capacity()),
         );
+        self.needs_change_index =
+            self.needs_change_index || matches!(component_info.change_mode(), ChangeMode::Indexed);
         self
     }
 
@@ -176,6 +180,11 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         assert!(self.columns.indices().is_sorted());
         Table {
+            change_index: if self.needs_change_index {
+                Some(ChangeIndex { page_table: vec![] })
+            } else {
+                None
+            },
             columns: self.columns.into_immutable(),
             entities: self.entities,
         }
@@ -202,6 +211,8 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
+    // A change index will be present if any of the components are indexed.
+    change_index: Option<ChangeIndex>,
 }
 
 impl Table {
@@ -611,6 +622,16 @@ impl Table {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.index()))
     }
+
+    #[inline]
+    pub(crate) fn change_index(&self) -> Option<&ChangeIndex> {
+        self.change_index.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn change_index_mut(&mut self) -> Option<&mut ChangeIndex> {
+        self.change_index.as_mut()
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
@@ -752,6 +773,7 @@ impl Tables {
         old_table_id: TableId,
         new_table_id: TableId,
         row: TableRow,
+        change_tick: Tick,
     ) -> TableMoveResult<'_> {
         #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
@@ -809,6 +831,10 @@ impl Tables {
 
         // Need to end the mutable borrow so we can return `dst_table`.
         drop(dst_iter);
+
+        if let Some(change_index) = dst_table.change_index_mut() {
+            change_index.note_added(dst_row, change_tick);
+        }
 
         TableMoveResult {
             new_table: dst_table,

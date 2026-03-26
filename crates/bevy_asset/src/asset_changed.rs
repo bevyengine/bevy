@@ -290,6 +290,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 // SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
+    const USES_INDEX: bool = false;
 
     #[inline]
     unsafe fn filter_fetch(
