@@ -56,6 +56,9 @@ struct Args {
     /// enable `GltfPlugin::convert_coordinates::meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
+    /// disables the infinite grid
+    #[argh(switch)]
+    no_infinite_grid: bool,
 }
 
 impl Args {
@@ -141,7 +144,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene((*scene_path).clone());
 
-    commands.spawn(InfiniteGrid);
+    if !args.no_infinite_grid {
+        commands.spawn(InfiniteGrid);
+    }
 
     commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
