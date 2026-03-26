@@ -327,13 +327,15 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
     type Template = T;
 }
 
+/// This is used to help improve error messages related to FromTemplate specialization. Developers should generally just ignore
+/// this trait and read the error message when they encounter it.
 #[diagnostic::on_unimplemented(
     message = "This type does not manually implement FromTemplate, and it must. If you are deriving FromTemplate and you see this, it is likely because \
                a field does not have a FromTemplate impl. This can usually be fixed by using a custom template for that field. \
                Ex: for an Option<Handle<Image>> field, annotate the field with `#[template(OptionTemplate<HandleTemplate<Image>>)]",
     note = "FromTemplate currently uses pseudo-specialization to enable FromTemplate to override Default. This error message is a consequence of t."
 )]
-pub trait SpecializeTemplate: Sized {}
+pub trait SpecializeFromTemplate: Sized {}
 
 /// A [`Template`] reference to an [`Entity`].
 pub enum EntityReference {
