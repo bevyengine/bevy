@@ -309,7 +309,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
     unpin_where_clause
         .predicates
-        .push(parse_quote! { for<'a> [()]: Sized });
+        .push(parse_quote! { for<'a> [()]: #bevy_ecs::template::SpecializeTemplate });
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs::template::FromTemplate for #type_ident #type_generics #where_clause {

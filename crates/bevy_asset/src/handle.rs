@@ -3,7 +3,7 @@ use crate::{
     ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
-use bevy_ecs::template::{FromTemplate, Template, TemplateContext};
+use bevy_ecs::template::{FromTemplate, SpecializeTemplate, Template, TemplateContext};
 use bevy_platform::collections::Equivalent;
 use bevy_reflect::{Reflect, TypePath};
 use core::{
@@ -202,7 +202,7 @@ impl<A: Asset> Default for Handle<A> {
 // ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
 // This enables Handle to implement Default _and_ implement FromTemplate, without conflicting with the
 // blanket impl of FromTemplate for T: Default + Clone.
-impl<T: Asset> Unpin for Handle<T> where for<'dummy> [()]: Sized {}
+impl<T: Asset> Unpin for Handle<T> where for<'a> [()]: SpecializeTemplate {}
 
 impl<T: Asset> FromTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
