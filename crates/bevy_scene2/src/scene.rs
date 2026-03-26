@@ -11,8 +11,7 @@ use bevy_ecs::{
         EntityScopes, FnTemplate, FromTemplate, ScopedEntityIndex, Template, TemplateContext,
     },
 };
-use core::marker::PhantomData;
-use std::any::TypeId;
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 use variadics_please::all_tuples;
 
@@ -78,7 +77,7 @@ impl SceneDependencies {
         self.0.push(SceneDependency { path, type_id });
     }
 
-    /// Registers a new asset dependency with the given `A` tpe and `path`. `A` should match
+    /// Registers a new asset dependency with the given `A` type and `path`. `A` should match
     /// the type of the asset being loaded.
     pub fn register<A: Asset>(&mut self, path: AssetPath<'static>) {
         self.register_erased(TypeId::of::<A>(), path);

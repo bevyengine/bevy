@@ -327,7 +327,7 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
     type Template = T;
 }
 
-/// This is used to help improve error messages related to FromTemplate specialization. Developers should generally just ignore
+/// This is used to help improve error messages related to [`FromTemplate`] specialization. Developers should generally just ignore
 /// this trait and read the error message when they encounter it.
 #[diagnostic::on_unimplemented(
     message = "This type does not manually implement FromTemplate, and it must. If you are deriving FromTemplate and you see this, it is likely because \
@@ -451,6 +451,6 @@ impl<T: Template> Template for OptionTemplate<T> {
     }
 
     fn clone_template(&self) -> Self {
-        OptionTemplate(self.0.as_ref().map(|t| t.clone_template()))
+        OptionTemplate(self.0.as_ref().map(Template::clone_template))
     }
 }
