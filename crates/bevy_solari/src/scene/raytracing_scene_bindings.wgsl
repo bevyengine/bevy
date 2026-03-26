@@ -49,8 +49,8 @@ struct Material {
     perceptual_roughness: f32,
     emissive: vec3<f32>,
     metallic: f32,
-    reflectance: vec3<f32>,
-    _padding: f32,
+    _padding: vec3<f32>,
+    reflectance: f32,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -108,7 +108,7 @@ fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
 struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
-    reflectance: vec3<f32>,
+    reflectance: f32,
     perceptual_roughness: f32,
     roughness: f32,
     metallic: f32,
