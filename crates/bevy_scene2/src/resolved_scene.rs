@@ -79,13 +79,11 @@ impl ResolvedSceneListRoot {
 
             func(&mut entity);
             entities.push(entity.id());
-            scene
-                .apply(&mut TemplateContext::new(
-                    &mut entity,
-                    &mut scoped_entities,
-                    &self.entity_scopes,
-                ))
-                .unwrap();
+            scene.apply(&mut TemplateContext::new(
+                &mut entity,
+                &mut scoped_entities,
+                &self.entity_scopes,
+            ))?;
         }
 
         Ok(entities)
