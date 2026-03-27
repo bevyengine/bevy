@@ -423,6 +423,16 @@ impl LoadFromPath for AssetServer {
     }
 }
 
+impl LoadFromPath for &AssetServer {
+    fn load_from_path_erased(
+        &mut self,
+        type_id: TypeId,
+        path: AssetPath<'static>,
+    ) -> UntypedHandle {
+        self.load_erased(type_id, path)
+    }
+}
+
 /// A [`ReflectDeserializerProcessor`] that manually deserializes [`Handle`] and [`UntypedHandle`],
 /// and passes through for all other types.
 ///
