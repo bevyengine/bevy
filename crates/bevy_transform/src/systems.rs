@@ -4,6 +4,8 @@ use crate::{
 };
 
 use bevy_ecs::{prelude::*, query::QueryFilter};
+#[cfg(feature = "bevy_log")]
+use bevy_log::warn_once;
 
 /// Generic system that propagates transforms,
 /// using [`TransformHelper`] for any entity matching the filter `F`.
@@ -18,6 +20,7 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
             tf_helper
                 .compute_global_transform(entity)
                 .inspect_err(|err| {
+                    #[cfg(feature = "bevy_log")]
                     warn_once!(
                         "Failed to compute GlobalTransform for entity {:?}: {:?}",
                         entity,
@@ -31,7 +34,6 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     }
 }
 
-use bevy_log::warn_once;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
