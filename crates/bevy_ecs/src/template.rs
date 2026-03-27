@@ -13,7 +13,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use downcast_rs::{impl_downcast, Downcast};
 use variadics_please::all_tuples;
 
-/// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`](crate::world::World), etc), can produce a [`Template::Output`].
+/// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
 ///
 /// [`Template`] is the cornerstone of scene systems. It enables define types (and hierarchies) that require no [`World`] or [`Entity`] context to define,
 /// but can _use_ that context to produce the final runtime state. A [`Template`] is notably:
