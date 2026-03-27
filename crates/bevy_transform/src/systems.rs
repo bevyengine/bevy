@@ -14,23 +14,21 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     tf_helper: TransformHelper,
     mut query: Query<(Entity, &mut GlobalTransform), F>,
 ) {
-    for (mut gtf, computed) in query.iter_mut().filter_map(|(entity, gtf)| {
-        Some((
-            gtf,
-            tf_helper
-                .compute_global_transform(entity)
-                .inspect_err(|_err| {
-                    #[cfg(feature = "bevy_log")]
-                    warn_once!(
-                        "Failed to compute GlobalTransform for entity {:?}: {:?}",
-                        entity,
-                        _err
-                    );
-                })
-                .ok()?,
-        ))
-    }) {
-        *gtf = computed;
+    for (entity, mut gtf) in query.iter_mut() {
+        let computed_result = tf_helper
+            .compute_global_transform(entity)
+            .inspect_err(|_err| {
+                #[cfg(feature = "bevy_log")]
+                warn_once!(
+                    "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                    entity,
+                    _err
+                );
+            });
+
+        if let Ok(computed) = computed_result {
+            *gtf = computed;
+        }
     }
 }
 
