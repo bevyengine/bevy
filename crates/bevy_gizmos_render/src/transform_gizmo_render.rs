@@ -88,7 +88,7 @@ impl Plugin for TransformGizmoRenderPlugin {
             PostUpdate,
             (
                 update_gizmo_meshes,
-                bevy_transform::systems::propagate_parent_transforms,
+                bevy_transform::systems::propagate_parent_transforms.ambiguous_with_all,
             )
                 .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
