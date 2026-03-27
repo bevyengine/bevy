@@ -12,8 +12,9 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     hierarchy::ChildOf,
-    query::{With, Without},
+    query::{Changed, Or, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -24,7 +25,10 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    helper::TransformHelper,
+};
 
 use bevy_gizmos::transform_gizmo::{
     TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMeshMarker,
@@ -86,7 +90,8 @@ impl Plugin for TransformGizmoRenderPlugin {
         )
         .add_systems(
             PostUpdate,
-            update_gizmo_meshes
+            (update_gizmo_meshes, propagate_gizmo_transforms)
+                .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
@@ -333,6 +338,27 @@ fn spawn_gizmo_meshes(
     ));
 
     commands.insert_resource(mat_res);
+}
+
+/// Recomputes global transforms that were changed in [`update_gizmo_meshes`] so the
+/// gizmos don't lag behind by a frame
+fn propagate_gizmo_transforms(
+    transform_helper: TransformHelper,
+    mut focus_query: Query<
+        (Entity, &mut GlobalTransform),
+        (
+            Changed<Transform>,
+            Or<(
+                With<TransformGizmoRoot>,
+                With<GizmoOverlayCamera>,
+                With<TransformGizmoMeshMarker>,
+            )>,
+        ),
+    >,
+) {
+    for (entity, mut global_tf) in focus_query.iter_mut() {
+        *global_tf = transform_helper.compute_global_transform(entity).unwrap();
+    }
 }
 
 fn update_gizmo_meshes(
