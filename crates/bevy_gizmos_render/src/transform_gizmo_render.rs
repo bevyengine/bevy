@@ -97,7 +97,8 @@ impl Plugin for TransformGizmoRenderPlugin {
                         With<GizmoOverlayCamera>,
                         With<TransformGizmoMeshMarker>,
                     )>,
-                >,
+                >
+                    .ambiguous_with_all(),
             )
                 .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
