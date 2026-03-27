@@ -1628,7 +1628,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convex_polygon_uvs() {
+    fn test_convex_polygon() {
         let polygon = ConvexPolygon::new(vec![
             Vec2::new(-2.0, -1.0),
             Vec2::new(2.0, -1.0),
@@ -1639,17 +1639,40 @@ mod tests {
 
         let mut mesh = Mesh::from(polygon);
 
+        let Some(VertexAttributeValues::Float32x3(mut positions)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Expected positions f32x3");
+        };
         let Some(VertexAttributeValues::Float32x2(mut uvs)) =
             mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0)
         else {
             panic!("Expected uvs f32x2");
         };
+        let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("Expected normals f32x3");
+        };
 
+        fix_floats(&mut positions);
         fix_floats(&mut uvs);
+
+        assert_eq!(
+            [
+                [-2.0, -1.0, 0.0],
+                [2.0, -1.0, 0.0],
+                [1.0, 3.0, 0.0],
+                [-1.0, 2.0, 0.0],
+            ],
+            &positions[..]
+        );
 
         assert_eq!(
             [[0.0, 0.0], [1.0, 0.0], [0.75, 1.0], [0.25, 0.75]],
             &uvs[..]
         );
+
+        assert_eq!(&[[0.0, 0.0, 1.0]; 4], &normals[..]);
     }
 }
