@@ -67,7 +67,7 @@ struct SliderStyle;
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderValueText;
-///
+
 /// Spawn a new slider widget.
 ///
 /// # Arguments

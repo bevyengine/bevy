@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_scene", "bevy_scene2", "experimental_bevy_feathers"]
+scene = ["bevy_scene", "bevy_scene2"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]

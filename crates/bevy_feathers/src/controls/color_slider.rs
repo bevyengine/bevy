@@ -174,7 +174,7 @@ struct ColorSliderTrack;
 /// Marker for the thumb
 #[derive(Component, Default, Clone)]
 struct ColorSliderThumb;
-///
+
 /// Spawn a new slider scene.
 ///
 /// # Arguments

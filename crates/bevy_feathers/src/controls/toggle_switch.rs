@@ -37,7 +37,7 @@ struct ToggleSwitchOutline;
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
-///
+
 /// Scene function to spawn a toggle switch.
 ///
 /// # Emitted events

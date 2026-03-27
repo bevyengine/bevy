@@ -50,9 +50,6 @@ struct CheckboxMark;
 
 /// Scene function to spawn a checkbox.
 ///
-/// # Arguments
-/// * `props` - construction properties for the checkbox.
-///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///

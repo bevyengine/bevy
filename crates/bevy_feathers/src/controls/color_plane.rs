@@ -119,7 +119,7 @@ impl UiMaterial for ColorPlaneMaterial {
             vec![ShaderDefVal::Bool(plane_def.into(), true)];
     }
 }
-///
+
 /// Scene function to spawn a "color plane", which is a 2d picker that allows selecting two
 /// components of a color space.
 ///

@@ -44,9 +44,6 @@ struct RadioMark;
 
 /// Scene function to spawn a radio.
 ///
-/// # Arguments
-/// * `props` - construction properties for the radio.
-///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
