@@ -241,22 +241,22 @@ impl GpuResourceAppExt for SubApp {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
 
-/// Defines the schedules to be run for the main rendering, including their order.
+/// Defines the schedules to be run for the rendering, including their order.
 #[derive(Resource, Debug)]
-pub struct RenderMainScheduleOrder {
-    /// The labels to run for the main rendering schedule (in the order they will be run).
+pub struct RenderScheduleOrder {
+    /// The labels to run for the rendering schedule (in the order they will be run).
     pub labels: Vec<InternedScheduleLabel>,
 }
 
-impl Default for RenderMainScheduleOrder {
+impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![PreRender.intern(), Render.intern(), PostRender.intern()],
+            labels: vec![Render.intern()],
         }
     }
 }
 
-impl RenderMainScheduleOrder {
+impl RenderScheduleOrder {
     /// Adds the given `schedule` after the `after` schedule
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
         let index = self
@@ -277,14 +277,6 @@ impl RenderMainScheduleOrder {
         self.labels.insert(index, schedule.intern());
     }
 }
-
-/// Runs immediately before the main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PreRender;
-
-/// Runs immediately after the main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PostRender;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -389,6 +381,7 @@ impl Plugin for RenderPlugin {
         app.init_resource::<RenderAssetBytesPerFrame>()
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<RenderScheduleOrder>();
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
@@ -402,11 +395,7 @@ impl Plugin for RenderPlugin {
                 ),
             );
 
-            render_app.init_resource::<RenderMainScheduleOrder>();
-
-            render_app.init_schedule(PreRender);
             render_app.add_schedule(RenderGraph::base_schedule());
-            render_app.init_schedule(PostRender);
 
             render_app.init_schedule(RenderStartup);
             render_app
@@ -467,7 +456,7 @@ fn renderer_is_ready(state: Res<RenderState>) -> bool {
 }
 
 fn run_render_schedule(world: &mut World) {
-    world.resource_scope(|world, order: Mut<RenderMainScheduleOrder>| {
+    world.resource_scope(|world, order: Mut<RenderScheduleOrder>| {
         for &label in &order.labels {
             let _ = world.try_run_schedule(label);
         }
