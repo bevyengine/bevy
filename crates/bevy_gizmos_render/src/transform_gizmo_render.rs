@@ -86,7 +86,10 @@ impl Plugin for TransformGizmoRenderPlugin {
         )
         .add_systems(
             PostUpdate,
-            update_gizmo_meshes
+            (
+                update_gizmo_meshes,
+                bevy_transform::systems::propagate_parent_transforms,
+            )
                 .after(bevy_transform::TransformSystems::Propagate)
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );

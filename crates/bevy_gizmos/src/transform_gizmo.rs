@@ -233,10 +233,14 @@ impl Plugin for TransformGizmoPlugin {
             .register_type::<TransformGizmoCamera>()
             .register_type::<TransformGizmoSettings>()
             .register_type::<TransformGizmoState>()
-            .add_systems(Update, transform_gizmo_hover.in_set(TransformGizmoSystems))
+            .configure_sets(PostUpdate, TransformGizmoSystems)
             .add_systems(
                 PostUpdate,
-                transform_gizmo_drag.before(TransformSystems::Propagate),
+                (
+                    transform_gizmo_drag.before(TransformSystems::Propagate),
+                    transform_gizmo_hover.after(TransformSystems::Propagate),
+                )
+                    .in_set(TransformGizmoSystems),
             );
     }
 }
