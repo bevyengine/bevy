@@ -16,7 +16,7 @@
 //! is optional -- the gizmo will use that camera automatically. When multiple cameras
 //! exist, the marker is required so the gizmo knows which one to use.
 
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::{
