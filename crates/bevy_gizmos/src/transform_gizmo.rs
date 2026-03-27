@@ -195,7 +195,7 @@ pub struct TransformGizmoState {
     pub gizmo_origin: Vec3,
 }
 
-/// System set for the transform gizmo. All transform gizmo systems run in [`Update`]
+/// System set for the transform gizmo. All transform gizmo systems run in [`PostUpdate`]
 /// within this set.
 ///
 /// Add a run condition to control when the gizmo is active:
