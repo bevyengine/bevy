@@ -332,7 +332,7 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
 #[diagnostic::on_unimplemented(
     message = "This type does not manually implement FromTemplate, and it must. If you are deriving FromTemplate and you see this, it is likely because \
                a field does not have a FromTemplate impl. This can usually be fixed by using a custom template for that field. \
-               Ex: for an Option<Handle<Image>> field, annotate the field with `#[template(OptionTemplate<HandleTemplate<Image>>)]",
+               Ex: for an Option<Handle<Image>> field, annotate the field with `#[template(OptionTemplate<HandleTemplate<Image>>)]`",
     note = "FromTemplate currently uses pseudo-specialization to enable FromTemplate to override Default. This error message is a consequence of t."
 )]
 pub trait SpecializeFromTemplate: Sized {}
