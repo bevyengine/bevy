@@ -419,10 +419,10 @@ fn update_gizmo_meshes(
         // Update the material color in-place (avoids writing MeshMaterial3d)
         let is_active = active_axis == Some(handle.axis);
         let desired_color = materials_res.color(handle.axis, is_active, dragging && !is_active);
-        if let Some(mut material) = std_materials.get_mut(&mat.0) {
-            if material.base_color != desired_color {
-                material.base_color = desired_color;
-            }
+        if let Some(mut material) = std_materials.get_mut(&mat.0)
+            && material.base_color != desired_color
+        {
+            material.base_color = desired_color;
         }
     }
 }
