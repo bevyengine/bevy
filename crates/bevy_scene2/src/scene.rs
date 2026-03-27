@@ -42,8 +42,8 @@ use variadics_please::all_tuples;
 /// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::queue_spawn_scene`]
 ///
 /// [`World::spawn`]: crate::World::spawn
-/// [`World::spawn_scene`]: crate::SpawnScene::spawn_scene
-/// [`World::queue_spawn_scene`]: crate::SpawnScene::queue_spawn_scene
+/// [`World::spawn_scene`]: crate::WorldSceneExt::spawn_scene
+/// [`World::queue_spawn_scene`]: crate::WorldSceneExt::queue_spawn_scene
 /// [`Entity`]: bevy_ecs::entity::Entity
 /// [`Component`]: bevy_ecs::component::Component
 pub trait Scene: Send + Sync + 'static {
