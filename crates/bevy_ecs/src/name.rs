@@ -56,7 +56,8 @@ impl Default for Name {
 }
 
 /// A wrapper over Hashed. This exists to make Name("value".into()) possible, which plays nicely with contexts like the `bsn!` macro.
-#[derive(Reflect, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct HashedStr(Hashed<Cow<'static, str>>);
 
 impl From<&'static str> for HashedStr {
