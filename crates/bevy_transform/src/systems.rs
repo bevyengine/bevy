@@ -17,7 +17,13 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
             gtf,
             tf_helper
                 .compute_global_transform(e)
-                .inspect_err(|e| warn_once!("Failed to compute GlobalTransform for entity {:?}", e))
+                .inspect_err(|err| {
+                    warn_once!(
+                        "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                        e,
+                        err
+                    );
+                })
                 .ok()?,
         ))
     }) {
