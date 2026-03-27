@@ -19,12 +19,12 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
             gtf,
             tf_helper
                 .compute_global_transform(entity)
-                .inspect_err(|err| {
+                .inspect_err(|_err| {
                     #[cfg(feature = "bevy_log")]
                     warn_once!(
                         "Failed to compute GlobalTransform for entity {:?}: {:?}",
                         entity,
-                        err
+                        _err
                     );
                 })
                 .ok()?,
