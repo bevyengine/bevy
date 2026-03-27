@@ -29,8 +29,8 @@ use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_gizmos::transform_gizmo::{
     TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMeshMarker,
     TransformGizmoMode, TransformGizmoRoot, TransformGizmoSettings, TransformGizmoState,
-    AXIS_START_OFFSET, COLOR_VIEW, COLOR_X, COLOR_Y, COLOR_Z, CONE_HEIGHT,
-    CONE_RADIUS, INACTIVE_ALPHA, ROTATE_RING_RADIUS, SCALE_CUBE_SIZE, SHAFT_LENGTH, SHAFT_RADIUS,
+    AXIS_START_OFFSET, COLOR_VIEW, COLOR_X, COLOR_Y, COLOR_Z, CONE_HEIGHT, CONE_RADIUS,
+    INACTIVE_ALPHA, ROTATE_RING_RADIUS, SCALE_CUBE_SIZE, SHAFT_LENGTH, SHAFT_RADIUS,
     VIEW_CIRCLE_MAJOR, VIEW_CIRCLE_MINOR, VIEW_RING_MAJOR, VIEW_RING_MINOR,
 };
 
@@ -83,11 +83,10 @@ pub struct TransformGizmoRenderPlugin;
 
 impl Plugin for TransformGizmoRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_gizmo_meshes)
-            .add_systems(
-                PostUpdate,
-                update_gizmo_meshes.after(bevy_transform::TransformSystems::Propagate),
-            );
+        app.add_systems(Startup, spawn_gizmo_meshes).add_systems(
+            PostUpdate,
+            update_gizmo_meshes.after(bevy_transform::TransformSystems::Propagate),
+        );
     }
 }
 

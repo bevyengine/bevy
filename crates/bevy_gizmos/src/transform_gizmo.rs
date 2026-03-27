@@ -17,7 +17,6 @@
 //! exist, the marker is required so the gizmo knows which one to use.
 
 use bevy_app::{App, Plugin, PostUpdate, Update};
-use bevy_transform::TransformSystems;
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -33,6 +32,7 @@ use bevy_input::{mouse::MouseButton, ButtonInput};
 use bevy_math::{Quat, Ray3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::TransformSystems;
 use bevy_window::{CursorGrabMode, CursorOptions, PrimaryWindow, Window};
 
 /// Default length of each axis handle.
@@ -138,7 +138,7 @@ pub enum TransformGizmoAxis {
 pub struct TransformGizmoSettings {
     /// Which manipulation mode the gizmo is in.
     pub mode: TransformGizmoMode,
-    /// Whether the gizmo operates in world or local space.
+    /// Whether the gizmo transforms the object using world or local space axes.
     pub space: TransformGizmoSpace,
     /// Length of the axis handles.
     pub axis_length: f32,
