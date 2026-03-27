@@ -12,14 +12,20 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     tf_helper: TransformHelper,
     mut query: Query<(Entity, &mut GlobalTransform), F>,
 ) {
-    for (mut gtf, computed) in query
-        .iter_mut()
-        .filter_map(|(e, gtf)| Some((gtf, tf_helper.compute_global_transform(e).ok()?)))
-    {
+    for (mut gtf, computed) in query.iter_mut().filter_map(|(e, gtf)| {
+        Some((
+            gtf,
+            tf_helper
+                .compute_global_transform(e)
+                .inspect_err(|e| warn_once!("Failed to compute GlobalTransform for entity {:?}", e))
+                .ok()?,
+        ))
+    }) {
         *gtf = computed;
     }
 }
 
+use bevy_log::warn_once;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
