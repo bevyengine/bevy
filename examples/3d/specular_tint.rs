@@ -112,7 +112,7 @@ fn setup(
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
             //
-            // <https://google.github.io/filament/Filament.html#listing_fnormal>
+            // <https://google.github.io/filament/Filament.md.html#listing_fnormal>
             metallic: 0.0,
             perceptual_roughness: 0.0,
             ..default()

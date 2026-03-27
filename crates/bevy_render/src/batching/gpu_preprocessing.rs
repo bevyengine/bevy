@@ -1579,17 +1579,16 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                             &mut phase_indirect_parameters_buffers.buffers,
                             indirect_parameters_index,
                         );
+                    }
 
-                        batch_set = Some(SortedRenderBatchSet {
-                            phase_item_start_index: current_index as u32,
-                            instance_start_index: output_index,
-                            indexed: item_is_indexed,
-                            indirect_parameters_index_range: Some(
-                                indirect_parameters_index..(indirect_parameters_index + 1),
-                            ),
-                            meta: current_meta,
-                        });
-                    };
+                    batch_set = Some(SortedRenderBatchSet {
+                        phase_item_start_index: current_index as u32,
+                        instance_start_index: output_index,
+                        indexed: item_is_indexed,
+                        indirect_parameters_index_range: indirect_parameters_index
+                            .map(|i| i..(i + 1)),
+                        meta: current_meta,
+                    });
                 }
 
                 SortedPhaseItemBatchability::BreakBatch => {
