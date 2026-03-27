@@ -1,4 +1,4 @@
-use bevy::{color::palettes::css::WHITE, prelude::*};
+use bevy::prelude::*;
 use rand::RngExt;
 
 const BASE_URL: &str = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
@@ -195,16 +195,14 @@ pub fn load_assets(
             primitive: 0,
         }
         .from_asset(format!("{base_url}/city-kit-roads/tile-low.glb")));
-        // TODO use this once https://github.com/bevyengine/bevy/pull/22943 is merged
-        // let default_material: Handle<StandardMaterial> = asset_server.load(format!(
-        //     "ground_tile/tile-low.glb#{}/std",
-        //     GltfAssetLabel::DefaultMaterial
-        // ));
-        let white_material = materials.add(StandardMaterial::from_color(WHITE));
+        let default_material: Handle<StandardMaterial> = load_asset!(format!(
+            "{base_url}/city-kit-roads/tile-low.glb#{}/std",
+            GltfAssetLabel::DefaultMaterial
+        ));
         let grass_material =
             materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
 
-        (mesh, white_material, grass_material)
+        (mesh, default_material, grass_material)
     };
 
     let tree_small: Handle<Scene> =
