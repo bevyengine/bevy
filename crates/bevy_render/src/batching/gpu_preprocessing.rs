@@ -1231,6 +1231,7 @@ impl FromWorld for GpuPreprocessingSupport {
         // Depth downsampling for occlusion culling requires 12 textures
         // and the early occlusion culling pass requires 10 storage buffers
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
+            device.limits().max_storage_buffers_per_shader_stage >= 10 &&
             // Even if the adapter supports compute, we might be simulating a lack of
             // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
             // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
