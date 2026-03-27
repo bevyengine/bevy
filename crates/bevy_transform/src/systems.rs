@@ -15,7 +15,7 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     mut query: Query<(Entity, &mut GlobalTransform), F>,
 ) {
     for (entity, mut gtf) in query.iter_mut() {
-        let computed_result = tf_helper
+        let result = tf_helper
             .compute_global_transform(entity)
             .inspect_err(|_err| {
                 #[cfg(feature = "bevy_log")]
@@ -26,7 +26,7 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
                 );
             });
 
-        if let Ok(computed) = computed_result {
+        if let Ok(computed) = result {
             *gtf = computed;
         }
     }
