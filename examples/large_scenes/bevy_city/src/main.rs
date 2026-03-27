@@ -120,19 +120,42 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
         },
         BackgroundColor(Color::BLACK),
-        children![(
-            LoadingText,
-            Text::new("Loading..."),
-            TextFont {
-                font_size: FontSize::Px(24.0),
-                ..default()
-            },
-        )],
+        children![
+            (
+                LoadingText,
+                Text::new("Loading..."),
+                TextFont {
+                    font_size: FontSize::Px(24.0),
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Left,
+                    ..default()
+                },
+            ),
+            (
+                LoadingPaths,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(14.0),
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Left,
+                    ..default()
+                },
+                Node {
+                    margin: UiRect::top(Val::Px(12.0)),
+                    ..default()
+                },
+            ),
+        ],
     ));
 }
 
@@ -140,6 +163,8 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
 struct LoadingScreen;
 #[derive(Component)]
 struct LoadingText;
+#[derive(Component)]
+struct LoadingPaths;
 
 #[derive(Event)]
 struct CityAssetsReady;
@@ -152,12 +177,16 @@ fn loading_screen(
     assets: Res<CityAssets>,
     asset_server: Res<AssetServer>,
     mut loading_text: Query<&mut Text, With<LoadingText>>,
+    mut loading_paths: Query<&mut Text, (With<LoadingPaths>, Without<LoadingText>)>,
     loading_screen: Query<Entity, With<LoadingScreen>>,
 ) {
     let Ok(loading_screen) = loading_screen.single() else {
         return;
     };
     let Ok(mut text) = loading_text.single_mut() else {
+        return;
+    };
+    let Ok(mut paths_text) = loading_paths.single_mut() else {
         return;
     };
     let mut paths = vec![];
@@ -174,11 +203,11 @@ fn loading_screen(
         commands.trigger(CityAssetsReady);
     } else {
         text.0 = format!(
-            "Loading assets: {}/{} \n{}",
+            "Loading assets: {}/{}",
             assets.untyped_assets.len() - paths.len(),
             assets.untyped_assets.len(),
-            paths.join("\n")
         );
+        paths_text.0 = paths.join("\n");
     }
 }
 
