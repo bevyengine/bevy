@@ -236,7 +236,7 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render recovery schedule. This schedule runs the [`RenderMainScheduleOrder`] schedules if
+/// The render recovery schedule. This schedule runs the [`RenderScheduleOrder`] schedules if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
