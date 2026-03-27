@@ -78,7 +78,13 @@ pub struct TransformGizmoRenderPlugin;
 
 impl Plugin for TransformGizmoRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_gizmo_meshes).add_systems(
+        app.add_systems(
+            Startup,
+            spawn_gizmo_meshes.run_if(
+                bevy_ecs::schedule::common_conditions::resource_exists::<TransformGizmoSettings>,
+            ),
+        )
+        .add_systems(
             PostUpdate,
             update_gizmo_meshes
                 .after(bevy_transform::TransformSystems::Propagate)
