@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::{Changed, Or, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_math::{
     primitives::{Cone, Cuboid, Cylinder, Torus},
@@ -90,7 +90,11 @@ impl Plugin for TransformGizmoRenderPlugin {
         )
         .add_systems(
             PostUpdate,
-            (update_gizmo_meshes, propagate_gizmo_transforms)
+            (
+                update_gizmo_meshes,
+                // By design this only touches GlobalTransforms written by update_gizmo_meshes
+                propagate_gizmo_transforms.ambiguous_with_all(),
+            )
                 .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
@@ -362,7 +366,7 @@ fn propagate_gizmo_transforms(
 }
 
 fn update_gizmo_meshes(
-    focus: Option<bevy_ecs::system::Single<&GlobalTransform, With<TransformGizmoFocus>>>,
+    focus: Option<Single<&GlobalTransform, With<TransformGizmoFocus>>>,
     marked_cameras: Query<(&Camera, &GlobalTransform), With<TransformGizmoCamera>>,
     all_cameras: Query<
         (&Camera, &GlobalTransform),
