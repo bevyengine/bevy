@@ -126,36 +126,32 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
             ..default()
         },
         BackgroundColor(Color::BLACK),
-        children![
-            (
-                LoadingText,
-                Text::new("Loading..."),
-                TextFont {
-                    font_size: FontSize::Px(24.0),
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Left,
-                    ..default()
-                },
-            ),
-            (
-                LoadingPaths,
-                Text::new(""),
-                TextFont {
-                    font_size: FontSize::Px(14.0),
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Left,
-                    ..default()
-                },
-                Node {
-                    margin: UiRect::top(Val::Px(12.0)),
-                    ..default()
-                },
-            ),
-        ],
+        children![(
+            Node {
+                width: Val::Percent(60.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                ..default()
+            },
+            children![
+                (
+                    LoadingText,
+                    Text::new("Loading..."),
+                    TextFont {
+                        font_size: FontSize::Px(24.0),
+                        ..default()
+                    },
+                ),
+                (
+                    LoadingPaths,
+                    Text::new(""),
+                    TextFont {
+                        font_size: FontSize::Px(14.0),
+                        ..default()
+                    },
+                ),
+            ]
+        )],
     ));
 }
 
