@@ -85,7 +85,9 @@ impl Plugin for TransformGizmoRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_gizmo_meshes).add_systems(
             PostUpdate,
-            update_gizmo_meshes.after(bevy_transform::TransformSystems::Propagate),
+            update_gizmo_meshes
+                .after(bevy_transform::TransformSystems::Propagate)
+                .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
     }
 }
@@ -335,8 +337,8 @@ fn update_gizmo_meshes(
         (&Camera, &GlobalTransform),
         (Without<GizmoOverlayCamera>, Without<TransformGizmoRoot>),
     >,
-    settings: Res<TransformGizmoSettings>,
-    state: Res<TransformGizmoState>,
+    settings: Option<Res<TransformGizmoSettings>>,
+    state: Option<Res<TransformGizmoState>>,
     materials_res: Option<Res<TransformGizmoMaterials>>,
     mut root_query: Query<
         (&mut Transform, &mut Visibility),
@@ -359,7 +361,8 @@ fn update_gizmo_meshes(
         ),
     >,
 ) {
-    let Some(materials_res) = materials_res else {
+    let (Some(materials_res), Some(settings), Some(state)) = (materials_res, settings, state)
+    else {
         return;
     };
 
