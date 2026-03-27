@@ -16,12 +16,13 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
     scene::SceneInstanceReady,
+    scene2::CommandsSceneExt,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
 
 use crate::settings::Settings;
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
+use crate::{generate_city::spawn_city, settings::settings_ui};
 
 mod assets;
 mod generate_city;
@@ -78,7 +79,6 @@ fn main() {
             Startup,
             (
                 setup,
-                setup_settings_ui,
                 load_assets,
                 (setup_city.after(load_assets), add_no_cpu_culling).chain(),
             ),
@@ -118,6 +118,8 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         },
         Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    commands.spawn_scene(settings_ui());
 }
 
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>, args: Res<Args>) {
