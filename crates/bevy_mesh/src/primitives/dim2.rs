@@ -431,6 +431,7 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
         let len = self.vertices.len();
         let mut indices = Vec::with_capacity((len - 2) * 3);
         let mut positions = Vec::with_capacity(len);
+        let normals = vec![[0.0, 0.0, 1.0]; len];
         let mut uvs = Vec::with_capacity(len);
 
         let mut min = Vec2::splat(f32::INFINITY);
@@ -457,6 +458,7 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
     }
