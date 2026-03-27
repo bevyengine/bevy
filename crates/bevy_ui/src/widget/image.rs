@@ -11,7 +11,7 @@ use taffy::{MaybeMath, MaybeResolve};
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(Node, ImageNodeSize, ContentSize)]
+#[require(Node, ImageNodeSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.
     ///
@@ -296,8 +296,8 @@ pub fn update_image_content_size_system(
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             if image.is_changed() {
-                // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
-                content_size.measure = None;
+                // Remove any existing measure.
+                content_size.clear();
             }
             continue;
         }

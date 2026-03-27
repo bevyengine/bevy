@@ -28,7 +28,6 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
-use bevy_post_process::bloom::bloom;
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
@@ -194,8 +193,7 @@ impl Plugin for DlssPlugin {
             Core3d,
             (node::dlss_super_resolution, node::dlss_ray_reconstruction)
                 .chain()
-                .before(bloom)
-                .in_set(Core3dSystems::PostProcess),
+                .in_set(Core3dSystems::EarlyPostProcess),
         );
     }
 }

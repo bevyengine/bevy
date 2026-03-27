@@ -45,7 +45,7 @@ use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
     render_resource::SpecializedRenderPipelines,
     sync_component::{SyncComponent, SyncComponentPlugin},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
@@ -81,8 +81,8 @@ impl Plugin for VolumetricFogPlugin {
                 plane_mesh,
                 cube_mesh,
             })
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
+            .init_gpu_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
+            .init_gpu_resource::<VolumetricFogUniformBuffer>()
             .add_systems(
                 RenderStartup,
                 init_volumetric_fog_pipeline.after(MeshPipelineSet),

@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod bounds;
+mod cursor;
 mod error;
 mod font;
 mod font_atlas;
@@ -42,8 +43,11 @@ mod parley_context;
 mod pipeline;
 mod text;
 mod text_access;
+mod text_edit;
+mod text_editable;
 
 pub use bounds::*;
+pub use cursor::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -54,6 +58,8 @@ pub use parley_context::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
+pub use text_edit::*;
+pub use text_editable::*;
 
 /// The text prelude.
 ///
@@ -86,6 +92,10 @@ pub struct TextPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
 
+/// System set where [`EditableText::pending_edits`] are applied.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct EditableTextSystems;
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
@@ -97,6 +107,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<Clipboard>()
             .add_systems(
                 PostUpdate,
                 (
@@ -105,7 +116,8 @@ impl Plugin for TextPlugin {
                 )
                     .chain(),
             )
-            .add_systems(Last, trim_source_cache);
+            .add_systems(Last, trim_source_cache)
+            .add_systems(PostUpdate, apply_text_edits.in_set(EditableTextSystems));
 
         #[cfg(feature = "default_font")]
         {

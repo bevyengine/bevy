@@ -105,30 +105,21 @@ impl UiSurface {
         match self.entity_to_taffy.entry(entity) {
             Entry::Occupied(entry) => {
                 let taffy_node = *entry.get();
-                let has_measure = if new_node_context.is_some() {
+                if new_node_context.is_some() {
                     taffy
                         .set_node_context(taffy_node.id, new_node_context)
                         .unwrap();
-                    true
-                } else {
-                    taffy.get_node_context(taffy_node.id).is_some()
-                };
+                }
 
                 taffy
-                    .set_style(
-                        taffy_node.id,
-                        convert::from_node(node, layout_context, has_measure),
-                    )
+                    .set_style(taffy_node.id, convert::from_node(node, layout_context))
                     .unwrap();
             }
             Entry::Vacant(entry) => {
                 let taffy_node = if let Some(measure) = new_node_context.take() {
-                    taffy.new_leaf_with_context(
-                        convert::from_node(node, layout_context, true),
-                        measure,
-                    )
+                    taffy.new_leaf_with_context(convert::from_node(node, layout_context), measure)
                 } else {
-                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                    taffy.new_leaf(convert::from_node(node, layout_context))
                 };
                 entry.insert(taffy_node.unwrap().into());
             }
@@ -153,6 +144,7 @@ impl UiSurface {
                 if let Some(viewport_id) = taffy_node.viewport_id.take() {
                     self.taffy.remove(viewport_id).ok();
                 }
+                self.root_entity_to_viewport_node.remove(&child);
             }
         }
 
@@ -270,6 +262,7 @@ impl UiSurface {
                     self.taffy.remove(viewport_node).ok();
                 }
             }
+            self.root_entity_to_viewport_node.remove(&entity);
         }
     }
 

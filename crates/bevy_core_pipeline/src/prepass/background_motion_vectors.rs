@@ -30,7 +30,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_component::SyncComponent,
     view::{Msaa, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::prelude::default;
@@ -94,8 +94,8 @@ impl Plugin for BackgroundMotionVectorsPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>()
-            .init_resource::<PreviousViewUniforms>()
+            .init_gpu_resource::<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>()
+            .init_gpu_resource::<PreviousViewUniforms>()
             .add_systems(RenderStartup, init_background_motion_vectors_pipeline)
             .add_systems(
                 Render,
@@ -155,8 +155,8 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),

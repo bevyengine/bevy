@@ -28,7 +28,7 @@ use bevy_render::{
     batching::gpu_preprocessing::BatchedInstanceBuffers,
     diagnostic::RecordDiagnostics as _,
     mesh::{
-        allocator::{MeshAllocator, SlabId},
+        allocator::{MeshAllocator, MeshSlabId},
         RenderMesh,
     },
     render_asset::RenderAssets,
@@ -253,11 +253,11 @@ pub struct CachedSkinBuffers {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CachedSkinBindGroupKey {
     /// The vertex slab ID.
-    pub vertex_slab_id: SlabId,
+    pub vertex_slab_id: MeshSlabId,
     /// The morph target slab ID, if any.
     ///
     /// If this is `None`, then the meshes in question have no morph targets.
-    pub morph_target_slab_id: Option<SlabId>,
+    pub morph_target_slab_id: Option<MeshSlabId>,
 }
 
 impl CachedSkinBindGroupKey {
@@ -266,7 +266,7 @@ impl CachedSkinBindGroupKey {
     ///
     /// If `morph_target_slab_id` is `None`, the skin caching shader won't
     /// evaluate morph targets.
-    pub fn new(vertex_slab_id: SlabId, morph_target_slab_id: Option<SlabId>) -> Self {
+    pub fn new(vertex_slab_id: MeshSlabId, morph_target_slab_id: Option<MeshSlabId>) -> Self {
         Self {
             vertex_slab_id,
             morph_target_slab_id,
@@ -438,7 +438,7 @@ pub struct SkinCachePipeline {
 pub struct SkinCachePipelineIds {
     /// The mapping from the vertex slab ID to the skin caching compute shader
     /// pipeline ID.
-    pub vertex_slab_to_pipeline_id: HashMap<SlabId, CachedComputePipelineId>,
+    pub vertex_slab_to_pipeline_id: HashMap<MeshSlabId, CachedComputePipelineId>,
 }
 
 impl FromWorld for SkinCachePipeline {
@@ -780,7 +780,7 @@ pub fn prepare_skin_cache_bind_groups(
             Some(skin_tasks_buffer),
             Some(cached_skinned_vertices_buffer),
         ) = (
-            mesh_allocator.slab_buffer(cached_skin_bind_group_key.vertex_slab_id),
+            mesh_allocator.buffer_for_slab(cached_skin_bind_group_key.vertex_slab_id),
             skin_task_set.skin_tasks_buffer.buffer(),
             skin_task_set
                 .current_cached_skinned_vertices_buffer
@@ -806,7 +806,9 @@ pub fn prepare_skin_cache_bind_groups(
                 .unwrap_or(&cached_skin_buffers.dummy_morph_descriptor_buffer),
             cached_skin_bind_group_key
                 .morph_target_slab_id
-                .and_then(|morph_target_slab_id| mesh_allocator.slab_buffer(morph_target_slab_id))
+                .and_then(|morph_target_slab_id| {
+                    mesh_allocator.buffer_for_slab(morph_target_slab_id)
+                })
                 .unwrap_or(&cached_skin_buffers.dummy_morph_attribute_buffer),
         );
 
