@@ -344,7 +344,7 @@ fn spawn_gizmo_meshes(
 /// gizmos don't lag behind by a frame
 fn propagate_gizmo_transforms(
     transform_helper: TransformHelper,
-    mut focus_query: Query<
+    mut query: Query<
         (Entity, &mut GlobalTransform),
         (
             Changed<Transform>,
@@ -356,7 +356,7 @@ fn propagate_gizmo_transforms(
         ),
     >,
 ) {
-    for (entity, mut global_tf) in focus_query.iter_mut() {
+    for (entity, mut global_tf) in query.iter_mut() {
         *global_tf = transform_helper.compute_global_transform(entity).unwrap();
     }
 }
