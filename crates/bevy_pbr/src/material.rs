@@ -1063,6 +1063,13 @@ pub(crate) fn specialize_material_meshes(
                     }
                 }
 
+                if mesh_instance
+                    .flags()
+                    .contains(RenderMeshInstanceFlags::SKIN_CACHE)
+                {
+                    mesh_key |= MeshPipelineKey::SKIN_CACHE;
+                }
+
                 work_items.push(SpecializationWorkItem {
                     visible_entity: *visible_entity,
                     retained_view_entity: view.retained_view_entity,

@@ -1457,6 +1457,13 @@ pub fn specialize_wireframes(
                 }
             }
 
+            if mesh_instance
+                .flags()
+                .contains(RenderMeshInstanceFlags::SKIN_CACHE)
+            {
+                mesh_key |= MeshPipelineKey::SKIN_CACHE;
+            }
+
             // Even though we don't use the lightmap in the wireframe, the
             // `SetMeshBindGroup` render command will bind the data for it. So
             // we need to include the appropriate flag in the mesh pipeline key

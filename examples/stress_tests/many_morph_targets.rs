@@ -3,6 +3,8 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    mesh::morph::MeshMorphWeights,
+    pbr::CacheSkin,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     scene::SceneInstanceReady,
@@ -129,6 +131,10 @@ struct Args {
     /// enable motion blur
     #[argh(switch)]
     motion_blur: bool,
+
+    /// enable skin caching
+    #[argh(switch)]
+    cache_skins: bool,
 }
 
 fn main() {
@@ -163,6 +169,10 @@ fn main() {
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
+        .add_systems(
+            Update,
+            mark_skins_as_cached.run_if(|args: Res<Args>| args.cache_skins),
+        )
         .run();
 }
 
@@ -406,5 +416,16 @@ fn set_weights(
                 weight_component.weights_mut().fill(weight_value);
             }
         }
+    }
+}
+
+/// Adds `CacheSkin` components to morphed meshes if skin caching was requested
+/// on the command line.
+fn mark_skins_as_cached(
+    mut commands: Commands,
+    query: Query<Entity, (With<MeshMorphWeights>, Without<CacheSkin>)>,
+) {
+    for entity in &query {
+        commands.entity(entity).insert(CacheSkin);
     }
 }

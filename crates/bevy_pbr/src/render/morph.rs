@@ -18,7 +18,8 @@ use bevy_render::{
 };
 use bytemuck::{NoUninit, Pod, Zeroable};
 
-use crate::{skin, RenderMeshInstances};
+use crate::skin::cache::CachedSkinEntities;
+use crate::{skin, CacheSkin, RenderMeshInstances};
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -252,9 +253,10 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
 pub fn extract_morphs(
     morph_indices: ResMut<MorphIndices>,
     uniform: ResMut<MorphUniforms>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights, Has<CacheSkin>)>>,
     weights_query: Extract<Query<&MorphWeights>>,
     render_device: Res<RenderDevice>,
+    mut cached_skin_entities: ResMut<CachedSkinEntities>,
 ) {
     // Borrow check workaround.
     let (morph_indices, uniform) = (morph_indices.into_inner(), uniform.into_inner());
@@ -279,9 +281,10 @@ pub fn extract_morphs(
     };
 
     uniform.prepare_for_new_frame();
+    cached_skin_entities.morphs.clear();
 
     // Loop over each entity with morph targets.
-    for (entity, view_visibility, mesh_weights) in &query {
+    for (entity, view_visibility, mesh_weights, skin_is_cached) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -293,6 +296,10 @@ pub fn extract_morphs(
         }) else {
             continue;
         };
+
+        if skin_is_cached {
+            cached_skin_entities.morphs.insert(entity.into());
+        }
 
         // Write the weights to the buffer. If we're using uniform buffers, then
         // we have to pad out the buffer to its fixed length.

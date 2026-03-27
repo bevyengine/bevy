@@ -1,7 +1,28 @@
 #define_import_path bevy_pbr::skinning
 
-#import bevy_pbr::mesh_types::SkinnedMesh
+#import bevy_pbr::mesh_types::{CachedSkinnedVertex, SkinnedMesh}
 #import bevy_pbr::mesh_bindings::mesh
+
+#ifdef SKINNED_OR_MORPHED
+
+#ifndef SKINS_USE_UNIFORM_BUFFERS
+@group(2) @binding(9) var<storage> cached_skinned_vertices: array<CachedSkinnedVertex>;
+@group(2) @binding(10) var<storage> prev_cached_skinned_vertices: array<CachedSkinnedVertex>;
+#endif  // SKINS_USE_UNIFORM_BUFFERS
+
+fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {
+    let x = cross(in[1], in[2]);
+    let y = cross(in[2], in[0]);
+    let z = cross(in[0], in[1]);
+    let det = dot(in[2], z);
+    return mat3x3<f32>(
+        x / det,
+        y / det,
+        z / det
+    );
+}
+
+#endif  // SKINNED_OR_MORPHED
 
 #ifdef SKINNED
 
@@ -63,18 +84,6 @@ fn skin_prev_model(
         + weights.z * prev_joint_matrices[skin_index + indexes.z]
         + weights.w * prev_joint_matrices[skin_index + indexes.w];
 #endif  // SKINS_USE_UNIFORM_BUFFERS
-}
-
-fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {
-    let x = cross(in[1], in[2]);
-    let y = cross(in[2], in[0]);
-    let z = cross(in[0], in[1]);
-    let det = dot(in[2], z);
-    return mat3x3<f32>(
-        x / det,
-        y / det,
-        z / det
-    );
 }
 
 fn skin_normals(

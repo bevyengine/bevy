@@ -18,6 +18,10 @@ use bevy_transform::prelude::GlobalTransform;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 
+use crate::skin::cache::{CacheSkin, CachedSkinEntities};
+
+pub mod cache;
+
 /// Maximum number of joints supported for skinned meshes.
 ///
 /// It is used to allocate buffers.
@@ -271,13 +275,15 @@ pub fn prepare_skins(
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
     skin_uniforms: ResMut<SkinUniforms>,
-    skinned_meshes: Extract<Query<(Entity, &SkinnedMesh)>>,
+    mut cached_skin_entities: ResMut<CachedSkinEntities>,
+    skinned_meshes: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh, Has<CacheSkin>)>>,
     changed_skinned_meshes: Extract<
         Query<
-            (Entity, &ViewVisibility, &SkinnedMesh),
+            Entity,
             Or<(
                 Changed<ViewVisibility>,
                 Changed<SkinnedMesh>,
+                Changed<CacheSkin>,
                 AssetChanged<SkinnedMesh>,
             )>,
         >,
@@ -286,6 +292,7 @@ pub fn extract_skins(
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
+    mut removed_cache_skin_query: Extract<RemovedComponents<CacheSkin>>,
 ) {
     let skin_uniforms = skin_uniforms.into_inner();
 
@@ -293,14 +300,17 @@ pub fn extract_skins(
     // reallocate, or free space for them as necessary.
     add_or_delete_skins(
         skin_uniforms,
+        &mut cached_skin_entities,
+        &skinned_meshes,
         &changed_skinned_meshes,
         &skinned_mesh_inverse_bindposes,
         &joints,
+        &mut removed_cache_skin_query,
     );
 
     // Extract the transforms for all joints from the scene, and write them into
     // the staging buffer at the appropriate spot.
-    for (skin_entity, skin) in &skinned_meshes {
+    for (skin_entity, _, skin, _) in &skinned_meshes {
         extract_joints_for_skin(
             skin_entity.into(),
             skin,
@@ -317,7 +327,11 @@ pub fn extract_skins(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_skinned_meshes.contains(skinned_mesh_entity) {
-            remove_skin(skin_uniforms, skinned_mesh_entity.into());
+            remove_skin(
+                skin_uniforms,
+                &mut cached_skin_entities,
+                skinned_mesh_entity.into(),
+            );
         }
     }
 }
@@ -326,25 +340,37 @@ pub fn extract_skins(
 /// allocations for them as necessary.
 fn add_or_delete_skins(
     skin_uniforms: &mut SkinUniforms,
+    cached_skin_entities: &mut CachedSkinEntities,
+    skinned_meshes: &Query<(Entity, &ViewVisibility, &SkinnedMesh, Has<CacheSkin>)>,
     changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
+        Entity,
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
+            Changed<CacheSkin>,
             AssetChanged<SkinnedMesh>,
         )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     joints: &Query<&GlobalTransform>,
+    removed_cache_skin_query: &mut RemovedComponents<CacheSkin>,
 ) {
     // Find every skinned mesh that changed one of (1) visibility; (2) joint
     // entities (part of `SkinnedMesh`); (3) the associated
-    // `SkinnedMeshInverseBindposes` asset.
-    for (skinned_mesh_entity, skinned_mesh_view_visibility, skinned_mesh) in changed_skinned_meshes
+    // `SkinnedMeshInverseBindposes` asset; (4) the `CacheSkin` component.
+    for skinned_mesh_entity in changed_skinned_meshes
+        .iter()
+        .chain(removed_cache_skin_query.read())
     {
+        let Ok((_, skinned_mesh_view_visibility, skinned_mesh, skin_is_cached)) =
+            skinned_meshes.get(skinned_mesh_entity)
+        else {
+            continue;
+        };
+
         // Remove the skin if it existed last frame.
         let skinned_mesh_entity = MainEntity::from(skinned_mesh_entity);
-        remove_skin(skin_uniforms, skinned_mesh_entity);
+        remove_skin(skin_uniforms, cached_skin_entities, skinned_mesh_entity);
 
         // If the skin is invisible, we're done.
         if !(*skinned_mesh_view_visibility).get() {
@@ -356,8 +382,10 @@ fn add_or_delete_skins(
             skinned_mesh_entity,
             skinned_mesh,
             skin_uniforms,
+            cached_skin_entities,
             skinned_mesh_inverse_bindposes,
             joints,
+            skin_is_cached,
         );
     }
 }
@@ -369,10 +397,11 @@ fn extract_joints_for_skin(
     skin: &SkinnedMesh,
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
+        Entity,
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
+            Changed<CacheSkin>,
             AssetChanged<SkinnedMesh>,
         )>,
     >,
@@ -418,8 +447,10 @@ fn add_skin(
     skinned_mesh_entity: MainEntity,
     skinned_mesh: &SkinnedMesh,
     skin_uniforms: &mut SkinUniforms,
+    cached_skin_entities: &mut CachedSkinEntities,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     joints: &Query<&GlobalTransform>,
+    skin_is_cached: bool,
 ) {
     // Allocate space for the joints.
     let Some(allocation) = skin_uniforms.allocator.allocate(
@@ -479,10 +510,18 @@ fn add_skin(
     skin_uniforms
         .skin_uniform_info
         .insert(skinned_mesh_entity, skin_uniform_info);
+
+    if skin_is_cached {
+        cached_skin_entities.skins.insert(skinned_mesh_entity);
+    }
 }
 
 /// Deallocates a skin and removes it from the [`SkinUniforms`].
-fn remove_skin(skin_uniforms: &mut SkinUniforms, skinned_mesh_entity: MainEntity) {
+fn remove_skin(
+    skin_uniforms: &mut SkinUniforms,
+    cached_skin_entities: &mut CachedSkinEntities,
+    skinned_mesh_entity: MainEntity,
+) {
     let Some(old_skin_uniform_info) = skin_uniforms.skin_uniform_info.remove(&skinned_mesh_entity)
     else {
         return;
@@ -495,6 +534,8 @@ fn remove_skin(skin_uniforms: &mut SkinUniforms, skinned_mesh_entity: MainEntity
 
     // Update the total number of joints.
     skin_uniforms.total_joints -= old_skin_uniform_info.joints.len();
+
+    cached_skin_entities.skins.remove(&skinned_mesh_entity);
 }
 
 // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per

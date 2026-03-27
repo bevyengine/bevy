@@ -95,7 +95,10 @@ pub mod prelude {
 }
 
 use crate::gpu::GpuClusteringPlugin;
-use crate::{deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_clustering};
+use crate::{
+    deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_clustering,
+    skin::cache::SkinCachePlugin,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
@@ -218,6 +221,7 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
+                SkinCachePlugin,
                 SyncComponentPlugin::<DirectionalLight, Self>::default(),
                 SyncComponentPlugin::<PointLight, Self>::default(),
                 SyncComponentPlugin::<SpotLight, Self>::default(),

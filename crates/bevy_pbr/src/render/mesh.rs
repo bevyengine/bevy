@@ -1,4 +1,5 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
+use crate::skin::cache::{CachedSkinBindGroupKey, CachedSkinBuffers, CachedSkinLocation};
 use crate::{
     material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
@@ -197,8 +198,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_skins,
-                        extract_morphs,
+                        (extract_skins, extract_morphs).chain(),
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
                             .before(MeshExtractionSystems),
                     ),
@@ -546,6 +546,21 @@ pub struct MeshUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer.
+    ///
+    /// If this mesh doesn't use skin caching, this is `u32::MAX`.
+    pub cached_skin_offset: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer for the previous frame.
+    ///
+    /// If this mesh doesn't use skin caching, or the mesh is newly-visible this
+    /// frame, this is `u32::MAX`.
+    pub prev_cached_skin_offset: u32,
+    /// Padding.
+    pub pad_a: u32,
+    /// Padding.
+    pub pad_b: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -615,6 +630,21 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer for the current frame.
+    ///
+    /// If this mesh doesn't use skin caching, this is `u32::MAX`.
+    pub cached_skin_offset: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer for the previous frame.
+    ///
+    /// If this mesh doesn't use skin caching, or the mesh is newly-visible this
+    /// frame, this is `u32::MAX`.
+    pub prev_cached_skin_offset: u32,
+    /// Padding.
+    pub pad_a: u32,
+    /// Padding.
+    pub pad_b: u32,
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -652,6 +682,7 @@ impl MeshUniform {
         maybe_lightmap: Option<(LightmapSlotIndex, Rect)>,
         current_skin_index: Option<u32>,
         morph_descriptor_index: Option<MorphDescriptorIndex>,
+        cached_skin_location: Option<&CachedSkinLocation>,
         tag: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
@@ -677,6 +708,19 @@ impl MeshUniform {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            cached_skin_offset: match cached_skin_location {
+                Some(cached_skin_location) => cached_skin_location.current,
+                None => u32::MAX,
+            },
+            prev_cached_skin_offset: match cached_skin_location {
+                Some(CachedSkinLocation {
+                    prev: Some(prev_cached_skin_offset),
+                    ..
+                }) => u32::from(*prev_cached_skin_offset),
+                _ => u32::MAX,
+            },
+            pad_a: 0,
+            pad_b: 0,
         }
     }
 }
@@ -757,7 +801,7 @@ impl MeshFlags {
 
 bitflags::bitflags! {
     /// Various useful flags for [`RenderMeshInstance`]s.
-    #[derive(Clone, Copy, Default, Pod, Zeroable)]
+    #[derive(Clone, Copy, PartialEq, Default, Pod, Zeroable)]
     #[repr(C)]
     pub struct RenderMeshInstanceFlags: u32 {
         /// The mesh casts shadows.
@@ -773,6 +817,7 @@ bitflags::bitflags! {
         /// The mesh had morph targets last frame and so they should be taken
         /// into account for motion vector computation.
         const HAS_PREVIOUS_MORPH      = 1 << 4;
+        const SKIN_CACHE              = 1 << 5;
     }
 }
 
@@ -1092,6 +1137,7 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         aabb: Option<&Aabb>,
+        cache_skin: bool,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -1101,6 +1147,7 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             aabb,
+            cache_skin,
         )
     }
 
@@ -1113,6 +1160,7 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         aabb: Option<&Aabb>,
+        cache_skin: bool,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -1124,6 +1172,7 @@ impl RenderMeshInstanceSharedFlat {
             RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM,
             previous_transform.is_some(),
         );
+        mesh_instance_flags.set(RenderMeshInstanceFlags::SKIN_CACHE, cache_skin);
 
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
@@ -1410,6 +1459,7 @@ impl RenderMeshInstanceGpuBuilder {
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
         morph_indices: &MorphIndices,
+        cached_skin_buffers: &CachedSkinBuffers,
         timestamp: FrameCount,
     ) -> Option<RenderMeshInstanceGpuPrepared> {
         // Look up the material index. If we couldn't fetch the material index,
@@ -1448,6 +1498,20 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
+        let (cached_skin_offset, prev_cached_skin_offset) = match cached_skin_buffers
+            .mesh_instance_to_cached_skin_location
+            .get(&entity)
+        {
+            Some(cached_skin_location) => (
+                cached_skin_location.current,
+                match cached_skin_location.prev {
+                    Some(prev) => u32::from(prev),
+                    None => u32::MAX,
+                },
+            ),
+            None => (u32::MAX, u32::MAX),
+        };
+
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
             None => u16::MAX,
@@ -1483,6 +1547,10 @@ impl RenderMeshInstanceGpuBuilder {
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
             morph_descriptor_index,
+            cached_skin_offset,
+            prev_cached_skin_offset,
+            pad_a: 0,
+            pad_b: 0,
         };
 
         let world_from_local = &self.world_from_local;
@@ -1761,6 +1829,7 @@ pub fn extract_meshes_for_cpu_building(
             Option<&VisibilityRange>,
             Option<&RenderLayers>,
             Option<&Aabb>,
+            Has<CacheSkin>,
         )>,
     >,
 ) {
@@ -1782,6 +1851,7 @@ pub fn extract_meshes_for_cpu_building(
             visibility_range,
             render_layers,
             aabb,
+            cache_skin,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1816,6 +1886,7 @@ pub fn extract_meshes_for_cpu_building(
                 not_shadow_caster,
                 no_automatic_batching,
                 aabb,
+                cache_skin,
             );
 
             let world_from_local = transform.affine();
@@ -1871,6 +1942,7 @@ type GpuMeshExtractionQuery = (
         Has<NotShadowCaster>,
         Has<NoAutomaticBatching>,
         Has<NoCpuCulling>,
+        Has<CacheSkin>,
     ),
     Option<Read<VisibilityRange>>,
     Option<Read<RenderLayers>>,
@@ -1909,6 +1981,7 @@ pub fn extract_meshes_for_gpu_building(
                 ),
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
+                Changed<CacheSkin>,
             )>,
         >,
     >,
@@ -1925,6 +1998,7 @@ pub fn extract_meshes_for_gpu_building(
         mut removed_no_cpu_culling_query,
         mut removed_visibility_range_query,
         mut removed_skinned_mesh_query,
+        mut removed_cache_skin_query,
     ): (
         Extract<RemovedComponents<PreviousGlobalTransform>>,
         Extract<RemovedComponents<Lightmap>>,
@@ -1938,6 +2012,7 @@ pub fn extract_meshes_for_gpu_building(
         Extract<RemovedComponents<NoCpuCulling>>,
         Extract<RemovedComponents<VisibilityRange>>,
         Extract<RemovedComponents<SkinnedMesh>>,
+        Extract<RemovedComponents<CacheSkin>>,
     ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -1977,7 +2052,8 @@ pub fn extract_meshes_for_gpu_building(
             .chain(removed_no_automatic_batching_query.read())
             .chain(removed_no_cpu_culling_query.read())
             .chain(removed_visibility_range_query.read())
-            .chain(removed_skinned_mesh_query.read()),
+            .chain(removed_skinned_mesh_query.read())
+            .chain(removed_cache_skin_query.read()),
     );
 
     // We have to skip the meshes in the potential reextraction set if we
@@ -2084,6 +2160,7 @@ fn extract_mesh_for_gpu_building(
             not_shadow_caster,
             no_automatic_batching,
             no_cpu_culling,
+            cache_skin,
         ),
         visibility_range,
         render_layers,
@@ -2123,6 +2200,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         aabb,
+        cache_skin,
     );
 
     // Calculate the lightmap UV rect, if applicable.
@@ -2404,6 +2482,7 @@ pub fn collect_meshes_for_gpu_building(
     render_lightmaps: Res<RenderLightmaps>,
     skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
+    cached_skin_buffers: Res<CachedSkinBuffers>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
@@ -2453,6 +2532,7 @@ pub fn collect_meshes_for_gpu_building(
         let previous_input_buffer = &*previous_input_buffer;
         let mesh_culling_data_buffer = &*mesh_culling_data_buffer;
         let morph_indices = &*morph_indices;
+        let cached_skin_buffers = &*cached_skin_buffers;
 
         // Spawn workers on the taskpool to prepare and update meshes in parallel.
         ComputeTaskPool::get().scope(|scope| {
@@ -2484,6 +2564,7 @@ pub fn collect_meshes_for_gpu_building(
                                         render_lightmaps,
                                         skin_uniforms,
                                         morph_indices,
+                                        cached_skin_buffers,
                                         frame_count,
                                     ) {
                                         Some(prepared) => {
@@ -2524,6 +2605,7 @@ pub fn collect_meshes_for_gpu_building(
                                             render_lightmaps,
                                             skin_uniforms,
                                             morph_indices,
+                                            cached_skin_buffers,
                                             frame_count,
                                         ) {
                                             Some(mut prepared) => {
@@ -2789,6 +2871,7 @@ impl GetBatchData for MeshPipeline {
         SRes<MeshAllocator>,
         SRes<SkinUniforms>,
         SRes<MorphIndices>,
+        SRes<CachedSkinBuffers>,
     );
     type BatchSetCompareData = MeshBatchSetCompareData;
     type BatchCompareData = AssetId<Mesh>;
@@ -2796,9 +2879,15 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
-            Self::Param,
-        >,
+        (
+            mesh_instances,
+            lightmaps,
+            _,
+            mesh_allocator,
+            skin_uniforms,
+            morph_indices,
+            cached_skin_buffers,
+        ): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(
         Self::BufferData,
@@ -2822,6 +2911,7 @@ impl GetBatchData for MeshPipeline {
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let morph_descriptor_index = morph_indices.morph_descriptor_index(main_entity);
+        let cached_skin_location = cached_skin_buffers.cached_skin_location(main_entity);
         let material_bind_group_index = mesh_instance.material_bindings_index();
 
         Some((
@@ -2832,6 +2922,7 @@ impl GetBatchData for MeshPipeline {
                 maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
                 morph_descriptor_index,
+                cached_skin_location,
                 Some(mesh_instance.tag()),
             ),
             mesh_instance.should_batch().then_some((
@@ -2850,7 +2941,7 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, _, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<(
         NonMaxU32,
@@ -2884,9 +2975,15 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
-            Self::Param,
-        >,
+        (
+            mesh_instances,
+            lightmaps,
+            _,
+            mesh_allocator,
+            skin_uniforms,
+            morph_indices,
+            cached_skin_buffers,
+        ): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -2905,6 +3002,7 @@ impl GetFullBatchData for MeshPipeline {
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let morph_descriptor_index = morph_indices.morph_descriptor_index(main_entity);
+        let cached_skin_location = cached_skin_buffers.cached_skin_location(main_entity);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -2913,12 +3011,13 @@ impl GetFullBatchData for MeshPipeline {
             maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
             morph_descriptor_index,
+            cached_skin_location,
             Some(mesh_instance.tag()),
         ))
     }
 
     fn get_binned_index(
-        (mesh_instances, _, _, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _, _, _, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
@@ -3003,7 +3102,8 @@ bitflags::bitflags! {
         const ATMOSPHERE                        = 1 << 22;
         const INVERT_CULLING                    = 1 << 23;
         const PREPASS_READS_MATERIAL            = 1 << 24;
-        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+        const SKIN_CACHE                        = 1 << 25;
+        const LAST_FLAG                         = Self::SKIN_CACHE.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3196,8 +3296,13 @@ pub fn setup_morph_and_skinning_defs(
         shader_defs.push("SKINS_USE_UNIFORM_BUFFERS".into());
     }
 
+    if key.intersects(MeshPipelineKey::SKIN_CACHE) {
+        shader_defs.push("SKIN_CACHE".into());
+    }
+
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
+        shader_defs.push("SKINNED_OR_MORPHED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
@@ -3228,10 +3333,12 @@ pub fn setup_morph_and_skinning_defs(
         }
         (false, true, _, true) => {
             shader_defs.push("MORPH_TARGETS".into());
+            shader_defs.push("SKINNED_OR_MORPHED".into());
             mesh_layouts.morphed_motion.clone()
         }
         (false, true, _, false) => {
             shader_defs.push("MORPH_TARGETS".into());
+            shader_defs.push("SKINNED_OR_MORPHED".into());
             mesh_layouts.morphed.clone()
         }
         (false, false, true, _) => mesh_layouts.lightmapped.clone(),
@@ -3620,9 +3727,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
 /// GPU mesh preprocessing is in use, these are specific to a single phase.
 pub struct MeshPhaseBindGroups {
     model_only: Option<BindGroup>,
-    skinned: Option<MeshBindGroupPair>,
+
+    /// Bind groups for meshes that have skins.
+    ///
+    /// This is a map from the vertex slab ID to the bind group associated with
+    /// it.
+    skinned: HashMap<MeshSlabId, MeshBindGroupPair>,
+
     /// Bind groups for meshes with morph targets.
     morph_targets: MeshMorphTargetBindGroups,
+
     lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
 }
 
@@ -3639,9 +3753,19 @@ pub enum MeshMorphTargetBindGroups {
     /// single bind group per morphable mesh.
     Uniform(HashMap<AssetId<Mesh>, MeshBindGroupPair>),
 
-    /// Maps a morph target slab ID that the mesh allocator manages to the bind
-    /// groups for morph displacements in that slab.
-    Storage(HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>),
+    /// Maps a vertex slab ID/morph target slab ID pair that the mesh allocator
+    /// manages to the bind groups for morph displacements in that slab.
+    Storage(HashMap<MeshMorphTargetStorageKey, MeshMorphTargetStorageBindGroups>),
+}
+
+/// A pair of vertex slab ID and morph target slab ID that uniquely identifies a
+/// morph target storage bind group set.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MeshMorphTargetStorageKey {
+    /// The vertex slab ID.
+    pub vertex_slab_id: MeshSlabId,
+    /// The morph target slab ID.
+    pub morph_target_slab_id: MeshSlabId,
 }
 
 /// The bind groups associated with a single morph displacements slab.
@@ -3694,7 +3818,7 @@ impl MeshPhaseBindGroups {
     pub fn new(render_device: &RenderDevice) -> MeshPhaseBindGroups {
         MeshPhaseBindGroups {
             model_only: None,
-            skinned: None,
+            skinned: HashMap::default(),
             morph_targets: if skins_use_uniform_buffers(&render_device.limits()) {
                 MeshMorphTargetBindGroups::Uniform(HashMap::default())
             } else {
@@ -3706,7 +3830,7 @@ impl MeshPhaseBindGroups {
 
     pub fn reset(&mut self) {
         self.model_only = None;
-        self.skinned = None;
+        self.skinned.clear();
         self.morph_targets.clear();
         self.lightmaps.clear();
     }
@@ -3714,6 +3838,7 @@ impl MeshPhaseBindGroups {
     /// Get the appropriate `BindGroup` for `RenderMesh` with the given keys.
     pub fn get(
         &self,
+        vertex_slab_id: MeshSlabId,
         lightmap: Option<LightmapSlabIndex>,
         is_skinned: bool,
         morph: MeshMorphBindGroupKey,
@@ -3732,7 +3857,9 @@ impl MeshPhaseBindGroups {
                     None
                 }
             },
-            (_, MeshMorphBindGroupKey::Storage(slab_id), _) => match &self.morph_targets {
+            (_, MeshMorphBindGroupKey::Storage(morph_target_slab_id), _) => match &self
+                .morph_targets
+            {
                 MeshMorphTargetBindGroups::Uniform(..) => {
                     error!(
                         "Tried to look up a mesh morph target bind group using a slab ID, but \
@@ -3741,7 +3868,10 @@ impl MeshPhaseBindGroups {
                     None
                 }
                 MeshMorphTargetBindGroups::Storage(slab_to_bind_group) => {
-                    let slab_bind_group = slab_to_bind_group.get(&slab_id)?;
+                    let slab_bind_group = slab_to_bind_group.get(&MeshMorphTargetStorageKey {
+                        vertex_slab_id,
+                        morph_target_slab_id,
+                    })?;
                     if is_skinned {
                         slab_bind_group
                             .skinned
@@ -3757,7 +3887,7 @@ impl MeshPhaseBindGroups {
             },
             (true, MeshMorphBindGroupKey::NoMorphTargets, _) => self
                 .skinned
-                .as_ref()
+                .get(&vertex_slab_id)
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, MeshMorphBindGroupKey::NoMorphTargets, Some(lightmap_slab)) => {
                 self.lightmaps.get(&lightmap_slab)
@@ -3814,6 +3944,7 @@ pub fn prepare_mesh_bind_groups(
     mesh_allocator: Res<MeshAllocator>,
     render_morph_target_allocator: Res<RenderMorphTargetAllocator>,
     mut render_lightmaps: ResMut<RenderLightmaps>,
+    cached_skin_buffers: Res<CachedSkinBuffers>,
 ) {
     // CPU mesh preprocessing path.
     if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
@@ -3832,6 +3963,7 @@ pub fn prepare_mesh_bind_groups(
             &weights_uniform,
             &mesh_allocator,
             &render_morph_target_allocator,
+            &cached_skin_buffers,
             &mut render_lightmaps,
         );
 
@@ -3865,6 +3997,7 @@ pub fn prepare_mesh_bind_groups(
                 &weights_uniform,
                 &mesh_allocator,
                 &render_morph_target_allocator,
+                &cached_skin_buffers,
                 &mut render_lightmaps,
             );
 
@@ -3888,6 +4021,7 @@ fn prepare_mesh_bind_groups_for_phase(
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
     render_morph_target_allocator: &RenderMorphTargetAllocator,
+    cached_skin_buffers: &CachedSkinBuffers,
     render_lightmaps: &mut RenderLightmaps,
 ) -> MeshPhaseBindGroups {
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -3901,16 +4035,30 @@ fn prepare_mesh_bind_groups_for_phase(
     // Create the skinned mesh bind group with the current and previous buffers
     // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
-    groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(
-            render_device,
-            pipeline_cache,
-            &model,
-            skin,
-            prev_skin,
-        ),
-        no_motion_vectors: layouts.skinned(render_device, pipeline_cache, &model, skin),
-    });
+    for slab_id in mesh_allocator.vertex_slabs() {
+        let skin_cache_buffers = cached_skin_buffers
+            .buffers_for_key_or_dummy(CachedSkinBindGroupKey::new(slab_id, None));
+        groups.skinned.insert(
+            slab_id,
+            MeshBindGroupPair {
+                motion_vectors: layouts.skinned_motion(
+                    render_device,
+                    pipeline_cache,
+                    &model,
+                    skin,
+                    prev_skin,
+                    Some(skin_cache_buffers),
+                ),
+                no_motion_vectors: layouts.skinned(
+                    render_device,
+                    pipeline_cache,
+                    &model,
+                    skin,
+                    Some(skin_cache_buffers.current),
+                ),
+            },
+        );
+    }
 
     // Create the morphed bind groups just like we did for the skinned bind
     // group.
@@ -3945,6 +4093,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     skins_uniform,
                     weights_uniform,
                     mesh_allocator,
+                    cached_skin_buffers,
                     morph_target_storage_bind_groups,
                 );
             }
@@ -4021,6 +4170,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     prev_skin,
                     prev_weights,
                     maybe_morph_descriptors,
+                    None,
                 ),
                 no_motion_vectors: layouts.morphed_skinned(
                     render_device,
@@ -4030,6 +4180,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     weights,
                     targets,
                     maybe_morph_descriptors,
+                    None,
                 ),
             }
         } else {
@@ -4042,6 +4193,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     prev_weights,
                     targets,
                     maybe_morph_descriptors,
+                    None,
                 ),
                 no_motion_vectors: layouts.morphed(
                     render_device,
@@ -4050,6 +4202,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_uniforms(
                     weights,
                     targets,
                     maybe_morph_descriptors,
+                    None,
                 ),
             }
         };
@@ -4068,7 +4221,11 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
-    morph_target_storage_bind_groups: &mut HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>,
+    cached_skin_buffers: &CachedSkinBuffers,
+    morph_target_storage_bind_groups: &mut HashMap<
+        MeshMorphTargetStorageKey,
+        MeshMorphTargetStorageBindGroups,
+    >,
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     let weights = weights_uniform
@@ -4086,52 +4243,73 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
             continue;
         };
         let targets = MorphTargetsResource::Storage(buffer);
-        morph_target_storage_bind_groups.insert(
-            morph_target_slab_id,
-            MeshMorphTargetStorageBindGroups {
-                skinned: Some(MeshBindGroupPair {
-                    motion_vectors: layouts.morphed_skinned_motion(
-                        render_device,
-                        pipeline_cache,
-                        model,
-                        skin,
-                        weights,
-                        targets,
-                        prev_skin,
-                        prev_weights,
-                        maybe_morph_descriptors,
-                    ),
-                    no_motion_vectors: layouts.morphed_skinned(
-                        render_device,
-                        pipeline_cache,
-                        model,
-                        skin,
-                        weights,
-                        targets,
-                        maybe_morph_descriptors,
-                    ),
-                }),
-                unskinned: Some(MeshBindGroupPair {
-                    motion_vectors: layouts.morphed_motion(
-                        render_device,
-                        pipeline_cache,
-                        model,
-                        weights,
-                        prev_weights,
-                        targets,
-                        maybe_morph_descriptors,
-                    ),
-                    no_motion_vectors: layouts.morphed(
-                        render_device,
-                        pipeline_cache,
-                        model,
-                        weights,
-                        targets,
-                        maybe_morph_descriptors,
-                    ),
-                }),
-            },
-        );
+
+        // Create bind groups for each vertex slab/morph target slab pair.
+        //
+        // FIXME: Because skin caching operates on vertex slab/morph target slab
+        // pairs, this generates (morph target slab count * vertex slab count)
+        // bind groups. We could do better here and only generate the bind
+        // groups that will actually be used, taking skin caching and morph
+        // target presence into account.
+        for vertex_slab_id in mesh_allocator.vertex_slabs() {
+            let skin_cache = cached_skin_buffers.buffers_for_key_or_dummy(
+                CachedSkinBindGroupKey::new(vertex_slab_id, Some(morph_target_slab_id)),
+            );
+
+            morph_target_storage_bind_groups.insert(
+                MeshMorphTargetStorageKey {
+                    morph_target_slab_id,
+                    vertex_slab_id,
+                },
+                MeshMorphTargetStorageBindGroups {
+                    skinned: Some(MeshBindGroupPair {
+                        motion_vectors: layouts.morphed_skinned_motion(
+                            render_device,
+                            pipeline_cache,
+                            model,
+                            skin,
+                            weights,
+                            targets,
+                            prev_skin,
+                            prev_weights,
+                            maybe_morph_descriptors,
+                            Some(&skin_cache),
+                        ),
+                        no_motion_vectors: layouts.morphed_skinned(
+                            render_device,
+                            pipeline_cache,
+                            model,
+                            skin,
+                            weights,
+                            targets,
+                            maybe_morph_descriptors,
+                            Some(skin_cache.current),
+                        ),
+                    }),
+                    unskinned: Some(MeshBindGroupPair {
+                        motion_vectors: layouts.morphed_motion(
+                            render_device,
+                            pipeline_cache,
+                            model,
+                            weights,
+                            prev_weights,
+                            targets,
+                            maybe_morph_descriptors,
+                            Some(&skin_cache),
+                        ),
+                        no_motion_vectors: layouts.morphed(
+                            render_device,
+                            pipeline_cache,
+                            model,
+                            weights,
+                            targets,
+                            maybe_morph_descriptors,
+                            Some(skin_cache.current),
+                        ),
+                    }),
+                },
+            );
+        }
     }
 }
 
@@ -4233,9 +4411,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<RenderDevice>,
         SRes<MeshBindGroups>,
         SRes<RenderMeshInstances>,
+        SRes<MeshAllocator>,
         SRes<SkinUniforms>,
         SRes<MorphIndices>,
-        SRes<MeshAllocator>,
         SRes<RenderLightmaps>,
     );
     type ViewQuery = Has<MotionVectorPrepass>;
@@ -4250,9 +4428,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             render_device,
             bind_groups,
             mesh_instances,
+            mesh_allocator,
             skin_uniforms,
             morph_indices,
-            mesh_allocator,
             lightmaps,
         ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -4313,6 +4491,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .get(entity)
             .map(|render_lightmap| render_lightmap.slab_index);
 
+        let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_asset_id) else {
+            return RenderCommandResult::Success;
+        };
+
         let Some(mesh_phase_bind_groups) = (match *bind_groups {
             MeshBindGroups::CpuPreprocessing(ref mesh_phase_bind_groups) => {
                 Some(mesh_phase_bind_groups)
@@ -4327,6 +4509,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let Some(bind_group) = mesh_phase_bind_groups.get(
+            mesh_slabs.vertex_slab_id,
             lightmap_slab_index,
             is_skinned,
             morph_bind_group_key,

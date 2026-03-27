@@ -1077,17 +1077,27 @@ pub(crate) fn specialize_prepass_material_meshes(
                 // If the previous frame has skins or morph targets, note that.
                 if motion_vector_prepass.is_some() {
                     if mesh_instance
+                        .shared
                         .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                     }
                     if mesh_instance
+                        .shared
                         .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
                     }
+                }
+
+                if mesh_instance
+                    .shared
+                    .flags()
+                    .contains(RenderMeshInstanceFlags::SKIN_CACHE)
+                {
+                    mesh_key |= MeshPipelineKey::SKIN_CACHE;
                 }
 
                 work_items.push(PrepassSpecializationWorkItem {

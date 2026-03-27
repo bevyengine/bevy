@@ -345,6 +345,17 @@ impl MeshAllocator {
             .get(&MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget))
     }
 
+    /// Returns an iterator over all slabs that contain vertex data.
+    pub fn vertex_slabs(&self) -> impl Iterator<Item = SlabId<MeshSlabItem>> {
+        self.slabs.iter().filter_map(|(slab_id, slab)| {
+            if matches!(slab.element_layout().class, ElementClass::Vertex) {
+                Some(*slab_id)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns an iterator over all slabs that contain morph targets.
     #[cfg(feature = "morph")]
     pub fn morph_target_slabs(&self) -> impl Iterator<Item = MeshSlabId> {
@@ -579,8 +590,10 @@ impl ElementClass {
     /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
     /// class.
     fn buffer_usages(&self) -> BufferUsages {
+        // We include `BufferUsages::STORAGE` on vertex buffers for the skin
+        // caching shader.
         match *self {
-            ElementClass::Vertex => BufferUsages::VERTEX,
+            ElementClass::Vertex => BufferUsages::VERTEX | BufferUsages::STORAGE,
             ElementClass::Index => BufferUsages::INDEX,
             #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,

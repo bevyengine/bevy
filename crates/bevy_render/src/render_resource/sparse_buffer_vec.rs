@@ -198,7 +198,7 @@ struct GpuSparseBufferUpdateMetadata {
 ///
 /// This runs as early in the pipeline as possible so that sparse buffers can be
 /// used for any subsequent pass.
-fn update_sparse_buffers(
+pub fn update_sparse_buffers(
     sparse_buffer_update_jobs: Res<SparseBufferUpdateJobs>,
     sparse_buffer_update_bind_groups: Res<SparseBufferUpdateBindGroups>,
     pipeline_cache: Res<PipelineCache>,

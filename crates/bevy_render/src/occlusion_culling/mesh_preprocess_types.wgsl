@@ -26,6 +26,19 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
+    // The location of the first skinned/morphed vertex in the cached skinned
+    // vertices buffer.
+    //
+    // If this mesh doesn't use skin caching, this is `u32::MAX`.
+    cached_skin_offset: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer for the previous frame.
+    ///
+    /// If this mesh doesn't use skin caching, or the mesh is newly-visible this
+    /// frame, this is `u32::MAX`.
+    prev_cached_skin_offset: u32,
+    pad_a: u32,
+    pad_b: u32,
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.

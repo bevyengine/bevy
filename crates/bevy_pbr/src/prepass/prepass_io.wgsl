@@ -32,9 +32,7 @@ struct Vertex {
     @location(7) color: vec4<f32>,
 #endif
 
-#ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
-#endif // MORPH_TARGETS
 }
 
 struct VertexOutput {

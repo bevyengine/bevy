@@ -2,21 +2,44 @@
 
 use std::f32::consts::PI;
 
-use bevy::{light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use argh::FromArgs;
+use bevy::{
+    light::CascadeShadowConfigBuilder, mesh::skinning::SkinnedMesh, pbr::CacheSkin, prelude::*,
+    scene::SceneInstanceReady,
+};
 
 // An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
 
+/// plays an animation on a skinned glTF model of a fox
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// enable skin caching
+    #[argh(switch)]
+    cache_skins: bool,
+}
+
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
         })
+        .insert_resource(args)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
+        .add_systems(
+            Update,
+            mark_skins_as_cached.run_if(|args: Res<Args>| args.cache_skins),
+        )
         .run();
 }
 
@@ -126,4 +149,15 @@ fn setup_camera_and_environment(
         }
         .build(),
     ));
+}
+
+/// Adds `CacheSkin` components to skinned meshes if skin caching was requested
+/// on the command line.
+fn mark_skins_as_cached(
+    mut commands: Commands,
+    skinned_meshes: Query<Entity, (With<SkinnedMesh>, Without<CacheSkin>)>,
+) {
+    for entity in &skinned_meshes {
+        commands.entity(entity).insert(CacheSkin);
+    }
 }

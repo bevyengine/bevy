@@ -2181,6 +2181,13 @@ pub(crate) fn specialize_shadows(
                         _ => MeshPipelineKey::NONE,
                     };
 
+                    if mesh_instance
+                        .flags()
+                        .contains(RenderMeshInstanceFlags::SKIN_CACHE)
+                    {
+                        mesh_key |= MeshPipelineKey::SKIN_CACHE;
+                    }
+
                     work_items.push(ShadowSpecializationWorkItem {
                         visible_entity: *visible_entity,
                         retained_view_entity: extracted_view_light.retained_view_entity,
