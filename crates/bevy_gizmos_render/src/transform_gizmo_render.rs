@@ -43,9 +43,9 @@ struct GizmoOverlayCamera;
 
 #[derive(Resource)]
 struct TransformGizmoMaterials {
-    normal: [Handle<StandardMaterial>; 4],
-    highlight: [Handle<StandardMaterial>; 4],
-    inactive: [Handle<StandardMaterial>; 4],
+    normal_colors: [Color; 4],
+    highlight_colors: [Color; 4],
+    inactive_colors: [Color; 4],
 }
 
 impl TransformGizmoMaterials {
@@ -58,19 +58,14 @@ impl TransformGizmoMaterials {
         }
     }
 
-    fn get(
-        &self,
-        axis: TransformGizmoAxis,
-        highlight: bool,
-        inactive: bool,
-    ) -> Handle<StandardMaterial> {
+    fn color(&self, axis: TransformGizmoAxis, highlight: bool, inactive: bool) -> Color {
         let i = Self::axis_index(axis);
         if highlight {
-            self.highlight[i].clone()
+            self.highlight_colors[i]
         } else if inactive {
-            self.inactive[i].clone()
+            self.inactive_colors[i]
         } else {
-            self.normal[i].clone()
+            self.normal_colors[i]
         }
     }
 }
@@ -110,26 +105,24 @@ fn make_unlit_material(color: Color) -> StandardMaterial {
     }
 }
 
-fn make_highlight_material(color: Color) -> StandardMaterial {
+fn highlight_color(color: Color) -> Color {
     let srgba = color.to_srgba();
-    let bright = Color::srgba(
+    Color::srgba(
         (srgba.red * 1.4).min(1.0),
         (srgba.green * 1.4).min(1.0),
         (srgba.blue * 1.4).min(1.0),
         srgba.alpha,
-    );
-    make_unlit_material(bright)
+    )
 }
 
-fn make_inactive_material(color: Color) -> StandardMaterial {
+fn inactive_color(color: Color) -> Color {
     let srgba = color.to_srgba();
-    let dim = Color::srgba(
+    Color::srgba(
         srgba.red * INACTIVE_ALPHA,
         srgba.green * INACTIVE_ALPHA,
         srgba.blue * INACTIVE_ALPHA,
         1.0,
-    );
-    make_unlit_material(dim)
+    )
 }
 
 fn spawn_gizmo_meshes(
@@ -139,12 +132,18 @@ fn spawn_gizmo_meshes(
 ) {
     let gizmo_layer = RenderLayers::layer(GIZMO_RENDER_LAYER);
 
-    // Create materials
     let colors = [COLOR_X, COLOR_Y, COLOR_Z, COLOR_VIEW];
     let mat_res = TransformGizmoMaterials {
-        normal: colors.map(|c| materials.add(make_unlit_material(c))),
-        highlight: colors.map(|c| materials.add(make_highlight_material(c))),
-        inactive: colors.map(|c| materials.add(make_inactive_material(c))),
+        normal_colors: colors,
+        highlight_colors: colors.map(highlight_color),
+        inactive_colors: colors.map(inactive_color),
+    };
+
+    // Helper: create a unique unlit material for a given axis
+    let mut make_mat = |axis: TransformGizmoAxis| {
+        materials.add(make_unlit_material(
+            colors[TransformGizmoMaterials::axis_index(axis)],
+        ))
     };
 
     // Pre-create meshes
@@ -220,7 +219,7 @@ fn spawn_gizmo_meshes(
         TransformGizmoAxis::Y,
         TransformGizmoAxis::Z,
     ] {
-        let mat = mat_res.get(axis, false, false);
+        let mat = make_mat(axis);
         spawn_child(
             &mut commands,
             shaft_mesh.clone(),
@@ -247,7 +246,7 @@ fn spawn_gizmo_meshes(
     spawn_child(
         &mut commands,
         view_circle_mesh,
-        mat_res.get(TransformGizmoAxis::View, false, false),
+        make_mat(TransformGizmoAxis::View),
         Transform::IDENTITY,
         TransformGizmoAxis::View,
         TransformGizmoMode::Translate,
@@ -259,7 +258,7 @@ fn spawn_gizmo_meshes(
         TransformGizmoAxis::Y,
         TransformGizmoAxis::Z,
     ] {
-        let mat = mat_res.get(axis, false, false);
+        let mat = make_mat(axis);
         let torus_rot = match axis {
             TransformGizmoAxis::X => Quat::from_rotation_z(core::f32::consts::FRAC_PI_2),
             TransformGizmoAxis::Y | TransformGizmoAxis::View => Quat::IDENTITY,
@@ -279,7 +278,7 @@ fn spawn_gizmo_meshes(
     spawn_child(
         &mut commands,
         view_ring_mesh,
-        mat_res.get(TransformGizmoAxis::View, false, false),
+        make_mat(TransformGizmoAxis::View),
         Transform::IDENTITY,
         TransformGizmoAxis::View,
         TransformGizmoMode::Rotate,
@@ -291,7 +290,7 @@ fn spawn_gizmo_meshes(
         TransformGizmoAxis::Y,
         TransformGizmoAxis::Z,
     ] {
-        let mat = mat_res.get(axis, false, false);
+        let mat = make_mat(axis);
         spawn_child(
             &mut commands,
             shaft_mesh.clone(),
@@ -348,10 +347,11 @@ fn update_gizmo_meshes(
         (
             &TransformGizmoMeshMarker,
             &mut Visibility,
-            &mut MeshMaterial3d<StandardMaterial>,
+            &MeshMaterial3d<StandardMaterial>,
         ),
         Without<TransformGizmoRoot>,
     >,
+    mut std_materials: ResMut<Assets<StandardMaterial>>,
     mut overlay_cam: Query<
         &mut Transform,
         (
@@ -409,17 +409,20 @@ fn update_gizmo_meshes(
     };
     let dragging = state.active;
 
-    for (handle, mut vis, mut mat) in &mut handle_query {
+    for (handle, mut vis, mat) in &mut handle_query {
         if handle.mode != settings.mode {
             *vis = Visibility::Hidden;
             continue;
         }
         *vis = Visibility::Inherited;
 
+        // Update the material color in-place (avoids writing MeshMaterial3d)
         let is_active = active_axis == Some(handle.axis);
-        let desired = materials_res.get(handle.axis, is_active, dragging && !is_active);
-        if mat.0 != desired {
-            mat.0 = desired;
+        let desired_color = materials_res.color(handle.axis, is_active, dragging && !is_active);
+        if let Some(mut material) = std_materials.get_mut(&mat.0) {
+            if material.base_color != desired_color {
+                material.base_color = desired_color;
+            }
         }
     }
 }
