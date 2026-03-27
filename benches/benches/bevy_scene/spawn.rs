@@ -20,16 +20,16 @@ fn ui() -> impl Scene {
     bsn! {
         Node
         Children [
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
-            (:button Node {width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
+            (:button Node { width: Val::Px(200.) }),
         ]
     }
 }
@@ -38,16 +38,16 @@ fn ui_loaded_asset() -> impl Scene {
     bsn! {
         Node
         Children [
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
-            (:"button.bsn" Node {width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
+            (:"button.bsn" Node { width: Val::Px(200.) }),
         ]
     }
 }
