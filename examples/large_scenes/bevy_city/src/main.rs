@@ -53,6 +53,7 @@ fn main() {
                     title: "bevy_city".into(),
                     resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
+                    position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
@@ -120,17 +121,19 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
             ..default()
         },
         BackgroundColor(Color::BLACK),
         children![(
             Node {
-                width: Val::Percent(60.0),
+                position_type: PositionType::Absolute,
+                top: Val::Percent(50.0),
+                left: Val::Percent(20.0),
+                right: Val::Percent(20.0),
+                height: Val::Vh(40.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexStart,
+                overflow: Overflow::scroll_y(),
                 ..default()
             },
             children![
@@ -203,6 +206,7 @@ fn loading_screen(
             assets.untyped_assets.len() - paths.len(),
             assets.untyped_assets.len(),
         );
+        paths.reverse();
         paths_text.0 = paths.join("\n");
     }
 }
