@@ -311,6 +311,7 @@ Example | Description
 Example | Description
 --- | ---
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
+[Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
 ### Diagnostics
 
@@ -389,6 +390,7 @@ Example | Description
 [Text Gizmos 2d](../examples/gizmos/2d_text_gizmos.rs) | A scene showcasing 2d text gizmos
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
+[Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
 
 ### Helpers
 
@@ -466,6 +468,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 
 ### Shaders
@@ -704,13 +707,13 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
+cargo ndk -t <target_name> -P 26 -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
+cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
@@ -757,10 +760,12 @@ In its examples, Bevy targets the minimum Android API that Play Store  <!-- mark
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
+Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
+
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.

@@ -613,13 +613,14 @@ impl PrepassPipeline {
             layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 unclipped_depth,
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

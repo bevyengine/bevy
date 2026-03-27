@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    ContentSize, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -481,6 +481,7 @@ impl From<BVec2> for IgnoreScroll {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,

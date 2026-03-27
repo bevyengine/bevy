@@ -107,6 +107,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<Clipboard>()
             .add_systems(
                 PostUpdate,
                 (

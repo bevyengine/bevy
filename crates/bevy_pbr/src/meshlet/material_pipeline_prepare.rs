@@ -143,7 +143,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -207,8 +210,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
@@ -301,7 +304,10 @@ pub fn prepare_material_meshlet_meshes_prepass(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -399,8 +405,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
