@@ -91,6 +91,15 @@ fn setup(
         meshes.add(Extrusion::new(Ellipse::default(), 1.)),
         meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
         meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
+        meshes.add(Extrusion::new(
+            ConvexPolygon::new(vec![
+                Vec2::new(-0.75, -0.75),
+                Vec2::new(0.5, -0.75),
+                Vec2::new(0.5, 0.5),
+                Vec2::new(-0.75, 0.5),
+            ]).unwrap(),
+            1.0,
+        )),
     ];
 
     let ring_extrusions = [
