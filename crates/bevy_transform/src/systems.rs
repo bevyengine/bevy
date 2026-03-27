@@ -12,15 +12,15 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     tf_helper: TransformHelper,
     mut query: Query<(Entity, &mut GlobalTransform), F>,
 ) {
-    for (mut gtf, computed) in query.iter_mut().filter_map(|(e, gtf)| {
+    for (mut gtf, computed) in query.iter_mut().filter_map(|(entity, gtf)| {
         Some((
             gtf,
             tf_helper
-                .compute_global_transform(e)
+                .compute_global_transform(entity)
                 .inspect_err(|err| {
                     warn_once!(
                         "Failed to compute GlobalTransform for entity {:?}: {:?}",
-                        e,
+                        entity,
                         err
                     );
                 })
