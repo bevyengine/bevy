@@ -74,19 +74,12 @@ fn main() {
         // Like in many realistic large scenes, many of the objects don't move
         // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::Enabled)
-        .add_systems(
-            Startup,
-            (
-                setup,
-                setup_settings_ui,
-                load_assets,
-                // (setup_city.after(load_assets), add_no_cpu_culling).chain(),
-            ),
-        )
+        .add_systems(Startup, (setup, load_assets))
         .add_systems(Update, (simulate_cars, loading_screen))
         .add_observer(add_no_cpu_culling)
         .add_observer(add_no_cpu_culling_on_scene_ready)
         .add_observer(on_city_assets_ready)
+        .add_observer(setup_settings_ui)
         .run();
 }
 

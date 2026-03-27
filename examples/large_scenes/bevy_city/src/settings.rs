@@ -12,8 +12,8 @@ use bevy::{
 };
 use rand::RngExt;
 
-use crate::assets::CityAssets;
 use crate::generate_city::{spawn_city, CityRoot};
+use crate::{assets::CityAssets, CitySpawned};
 
 #[derive(Resource)]
 pub struct Settings {
@@ -34,7 +34,7 @@ impl Default for Settings {
     }
 }
 
-pub fn setup_settings_ui(mut commands: Commands) {
+pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
