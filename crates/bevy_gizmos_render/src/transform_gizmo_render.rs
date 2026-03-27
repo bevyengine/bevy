@@ -14,7 +14,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
-    query::{Changed, Or, With, Without},
+    query::{Or, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut, Single},
@@ -350,14 +350,11 @@ fn propagate_gizmo_transforms(
     transform_helper: TransformHelper,
     mut query: Query<
         (Entity, &mut GlobalTransform),
-        (
-            Changed<Transform>,
-            Or<(
-                With<TransformGizmoRoot>,
-                With<GizmoOverlayCamera>,
-                With<TransformGizmoMeshMarker>,
-            )>,
-        ),
+        Or<(
+            With<TransformGizmoRoot>,
+            With<GizmoOverlayCamera>,
+            With<TransformGizmoMeshMarker>,
+        )>,
     >,
 ) {
     for (entity, mut global_tf) in query.iter_mut() {
