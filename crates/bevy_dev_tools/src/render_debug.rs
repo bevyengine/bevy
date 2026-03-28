@@ -9,7 +9,6 @@ use bevy_core_pipeline::{
     upscaling::upscaling,
     FullscreenShader,
 };
-use bevy_ui_render::render_pass::ui_pass;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -41,6 +40,7 @@ use bevy_render::{
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
+use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
     Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
