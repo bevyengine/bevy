@@ -15,12 +15,13 @@ mod plugin;
 mod system_state_store;
 mod wake_signal;
 
-pub use crate::plugin::AsyncPlugin;
+pub use crate::async_bridge::async_world_sync_point;
+pub use crate::ecs_access::{AsyncSystemState, EcsAccessError};
+pub use crate::plugin::{AsyncPlugin, AsyncWorld};
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        async_bridge::drive_async_bridge,
-        plugin::{AsyncBridge, AsyncPlugin},
+        async_world_sync_point, AsyncPlugin, AsyncSystemState, AsyncWorld, EcsAccessError,
     };
 }

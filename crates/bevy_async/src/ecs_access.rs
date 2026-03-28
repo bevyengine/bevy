@@ -1,10 +1,11 @@
 use crate::async_bridge;
-use crate::async_bridge::{AsyncBridgeInner, QueuedBridgeRequest};
-use crate::system_state_store::ErasedSystemStateStore;
+use crate::async_bridge::BridgeRequest;
+use crate::plugin::AsyncWorld;
+use crate::system_state_store::{ErasedSystemStateCell, SystemStateCell};
 use crate::wake_signal::WakeSignal;
 use bevy_ecs::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
 use bevy_ecs::system::SystemParam;
-use bevy_platform::sync::{Arc, Weak};
+use bevy_platform::sync::Arc;
 use core::marker::PhantomData;
 
 /// Handle that lets an async task request temporary access to an ECS
@@ -19,13 +20,13 @@ use core::marker::PhantomData;
 /// It is cheap to clone and intended to be passed into async tasks.
 /// You can pass it into *multiple* tasks on separate threads and have them work concurrently
 /// off of the same state, sharing `Locals`.
-pub struct EcsAccess<P: SystemParam + 'static> {
-    pub(crate) phantom_data: PhantomData<P>,
+pub struct AsyncSystemState<P: SystemParam + 'static> {
+    pub(crate) _p: PhantomData<P>,
 
     /// A `Weak` is used so tasks do not stay alive if the world is dropped.
     /// If the world goes away, upgrading this weak pointer fails and access
     /// returns [`EcsAccessError::WorldDropped`].
-    pub(crate) bridge: Weak<AsyncBridgeInner>,
+    pub(crate) world: AsyncWorld,
 
     /// Type-erased storage for the underlying `SystemState<P>`.
     ///
@@ -34,37 +35,45 @@ pub struct EcsAccess<P: SystemParam + 'static> {
     ///
     /// This is also important not only to persist params like `Local` but *also* so `Changed` and
     /// `Added` and other filters can work.
-    pub(crate) system_state: Arc<dyn ErasedSystemStateStore>,
+    pub(crate) inner: Arc<dyn ErasedSystemStateCell>,
 }
 
-impl<P: SystemParam + 'static> Clone for EcsAccess<P> {
+impl<P: SystemParam + 'static> Clone for AsyncSystemState<P> {
     fn clone(&self) -> Self {
         Self {
-            phantom_data: PhantomData::default(),
-            bridge: self.bridge.clone(),
-            system_state: self.system_state.clone(),
+            _p: PhantomData::default(),
+            world: self.world.clone(),
+            inner: self.inner.clone(),
         }
     }
 }
 
-impl<P: SystemParam + 'static> EcsAccess<P> {
-    pub async fn access<AccessFn, Out, SyncPoint: 'static>(
+impl<P: SystemParam + 'static> AsyncSystemState<P> {
+    pub fn new(world: AsyncWorld) -> Self {
+        Self {
+            _p: PhantomData::default(),
+            world,
+            inner: Arc::new(SystemStateCell::<P>::default()),
+        }
+    }
+
+    pub async fn bridge<BridgeFn, Out, SyncPoint: 'static>(
         &self,
         _sync_point: SyncPoint,
-        access_fn: AccessFn,
+        bridge_fn: BridgeFn,
     ) -> Result<Out, EcsAccessError>
     where
-        for<'w, 's> AccessFn: FnOnce(P::Item<'w, 's>) -> Out,
+        for<'w, 's> BridgeFn: FnOnce(P::Item<'w, 's>) -> Out,
     {
-        EcsAccessFuture {
-            phantom_data: PhantomData::default(),
-            system_set: async_bridge::drive_async_bridge::<SyncPoint>
+        BridgeFuture {
+            _p: PhantomData::default(),
+            system_set: async_bridge::async_world_sync_point::<SyncPoint>
                 .into_system_set()
                 .intern(),
-            system_func: Some(access_fn),
+            bridge_fn: Some(bridge_fn),
             wake_signal: None,
-            system_state: self.system_state.clone(),
-            bridge: self.bridge.clone(),
+            system_state: self.inner.clone(),
+            world: self.world.clone(),
         }
         .await
     }
@@ -83,28 +92,28 @@ pub enum EcsAccessError {
 }
 
 /// Future representing a single in-flight ECS access request.
-struct EcsAccessFuture<P: SystemParam + 'static, Func, Out> {
-    phantom_data: PhantomData<(P, Func, Out)>,
+struct BridgeFuture<P: SystemParam + 'static, Func, Out> {
+    _p: PhantomData<(P, Func, Out)>,
     /// Interned system-set key identifying which sync-point queue this future
     /// should be sent to.
     system_set: InternedSystemSet,
     /// This is the pseudo-system that we try to run when we have access to `World`.
     /// This is an option just so we can take it out when we run it so we can use `FnOnce`
     /// instead of `FnMut`, so it's more flexible than real systems.
-    system_func: Option<Func>,
+    bridge_fn: Option<Func>,
     /// Wake signal for the currently queued wake cycle, if any.
     ///
     /// The future drops this at the end of `poll` which acts as acknowledgement that the wake
     /// has been handled.
     wake_signal: Option<WakeSignal>,
-    system_state: Arc<dyn ErasedSystemStateStore>,
+    system_state: Arc<dyn ErasedSystemStateCell>,
     /// Weak bridge pointer so the loss of the world becomes a clean runtime error.
-    bridge: Weak<AsyncBridgeInner>,
+    world: AsyncWorld,
 }
 
-impl<P: SystemParam + 'static, Func, Out> Unpin for EcsAccessFuture<P, Func, Out> {}
+impl<P: SystemParam + 'static, Func, Out> Unpin for BridgeFuture<P, Func, Out> {}
 
-impl<P, Func, Out> Future for EcsAccessFuture<P, Func, Out>
+impl<P, Func, Out> Future for BridgeFuture<P, Func, Out>
 where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
@@ -127,23 +136,27 @@ where
 
         // Try to gain a strong reference to the bridge. If this fails, the world is gone,
         // so further access is impossible.
-        let async_bridge = match self.bridge.upgrade() {
+        let strong_world = match self.world.0.upgrade() {
             None => {
                 return Poll::Ready(Err(EcsAccessError::WorldDropped));
             }
-            Some(async_ecs) => async_ecs,
+            Some(strong_world) => strong_world,
         };
-        match async_bridge
+        match strong_world
             .world_scope
             .try_with(|world| {
-                let system_state = self.system_state.clone();
+                let Self {
+                    ref system_state,
+                    ref mut bridge_fn,
+                    ..
+                } = *self;
                 // Attempt to acquire the typed `SystemState<P>`.
                 //
                 // We deliberately use `try_lock` rather than blocking. If
                 // another bridge request is currently using the same system
                 // state, we simply yield and let the sync-point driver try again
                 // on a later internal tick.
-                let Some(mut system_state_guard) = system_state.try_lock::<P>() else {
+                let Some(mut system_state) = system_state.try_lock::<P>(world) else {
                     return Poll::Pending;
                 };
                 // This one really shouldn't happen very often. If we created this task *while*
@@ -151,9 +164,6 @@ where
                 // never actually got initialized, and even though we *have* access to the world,
                 // for safetyreasons we have to perform our initialization on the main world-thread,
                 // not here.
-                let Some(mut system_state) = system_state_guard.as_mut() else {
-                    return Poll::Pending;
-                };
                 if !system_state.meta().is_send() {
                     return Poll::Ready(Err(EcsAccessError::SystemParamValidation(
                         bevy_ecs::system::SystemParamValidationError::invalid::<
@@ -161,8 +171,9 @@ where
                         >("Cannot have your system be non-send / exclusive"),
                     )));
                 }
-                let state = match system_state.get_mut(world) {
-                    Ok(state) => state,
+
+                let param = match system_state.get_mut(world) {
+                    Ok(param) => param,
                     Err(system_param_validation_error) => {
                         return Poll::Ready(Err(EcsAccessError::SystemParamValidation(
                             system_param_validation_error,
@@ -171,7 +182,7 @@ where
                 };
                 // We finally have `P::Item<'w, 's>`, yay!, so consume the stored `FnOnce`, run it,
                 // and complete the future.
-                Poll::Ready(Ok(self.system_func.take().unwrap()(state)))
+                Poll::Ready(Ok(bridge_fn.take().unwrap()(param)))
             })
             .ok()
         {
@@ -194,14 +205,13 @@ where
                 // been processed.
                 // 3. An initialization hint for the typed `SystemState`.
                 // 4. The erased `SystemState` storage itself.
-                async_bridge
-                    .requests_by_sync_point
+                strong_world
+                    .bridge_requests
                     .try_send(
                         &self.system_set,
-                        QueuedBridgeRequest {
+                        BridgeRequest {
                             waker: cx.waker().clone(),
                             wake_signal: wait_barrier,
-                            initialized: self.system_state.is_initialized(),
                             system_state: self.system_state.clone(),
                         },
                     )

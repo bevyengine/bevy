@@ -5,7 +5,7 @@
 //! Unlike the channel-based approach (where tasks send results directly via a communication
 //! channel) or the direct approach in async_compute, this example uses the ecs <-> async bridge.
 
-use bevy::async_bridge::prelude::{drive_async_bridge, AsyncBridge};
+use bevy::async_bridge::prelude::{async_world_sync_point, AsyncWorld};
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rand::RngExt;
 
@@ -15,7 +15,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (drive_async_bridge::<MySyncPoint>, rotate_light))
+        .add_systems(
+            Update,
+            (async_world_sync_point::<MySyncPoint>, rotate_light),
+        )
         .run();
 }
 
@@ -33,7 +36,7 @@ const LIGHT_RADIUS: f32 = 8.0;
 /// to be handled asynchronously, without blocking the main game thread.
 fn setup(
     mut commands: Commands,
-    bridge: Res<AsyncBridge>,
+    bridge: Res<AsyncWorld>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
