@@ -44,7 +44,8 @@ pub(crate) struct BsnCodegenCtx<'a> {
     pub errors: Vec<syn::Error>,
 }
 
-/// Represents the target path and its reference type when applying a template patch.
+/// Represents the target path and whether it is a reference, e.g.,
+/// when applying a template patch.
 struct PatchTarget<'a> {
     /// The path to the field being patched.
     pub path: &'a [Member],
