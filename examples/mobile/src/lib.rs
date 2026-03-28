@@ -5,6 +5,7 @@ use bevy::{
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
     prelude::*,
+    render::renderer::RenderDevice,
     window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
@@ -97,7 +98,11 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    device: Res<RenderDevice>,
 ) {
+    bevy::log::info!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    bevy::log::info!("Configured wgpu adapter Features: {:#?}", device.features());
+
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),

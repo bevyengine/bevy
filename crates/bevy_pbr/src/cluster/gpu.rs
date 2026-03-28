@@ -587,6 +587,9 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
         let mut vertex_shader_defs = fragment_shader_defs.clone();
         vertex_shader_defs.push(ShaderDefVal::from("VERTEX_SHADER"));
 
+        fragment_shader_defs.push(ShaderDefVal::from("GPU_CLUSTERING_SUPPORT"));
+        vertex_shader_defs.push(ShaderDefVal::from("GPU_CLUSTERING_SUPPORT"));
+
         RenderPipelineDescriptor {
             label: if key.populate_pass {
                 Some("clustering populate pipeline".into())
@@ -678,7 +681,7 @@ impl SpecializedComputePipeline for ClusteringZSlicingPipeline {
             label: Some("clustering Z slicing pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             shader: self.shader.clone(),
-            shader_defs: vec![],
+            shader_defs: vec!["GPU_CLUSTERING_SUPPORT".into()],
             entry_point: Some("z_slice_main".into()),
             zero_initialize_workgroup_memory: true,
             ..default()
@@ -731,7 +734,7 @@ impl SpecializedComputePipeline for ClusteringAllocationPipeline {
             },
             layout: vec![self.bind_group_layout.clone()],
             shader: self.shader.clone(),
-            shader_defs: vec![],
+            shader_defs: vec!["GPU_CLUSTERING_SUPPORT".into()],
             entry_point: if key.global_pass {
                 Some("allocate_global_main".into())
             } else {

@@ -83,7 +83,7 @@ const CLUSTER_COUNT_SIZE = 9u;
 // primarily), light probes aren't clustered, and therefore both light probe
 // index ranges will be empty.
 fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObjectIndexRanges {
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+#ifdef GPU_CLUSTERING_SUPPORT
 
     let offset_and_counts_a = bindings::cluster_offsets_and_counts.data[cluster_index][0];
     let offset_and_counts_b = bindings::cluster_offsets_and_counts.data[cluster_index][1];
@@ -108,7 +108,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
         last_clusterable_offset
     );
 
-#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+#else   // GPU_CLUSTERING_SUPPORT
 
     let raw_offset_and_counts = bindings::cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     //  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
@@ -130,7 +130,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 
     return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_c, offset_c, offset_c);
 
-#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+#endif  // GPU_CLUSTERING_SUPPORT
 }
 
 // Returns the index of the clusterable object at the given offset.
@@ -138,7 +138,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 // Note that, in the case of a light probe, the index refers to an element in
 // one of the two `light_probes` sublists, not the `clustered_lights` list.
 fn get_clusterable_object_id(index: u32) -> u32 {
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+#ifdef GPU_CLUSTERING_SUPPORT
     return bindings::clusterable_object_index_lists.data[index];
 #else
     // The index is correct but in clusterable_object_index_lists we pack 4 u8s into a u32

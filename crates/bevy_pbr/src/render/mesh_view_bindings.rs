@@ -41,6 +41,7 @@ use crate::{
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
+    get_clustered_forward_buffer_binding_type,
     irradiance_volume::{
         self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
     },
@@ -51,7 +52,7 @@ use crate::{
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
     ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
-    ViewTransmissionTexture, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    ViewTransmissionTexture,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -487,7 +488,7 @@ pub fn init_mesh_pipeline_view_layouts(
     // [`MeshPipelineViewLayoutKey`] flags.
 
     let clustered_forward_buffer_binding_type =
-        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+        get_clustered_forward_buffer_binding_type(&render_adapter, &render_device);
     let visibility_ranges_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
