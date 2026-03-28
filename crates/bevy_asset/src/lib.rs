@@ -220,7 +220,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
@@ -541,6 +541,22 @@ impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
 impl VisitAssetDependencies for HashSet<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
+impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
             visit(dependency.id());
         }
     }
