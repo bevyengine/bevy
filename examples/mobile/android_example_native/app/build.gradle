@@ -31,11 +31,6 @@ android {
     buildFeatures {
         viewBinding true
     }
-    // The final part to insert libc++_shared.so only
-    packagingOptions {
-        exclude 'lib/*/libdummy.so'
-    }
-
     sourceSets {
         main {
             assets.srcDirs += files('../../../../assets')
