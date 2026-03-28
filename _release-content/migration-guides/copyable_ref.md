@@ -1,5 +1,5 @@
 ---
-title: "`Ref` now directly implements `Clone` and `Copy`
+title: "`Ref` now directly implements `Clone` and `Copy`"
 pull_requests: [23549]
 ---
 
