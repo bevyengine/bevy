@@ -242,7 +242,7 @@ impl GpuResourceAppExt for SubApp {
 struct RenderRecovery;
 
 /// Defines the schedules to be run for the rendering, including their order.
-/// 
+///
 /// This is the same approach as [`MainScheduleOrder`](`bevy_app::main_schedule::MainScheduleOrder`).
 #[derive(Resource, Debug)]
 pub struct RenderScheduleOrder {
