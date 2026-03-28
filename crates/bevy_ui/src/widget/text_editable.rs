@@ -20,8 +20,8 @@ use bevy_text::{
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
-use parley::{swash::FontRef, BoundingBox};
-use parley::{FontFamily, FontStack, PositionedLayoutItem};
+use parley::{BoundingBox, PositionedLayoutItem};
+use swash::FontRef;
 
 struct TextInputMeasure {
     height: f32,
@@ -122,13 +122,10 @@ pub fn editable_text_system(
             continue;
         };
 
-        let family = match font_family {
-            FontFamily::Named(name) => FontFamily::Named(name.into_owned().into()),
-            FontFamily::Generic(generic) => FontFamily::Generic(generic),
-        };
+        let family = font_family.into_owned();
         let style_set = editable_text.editor.edit_styles();
         style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
-        style_set.insert(parley::StyleProperty::FontStack(FontStack::Single(family)));
+        style_set.insert(parley::StyleProperty::FontFamily(family));
 
         let logical_viewport_size = target.logical_size();
         let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);

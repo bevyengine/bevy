@@ -531,6 +531,7 @@ bevy_settings = { path = "../bevy_settings", optional = true, version = "0.19.0-
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.19.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.19.0-dev" }
+bevy_scene2 = { path = "../bevy_scene2", optional = true, version = "0.19.0-dev" }
 bevy_solari = { path = "../bevy_solari", optional = true, version = "0.19.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.19.0-dev" }
 bevy_sprite_render = { path = "../bevy_sprite_render", optional = true, version = "0.19.0-dev" }

@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_scene"]
+scene = ["bevy_scene", "bevy_scene2"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -319,6 +319,9 @@ bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
+
+# Provides scene functionality
+bevy_scene2 = ["bevy_internal/bevy_scene2"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
@@ -731,6 +734,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-featu
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
+bevy_scene2 = { path = "crates/bevy_scene2", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -3006,6 +3010,17 @@ description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
 
+[[example]]
+name = "bsn"
+path = "examples/scene/bsn.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bsn]
+name = "BSN example"
+description = "Demonstrates how to use BSN to compose scenes"
+category = "Scene"
+wasm = true
+
 # Shaders
 [[package.metadata.example_category]]
 name = "Shaders"
@@ -4367,6 +4382,18 @@ required-features = ["free_camera"]
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
 description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "transform_gizmo"
+path = "examples/gizmos/transform_gizmo.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.transform_gizmo]
+name = "Transform Gizmo"
+description = "Interactive transform gizmo for translating, rotating, and scaling entities"
 category = "Gizmos"
 wasm = true
 
