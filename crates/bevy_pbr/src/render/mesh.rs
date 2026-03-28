@@ -304,7 +304,6 @@ impl Plugin for MeshRenderPlugin {
                     );
             };
 
-            let render_adapter = render_app.world().resource::<RenderAdapter>();
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
                 GpuArrayBuffer::<MeshUniform>::batch_size(&render_device.limits())
@@ -313,9 +312,6 @@ impl Plugin for MeshRenderPlugin {
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
                 ));
-            }
-            if gpu_clustering_supported(render_adapter, render_device) {
-                mesh_bindings_shader_defs.push("GPU_CLUSTERING_SUPPORT".into());
             }
 
             render_app.add_systems(
@@ -2739,7 +2735,7 @@ fn init_mesh_pipeline(
     let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
 
     let clustered_forward_buffer_binding_type =
-        get_clustered_forward_buffer_binding_type(&render_adapter, &render_device);
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
     let res = MeshPipeline {
         view_layouts: view_layouts.clone(),

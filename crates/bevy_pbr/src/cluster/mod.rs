@@ -57,35 +57,6 @@ pub const GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY: usize = 1024;
 /// [`GlobalClusterGpuSettings::initial_index_list_capacity`].
 pub const GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY: usize = 65536;
 
-pub(crate) fn gpu_clustering_supported(adapter: &RenderAdapter, device: &RenderDevice) -> bool {
-    // We need to support compute shaders to use GPU clustering. To deal with
-    // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
-    // `RenderDevice` limits in addition to the `RenderAdapter`.
-    //
-    // Some android devices report the capabilities and limits wrong, so we can't rely on them.
-    // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
-    !cfg!(target_os = "android")
-        && adapter
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::COMPUTE_SHADERS)
-        && matches!(
-            device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
-            BufferBindingType::Storage { .. }
-        )
-}
-
-pub(crate) fn get_clustered_forward_buffer_binding_type(
-    adapter: &RenderAdapter,
-    device: &RenderDevice,
-) -> BufferBindingType {
-    if gpu_clustering_supported(adapter, device) {
-        BufferBindingType::Storage { read_only: true }
-    } else {
-        BufferBindingType::Uniform
-    }
-}
-
 /// Creates the default [`GlobalClusterSettings`] resource.
 pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettings {
     let device = world.resource::<RenderDevice>();
@@ -97,7 +68,19 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
         BufferBindingType::Storage { .. }
     );
 
-    let gpu_clustering = if gpu_clustering_supported(adapter, device) {
+    // We need to support compute shaders to use GPU clustering. To deal with
+    // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
+    // `RenderDevice` limits in addition to the `RenderAdapter`.
+    // Some android devices report the capabilities and limits wrong, so we can't rely on them.
+    // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
+    let gpu_clustering_supported = !cfg!(target_os = "android")
+        && adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS)
+        && device.limits().max_storage_buffers_per_shader_stage > 0;
+
+    let gpu_clustering = if gpu_clustering_supported {
         info!("GPU clustering is supported on this device.");
         Some(GlobalClusterGpuSettings {
             initial_z_slice_list_capacity: GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY,
@@ -268,11 +251,10 @@ pub struct ViewClusterBindings {
 
 pub fn init_global_clusterable_object_meta(
     mut commands: Commands,
-    render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
 ) {
     commands.insert_resource(GlobalClusterableObjectMeta::new(
-        get_clustered_forward_buffer_binding_type(&render_adapter, &render_device),
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
     ));
 }
 

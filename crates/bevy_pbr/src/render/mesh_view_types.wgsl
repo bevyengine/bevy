@@ -99,7 +99,7 @@ const FOG_MODE_EXPONENTIAL: u32           = 2u;
 const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
 const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
-#ifdef GPU_CLUSTERING_SUPPORT
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct ClusteredLights {
     data: array<ClusteredLight>,
 };

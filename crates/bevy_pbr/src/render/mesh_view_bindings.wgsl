@@ -28,7 +28,7 @@
 @group(0) @binding(7) var directional_shadow_textures_linear_sampler: sampler;
 #endif  // PCSS_SAMPLERS_AVAILABLE
 
-#ifdef GPU_CLUSTERING_SUPPORT
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 @group(0) @binding(8) var<storage> clustered_lights: types::ClusteredLights;
 @group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
