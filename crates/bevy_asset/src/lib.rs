@@ -2046,6 +2046,10 @@ mod tests {
             set_handles: HashSet<Handle<TestAsset>>,
             #[dependency]
             untyped_set_handles: HashSet<UntypedHandle>,
+            #[dependency]
+            map_handles: HashMap<String, Handle<TestAsset>>,
+            #[dependency]
+            untyped_map_handles: HashMap<String, UntypedHandle>,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -2069,6 +2073,10 @@ mod tests {
         set_handles: HashSet<Handle<TestAsset>>,
         #[dependency]
         untyped_set_handles: HashSet<UntypedHandle>,
+        #[dependency]
+        map_handles: HashMap<String, Handle<TestAsset>>,
+        #[dependency]
+        untyped_map_handles: HashMap<String, UntypedHandle>,
     }
 
     #[expect(
