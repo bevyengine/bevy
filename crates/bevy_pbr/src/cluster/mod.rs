@@ -720,7 +720,7 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists
                     .get_mut()
                     .data
-                    .reserve(elements);
+                    .extend(iter::repeat_n(0, elements));
                 self.n_indices += elements;
             }
         }
