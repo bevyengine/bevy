@@ -709,22 +709,20 @@ Alternatively, you can install Android Studio.
 
 #### Build & Run
 
-<!-- FIXME: Remove --release flag after an issue that makes it necessary for running the example has been resolved.-->
+**⚠️ Note:** For running the example on `x86_64`, the `--release` flag is currently required.
 
-**⚠️ Note:** The `-P 26` flag is currently necessary for building the example. If not included, you might get the error: `unable to find library -laaudio`.
-
-**⚠️ Note:** The `--release` flag is currently necessary for running the example. You might be able to omit it when building your own crate.
+**⚠️ Note:** The `-P 26` flag is currently required for building the example. If not included, you might get the error: `unable to find library -laaudio`.
 
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk build -t <target_name> -P 26 --release -o <project_path>/app/src/main/jniLibs
+cargo ndk build -t <target_name> -P 26 -o <project_path>/app/src/main/jniLibs
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk build -t aarch64-linux-android -P 26 --release -o ./android/app/src/main/jniLibs
+cargo ndk build -t aarch64-linux-android -P 26 -o ./android/app/src/main/jniLibs
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
