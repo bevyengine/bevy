@@ -49,6 +49,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[deprecated(
+    since = "0.19.0",
+    note = "Use bevy::ui::Pressed and bevy::picking::hover::Hovered instead"
+)]
 pub enum Interaction {
     /// The node has been pressed.
     ///
@@ -146,6 +150,7 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
+#[deprecated(since = "0.19.0")]
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
