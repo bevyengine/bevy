@@ -13,18 +13,24 @@ fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if life > 0u {
         life -= 1u;
         world_cache.life[global_id.x] = life;
-#else
-    var life = atomicLoad(&world_cache.life[global_id.x]);
-    if life > 0u {
-        life -= 1u;
-        atomicStore(&world_cache.life[global_id.x], life);
-#endif
         if life == 0u {
             atomicStore(&world_cache.checksums[global_id.x], WORLD_CACHE_EMPTY_CELL);
             world_cache.radiance[global_id.x] = vec4(0.0);
             world_cache.luminance_deltas[global_id.x] = 0.0;
         }
     }
+#else
+    var life = atomicLoad(&world_cache.life[global_id.x]);
+    if life > 0u {
+        life -= 1u;
+        atomicStore(&world_cache.life[global_id.x], life);
+        if life == 0u {
+            atomicStore(&world_cache.checksums[global_id.x], WORLD_CACHE_EMPTY_CELL);
+            world_cache.radiance[global_id.x] = vec4(0.0);
+            world_cache.luminance_deltas[global_id.x] = 0.0;
+        }
+    }
+#endif
 }
 
 @compute @workgroup_size(1024, 1, 1)
@@ -32,7 +38,11 @@ fn compact_world_cache_single_block(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(local_invocation_index) t: u32,
 ) {
+#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
     if t == 0u { w1[0u] = 0u; } else { w1[t] = u32(world_cache.life[cell_id.x - 1u] != 0u); }; workgroupBarrier();
+#else
+    if t == 0u { w1[0u] = 0u; } else { w1[t] = u32(atomicLoad(&world_cache.life[cell_id.x - 1u]) != 0u); }; workgroupBarrier();
+#endif
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
     if t < 4u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 4u]; } workgroupBarrier();
@@ -67,7 +77,11 @@ fn compact_world_cache_write_active_cells(
     @builtin(local_invocation_index) thread_index: u32,
 ) {
     let compacted_index = world_cache.a[cell_id.x] + world_cache.b[workgroup_id.x];
+#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
     let cell_active = world_cache.life[cell_id.x] != 0u;
+#else
+    let cell_active = atomicLoad(&world_cache.life[cell_id.x]) != 0u;
+#endif
 
     if cell_active {
         world_cache.active_cell_indices[compacted_index] = cell_id.x;
