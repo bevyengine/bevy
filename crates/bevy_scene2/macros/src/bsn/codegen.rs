@@ -35,12 +35,12 @@ impl EntityRefs {
 }
 
 /// Context used in the [`Bsn`] code generation pipeline.
-/// Provides a single place to accumulate validation errors without short-circuiting.
+/// Used to accumulate validation errors without short-circuiting.
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
     pub entity_refs: &'a mut EntityRefs,
-    /// Accumulates parsing and validation errors.
+    /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
 }
 
