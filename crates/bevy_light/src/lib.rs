@@ -28,6 +28,7 @@ use core::{any::TypeId, mem, ops::DerefMut};
 pub mod cluster;
 use cluster::assign::assign_objects_to_clusters;
 pub use cluster::ClusteredDecal;
+pub use cluster::ClusteredEmissiveMesh;
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;

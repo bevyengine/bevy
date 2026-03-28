@@ -240,6 +240,8 @@ pub struct ClusterMetadata {
     irradiance_volume_count: u32,
     /// The total number of clustered decals, set by the CPU.
     decal_count: u32,
+    /// The total number of emissive meshes, set by the CPU.
+    emissive_mesh_count: u32,
 
     /// The current maximum size of the Z-slice list.
     z_slice_list_capacity: u32,
@@ -1688,6 +1690,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             reflection_probe_count,
             irradiance_volume_count,
             decal_count,
+            emissive_mesh_count: todo!(),
             index_list_capacity: view_clustering_buffer_size_data.max_index_list_capacity as u32,
             z_slice_list_capacity: view_clustering_buffer_size_data.z_slice_list_capacity as u32,
             farthest_z: 0,

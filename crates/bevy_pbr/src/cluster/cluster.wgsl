@@ -22,6 +22,7 @@ struct ClusterMetadata {
     reflection_probe_count: u32,
     irradiance_volume_count: u32,
     decal_count: u32,
+    emissive_mesh_count: u32,
 
     z_slice_list_capacity: u32,
     index_list_size: u32,
