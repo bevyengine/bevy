@@ -99,7 +99,6 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build .so file
-        # FIXME: Remove -P 26 flag after an issue that makes it necessary for building the example has been resolved.
         # FIXME: Remove --release flag after an issue that makes it necessary for running the example has been resolved.
         run: cargo ndk build -t aarch64-linux-android -P 26 -p bevy_mobile_example --release -o ./examples/mobile/android/app/src/main/jniLibs
 

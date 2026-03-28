@@ -107,7 +107,6 @@ Alternatively, you can install Android Studio.
 
 #### Build & Run
 
-<!-- FIXME: Remove -P 26 flag after an issue that makes it necessary for building the example has been resolved.-->
 <!-- FIXME: Remove --release flag after an issue that makes it necessary for running the example has been resolved.-->
 
 **⚠️ Note:** The `-P 26` flag is currently necessary for building the example. If not included, you might get the error: `unable to find library -laaudio`.
