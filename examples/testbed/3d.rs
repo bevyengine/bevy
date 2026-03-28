@@ -715,11 +715,8 @@ mod white_furnace_environment_map_light {
 mod render_layers {
     const CURRENT_SCENE: super::Scene = super::Scene::RenderLayers;
 
-    use std::f32::consts::PI;
-
     use bevy::{
         camera::{visibility::RenderLayers, Viewport},
-        light::CascadeShadowConfigBuilder,
         prelude::*,
         window::PrimaryWindow,
     };
@@ -771,22 +768,6 @@ mod render_layers {
             Transform::from_xyz(4.0, 8.0, 4.0),
             DespawnOnExit(CURRENT_SCENE),
         ));
-
-        // commands.spawn((
-        //     Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        //     DirectionalLight {
-        //         shadow_maps_enabled: true,
-        //         ..default()
-        //     },
-        //     CascadeShadowConfigBuilder {
-        //         num_cascades: 2,
-        //         first_cascade_far_bound: 200.0,
-        //         maximum_distance: 280.0,
-        //         ..default()
-        //     }
-        //     .build(),
-        //     DespawnOnExit(CURRENT_SCENE),
-        // ));
 
         let window_half_size = window.physical_size() / 2;
 
