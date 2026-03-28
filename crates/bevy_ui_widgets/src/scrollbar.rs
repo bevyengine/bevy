@@ -12,7 +12,6 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::RenderSystems;
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, Node, ScrollPosition, UiGlobalTransform, UiScale,
     UiSystems, Val,
@@ -51,7 +50,7 @@ pub enum ControlOrientation {
 /// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
 /// the content to make room for the scrollbars.
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Clone, PartialEq)]
 #[reflect(Component)]
 pub struct Scrollbar {
     /// Entity being scrolled.
@@ -366,14 +365,15 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag_end)
             .add_observer(scrollbar_on_drag_cancel)
             .add_observer(scrollbar_on_drag)
+            .configure_sets(
+                PostUpdate,
+                bevy_app::PropagateSet::<Scrollbar>::default().in_set(UiSystems::ComputeRelative),
+            )
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb
-                    .in_set(UiSystems::Prepare)
-                    .ambiguous_with(UiSystems::Prepare)
-                    .ambiguous_with(UiSystems::Stack)
-                    .before(RenderSystems::Render)
-                    .before(UiSystems::Layout),
+                    .in_set(UiSystems::ComputeRelative)
+                    .ambiguous_with(UiSystems::ComputeRelative),
             );
     }
 }

@@ -74,7 +74,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
-use bevy_camera::CameraUpdateSystems;
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_transform::TransformSystems;
@@ -112,6 +112,8 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Stack,
+    /// After this label, TODO
+    ComputeRelative,
 }
 
 /// The current scale of the UI.
@@ -150,6 +152,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
+                    UiSystems::ComputeRelative.after(VisibilitySystems::VisibilityPropagate),
                 )
                     .chain(),
             )
@@ -216,7 +219,8 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystems::PostLayout)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),
-            ),
+            )
+                .before(UiSystems::ComputeRelative),
         );
 
         build_text_interop(app);

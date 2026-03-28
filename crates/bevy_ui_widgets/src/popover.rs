@@ -7,7 +7,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs, system::Query,
 };
 use bevy_math::{Rect, Vec2};
-use bevy_render::RenderSystems;
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems, Val,
 };
@@ -243,14 +242,17 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.configure_sets(
             PostUpdate,
-            position_popover
-                .in_set(UiSystems::Prepare)
-                .ambiguous_with(UiSystems::Prepare)
-                .ambiguous_with(UiSystems::Stack)
-                .before(RenderSystems::Render)
-                .before(UiSystems::Layout),
+            (
+                bevy_app::PropagateSet::<Visibility>::default(),
+                bevy_app::PropagateSet::<Popover>::default(),
+            )
+                .in_set(UiSystems::ComputeRelative),
+        )
+        .add_systems(
+            PostUpdate,
+            position_popover.in_set(UiSystems::ComputeRelative),
         );
     }
 }
