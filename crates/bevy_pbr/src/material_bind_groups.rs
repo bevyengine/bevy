@@ -940,10 +940,18 @@ impl MaterialBindlessSlab {
         }
 
         // OK, we can allocate in this slab. Assign a slot ID.
-        let slot = self
-            .free_slots
-            .pop()
-            .unwrap_or(MaterialBindGroupSlot(self.live_allocation_count));
+        let slot = match self.free_slots.pop() {
+            Some(slot) => slot,
+            None => {
+                // The material bind group slot is packed into 16 bits on
+                // the GPU, so spill to a new slab before we would overflow.
+                if self.live_allocation_count > 0xFFFF {
+                    trace!("Slab material bind group slot would overflow, can't allocate");
+                    return Err(unprepared_bind_group);
+                }
+                MaterialBindGroupSlot(self.live_allocation_count)
+            }
+        };
 
         // Bump the live allocation count.
         self.live_allocation_count += 1;
@@ -1630,6 +1638,7 @@ where
                 if self.bindings.len() < slot as usize + 1 {
                     self.bindings.resize_with(slot as usize + 1, || None);
                 }
+                debug_assert!(self.bindings[slot as usize].is_none());
                 self.bindings[slot as usize] = Some(MaterialBindlessBinding::new(resource));
 
                 self.len += 1;
