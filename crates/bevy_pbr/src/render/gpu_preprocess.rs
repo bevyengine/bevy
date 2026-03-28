@@ -35,18 +35,19 @@ use bevy_math::Vec4;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{
-        clear_bin_unpacking_buffers, BatchedInstanceBuffers, BinUnpackingBuffers,
-        BinUnpackingBuffersKey, BinUnpackingJob, BinUnpackingMetadataIndex,
-        GpuBinUnpackingMetadata, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
-        GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-        IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, IndirectParametersIndexed,
-        IndirectParametersNonIndexed, LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem,
-        PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
+        clear_scene_unpacking_buffers, BatchedInstanceBuffers, BinUnpackingMetadataIndex,
+        GpuBinMetadata, GpuBinUnpackingMetadata, GpuOcclusionCullingWorkItemBuffers,
+        GpuPreprocessingMode, GpuPreprocessingSupport, GpuUniformAllocationMetadata,
+        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersIndexed,
+        IndirectParametersMetadata, IndirectParametersNonIndexed,
+        LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
+        SceneUnpackingBuffers, SceneUnpackingBuffersKey, SceneUnpackingJob,
+        UniformAllocationMetadataIndex, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
     diagnostic::RecordDiagnostics as _,
     occlusion_culling::OcclusionCulling,
-    render_phase::GpuRenderBinnedMeshInstance,
+    render_phase::{GpuRenderBinnedMeshInstance, UNIFORM_ALLOCATION_WORKGROUP_SIZE},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
@@ -130,6 +131,8 @@ pub struct PreprocessPipelines {
     pub main_phase: PreprocessPhasePipelines,
     /// Compute shader pipelines for the bin unpacking step.
     pub bin_unpacking: BinUnpackingPipeline,
+    /// Compute shader pipelines for the uniform allocation step.
+    pub uniform_allocation: UniformAllocationPipelines,
 }
 
 /// Compute shader pipelines for a specific phase: early, late, or main.
@@ -204,6 +207,63 @@ pub struct BinUnpackingPipeline {
     ///
     /// This gets filled in in the [`prepare_preprocess_pipelines`] system.
     pub pipeline_id: Option<CachedComputePipelineId>,
+}
+
+/// Pipelines for the `allocate_uniforms` compute shader.
+///
+/// This shader has three steps, so we have three pipelines.
+///
+/// Although the `Handle<Shader>` is the same among these three pipelines, they
+/// have to be separate so that the `SpecializedComputePipeline` implementation
+/// on each sub-pipeline can access it.
+#[derive(Clone)]
+pub struct UniformAllocationPipelines {
+    /// The pipeline for step 1: local scan.
+    pub local_scan: UniformAllocationLocalScanPipeline,
+    /// The pipeline for step 2: global scan.
+    pub global_scan: UniformAllocationGlobalScanPipeline,
+    /// The pipeline for step 3: fan.
+    pub fan: UniformAllocationFanPipeline,
+}
+
+/// The pipeline for the first step of the `allocate_uniforms` shader.
+#[derive(Clone)]
+pub struct UniformAllocationLocalScanPipeline {
+    /// The bind group layout, shared among all the uniform allocation
+    /// pipelines.
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    /// The shader, also shared among all uniform allocation pipelines.
+    pub shader: Handle<Shader>,
+    /// The pipeline ID for the first step of the `allocate_uniforms` shader.
+    pub pipeline_id_local_scan: Option<CachedComputePipelineId>,
+}
+
+/// The pipeline for the second step of the `allocate_uniforms` shader.
+///
+/// This step is skipped if the number of bins in the batch set is 256 or fewer.
+#[derive(Clone)]
+pub struct UniformAllocationGlobalScanPipeline {
+    /// The bind group layout, shared among all the uniform allocation
+    /// pipelines.
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    /// The shader, also shared among all uniform allocation pipelines.
+    pub shader: Handle<Shader>,
+    /// The pipeline ID for the second step of the `allocate_uniforms` shader.
+    pub pipeline_id_global_scan: Option<CachedComputePipelineId>,
+}
+
+/// The pipeline for the third step of the `allocate_uniforms` shader.
+///
+/// This step is skipped if the number of bins in the batch set is 256 or fewer.
+#[derive(Clone)]
+pub struct UniformAllocationFanPipeline {
+    /// The bind group layout, shared among all the uniform allocation
+    /// pipelines.
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    /// The shader, also shared among all uniform allocation pipelines.
+    pub shader: Handle<Shader>,
+    /// The pipeline ID for the third step of the `allocate_uniforms` shader.
+    pub pipeline_id_fan: Option<CachedComputePipelineId>,
 }
 
 bitflags! {
@@ -351,16 +411,16 @@ pub struct PhaseBuildIndirectParametersBindGroups {
 /// mesh indexed-ness.
 #[derive(Clone, Resource, Default, Deref, DerefMut)]
 pub struct BinUnpackingBindGroups(
-    pub HashMap<BinUnpackingBuffersKey, ViewPhaseBinUnpackingBindGroups>,
+    pub HashMap<SceneUnpackingBuffersKey, ViewPhaseBinUnpackingBindGroups>,
 );
 
 /// The bind groups for the `unpack_bins` shader for a single (view, phase)
 /// combination.
 #[derive(Clone)]
 pub struct ViewPhaseBinUnpackingBindGroups {
-    /// The bind group for the indexed meshes.
+    /// The bind groups for the indexed meshes, one for each batch set.
     indexed: Vec<ViewPhaseBinUnpackingBindGroup>,
-    /// The bind group for the non-indexed meshes.
+    /// The bind groups for the non-indexed meshes, one for each batch set.
     non_indexed: Vec<ViewPhaseBinUnpackingBindGroup>,
 }
 
@@ -369,13 +429,46 @@ pub struct ViewPhaseBinUnpackingBindGroups {
 #[derive(Clone)]
 pub struct ViewPhaseBinUnpackingBindGroup {
     /// The index of the metadata in the
-    /// [`BinUnpackingBuffers::bin_unpacking_metadata`] buffer.
+    /// [`SceneUnpackingBuffers::bin_unpacking_metadata`] buffer.
     pub metadata_index: BinUnpackingMetadataIndex,
     /// The actual shader bind group.
     pub bind_group: BindGroup,
     /// The number of mesh instances of the appropriate type (indexed or
     /// non-indexed) for this batch set.
     pub mesh_instance_count: u32,
+}
+
+/// A resource, part of the render world, that stores all the bind groups for
+/// the uniform allocation shader.
+///
+/// There will be one such bind group for each combination of view, phase, and
+/// mesh indexed-ness.
+#[derive(Clone, Resource, Default, Deref, DerefMut)]
+pub struct UniformAllocationBindGroups(
+    pub HashMap<SceneUnpackingBuffersKey, ViewPhaseUniformAllocationBindGroups>,
+);
+
+/// The bind groups for the `allocate_uniforms` shader for a single (view,
+/// phase) combination.
+#[derive(Clone)]
+pub struct ViewPhaseUniformAllocationBindGroups {
+    /// The bind groups for the indexed meshes, one for each batch set.
+    indexed: Vec<ViewPhaseUniformAllocationBindGroup>,
+    /// The bind groups for the non-indexed meshes, one for each batch set.
+    non_indexed: Vec<ViewPhaseUniformAllocationBindGroup>,
+}
+
+/// The bind group for the `allocate_uniforms` shader for a single combination
+/// of view, phase, and mesh indexed-ness.
+#[derive(Clone)]
+pub struct ViewPhaseUniformAllocationBindGroup {
+    /// The index of the metadata in the
+    /// [`SceneUnpackingBuffers::uniform_unpacking_metadata`] buffer.
+    pub metadata_index: UniformAllocationMetadataIndex,
+    /// The actual shader bind group.
+    pub bind_group: BindGroup,
+    /// The total number of bins in this batch set.
+    pub bin_count: u32,
 }
 
 /// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
@@ -389,6 +482,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         embedded_asset!(app, "reset_indirect_batch_sets.wgsl");
         embedded_asset!(app, "build_indirect_params.wgsl");
         embedded_asset!(app, "unpack_bins.wgsl");
+        embedded_asset!(app, "allocate_uniforms.wgsl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -405,15 +499,19 @@ impl Plugin for GpuMeshPreprocessPlugin {
 
         render_app
             .init_gpu_resource::<BinUnpackingBindGroups>()
+            .init_gpu_resource::<UniformAllocationBindGroups>()
             .init_gpu_resource::<PreprocessPipelines>()
             .init_gpu_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
             .init_gpu_resource::<SpecializedComputePipelines<ResetIndirectBatchSetsPipeline>>()
             .init_gpu_resource::<SpecializedComputePipelines<BuildIndirectParametersPipeline>>()
             .init_gpu_resource::<SpecializedComputePipelines<BinUnpackingPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<UniformAllocationLocalScanPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<UniformAllocationGlobalScanPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<UniformAllocationFanPipeline>>()
             .add_systems(
                 Render,
                 (
-                    clear_bin_unpacking_buffers.in_set(RenderSystems::PrepareResources),
+                    clear_scene_unpacking_buffers.in_set(RenderSystems::PrepareResources),
                     prepare_preprocess_pipelines.in_set(RenderSystems::Prepare),
                     prepare_preprocess_bind_groups
                         .run_if(resource_exists::<BatchedInstanceBuffers<
@@ -429,7 +527,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                 Core3d,
                 (
                     (
-                        clear_indirect_parameters_metadata,
+                        allocate_uniforms,
                         unpack_bins,
                         early_gpu_preprocess,
                         early_prepass_build_indirect_parameters.run_if(any_match_filter::<(
@@ -468,44 +566,117 @@ impl Plugin for GpuMeshPreprocessPlugin {
     }
 }
 
-pub fn clear_indirect_parameters_metadata(
-    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
-    mut ctx: RenderContext,
+/// A rendering system that invokes a compute shader for each batch set in order
+/// to determine where `MeshUniform`s should be placed.
+///
+/// This shader exists because a single batch set could contain many meshes. By
+/// performing this on the GPU, we avoid having to traverse every visible mesh
+/// on the CPU every frame.
+pub fn allocate_uniforms(
+    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    view_query: Query<&ExtractedView, Without<SkipGpuPreprocess>>,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    uniform_allocation_bind_groups: Res<UniformAllocationBindGroups>,
+    mut render_context: RenderContext,
 ) {
-    let Some(indirect_parameters_buffers) = indirect_parameters_buffers else {
-        return;
-    };
+    let diagnostics = render_context.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-    // Clear out each indexed and non-indexed GPU-side buffer.
-    for phase_indirect_parameters_buffers in indirect_parameters_buffers.values() {
-        if let Some(indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
-            .indexed
-            .gpu_metadata_buffer()
-        {
-            ctx.command_encoder().clear_buffer(
-                indexed_gpu_metadata_buffer,
-                0,
-                Some(
-                    phase_indirect_parameters_buffers.indexed.batch_count() as u64
-                        * size_of::<IndirectParametersGpuMetadata>() as u64,
-                ),
-            );
-        }
+    let command_encoder = render_context.command_encoder();
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("uniform allocation"),
+        timestamp_writes: None,
+    });
 
-        if let Some(non_indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
-            .non_indexed
-            .gpu_metadata_buffer()
-        {
-            ctx.command_encoder().clear_buffer(
-                non_indexed_gpu_metadata_buffer,
-                0,
-                Some(
-                    phase_indirect_parameters_buffers.non_indexed.batch_count() as u64
-                        * size_of::<IndirectParametersGpuMetadata>() as u64,
-                ),
-            );
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "uniform_allocation");
+
+    // Gather up all views.
+    let view_entity = current_view.entity();
+    let shadow_cascade_views = current_view.into_inner();
+    let all_views = gather_shadow_cascades_for_view(view_entity, shadow_cascade_views);
+
+    // Don't run if the shaders haven't been compiled yet.
+    if let (
+        Some(uniform_allocation_local_scan_pipeline_id),
+        Some(uniform_allocation_global_scan_pipeline_id),
+        Some(uniform_allocation_fan_pipeline_id),
+    ) = (
+        preprocess_pipelines
+            .uniform_allocation
+            .local_scan
+            .pipeline_id_local_scan,
+        preprocess_pipelines
+            .uniform_allocation
+            .global_scan
+            .pipeline_id_global_scan,
+        preprocess_pipelines.uniform_allocation.fan.pipeline_id_fan,
+    ) && let (
+        Some(uniform_allocation_local_scan_pipeline),
+        Some(uniform_allocation_global_scan_pipeline),
+        Some(uniform_allocation_fan_pipeline),
+    ) = (
+        pipeline_cache.get_compute_pipeline(uniform_allocation_local_scan_pipeline_id),
+        pipeline_cache.get_compute_pipeline(uniform_allocation_global_scan_pipeline_id),
+        pipeline_cache.get_compute_pipeline(uniform_allocation_fan_pipeline_id),
+    ) {
+        // Loop over each view…
+        for view_entity in all_views {
+            let Ok(view) = view_query.get(view_entity) else {
+                continue;
+            };
+
+            // …and each phase within each view.
+            for phase_type_id in batched_instance_buffers.phase_instance_buffers.keys() {
+                let uniform_allocation_buffers_key = SceneUnpackingBuffersKey {
+                    phase: *phase_type_id,
+                    view: view.retained_view_entity,
+                };
+
+                // Fetch the bind groups for this (view, phase) combination.
+                let Some(phase_uniform_allocation_bind_groups) =
+                    uniform_allocation_bind_groups.get(&uniform_allocation_buffers_key)
+                else {
+                    continue;
+                };
+
+                // Invoke the shader for all batch sets corresponding to indexed
+                // meshes and then for all batch sets corresponding to
+                // non-indexed meshes.
+                for uniform_allocation_bind_group in phase_uniform_allocation_bind_groups
+                    .indexed
+                    .iter()
+                    .chain(phase_uniform_allocation_bind_groups.non_indexed.iter())
+                {
+                    // Invoke the local scan (step 1).
+                    compute_pass.set_pipeline(uniform_allocation_local_scan_pipeline);
+                    compute_pass.set_bind_group(0, &uniform_allocation_bind_group.bind_group, &[]);
+                    let local_scan_workgroup_count = uniform_allocation_bind_group
+                        .bin_count
+                        .div_ceil(UNIFORM_ALLOCATION_WORKGROUP_SIZE);
+                    if local_scan_workgroup_count > 0 {
+                        compute_pass.dispatch_workgroups(local_scan_workgroup_count, 1, 1);
+                    }
+
+                    // If there are 256 or fewer draws in this batch, we're
+                    // done. Otherwise, perform the other two steps.
+                    if local_scan_workgroup_count > 1 {
+                        // Invoke the global scan (step 2).
+                        compute_pass.set_pipeline(uniform_allocation_global_scan_pipeline);
+                        compute_pass.dispatch_workgroups(1, 1, 1);
+
+                        // Perform the fan operation (step 3).
+                        compute_pass.set_pipeline(uniform_allocation_fan_pipeline);
+                        let fan_workgroup_count = local_scan_workgroup_count - 1;
+                        compute_pass.dispatch_workgroups(fan_workgroup_count, 1, 1);
+                    }
+                }
+            }
         }
     }
+
+    pass_span.end(&mut compute_pass);
 }
 
 /// A rendering system that invokes a compute shader for each batch set in order
@@ -555,14 +726,14 @@ pub fn unpack_bins(
 
             // …and each phase within each view.
             for phase_type_id in batched_instance_buffers.phase_instance_buffers.keys() {
-                let bin_unpacking_buffers_key = BinUnpackingBuffersKey {
+                let scene_unpacking_buffers_key = SceneUnpackingBuffersKey {
                     phase: *phase_type_id,
                     view: view.retained_view_entity,
                 };
 
                 // Fetch the bind groups for this (view, phase) combination.
                 let Some(phase_bin_unpacking_bind_groups) =
-                    bin_unpacking_bind_groups.get(&bin_unpacking_buffers_key)
+                    bin_unpacking_bind_groups.get(&scene_unpacking_buffers_key)
                 else {
                     continue;
                 };
@@ -1273,6 +1444,8 @@ impl FromWorld for PreprocessPipelines {
                 .extend_sequential((storage_buffer::<IndirectParametersNonIndexed>(false),));
 
         let bin_unpacking_bind_group_layout_entries = bin_unpacking_bind_group_layout_entries();
+        let uniform_allocation_bind_group_layout_entries =
+            uniform_allocation_bind_group_layout_entries();
 
         // Create the bind group layouts.
         let direct_bind_group_layout = BindGroupLayoutDescriptor::new(
@@ -1307,6 +1480,10 @@ impl FromWorld for PreprocessPipelines {
             "bin unpacking bind group layout",
             &bin_unpacking_bind_group_layout_entries,
         );
+        let uniform_allocation_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "uniform allocation bind group layout",
+            &uniform_allocation_bind_group_layout_entries,
+        );
 
         let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wgsl");
         let reset_indirect_batch_sets_shader =
@@ -1314,6 +1491,7 @@ impl FromWorld for PreprocessPipelines {
         let build_indirect_params_shader =
             load_embedded_asset!(world, "build_indirect_params.wgsl");
         let bin_unpacking_shader = load_embedded_asset!(world, "unpack_bins.wgsl");
+        let uniform_allocation_shader = load_embedded_asset!(world, "allocate_uniforms.wgsl");
 
         let preprocess_phase_pipelines = PreprocessPhasePipelines {
             reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline {
@@ -1374,6 +1552,23 @@ impl FromWorld for PreprocessPipelines {
                 shader: bin_unpacking_shader,
                 pipeline_id: None,
             },
+            uniform_allocation: UniformAllocationPipelines {
+                local_scan: UniformAllocationLocalScanPipeline {
+                    bind_group_layout: uniform_allocation_bind_group_layout.clone(),
+                    shader: uniform_allocation_shader.clone(),
+                    pipeline_id_local_scan: None,
+                },
+                global_scan: UniformAllocationGlobalScanPipeline {
+                    bind_group_layout: uniform_allocation_bind_group_layout.clone(),
+                    shader: uniform_allocation_shader.clone(),
+                    pipeline_id_global_scan: None,
+                },
+                fan: UniformAllocationFanPipeline {
+                    bind_group_layout: uniform_allocation_bind_group_layout.clone(),
+                    shader: uniform_allocation_shader.clone(),
+                    pipeline_id_fan: None,
+                },
+            },
         }
     }
 }
@@ -1405,15 +1600,17 @@ fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
     DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::COMPUTE,
         (
+            // @group(0) @binding(0) var<storage> current_input:
+            // array<MeshInput>;
             (0, storage_buffer_read_only::<MeshInputUniform>(false)),
+            // @group(0) @binding(1) var<storage> indirect_parameters_metadata:
+            // array<IndirectParametersMetadata>;
             (
                 1,
-                storage_buffer_read_only::<IndirectParametersCpuMetadata>(false),
+                storage_buffer_read_only::<IndirectParametersMetadata>(false),
             ),
-            (
-                2,
-                storage_buffer_read_only::<IndirectParametersGpuMetadata>(false),
-            ),
+            // @group(0) @binding(3) var<storage, read_write>
+            // indirect_batch_sets: array<IndirectBatchSet>;
             (3, storage_buffer::<IndirectBatchSet>(false)),
         ),
     )
@@ -1425,17 +1622,11 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
     // GPU culling bind group parameters are a superset of those in the CPU
     // culling (direct) shader.
     preprocess_direct_bind_group_layout_entries().extend_with_indices((
-        // `indirect_parameters_cpu_metadata`
+        // @group(0) @binding(7) var<storage> indirect_parameters_metadata:
+        // array<IndirectParametersMetadata>;
         (
             7,
-            storage_buffer_read_only::<IndirectParametersCpuMetadata>(
-                /* has_dynamic_offset= */ false,
-            ),
-        ),
-        // `indirect_parameters_gpu_metadata`
-        (
-            8,
-            storage_buffer::<IndirectParametersGpuMetadata>(/* has_dynamic_offset= */ false),
+            storage_buffer::<IndirectParametersMetadata>(/* has_dynamic_offset= */ false),
         ),
         // `mesh_culling_data`
         (
@@ -1465,7 +1656,7 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
 
 /// Creates and returns bind group layout entries for the GPU bin unpacking
 /// shader (`unpack_bins`).
-fn bin_unpacking_bind_group_layout_entries() -> BindGroupLayoutEntries<4> {
+fn bin_unpacking_bind_group_layout_entries() -> BindGroupLayoutEntries<5> {
     BindGroupLayoutEntries::sequential(
         ShaderStages::COMPUTE,
         (
@@ -1478,9 +1669,33 @@ fn bin_unpacking_bind_group_layout_entries() -> BindGroupLayoutEntries<4> {
             // @group(0) @binding(2) var<storage, read_write>
             // preprocess_work_items: array<PreprocessWorkItem>;
             storage_buffer::<PreprocessWorkItem>(false),
-            // @group(0) @binding(3) var<storage>
-            // bin_index_to_indirect_parameters_offset: array<u32>;
+            // @group(0) @binding(3) var<storage> bin_metadata:
+            // array<GpuBinMetadata>;
+            storage_buffer_read_only::<GpuBinMetadata>(false),
+            // @group(0) @binding(4) var<storage>
+            // bin_index_to_bin_metadata_index: array<u32>;
             storage_buffer_read_only::<u32>(false),
+        ),
+    )
+}
+
+/// Creates and returns bind group layout entries for the GPU uniform allocation
+/// shader (`allocate_uniforms`).
+fn uniform_allocation_bind_group_layout_entries() -> BindGroupLayoutEntries<4> {
+    BindGroupLayoutEntries::sequential(
+        ShaderStages::COMPUTE,
+        (
+            // @group(0) @binding(0) var<uniform> allocate_uniforms_metadata:
+            // AllocateUniformsMetadata;
+            uniform_buffer::<GpuUniformAllocationMetadata>(false),
+            // @group(0) @binding(1) var<storage> bin_metadata: array<BinMetadata>;
+            storage_buffer_read_only::<GpuBinMetadata>(false),
+            // @group(0) @binding(2) var<storage, read_write>
+            // indirect_parameters_metadata: array<IndirectParametersMetadata>;
+            storage_buffer::<IndirectParametersMetadata>(false),
+            // @group(0) @binding(3) var<storage, read_write> fan_buffer:
+            // array<u32>;
+            storage_buffer::<u32>(false),
         ),
     )
 }
@@ -1504,6 +1719,15 @@ pub fn prepare_preprocess_pipelines(
     >,
     mut specialized_bin_unpacking_pipelines: ResMut<
         SpecializedComputePipelines<BinUnpackingPipeline>,
+    >,
+    mut specialized_uniform_allocation_local_scan_pipelines: ResMut<
+        SpecializedComputePipelines<UniformAllocationLocalScanPipeline>,
+    >,
+    mut specialized_uniform_allocation_global_scan_pipelines: ResMut<
+        SpecializedComputePipelines<UniformAllocationGlobalScanPipeline>,
+    >,
+    mut specialized_uniform_allocation_fan_pipelines: ResMut<
+        SpecializedComputePipelines<UniformAllocationFanPipeline>,
     >,
     preprocess_pipelines: ResMut<PreprocessPipelines>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
@@ -1617,6 +1841,14 @@ pub fn prepare_preprocess_pipelines(
     preprocess_pipelines
         .bin_unpacking
         .prepare(&pipeline_cache, &mut specialized_bin_unpacking_pipelines);
+
+    // Prepare the uniform allocation compute pipeline.
+    preprocess_pipelines.uniform_allocation.prepare(
+        &pipeline_cache,
+        &mut specialized_uniform_allocation_local_scan_pipelines,
+        &mut specialized_uniform_allocation_global_scan_pipelines,
+        &mut specialized_uniform_allocation_fan_pipelines,
+    );
 }
 
 impl PreprocessPipeline {
@@ -1714,6 +1946,51 @@ impl SpecializedComputePipeline for BinUnpackingPipeline {
     }
 }
 
+impl SpecializedComputePipeline for UniformAllocationLocalScanPipeline {
+    type Key = ();
+
+    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+        ComputePipelineDescriptor {
+            label: Some("uniform allocation, local scan".into()),
+            layout: vec![self.bind_group_layout.clone()],
+            shader: self.shader.clone(),
+            shader_defs: vec![],
+            entry_point: Some("allocate_local_scan".into()),
+            ..Default::default()
+        }
+    }
+}
+
+impl SpecializedComputePipeline for UniformAllocationGlobalScanPipeline {
+    type Key = ();
+
+    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+        ComputePipelineDescriptor {
+            label: Some("uniform allocation, global scan".into()),
+            layout: vec![self.bind_group_layout.clone()],
+            shader: self.shader.clone(),
+            shader_defs: vec![],
+            entry_point: Some("allocate_global_scan".into()),
+            ..Default::default()
+        }
+    }
+}
+
+impl SpecializedComputePipeline for UniformAllocationFanPipeline {
+    type Key = ();
+
+    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+        ComputePipelineDescriptor {
+            label: Some("uniform allocation, fan".into()),
+            layout: vec![self.bind_group_layout.clone()],
+            shader: self.shader.clone(),
+            shader_defs: vec![],
+            entry_point: Some("allocate_fan".into()),
+            ..Default::default()
+        }
+    }
+}
+
 impl ResetIndirectBatchSetsPipeline {
     fn prepare(
         &mut self,
@@ -1761,6 +2038,46 @@ impl BinUnpackingPipeline {
     }
 }
 
+impl UniformAllocationPipelines {
+    /// Specializes all three pipelines that use the uniform allocation shader.
+    fn prepare(
+        &mut self,
+        pipeline_cache: &PipelineCache,
+        uniform_allocation_local_scan_pipelines: &mut SpecializedComputePipelines<
+            UniformAllocationLocalScanPipeline,
+        >,
+        uniform_allocation_global_scan_pipelines: &mut SpecializedComputePipelines<
+            UniformAllocationGlobalScanPipeline,
+        >,
+        uniform_allocation_fan_pipelines: &mut SpecializedComputePipelines<
+            UniformAllocationFanPipeline,
+        >,
+    ) {
+        if self.local_scan.pipeline_id_local_scan.is_none() {
+            self.local_scan.pipeline_id_local_scan =
+                Some(uniform_allocation_local_scan_pipelines.specialize(
+                    pipeline_cache,
+                    &self.local_scan,
+                    (),
+                ));
+        }
+
+        if self.global_scan.pipeline_id_global_scan.is_none() {
+            self.global_scan.pipeline_id_global_scan =
+                Some(uniform_allocation_global_scan_pipelines.specialize(
+                    pipeline_cache,
+                    &self.global_scan,
+                    (),
+                ));
+        }
+
+        if self.fan.pipeline_id_fan.is_none() {
+            self.fan.pipeline_id_fan =
+                Some(uniform_allocation_fan_pipelines.specialize(pipeline_cache, &self.fan, ()));
+        }
+    }
+}
+
 /// A system that attaches buffers to bind groups for the variants of the
 /// compute shaders relating to mesh preprocessing.
 #[expect(
@@ -1775,13 +2092,14 @@ pub fn prepare_preprocess_bind_groups(
     pipeline_cache: Res<PipelineCache>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
-    bin_unpacking_buffers: Res<BinUnpackingBuffers>,
+    scene_unpacking_buffers: Res<SceneUnpackingBuffers>,
     mesh_culling_data_buffer: Res<MeshCullingDataBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     pipelines: Res<PreprocessPipelines>,
     mut bin_unpacking_bind_groups: ResMut<BinUnpackingBindGroups>,
+    mut uniform_allocation_bind_groups: ResMut<UniformAllocationBindGroups>,
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
@@ -1912,7 +2230,7 @@ pub fn prepare_preprocess_bind_groups(
     }
 
     // Create the bind groups we'll need for each dispatch of the bin unpacking
-    // (`unpack_bins`) shader.
+    // (`unpack_bins`) and uniform allocation (`allocate_uniforms`) shaders.
     for (_, view) in &views {
         create_bin_unpacking_bind_groups(
             &mut bin_unpacking_bind_groups,
@@ -1921,7 +2239,16 @@ pub fn prepare_preprocess_bind_groups(
             &pipelines,
             &indirect_parameters_buffers,
             phase_instance_buffers,
-            &bin_unpacking_buffers,
+            &scene_unpacking_buffers,
+            &view.retained_view_entity,
+        );
+        create_uniform_allocation_bind_groups(
+            &mut uniform_allocation_bind_groups,
+            &render_device,
+            &pipeline_cache,
+            &pipelines,
+            &indirect_parameters_buffers,
+            &scene_unpacking_buffers,
             &view.retained_view_entity,
         );
     }
@@ -2074,17 +2401,13 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             indexed_work_item_buffer.buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_cpu_metadata_buffer),
-                Some(indexed_gpu_metadata_buffer),
+                Some(indexed_metadata_buffer),
                 Some(indexed_work_item_gpu_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
                 Some(late_indexed_indirect_parameters_buffer),
@@ -2108,8 +2431,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
+                            // @group(0) @binding(3) var<storage> current_input:
+                            // array<MeshInput>;
                             (3, self.current_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(4) var<storage>
+                            // previous_input: array<MeshInput>;
                             (4, self.previous_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(5) var<storage> work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 5,
                                 BindingResource::Buffer(BufferBinding {
@@ -2118,13 +2447,26 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: indexed_work_item_buffer_size,
                                 }),
                             ),
+                            // @group(0) @binding(6) var<storage, read_write>
+                            // output: array<Mesh>;
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(7) var<storage>
+                            // indirect_parameters_metadata:
+                            // array<IndirectParametersMetadata>;
+                            (7, indexed_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(9) var<storage>
+                            // mesh_culling_data: array<MeshCullingData>;
                             (9, mesh_culling_data_buffer.as_entire_binding()),
+                            // @group(0) @binding(10) var<storage>
+                            // visibility_ranges: array<vec4<f32>>;
                             (10, visibility_range_binding.clone()),
+                            // @group(0) @binding(0) var<uniform> view: View;
                             (0, view_uniforms_binding.clone()),
+                            // @group(0) @binding(11) var depth_pyramid:
+                            // texture_2d<f32>;
                             (11, &view_depth_pyramid.all_mips),
+                            // @group(0) @binding(2) var<uniform>
+                            // previous_view_uniforms: PreviousViewUniforms;
                             (
                                 2,
                                 BufferBinding {
@@ -2133,6 +2475,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
                                 },
                             ),
+                            // @group(0) @binding(12) var<storage, read_write>
+                            // late_preprocess_work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 12,
                                 BufferBinding {
@@ -2141,6 +2486,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: indexed_work_item_buffer_size,
                                 },
                             ),
+                            // @group(0) @binding(13) var<storage, read_write>
+                            // late_preprocess_work_item_indirect_parameters:
+                            // array<LatePreprocessWorkItemIndirectParameters>;
                             (
                                 13,
                                 BufferBinding {
@@ -2176,17 +2524,13 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .non_indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
             late_non_indexed_work_item_buffer.buffer(),
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_cpu_metadata_buffer),
-                Some(non_indexed_gpu_metadata_buffer),
+                Some(non_indexed_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_work_item_buffer),
                 Some(late_non_indexed_indirect_parameters_buffer),
@@ -2210,8 +2554,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
+                            // @group(0) @binding(3) var<storage> current_input:
+                            // array<MeshInput>;
                             (3, self.current_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(4) var<storage>
+                            // previous_input: array<MeshInput>;
                             (4, self.previous_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(5) var<storage> work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 5,
                                 BindingResource::Buffer(BufferBinding {
@@ -2221,12 +2571,23 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(7) var<storage>
+                            // indirect_parameters_metadata:
+                            // array<IndirectParametersMetadata>;
+                            (7, non_indexed_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(9) var<storage>
+                            // mesh_culling_data: array<MeshCullingData>;
                             (9, mesh_culling_data_buffer.as_entire_binding()),
+                            // @group(0) @binding(10) var<storage>
+                            // visibility_ranges: array<vec4<f32>>;
                             (10, visibility_range_binding.clone()),
+                            // @group(0) @binding(0) var<uniform> view: View;
                             (0, view_uniforms_binding.clone()),
+                            // @group(0) @binding(11) var depth_pyramid:
+                            // texture_2d<f32>;
                             (11, &view_depth_pyramid.all_mips),
+                            // @group(0) @binding(2) var<uniform>
+                            // previous_view_uniforms: PreviousViewUniforms;
                             (
                                 2,
                                 BufferBinding {
@@ -2235,6 +2596,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
                                 },
                             ),
+                            // @group(0) @binding(12) var<storage, read_write>
+                            // late_preprocess_work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 12,
                                 BufferBinding {
@@ -2243,6 +2607,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: non_indexed_work_item_buffer_size,
                                 },
                             ),
+                            // @group(0) @binding(13) var<storage, read_write>
+                            // late_preprocess_work_item_indirect_parameters:
+                            // array<LatePreprocessWorkItemIndirectParameters>;
                             (
                                 13,
                                 BufferBinding {
@@ -2277,16 +2644,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_cpu_metadata_buffer),
-                Some(indexed_gpu_metadata_buffer),
+                Some(indexed_metadata_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
                 Some(late_indexed_indirect_parameters_buffer),
             ) => {
@@ -2309,8 +2672,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
+                            // @group(0) @binding(3) var<storage> current_input:
+                            // array<MeshInput>;
                             (3, self.current_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(4) var<storage>
+                            // previous_input: array<MeshInput>;
                             (4, self.previous_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(5) var<storage> work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 5,
                                 BindingResource::Buffer(BufferBinding {
@@ -2319,13 +2688,26 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: late_indexed_work_item_buffer_size,
                                 }),
                             ),
+                            // @group(0) @binding(6) var<storage, read_write>
+                            // output: array<Mesh>;
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(7) var<storage>
+                            // indirect_parameters_metadata:
+                            // array<IndirectParametersMetadata>;
+                            (7, indexed_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(9) var<storage>
+                            // mesh_culling_data: array<MeshCullingData>;
                             (9, mesh_culling_data_buffer.as_entire_binding()),
+                            // @group(0) @binding(10) var<storage>
+                            // visibility_ranges: array<vec4<f32>>;
                             (10, visibility_range_binding.clone()),
+                            // @group(0) @binding(0) var<uniform> view: View;
                             (0, view_uniforms_binding.clone()),
+                            // @group(0) @binding(11) var depth_pyramid:
+                            // texture_2d<f32>;
                             (11, &view_depth_pyramid.all_mips),
+                            // @group(0) @binding(2) var<uniform>
+                            // previous_view_uniforms: PreviousViewUniforms;
                             (
                                 2,
                                 BufferBinding {
@@ -2334,6 +2716,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
                                 },
                             ),
+                            // @group(0) @binding(13) var<storage, read_write>
+                            // late_preprocess_work_item_indirect_parameters:
+                            // array<LatePreprocessWorkItemIndirectParameters>;
                             (
                                 13,
                                 BufferBinding {
@@ -2368,16 +2753,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .non_indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             late_non_indexed_work_item_buffer.buffer(),
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_cpu_metadata_buffer),
-                Some(non_indexed_gpu_metadata_buffer),
+                Some(non_indexed_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_indirect_parameters_buffer),
             ) => {
@@ -2400,8 +2781,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
+                            // @group(0) @binding(3) var<storage> current_input:
+                            // array<MeshInput>;
                             (3, self.current_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(4) var<storage>
+                            // previous_input: array<MeshInput>;
                             (4, self.previous_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(5) var<storage> work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 5,
                                 BindingResource::Buffer(BufferBinding {
@@ -2410,13 +2797,26 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: non_indexed_work_item_buffer_size,
                                 }),
                             ),
+                            // @group(0) @binding(6) var<storage, read_write>
+                            // output: array<Mesh>;
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(7) var<storage>
+                            // indirect_parameters_metadata:
+                            // array<IndirectParametersMetadata>;
+                            (7, non_indexed_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(9) var<storage>
+                            // mesh_culling_data: array<MeshCullingData>;
                             (9, mesh_culling_data_buffer.as_entire_binding()),
+                            // @group(0) @binding(10) var<storage>
+                            // visibility_ranges: array<vec4<f32>>;
                             (10, visibility_range_binding.clone()),
+                            // @group(0) @binding(0) var<uniform> view: View;
                             (0, view_uniforms_binding.clone()),
+                            // @group(0) @binding(11) var depth_pyramid:
+                            // texture_2d<f32>;
                             (11, &view_depth_pyramid.all_mips),
+                            // @group(0) @binding(2) var<uniform>
+                            // previous_view_uniforms: PreviousViewUniforms;
                             (
                                 2,
                                 BufferBinding {
@@ -2425,6 +2825,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
                                 },
                             ),
+                            // @group(0) @binding(13) var<storage, read>
+                            // late_preprocess_work_item_indirect_parameters:
+                            // array<LatePreprocessWorkItemIndirectParameters>;
                             (
                                 13,
                                 BufferBinding {
@@ -2472,17 +2875,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             indexed_work_item_buffer.buffer(),
         ) {
-            (
-                Some(indexed_cpu_metadata_buffer),
-                Some(indexed_gpu_metadata_buffer),
-                Some(indexed_work_item_gpu_buffer),
-            ) => {
+            (Some(indexed_metadata_buffer), Some(indexed_work_item_gpu_buffer)) => {
                 // Don't use `as_entire_binding()` here; the shader reads the array
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
@@ -2513,8 +2909,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (7, indexed_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (10, visibility_range_binding.clone()),
                             (0, view_uniforms_binding.clone()),
@@ -2539,17 +2934,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
-            self.phase_indirect_parameters_buffers
-                .non_indexed
-                .gpu_metadata_buffer(),
+                .metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
         ) {
-            (
-                Some(non_indexed_cpu_metadata_buffer),
-                Some(non_indexed_gpu_metadata_buffer),
-                Some(non_indexed_work_item_gpu_buffer),
-            ) => {
+            (Some(non_indexed_metadata_buffer), Some(non_indexed_work_item_gpu_buffer)) => {
                 // Don't use `as_entire_binding()` here; the shader reads the array
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
@@ -2569,8 +2957,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
+                            // @group(0) @binding(3) var<storage> current_input:
+                            // array<MeshInput>;
                             (3, self.current_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(4) var<storage>
+                            // previous_input: array<MeshInput>;
                             (4, self.previous_input_buffer.as_entire_binding()),
+                            // @group(0) @binding(5) var<storage> work_items:
+                            // array<PreprocessWorkItem>;
                             (
                                 5,
                                 BindingResource::Buffer(BufferBinding {
@@ -2579,11 +2973,20 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                     size: non_indexed_work_item_buffer_size,
                                 }),
                             ),
+                            // @group(0) @binding(6) var<storage, read_write>
+                            // output: array<Mesh>;
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
-                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(7) var<storage>
+                            // indirect_parameters_metadata:
+                            // array<IndirectParametersMetadata>;
+                            (7, non_indexed_metadata_buffer.as_entire_binding()),
+                            // @group(0) @binding(9) var<storage>
+                            // mesh_culling_data: array<MeshCullingData>;
                             (9, mesh_culling_data_buffer.as_entire_binding()),
+                            // @group(0) @binding(10) var<storage>
+                            // visibility_ranges: array<vec4<f32>>;
                             (10, visibility_range_binding.clone()),
+                            // @group(0) @binding(0) var<uniform> view: View;
                             (0, view_uniforms_binding.clone()),
                         )),
                     ),
@@ -2658,18 +3061,12 @@ fn create_build_indirect_parameters_bind_groups(
                 },
 
                 build_indexed_indirect: match (
-                    phase_indirect_parameters_buffer
-                        .indexed
-                        .cpu_metadata_buffer(),
-                    phase_indirect_parameters_buffer
-                        .indexed
-                        .gpu_metadata_buffer(),
+                    phase_indirect_parameters_buffer.indexed.metadata_buffer(),
                     phase_indirect_parameters_buffer.indexed.data_buffer(),
                     phase_indirect_parameters_buffer.indexed.batch_sets_buffer(),
                 ) {
                     (
-                        Some(indexed_indirect_parameters_cpu_metadata_buffer),
-                        Some(indexed_indirect_parameters_gpu_metadata_buffer),
+                        Some(indexed_indirect_parameters_metadata_buffer),
                         Some(indexed_indirect_parameters_data_buffer),
                         Some(indexed_batch_sets_buffer),
                     ) => Some(
@@ -2682,30 +3079,39 @@ fn create_build_indirect_parameters_bind_groups(
                                     .gpu_frustum_culling_build_indexed_indirect_params
                                     .bind_group_layout,
                             ),
-                            &BindGroupEntries::sequential((
-                                current_input_buffer.as_entire_binding(),
+                            &BindGroupEntries::with_indices((
+                                // @group(0) @binding(0) var<storage>
+                                // current_input: array<MeshInput>;
+                                (0, current_input_buffer.as_entire_binding()),
+                                // @group(0) @binding(1) var<storage>
+                                // indirect_parameters_metadata:
+                                // array<IndirectParametersMetadata>;
+                                //
                                 // Don't use `as_entire_binding` here; the shader reads
                                 // the length and `RawBufferVec` overallocates.
-                                BufferBinding {
-                                    buffer: indexed_indirect_parameters_cpu_metadata_buffer,
-                                    offset: 0,
-                                    size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.indexed.batch_count()
-                                            as u64
-                                            * size_of::<IndirectParametersCpuMetadata>() as u64,
-                                    ),
-                                },
-                                BufferBinding {
-                                    buffer: indexed_indirect_parameters_gpu_metadata_buffer,
-                                    offset: 0,
-                                    size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.indexed.batch_count()
-                                            as u64
-                                            * size_of::<IndirectParametersGpuMetadata>() as u64,
-                                    ),
-                                },
-                                indexed_batch_sets_buffer.as_entire_binding(),
-                                indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                                (
+                                    1,
+                                    BufferBinding {
+                                        buffer: indexed_indirect_parameters_metadata_buffer,
+                                        offset: 0,
+                                        size: NonZeroU64::new(
+                                            phase_indirect_parameters_buffer.indexed.batch_count()
+                                                as u64
+                                                * size_of::<IndirectParametersMetadata>() as u64,
+                                        ),
+                                    },
+                                ),
+                                // @group(0) @binding(3) var<storage,
+                                // read_write> indirect_batch_sets:
+                                // array<IndirectBatchSet>;
+                                (3, indexed_batch_sets_buffer.as_entire_binding()),
+                                // @group(0) @binding(4) var<storage,
+                                // read_write> indirect_parameters:
+                                // array<IndirectParametersIndexed>;
+                                (
+                                    4,
+                                    indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                                ),
                             )),
                         ),
                     ),
@@ -2715,18 +3121,14 @@ fn create_build_indirect_parameters_bind_groups(
                 build_non_indexed_indirect: match (
                     phase_indirect_parameters_buffer
                         .non_indexed
-                        .cpu_metadata_buffer(),
-                    phase_indirect_parameters_buffer
-                        .non_indexed
-                        .gpu_metadata_buffer(),
+                        .metadata_buffer(),
                     phase_indirect_parameters_buffer.non_indexed.data_buffer(),
                     phase_indirect_parameters_buffer
                         .non_indexed
                         .batch_sets_buffer(),
                 ) {
                     (
-                        Some(non_indexed_indirect_parameters_cpu_metadata_buffer),
-                        Some(non_indexed_indirect_parameters_gpu_metadata_buffer),
+                        Some(non_indexed_indirect_parameters_metadata_buffer),
                         Some(non_indexed_indirect_parameters_data_buffer),
                         Some(non_indexed_batch_sets_buffer),
                     ) => Some(
@@ -2739,30 +3141,41 @@ fn create_build_indirect_parameters_bind_groups(
                                     .gpu_frustum_culling_build_non_indexed_indirect_params
                                     .bind_group_layout,
                             ),
-                            &BindGroupEntries::sequential((
-                                current_input_buffer.as_entire_binding(),
+                            &BindGroupEntries::with_indices((
+                                // @group(0) @binding(0) var<storage>
+                                // current_input: array<MeshInput>;
+                                (0, current_input_buffer.as_entire_binding()),
+                                // @group(0) @binding(1) var<storage>
+                                // indirect_parameters_metadata:
+                                // array<IndirectParametersMetadata>;
+                                //
                                 // Don't use `as_entire_binding` here; the shader reads
                                 // the length and `RawBufferVec` overallocates.
-                                BufferBinding {
-                                    buffer: non_indexed_indirect_parameters_cpu_metadata_buffer,
-                                    offset: 0,
-                                    size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.non_indexed.batch_count()
-                                            as u64
-                                            * size_of::<IndirectParametersCpuMetadata>() as u64,
-                                    ),
-                                },
-                                BufferBinding {
-                                    buffer: non_indexed_indirect_parameters_gpu_metadata_buffer,
-                                    offset: 0,
-                                    size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.non_indexed.batch_count()
-                                            as u64
-                                            * size_of::<IndirectParametersGpuMetadata>() as u64,
-                                    ),
-                                },
-                                non_indexed_batch_sets_buffer.as_entire_binding(),
-                                non_indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                                (
+                                    1,
+                                    BufferBinding {
+                                        buffer: non_indexed_indirect_parameters_metadata_buffer,
+                                        offset: 0,
+                                        size: NonZeroU64::new(
+                                            phase_indirect_parameters_buffer
+                                                .non_indexed
+                                                .batch_count()
+                                                as u64
+                                                * size_of::<IndirectParametersMetadata>() as u64,
+                                        ),
+                                    },
+                                ),
+                                // @group(0) @binding(3) var<storage,
+                                // read_write> indirect_batch_sets:
+                                // array<IndirectBatchSet>;
+                                (3, non_indexed_batch_sets_buffer.as_entire_binding()),
+                                // @group(0) @binding(4) var<storage,
+                                // read_write> indirect_parameters:
+                                // array<IndirectParametersNonIndexed>;
+                                (
+                                    4,
+                                    non_indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                                ),
                             )),
                         ),
                     ),
@@ -2784,10 +3197,11 @@ fn create_bin_unpacking_bind_groups(
     preprocess_pipelines: &PreprocessPipelines,
     indirect_parameters_buffers: &IndirectParametersBuffers,
     phase_instance_buffers: &TypeIdMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
-    bin_unpacking_buffers: &BinUnpackingBuffers,
+    scene_unpacking_buffers: &SceneUnpackingBuffers,
     view_entity: &RetainedViewEntity,
 ) {
-    let Some(bin_unpacking_metadata_buffer) = bin_unpacking_buffers.bin_unpacking_metadata.buffer()
+    let Some(bin_unpacking_metadata_buffer) =
+        scene_unpacking_buffers.bin_unpacking_metadata.buffer()
     else {
         return;
     };
@@ -2804,13 +3218,12 @@ fn create_bin_unpacking_bind_groups(
         else {
             continue;
         };
-        let Some(view_phase_bin_unpacking_buffers) =
-            bin_unpacking_buffers
-                .view_phase_buffers
-                .get(&BinUnpackingBuffersKey {
-                    phase: *phase_type_id,
-                    view: *view_entity,
-                })
+        let Some(view_phase_bin_unpacking_buffers) = scene_unpacking_buffers
+            .view_phase_buffers
+            .get(&SceneUnpackingBuffersKey {
+                phase: *phase_type_id,
+                view: *view_entity,
+            })
         else {
             continue;
         };
@@ -2829,7 +3242,7 @@ fn create_bin_unpacking_bind_groups(
 
         // Create the actual bind groups.
         bin_unpacking_bind_groups.insert(
-            BinUnpackingBuffersKey {
+            SceneUnpackingBuffersKey {
                 phase: *phase_type_id,
                 view: *view_entity,
             },
@@ -2881,7 +3294,7 @@ fn create_bin_unpacking_bind_group(
     render_device: &RenderDevice,
     preprocess_pipelines: &PreprocessPipelines,
     pipeline_cache: &PipelineCache,
-    job: &BinUnpackingJob,
+    job: &SceneUnpackingJob,
     bin_unpacking_metadata_buffer: &Buffer,
     work_item_buffer: &Buffer,
     indexed: bool,
@@ -2911,10 +3324,12 @@ fn create_bin_unpacking_bind_group(
             // read_write> preprocess_work_items:
             // array<PreprocessWorkItem>;
             work_item_buffer.as_entire_binding(),
-            // @group(0) @binding(3) var<storage>
-            // bin_index_to_indirect_parameters_offset:
-            // array<u32>;
-            job.bin_index_to_indirect_parameters_offset_buffer
+            // @group(0) @binding(3) var<storage> bin_metadata:
+            // array<BinMetadata>;
+            job.bin_metadata_buffer.as_entire_binding(),
+            // @group(0) @binding(4) var<storage>
+            // bin_index_to_bin_metadata_index: array<u32>;
+            job.bin_index_to_bin_metadata_index_buffer
                 .as_entire_binding(),
         )),
     );
@@ -2922,6 +3337,139 @@ fn create_bin_unpacking_bind_group(
         metadata_index: job.bin_unpacking_metadata_index,
         bind_group,
         mesh_instance_count: job.mesh_instance_count,
+    }
+}
+
+/// Creates all bind groups needed to run the `allocate_uniforms` shader for all
+/// the phases for a single view.
+fn create_uniform_allocation_bind_groups(
+    uniform_allocation_bind_groups: &mut UniformAllocationBindGroups,
+    render_device: &RenderDevice,
+    pipeline_cache: &PipelineCache,
+    preprocess_pipelines: &PreprocessPipelines,
+    indirect_parameters_buffers: &IndirectParametersBuffers,
+    scene_unpacking_buffers: &SceneUnpackingBuffers,
+    view_entity: &RetainedViewEntity,
+) {
+    let Some(uniform_allocation_metadata_buffer) =
+        scene_unpacking_buffers.uniform_allocation_metadata.buffer()
+    else {
+        return;
+    };
+
+    for (phase_type_id, phase_indirect_parameters_buffers) in indirect_parameters_buffers.iter() {
+        let Some(view_phase_bin_unpacking_buffers) = scene_unpacking_buffers
+            .view_phase_buffers
+            .get(&SceneUnpackingBuffersKey {
+                phase: *phase_type_id,
+                view: *view_entity,
+            })
+        else {
+            continue;
+        };
+
+        // Create the actual bind groups.
+        uniform_allocation_bind_groups.insert(
+            SceneUnpackingBuffersKey {
+                phase: *phase_type_id,
+                view: *view_entity,
+            },
+            ViewPhaseUniformAllocationBindGroups {
+                indexed: match phase_indirect_parameters_buffers.indexed.metadata_buffer() {
+                    None => vec![],
+                    Some(indexed_indirect_parameters_metadata_buffer) => {
+                        view_phase_bin_unpacking_buffers
+                            .indexed_unpacking_jobs
+                            .iter()
+                            .map(|job| {
+                                create_uniform_allocation_bind_group(
+                                    render_device,
+                                    preprocess_pipelines,
+                                    pipeline_cache,
+                                    job,
+                                    uniform_allocation_metadata_buffer,
+                                    indexed_indirect_parameters_metadata_buffer,
+                                    true,
+                                )
+                            })
+                            .collect()
+                    }
+                },
+                non_indexed: match phase_indirect_parameters_buffers
+                    .non_indexed
+                    .metadata_buffer()
+                {
+                    None => vec![],
+                    Some(non_indexed_indirect_parameters_metadata_buffer) => {
+                        view_phase_bin_unpacking_buffers
+                            .non_indexed_unpacking_jobs
+                            .iter()
+                            .map(|job| {
+                                create_uniform_allocation_bind_group(
+                                    render_device,
+                                    preprocess_pipelines,
+                                    pipeline_cache,
+                                    job,
+                                    uniform_allocation_metadata_buffer,
+                                    non_indexed_indirect_parameters_metadata_buffer,
+                                    false,
+                                )
+                            })
+                            .collect()
+                    }
+                },
+            },
+        );
+    }
+}
+
+/// Creates a bind group for the uniform allocation shader for a single (view,
+/// phase, mesh indexed-ness) combination.
+fn create_uniform_allocation_bind_group(
+    render_device: &RenderDevice,
+    preprocess_pipelines: &PreprocessPipelines,
+    pipeline_cache: &PipelineCache,
+    job: &SceneUnpackingJob,
+    uniform_allocation_metadata_buffer: &Buffer,
+    indirect_parameters_metadata_buffer: &Buffer,
+    indexed: bool,
+) -> ViewPhaseUniformAllocationBindGroup {
+    let bind_group = render_device.create_bind_group(
+        if indexed {
+            "uniform allocation indexed bind group"
+        } else {
+            "uniform allocation non-indexed bind group"
+        },
+        &pipeline_cache.get_bind_group_layout(
+            // All the pipelines' bind group layouts should be identical.
+            &preprocess_pipelines
+                .uniform_allocation
+                .local_scan
+                .bind_group_layout,
+        ),
+        &BindGroupEntries::sequential((
+            // @group(0) @binding(0) var<uniform> allocate_uniforms_metadata:
+            // AllocateUniformsMetadata;
+            BindingResource::Buffer(BufferBinding {
+                buffer: uniform_allocation_metadata_buffer,
+                offset: job.uniform_allocation_metadata_index.uniform_offset() as u64,
+                size: NonZeroU64::new(size_of::<GpuUniformAllocationMetadata>() as u64),
+            }),
+            // @group(0) @binding(1) var<storage> bin_metadata:
+            // array<BinMetadata>;
+            job.bin_metadata_buffer.as_entire_binding(),
+            // @group(0) @binding(2) var<storage, read_write>
+            // indirect_parameters_metadata: array<IndirectParametersMetadata>;
+            indirect_parameters_metadata_buffer.as_entire_binding(),
+            // @group(0) @binding(3) var<storage, read_write> fan_buffer:
+            // array<u32>;
+            job.fan_buffer.as_entire_binding(),
+        )),
+    );
+    ViewPhaseUniformAllocationBindGroup {
+        metadata_index: job.uniform_allocation_metadata_index,
+        bind_group,
+        bin_count: job.bin_count,
     }
 }
 

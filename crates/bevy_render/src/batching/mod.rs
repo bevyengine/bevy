@@ -164,12 +164,12 @@ pub trait GetFullBatchData: GetBatchData {
         query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Writes the [`gpu_preprocessing::IndirectParametersGpuMetadata`]
-    /// necessary to draw this batch into the given metadata buffer at the given
-    /// index.
+    /// Writes the [`gpu_preprocessing::IndirectParametersMetadata`] necessary
+    /// to draw this batch into the given metadata buffer at the given index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
-    /// preprocessing).
+    /// preprocessing), and only for phase items that don't support GPU uniform
+    /// allocation yet.
     ///
     /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
     ///
