@@ -49,11 +49,10 @@ pub(crate) struct BsnCodegenCtx<'a> {
 struct PatchTarget<'a> {
     /// The path to the field being patched.
     pub path: &'a [Member],
-    /// Whether the target is accessed via a mutable reference (`&mut`).
-    /// - `true`: Requires dereferencing (`*`) before assignment, e.g.,
-    ///   the root `value` provided to a template patch closure.
-    /// - `false`: Accessed directly as an owned or already-dereferenced value,
-    ///   e.g., nested fields on a struct.
+    /// Whether the target is a reference.
+    /// - `true`: Requires dereferencing (`*`) to assign a value to the target.
+    /// - `false`: Requires a mutable borrow (`&mut`) to create a temporary
+    ///   reference.
     pub is_ref: bool,
 }
 
