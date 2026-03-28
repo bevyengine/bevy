@@ -282,7 +282,9 @@ pub(crate) fn assign_objects_to_clusters(
                         Some(ClusterableObjectAssignmentData {
                             entity,
                             transform: *transform,
-                            range: todo!("Calculate using transform and emissive_mesh.emission"),
+                            range: todo!(
+                                "Calculate using transform, AABB, and emissive_mesh.emission"
+                            ),
                             object_type: ClusterableObjectType::EmissiveMesh,
                             render_layers: RenderLayers::default(),
                         })
