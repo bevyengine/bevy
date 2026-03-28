@@ -634,9 +634,11 @@ impl GltfLoader {
                 }
             }
         } else {
+            // This cfg is redundant, but if we don't explicitly cfg it out, Wasm will compile it
+            // and fail.
             #[cfg(not(target_arch = "wasm32"))]
-            IoTaskPool::get()
-                .scope(|scope| {
+            {
+                let textures = IoTaskPool::get().scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
@@ -654,22 +656,16 @@ impl GltfLoader {
                             .await
                         });
                     });
-                })
-                .into_iter()
-                // order is preserved if the futures are only spawned from the root scope
-                .zip(gltf.textures())
-                .for_each(|(result, texture)| match result {
-                    Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut texture_handles);
-                        // let extensions handle texture data
-                        for extension in extensions.iter_mut() {
-                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                        }
-                    }
-                    Err(err) => {
-                        warn!("Error loading glTF texture: {}", err);
-                    }
                 });
+                // order is preserved if the futures are only spawned from the root scope
+                for (result, texture) in textures.into_iter().zip(gltf.textures()) {
+                    result?.process_loaded_texture(load_context, &mut texture_handles);
+                    // let extensions handle texture data
+                    for extension in extensions.iter_mut() {
+                        extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                    }
+                }
+            }
         }
 
         let mut materials = vec![];
