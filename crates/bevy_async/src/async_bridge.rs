@@ -1,5 +1,5 @@
-use crate::plugin::{AsyncBridge, MaxAsyncTicksPerSyncPoint};
-use crate::system_state_store::ErasedSystemStateStore;
+use crate::plugin::{AsyncTickBudget, StrongAsyncWorld};
+use crate::system_state_store::ErasedSystemStateCell;
 use bevy_ecs::prelude::{IntoSystemSet, SystemSet, World};
 use bevy_ecs::schedule::InternedSystemSet;
 use bevy_platform::sync::Arc;
@@ -31,19 +31,21 @@ use bevy_platform::sync::Arc;
 /// ```
 /// The second reason is spoken of prior. Poll may fail to finish for a variety of reasons and
 /// should be given several chances before quitting.
-pub fn drive_async_bridge<SyncPoint: 'static>(world: &mut World) {
+pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
     // Derive the stable interned system-set key used to look up requests queued
     // for this exact sync point type.
-    let sync_point = drive_async_bridge::<SyncPoint>.into_system_set().intern();
-    let bridge = world.get_resource::<AsyncBridge>().unwrap().clone();
+    let sync_point = async_world_sync_point::<SyncPoint>
+        .into_system_set()
+        .intern();
+    let strong_world = world.get_resource::<StrongAsyncWorld>().unwrap().clone();
     // Read the configured maximum number of internal attempts we are willing to
     // perform during this `SyncPoint`.
-    let max_ticks = world.get_resource::<MaxAsyncTicksPerSyncPoint>().unwrap().0;
+    let max_ticks = world.get_resource::<AsyncTickBudget>().unwrap().0;
     for _ in 0..max_ticks {
         // Drive once. If no work was found, we may truly be done.
         // but we should give external task pools one more opportunity to make newly-woken
         // tasks runnable.
-        if bridge.0.drive_sync_point(sync_point, world) == DriveStatus::Idle {
+        if strong_world.0.tick_sync_point(sync_point, world) == TickResult::NoWork {
             #[cfg(feature = "bevy_tasks")]
             bevy_tasks::cfg::web! {
                 if {} else {
@@ -52,7 +54,7 @@ pub fn drive_async_bridge<SyncPoint: 'static>(world: &mut World) {
             }
             // Retry once after ticking the global pool. If we are still idle,
             // there is no more immediately available progress to make.
-            if bridge.0.drive_sync_point(sync_point, world) == DriveStatus::Idle {
+            if strong_world.0.tick_sync_point(sync_point, world) == TickResult::NoWork {
                 return;
             }
         }
@@ -60,13 +62,13 @@ pub fn drive_async_bridge<SyncPoint: 'static>(world: &mut World) {
 }
 
 #[derive(Default)]
-pub(crate) struct AsyncBridgeInner {
-    pub(crate) requests_by_sync_point:
-        keyed_concurrent_queue::KeyedQueues<InternedSystemSet, QueuedBridgeRequest>,
+pub(crate) struct AsyncWorldInner {
+    pub(crate) bridge_requests:
+        keyed_concurrent_queue::KeyedQueues<InternedSystemSet, BridgeRequest>,
     pub(crate) world_scope: scoped_static_storage::ScopedStatic<World>,
 }
 
-impl AsyncBridgeInner {
+impl AsyncWorldInner {
     /// This drives a single sync point, requesting the poll of all tasks in that sync point.
     /// None of the tasks are guaranteed to actually return `Poll::Ready`, but all are guaranteed to
     /// at least do a `Poll::Pending`
@@ -77,17 +79,15 @@ impl AsyncBridgeInner {
     /// 3. Expose our `World` through `world_scope`.
     /// 4. Wake all our `EcsAccessFuture`s.
     /// 5. Apply our `SystemState` back into the `World`. (Things like `Commands`).
-    fn drive_sync_point(&self, sync_point: InternedSystemSet, world: &mut World) -> DriveStatus {
+    fn tick_sync_point(&self, sync_point: InternedSystemSet, world: &mut World) -> TickResult {
         let mut queued_requests = bevy_platform::prelude::vec![];
-        while let Ok(mut queued_task_bridge) =
-            self.requests_by_sync_point.get_or_create(&sync_point).pop()
-        {
-            queued_requests.push(queued_task_bridge.init_system_state(world));
+        while let Ok(queued_task_bridge) = self.bridge_requests.get_or_create(&sync_point).pop() {
+            queued_requests.push(queued_task_bridge);
         }
         // If no requests were waiting then report idle so the caller can decide whether to stop
         // or attempt one more task-pool tick.
         if queued_requests.is_empty() {
-            return DriveStatus::Idle;
+            return TickResult::NoWork;
         }
         // Make this `World` temporarily visible to our waking futures. Wake them all and wait
         // until they all have at least *attempted* to poll.
@@ -99,21 +99,21 @@ impl AsyncBridgeInner {
         for task in completed_tasks {
             task.apply(world);
         }
-        DriveStatus::Progress
+        TickResult::DidWork
     }
 }
 
 /// Whether a drive attempt made any progress.
 #[derive(PartialEq)]
-enum DriveStatus {
+enum TickResult {
     /// We found and processed at least one queued request.
-    Progress,
+    DidWork,
     /// There was no queued work available for the `SyncPoint`.
-    Idle,
+    NoWork,
 }
 
 /// A queued access request bridging an async task into ECS.
-pub(crate) struct QueuedBridgeRequest {
+pub(crate) struct BridgeRequest {
     /// Waker for the async future that wants ECS access.
     /// When the `SyncPoint` is driven, this waker is fired so the future can
     /// poll while `world_scope` exposes the current `World`.
@@ -121,19 +121,18 @@ pub(crate) struct QueuedBridgeRequest {
     /// Our custom primitive that lets us wait until all the futures have tried to run before
     /// continuing.
     pub(crate) wake_signal: crate::wake_signal::WakeSignal,
-    pub(crate) initialized: bool,
-    pub(crate) system_state: Arc<dyn ErasedSystemStateStore>,
+    pub(crate) system_state: Arc<dyn ErasedSystemStateCell>,
 }
 
 /// A queued access request whose waker has already been fired.
 struct WokenBridgeRequest {
     wake_signal: crate::wake_signal::WakeSignal,
-    system_state: Arc<dyn ErasedSystemStateStore>,
+    system_state: Arc<dyn ErasedSystemStateCell>,
 }
 
 /// A request that has finished its attempted poll and may need to apply deferred world state.
 struct CompletedBridgeRequest {
-    system_state: Arc<dyn ErasedSystemStateStore>,
+    system_state: Arc<dyn ErasedSystemStateCell>,
 }
 
 impl CompletedBridgeRequest {
@@ -143,26 +142,14 @@ impl CompletedBridgeRequest {
     }
 }
 
-impl QueuedBridgeRequest {
-    /// Initialize the `SystemStateCell` if it isn't already initialized.
-    fn init_system_state(mut self, world: &mut World) -> Self {
-        if self.initialized {
-            return self;
-        }
-        self.system_state.init(world);
-        self.initialized = true;
-        self
-    }
-}
-
 #[inline]
 fn wake_requests_and_wait(
-    queued_requests: bevy_platform::prelude::Vec<QueuedBridgeRequest>,
+    queued_requests: bevy_platform::prelude::Vec<BridgeRequest>,
 ) -> bevy_platform::prelude::Vec<CompletedBridgeRequest> {
     let bridged_tasks = queued_requests
         .into_iter()
         .map(
-            |QueuedBridgeRequest {
+            |BridgeRequest {
                  system_state,
                  waker,
                  wake_signal,
