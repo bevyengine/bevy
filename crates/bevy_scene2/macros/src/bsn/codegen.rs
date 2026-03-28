@@ -74,10 +74,10 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Performs validation checks, e.g., catching duplicate component defs.
     /// Accumulates errors in the [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::with_capacity(self.entries.len());
         let entries = self.entries.iter().map(|entry| {
             if let Some(path) = entry.component_path() {
-                let path_str = path.to_token_stream().to_string().replace(" ", "");
+                let path_str = path.to_token_stream().to_string();
                 if !seen.insert(path_str.clone()) {
                     ctx.errors.push(syn::Error::new_spanned(
                         path,
@@ -245,9 +245,9 @@ impl BsnType {
         assignments: &mut Vec<TokenStream>,
         target: PatchTarget,
     ) -> syn::Result<()> {
-        let (scene, ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
+        let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
         let variant_default = format_ident!("default_{}", variant.to_string().to_lowercase());
-        let helper = quote! { #scene::macro_utils::PathResolveHelper::<<#path as #ecs::template::FromTemplate>::Template> };
+        let helper = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
 
         let maybe_deref = target.is_ref.then(|| quote! {*});
         let maybe_borrow_mut = (!target.is_ref).then(|| quote! {&mut});
@@ -307,7 +307,7 @@ impl BsnType {
     ) -> syn::Result<()> {
         match &self.fields {
             BsnFields::Named(fields) => {
-                let mut seen = HashSet::new();
+                let mut seen = HashSet::with_capacity(fields.len());
 
                 for field in fields {
                     let field_name = &field.name;
