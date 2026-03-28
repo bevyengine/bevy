@@ -29,6 +29,7 @@ mod cluster;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
+use bevy_light::cluster::GlobalClusterSettings;
 use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
@@ -319,7 +320,13 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
-                    prepare_clusters_for_cpu_clustering.in_set(RenderSystems::PrepareResources),
+                    prepare_clusters_for_cpu_clustering
+                        .in_set(RenderSystems::PrepareResources)
+                        .run_if(
+                            |global_cluster_settings: Res<GlobalClusterSettings>| -> bool {
+                                global_cluster_settings.gpu_clustering.is_none()
+                            },
+                        ),
                 ),
             )
             .init_gpu_resource::<LightMeta>()
