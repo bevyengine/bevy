@@ -20,8 +20,8 @@ use tracing::{error, warn};
 
 use super::{ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings};
 use crate::{
-    cluster::ClusterableObjects, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
-    VolumetricLight,
+    cluster::ClusterableObjects, ClusteredEmissiveMesh, EnvironmentMapLight, LightProbe,
+    PointLight, SpotLight, VolumetricLight,
 };
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
@@ -99,6 +99,9 @@ pub enum ClusterableObjectType {
 
     /// Marks that the clusterable object is a decal.
     Decal,
+
+    /// Marks that the clusterable object is an emissive mesh.
+    EmissiveMesh,
 }
 
 impl ClusterableObjectType {
@@ -123,6 +126,7 @@ impl ClusterableObjectType {
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
+            ClusterableObjectType::EmissiveMesh => (5, false, false),
         }
     }
 }
@@ -165,6 +169,12 @@ pub(crate) fn assign_objects_to_clusters(
         With<LightProbe>,
     >,
     decals_query: Query<(Entity, &GlobalTransform, &ViewVisibility), With<ClusteredDecal>>,
+    emissive_meshes_query: Query<(
+        Entity,
+        &GlobalTransform,
+        &ViewVisibility,
+        &ClusteredEmissiveMesh,
+    )>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
@@ -255,6 +265,25 @@ pub(crate) fn assign_objects_to_clusters(
                             transform: *transform,
                             range: transform.scale().length(),
                             object_type: ClusterableObjectType::Decal,
+                            render_layers: RenderLayers::default(),
+                        })
+                    } else {
+                        None
+                    }
+                },
+            ));
+        }
+
+        // Add emissive meshes if the current platform supports them.
+        if global_cluster_settings.supports_storage_buffers {
+            clusterable_objects.extend(emissive_meshes_query.iter().filter_map(
+                |(entity, transform, view_visibility, emissive_mesh)| {
+                    if view_visibility.get() {
+                        Some(ClusterableObjectAssignmentData {
+                            entity,
+                            transform: *transform,
+                            range: todo!("Calculate using transform and emissive_mesh.emission"),
+                            object_type: ClusterableObjectType::EmissiveMesh,
                             render_layers: RenderLayers::default(),
                         })
                     } else {
@@ -547,7 +576,8 @@ pub(crate) fn assign_objects_to_clusters(
                     }
                     ClusterableObjectType::PointLight { .. }
                     | ClusterableObjectType::ReflectionProbe
-                    | ClusterableObjectType::IrradianceVolume => None,
+                    | ClusterableObjectType::IrradianceVolume
+                    | ClusterableObjectType::EmissiveMesh => None,
                 };
                 let clusterable_object_center_clip =
                     camera.clip_from_view() * view_clusterable_object_sphere.center.extend(1.0);
@@ -756,6 +786,10 @@ pub(crate) fn assign_objects_to_clusters(
                                     cluster_index += clusters.dimensions.z as usize;
                                 }
                                 total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            }
+
+                            ClusterableObjectType::EmissiveMesh => {
+                                todo!()
                             }
                         }
                     }

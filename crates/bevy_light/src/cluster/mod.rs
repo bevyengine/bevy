@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_image::Image;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec3A, Vec3Swizzles as _};
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec3, Vec3A, Vec3Swizzles as _};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use tracing::warn;
@@ -541,4 +541,7 @@ pub fn add_light_probe_and_decal_aabbs(
 #[reflect(Component, Debug, Clone, Default)]
 #[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
-pub struct ClusteredEmissiveMesh;
+pub struct ClusteredEmissiveMesh {
+    /// TODO: Docs.
+    pub emission: Vec3,
+}
