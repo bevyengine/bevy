@@ -7,7 +7,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
     image::{ImageAddressMode, ImageLoaderSettings},
-    mesh::VertexAttributeValues,
+    mesh::{Indices, VertexAttributeValues},
     post_process::bloom::Bloom,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
@@ -406,6 +406,11 @@ fn add_raytracing_meshes_on_scene_load(
             }
             if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
                 mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
+            }
+            if let Some(indices) = mesh.indices_mut()
+                && let Indices::U16(_) = indices
+            {
+                *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
             }
 
             // Prevent rasterization if using pathtracer

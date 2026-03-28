@@ -94,12 +94,11 @@ force_disable_dlss = [
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
+mp4 = ["bevy_audio/mp4"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
-symphonia-aac = ["bevy_audio/symphonia-aac"]
-symphonia-all = ["bevy_audio/symphonia-all"]
+aac = ["bevy_audio/aac"]
 symphonia-flac = ["bevy_audio/symphonia-flac"]
-symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
@@ -271,9 +270,6 @@ bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr?/bevy_gltf"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
-
-# Enable using a shared stdlib for cxx on Android.
-android_shared_stdcxx = ["bevy_audio?/android_shared_stdcxx"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental
 # screen readers and forks.)
@@ -532,6 +528,7 @@ bevy_settings = { path = "../bevy_settings", optional = true, version = "0.19.0-
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.19.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.19.0-dev" }
+bevy_scene2 = { path = "../bevy_scene2", optional = true, version = "0.19.0-dev" }
 bevy_solari = { path = "../bevy_solari", optional = true, version = "0.19.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.19.0-dev" }
 bevy_sprite_render = { path = "../bevy_sprite_render", optional = true, version = "0.19.0-dev" }

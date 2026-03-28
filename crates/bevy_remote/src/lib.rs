@@ -689,6 +689,14 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )
+            .with_method(
+                builtin_methods::BRP_SCHEDULE_LIST,
+                builtin_methods::schedule_list,
+            )
+            .with_method(
+                builtin_methods::BRP_SCHEDULE_GRAPH,
+                builtin_methods::schedule_graph,
+            )
     }
 }
 

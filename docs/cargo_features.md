@@ -22,9 +22,9 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 |Profile|Description|
 |-|-|
 |default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio|
-|2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.|
-|3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
-|ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
+|2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, scenes and picking.|
+|3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, scenes and picking.|
+|ui|The default Bevy UI experience. This includes the core Bevy framework, Bevy UI, scenes, and picking.|
 
 By default, the `bevy` crate enables the  features.
 
@@ -38,10 +38,11 @@ collections to build your own "profile" equivalent, without needing to manually 
 |-|-|
 |dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
-|scene|Features used to compose Bevy scenes. **Feature set:** `bevy_scene`.|
+|audio-all-formats|Enables audio features and all supported formats. **Feature set:** `bevy_audio`, `aac`, `flac`, `mp3`, `mp4`, `vorbis`, `wav`.|
+|scene|Features used to compose Bevy scenes. **Feature set:** `bevy_scene`, `bevy_scene2`.|
 |picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_input_focus`, `bevy_log`, `bevy_state`, `bevy_window`, `custom_cursor`, `reflect_auto_register`.|
-|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `android_shared_stdcxx`, `bevy_gilrs`, `bevy_winit`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
+|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `bevy_gilrs`, `bevy_winit`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
 |common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `hdr`, `png`.|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_sprite`.|
 |2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`. **Feature set:** `2d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_post_process`, `bevy_sprite_render`, `bevy_gizmos_render`.|
@@ -57,10 +58,10 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 
 |Feature|Description|
 |-|-|
+|aac|AAC audio format support (through `symphonia`)|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
-|android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
@@ -93,6 +94,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
+|bevy_scene2|Provides scene functionality|
 |bevy_settings|Load and save user preferences|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
@@ -124,7 +126,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
-|flac|FLAC audio format support|
+|flac|FLAC audio format support (through `claxon`)|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
@@ -148,7 +150,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mouse|Mouse support. Automatically enabled by `bevy_window`.|
-|mp3|MP3 audio format support|
+|mp3|MP3 audio format support (through `symphonia`)|
+|mp4|MP4 audio format support (through `symphonia`). It also enables AAC support.|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
@@ -174,12 +177,9 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |sprite_picking|Provides an implementation for picking sprites|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |std|Allows access to the `std` crate.|
-|symphonia-aac|AAC audio format support (through symphonia)|
-|symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
-|symphonia-flac|FLAC audio format support (through symphonia)|
-|symphonia-isomp4|MP4 audio format support (through symphonia)|
-|symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
-|symphonia-wav|WAV audio format support (through symphonia)|
+|symphonia-flac|FLAC audio format support (through `symphonia`)|
+|symphonia-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
+|symphonia-wav|WAV audio format support (through `symphonia`)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |system_font_discovery|Allows for discovery of preloaded system fonts|
 |tga|TGA image format support|
@@ -193,8 +193,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |type_label_buffers|Pre-populate buffer labels with buffer types for debugging.|
 |ui_picking|Provides an implementation for picking UI|
-|vorbis|OGG/VORBIS audio format support|
-|wav|WAV audio format support|
+|vorbis|OGG/VORBIS audio format support (through `lewton`)|
+|wav|WAV audio format support (through `hound`)|
 |wayland|Wayland display server support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
 |web_asset_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|

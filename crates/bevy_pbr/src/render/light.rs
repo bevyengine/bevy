@@ -483,7 +483,7 @@ pub fn extract_lights(
         let extracted_point_light = ExtractedPointLight {
             color: point_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+            // for a point light. See https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminousPower
             // for details.
             intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
@@ -587,7 +587,7 @@ pub fn extract_lights(
         let extracted_spot_light = ExtractedPointLight {
             color: spot_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+            // for a point light. See https://google.github.io/filament/Filament.md.html#mjx-eqn-pointLightLuminousPower
             // for details.
             // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
             // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
