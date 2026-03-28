@@ -71,7 +71,7 @@ impl BsnTokenStream for BsnRoot {
 
 impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Performs validation checks, e.g., catching duplicate component defs.
-    /// Accumulates errors in the [`BsnCodegenCtx`].
+    /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let mut seen = HashSet::with_capacity(self.entries.len());
         let entries = self.entries.iter().map(|entry| {
