@@ -177,15 +177,9 @@ impl BsnEntry {
                 relationship_path,
             }) => {
                 let scenes = scene_list.0.to_tokens(ctx);
-                // NOTE: The odd turbofish line breaks below avoid breaking rustfmt
                 Ok(quote! {
-                        #bevy_scene::RelatedScenes::<
-                            <#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
-                                ::Relationship,
-                            _
-                        >::new(
-                            #scenes
-                        )
+                    #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
+                        ::Relationship, _>::new(#scenes)
                 })
             }
             BsnEntry::InheritedScene(s) => match s {
