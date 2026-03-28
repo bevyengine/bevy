@@ -23,7 +23,7 @@ pub use bevy_render_macros::{Specializer, SpecializerKey};
 /// likely will not have much utility for other types.
 ///
 /// See docs on [`Specializer`] for more info.
-pub trait Specializable {
+pub trait Specializable: 'static {
     type Descriptor: PartialEq + Clone + Send + Sync;
     type CachedId: Clone + Send + Sync;
     fn queue(pipeline_cache: &PipelineCache, descriptor: Self::Descriptor) -> Self::CachedId;
@@ -211,13 +211,13 @@ pub trait Specializer<T: Specializable>: Send + Sync + 'static {
 /// differently, they should nearly always produce different descriptors.
 ///
 /// [canonical]: https://en.wikipedia.org/wiki/Canonicalization
-pub trait SpecializerKey: Clone + Hash + Eq {
+pub trait SpecializerKey: Send + Sync + Clone + Hash + Eq + 'static {
     /// Denotes whether this key is canonical or not. This should only be `true`
     /// if and only if `Canonical = Self`.
     const IS_CANONICAL: bool;
 
     /// The canonical key type to convert this into during specialization.
-    type Canonical: Hash + Eq;
+    type Canonical: SpecializerKey;
 }
 
 pub type Canonical<T> = <T as SpecializerKey>::Canonical;
@@ -351,5 +351,130 @@ impl<T: Specializable, S: Specializer<T>> Variants<T, S> {
 
         primary_entry.insert(id.clone());
         Ok(id)
+    }
+}
+
+pub use dyn_specializer::{ErasedSpecializer, ErasedSpecializerKey};
+
+mod dyn_specializer {
+    use core::{
+        any::Any,
+        hash::{Hash, Hasher},
+    };
+
+    use bevy_ecs::{
+        error::BevyError,
+        label::{DynEq, DynHash},
+    };
+    use thiserror::Error;
+
+    use super::{Canonical, Specializable, Specializer, SpecializerKey};
+
+    /// A type-erased wrapper around a `Specializer`
+    pub trait DynSpecializer<T: Specializable>: Any + Send + Sync + 'static {
+        fn dyn_specialize(
+            &self,
+            key: ErasedSpecializerKey,
+            descriptor: &mut T::Descriptor,
+        ) -> Result<ErasedSpecializerKey, BevyError>;
+    }
+
+    #[derive(Error, Debug)]
+    #[error("Incorrect key type passed to an ErasedSpecializer")]
+    struct IncorrectKeyTypeError;
+
+    impl<T: Specializable, S: Specializer<T>> DynSpecializer<T> for S {
+        fn dyn_specialize(
+            &self,
+            key: ErasedSpecializerKey,
+            descriptor: &mut T::Descriptor,
+        ) -> Result<ErasedSpecializerKey, BevyError> {
+            let real_key = (&key.0 as &dyn Any)
+                .downcast_ref::<S::Key>()
+                .ok_or(IncorrectKeyTypeError)?
+                .clone();
+            let canonical_key = self.specialize(real_key, descriptor)?;
+            Ok(ErasedSpecializerKey::new(canonical_key))
+        }
+    }
+
+    pub struct ErasedSpecializer<T: Specializable>(Box<dyn DynSpecializer<T>>);
+
+    impl<T: Specializable> ErasedSpecializer<T> {
+        pub fn new(specializer: impl Specializer<T>) -> Self {
+            Self(Box::new(specializer))
+        }
+    }
+
+    impl<T: Specializable> Specializer<T> for ErasedSpecializer<T> {
+        type Key = ErasedSpecializerKey;
+
+        #[inline]
+        fn specialize(
+            &self,
+            key: Self::Key,
+            descriptor: &mut T::Descriptor,
+        ) -> Result<Canonical<Self::Key>, BevyError> {
+            self.0.dyn_specialize(key, descriptor)
+        }
+    }
+
+    pub trait DynSpecializerKey: Send + Sync + DynEq + DynHash {
+        fn dyn_clone(&self) -> Box<dyn DynSpecializerKey>;
+    }
+
+    impl PartialEq for dyn DynSpecializerKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.dyn_eq(other)
+        }
+    }
+
+    impl Eq for dyn DynSpecializerKey {}
+
+    impl Hash for dyn DynSpecializerKey {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.dyn_hash(state);
+        }
+    }
+
+    impl<T: SpecializerKey> DynSpecializerKey for T {
+        fn dyn_clone(&self) -> Box<dyn DynSpecializerKey> {
+            Box::new(self.clone())
+        }
+    }
+
+    /// A type-erased wrapper around a `SpecializerKey`
+    pub struct ErasedSpecializerKey(Box<dyn DynSpecializerKey>);
+
+    impl Clone for ErasedSpecializerKey {
+        fn clone(&self) -> Self {
+            Self(self.0.dyn_clone())
+        }
+    }
+
+    impl Hash for ErasedSpecializerKey {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.0.hash(state);
+        }
+    }
+
+    impl PartialEq for ErasedSpecializerKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.dyn_eq(&other.0)
+        }
+    }
+
+    impl Eq for ErasedSpecializerKey {}
+
+    impl ErasedSpecializerKey {
+        pub fn new(key: impl SpecializerKey) -> Self {
+            Self(Box::new(key))
+        }
+    }
+
+    impl SpecializerKey for ErasedSpecializerKey {
+        const IS_CANONICAL: bool = false;
+
+        type Canonical = ErasedSpecializerKey;
     }
 }
