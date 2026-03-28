@@ -48,7 +48,8 @@ pub struct Schedules {
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
     /// Set of schedule labels that have been removed to execute in [`World::try_schedule_scope`].
     temporarily_removed: HashSet<InternedScheduleLabel>,
-    /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`].
+    /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`],
+    /// but have no associated [`Schedule`] in `inner`
     empty_labels: HashSet<InternedScheduleLabel>,
 }
 
