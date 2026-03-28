@@ -23,7 +23,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
@@ -42,9 +42,9 @@ impl Plugin for UiTextureSlicerPlugin {
             render_app
                 .add_render_command::<TransparentUi, DrawUiTextureSlices>()
                 .init_resource::<ExtractedUiTextureSlices>()
-                .init_resource::<UiTextureSliceMeta>()
-                .init_resource::<UiTextureSliceImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
+                .init_gpu_resource::<UiTextureSliceMeta>()
+                .init_gpu_resource::<UiTextureSliceImageBindGroups>()
+                .init_gpu_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(RenderStartup, init_ui_texture_slice_pipeline)
                 .add_systems(
                     ExtractSchedule,
@@ -235,10 +235,13 @@ pub fn extract_ui_texture_slices(
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+        let content_box = uinode.content_box();
+
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || content_box.size().cmple(Vec2::ZERO).any()
         {
             continue;
         }
@@ -283,11 +286,11 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.into(),
+            transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: content_box.size(),
             },
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),

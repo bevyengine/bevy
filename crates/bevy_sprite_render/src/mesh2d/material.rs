@@ -29,7 +29,7 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
-use bevy_render::view::RetainedViewEntity;
+use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     mesh::RenderMesh,
     render_asset::{
@@ -47,8 +47,8 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, RenderVisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    view::ExtractedView,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
 use bevy_utils::Parallel;
@@ -288,12 +288,12 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
+                .init_gpu_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .init_gpu_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
@@ -830,7 +830,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                )
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(

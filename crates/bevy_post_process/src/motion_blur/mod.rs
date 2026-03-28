@@ -34,7 +34,7 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
     view::{Msaa, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 pub mod pipeline;
@@ -161,7 +161,7 @@ impl Plugin for MotionBlurPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<MotionBlurPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<MotionBlurPipeline>>()
             .add_systems(RenderStartup, pipeline::init_motion_blur_pipeline)
             .add_systems(
                 Render,

@@ -1,4 +1,5 @@
 use bevy::{
+    camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
@@ -21,6 +22,7 @@ pub struct Settings {
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
+    pub cpu_culling: bool,
 }
 
 impl Default for Settings {
@@ -30,6 +32,7 @@ impl Default for Settings {
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
             wireframe_enabled: false,
+            cpu_culling: true,
         }
     }
 }
@@ -119,6 +122,26 @@ pub fn setup_settings_ui(mut commands: Commands) {
                          mut wireframe_config: ResMut<WireframeConfig>| {
                             settings.wireframe_enabled = change.value;
                             wireframe_config.global = change.value;
+                        }
+                    )
+                ),
+                (
+                    checkbox(Checked, Spawn((Text::new("CPU culling"), ThemedText))),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut commands: Commands,
+                         meshes: Query<Entity, With<Mesh3d>>| {
+                            settings.cpu_culling = change.value;
+
+                            for entity in meshes.iter() {
+                                if settings.cpu_culling {
+                                    commands.entity(entity).remove::<NoCpuCulling>();
+                                } else {
+                                    commands.entity(entity).insert(NoCpuCulling);
+                                }
+                            }
                         }
                     )
                 ),

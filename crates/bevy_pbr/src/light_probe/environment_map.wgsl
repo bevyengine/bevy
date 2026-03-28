@@ -363,7 +363,7 @@ fn environment_map_light(
 
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
-    // See: https://google.github.io/filament/Filament.html#specularocclusion
+    // See: https://google.github.io/filament/Filament.md.html#specularocclusion
     let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
     let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
 

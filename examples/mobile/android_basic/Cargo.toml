@@ -14,7 +14,6 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 bevy = { path = "../../", default-features = false, features = [
   "android-native-activity",
-  "android_shared_stdcxx",
   "gltf_animation",
   "bevy_animation",
   "bevy_asset",

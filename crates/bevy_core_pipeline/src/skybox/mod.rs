@@ -22,7 +22,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_transform::components::Transform;
@@ -42,7 +42,7 @@ impl Plugin for SkyboxPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(ExtractSchedule, extract_skybox)
             .add_systems(RenderStartup, init_skybox_pipeline)
             .add_systems(
@@ -148,8 +148,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: key.depth_format,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

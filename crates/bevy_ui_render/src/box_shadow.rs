@@ -25,7 +25,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
@@ -49,8 +49,8 @@ impl Plugin for BoxShadowPlugin {
             render_app
                 .add_render_command::<TransparentUi, DrawBoxShadows>()
                 .init_resource::<ExtractedBoxShadows>()
-                .init_resource::<BoxShadowMeta>()
-                .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
+                .init_gpu_resource::<BoxShadowMeta>()
+                .init_gpu_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
                 .add_systems(RenderStartup, init_box_shadow_pipeline)
                 .add_systems(
                     ExtractSchedule,

@@ -66,7 +66,7 @@ impl FontCx {
     /// Sets the fallback font for a given generic family.
     ///
     /// In most cases, these methods do not need to called manually,
-    /// as [`parley::fontique`] will automatically select appropriate default fonts based based on available system fonts.
+    /// as [`parley::fontique`] will automatically select appropriate default fonts based on available system fonts.
     ///
     /// Note that the `parley/system` feature must be enabled to allow automatic system font discovery.
     ///
