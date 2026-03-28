@@ -367,17 +367,6 @@ async fn process_single_request(
         }
     };
 
-    if request.jsonrpc != "2.0" {
-        return Ok(BrpHttpResponse::Complete(BrpResponse::new(
-            id,
-            Err(BrpError {
-                code: error_codes::INVALID_REQUEST,
-                message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
-                data: None,
-            }),
-        )));
-    }
-
     let watch = request.method.contains("+watch");
     let size = if watch { 8 } else { 1 };
     let (result_sender, result_receiver) = async_channel::bounded(size);

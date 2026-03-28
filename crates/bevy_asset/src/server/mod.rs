@@ -282,9 +282,9 @@ impl AssetServer {
                 };
             };
 
-            let mut extensions = vec![full_extension.clone()];
+            let mut extensions = vec![full_extension.to_string()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
+                AssetPath::iter_secondary_extensions(full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
@@ -368,6 +368,16 @@ impl AssetServer {
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None, (), true)
+    }
+
+    /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
+    /// `type_id`.
+    pub fn load_erased<'a>(
+        &self,
+        type_id: TypeId,
+        path: impl Into<AssetPath<'a>>,
+    ) -> UntypedHandle {
+        self.load_erased_with_meta_transform(path, type_id, None, ())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.

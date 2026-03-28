@@ -25,7 +25,13 @@
 //!
 //! Currently only works for 3D.
 
+pub mod background_motion_vectors;
 pub mod node;
+
+pub use background_motion_vectors::{
+    BackgroundMotionVectorsBindGroup, BackgroundMotionVectorsPipelineId,
+    BackgroundMotionVectorsPlugin, NoBackgroundMotionVectors,
+};
 
 use core::ops::Range;
 

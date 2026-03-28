@@ -856,21 +856,32 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Panics
+    /// Tries to fetch mutable references to two disjoint archetypes.
     ///
-    /// Panics if `a` and `b` are equal.
+    /// Returns `(&mut Archetype, None)` if the same [`ArchetypeId`] was provided twice.
+    ///
+    /// # Safety
+    /// - Both [`ArchetypeId`]s must be valid for this [`Archetypes`].
     #[inline]
-    pub(crate) fn get_2_mut(
+    pub(crate) unsafe fn get_maybe_disjoint_mut(
         &mut self,
-        a: ArchetypeId,
-        b: ArchetypeId,
-    ) -> (&mut Archetype, &mut Archetype) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
+        id_a: ArchetypeId,
+        id_b: ArchetypeId,
+    ) -> (&mut Archetype, Option<&mut Archetype>) {
+        if id_a == id_b {
+            // SAFETY:
+            // - The caller ensures `id_a` is in-bounds.
+            let archetype_a = unsafe { self.archetypes.get_unchecked_mut(id_a.index()) };
+            (archetype_a, None)
         } else {
-            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
+            // SAFETY:
+            // - `id_a` and `id_b` do not overlap in this branch.
+            // - The caller ensures `id_a` and `id_b` are in-bounds.
+            let [archetype_a, archetype_b] = unsafe {
+                self.archetypes
+                    .get_disjoint_unchecked_mut([id_a.index(), id_b.index()])
+            };
+            (archetype_a, Some(archetype_b))
         }
     }
 

@@ -2,7 +2,7 @@ use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -32,8 +32,8 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
+                .init_gpu_resource::<ExtractedWindows>()
+                .init_gpu_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
@@ -242,9 +242,25 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
+    sorted_cameras: Res<crate::camera::SortedCameras>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
+        // Skip acquiring a swap-chain texture for windows that no camera
+        // targets. This avoids a wasted clear pass in
+        // `handle_uncovered_swap_chains` that triggers a DMA-fence fd leak on
+        // Adreno 740 (Quest 3). The exception is windows that still need their
+        // initial present (required on Wayland).
+        let is_camera_target = sorted_cameras.0.iter().any(|c| {
+            matches!(
+                &c.target,
+                Some(bevy_camera::NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+            )
+        });
+        if !is_camera_target && !window.needs_initial_present {
+            continue;
+        }
+
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
@@ -282,31 +298,36 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         match surface.get_current_texture() {
-            Ok(frame) => {
-                window.set_swapchain_texture(frame);
-            }
-            Err(wgpu::SurfaceError::Outdated) => {
-                render_device.configure_surface(surface, &surface_data.configuration);
-                let frame = match surface.get_current_texture() {
-                    Ok(frame) => frame,
-                    Err(err) => {
-                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
-                        // when opening and resizing the window.
-                        warn!("Couldn't get swap chain texture after configuring. Cause: '{err}'");
-                        continue;
-                    }
-                };
-                window.set_swapchain_texture(frame);
+            wgpu::CurrentSurfaceTexture::Success(surface_texture)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+                window.set_swapchain_texture(surface_texture);
             }
             #[cfg(target_os = "linux")]
-            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+            wgpu::CurrentSurfaceTexture::Timeout if may_erroneously_timeout() => {
                 bevy_log::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
             }
-            Err(err) => {
-                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(surface_texture)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+                    variant => {
+                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
+                        // when opening and resizing the window.
+                        warn!(
+                            "Couldn't get swap chain texture after configuring. Cause: '{variant:?}'"
+                        );
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
+            }
+            wgpu::CurrentSurfaceTexture::Occluded => {}
+            other => {
+                bevy_log::error!("Couldn't get swap chain texture: {other:?}");
             }
         }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
@@ -351,7 +372,7 @@ pub fn create_surfaces(
             .entry(window.entity)
             .or_insert_with(|| {
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_display_handle: Some(window.handle.get_display_handle()),
                     raw_window_handle: window.handle.get_window_handle(),
                 };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on

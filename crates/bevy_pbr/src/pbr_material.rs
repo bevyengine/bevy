@@ -14,6 +14,10 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// The `StandardMaterial` can be extended with more data and custom
+/// shaders using [`ExtendedMaterial`]. Examples of how to do this can
+/// be found in the Bevy examples.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
@@ -125,7 +129,7 @@ pub struct StandardMaterial {
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
     // Technically for 32-bit floats, 0.045 could be used.
-    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
+    // See <https://google.github.io/filament/Filament.md.html#materialsystem/parameterization>
     pub perceptual_roughness: f32,
 
     /// How "metallic" the material appears, within `[0.0, 1.0]`.

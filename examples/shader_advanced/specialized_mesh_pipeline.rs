@@ -1,8 +1,8 @@
 //! Demonstrates how to define and use specialized mesh pipeline
 //!
 //! This example shows how to use the built-in [`SpecializedMeshPipeline`]
-//! functionality with a custom [`RenderCommand`] to allow custom mesh rendering with
-//! more flexibility than the material api.
+//! functionality with a custom [`RenderCommand`](bevy::render::render_phase::RenderCommand)
+//! to allow custom mesh rendering with more flexibility than the material api.
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
@@ -243,6 +243,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
@@ -252,8 +253,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),
@@ -363,7 +364,10 @@ fn queue_custom_mesh_pipeline(
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             // Finally, we can specialize the pipeline based on the key
             let pipeline_id = specialized_mesh_pipelines

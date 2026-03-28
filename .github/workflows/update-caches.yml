@@ -115,14 +115,6 @@ jobs:
       - name: Create lock file
         run: cargo update
 
-      - name: Install Bevy dependencies
-        uses: ./.github/actions/install-linux-deps
-        with:
-          wayland: true
-          xkb: true
-          x264: true
-          fontconfig: true
-
       # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
       - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: cache
@@ -134,6 +126,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+          lookup-only: true
+
+      - name: Install Bevy dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+          x264: true
+          fontconfig: true
 
       # Build Bevy for the dev profile, used by check, doc, ...
       - name: Build dev cache

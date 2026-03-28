@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -8,6 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
+use parley::setting::Tag;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -38,7 +39,7 @@ pub struct TextEntity {
 pub struct ComputedTextBlock {
     /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) layout: Layout<(u32, FontSmoothing)>,
+    pub(crate) layout: Layout<TextBrush>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -81,7 +82,7 @@ impl Debug for ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -102,7 +103,7 @@ impl ComputedTextBlock {
     }
 
     /// Accesses the shaped layout buffer.
-    pub fn buffer(&self) -> &Layout<(u32, FontSmoothing)> {
+    pub fn buffer(&self) -> &Layout<TextBrush> {
         &self.layout
     }
 }
@@ -188,7 +189,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, LineHeight)]
+#[require(TextFont, TextColor, LineHeight, LetterSpacing)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -198,13 +199,11 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
+impl TextSection for TextSpan {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -377,7 +376,9 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// or a generic font category that is resolved using Parley's
+    /// [`FontContext`](`parley::FontContext`) which is accessible through the
+    /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -898,14 +899,14 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
                 })
                 .collect(),
@@ -926,7 +927,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, _font_size: f32) -> parley::LineHeight {
+    /// eval a line height
+    pub fn eval(self) -> parley::LineHeight {
         match self {
             LineHeight::Px(px) => parley::LineHeight::Absolute(px),
             LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
@@ -937,6 +939,33 @@ impl LineHeight {
 impl Default for LineHeight {
     fn default() -> Self {
         LineHeight::RelativeToFont(1.2)
+    }
+}
+
+/// Specifies the space between each letter of text for `Text` and `Text2d`
+///
+/// Default is 0
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub enum LetterSpacing {
+    /// Set letter spacing to a specific number of logical pixels
+    Px(f32),
+    /// Set letter spacing to a multiple of the font size
+    Rem(f32),
+}
+
+impl LetterSpacing {
+    pub(crate) fn eval(self, rem_size: f32) -> f32 {
+        match self {
+            LetterSpacing::Px(px) => px,
+            LetterSpacing::Rem(rem) => rem * rem_size,
+        }
+    }
+}
+
+impl Default for LetterSpacing {
+    fn default() -> Self {
+        Self::Px(0.0)
     }
 }
 
@@ -1091,7 +1120,8 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
-    pub(crate) fn should_hint(self) -> bool {
+    /// Returns true if font hinting is enabled.
+    pub fn is_enabled(self) -> bool {
         matches!(self, FontHinting::Enabled)
     }
 }
@@ -1107,6 +1137,7 @@ pub fn detect_text_needs_rerender(
                 Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
             )>,
             With<TextFont>,
@@ -1120,6 +1151,7 @@ pub fn detect_text_needs_rerender(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,

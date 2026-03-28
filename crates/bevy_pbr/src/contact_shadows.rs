@@ -18,7 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponent,
     view::ExtractedView,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::default;
 
@@ -81,12 +81,13 @@ impl From<ContactShadows> for ContactShadowsUniform {
 }
 
 impl SyncComponent for ContactShadows {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(*settings)
@@ -107,7 +108,7 @@ impl Plugin for ContactShadowsPlugin {
         };
 
         render_app
-            .init_resource::<ContactShadowsBuffer>()
+            .init_gpu_resource::<ContactShadowsBuffer>()
             .add_systems(
                 Render,
                 prepare_contact_shadows_settings.in_set(RenderSystems::PrepareResources),

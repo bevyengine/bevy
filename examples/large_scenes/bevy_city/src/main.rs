@@ -4,7 +4,7 @@ use argh::FromArgs;
 use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{Exposure, Hdr},
+    camera::{visibility::NoCpuCulling, Exposure, Hdr},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
@@ -15,6 +15,7 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
+    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -36,6 +37,10 @@ pub struct Args {
     /// size
     #[argh(option, default = "30")]
     size: u32,
+
+    /// adds NoCpuCulling to all meshes
+    #[argh(switch)]
+    no_cpu_culling: bool,
 }
 
 fn main() {
@@ -66,16 +71,20 @@ fn main() {
             default_color: WHITE.into(),
             ..default()
         })
+        // Like in many realistic large scenes, many of the objects don't move
+        // We can accelerate transform propagation by optimizing for this case
+        .insert_resource(StaticTransformOptimizations::Enabled)
         .add_systems(
             Startup,
             (
                 setup,
                 setup_settings_ui,
                 load_assets,
-                setup_city.after(load_assets),
+                (setup_city.after(load_assets), add_no_cpu_culling).chain(),
             ),
         )
         .add_systems(Update, simulate_cars)
+        .add_observer(add_no_cpu_culling_on_scene_ready)
         .run();
 }
 
@@ -154,6 +163,34 @@ fn simulate_cars(
 
             let progress = car.distance_traveled / road_len;
             car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
+        }
+    }
+}
+
+fn add_no_cpu_culling(
+    mut commands: Commands,
+    meshes: Query<Entity, (With<Mesh3d>, Without<NoCpuCulling>)>,
+    args: Res<Args>,
+) {
+    if args.no_cpu_culling {
+        for entity in meshes.iter() {
+            commands.entity(entity).insert(NoCpuCulling);
+        }
+    }
+}
+
+fn add_no_cpu_culling_on_scene_ready(
+    scene_ready: On<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    meshes: Query<(), (With<Mesh3d>, Without<NoCpuCulling>)>,
+    args: Res<Args>,
+) {
+    if args.no_cpu_culling {
+        for descendant in children.iter_descendants(scene_ready.entity) {
+            if meshes.get(descendant).is_ok() {
+                commands.entity(descendant).insert(NoCpuCulling);
+            }
         }
     }
 }

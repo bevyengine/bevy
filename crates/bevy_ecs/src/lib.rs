@@ -6,7 +6,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -51,6 +52,7 @@ pub mod schedule;
 pub mod spawn;
 pub mod storage;
 pub mod system;
+pub mod template;
 pub mod traversal;
 pub mod world;
 
@@ -96,6 +98,7 @@ pub mod prelude {
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
+        template::{FromTemplate, Template},
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, World,
@@ -109,13 +112,16 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectMessage,
+        ReflectResource,
     };
 
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
 }
+
+pub use bevy_ecs_macros::VariantDefaults;
 
 /// Exports used by macros.
 ///

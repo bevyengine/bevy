@@ -269,7 +269,7 @@ pub fn query_get(criterion: &mut Criterion) {
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
+            let query = query.get(&world).unwrap();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -288,7 +288,7 @@ pub fn query_get(criterion: &mut Criterion) {
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
+            let query = query.get(&world).unwrap();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -319,7 +319,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
             entity_groups.shuffle(&mut deterministic_rand());
 
             let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
+            let query = query.get(&world).unwrap();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -342,7 +342,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
             entity_groups.shuffle(&mut deterministic_rand());
 
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
+            let query = query.get(&world).unwrap();
 
             bencher.iter(|| {
                 let mut count = 0;
