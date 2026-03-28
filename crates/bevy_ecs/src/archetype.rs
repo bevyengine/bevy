@@ -194,15 +194,6 @@ impl ArchetypeAfterBundleInsert {
                 .debug_checked_unwrap()
         }
     }
-
-    pub(crate) fn removed_table(&self) -> &[ComponentId] {
-        // SAFETY: `removed_table_start_idx` is always in range `0..=components.len()`
-        unsafe {
-            self.components
-                .get(self.removed_table_start_idx as usize..)
-                .debug_checked_unwrap()
-        }
-    }
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
