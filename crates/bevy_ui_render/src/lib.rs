@@ -11,7 +11,7 @@ pub mod box_shadow;
 mod color_space;
 mod gradient;
 mod pipeline;
-mod render_pass;
+pub mod render_pass;
 mod text;
 pub mod ui_material;
 mod ui_material_pipeline;
