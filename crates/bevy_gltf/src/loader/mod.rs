@@ -2688,4 +2688,71 @@ mod test {
                 .then_some(())
         });
     }
+
+    #[test]
+    fn image_error_is_an_error() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
+        {
+            "source": 0,
+            "sampler": 0
+        }
+    ],
+    "images": [
+        {
+            "bufferView": 0,
+            "mimeType": "image/png"
+        }
+    ],
+    "samplers": [
+        {
+            "magFilter": 9729,
+            "minFilter": 9729
+        }
+    ],
+    "buffers": [
+        {
+          "byteLength": 1,
+          "uri": "data:application/gltf-buffer;base64,AAAA"
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 1
+        }
+    ]
+}
+"#,
+        );
+
+        app.init_asset::<Image>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+            LoadState::Failed(err) => {
+                let err = err.to_string();
+                assert!(
+                    // Depending on the `image` crate's feature flags, we may get different errors.
+                    // Specifically, either the `image/png` mime type is warned about, or the buffer
+                    // is not big enough to be valid PNG data.
+                    err.contains("failed to load an image: unexpected end of file")
+                        || err.contains("invalid image mime type: image/png"),
+                    "incorrect error message: {err}"
+                );
+                Some(())
+            }
+            LoadState::Loading => None,
+            state => panic!("Unexpected load state: {state:?}"),
+        });
+    }
 }
