@@ -243,7 +243,7 @@ struct RenderRecovery;
 
 /// Defines the schedules to be run for the rendering, including their order.
 ///
-/// This is the same approach as [`MainScheduleOrder`](`bevy_app::main_schedule::MainScheduleOrder`).
+/// This is the same approach as [`MainScheduleOrder`](`bevy_app::MainScheduleOrder`).
 #[derive(Resource, Debug)]
 pub struct RenderScheduleOrder {
     /// The labels to run for the rendering schedule (in the order they will be run).
