@@ -13,6 +13,8 @@ pub fn strip_base_url(path: String) -> String {
 pub struct CityAssets {
     pub untyped_assets: Vec<UntypedHandle>,
     pub cars: Vec<Handle<Scene>>,
+    pub car_meshes: Vec<Handle<Mesh>>,
+    pub car_material: Handle<StandardMaterial>,
     pub crossroad: Handle<Scene>,
     pub road_straight: Handle<Scene>,
     pub high_density: Buildings,
@@ -30,8 +32,12 @@ pub struct CityAssets {
 }
 
 impl CityAssets {
-    pub fn get_random_car<R: RngExt>(&self, rng: &mut R) -> Handle<Scene> {
-        self.cars[rng.random_range(0..self.cars.len())].clone()
+    pub fn get_random_car<R: RngExt>(
+        &self,
+        rng: &mut R,
+    ) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {
+        let mesh = self.car_meshes[rng.random_range(0..self.car_meshes.len())].clone();
+        (Mesh3d(mesh), MeshMaterial3d(self.car_material.clone()))
     }
 }
 
@@ -67,6 +73,13 @@ pub fn load_assets(
             handle
         }};
     }
+
+    let car_texture: Handle<Image> =
+        load_asset!(format!("{base_url}/car-kit/Textures/colormap.png"));
+    let car_material = materials.add(StandardMaterial {
+        base_color_texture: Some(car_texture),
+        ..Default::default()
+    });
 
     let cars = {
         // TODO generate color variations
@@ -222,6 +235,8 @@ pub fn load_assets(
     commands.insert_resource(CityAssets {
         untyped_assets,
         cars,
+        car_meshes: vec![],
+        car_material,
         crossroad,
         road_straight,
         high_density,
@@ -233,4 +248,61 @@ pub fn load_assets(
         path_stones_long,
         fence,
     });
+}
+
+/// Merge the meshes of all the cars gltf into a single mesh per car.
+///
+/// The asset pack we are using uses a separate mesh for each tire of the car and some also have
+/// doors as separate meshes. For our purposes we don't need them to be separate meshes and this
+/// was causing a lot of performance issues.
+pub fn merge_car_meshes(
+    city_assets: &mut CityAssets,
+    scenes: &Assets<Scene>,
+    meshes: &mut Assets<Mesh>,
+) {
+    for car_scene in &city_assets.cars {
+        let Some(merged) = merge_scene(scenes, meshes, car_scene) else {
+            continue;
+        };
+        city_assets.car_meshes.push(meshes.add(merged));
+    }
+}
+
+/// Merge an entire scene into a single mesh
+fn merge_scene(
+    scenes: &Assets<Scene>,
+    meshes: &mut Assets<Mesh>,
+    scene_handle: &Handle<Scene>,
+) -> Option<Mesh> {
+    let scene = scenes.get(scene_handle)?;
+    let mut merged: Option<Mesh> = None;
+    for entity_ref in scene.world.iter_entities() {
+        let Some(mesh) = entity_ref
+            .get::<Mesh3d>()
+            .and_then(|mesh3d| meshes.get(mesh3d))
+        else {
+            continue;
+        };
+        let transform = compute_transform(entity_ref.id(), &scene.world);
+        let transformed = mesh.clone().transformed_by(transform);
+        match &mut merged {
+            Some(mesh) => {
+                let _ = mesh.merge(&transformed);
+            }
+            None => merged = Some(transformed),
+        }
+    }
+    merged
+}
+
+/// Computes the transform relative to the scene origin
+fn compute_transform(entity: Entity, world: &World) -> Transform {
+    let entity_ref = world.entity(entity);
+    let local = entity_ref.get::<Transform>().copied().unwrap_or_default();
+    if let Some(child_of) = entity_ref.get::<ChildOf>() {
+        let parent = compute_transform(child_of.0, world);
+        parent.mul_transform(local)
+    } else {
+        local
+    }
 }
