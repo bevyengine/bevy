@@ -75,7 +75,11 @@ impl AssetSaver for CompressedImageSaver {
                     width: image.width(),
                     height: image.height(),
                     stride: todo!(),
-                    pixel_format: todo!(),
+                    pixel_format: ctt::format::PixelFormat {
+                        components: todo!(),
+                        channel_type: todo!(),
+                        color_space,
+                    },
                 }];
             })
             .collect();
