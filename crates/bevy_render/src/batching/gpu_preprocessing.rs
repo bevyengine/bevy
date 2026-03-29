@@ -20,7 +20,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_log::{error, info};
+use bevy_log::{error, info_once};
 use bevy_math::UVec4;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::ComputeTaskPool;
@@ -1249,16 +1249,16 @@ impl FromWorld for GpuPreprocessingSupport {
             || is_non_supported_android_device(&adapter_info)
             || adapter_info.backend == wgpu::Backend::Gl
         {
-            info!(
+            info_once!(
                 "GPU preprocessing is not supported on this device. \
                 Falling back to CPU preprocessing.",
             );
             GpuPreprocessingMode::None
         } else if !(culling_feature_support && limit_support && downlevel_support) {
-            info!("Some GPU preprocessing are limited on this device.");
+            info_once!("Some GPU preprocessing are limited on this device.");
             GpuPreprocessingMode::PreprocessingOnly
         } else {
-            info!("GPU preprocessing is fully supported on this device.");
+            info_once!("GPU preprocessing is fully supported on this device.");
             GpuPreprocessingMode::Culling
         };
 
