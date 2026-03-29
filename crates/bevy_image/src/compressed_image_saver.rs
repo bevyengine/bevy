@@ -100,6 +100,7 @@ impl AssetSaver for CompressedImageSaver {
             let color_space = if is_srgb {
                 basis_universal::ColorSpace::Srgb
             } else {
+                compressor_params.set_no_selector_rdo(true);
                 basis_universal::ColorSpace::Linear
             };
             compressor_params.set_color_space(color_space);
