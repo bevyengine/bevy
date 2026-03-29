@@ -219,8 +219,8 @@ impl Measure for ImageMeasure {
         // Apply aspect ratio
         // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
         let taffy_size = taffy::Size {
-            width: width.resolved,
-            height: height.resolved,
+            width: width.effective,
+            height: height.effective,
         }
         .maybe_apply_aspect_ratio(Some(aspect_ratio));
 

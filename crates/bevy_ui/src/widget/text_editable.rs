@@ -34,14 +34,14 @@ impl crate::Measure for TextInputMeasure {
         let height = measure_args.resolve_height();
 
         let x = width
-            .resolved
+            .effective
             .unwrap_or(match measure_args.available_width {
                 crate::AvailableSpace::Definite(x) => x,
                 crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
             })
             .maybe_clamp(width.min, width.max);
         let y = height
-            .resolved
+            .effective
             .unwrap_or(self.height)
             .maybe_clamp(height.min, height.max);
 

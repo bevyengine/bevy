@@ -192,7 +192,7 @@ impl Measure for TextMeasure {
         } = measure_args;
 
         let x = width
-            .resolved
+            .effective
             .unwrap_or_else(|| match available_width {
                 AvailableSpace::Definite(x) => {
                     // It is possible for the "min content width" to be larger than
@@ -206,7 +206,7 @@ impl Measure for TextMeasure {
             })
             .maybe_clamp(width.min, width.max);
 
-        let size = height.resolved.map_or_else(
+        let size = height.effective.map_or_else(
             || match available_width {
                 AvailableSpace::Definite(_) => {
                     if let Some(buffer) = buffer {

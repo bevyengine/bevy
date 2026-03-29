@@ -17,22 +17,35 @@ impl core::fmt::Debug for ContentSize {
     }
 }
 
+/// Inputs provided to [`Measure::measure`].
 pub struct MeasureArgs<'a> {
+    /// The known width from Taffy if this size is definite.
     pub known_width: Option<f32>,
+    /// The known height from Taffy if this size is definite.
     pub known_height: Option<f32>,
+    /// The horizontal space available for this UI node.
     pub available_width: AvailableSpace,
+    /// The vertical space available for this UI node.
     pub available_height: AvailableSpace,
+    /// Parley font database, needed for text measurement.
     pub font_system: &'a mut FontCx,
+    /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
+    /// Resolved style for this node in physical pixels.
     pub style: &'a taffy::Style,
 }
 
 #[derive(Copy, Clone)]
+/// Resolved values for per-axis size constraints.
 pub struct ResolvedAxis {
+    /// Resolved minimum size along this axis.
     pub min: Option<f32>,
+    /// Resolved preferred size along this axis.
     pub preferred: Option<f32>,
+    /// Resolved maximum size along this axis.
     pub max: Option<f32>,
-    pub resolved: Option<f32>,
+    /// Effective size along this axis after applying known size and min/max clamping.
+    pub effective: Option<f32>,
 }
 
 fn resolve_axis(
@@ -51,11 +64,12 @@ fn resolve_axis(
         min,
         preferred,
         max,
-        resolved: known_size.or(preferred.or(min).maybe_clamp(min, max)),
+        effective: known_size.or(preferred.or(min).maybe_clamp(min, max)),
     }
 }
 
 impl MeasureArgs<'_> {
+    /// Resolve the node's width constraints and the effective width.
     pub fn resolve_width(&self) -> ResolvedAxis {
         resolve_axis(
             self.known_width,
@@ -66,6 +80,7 @@ impl MeasureArgs<'_> {
         )
     }
 
+    /// Resolve the node's height constraints and the effective height.
     pub fn resolve_height(&self) -> ResolvedAxis {
         resolve_axis(
             self.known_height,
