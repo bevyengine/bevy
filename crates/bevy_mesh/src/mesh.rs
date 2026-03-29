@@ -2417,6 +2417,19 @@ impl Mesh {
             .expect(MESH_EXTRACTED_ERROR)
     }
 
+    /// Retrieve a mutable reference to the morph target displacements for this
+    /// mesh, or None if there are no morph targets.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
+    /// this as an error use [`Mesh::try_morph_targets`]
+    #[cfg(feature = "morph")]
+    pub fn morph_targets_mut(&mut self) -> Option<&mut Vec<MorphAttributes>> {
+        self.morph_targets
+            .as_mut_option()
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
     /// Retrieve the morph displacements for this mesh, or None if there are no
     /// morph targets.
     ///

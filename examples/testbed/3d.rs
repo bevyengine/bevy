@@ -40,13 +40,13 @@ fn main() {
             OnEnter(Scene::WhiteFurnaceEnvironmentMapLight),
             white_furnace_environment_map_light::setup,
         )
-        .add_systems(Update, switch_scene)
-        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
             Update,
-            gltf_coordinate_conversion::draw_gizmos
+            gltf_coordinate_conversion::spawn_scenes
                 .run_if(in_state(Scene::GltfCoordinateConversion)),
-        );
+        )
+        .add_systems(Update, switch_scene)
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
     match args.scene {
         None => app.init_state::<Scene>(),
@@ -403,82 +403,164 @@ mod gizmos {
 
 mod gltf_coordinate_conversion {
     use bevy::{
-        color::palettes::basic::*,
-        gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
+        gltf::{
+            convert_coordinates::{
+                GltfConvertCoordinates, GltfConvertSemantics, Semantics, SemanticsConversion,
+                SignedAxis,
+            },
+            GltfLoaderSettings,
+        },
         prelude::*,
         scene::SceneInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
 
+    #[derive(Component)]
+    pub struct PendingScene {
+        asset: Handle<Gltf>,
+        animations: &'static [usize],
+    }
+
+    #[derive(Component)]
+    pub struct PendingAnimations {
+        graph_handle: Handle<AnimationGraph>,
+        nodes: Vec<AnimationNodeIndex>,
+    }
+
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-4.0, 4.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(-24.0, 24.0, -24.0).looking_at(Vec3::ZERO, Dir3::Y),
+            Projection::Perspective(PerspectiveProjection {
+                fov: 10.0f32.to_radians(),
+                ..default()
+            }),
             DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
             DirectionalLight {
-                color: BLUE.into(),
+                illuminance: light_consts::lux::AMBIENT_DAYLIGHT * 0.5,
                 ..default()
             },
-            Transform::IDENTITY.looking_to(Dir3::Z, Dir3::Y),
+            Transform::from_xyz(-0.5, 1.2, -0.75).looking_at(Vec3::ZERO, Dir3::Y),
             DespawnOnExit(CURRENT_SCENE),
         ));
 
-        commands.spawn((
-            DirectionalLight {
-                color: RED.into(),
-                ..default()
-            },
-            Transform::IDENTITY.looking_to(Dir3::X, Dir3::Y),
-            DespawnOnExit(CURRENT_SCENE),
-        ));
+        // Spawn scenes that cover a range of situations.
+        for (file, transform, animations, target_semantics) in [
+            // Morph targets, and converting to non-Bevy semantics.
+            (
+                "models/animated/MorphStressTest.gltf",
+                Transform::from_xyz(2.5, -1.0, -2.5).with_scale(Vec3::splat(0.8)),
+                [2].as_slice(),
+                Semantics {
+                    forward: SignedAxis::NEG_X,
+                    up: SignedAxis::Y,
+                },
+            ),
+            // Animated lights.
+            (
+                "models/animated/animated_camera_and_light.glb",
+                Transform::from_xyz(0.0, 0.0, 0.0),
+                [0, 1, 2, 3].as_slice(),
+                Semantics::BEVY,
+            ),
+            // Skinned mesh.
+            (
+                "models/animated/Fox.glb",
+                Transform::from_xyz(-3.0, -1.0, 2.0).with_scale(Vec3::splat(0.03)),
+                [1].as_slice(),
+                Semantics::BEVY,
+            ),
+        ] {
+            let convert_coordinates = GltfConvertCoordinates::ALL.with_semantics(
+                GltfConvertSemantics::All(SemanticsConversion {
+                    source: Semantics::GLTF,
+                    target: target_semantics,
+                }),
+            );
 
-        commands.spawn((
-            DirectionalLight {
-                color: GREEN.into(),
-                ..default()
-            },
-            Transform::IDENTITY.looking_to(Dir3::NEG_Y, Dir3::X),
-            DespawnOnExit(CURRENT_SCENE),
-        ));
-
-        commands
-            .spawn((
-                SceneRoot(asset_server.load_with_settings(
-                    GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
-                    |s: &mut GltfLoaderSettings| {
-                        s.convert_coordinates = Some(GltfConvertCoordinates {
-                            rotate_scene_entity: true,
-                            rotate_meshes: true,
-                        });
-                    },
-                )),
+            commands.spawn((
+                PendingScene {
+                    asset: asset_server.load_with_settings(
+                        file,
+                        move |s: &mut GltfLoaderSettings| {
+                            s.convert_coordinates = Some(convert_coordinates);
+                            s.load_cameras = false;
+                        },
+                    ),
+                    animations,
+                },
+                transform,
                 DespawnOnExit(CURRENT_SCENE),
-            ))
-            .observe(show_aabbs);
-    }
-
-    pub fn show_aabbs(
-        scene_ready: On<SceneInstanceReady>,
-        mut commands: Commands,
-        children: Query<&Children>,
-        meshes: Query<(), With<Mesh3d>>,
-    ) {
-        for child in children
-            .iter_descendants(scene_ready.entity)
-            .filter(|&e| meshes.contains(e))
-        {
-            commands.entity(child).insert(ShowAabbGizmo {
-                color: Some(BLACK.into()),
-            });
+            ));
         }
     }
 
-    pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.axes(Transform::IDENTITY, 1.0);
+    pub fn spawn_scenes(
+        mut commands: Commands,
+        query: Query<(Entity, &PendingScene)>,
+        gltfs: Res<Assets<Gltf>>,
+        mut graphs: ResMut<Assets<AnimationGraph>>,
+    ) {
+        for (entity, scene) in query {
+            let Some(gltf) = gltfs.get(&scene.asset) else {
+                continue;
+            };
+
+            let (graph, nodes) = AnimationGraph::from_clips(
+                scene
+                    .animations
+                    .iter()
+                    .map(|&index| gltf.animations[index].clone()),
+            );
+
+            commands
+                .entity(entity)
+                .insert((
+                    SceneRoot(gltf.scenes[0].clone()),
+                    PendingAnimations {
+                        graph_handle: graphs.add(graph),
+                        nodes,
+                    },
+                    DespawnOnExit(CURRENT_SCENE),
+                ))
+                .observe(play_animations);
+
+            commands.entity(entity).remove::<PendingScene>();
+        }
+    }
+
+    pub fn play_animations(
+        scene_ready: On<SceneInstanceReady>,
+        mut commands: Commands,
+        children: Query<&Children>,
+        animations: Query<&PendingAnimations>,
+        mut players: Query<&mut AnimationPlayer>,
+    ) {
+        let Ok(animations) = animations.get(scene_ready.entity) else {
+            return;
+        };
+
+        for child in children.iter_descendants(scene_ready.entity) {
+            let Ok(mut player) = players.get_mut(child) else {
+                continue;
+            };
+
+            commands
+                .entity(child)
+                .insert(AnimationGraphHandle(animations.graph_handle.clone()));
+
+            for index in &animations.nodes {
+                player.play(*index).set_seek_time(1.0).pause();
+            }
+        }
+
+        commands
+            .entity(scene_ready.entity)
+            .remove::<PendingAnimations>();
     }
 }
 
