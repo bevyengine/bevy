@@ -73,13 +73,13 @@ impl Scene {
 
         // Resources archetype
         for (component_id, source_entity) in self.world.resource_entities().iter() {
-            if Some(*component_id) == self_dqf_id {
+            if Some(component_id) == self_dqf_id {
                 continue;
             }
             if !world
-                .get_entity(*source_entity)
+                .get_entity(source_entity)
                 .ok()
-                .is_some_and(|entity_ref| entity_ref.contains_id(*component_id))
+                .is_some_and(|entity_ref| entity_ref.contains_id(component_id))
             {
                 continue;
             }
@@ -87,7 +87,7 @@ impl Scene {
             let component_info = self
                 .world
                 .components()
-                .get_info(*component_id)
+                .get_info(component_id)
                 .expect("component_ids in archetypes should have ComponentInfo");
 
             let type_id = component_info
@@ -112,8 +112,8 @@ impl Scene {
 
             // check if the resource already exists in the other world, if not spawn it
             let destination_entity =
-                if let Some(entity) = world.resource_entities().get(*component_id) {
-                    *entity
+                if let Some(entity) = world.resource_entities().get(component_id) {
+                    entity
                 } else {
                     world.spawn_empty().id()
                 };
@@ -121,7 +121,7 @@ impl Scene {
             reflect_component.copy(
                 &self.world,
                 world,
-                *source_entity,
+                source_entity,
                 destination_entity,
                 &type_registry,
             );

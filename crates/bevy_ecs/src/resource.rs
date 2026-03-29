@@ -1,13 +1,12 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
-use core::ops::{Deref, DerefMut};
 use log::warn;
 
 use crate::{
     component::{Component, ComponentId, Mutable},
     entity::Entity,
     lifecycle::HookContext,
-    storage::SparseSet,
+    storage::SparseArray,
     world::DeferredWorld,
 };
 #[cfg(feature = "bevy_reflect")]
@@ -89,24 +88,39 @@ pub trait Resource: Component<Mutability = Mutable> {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
-pub struct ResourceEntities(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+pub struct ResourceEntities(SyncUnsafeCell<SparseArray<ComponentId, Entity>>);
 
-impl Deref for ResourceEntities {
-    type Target = SparseSet<ComponentId, Entity>;
+impl ResourceEntities {
+    /// Returns an iterator all registered resource components and their corresponding entity.
+    ///
+    /// This must scan the entire array of components to find non-empty values,
+    /// which may be slow even if there are few resources.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, Entity)> {
+        self.deref().iter().map(|(id, entity)| (id, *entity))
+    }
 
-    fn deref(&self) -> &Self::Target {
+    /// Returns the entity for the given resource component, or `None` if there is no entity.
+    #[inline]
+    pub fn get(&self, id: ComponentId) -> Option<Entity> {
+        self.deref().get(id).copied()
+    }
+
+    /// Removes the entry for the given resource component.
+    /// Returns the entity that was removed, or `None` if there was no entity.
+    #[inline]
+    pub(crate) fn remove(&mut self, id: ComponentId) -> Option<Entity> {
+        self.0.get_mut().remove(id)
+    }
+
+    #[inline]
+    fn deref(&self) -> &SparseArray<ComponentId, Entity> {
         // SAFETY: There are no other mutable references to the map.
         // The underlying `SyncUnsafeCell` is never exposed outside this module,
         // so mutable references are only created by the resource hooks.
         // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
         // and that would conflict with the `DeferredWorld` passed to the resource hook.
         unsafe { &*self.0.get() }
-    }
-}
-
-impl DerefMut for ResourceEntities {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.get_mut()
     }
 }
 
@@ -134,7 +148,7 @@ impl IsResource {
             .unwrap()
             .resource_component_id();
 
-        if let Some(&original_entity) = world.resource_entities.get(resource_component_id) {
+        if let Some(original_entity) = world.resource_entities.get(resource_component_id) {
             if !world.entities().contains(original_entity) {
                 let name = world
                     .components()
@@ -182,7 +196,7 @@ impl IsResource {
             .resource_component_id();
 
         if let Some(resource_entity) = world.resource_entities.get(resource_component_id)
-            && *resource_entity == context.entity
+            && resource_entity == context.entity
         {
             // SAFETY: We have exclusive world access (as long as we don't make structural changes).
             let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
