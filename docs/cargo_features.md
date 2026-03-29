@@ -135,6 +135,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |gltf_animation|Enable glTF animation loading|
+|gltf_named_subassets_default|Set the default for loading glTF files to use the name of the subasset instead of the index.|
 |hdr|HDR image format support|
 |hotpatching|Enable hotpatching of Bevy systems|
 |http|Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|

@@ -155,12 +155,21 @@ use bevy_mesh::MeshVertexAttribute;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
+    pub use crate::{
+        assets::Gltf,
+        assets::GltfExtras,
+        label::{GltfAssetLabel, GltfNamedAssetLabel},
+    };
 }
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
+pub use {
+    assets::*,
+    label::{GltfAssetLabel, GltfLabelMode, GltfNamedAssetLabel},
+    loader::*,
+    material::GltfMaterial,
+};
 
 /// Re-exports for GLTF
 pub mod gltf {
@@ -229,6 +238,10 @@ pub struct GltfPlugin {
     /// per-load by [`GltfLoaderSettings::convert_coordinates`].
     pub convert_coordinates: GltfConvertCoordinates,
 
+    /// The default mode for creating glTF subasset labels. This can be overridden per-load by
+    /// [`GltfLoaderSettings::label_mode`].
+    pub label_mode: GltfLabelMode,
+
     /// Registry for custom vertex attributes.
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
@@ -245,6 +258,11 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
+            label_mode: if cfg!(feature = "gltf_named_subassets_default") {
+                GltfLabelMode::Names
+            } else {
+                GltfLabelMode::Indices
+            },
             skinned_mesh_bounds_policy: Default::default(),
         }
     }
@@ -300,6 +318,7 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_convert_coordinates: self.convert_coordinates,
+            default_label_mode: self.label_mode,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
         });

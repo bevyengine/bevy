@@ -6,8 +6,6 @@ use gltf::{json::texture::Info, Material};
 
 use serde_json::value;
 
-use crate::GltfAssetLabel;
-
 use super::texture::texture_transform_to_affine2;
 
 #[cfg(any(
@@ -158,16 +156,5 @@ pub(crate) fn warn_on_differing_texture_transforms(
             "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
             has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
         );
-    }
-}
-
-pub(crate) fn material_label(material: &Material, is_scale_inverted: bool) -> GltfAssetLabel {
-    if let Some(index) = material.index() {
-        GltfAssetLabel::Material {
-            index,
-            is_scale_inverted,
-        }
-    } else {
-        GltfAssetLabel::DefaultMaterial
     }
 }
