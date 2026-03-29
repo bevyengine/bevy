@@ -48,12 +48,32 @@ impl AssetSaver for CompressedImageSaver {
         _settings: &Self::Settings,
         _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, Self::Error> {
-        let is_srgb = image.texture_descriptor.format.is_srgb();
-
-        let layout = ctt::image::ImageLayout {
-            layers: todo!(),
-            is_cubemap: todo!(),
+        let Some(ref data) = image.data else {
+            return Err(CompressedImageSaverError::UninitializedImage);
         };
+
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+        let is_cubemap = matches!(
+            image.texture_view_descriptor,
+            Some(wgpu_types::TextureViewDescriptor {
+                dimension: Some(wgpu_types::TextureViewDimension::Cube),
+                ..
+            })
+        );
+
+        let layers = (0..image.texture_descriptor.array_layer_count())
+            .into_iter()
+            .map(|layer| {
+                vec![ctt::image::RawImage {
+                    data: todo!(),
+                    width: image.width(),
+                    height: image.height(),
+                    stride: todo!(),
+                    pixel_format: todo!(),
+                }];
+            })
+            .collect();
+        let layout = ctt::image::ImageLayout { layers, is_cubemap };
 
         let config = ctt::config::CompressConfig {
             format: todo!(),
@@ -122,7 +142,9 @@ impl AssetSaver for CompressedImageSaver {
             // library bindings note that invalid params might produce undefined behavior.
             unsafe {
                 compressor.init(&compressor_params);
-                compressor.process().unwrap();
+                compressor
+                    .process()
+                    .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
             }
             compressor.basis_file().to_vec()
         };
