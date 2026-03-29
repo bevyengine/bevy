@@ -102,7 +102,7 @@ impl Plugin for VolumetricFogPlugin {
                 Core3d,
                 volumetric_fog
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             );
     }
 }
