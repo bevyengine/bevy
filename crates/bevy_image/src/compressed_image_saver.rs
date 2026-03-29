@@ -8,11 +8,17 @@ use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
-/// An [`AssetSaver`] that writes compressed basis universal (.ktx2) files.
+/// An [`AssetSaver`] for [`Image`] that compresses texture files.
+///
+/// Compressed textures both take up less space on disk, and use less VRAM.
+///
+/// TODO: Document what platforms are supported, how feature flags work,
+/// required native dependencies (https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prerequisites),
+/// and what compression types exist
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
-/// Errors encountered when writing compressed images.
+/// Errors encountered when writing compressed images via [`CompressedImageSaverError`].
 #[non_exhaustive]
 #[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
@@ -31,6 +37,42 @@ impl AssetSaver for CompressedImageSaver {
     type OutputLoader = ImageLoader;
     type Error = CompressedImageSaverError;
 
+    #[cfg(feature = "compressed_image_saver_desktop")]
+    async fn save(
+        &self,
+        writer: &mut bevy_asset::io::Writer,
+        image: SavedAsset<'_, '_, Self::Asset>,
+        _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<ImageLoaderSettings, Self::Error> {
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+
+        let config = ctt::config::CompressConfig {
+            format: todo!(),
+            output_format: ctt::config::OutputFormat::Ktx2,
+            swizzle: None,
+            color_space: if is_srgb {
+                ctt::format::ColorSpace::Srgb
+            } else {
+                ctt::format::ColorSpace::Linear
+            },
+            encode_settings: None,
+        };
+
+        let compressed_bytes = ctt::pipeline::run(&config, todo!())?;
+        writer.write_all(&compressed_bytes).await?;
+
+        Ok(ImageLoaderSettings {
+            format: ImageFormatSetting::Format(ImageFormat::Ktx2),
+            is_srgb,
+            sampler: image.sampler.clone(),
+            asset_usage: image.asset_usage,
+            texture_format: None,
+            array_layout: None,
+        })
+    }
+
+    #[cfg(feature = "compressed_image_saver_web")]
     async fn save(
         &self,
         writer: &mut bevy_asset::io::Writer,

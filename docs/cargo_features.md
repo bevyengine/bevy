@@ -110,7 +110,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_winit|winit window and input backend|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
-|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
+|compressed_image_saver_desktop|Texture compression asset processor (for desktop)|
+|compressed_image_saver_web|Texture compression asset processor (for web)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
