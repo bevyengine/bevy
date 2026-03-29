@@ -16,13 +16,12 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
     scene::SceneInstanceReady,
-    scene2::CommandsSceneExt,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
 
-use crate::settings::Settings;
-use crate::{generate_city::spawn_city, settings::settings_ui};
+use crate::{assets::strip_base_url, settings::Settings};
+use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
@@ -54,6 +53,7 @@ fn main() {
                     title: "bevy_city".into(),
                     resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
+                    position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
@@ -75,16 +75,12 @@ fn main() {
         // Like in many realistic large scenes, many of the objects don't move
         // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::Enabled)
-        .add_systems(
-            Startup,
-            (
-                setup,
-                load_assets,
-                (setup_city.after(load_assets), add_no_cpu_culling).chain(),
-            ),
-        )
-        .add_systems(Update, simulate_cars)
+        .add_systems(Startup, (setup, load_assets))
+        .add_systems(Update, (simulate_cars, loading_screen))
+        .add_observer(add_no_cpu_culling)
         .add_observer(add_no_cpu_culling_on_scene_ready)
+        .add_observer(on_city_assets_ready)
+        .add_observer(setup_settings_ui)
         .run();
 }
 
@@ -119,11 +115,110 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands.spawn_scene(settings_ui());
+    commands.spawn((
+        LoadingScreen,
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK),
+        children![(
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(50.0),
+                left: Val::Percent(20.0),
+                right: Val::Percent(20.0),
+                height: Val::Vh(40.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            children![
+                (
+                    LoadingText,
+                    Text::new("Loading..."),
+                    TextFont {
+                        font_size: FontSize::Px(24.0),
+                        ..default()
+                    },
+                ),
+                (
+                    LoadingPaths,
+                    Text::new(""),
+                    TextFont {
+                        font_size: FontSize::Px(14.0),
+                        ..default()
+                    },
+                ),
+            ]
+        )],
+    ));
 }
 
-fn setup_city(mut commands: Commands, assets: Res<CityAssets>, args: Res<Args>) {
+#[derive(Component)]
+struct LoadingScreen;
+#[derive(Component)]
+struct LoadingText;
+#[derive(Component)]
+struct LoadingPaths;
+
+#[derive(Event)]
+struct CityAssetsReady;
+
+#[derive(Event)]
+struct CitySpawned;
+
+fn loading_screen(
+    mut commands: Commands,
+    assets: Res<CityAssets>,
+    asset_server: Res<AssetServer>,
+    mut loading_text: Query<&mut Text, With<LoadingText>>,
+    mut loading_paths: Query<&mut Text, (With<LoadingPaths>, Without<LoadingText>)>,
+    loading_screen: Query<Entity, With<LoadingScreen>>,
+) {
+    let Ok(loading_screen) = loading_screen.single() else {
+        return;
+    };
+    let Ok(mut text) = loading_text.single_mut() else {
+        return;
+    };
+    let Ok(mut paths_text) = loading_paths.single_mut() else {
+        return;
+    };
+    let mut paths = vec![];
+    for untyped in &assets.untyped_assets {
+        if let Some(path) = asset_server.get_path(untyped) {
+            let state = asset_server.is_loaded_with_dependencies(untyped);
+            if !state {
+                paths.push(strip_base_url(path.to_string()));
+            }
+        }
+    }
+    if paths.is_empty() {
+        commands.entity(loading_screen).despawn();
+        commands.trigger(CityAssetsReady);
+    } else {
+        text.0 = format!(
+            "Loading assets: {}/{}",
+            assets.untyped_assets.len() - paths.len(),
+            assets.untyped_assets.len(),
+        );
+        paths.reverse();
+        paths_text.0 = paths.join("\n");
+    }
+}
+
+fn on_city_assets_ready(
+    _: On<CityAssetsReady>,
+    mut commands: Commands,
+    assets: Res<CityAssets>,
+    args: Res<Args>,
+) {
     spawn_city(&mut commands, &assets, args.seed, args.size);
+    commands.trigger(CitySpawned);
 }
 
 #[derive(Component)]
@@ -170,6 +265,7 @@ fn simulate_cars(
 }
 
 fn add_no_cpu_culling(
+    _: On<CitySpawned>,
     mut commands: Commands,
     meshes: Query<Entity, (With<Mesh3d>, Without<NoCpuCulling>)>,
     args: Res<Args>,

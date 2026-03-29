@@ -773,6 +773,9 @@ bitflags::bitflags! {
         /// The mesh had morph targets last frame and so they should be taken
         /// into account for motion vector computation.
         const HAS_PREVIOUS_MORPH      = 1 << 4;
+        /// CPU culling has been disabled because the `NoCpuCulling` component
+        /// is present on the mesh instance.
+        const NO_CPU_CULLING          = 1 << 5;
     }
 }
 
@@ -1091,15 +1094,17 @@ impl RenderMeshInstanceSharedFlat {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        no_cpu_culling: bool,
         aabb: Option<&Aabb>,
     ) -> Self {
-        Self::for_cpu_building(
+        Self::new(
             previous_transform,
             mesh,
             tag,
             default(),
             not_shadow_caster,
             no_automatic_batching,
+            no_cpu_culling,
             aabb,
         )
     }
@@ -1114,6 +1119,28 @@ impl RenderMeshInstanceSharedFlat {
         no_automatic_batching: bool,
         aabb: Option<&Aabb>,
     ) -> Self {
+        Self::new(
+            previous_transform,
+            mesh,
+            tag,
+            material_bindings_index,
+            not_shadow_caster,
+            no_automatic_batching,
+            false,
+            aabb,
+        )
+    }
+
+    fn new(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+        no_cpu_culling: bool,
+        aabb: Option<&Aabb>,
+    ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
         mesh_instance_flags.set(
@@ -1124,6 +1151,7 @@ impl RenderMeshInstanceSharedFlat {
             RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM,
             previous_transform.is_some(),
         );
+        mesh_instance_flags.set(RenderMeshInstanceFlags::NO_CPU_CULLING, no_cpu_culling);
 
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
@@ -1521,7 +1549,7 @@ impl RenderMeshInstanceGpuPrepared {
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
-    ) -> Option<u32> {
+    ) -> u32 {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
         match render_mesh_instances.entry(entity) {
@@ -1574,7 +1602,7 @@ impl RenderMeshInstanceGpuPrepared {
             }
         }
 
-        Some(current_uniform_index)
+        current_uniform_index
     }
 }
 
@@ -1715,14 +1743,26 @@ impl RenderGpuCulledEntities {
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
-    pub fn update(&mut self, new_entity: MainEntity, render_layers: RenderLayers) {
+    pub fn update(
+        &mut self,
+        new_entity: MainEntity,
+        render_layers: RenderLayers,
+        no_cpu_culling: bool,
+    ) {
         match self.entities.entry(new_entity) {
             Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.insert(render_layers);
+                if no_cpu_culling {
+                    occupied_entry.insert(render_layers);
+                } else {
+                    occupied_entry.remove();
+                    self.removed.push(new_entity);
+                }
             }
             Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(render_layers);
-                self.added.push(new_entity);
+                if no_cpu_culling {
+                    vacant_entry.insert(render_layers);
+                    self.added.push(new_entity);
+                }
             }
         }
     }
@@ -1899,14 +1939,14 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Aabb>,
                 Changed<Mesh3d>,
                 Changed<MeshTag>,
-                (
+                Or<(
                     Changed<NoFrustumCulling>,
                     Changed<NotShadowReceiver>,
                     Changed<TransmittedShadowReceiver>,
                     Changed<NotShadowCaster>,
                     Changed<NoAutomaticBatching>,
                     Changed<NoCpuCulling>,
-                ),
+                )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
             )>,
@@ -2122,6 +2162,7 @@ fn extract_mesh_for_gpu_building(
         tag,
         not_shadow_caster,
         no_automatic_batching,
+        no_cpu_culling,
         aabb,
     );
 
@@ -2511,81 +2552,84 @@ pub fn collect_meshes_for_gpu_building(
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
                             let _span = info_span!("prepared_mesh_producer").entered();
-                            changed_cpu_culling
-                                .drain(..)
-                                .chain(changed_gpu_culling.drain(..))
-                                .for_each(
-                                    |(entity, mesh_instance_builder, mesh_culling_builder)| {
-                                        match mesh_instance_builder.prepare(
-                                            entity,
-                                            mesh_allocator,
-                                            mesh_material_ids,
-                                            render_material_bindings,
-                                            render_lightmaps,
-                                            skin_uniforms,
-                                            morph_indices,
-                                            frame_count,
-                                        ) {
-                                            Some(mut prepared) => {
-                                                if let Some(render_mesh_instance) =
-                                                    render_mesh_instances.get(&entity)
-                                                    && prepared.render_layers
-                                                        == render_mesh_instance.render_layers
-                                                {
-                                                    // We can take a fast path and
-                                                    // write directly to shared
-                                                    // memory, since the only fields
-                                                    // that changed are POD fields.
+                            for (entity, mesh_instance_builder, mesh_culling_builder) in
+                                changed_cpu_culling
+                                    .drain(..)
+                                    .chain(changed_gpu_culling.drain(..))
+                            {
+                                let Some(mut prepared) = mesh_instance_builder.prepare(
+                                    entity,
+                                    mesh_allocator,
+                                    mesh_material_ids,
+                                    render_material_bindings,
+                                    render_lightmaps,
+                                    skin_uniforms,
+                                    morph_indices,
+                                    frame_count,
+                                ) else {
+                                    reextract_tx.send(entity).ok();
+                                    continue;
+                                };
 
-                                                    prepared.shared.write_to_blob(
-                                                        &render_mesh_instance.shared,
-                                                    );
-                                                    render_mesh_instance
-                                                        .gpu_specific
-                                                        .set_world_space_center(prepared.center);
+                                let Some(render_mesh_instance) = render_mesh_instances.get(&entity)
+                                else {
+                                    // We must take the slow path because we
+                                    // haven't seen the mesh instance yet. Send
+                                    // the mesh instance to the collection sink.
+                                    let _ = prepared_tx.send((
+                                        entity,
+                                        prepared,
+                                        Some(mesh_culling_builder),
+                                    ));
+                                    continue;
+                                };
 
-                                                    let current_uniform_index =
-                                                        render_mesh_instance
-                                                            .gpu_specific
-                                                            .current_uniform_index();
+                                if prepared.render_layers != render_mesh_instance.render_layers
+                                    || prepared
+                                        .shared
+                                        .flags
+                                        .contains(RenderMeshInstanceFlags::NO_CPU_CULLING)
+                                        != render_mesh_instance
+                                            .shared
+                                            .flags()
+                                            .contains(RenderMeshInstanceFlags::NO_CPU_CULLING)
+                                {
+                                    // We must take the slow path because the
+                                    // instance either changed render layers or
+                                    // CPU/GPU culling mode. Send the mesh
+                                    // instance to the collection sink.
+                                    let _ = prepared_tx.send((
+                                        entity,
+                                        prepared,
+                                        Some(mesh_culling_builder),
+                                    ));
+                                    continue;
+                                }
 
-                                                    let previous_mesh_input_uniform =
-                                                        current_input_buffer
-                                                            .get_unchecked(current_uniform_index);
-                                                    let previous_input_index =
-                                                        previous_input_buffer
-                                                            .push(previous_mesh_input_uniform);
-                                                    prepared
-                                                        .mesh_input_uniform
-                                                        .previous_input_index =
-                                                        previous_input_index;
+                                // If we got here, we can take a fast path and
+                                // write directly to shared memory, since the
+                                // only fields that changed are POD fields.
 
-                                                    current_input_buffer.set(
-                                                        current_uniform_index,
-                                                        prepared.mesh_input_uniform,
-                                                    );
-                                                    mesh_culling_data_buffer.set(
-                                                        current_uniform_index,
-                                                        mesh_culling_builder,
-                                                    );
-                                                } else {
-                                                    // This is the slow path. Send
-                                                    // the mesh instance to the
-                                                    // collection sink.
-                                                    let data = (
-                                                        entity,
-                                                        prepared,
-                                                        Some(mesh_culling_builder),
-                                                    );
-                                                    prepared_tx.send(data).ok();
-                                                }
-                                            }
-                                            None => {
-                                                reextract_tx.send(entity).ok();
-                                            }
-                                        }
-                                    },
-                                );
+                                prepared.shared.write_to_blob(&render_mesh_instance.shared);
+                                render_mesh_instance
+                                    .gpu_specific
+                                    .set_world_space_center(prepared.center);
+
+                                let current_uniform_index =
+                                    render_mesh_instance.gpu_specific.current_uniform_index();
+
+                                let previous_mesh_input_uniform =
+                                    current_input_buffer.get_unchecked(current_uniform_index);
+                                let previous_input_index =
+                                    previous_input_buffer.push(previous_mesh_input_uniform);
+                                prepared.mesh_input_uniform.previous_input_index =
+                                    previous_input_index;
+
+                                current_input_buffer
+                                    .set(current_uniform_index, prepared.mesh_input_uniform);
+                                mesh_culling_data_buffer
+                                    .set(current_uniform_index, mesh_culling_builder);
+                            }
 
                             for entity in removed.drain(..) {
                                 removed_tx.send(entity).unwrap();
@@ -2606,25 +2650,31 @@ pub fn collect_meshes_for_gpu_building(
 
     while let Ok(batch) = prepared_rx.recv() {
         let (entity, prepared, mesh_culling_builder) = batch;
-        let Some(instance_data_index) = prepared.update(
+        let instance_data_index = prepared.update(
             entity,
             &mut *render_mesh_instances,
             current_input_buffer,
             previous_input_buffer,
-        ) else {
-            continue;
-        };
+        );
         if let Some(mesh_culling_data) = mesh_culling_builder {
             mesh_culling_data.update(&mut mesh_culling_data_buffer, instance_data_index);
         }
         // If the instance is already visible, just update the layers.
         // Otherwise, mark it as newly-added.
-        let render_layers = render_mesh_instances
-            .get(&entity)
-            .and_then(|render_mesh_instance| render_mesh_instance.render_layers.as_ref())
-            .cloned()
-            .unwrap_or_else(RenderLayers::default);
-        render_gpu_culled_entities.update(entity, render_layers);
+        let (render_layers, no_cpu_culling) = match render_mesh_instances.get(&entity) {
+            None => (RenderLayers::default(), false),
+            Some(render_mesh_instance) => (
+                render_mesh_instance
+                    .render_layers
+                    .clone()
+                    .unwrap_or_default(),
+                render_mesh_instance
+                    .shared
+                    .flags()
+                    .contains(RenderMeshInstanceFlags::NO_CPU_CULLING),
+            ),
+        };
+        render_gpu_culled_entities.update(entity, render_layers, no_cpu_culling);
     }
     while let Ok(batch) = removed_rx.recv() {
         let entity = batch;

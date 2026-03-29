@@ -1,4 +1,5 @@
 use bevy::{
+    camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
@@ -13,8 +14,8 @@ use bevy::{
 };
 use rand::RngExt;
 
-use crate::assets::CityAssets;
 use crate::generate_city::{spawn_city, CityRoot};
+use crate::{assets::CityAssets, CitySpawned};
 
 #[derive(Resource)]
 pub struct Settings {
@@ -22,6 +23,7 @@ pub struct Settings {
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
+    pub cpu_culling: bool,
 }
 
 impl Default for Settings {
@@ -31,6 +33,7 @@ impl Default for Settings {
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
             wireframe_enabled: false,
+            cpu_culling: true,
         }
     }
 }
@@ -117,6 +120,28 @@ pub fn settings_ui() -> impl Scene {
                     Children [ (Text("Wireframe Enabled") ThemedText) ]
                 ),
                 (
+                    checkbox()
+                    Checked
+                    on(checkbox_self_update)
+                    on(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut commands: Commands,
+                         meshes: Query<Entity, With<Mesh3d>>| {
+                            settings.cpu_culling = change.value;
+
+                            for entity in meshes.iter() {
+                                if settings.cpu_culling {
+                                    commands.entity(entity).remove::<NoCpuCulling>();
+                                } else {
+                                    commands.entity(entity).insert(NoCpuCulling);
+                                }
+                            }
+                        }
+                    )
+                    Children [ (Text("CPU culling") ThemedText) ]
+                ),
+                (
                     button(ButtonProps::default())
                     on(
                         |_activate: On<Activate>,
@@ -136,4 +161,8 @@ pub fn settings_ui() -> impl Scene {
             ]
         )]
     }
+}
+
+pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
+    commands.spawn_scene(settings_ui());
 }

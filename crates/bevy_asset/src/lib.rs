@@ -220,7 +220,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
@@ -532,6 +532,22 @@ impl<V: VisitAssetDependencies> VisitAssetDependencies for HashSet<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
             dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
+            visit(dependency.id());
         }
     }
 }
@@ -2020,6 +2036,10 @@ mod tests {
             set_handles: HashSet<Handle<TestAsset>>,
             #[dependency]
             untyped_set_handles: HashSet<UntypedHandle>,
+            #[dependency]
+            map_handles: HashMap<String, Handle<TestAsset>>,
+            #[dependency]
+            untyped_map_handles: HashMap<String, UntypedHandle>,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -2043,6 +2063,10 @@ mod tests {
         set_handles: HashSet<Handle<TestAsset>>,
         #[dependency]
         untyped_set_handles: HashSet<UntypedHandle>,
+        #[dependency]
+        map_handles: HashMap<String, Handle<TestAsset>>,
+        #[dependency]
+        untyped_map_handles: HashMap<String, UntypedHandle>,
     }
 
     #[expect(
