@@ -7,10 +7,13 @@
 //! are caught during development, rather than by end users.
 
 use argh::FromArgs;
-use assets::{load_assets, CityAssets};
+use assets::{load_assets, resolve_pending_lods, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{visibility::NoCpuCulling, Exposure, Hdr},
+    camera::{
+        visibility::{NoCpuCulling, VisibilityRange},
+        Exposure, Hdr,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
@@ -31,6 +34,7 @@ use bevy::{
 
 use crate::{
     assets::{merge_car_meshes, strip_base_url},
+    generate_city::CityStats,
     settings::Settings,
 };
 use crate::{generate_city::spawn_city, settings::setup_settings_ui};
@@ -50,9 +54,29 @@ pub struct Args {
     #[argh(option, default = "30")]
     size: u32,
 
+    /// car density. Controls the probability of spawning a car on a road. Range 0..1
+    #[argh(option, default = "0.05")]
+    car_density: f32,
+
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// minimum range for LODs
+    #[argh(option, default = "200.0")]
+    lod_min_range: f32,
+
+    /// maximum range for LODs
+    #[argh(option, default = "500.0")]
+    lod_max_range: f32,
+
+    /// minimum range for car LODs
+    #[argh(option, default = "40.0")]
+    car_lod_min_range: f32,
+
+    /// maximum range for car LODs
+    #[argh(option, default = "80.0")]
+    car_lod_max_range: f32,
 }
 
 fn main() {
@@ -100,9 +124,11 @@ fn main() {
                 on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
                 (add_no_cpu_culling, on_city_spawned, setup_settings_ui)
                     .run_if(on_message::<CitySpawned>),
+                resolve_pending_lods,
             ),
         )
         .add_observer(add_no_cpu_culling_on_scene_ready)
+        .add_observer(propagate_visibility_range)
         .run();
 }
 
@@ -111,7 +137,11 @@ fn setup(mut commands: Commands) {
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamera::default(),
+        FreeCamera {
+            walk_speed: 10.0,
+            run_speed: 25.0,
+            ..Default::default()
+        },
         AtmosphereSettings {
             // Reduce the default max distance in the aerial view LUT
             // to 16km to approximately fit the size of the city. This way the aerial perspective
@@ -313,7 +343,27 @@ fn on_city_assets_ready(
     };
     text.0 = "Spawning city...".into();
 
-    spawn_city(&mut commands, &city_assets, args.seed, args.size);
+    let mut stats = CityStats::default();
+    spawn_city(
+        &mut commands,
+        &city_assets,
+        args.seed,
+        args.size,
+        args.car_density,
+        &mut stats,
+    );
+
+    println!("cars: {}", stats.cars);
+    println!("roads: {}", stats.roads);
+    println!("trees: {}", stats.trees);
+    println!("buildings: {}", stats.buildings);
+    println!("fences: {}", stats.fences);
+    println!("paths: {}", stats.paths);
+    println!(
+        "total: {}",
+        stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
+    );
+
     commands.write_message(CitySpawned);
 }
 
@@ -403,6 +453,24 @@ fn add_no_cpu_culling_on_scene_ready(
             if meshes.get(descendant).is_ok() {
                 commands.entity(descendant).insert(NoCpuCulling);
             }
+        }
+    }
+}
+
+fn propagate_visibility_range(
+    scene_ready: On<WorldInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    range: Query<&VisibilityRange>,
+    mesh: Query<(), With<Mesh3d>>,
+) {
+    let Ok(range) = range.get(scene_ready.entity) else {
+        return;
+    };
+
+    for descendant in children.iter_descendants(scene_ready.entity) {
+        if mesh.get(descendant).is_ok() {
+            commands.entity(descendant).insert(range.clone());
         }
     }
 }
