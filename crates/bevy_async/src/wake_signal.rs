@@ -1,6 +1,6 @@
 use bevy_platform::sync::{Arc, Mutex};
 
-/// [`WakeSignaler`] is a custom signaling primitive used in order to fufill our specific requirements for
+/// [`WakeSignaler`] is a custom signaling primitive used in order to fulfill our specific requirements for
 /// our async bridge. We need to wait at the sync point, after waking all the futures and only when
 /// all the futures have had a chance to run we stop waiting.
 /// We need this signaling to occur also if the future is dropped, or if the future panics

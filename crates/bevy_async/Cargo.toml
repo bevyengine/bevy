@@ -12,11 +12,11 @@ keywords = ["bevy", "async"]
 default = ["std", "bevy_tasks"]
 
 std = [
-    "bevy_app/std",
-    "bevy_ecs/std",
-    "bevy_platform/std",
-    "scoped_static_storage/std",
-    "keyed_concurrent_queue/std",
+  "bevy_app/std",
+  "bevy_ecs/std",
+  "bevy_platform/std",
+  "scoped_static_storage/std",
+  "keyed_concurrent_queue/std",
 ]
 
 [dependencies]
@@ -37,8 +37,8 @@ workspace = true
 
 [package.metadata.docs.rs]
 rustdoc-args = [
-    "-Zunstable-options",
-    "--generate-link-to-definition",
-    "--generate-macro-expansion",
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
 ]
 all-features = true
