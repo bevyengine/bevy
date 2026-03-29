@@ -22,20 +22,29 @@ use bevy_text::{
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem};
 use swash::FontRef;
+use taffy::MaybeMath;
 
 struct TextInputMeasure {
     height: f32,
 }
 
 impl crate::Measure for TextInputMeasure {
-    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
-        let x = measure_args
-            .width
+    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>) -> Vec2 {
+        let width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
+
+        let x = width
+            .resolved
             .unwrap_or(match measure_args.available_width {
                 crate::AvailableSpace::Definite(x) => x,
                 crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
-            });
-        let y = measure_args.height.unwrap_or(self.height);
+            })
+            .maybe_clamp(width.min, width.max);
+        let y = height
+            .resolved
+            .unwrap_or(self.height)
+            .maybe_clamp(height.min, height.max);
+
         Vec2::new(x, y).ceil()
     }
 }
