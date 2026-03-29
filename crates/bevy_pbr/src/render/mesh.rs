@@ -661,6 +661,14 @@ impl MeshUniform {
             Some((slot_index, _)) => slot_index.into(),
         };
 
+        let material_slot = u32::from(material_bind_group_slot);
+        debug_assert!(
+            material_slot <= 0xFFFF,
+            "Material bind group slot {material_slot} overflowed"
+        );
+        let material_and_lightmap_bind_group_slot =
+            material_slot | ((lightmap_bind_group_slot as u32) << 16);
+
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
@@ -670,8 +678,7 @@ impl MeshUniform {
             flags: mesh_transforms.flags,
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
-            material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
-                | ((lightmap_bind_group_slot as u32) << 16),
+            material_and_lightmap_bind_group_slot,
             tag: tag.unwrap_or(0),
             morph_descriptor_index: match morph_descriptor_index {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
@@ -1492,6 +1499,13 @@ impl RenderMeshInstanceGpuBuilder {
         };
 
         // Create the mesh input uniform.
+        let material_slot = u32::from(self.shared.material_bindings_index.slot);
+        debug_assert!(
+            material_slot <= 0xFFFF,
+            "Material bind group slot {material_slot} overflowed"
+        );
+        let material_and_lightmap_bind_group_slot = material_slot | ((lightmap_slot as u32) << 16);
+
         let mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
@@ -1506,9 +1520,7 @@ impl RenderMeshInstanceGpuBuilder {
                 vertex_count
             },
             current_skin_index,
-            material_and_lightmap_bind_group_slot: u32::from(
-                self.shared.material_bindings_index.slot,
-            ) | ((lightmap_slot as u32) << 16),
+            material_and_lightmap_bind_group_slot,
             tag: self.shared.tag,
             morph_descriptor_index,
         };
