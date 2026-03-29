@@ -2147,7 +2147,7 @@ wasm = false
 name = "Async Bridge"
 description = "An example showing how to offload work to background async tasks using the AsyncBridge primitive."
 category = "Async Tasks"
-wasm = true
+wasm = false
 
 [[example]]
 name = "async_channel_pattern"
