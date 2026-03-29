@@ -18,13 +18,16 @@ use thiserror::Error;
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
-/// Errors encountered when writing compressed images via [`CompressedImageSaverError`].
+/// Errors encountered when writing compressed images via [`CompressedImageSaver`].
 #[non_exhaustive]
 #[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
     /// I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// The underlying compression library returned an error.
+    #[error(transparent)]
+    CompressionFailed(Box<dyn std::error::Error + Send + Sync>),
     /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
@@ -47,6 +50,11 @@ impl AssetSaver for CompressedImageSaver {
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let is_srgb = image.texture_descriptor.format.is_srgb();
 
+        let layout = ctt::image::ImageLayout {
+            layers: todo!(),
+            is_cubemap: todo!(),
+        };
+
         let config = ctt::config::CompressConfig {
             format: todo!(),
             output_format: ctt::config::OutputFormat::Ktx2,
@@ -59,7 +67,10 @@ impl AssetSaver for CompressedImageSaver {
             encode_settings: None,
         };
 
-        let compressed_bytes = ctt::pipeline::run(&config, todo!())?;
+        let compressed_bytes = ctt::pipeline::run(&config, layout)
+            .await
+            .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
+
         writer.write_all(&compressed_bytes).await?;
 
         Ok(ImageLoaderSettings {
