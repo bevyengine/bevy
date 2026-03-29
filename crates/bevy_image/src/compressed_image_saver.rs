@@ -27,7 +27,7 @@ pub enum CompressedImageSaverError {
     Io(#[from] std::io::Error),
     /// The underlying compression library returned an error.
     #[error(transparent)]
-    CompressionFailed(Box<dyn std::error::Error + Send + Sync>),
+    CompressionFailed(Box<dyn std::error::Error>),
     /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
@@ -51,6 +51,12 @@ impl AssetSaver for CompressedImageSaver {
         let Some(ref data) = image.data else {
             return Err(CompressedImageSaverError::UninitializedImage);
         };
+
+        if image.texture_descriptor.mip_level_count != 1 {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                "Expected texture_descriptor.mip_level_count to be 1".into(),
+            ));
+        }
 
         let is_srgb = image.texture_descriptor.format.is_srgb();
         let color_space = if is_srgb {
