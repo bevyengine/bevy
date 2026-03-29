@@ -34,8 +34,6 @@ use bevy_gizmos::transform_gizmo::{
     VIEW_CIRCLE_MAJOR, VIEW_CIRCLE_MINOR, VIEW_RING_MAJOR, VIEW_RING_MINOR,
 };
 
-use bevy_ui::UiSystems;
-
 /// The render layer used exclusively for gizmo meshes.
 const GIZMO_RENDER_LAYER: usize = 15;
 
