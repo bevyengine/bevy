@@ -128,3 +128,36 @@ impl Plugin for TextPlugin {
         };
     }
 }
+
+#[doc(hidden)]
+pub mod _macro {
+    pub use bevy_asset;
+}
+
+/// Inline font as an `embedded_asset` and load it permanently.
+///
+/// Later the font can be used with [`FontSource::Family`] like this:
+///
+/// ```no_run
+/// use bevy_text::embedded_font;
+/// use bevy_text::FontSource;
+///
+/// // Embed and load the font somewhere in a plugins build method.
+/// embedded_font!(app, "assets/fonts/FiraSans-Bold.ttf");
+///
+/// // else-where
+/// FontSource::Family("embedded://crate_name/assets/fonts/FiraSans-Bold.ttf");
+/// ```
+#[macro_export]
+macro_rules! embedded_font {
+    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
+        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
+        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Font> =
+            $crate::_macro::bevy_asset::load_embedded_asset!(
+                $asset_server_provider,
+                $path
+                $(,$settings)?
+            );
+        core::mem::forget(handle);
+    }
+}

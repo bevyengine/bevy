@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::{FontSize, TextFont};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
@@ -31,7 +31,6 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
     tokens,
@@ -123,11 +122,11 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 ..Default::default()
             },
             ThemeFontColor(tokens::SLIDER_TEXT),
-            InheritableFont {
-                font: HandleOrPath::Path(fonts::MONO.to_owned()),
+            InheritableFont(TextFont {
+                font: fonts::MONO,
                 font_size: FontSize::Px(12.0),
-                weight: FontWeight::NORMAL,
-            },
+                ..Default::default()
+            }),
             children![(Text::new("10.0"), ThemedText, SliderValueText,)],
         )],
     )
