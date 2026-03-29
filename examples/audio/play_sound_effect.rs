@@ -3,23 +3,32 @@
 use bevy::prelude::*;
 
 #[derive(Resource, Deref)]
-struct SoundEffect(Handle<AudioSource>);
+struct SoundEffect {
+    handle: Handle<AudioSource>,
+}
+
+// Sound effect holds the logic how to initialize itself. It is called via `init_resource`.
+impl FromWorld for SoundEffect {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        SoundEffect {
+            handle: asset_server.load("sounds/breakout_collision.ogg"),
+        }
+    }
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<SoundEffect>()
         .add_systems(Startup, setup)
         .add_systems(Update, keyboard_event)
         .run();
 }
 
-fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
-    // Load an asset as a global resource
-    let handle = asset_server.load("sounds/breakout_collision.ogg");
-    commands.insert_resource(SoundEffect(handle));
-
-    // example instructions
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+    // example instruction
     commands.spawn((
         Text::new("Press Space to play the sound effect."),
         Node {
