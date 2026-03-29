@@ -1,3 +1,7 @@
+#![expect(
+    unused_assignments,
+    reason = "fields in ParseError are only read via Diagnostic/Error derive macro expansions, which are generating spurious warnings"
+)]
 use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
