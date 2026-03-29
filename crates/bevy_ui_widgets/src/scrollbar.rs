@@ -365,10 +365,6 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag_end)
             .add_observer(scrollbar_on_drag_cancel)
             .add_observer(scrollbar_on_drag)
-            .configure_sets(
-                PostUpdate,
-                bevy_app::PropagateSet::<Scrollbar>::default().in_set(UiSystems::ComputeRelative),
-            )
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb

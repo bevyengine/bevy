@@ -242,15 +242,7 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            PostUpdate,
-            (
-                bevy_app::PropagateSet::<Visibility>::default(),
-                bevy_app::PropagateSet::<Popover>::default(),
-            )
-                .in_set(UiSystems::ComputeRelative),
-        )
-        .add_systems(
+        app.add_systems(
             PostUpdate,
             position_popover.in_set(UiSystems::ComputeRelative),
         );
