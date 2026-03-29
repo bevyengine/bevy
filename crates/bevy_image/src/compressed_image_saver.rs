@@ -53,6 +53,12 @@ impl AssetSaver for CompressedImageSaver {
         };
 
         let is_srgb = image.texture_descriptor.format.is_srgb();
+        let color_space = if is_srgb {
+            ctt::format::ColorSpace::Srgb
+        } else {
+            ctt::format::ColorSpace::Linear
+        };
+
         let is_cubemap = matches!(
             image.texture_view_descriptor,
             Some(wgpu_types::TextureViewDescriptor {
@@ -79,11 +85,7 @@ impl AssetSaver for CompressedImageSaver {
             format: todo!(),
             output_format: ctt::config::OutputFormat::Ktx2,
             swizzle: None,
-            color_space: if is_srgb {
-                ctt::format::ColorSpace::Srgb
-            } else {
-                ctt::format::ColorSpace::Linear
-            },
+            color_space,
             encode_settings: None,
         };
 
