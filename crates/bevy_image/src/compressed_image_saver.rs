@@ -14,7 +14,7 @@ use thiserror::Error;
 ///
 /// TODO: Document what platforms are supported, how feature flags work,
 /// required native dependencies (https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prerequisites),
-/// and what compression types exist
+/// what compression types exist, and mipmap generation?
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
