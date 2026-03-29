@@ -2223,13 +2223,13 @@ category = "Audio"
 wasm = true
 
 [[example]]
-name = "play_on_event"
-path = "examples/audio/play_on_event.rs"
+name = "play_sound_effect"
+path = "examples/audio/play_sound_effect.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.play_on_event]
-name = "Play on Event"
-description = "Shows how to play a sound effect on an event"
+[package.metadata.example.play_sound_effect]
+name = "Play Sound Effect"
+description = "Shows how to play a sound effect in response to an event"
 category = "Audio"
 wasm = true
 
