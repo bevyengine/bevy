@@ -23,6 +23,10 @@ impl Default for AudioOutput {
             .inspect_err(|_err| {
                 warn!("No audio device found.");
             })
+            .map(|mut s| {
+                s.log_on_drop(false);
+                s
+            })
             .ok();
         Self { stream }
     }

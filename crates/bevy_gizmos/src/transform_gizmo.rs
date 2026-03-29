@@ -16,7 +16,7 @@
 //! is optional -- the gizmo will use that camera automatically. When multiple cameras
 //! exist, the marker is required so the gizmo knows which one to use.
 
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -195,7 +195,7 @@ pub struct TransformGizmoState {
     pub gizmo_origin: Vec3,
 }
 
-/// System set for the transform gizmo. All transform gizmo systems run in [`Update`]
+/// System set for the transform gizmo. All transform gizmo systems run in [`PostUpdate`]
 /// within this set.
 ///
 /// Add a run condition to control when the gizmo is active:
@@ -233,10 +233,14 @@ impl Plugin for TransformGizmoPlugin {
             .register_type::<TransformGizmoCamera>()
             .register_type::<TransformGizmoSettings>()
             .register_type::<TransformGizmoState>()
-            .add_systems(Update, transform_gizmo_hover.in_set(TransformGizmoSystems))
+            .configure_sets(PostUpdate, TransformGizmoSystems)
             .add_systems(
                 PostUpdate,
-                transform_gizmo_drag.before(TransformSystems::Propagate),
+                (
+                    transform_gizmo_drag.before(TransformSystems::Propagate),
+                    transform_gizmo_hover.after(TransformSystems::Propagate),
+                )
+                    .in_set(TransformGizmoSystems),
             );
     }
 }
