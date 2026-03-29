@@ -184,4 +184,47 @@ mod tests {
 
         assert!(FAILED_VALIDATION.load(Ordering::Relaxed));
     }
+
+    #[test]
+    #[cfg(not(feature = "std"))]
+    fn no_std_test() {
+        use crate::prelude::*;
+        use bevy_app::prelude::*;
+        use bevy_app::ScheduleRunnerPlugin;
+        use bevy_ecs::prelude::*;
+        use bevy_platform::sync::atomic::AtomicBool;
+        use bevy_platform::sync::atomic::Ordering;
+        use bevy_tasks::AsyncComputeTaskPool;
+
+        struct MySyncPoint;
+        static ACCESS_RAN: AtomicBool = AtomicBool::new(false);
+        let mut app = App::new();
+        app.add_plugins((
+            AsyncPlugin::default(),
+            ScheduleRunnerPlugin::default(),
+            TaskPoolPlugin::default(),
+        ));
+
+        app.add_systems(Update, async_world_sync_point::<MySyncPoint>);
+
+        app.add_systems(Startup, move |world: Res<AsyncWorld>| {
+            let world = world.clone();
+            AsyncComputeTaskPool::get()
+                .spawn_local(async move {
+                    let system_state = world.system_state::<Commands>();
+                    system_state
+                        .bridge(MySyncPoint, |mut commands: Commands| {
+                            commands.spawn_empty();
+                            ACCESS_RAN.store(true, Ordering::Relaxed);
+                        })
+                        .await
+                        .unwrap();
+                })
+                .detach();
+        });
+
+        app.update();
+
+        assert!(ACCESS_RAN.load(Ordering::Relaxed));
+    }
 }
