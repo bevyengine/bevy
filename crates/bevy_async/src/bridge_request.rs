@@ -106,6 +106,17 @@ impl AsyncWorldInner {
     }
 }
 
+/// We need to notify all our Wakers that have queued that we've dropped so they can error
+impl Drop for AsyncWorldInner {
+    fn drop(&mut self) {
+        for bridge_requests in self.bridge_requests.inner().read().unwrap().values() {
+            while let Ok(request) = bridge_requests.pop() {
+                request.waker.wake();
+            }
+        }
+    }
+}
+
 /// Whether a tick attempt made any progress.
 #[derive(PartialEq)]
 enum TickResult {
@@ -117,7 +128,7 @@ enum TickResult {
 
 /// A queued access request bridging an async task into ECS.
 pub(crate) struct BridgeRequest {
-    /// Waker for the async future ([`crate::bridge_future::BridgeFuture`]) that wants ECS access.
+    /// Waker for the async future (`crate::bridge_future::BridgeFuture`) that wants ECS access.
     /// When the `SyncPoint` is driven, this waker is fired so the future can
     /// poll while `world_scope` exposes the current `World`.
     pub(crate) waker: core::task::Waker,

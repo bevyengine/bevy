@@ -94,3 +94,94 @@ pub mod prelude {
         BridgeError,
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    use bevy_app::prelude::*;
+    use bevy_app::ScheduleRunnerPlugin;
+    use bevy_ecs::prelude::*;
+    use bevy_platform::sync::atomic::AtomicBool;
+    use bevy_platform::sync::atomic::Ordering;
+    use bevy_tasks::AsyncComputeTaskPool;
+
+    /// This tests that if a world is dropped we return an error from attempting to run it and
+    /// that everything cleans up nicely
+    /// Because of a quirk of how bevy's task pools work we have to always have at least one
+    /// active world for anything to progress on them.
+    /// That's what `other_app` is for.
+    #[test]
+    fn dropped_world() {
+        struct MySyncPoint;
+        static WORLD_WAS_DROPPED: AtomicBool = AtomicBool::new(false);
+        let mut other_app = App::new();
+        other_app.add_plugins((TaskPoolPlugin::default(), ScheduleRunnerPlugin::default()));
+        let mut app = App::new();
+        app.add_plugins((
+            AsyncPlugin::default(),
+            ScheduleRunnerPlugin::default(),
+            TaskPoolPlugin::default(),
+        ));
+
+        app.add_systems(Startup, move |world: Res<AsyncWorld>| {
+            let world = world.clone();
+            AsyncComputeTaskPool::get()
+                .spawn(async move {
+                    let system_state = world.system_state::<Commands>();
+                    match system_state
+                        .bridge(MySyncPoint, |mut commands: Commands| {
+                            commands.spawn_empty();
+                        })
+                        .await
+                    {
+                        Err(BridgeError::WorldDropped) => {
+                            WORLD_WAS_DROPPED.store(true, Ordering::Relaxed);
+                        }
+                        _ => unreachable!("World should have Dropped"),
+                    }
+                })
+                .detach();
+        });
+        app.update();
+        drop(app);
+        other_app.update();
+        assert!(WORLD_WAS_DROPPED.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn invalid_parameters() {
+        struct MySyncPoint;
+        static FAILED_VALIDATION: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Resource)]
+        struct MyResource;
+
+        let mut app = App::new();
+        app.add_plugins((
+            AsyncPlugin::default(),
+            ScheduleRunnerPlugin::default(),
+            TaskPoolPlugin::default(),
+        ));
+
+        app.add_systems(Update, async_world_sync_point::<MySyncPoint>);
+
+        app.add_systems(Startup, move |world: Res<AsyncWorld>| {
+            let world = world.clone();
+            AsyncComputeTaskPool::get()
+                .spawn(async move {
+                    let system_state = world.system_state::<Res<MyResource>>();
+                    match system_state.bridge(MySyncPoint, |_| unreachable!()).await {
+                        Err(BridgeError::SystemParamValidation(_)) => {
+                            FAILED_VALIDATION.store(true, Ordering::Relaxed);
+                        }
+                        _ => unreachable!("Parameter validation should have failed"),
+                    }
+                })
+                .detach();
+        });
+
+        app.update();
+
+        assert!(FAILED_VALIDATION.load(Ordering::Relaxed));
+    }
+}

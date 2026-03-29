@@ -55,7 +55,13 @@ impl<P: SystemParam + 'static> AsyncSystemState<P> {
         Self {
             _p: PhantomData,
             world,
+            #[cfg(feature = "std")]
             system_state: Arc::new(SystemStateCell::<P>::default()),
+            #[cfg(not(feature = "std"))]
+            system_state: Arc::from(
+                bevy_platform::prelude::Box::new(SystemStateCell::<P>::default())
+                    as bevy_platform::prelude::Box<dyn ErasedSystemStateCell>,
+            ),
         }
     }
 

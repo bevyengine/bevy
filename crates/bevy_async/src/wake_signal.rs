@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 use bevy_platform::sync::{Arc, Mutex};
 
 /// [`WakeSignaler`] is a custom signaling primitive used in order to fulfill our specific requirements for
@@ -28,7 +29,6 @@ pub(crate) fn pair() -> (WakeSignaler, WakeWaiter) {
 impl WakeWaiter {
     /// Waits until another cloned instance of [`WakeSignaler`] has been dropped.
     /// If any cloned instance of [`WakeSignaler`] is dropped then this wait stops waiting.
-    #[cfg(feature = "std")]
     #[inline]
     pub(crate) fn wait(&self) {
         #[cfg(feature = "std")]
