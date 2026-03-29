@@ -186,6 +186,7 @@ pub fn color_plane(plane: ColorPlane) -> impl Scene {
 ///
 /// # Arguments
 /// * `overrides` - a bundle of components that are merged in with the normal swatch components.
+#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
 pub fn color_plane_bundle<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
     (
         Node {
