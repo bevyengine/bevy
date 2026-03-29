@@ -82,7 +82,13 @@ impl AssetSaver for CompressedImageSaver {
                     height: image.height(),
                     stride: todo!(),
                     pixel_format: ctt::format::PixelFormat {
-                        components: todo!(),
+                        components: match image.texture_descriptor.format.components() {
+                            1 => ctt::format::PixelComponents::R,
+                            2 => ctt::format::PixelComponents::Rg,
+                            3 => ctt::format::PixelComponents::Rgb,
+                            4 => ctt::format::PixelComponents::Rgba,
+                            _ => unreachable!(),
+                        },
                         channel_type: todo!(),
                         color_space,
                     },
