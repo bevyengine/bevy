@@ -2138,8 +2138,8 @@ category = "Async Tasks"
 wasm = false
 
 [[example]]
-name = "async_ecs_access"
-path = "examples/async_tasks/async_ecs_access.rs"
+name = "async_bridge"
+path = "examples/async_tasks/async_bridge_primitive.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.async_ecs_access]

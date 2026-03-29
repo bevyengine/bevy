@@ -2,19 +2,16 @@ use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_ecs::world::World;
 use bevy_platform::sync::{Mutex, MutexGuard, OnceLock};
 
-/// Stores a typed `SystemState<P>` behind a mutex so it can be initialized once
-/// and then shared across bridge requests.
+/// Stores a typed `SystemState<P>` behind a `OnceLock<Mutex>` so it can be initialized once
+/// and then mutably shared across bridge requests.
 ///
 /// Why this exists:
 /// `SystemState<P>` is typed, but the bridge queue needs to store heterogeneous
 /// requests without knowing `P` at compile time. So each concrete
-/// `SystemStateStore<P>` is later erased behind `dyn ErasedSystemStateStore`.
+/// `SystemStateCell<P>` is later erased behind `dyn ErasedSystemStateCell`.
 ///
-/// The inner `Option` starts as `None` because we cannot construct the
-/// `SystemState<P>` until we have a mutable `World`. Furthermore, it is not safe to try to
-/// initialize the `SystemState<P>` from a thread *other* than the world-owning thread, so
-/// we have to start it as none and have the initialization occur on the world-owning thread before
-/// the `SystemState<P>` is ever used.
+/// We use a `OnceLock` because we cannot construct the `SystemState<P>` until we have a mutable
+/// `World`. So we initialize it `SystemStateCell<P>` the first time it is used.
 pub(crate) struct SystemStateCell<P: SystemParam + 'static>(OnceLock<Mutex<SystemState<P>>>);
 
 impl<P: SystemParam + 'static> Default for SystemStateCell<P> {
@@ -27,12 +24,10 @@ impl<P: SystemParam + 'static> Default for SystemStateCell<P> {
 
 /// Allows us to erase the `SystemStateCell` so we can pass it to and from the ecs.
 ///
-/// This lets the bridge store all request state uniformly as `Arc<dyn ErasedSystemStateStore>`.
+/// This lets the bridge store all request state uniformly as `Arc<dyn ErasedSystemStateCell>`.
 ///
-/// This trait exposes the following operations:
-/// - initialize the typed `SystemState` if needed,
-/// - apply deferred state back into the world,
-/// - ask whether initialization has already happened.
+/// This trait exposes a single operation: to apply deferred state back into the `World`.
+/// The second operation the trait is used for is in it's `impl dyn` implementation below.
 pub(crate) trait ErasedSystemStateCell: Send + Sync + core::any::Any + 'static {
     /// Apply deferred operations accumulated by the `SystemState` back into
     /// the world.
@@ -51,6 +46,8 @@ impl<P: SystemParam> ErasedSystemStateCell for SystemStateCell<P> {
 }
 
 impl dyn ErasedSystemStateCell {
+    /// This function initializes the [`SystemStateCell`] if it hasn't already been initialized, and
+    /// then returns the [`MutexGuard`] of the `SystemState` if it isn't being used by another thread.
     pub(crate) fn try_lock<'w, 'a, P: SystemParam + 'static>(
         &'a self,
         world: &'w mut World,

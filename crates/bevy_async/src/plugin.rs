@@ -1,24 +1,24 @@
-use crate::ecs_access::AsyncSystemState;
+use crate::bridge_future::AsyncSystemState;
 use bevy_app::App;
 use bevy_ecs::system::SystemParam;
-use std::sync::{Arc, Weak};
+use bevy_platform::sync::{Arc, Weak};
 
 /// Plugin entry point for the async <-> ECS bridge system.
 ///
-/// This plugin installs a configuration resource telling the bridge how aggressively to drive work
+/// This plugin installs a configuration resource telling the driver([`crate::async_world_sync_point`]) how aggressively to drive work
 /// at each sync point.
 ///
 /// Conceptually, async tasks cannot directly access Bevy ECS state from arbitrary
 /// threads or arbitrary times. Instead, they enqueue requests which are later
-/// driven from a known ECS `SyncPoint` on the world-owning thread.
+/// driven from a known `SyncPoint` on the world-owning thread.
 ///
 /// This supports arbitrary async runtimes as well as multiple Bevy Worlds / Bevy Apps.
 pub struct AsyncPlugin {
-    /// Upper bound on how many internal bridge ticks we perform each time a
+    /// Upper bound on how many internal async world ticks we perform each time a
     /// sync point system runs.
     ///
-    /// A single "bridge tick" means:
-    /// 1. collect queued access requests for that sync point,
+    /// A single "tick" means:
+    /// 1. collect queued bridge requests for that sync point,
     /// 2. wake the corresponding async tasks,
     /// 3. wait for each one to attempt a poll,
     /// 4. apply any deferred `SystemState` work back into the world.
@@ -49,17 +49,19 @@ impl bevy_app::Plugin for AsyncPlugin {
 /// Internal resource to manage a limit on how many times we try to drive the async <-> ecs bridge
 /// per sync point.
 #[derive(bevy_ecs_macros::Resource, Clone)]
-pub(crate) struct AsyncTickBudget(pub(crate) usize);
+pub struct AsyncTickBudget(pub usize);
 
 /// This resource gives one the ability to create a bridge between an async task and the ecs.
 /// By calling `AsyncBridge::new(&self)` you create a new bridge between an async task
 /// and the ecs.
 #[derive(bevy_ecs_macros::Resource, Default, Clone)]
-pub struct AsyncWorld(pub(crate) Weak<crate::async_bridge::AsyncWorldInner>);
+pub struct AsyncWorld(pub(crate) Weak<crate::bridge_request::AsyncWorldInner>);
 
-/// StrongAsyncWorld is the singular strong handle to the Inner that lives in a private Resource.
+/// [`StrongAsyncWorld`] is the singular strong handle to the Inner that lives in a private Resource.
+/// We only expose [`Weak`] handles publicly so we can rely on the behavior that if the `World`
+/// is dropped then we can detect it by a failing [`Weak::upgrade`]
 #[derive(bevy_ecs_macros::Resource, Default, Clone)]
-pub(crate) struct StrongAsyncWorld(pub(crate) Arc<crate::async_bridge::AsyncWorldInner>);
+pub(crate) struct StrongAsyncWorld(pub(crate) Arc<crate::bridge_request::AsyncWorldInner>);
 
 impl AsyncWorld {
     /// Creates a reusable async handle for accessing the ECS with the
@@ -72,8 +74,9 @@ impl AsyncWorld {
     /// - is cheap to clone,
     /// - can be moved into async tasks,
     /// - does not access the world immediately,
+    ///
     /// [`AsyncSystemState<P>`] waits until a matching sync point drives the bridge and
-    ///   temporarily grants safe ECS access.
+    /// temporarily grants safe ECS access.
     ///
     /// You create one of these from a cloned [`AsyncWorld`] resource and
     /// then call `.access(...)` inside async code whenever you want to access the ECS.

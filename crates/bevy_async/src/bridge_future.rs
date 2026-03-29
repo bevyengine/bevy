@@ -1,8 +1,8 @@
-use crate::async_bridge;
-use crate::async_bridge::BridgeRequest;
+use crate::bridge_request::BridgeRequest;
 use crate::plugin::AsyncWorld;
-use crate::system_state_store::{ErasedSystemStateCell, SystemStateCell};
-use crate::wake_signal::WakeSignal;
+use crate::system_state::{ErasedSystemStateCell, SystemStateCell};
+use crate::wake_signal::WakeSignaler;
+use crate::{bridge_request, wake_signal};
 use bevy_ecs::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
 use bevy_ecs::system::SystemParam;
 use bevy_platform::sync::Arc;
@@ -25,7 +25,7 @@ pub struct AsyncSystemState<P: SystemParam + 'static> {
 
     /// A `Weak` is used so tasks do not stay alive if the world is dropped.
     /// If the world goes away, upgrading this weak pointer fails and access
-    /// returns [`EcsAccessError::WorldDropped`].
+    /// returns [`BridgeError::WorldDropped`].
     pub(crate) world: AsyncWorld,
 
     /// Type-erased storage for the underlying `SystemState<P>`.
@@ -35,52 +35,62 @@ pub struct AsyncSystemState<P: SystemParam + 'static> {
     ///
     /// This is also important not only to persist params like `Local` but *also* so `Changed` and
     /// `Added` and other filters can work.
-    pub(crate) inner: Arc<dyn ErasedSystemStateCell>,
+    pub(crate) system_state: Arc<dyn ErasedSystemStateCell>,
 }
 
 impl<P: SystemParam + 'static> Clone for AsyncSystemState<P> {
     fn clone(&self) -> Self {
         Self {
-            _p: PhantomData::default(),
+            _p: PhantomData,
             world: self.world.clone(),
-            inner: self.inner.clone(),
+            system_state: self.system_state.clone(),
         }
     }
 }
 
 impl<P: SystemParam + 'static> AsyncSystemState<P> {
+    /// Create a new `AsyncSystemState` from an `AsyncWorld` matching the Api surface of
+    /// `SystemState` with `World`.
     pub fn new(world: AsyncWorld) -> Self {
         Self {
-            _p: PhantomData::default(),
+            _p: PhantomData,
             world,
-            inner: Arc::new(SystemStateCell::<P>::default()),
+            system_state: Arc::new(SystemStateCell::<P>::default()),
         }
     }
 
+    /// This function allows us to create a bridge between the async task we are in and the ecs
+    /// world we want access to, effectively running a system from an async task. The systems run
+    /// here are able to take in `&` and `&mut` variables from the surrounding context unlike
+    /// standard Bevy systems.
+    ///
+    /// We bridge *at* the `_sync_point` `SyncPoint` with our `bridge_fn`.
     pub async fn bridge<BridgeFn, Out, SyncPoint: 'static>(
         &self,
         _sync_point: SyncPoint,
         bridge_fn: BridgeFn,
-    ) -> Result<Out, EcsAccessError>
+    ) -> Result<Out, BridgeError>
     where
         for<'w, 's> BridgeFn: FnOnce(P::Item<'w, 's>) -> Out,
     {
         BridgeFuture {
-            _p: PhantomData::default(),
-            system_set: async_bridge::async_world_sync_point::<SyncPoint>
+            _p: PhantomData,
+            system_set: bridge_request::async_world_sync_point::<SyncPoint>
                 .into_system_set()
                 .intern(),
             bridge_fn: Some(bridge_fn),
             wake_signal: None,
-            system_state: self.inner.clone(),
+            system_state: self.system_state.clone(),
             world: self.world.clone(),
         }
         .await
     }
 }
 
+/// If the bridge cannot run, either because the system params were invalid, or because the world it
+/// was referencing no longer exists, we return this error.
 #[derive(thiserror::Error, Debug)]
-pub enum EcsAccessError {
+pub enum BridgeError {
     /// The requested `SystemParam` was invalid in the current world context.
     /// for example trying to access a param that fails Bevy's usual validation like a missing
     /// Resource or using `Single` on something that has 0 or multiple instances.
@@ -91,7 +101,7 @@ pub enum EcsAccessError {
     WorldDropped,
 }
 
-/// Future representing a single in-flight ECS access request.
+/// Future representing a single in-flight bridging request between our async task and our `World`.
 struct BridgeFuture<P: SystemParam + 'static, Func, Out> {
     _p: PhantomData<(P, Func, Out)>,
     /// Interned system-set key identifying which sync-point queue this future
@@ -99,13 +109,13 @@ struct BridgeFuture<P: SystemParam + 'static, Func, Out> {
     system_set: InternedSystemSet,
     /// This is the pseudo-system that we try to run when we have access to `World`.
     /// This is an option just so we can take it out when we run it so we can use `FnOnce`
-    /// instead of `FnMut`, so it's more flexible than real systems.
+    /// instead of `FnMut`, so it's more flexible than true systems.
     bridge_fn: Option<Func>,
     /// Wake signal for the currently queued wake cycle, if any.
     ///
     /// The future drops this at the end of `poll` which acts as acknowledgement that the wake
     /// has been handled.
-    wake_signal: Option<WakeSignal>,
+    wake_signal: Option<WakeSignaler>,
     system_state: Arc<dyn ErasedSystemStateCell>,
     /// Weak bridge pointer so the loss of the world becomes a clean runtime error.
     world: AsyncWorld,
@@ -118,7 +128,7 @@ where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
 {
-    type Output = Result<Out, EcsAccessError>;
+    type Output = Result<Out, BridgeError>;
 
     fn poll(
         mut self: core::pin::Pin<&mut Self>,
@@ -127,7 +137,7 @@ where
         use core::task::Poll;
 
         // If we were previously woken by the sync-point driver, we will have a
-        // `WakeSignal` stored here.
+        // `WakeSignaler` stored here.
         //
         // Dropping that signal at the end of this poll acts as the
         // acknowledgement that yes, this wake was observed and this task has
@@ -136,11 +146,8 @@ where
 
         // Try to gain a strong reference to the bridge. If this fails, the world is gone,
         // so further access is impossible.
-        let strong_world = match self.world.0.upgrade() {
-            None => {
-                return Poll::Ready(Err(EcsAccessError::WorldDropped));
-            }
-            Some(strong_world) => strong_world,
+        let Some(strong_world) = self.world.0.upgrade() else {
+            return Poll::Ready(Err(BridgeError::WorldDropped));
         };
         match strong_world
             .world_scope
@@ -159,13 +166,9 @@ where
                 let Some(mut system_state) = system_state.try_lock::<P>(world) else {
                     return Poll::Pending;
                 };
-                // This one really shouldn't happen very often. If we created this task *while*
-                // the sync point driver was running this will occur. In that case the system state
-                // never actually got initialized, and even though we *have* access to the world,
-                // for safetyreasons we have to perform our initialization on the main world-thread,
-                // not here.
+
                 if !system_state.meta().is_send() {
-                    return Poll::Ready(Err(EcsAccessError::SystemParamValidation(
+                    return Poll::Ready(Err(BridgeError::SystemParamValidation(
                         bevy_ecs::system::SystemParamValidationError::invalid::<
                             bevy_ecs::prelude::NonSend<()>,
                         >("Cannot have your system be non-send / exclusive"),
@@ -175,7 +178,7 @@ where
                 let param = match system_state.get_mut(world) {
                     Ok(param) => param,
                     Err(system_param_validation_error) => {
-                        return Poll::Ready(Err(EcsAccessError::SystemParamValidation(
+                        return Poll::Ready(Err(BridgeError::SystemParamValidation(
                             system_param_validation_error,
                         )))
                     }
@@ -189,14 +192,14 @@ where
             Some(out) => out,
             None => {
                 // No world is currently exposed. That means we are being polled
-                // outside the sync-point drive, so we cannot access ECS yet.
+                // outside the `async_world_sync_point`, so we cannot access ECS yet.
                 //
                 // Instead, enqueue ourselves to be revisited when the matching
                 // sync-point system runs.
-                let wait_barrier = WakeSignal::new();
-                // Store one clone locally so dropping it at the end of the next
+                let (wake_signal, wake_waiter) = wake_signal::pair();
+                // Store the wake_signal locally so dropping it at the end of the next
                 // poll acknowledges the wake.
-                self.wake_signal.replace(wait_barrier.clone());
+                self.wake_signal.replace(wake_signal);
                 // Queue the request under this future's target sync point.
                 //
                 // The queued payload carries the following!
@@ -211,7 +214,7 @@ where
                         &self.system_set,
                         BridgeRequest {
                             waker: cx.waker().clone(),
-                            wake_signal: wait_barrier,
+                            wake_waiter,
                             system_state: self.system_state.clone(),
                         },
                     )

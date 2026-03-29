@@ -3,10 +3,10 @@
 //! asynchronously.
 //!
 //! Unlike the channel-based approach (where tasks send results directly via a communication
-//! channel) or the direct approach in async_compute, this example uses the ecs <-> async bridge.
+//! channel) or the direct approach in `async_compute`, this example uses the ecs <-> async bridge.
 
 use bevy::async_bridge::prelude::{async_world_sync_point, AsyncWorld};
-use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::prelude::*;
 use rand::RngExt;
 
 struct MySyncPoint;
@@ -28,15 +28,13 @@ const NUM_CUBES: i32 = 6;
 const LIGHT_RADIUS: f32 = 8.0;
 
 /// This system generates tasks simulating computationally intensive
-/// work that potentially spans multiple frames/ticks. A separate
-/// system, [`handle_tasks`], will track the spawned tasks on subsequent
-/// frames/ticks, and use the results to spawn cubes.
+/// work that potentially spans multiple frames/ticks.
 ///
 /// The task is offloaded to the `AsyncComputeTaskPool`, allowing heavy computation
 /// to be handled asynchronously, without blocking the main game thread.
 fn setup(
     mut commands: Commands,
-    bridge: Res<AsyncWorld>,
+    async_world: Res<AsyncWorld>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -64,10 +62,9 @@ fn setup(
     let pool = bevy::tasks::AsyncComputeTaskPool::get();
 
     // Reuse tasks so you don't have to pay the system init cost every time it runs.
-    let task = bridge.new::<(
+    let task = async_world.system_state::<(
         Commands,
-        Local<Option<Handle<Mesh>>>,
-        Local<Option<Handle<StandardMaterial>>>,
+        Local<Option<(Handle<Mesh>, Handle<StandardMaterial>)>>,
         ResMut<Assets<Mesh>>,
         ResMut<Assets<StandardMaterial>>,
     )>();
@@ -79,20 +76,22 @@ fn setup(
                 let delay = std::time::Duration::from_secs_f32(rand::rng().random_range(2.0..8.0));
                 // Simulate a delay before task completion
                 futures_timer::Delay::new(delay).await;
-                task.access(
+                task.bridge(
                     MySyncPoint,
-                    |(mut commands, mut box_mesh, mut box_material, mut meshes, mut materials)| {
-                        if box_mesh.is_none() {
-                            box_mesh.replace(meshes.add(Cuboid::new(0.25, 0.25, 0.25)));
+                    |(mut commands, mut box_handles, mut meshes, mut materials)| {
+                        // The first time this bridge runs it will initialize the box mesh and box material, and then it will reuse them from then on.
+                        if box_handles.is_none() {
+                            box_handles.replace((
+                                meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
+                                materials.add(Color::srgb(1.0, 0.2, 0.3)),
+                            ));
                         }
-                        if box_material.is_none() {
-                            box_material.replace(materials.add(Color::srgb(1.0, 0.2, 0.3)));
-                        }
-                        let (box_mesh, box_material) =
-                            (box_mesh.as_ref().unwrap(), box_material.as_ref().unwrap());
+
+                        let (box_mesh, box_material) = box_handles.clone().unwrap();
+
                         commands.spawn((
-                            Mesh3d(box_mesh.clone()),
-                            MeshMaterial3d(box_material.clone()),
+                            Mesh3d(box_mesh),
+                            MeshMaterial3d(box_material),
                             Transform::from_xyz(x as f32, 0.5, z as f32),
                         ));
                     },
