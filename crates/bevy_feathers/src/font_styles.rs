@@ -20,7 +20,7 @@ use crate::theme::ThemedText;
 #[reflect(Component, Default)]
 #[require(ThemedText, PropagateOver::<TextFont>::default())]
 pub struct InheritableFont {
-    /// The font handle or path.
+    /// The font handle.
     pub font: Handle<Font>,
     /// The desired font size.
     pub font_size: FontSize,
