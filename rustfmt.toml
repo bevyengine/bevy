@@ -11,5 +11,3 @@ style_edition = "2021"
 # these options seem poorly implemented and cause churn, so, try to avoid them
 # wrap_comments = true
 # comment_width = 100
-
-format_macro_bodies = true
