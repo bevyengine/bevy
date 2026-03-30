@@ -556,8 +556,7 @@ mod color_consistency {
     //! same sRGB input color.
     //!
     //! If the color conversion paths are consistent, the entire window will appear
-    //! as a uniform solid color with no visible
-    //! boundaries between the strips.
+    //! as a uniform solid color with no visible boundaries between the strips.
 
     use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 
