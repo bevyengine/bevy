@@ -2323,7 +2323,7 @@ pub fn write_batched_instance_buffers<GFBD>(
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     pipeline_cache: Res<PipelineCache>,
-    mut preprocess_prepare_buffers: ResMut<BinUnpackingBuffers>,
+    mut bin_unpacking_buffers: ResMut<BinUnpackingBuffers>,
     mut sparse_buffer_update_jobs: ResMut<SparseBufferUpdateJobs>,
     mut sparse_buffer_update_bind_groups: ResMut<SparseBufferUpdateBindGroups>,
     sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
@@ -2413,7 +2413,7 @@ pub fn write_batched_instance_buffers<GFBD>(
         &sparse_buffer_update_pipelines,
     );
 
-    preprocess_prepare_buffers
+    bin_unpacking_buffers
         .bin_unpacking_metadata
         .write_buffer(render_device, render_queue);
 }
@@ -2484,7 +2484,7 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
 
         // We use the *representative entity* as the key for the later loop to
         // find the `BatchSetBinUnpackingMetadata`, because it's a unique value
-        // that can fetched from the `BinnedRenderPhaseBatchSet`.
+        // that can be fetched from the `BinnedRenderPhaseBatchSet`.
         let mut representative_entity_to_batch_set_bin_unpacking_metadata =
             MainEntityHashMap::default();
 
@@ -2517,7 +2517,7 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
             let Some(representative_entity) = batch_set.representative_entity() else {
                 continue;
             };
-            let Some(preprocess_prepare_metadata) =
+            let Some(bin_unpacking_metadata) =
                 representative_entity_to_batch_set_bin_unpacking_metadata
                     .get(&representative_entity)
             else {
@@ -2561,9 +2561,8 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
             let gpu_bin_unpacking_metadata_index = bin_unpacking_buffers
                 .bin_unpacking_metadata
                 .push(GpuBinUnpackingMetadata {
-                    base_output_work_item_index: preprocess_prepare_metadata
-                        .base_output_work_item_index,
-                    base_indirect_parameters_index: preprocess_prepare_metadata
+                    base_output_work_item_index: bin_unpacking_metadata.base_output_work_item_index,
+                    base_indirect_parameters_index: bin_unpacking_metadata
                         .base_indirect_parameters_index,
                     binned_mesh_instance_count,
                     pad: [0; _],

@@ -1756,8 +1756,8 @@ impl BinUnpackingPipeline {
             return;
         }
 
-        let preprocess_prepare_pipeline_id = pipelines.specialize(pipeline_cache, self, ());
-        self.pipeline_id = Some(preprocess_prepare_pipeline_id);
+        let bin_unpacking_pipeline_id = pipelines.specialize(pipeline_cache, self, ());
+        self.pipeline_id = Some(bin_unpacking_pipeline_id);
     }
 }
 
@@ -1781,7 +1781,7 @@ pub fn prepare_preprocess_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     pipelines: Res<PreprocessPipelines>,
-    mut preprocess_prepare_bind_groups: ResMut<BinUnpackingBindGroups>,
+    mut bin_unpacking_bind_groups: ResMut<BinUnpackingBindGroups>,
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
@@ -1915,7 +1915,7 @@ pub fn prepare_preprocess_bind_groups(
     // (`unpack_bins`) shader.
     for (_, view) in &views {
         create_bin_unpacking_bind_groups(
-            &mut preprocess_prepare_bind_groups,
+            &mut bin_unpacking_bind_groups,
             &render_device,
             &pipeline_cache,
             &pipelines,
@@ -2784,11 +2784,10 @@ fn create_bin_unpacking_bind_groups(
     preprocess_pipelines: &PreprocessPipelines,
     indirect_parameters_buffers: &IndirectParametersBuffers,
     phase_instance_buffers: &TypeIdMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
-    preprocess_prepare_buffers: &BinUnpackingBuffers,
+    bin_unpacking_buffers: &BinUnpackingBuffers,
     view_entity: &RetainedViewEntity,
 ) {
-    let Some(bin_unpacking_metadata_buffer) =
-        preprocess_prepare_buffers.bin_unpacking_metadata.buffer()
+    let Some(bin_unpacking_metadata_buffer) = bin_unpacking_buffers.bin_unpacking_metadata.buffer()
     else {
         return;
     };
@@ -2805,12 +2804,13 @@ fn create_bin_unpacking_bind_groups(
         else {
             continue;
         };
-        let Some(view_phase_bin_unpacking_buffers) = preprocess_prepare_buffers
-            .view_phase_buffers
-            .get(&BinUnpackingBuffersKey {
-                phase: *phase_type_id,
-                view: *view_entity,
-            })
+        let Some(view_phase_bin_unpacking_buffers) =
+            bin_unpacking_buffers
+                .view_phase_buffers
+                .get(&BinUnpackingBuffersKey {
+                    phase: *phase_type_id,
+                    view: *view_entity,
+                })
         else {
             continue;
         };
