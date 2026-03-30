@@ -274,6 +274,7 @@ impl BsnFmt for BsnType {
                         }
                         s
                     }));
+
                     out.push_str(&indent(base, level));
                     out.push('}');
                 }
@@ -283,6 +284,7 @@ impl BsnFmt for BsnType {
                     out.push('(');
                     let formatted_fields: Vec<_> =
                         fields.iter().map(|f| f.value.fmt(base, level)).collect();
+
                     out.push_str(&formatted_fields.join(", "));
                     out.push(')');
                 }
