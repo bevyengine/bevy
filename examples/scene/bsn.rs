@@ -17,23 +17,53 @@ fn setup(world: &mut World) -> Result {
     Ok(())
 }
 
+#[derive(Component, FromTemplate, Default)]
+enum Emotion {
+    Happy {
+        strength: usize,
+    },
+    #[default]
+    Sad,
+}
+
 fn ui() -> impl Scene {
     bsn! {
         Node {
             width: Val::Percent(100.0),
+            width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
+            justify_content: JustifyContent::NotFound,
+            justify_content: JustifyContent::Content,
             column_gap: Val::Px(5.),
+            column_gap: Val::Px(5.),
+            margin: UiRect {
+                top: x,
+                b,
+                b,
+                a: x,
+                bottom: Val::Px(1.),
+                right: Val::Px(1),
+                left: Val::Px(1.),
+            },
+            wd: x,
+            notFound,
         }
         Children [
             (
                 button("Ok")
+                button("Ok")
                 on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+                NotFound
             ),
             (
                 button("Cancel")
                 on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
+                Emotion::Happy {
+                    s,
+                }
+                Emotion::Sad
+                BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
                 BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
             ),
         ]

@@ -45,7 +45,13 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            Ok(BsnRoot(content.parse::<Bsn<true>>()?))
+        } else {
+            Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        }
     }
 }
 
@@ -92,95 +98,100 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
-            BsnEntry::InheritedScene(BsnInheritedScene::parse(input, found_inherited_scene)?)
-        } else if input.peek(Token![#]) {
+        if input.peek(Token![:]) {
+            return Ok(BsnEntry::InheritedScene(BsnInheritedScene::parse(
+                input,
+                found_inherited_scene,
+            )?));
+        }
+        if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
+            return Ok(if input.peek(Brace) {
                 BsnEntry::NameExpression(braced_tokens(input)?)
             } else {
                 BsnEntry::Name(input.parse::<Ident>()?)
-            }
-        } else if input.peek(Brace) {
-            BsnEntry::SceneExpression(braced_tokens(input)?)
-        } else {
-            let is_template = input.peek(At);
-            if is_template {
-                input.parse::<At>()?;
-            }
-            let mut path = input.parse::<Path>()?;
-            let path_type = PathType::new(&path);
-            match path_type {
-                PathType::Type | PathType::Enum => {
-                    let enum_variant = if matches!(path_type, PathType::Enum) {
-                        take_last_path_ident(&mut path)
-                    } else {
-                        None
-                    };
-                    if input.peek(Bracket) {
-                        // TODO: fail if this is an enum variant
-                        BsnEntry::RelatedSceneList(BsnRelatedSceneList {
-                            relationship_path: path,
-                            scene_list: input.parse::<BsnSceneList>()?,
-                        })
-                    } else {
-                        let fields = input.parse::<BsnFields>()?;
-                        let bsn_type = BsnType {
-                            path,
-                            enum_variant,
-                            fields,
-                        };
-                        if is_template {
-                            BsnEntry::TemplatePatch(bsn_type)
-                        } else {
-                            BsnEntry::FromTemplatePatch(bsn_type)
-                        }
-                    }
-                }
-                PathType::TypeConst => {
-                    let const_ident = take_last_path_ident(&mut path).unwrap();
-                    BsnEntry::TemplateConst {
-                        type_path: path,
-                        const_ident,
-                    }
-                }
-                PathType::Const => {
-                    return Err(syn::Error::new(
-                        path.span(),
-                        "Consts are not currently supported in this position",
-                    ))
-                }
-                PathType::TypeFunction => {
-                    let function = take_last_path_ident(&mut path).unwrap();
-                    let args = if input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in input);
-                        Some(content.parse_terminated(Expr::parse, Token![,])?)
-                    } else {
-                        None
-                    };
+            });
+        }
+        if input.peek(Brace) {
+            return Ok(BsnEntry::SceneExpression(braced_tokens(input)?));
+        }
 
-                    let bsn_constructor = BsnConstructor {
-                        type_path: path,
-                        function,
-                        args,
+        let is_template = input.peek(At);
+        if is_template {
+            input.parse::<At>()?;
+        }
+
+        let mut path = input.parse::<Path>()?;
+        let path_type = PathType::new(&path);
+
+        match path_type {
+            PathType::Type | PathType::Enum => {
+                let enum_variant = if matches!(path_type, PathType::Enum) {
+                    take_last_path_ident(&mut path)
+                } else {
+                    None
+                };
+                if input.peek(Bracket) {
+                    // TODO: fail if this is an enum variant
+                    Ok(BsnEntry::RelatedSceneList(BsnRelatedSceneList {
+                        relationship_path: path,
+                        scene_list: input.parse::<BsnSceneList>()?,
+                    }))
+                } else {
+                    let fields = input.parse::<BsnFields>()?;
+                    let bsn_type = BsnType {
+                        path,
+                        enum_variant,
+                        fields,
                     };
                     if is_template {
-                        BsnEntry::TemplateConstructor(bsn_constructor)
+                        Ok(BsnEntry::TemplatePatch(bsn_type))
                     } else {
-                        BsnEntry::FromTemplateConstructor(bsn_constructor)
-                    }
-                }
-                PathType::Function => {
-                    if input.peek(Paren) {
-                        let tokens = parenthesized_tokens(input)?;
-                        BsnEntry::SceneExpression(quote! {#path(#tokens)})
-                    } else {
-                        BsnEntry::SceneExpression(quote! {#path})
+                        Ok(BsnEntry::FromTemplatePatch(bsn_type))
                     }
                 }
             }
-        })
+            PathType::TypeConst => {
+                let const_ident = take_last_path_ident(&mut path).unwrap();
+                Ok(BsnEntry::TemplateConst {
+                    type_path: path,
+                    const_ident,
+                })
+            }
+            PathType::Const => Err(syn::Error::new(
+                path.span(),
+                "Consts are not currently supported in this position",
+            )),
+            PathType::TypeFunction => {
+                let function = take_last_path_ident(&mut path).unwrap();
+                let args = if input.peek(Paren) {
+                    let content;
+                    parenthesized!(content in input);
+                    Some(content.parse_terminated(Expr::parse, Token![,])?)
+                } else {
+                    None
+                };
+
+                let bsn_constructor = BsnConstructor {
+                    type_path: path,
+                    function,
+                    args,
+                };
+                if is_template {
+                    Ok(BsnEntry::TemplateConstructor(bsn_constructor))
+                } else {
+                    Ok(BsnEntry::FromTemplateConstructor(bsn_constructor))
+                }
+            }
+            PathType::Function => {
+                if input.peek(Paren) {
+                    let tokens = parenthesized_tokens(input)?;
+                    Ok(BsnEntry::SceneExpression(quote! {#path(#tokens)}))
+                } else {
+                    Ok(BsnEntry::SceneExpression(quote! {#path}))
+                }
+            }
+        }
     }
 }
 
@@ -270,9 +281,11 @@ impl Parse for BsnTuple {
         let content;
         parenthesized![content in input];
         let mut fields = Vec::new();
+
         while !content.is_empty() {
             fields.push(content.parse::<BsnValue>()?);
         }
+
         Ok(BsnTuple(fields))
     }
 }
@@ -302,7 +315,12 @@ impl Parse for BsnNamedField {
         let name = input.parse::<Ident>()?;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
-            Some(input.parse::<BsnValue>()?)
+
+            if input.is_empty() || input.peek(Comma) {
+                None
+            } else {
+                Some(input.parse::<BsnValue>()?)
+            }
         } else {
             None
         };
@@ -465,24 +483,14 @@ impl PathType {
 }
 
 fn is_const(path: &str) -> bool {
-    // Paths of length 1 are ambiguous, we give the tie to Types, as that is more useful
-    // for scenes
+    // Paths of length 1 are ambiguous, we give the tie to Types,
+    // as that is more useful for scenes
     if path.len() == 1 {
         return false;
     }
 
-    for char in path.chars() {
-        if char == '_' {
-            return true;
-        }
-
-        if char.is_lowercase() {
-            return false;
-        }
-    }
-
     // All characters are uppercase ... this is a Const
-    true
+    !path.chars().any(|c| c.is_lowercase())
 }
 
 fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
@@ -493,63 +501,116 @@ fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
 
 #[cfg(test)]
 mod tests {
+    use super::is_const;
     use crate::bsn::parse::PathType;
     use syn::{parse_str, Path};
-    #[test]
-    fn path_type() {
-        let path = parse_str::<Path>("foo::X").unwrap();
-        // This case is ambiguous. We parse it as a Type as that works better in the scene patching context
-        assert_eq!(PathType::new(&path), PathType::Type);
 
-        let path = parse_str::<Path>("foo::X_AXIS").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Const);
+    macro_rules! test_path_type {
+        ($test_name:ident, $input:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                // Arrange
+                let path = parse_str::<Path>($input).unwrap();
+                let expected = $expected;
 
-        let path = parse_str::<Path>("foo::XAXIS").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Const);
+                // Act
+                let result = PathType::new(&path);
 
-        let path = parse_str::<Path>("X").unwrap();
-        // This case is ambiguous. We parse it as a Type as that works better in the scene patching context
-        assert_eq!(PathType::new(&path), PathType::Type);
-
-        let path = parse_str::<Path>("X_AXIS").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Const);
-
-        let path = parse_str::<Path>("XAXIS").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Const);
-
-        let path = parse_str::<Path>("XType").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Type);
-
-        let path = parse_str::<Path>("foo::XType").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Type);
-
-        let path = parse_str::<Path>("Foo::Bar").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Enum);
-
-        let path = parse_str::<Path>("foo::Foo::Bar").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Enum);
-
-        let path = parse_str::<Path>("Foo::bar").unwrap();
-        assert_eq!(PathType::new(&path), PathType::TypeFunction);
-
-        let path = parse_str::<Path>("foo::Foo::bar").unwrap();
-        assert_eq!(PathType::new(&path), PathType::TypeFunction);
-
-        let path = parse_str::<Path>("Foo::B").unwrap();
-        // This is ambiguous with TypeConst ... we give the tie to Enum as that works better
-        // in a scene context
-        assert_eq!(PathType::new(&path), PathType::Enum);
-
-        let path = parse_str::<Path>("Foo::BAR").unwrap();
-        assert_eq!(PathType::new(&path), PathType::TypeConst);
-
-        let path = parse_str::<Path>("foo").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Function);
-
-        let path = parse_str::<Path>("foo::foo").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Function);
-
-        let path = parse_str::<Path>("f").unwrap();
-        assert_eq!(PathType::new(&path), PathType::Function);
+                // Assert
+                assert_eq!(result, expected, "Failed on path: '{}'", $input);
+            }
+        };
     }
+
+    // Types
+    test_path_type!(path_type_standard_root, "XType", PathType::Type);
+    test_path_type!(path_type_standard_namespace, "foo::XType", PathType::Type);
+
+    // These cases are ambiguous. We parse it as a Type as that works better in the scene patching context.
+    test_path_type!(path_type_ambiguous_single_char_root, "X", PathType::Type);
+    test_path_type!(
+        path_type_ambiguous_single_char_namespace,
+        "foo::X",
+        PathType::Type
+    );
+
+    // Constants
+    test_path_type!(path_type_const_root, "X_AXIS", PathType::Const);
+    test_path_type!(path_type_const_namespace, "foo::X_AXIS", PathType::Const);
+    test_path_type!(path_type_const_no_underscore_root, "XAXIS", PathType::Const);
+    test_path_type!(
+        path_type_const_no_underscore_namespace,
+        "foo::XAXIS",
+        PathType::Const
+    );
+
+    // Enums
+    test_path_type!(path_type_enum_standard, "Foo::Bar", PathType::Enum);
+    test_path_type!(path_type_enum_namespace, "foo::Foo::Bar", PathType::Enum);
+
+    // This is ambiguous with TypeConst ... we give the tie to Enum as that works better in a scene context.
+    test_path_type!(
+        path_type_enum_ambiguous_single_char,
+        "Foo::B",
+        PathType::Enum
+    );
+
+    // Type Functions
+    test_path_type!(
+        path_type_type_function_standard,
+        "Foo::bar",
+        PathType::TypeFunction
+    );
+    test_path_type!(
+        path_type_type_function_namespace,
+        "foo::Foo::bar",
+        PathType::TypeFunction
+    );
+
+    // Type Constants
+    test_path_type!(
+        path_type_type_const_standard,
+        "Foo::BAR",
+        PathType::TypeConst
+    );
+
+    // Functions
+    test_path_type!(path_type_function_root, "foo", PathType::Function);
+    test_path_type!(path_type_function_namespace, "foo::foo", PathType::Function);
+    test_path_type!(path_type_function_single_char, "f", PathType::Function);
+
+    macro_rules! test_is_const {
+        ($test_name:ident, $input:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                // Arrange
+                let input = $input;
+                let expected = $expected;
+
+                // Act
+                let result = is_const(input);
+
+                // Assert
+                assert_eq!(result, expected, "Failed on input: '{}'", input);
+            }
+        };
+    }
+
+    // Length == 1
+    test_is_const!(single_upper_is_not_const, "X", false);
+    test_is_const!(single_lower_is_not_const, "a", false);
+
+    // Valid
+    test_is_const!(standard_const_with_underscore, "X_AXIS", true);
+    test_is_const!(standard_const_max_value, "MAX_VALUE", true);
+    test_is_const!(multiple_upper_no_underscore, "PI", true);
+
+    // Mixed casing
+    test_is_const!(mixed_case_with_underscore_fails, "FOO_bar", false);
+    test_is_const!(short_mixed_case_with_underscore_fails, "A_b", false);
+
+    // Types & Functions
+    test_is_const!(pascal_case_is_not_const, "Transform", false);
+    test_is_const!(snake_case_is_not_const, "my_function", false);
+    test_is_const!(camel_case_is_not_const, "camelCase", false);
 }
