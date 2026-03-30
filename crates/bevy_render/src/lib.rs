@@ -185,6 +185,9 @@ pub enum RenderSystems {
     PrepareResources,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
     PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that writes batches
+    /// for render phases to the GPU.
+    PrepareResourcesWritePhaseBuffers,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
     /// [`PrepareResourcesBatchPhases`](RenderSystems::PrepareResourcesBatchPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
@@ -322,6 +325,7 @@ impl Render {
             (
                 PrepareResources,
                 PrepareResourcesBatchPhases,
+                PrepareResourcesWritePhaseBuffers,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
