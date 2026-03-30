@@ -358,6 +358,7 @@ reflect_functions = [
   "bevy_reflect/functions",
   "bevy_app/reflect_functions",
   "bevy_ecs/reflect_functions",
+  "bevy_render?/reflect_functions",
 ]
 
 # Enable automatic reflect registration using inventory.
@@ -365,6 +366,7 @@ reflect_auto_register = [
   "bevy_reflect/auto_register_inventory",
   "bevy_app/reflect_auto_register",
   "bevy_ecs/reflect_auto_register",
+  "bevy_render?/reflect_auto_register",
 ]
 
 # Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
@@ -372,6 +374,7 @@ reflect_auto_register_static = [
   "bevy_reflect/auto_register_static",
   "bevy_app/reflect_auto_register",
   "bevy_ecs/reflect_auto_register",
+  "bevy_render?/reflect_auto_register",
 ]
 
 # Enables bevy_reflect to access documentation comments of rust code at runtime
