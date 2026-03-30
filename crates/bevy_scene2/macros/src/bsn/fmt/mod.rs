@@ -20,31 +20,31 @@ mod fmt_tests {
     use std::str::FromStr;
 
     macro_rules! test_fmt {
-    ($test_name:ident, $parser:ident, $input:expr, $expected:expr) => {
-        #[test]
-        fn $test_name() {
-            // Arrange
-            let input = $input;
-            let expected = $expected.trim_start_matches('\n').trim_end();
+        ($test_name:ident, $parser:ident, $input:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                // Arrange
+                let input = $input;
+                let expected = $expected.trim_start_matches('\n').trim_end();
 
-            let tokens = TokenStream::from_str(input)
-                .expect("Failed to lex input string into TokenStream");
+                let tokens = TokenStream::from_str(input)
+                    .expect("Failed to lex input string into TokenStream");
 
-            let ast = syn::parse2::<$parser>(tokens)
-                .expect(concat!("Failed to parse into ", stringify!($parser)));
+                let ast = syn::parse2::<$parser>(tokens)
+                    .expect(concat!("Failed to parse into ", stringify!($parser)));
 
-            // Act
-            let res = ast.fmt(0, 0);
+                // Act
+                let res = ast.fmt(0, 0);
 
-            // Assert
-            assert_eq!(
-                res, expected,
-                "\n\n BSN fmt result does not match expected. \n\ngot:\n[{}]\n\nexpected:\n[{}]\n",
-                res, expected
-            );
-        }
-    };
-}
+                // Assert
+                assert_eq!(
+                    res, expected,
+                    "\n\n BSN fmt result does not match expected. \n\ngot:\n[{}]\n\nexpected:\n[{}]\n",
+                    res, expected
+                );
+            }
+        };
+    }
 
     test_fmt!(
         ui_root_node,
@@ -68,8 +68,8 @@ mod fmt_tests {
 
                 button("Cancel")
                 on(|_event: On<Pointer<Press>>| {
-                        let hello = "nested";
-                    println!("Cancel pressed!")
+                            let hello = "nested";
+                println!("Cancel pressed!")
                 })
                 BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
                 ),
