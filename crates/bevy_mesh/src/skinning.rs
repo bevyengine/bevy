@@ -572,7 +572,7 @@ fn skin_vertices(
         }
 
         // The final transform is the sum of the weighted joint transforms.
-        // Matches the `skin_model` function in `bevy_pbr/skinning.wgfl`.
+        // Matches the `skin_model` function in `bevy_pbr/skinning.wgsl`.
         let transform = sum_affine3(&transforms);
 
         if let Some(positions) = positions.as_deref_mut() {
