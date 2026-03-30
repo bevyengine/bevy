@@ -757,7 +757,6 @@ mod tests {
             .contains("Duplicate field `x` found in BSN enum variant"));
     }
 
-
     #[test]
     fn bsn_root_preserves_inference_on_error() {
         // Arrange
