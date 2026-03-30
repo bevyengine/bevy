@@ -113,7 +113,7 @@ fn on_traffic_light_scene_ready(
     names: Query<&Name>,
     mut commands: Commands,
 ) {
-    let root = trigger.entity();
+    let root = trigger.entity;
     if traffic_lights.get(root).is_err() {
         return;
     }

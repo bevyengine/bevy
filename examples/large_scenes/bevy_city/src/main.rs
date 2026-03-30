@@ -44,7 +44,6 @@ pub struct Args {
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
-
     // forces Vulkan backend and clears instance flags for RenderDoc capture
     //#[argh(switch)]
     //renderdoc: bool,
@@ -53,44 +52,49 @@ pub struct Args {
 fn main() {
     let args: Args = argh::from_env();
 
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "bevy_city".into(),
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
-                    position: WindowPosition::Centered(MonitorSelection::Primary),
-                    ..default()
-                }),
+    let mut app = App::new();
+
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "bevy_city".into(),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                present_mode: PresentMode::AutoNoVsync,
+                position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
             }),
-            #[cfg(feature = "traffic")]
-            traffic::TrafficPlugin,
-            FreeCameraPlugin,
-            FeathersPlugins,
-            WireframePlugin::default(),
-        ))
-        .insert_resource(args.clone())
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WinitSettings::continuous())
-        .init_resource::<Settings>()
-        .insert_resource(UiTheme(create_dark_theme()))
-        .insert_resource(WireframeConfig {
-            global: false,
-            default_color: WHITE.into(),
             ..default()
-        })
-        // Like in many realistic large scenes, many of the objects don't move
-        // We can accelerate transform propagation by optimizing for this case
-        .insert_resource(StaticTransformOptimizations::Enabled)
-        .add_systems(Startup, (setup, load_assets))
-        .add_systems(Update, (simulate_cars, loading_screen))
-        .add_observer(add_no_cpu_culling)
-        .add_observer(add_no_cpu_culling_on_scene_ready)
-        .add_observer(on_city_assets_ready)
-        .add_observer(setup_settings_ui)
-        .run();
+        }),
+        #[cfg(feature = "traffic")]
+        traffic::TrafficPlugin,
+        FreeCameraPlugin,
+        FeathersPlugins,
+        WireframePlugin::default(),
+    ))
+    .insert_resource(args.clone())
+    .insert_resource(ClearColor(Color::BLACK))
+    .insert_resource(WinitSettings::continuous())
+    .init_resource::<Settings>()
+    .insert_resource(UiTheme(create_dark_theme()))
+    .insert_resource(WireframeConfig {
+        global: false,
+        default_color: WHITE.into(),
+        ..default()
+    })
+    // Like in many realistic large scenes, many of the objects don't move
+    // We can accelerate transform propagation by optimizing for this case
+    .insert_resource(StaticTransformOptimizations::Enabled)
+    .add_systems(Startup, (setup, load_assets))
+    .add_systems(Update, (simulate_cars, loading_screen))
+    .add_observer(add_no_cpu_culling)
+    .add_observer(add_no_cpu_culling_on_scene_ready)
+    .add_observer(on_city_assets_ready)
+    .add_observer(setup_settings_ui);
+
+    #[cfg(feature = "traffic")]
+    app.add_systems(Update, apply_traffic_rules.before(simulate_cars));
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
@@ -234,6 +238,8 @@ fn on_city_assets_ready(
 struct Road {
     start: Vec3,
     end: Vec3,
+    #[cfg(feature = "traffic")]
+    intersection: Entity,
 }
 
 #[derive(Component)]
@@ -250,15 +256,19 @@ struct Car {
 }
 
 #[cfg(feature = "traffic")]
+#[derive(PartialEq, Eq, Default)]
 pub enum CarState {
     Accelerating,
+    #[default]
     Driving,
     Breaking,
     Stopped,
 }
 
 #[cfg(feature = "traffic")]
+#[derive(PartialEq, Eq, Default)]
 pub enum CarAtStopState {
+    #[default]
     Default,
     WaitForIntersection,
     MoveOnIntersection,
@@ -283,6 +293,11 @@ fn simulate_cars(
                 continue;
             };
 
+            #[cfg(feature = "traffic")]
+            if matches!(car.car_state, CarState::Stopped) {
+                continue;
+            }
+
             car.distance_traveled += speed * time.delta_secs();
             let road_len = (road.end - road.start).length();
             if car.distance_traveled > road_len {
@@ -292,6 +307,36 @@ fn simulate_cars(
 
             let progress = car.distance_traveled / road_len;
             car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
+        }
+    }
+}
+
+#[cfg(feature = "traffic")]
+fn apply_traffic_rules(
+    roads: Query<(&Road, &Children), Without<Car>>,
+    mut cars: Query<&mut Car>,
+    traffic_lights: Query<&traffic::TrafficLight>,
+    time: Res<Time>,
+) {
+    let elapsed = time.elapsed_secs();
+    let stop_distance = 0.4;
+    for (road, children) in &roads {
+        let Ok(light) = traffic_lights.get(road.intersection) else {
+            continue;
+        };
+        let phase = light.phase(elapsed);
+        for child in children.iter() {
+            let Ok(mut car) = cars.get_mut(child) else {
+                continue;
+            };
+            let road_len = (road.end - road.start).length();
+            let remaining = road_len - car.distance_traveled;
+            car.car_state = if remaining < stop_distance && phase == traffic::TrafficLightPhase::Red
+            {
+                CarState::Stopped
+            } else {
+                CarState::Driving
+            };
         }
     }
 }
