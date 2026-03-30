@@ -1,7 +1,13 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d};
-use bevy_render::{camera::DirtySpecializations, RenderStartup};
+use bevy_platform::collections::HashMap;
+use bevy_render::{
+    camera::DirtySpecializations,
+    mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
+    render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    RenderStartup,
+};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{
@@ -23,7 +29,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault;
 use bevy_math::{Affine3, Affine3Ext, Vec4};
-use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
@@ -59,6 +65,7 @@ pub struct Mesh2dRenderPlugin;
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_shader_library!(app, "mesh2d_vertex_output.wgsl");
+        load_shader_library!(app, "mesh2d_vertex_input.wgsl");
         load_shader_library!(app, "mesh2d_view_types.wgsl");
         load_shader_library!(app, "mesh2d_view_bindings.wgsl");
         load_shader_library!(app, "mesh2d_types.wgsl");
@@ -72,6 +79,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<Mesh2dBindGroup>()
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .allow_ambiguous_resource::<RenderMesh2dInstances>()
@@ -173,6 +181,10 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
         ));
     }
 
+    if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
+        mesh_bindings_shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
+    }
+
     // Load the mesh_bindings shader module here as it depends on runtime information about
     // whether storage buffers are supported, or the maximum uniform buffer binding size.
     let handle: Handle<Shader> = load_embedded_asset!(
@@ -207,10 +219,15 @@ pub struct Mesh2dUniform {
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
     pub tag: u32,
+    pub metadata_index: u32,
 }
 
 impl Mesh2dUniform {
-    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32) -> Self {
+    fn from_components(
+        mesh_transforms: &Mesh2dTransforms,
+        tag: u32,
+        metadata_index: Option<u32>,
+    ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
@@ -219,6 +236,7 @@ impl Mesh2dUniform {
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             tag,
+            metadata_index: metadata_index.unwrap_or(0),
         }
     }
 }
@@ -316,11 +334,19 @@ pub fn init_mesh_2d_pipeline(
         ),
     );
 
+    let limits = render_device.limits();
     let mesh_layout = BindGroupLayoutDescriptor::new(
         "mesh2d_layout",
-        &BindGroupLayoutEntries::single(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
-            GpuArrayBuffer::<Mesh2dUniform>::binding_layout(&render_device.limits()),
+            (
+                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(&limits),
+                if bevy_render::storage_buffers_are_unsupported(&limits) {
+                    uniform_buffer_sized(false, BufferSize::new(size_of::<MeshMetadata>() as u64))
+                } else {
+                    storage_buffer_read_only::<MeshMetadata>(false)
+                },
+            ),
         ),
     );
 
@@ -335,25 +361,29 @@ pub fn init_mesh_2d_pipeline(
 }
 
 impl GetBatchData for Mesh2dPipeline {
-    type Param = (
-        SRes<RenderMesh2dInstances>,
-        SRes<RenderAssets<RenderMesh>>,
-        SRes<MeshAllocator>,
-    );
+    type Param = (SRes<RenderMesh2dInstances>, SRes<MeshAllocator>);
     type BatchSetCompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BatchCompareData = ();
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(
         Self::BufferData,
         Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
     )> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+
         Some((
-            Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
+            Mesh2dUniform::from_components(
+                &mesh_instance.transforms,
+                mesh_instance.tag,
+                metadata_index,
+            ),
             mesh_instance.automatic_batching.then_some((
                 (
                     mesh_instance.material_bind_group_id,
@@ -369,13 +399,18 @@ impl GetFullBatchData for Mesh2dPipeline {
     type BufferInputData = ();
 
     fn get_binned_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+
         Some(Mesh2dUniform::from_components(
             &mesh_instance.transforms,
             mesh_instance.tag,
+            metadata_index,
         ))
     }
 
@@ -557,21 +592,49 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+            {
+                shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            {
+                shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
@@ -702,26 +765,46 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct Mesh2dBindGroup {
-    pub value: BindGroup,
+    /// Maps metadata slab ID to bind group.
+    pub value: HashMap<MeshSlabId, BindGroup>,
 }
 
 pub fn prepare_mesh2d_bind_group(
-    mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
+    mesh_allocator: Res<MeshAllocator>,
+    mut mesh2d_bind_group: ResMut<Mesh2dBindGroup>,
+    metadata_fallback_buffer: Res<MeshMetadataFallbackBuffer>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
-        commands.insert_resource(Mesh2dBindGroup {
-            value: render_device.create_bind_group(
+    let Some(binding) = mesh2d_uniforms.instance_data_binding() else {
+        return;
+    };
+    for metadata_slab_id in mesh_allocator.metadata_slabs() {
+        let metadata_buffer = mesh_allocator
+            .buffer_for_slab(metadata_slab_id)
+            .unwrap_or(&metadata_fallback_buffer.buffer);
+        mesh2d_bind_group.value.insert(
+            metadata_slab_id,
+            render_device.create_bind_group(
                 "mesh2d_bind_group",
                 &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
-                &BindGroupEntries::single(binding),
+                &BindGroupEntries::with_indices((
+                    (0, binding.clone()),
+                    (
+                        1,
+                        BindingResource::Buffer(BufferBinding {
+                            buffer: metadata_buffer,
+                            offset: 0,
+                            size: None,
+                        }),
+                    ),
+                )),
             ),
-        });
+        );
     }
 }
 
@@ -791,7 +874,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
 
 pub struct SetMesh2dBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
-    type Param = SRes<Mesh2dBindGroup>;
+    type Param = (
+        SRes<Mesh2dBindGroup>,
+        SRes<RenderMesh2dInstances>,
+        SRes<MeshAllocator>,
+        SRes<MeshMetadataFallbackBuffer>,
+    );
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -800,20 +888,45 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        (mesh2d_bind_group, render_mesh2d_instances, mesh_allocator,metadata_fallback_buffer): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
+        let mesh2d_bind_group = mesh2d_bind_group.into_inner();
+
+        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+            render_mesh2d_instances.get(&item.main_entity())
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let metadata_slab_id = mesh_allocator
+            .key_to_slab
+            .get(&bevy_render::mesh::allocator::MeshAllocationKey::new(
+                *mesh_asset_id,
+                bevy_render::mesh::allocator::ElementClass::Metadata,
+            ))
+            .cloned()
+            .unwrap_or(metadata_fallback_buffer.slab_id);
+        let Some(bind_group) = &mesh2d_bind_group.value.get(&metadata_slab_id) else {
+            return RenderCommandResult::Failure(
+                "The mesh2d bind group wasn't set in the render phase. \
+            It should be set by the `prepare_mesh2d_bind_group` system.\n\
+            This is a bevy bug! Please open an issue.",
+            );
+        };
+
         let mut dynamic_offsets: [u32; 1] = Default::default();
         let mut offset_count = 0;
         if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
             dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
-        pass.set_bind_group(
-            I,
-            &mesh2d_bind_group.into_inner().value,
-            &dynamic_offsets[..offset_count],
-        );
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[..offset_count]);
         RenderCommandResult::Success
     }
 }

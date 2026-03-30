@@ -8,13 +8,18 @@ use super::{
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
     VertexAttributeValues, VertexBufferLayout,
 };
+use crate::arr_f32_to_unorm8;
 #[cfg(feature = "morph")]
 use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
+use bevy_math::{
+    bounding::{Aabb2d, Aabb3d},
+    primitives::Triangle3d,
+    *,
+};
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
@@ -254,11 +259,61 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
-    /// This data will be set if/when a mesh is extracted to the GPU
+    /// Indicate whether vertex attributes are compressed.
+    attribute_compression: MeshAttributeCompressionFlags,
+    /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling and decompressing vertex positions.
+    /// This data will be set if/when a mesh is extracted to the GPU or calling [`Mesh::compressed_mesh`].
     pub final_aabb: Option<Aabb3d>,
+    /// Precomputed min and max extents of the mesh UV channels data. Used mainly for decompressing vertex UVs.
+    /// This will be set when calling [`Mesh::compressed_mesh`].
+    pub final_uv_ranges: [Option<Aabb2d>; 2],
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
+
+bitflags::bitflags! {
+    /// If the corresponding attribute compression is enabled:
+    /// - Position will be Snorm16x4 relative to the mesh's AABB. The w component is unused.
+    /// - Normal and tangent will be Snorm16x2 with octahedral encoding, using [`octahedral_encode_signed`](crate::vertex::octahedral_encode_signed) and [`octahedral_encode_tangent`](crate::vertex::octahedral_encode_tangent).
+    /// - UV0 and UV1 will be Unorm16x2. UVs are remapped based on their min/max values so them can go beyond [0, 1], though a larger range will reduce precision.
+    /// - Joint weight will be Unorm16x4.
+    /// - Color will be Float16x4 or Unorm8x4.
+    #[repr(transparent)]
+    #[derive(Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+    #[reflect(opaque)]
+    #[reflect(Hash, Clone, PartialEq, Debug)]
+    pub struct MeshAttributeCompressionFlags: u8 {
+        const COMPRESS_POSITION = 1 << 0;
+        const COMPRESS_NORMAL = 1 << 1;
+        const COMPRESS_TANGENT = 1 << 2;
+        const COMPRESS_UV0 = 1 << 3;
+        const COMPRESS_UV1 = 1 << 4;
+        const COMPRESS_JOINT_WEIGHT = 1 << 5;
+
+        const COMPRESS_COLOR_RESERVED_BIT = Self::COMPRESS_COLOR_MASK_BIT << Self::COMPRESS_COLOR_SHIFT_BIT;
+        const COMPRESS_COLOR_UNORM8 = 1 << Self::COMPRESS_COLOR_SHIFT_BIT;
+        const COMPRESS_COLOR_FLOAT16 = 2 << Self::COMPRESS_COLOR_SHIFT_BIT;
+    }
+}
+impl MeshAttributeCompressionFlags {
+    const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
+    const COMPRESS_COLOR_SHIFT_BIT: u8 =
+        Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
+
+    /// Helper function to set color flag.
+    pub fn with_color(self, color_flag: Self) -> Self {
+        self & !Self::COMPRESS_COLOR_RESERVED_BIT | color_flag
+    }
+}
+
+// Workaround const expression in match pattern.
+const ATTRIBUTE_POSITION_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_POSITION.id;
+const ATTRIBUTE_NORMAL_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_NORMAL.id;
+const ATTRIBUTE_UV_0_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_0.id;
+const ATTRIBUTE_UV_1_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_UV_1.id;
+const ATTRIBUTE_TANGENT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_TANGENT.id;
+const ATTRIBUTE_COLOR_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_COLOR.id;
+const ATTRIBUTE_JOINT_WEIGHT_ID: MeshVertexAttributeId = Mesh::ATTRIBUTE_JOINT_WEIGHT.id;
 
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
@@ -349,8 +404,10 @@ impl Mesh {
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
             enable_raytracing: true,
+            attribute_compression: MeshAttributeCompressionFlags::empty(),
             final_aabb: None,
             skinned_mesh_bounds: None,
+            final_uv_ranges: [None; 2],
         }
     }
 
@@ -898,6 +955,7 @@ impl Mesh {
                 attributes,
             },
             attribute_ids,
+            attribute_compression: self.attribute_compression,
         };
         mesh_vertex_buffer_layouts.insert(layout)
     }
@@ -931,6 +989,281 @@ impl Mesh {
         }
 
         vertex_count.unwrap_or(0)
+    }
+
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `positions` isn't [`VertexAttributeValues::Float32x3`], or if `positions` is empty.
+    fn compute_aabb(positions: &VertexAttributeValues) -> Option<Aabb3d> {
+        match positions {
+            VertexAttributeValues::Float32x3(val) => {
+                let mut iter = val.iter().map(|a| Vec3A::from_array(*a));
+                let first = iter.next()?;
+                let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+                    (point.min(prev_min), point.max(prev_max))
+                });
+                Some(Aabb3d { min, max })
+            }
+            _ => None,
+        }
+    }
+
+    /// Compute the UV range.
+    ///
+    /// Returns `None` if `uvs` isn't [`VertexAttributeValues::Float32x2`], or if `uvs` is empty.
+    fn compute_uv_range(uvs: &VertexAttributeValues) -> Option<Aabb2d> {
+        match uvs {
+            VertexAttributeValues::Float32x2(val) => {
+                let mut iter = val.iter().map(|a| Vec2::from_array(*a));
+                let first = iter.next()?;
+                let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+                    (point.min(prev_min), point.max(prev_max))
+                });
+                Some(Aabb2d { min, max })
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the compressed vertex format for the given attribute ID, or `None` if the compression flag is not set.
+    fn get_compressed_vertex_format(
+        &self,
+        attribute_id: MeshVertexAttributeId,
+    ) -> Option<VertexFormat> {
+        match attribute_id {
+            ATTRIBUTE_POSITION_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
+            {
+                Some(VertexFormat::Snorm16x4)
+            }
+            ATTRIBUTE_NORMAL_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
+            {
+                Some(VertexFormat::Snorm16x2)
+            }
+            ATTRIBUTE_UV_0_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
+            {
+                Some(VertexFormat::Unorm16x2)
+            }
+            ATTRIBUTE_UV_1_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
+            {
+                Some(VertexFormat::Unorm16x2)
+            }
+            ATTRIBUTE_TANGENT_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
+            {
+                Some(VertexFormat::Snorm16x2)
+            }
+            ATTRIBUTE_COLOR_ID
+                if self
+                    .attribute_compression
+                    .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT) =>
+            {
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16)
+                {
+                    Some(VertexFormat::Float16x4)
+                } else if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                {
+                    Some(VertexFormat::Unorm8x4)
+                } else {
+                    unreachable!("Color compression flag must be `COMPRESS_COLOR_FLOAT16` or `COMPRESS_COLOR_UNORM8`")
+                }
+            }
+            ATTRIBUTE_JOINT_WEIGHT_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_JOINT_WEIGHT) =>
+            {
+                Some(VertexFormat::Unorm16x4)
+            }
+            _ => None,
+        }
+    }
+
+    /// Create compressed attribute values for the given attribute ID and attribute values. Return `None` if the compression flag is not set or the attribute values can't be compressed.
+    ///
+    /// Panics when compressing positions but `aabb` is `None`, or when compressing UVs but corresponding `uv_ranges` is `None`.
+    fn create_compressed_attribute_values(
+        &self,
+        attribute_id: MeshVertexAttributeId,
+        attribute_values: &VertexAttributeValues,
+        aabb: Option<Aabb3d>,
+        uv_ranges: [Option<Aabb2d>; 2],
+    ) -> Option<VertexAttributeValues> {
+        match attribute_id {
+            ATTRIBUTE_POSITION_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
+            {
+                attribute_values.create_compressed_positions(aabb.unwrap())
+            }
+            ATTRIBUTE_NORMAL_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
+            {
+                attribute_values.create_octahedral_encode_normals()
+            }
+            ATTRIBUTE_UV_0_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
+            {
+                attribute_values.create_compressed_uvs(uv_ranges[0].unwrap())
+            }
+            ATTRIBUTE_UV_1_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
+            {
+                attribute_values.create_compressed_uvs(uv_ranges[1].unwrap())
+            }
+            ATTRIBUTE_TANGENT_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
+            {
+                attribute_values.create_octahedral_encode_tangents()
+            }
+            ATTRIBUTE_COLOR_ID
+                if self
+                    .attribute_compression
+                    .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT) =>
+            {
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16)
+                {
+                    attribute_values.create_f16_values()
+                } else if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                {
+                    // Create Unorm8x4 color
+                    let VertexAttributeValues::Float32x4(uncompressed_values) = attribute_values
+                    else {
+                        return None;
+                    };
+                    let mut values = Vec::<[u8; 4]>::with_capacity(uncompressed_values.len());
+                    for val in uncompressed_values {
+                        values.push(arr_f32_to_unorm8(*val));
+                    }
+                    Some(VertexAttributeValues::Unorm8x4(values))
+                } else {
+                    unreachable!("Color compression flag must be `COMPRESS_COLOR_FLOAT16` or `COMPRESS_COLOR_UNORM8`")
+                }
+            }
+            ATTRIBUTE_JOINT_WEIGHT_ID
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_JOINT_WEIGHT) =>
+            {
+                attribute_values.create_unorm16_values()
+            }
+            _ => None,
+        }
+    }
+
+    /// Create a [`Mesh`] with the given compression flags to reduce memory bandwidth on GPU, with the tradeoff of reduced precision of vertex attributes.
+    ///
+    /// See [`MeshAttributeCompressionFlags`] for more context.
+    /// if vertex attributes are already compressed, they are unchanged and won't decompress.
+    ///
+    /// If `index_compression` is true and indices are u32 and vertex count <= 65535, indices will be converted to u16, otherwise it does nothing.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn compressed_mesh(
+        mut self,
+        mut attribute_compression: MeshAttributeCompressionFlags,
+        index_compression: bool,
+    ) -> Mesh {
+        if self
+            .attribute_compression
+            .intersects(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT)
+        {
+            // Don't change color flag if it's already compressed.
+            attribute_compression
+                .remove(MeshAttributeCompressionFlags::COMPRESS_COLOR_RESERVED_BIT);
+        }
+        self.attribute_compression |= attribute_compression;
+        for mut attr in [
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_UV_1,
+            Mesh::ATTRIBUTE_TANGENT,
+            Mesh::ATTRIBUTE_COLOR,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+        ] {
+            if let Some(compressed_format) = self.get_compressed_vertex_format(attr.id)
+                && let Some(values) = self.attribute(attr.id)
+            {
+                // Must compute aabb, uv0, uv1 before we insert the compressed attributes. After compressing them can't be computed.
+                // If computing fails, which means the format isn't expected uncompressed format or the values is empty, we skip this attribute.
+                match attr.id {
+                    ATTRIBUTE_POSITION_ID => {
+                        let Some(aabb) = Self::compute_aabb(values) else {
+                            continue;
+                        };
+                        self.final_aabb = Some(aabb);
+                    }
+                    ATTRIBUTE_UV_0_ID => {
+                        let Some(uv_range) = Self::compute_uv_range(values) else {
+                            continue;
+                        };
+                        self.final_uv_ranges[0] = Some(uv_range);
+                    }
+                    ATTRIBUTE_UV_1_ID => {
+                        let Some(uv_range) = Self::compute_uv_range(values) else {
+                            continue;
+                        };
+                        self.final_uv_ranges[1] = Some(uv_range);
+                    }
+                    _ => {}
+                }
+                let values = self.create_compressed_attribute_values(
+                    attr.id,
+                    self.attribute(attr.id).unwrap(),
+                    self.final_aabb,
+                    self.final_uv_ranges,
+                );
+                if let Some(values) = values {
+                    attr.format = compressed_format;
+                    self.insert_attribute(attr, values);
+                }
+            }
+        }
+
+        if index_compression {
+            // Vertex count should be <= 65535 (max index <= 65534), not 65536 because of primitive restart value.
+            if let Some(Indices::U32(indices)) = self.indices()
+                && self.count_vertices() <= 65535
+            {
+                self.insert_indices(Indices::U16(
+                    indices.iter().map(|idx| *idx as u16).collect(),
+                ));
+            }
+        }
+
+        self
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.
@@ -2302,24 +2635,12 @@ impl Mesh {
         let morph_target_names = self.morph_target_names.extract()?;
 
         // store the aabb extents as they cannot be computed after extraction
-        if let Some(MeshAttributeData {
-            values: VertexAttributeValues::Float32x3(position_values),
-            ..
-        }) = attributes
+        if let Some(MeshAttributeData { values, .. }) = attributes
             .as_ref_option()?
             .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
-            && !position_values.is_empty()
         {
-            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
-            let mut min = iter.next().unwrap();
-            let mut max = min;
-            for v in iter {
-                min = Vec3::min(min, v);
-                max = Vec3::max(max, v);
-            }
-            self.final_aabb = Some(Aabb3d::from_min_max(min, max));
+            self.final_aabb = Self::compute_aabb(values);
         }
-
         Ok(Self {
             attributes,
             indices,
@@ -2732,11 +3053,11 @@ mod tests {
     #[cfg(feature = "serialize")]
     use super::SerializedMesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
-    use crate::PrimitiveTopology;
+    use crate::{MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology};
     use bevy_asset::RenderAssetUsages;
     use bevy_math::bounding::Aabb3d;
     use bevy_math::primitives::Triangle3d;
-    use bevy_math::Vec3;
+    use bevy_math::{Vec3, Vec3A};
     use bevy_transform::components::Transform;
 
     #[test]
@@ -3193,5 +3514,174 @@ mod tests {
         };
         assert_eq!(&positions, new_positions);
         assert_eq!(&uvs, new_uvs);
+    }
+
+    #[test]
+    fn compress_mesh() {
+        let custom_attr = MeshVertexAttribute::new(
+            "custom_attr",
+            Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE,
+            wgpu_types::VertexFormat::Uint32,
+        );
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![
+                [0.0, 1.0, -1.0],
+                [1.0, -0.5, -1.0],
+                [-1.0, -0.5, -1.0],
+                [0.0, -0.5, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![
+                Vec3::new(0.0, 1.0, -1.0).normalize().to_array(),
+                Vec3::new(1.0, 0.0, -1.0).normalize().to_array(),
+                Vec3::new(-1.0, 0.0, -1.0).normalize().to_array(),
+                [0.0, 0.0, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_TANGENT,
+            vec![
+                Vec3::new(0.0, 1.0, 1.0).normalize().extend(1.0).to_array(),
+                Vec3::new(1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
+                Vec3::new(-1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
+                [1.0, 0.0, 0.0, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            vec![[0.126, 0.497], [0.126, 1.0], [0.05, 0.0], [0.0, 0.5]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_COLOR,
+            vec![
+                [0.05, 1.0, 0.15, 1.0],
+                [0.75, 0.07, 1.0, 1.0],
+                [0.04, 0.11, 1.0, 1.0],
+                [1.0, 0.11, 0.13, 1.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            vec![
+                [0.024, 0.0, 0.0, 0.0],
+                [0.007, 0.0, 0.0, 0.0],
+                [0.008, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+            ],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(vec![
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ]),
+        )
+        .with_inserted_attribute(custom_attr, VertexAttributeValues::Uint32(vec![0, 1, 2, 3]))
+        .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]));
+
+        let mesh_compressed_all = mesh.clone().compressed_mesh(
+            MeshAttributeCompressionFlags::all()
+                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
+            true,
+        );
+        assert_eq!(
+            mesh_compressed_all.final_aabb,
+            Some(Aabb3d::from_min_max(
+                Vec3A::new(-1.0, -0.5, -1.0),
+                Vec3A::new(1.0, 1.0, 1.0)
+            ))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(&VertexAttributeValues::Snorm16x4(vec![
+                [0, 32767, -32767, 0],
+                [32767, -32767, -32767, 0],
+                [-32767, -32767, -32767, 0],
+                [0, -32767, 32767, 0],
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_NORMAL),
+            Some(&VertexAttributeValues::Snorm16x2(vec![
+                [-16384, 32767],
+                [32767, -16384],
+                [-32767, -16384],
+                [0, 0],
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_TANGENT),
+            Some(&VertexAttributeValues::Snorm16x2(vec![
+                [0, 24575],
+                [16384, 16384],
+                [-16384, 16384],
+                [32767, 16384],
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_UV_0),
+            Some(&VertexAttributeValues::Unorm16x2(vec![
+                [65535, 32571],
+                [65535, 65535],
+                [26006, 0],
+                [0, 32768],
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(Mesh::ATTRIBUTE_COLOR),
+            Some(&VertexAttributeValues::Unorm8x4(vec![
+                [13, 255, 38, 255],
+                [191, 18, 255, 255],
+                [10, 28, 255, 255],
+                [255, 28, 33, 255],
+            ]))
+        );
+        assert_eq!(
+            mesh_compressed_all.indices(),
+            Some(&Indices::U16(vec![0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]))
+        );
+        assert_eq!(
+            mesh_compressed_all.attribute(custom_attr),
+            Some(&VertexAttributeValues::Uint32(vec![0, 1, 2, 3]))
+        );
+        let mesh_compressed_color_f16 = mesh
+            .clone()
+            .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16, false);
+        assert!(mesh
+            .attributes()
+            .filter(|(attr, _values)| attr.id != Mesh::ATTRIBUTE_COLOR.id)
+            .eq(mesh_compressed_color_f16
+                .attributes()
+                .filter(|(attr, _values)| attr.id != Mesh::ATTRIBUTE_COLOR.id)));
+        assert_eq!(mesh.indices(), mesh_compressed_color_f16.indices());
+        let VertexAttributeValues::Float16x4(color_f16) = mesh_compressed_color_f16
+            .attribute(Mesh::ATTRIBUTE_COLOR)
+            .unwrap()
+        else {
+            panic!("Color attribute is not Float16x4")
+        };
+        assert!(color_f16
+            .iter()
+            .flatten()
+            .zip(
+                [
+                    [0.049987793, 1.0, 0.15002441, 1.0].map(half::f16::from_f32),
+                    [0.75, 0.070007324, 1.0, 1.0].map(half::f16::from_f32),
+                    [0.040008545, 0.10998535, 1.0, 1.0].map(half::f16::from_f32),
+                    [1.0, 0.10998535, 0.13000488, 1.0].map(half::f16::from_f32)
+                ]
+                .iter()
+                .flatten()
+            )
+            .all(|(a, b)| approx::relative_eq!(a.to_f32(), b.to_f32())));
     }
 }

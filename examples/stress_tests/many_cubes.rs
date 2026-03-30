@@ -20,6 +20,7 @@ use bevy::{
         ops::{cbrt, sqrt},
         DVec2, DVec3,
     },
+    mesh::MeshAttributeCompressionFlags,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
@@ -91,6 +92,10 @@ struct Args {
     /// whether to enable motion blur.
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable vertex compression.
+    #[argh(switch)]
+    vertex_compression: bool,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -424,6 +429,18 @@ fn init_materials(
     materials
 }
 
+fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
+    if args.vertex_compression {
+        mesh.into().compressed_mesh(
+            MeshAttributeCompressionFlags::all()
+                .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_FLOAT16),
+            true,
+        )
+    } else {
+        mesh.into()
+    }
+}
+
 fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
@@ -435,20 +452,26 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
         let radius = radius_rng.random_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
-                assets.add(Cuboid {
-                    half_size: Vec3::splat(radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Cuboid {
+                        half_size: Vec3::splat(radius),
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             1 => (
-                assets.add(Capsule3d {
-                    radius,
-                    half_length: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Capsule3d {
+                        radius,
+                        half_length: radius,
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             2 => (
-                assets.add(Circle { radius }),
+                assets.add(compress_mesh(args, Circle { radius })),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
@@ -459,60 +482,80 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
-                    assets.add(Triangle2d { vertices }),
+                    assets.add(compress_mesh(args, Triangle2d { vertices })),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
             4 => (
-                assets.add(Rectangle {
-                    half_size: Vec2::splat(radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Rectangle {
+                        half_size: Vec2::splat(radius),
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
-                assets.add(RegularPolygon {
-                    circumcircle: Circle { radius },
-                    sides: v,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    RegularPolygon {
+                        circumcircle: Circle { radius },
+                        sides: v,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
-                assets.add(Cylinder {
-                    radius,
-                    half_height: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Cylinder {
+                        radius,
+                        half_height: radius,
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             10 => (
-                assets.add(Ellipse {
-                    half_size: Vec2::new(radius, 0.5 * radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Ellipse {
+                        half_size: Vec2::new(radius, 0.5 * radius),
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
-                assets.add(
+                assets.add(compress_mesh(
+                    args,
                     Plane3d {
                         normal: Dir3::NEG_Z,
-                        half_size: Vec2::splat(0.5),
-                    }
-                    .mesh()
-                    .size(radius, radius),
-                ),
+                        half_size: Vec2::splat(radius / 2.0),
+                    },
+                )),
                 Transform::IDENTITY,
             ),
-            12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
+            12 => (
+                assets.add(compress_mesh(args, Sphere { radius })),
+                Transform::IDENTITY,
+            ),
             13 => (
-                assets.add(Torus {
-                    minor_radius: 0.5 * radius,
-                    major_radius: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Torus {
+                        minor_radius: 0.5 * radius,
+                        major_radius: radius,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
-                assets.add(Capsule2d {
-                    radius,
-                    half_length: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Capsule2d {
+                        radius,
+                        half_length: radius,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             _ => unreachable!(),

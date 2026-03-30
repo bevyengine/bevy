@@ -6,11 +6,12 @@
         visibility_ranges,
         VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE
     },
-    mesh_bindings::mesh,
-    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    mesh_bindings::{mesh, metadata},
+    mesh_types::{MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT},
     view_transformations::position_world_to_clip,
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::mesh_metadata_types::MeshMetadata
 
 #ifndef MESHLET_MESH_MATERIAL_PASS
 
@@ -24,7 +25,7 @@ fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
 
 fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
     // the model matrix is translation * rotation * scale
-    // the inverse is then scale^-1 * rotation ^-1 * translation^-1        
+    // the inverse is then scale^-1 * rotation ^-1 * translation^-1
     // the 3x3 matrix only contains the information for the rotation and scale
     let inverse_model_3x3 = transpose(mat2x4_f32_to_mat3x3_unpack(
         mesh[instance_index].local_from_world_transpose_a,
@@ -164,5 +165,13 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 #ifndef MESHLET_MESH_MATERIAL_PASS
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
+}
+
+fn get_metadata(instance_index: u32) -> MeshMetadata {
+#ifdef METADATA_USE_UNIFORM_BUFFERS
+    return metadata;
+#else
+    return metadata[mesh[instance_index].metadata_index];
+#endif
 }
 #endif

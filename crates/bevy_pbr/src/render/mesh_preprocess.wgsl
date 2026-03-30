@@ -405,4 +405,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
     output[mesh_output_index].morph_descriptor_index = current_input[input_index].morph_descriptor_index;
+    output[mesh_output_index].metadata_index = current_input[input_index].metadata_index;
 }

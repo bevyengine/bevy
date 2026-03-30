@@ -122,11 +122,18 @@ macro_rules! impl_atomic_pod {
         $(, field($field_name: ident : $field_ty: ty, $getter: ident $(, $($setter: ident)?)?))*
         $(,)?
     ) => {
-        #[derive(Default, ::bevy_derive::Deref, ::bevy_derive::DerefMut)]
+        #[derive(::bevy_derive::Deref, ::bevy_derive::DerefMut)]
         #[repr(transparent)]
         pub struct $blob_ty(
             pub [::core::sync::atomic::AtomicU32; ::core::mem::size_of::<$pod_ty>() / 4],
         );
+
+        // Manually implement `Default` as `#[derive(Default)]` can't be used for arrays larger than 32 elements.
+        impl Default for $blob_ty {
+            fn default() -> Self {
+                Self([const { ::core::sync::atomic::AtomicU32::new(0) }; ::core::mem::size_of::<$pod_ty>() / 4])
+            }
+        }
 
         impl $crate::render_resource::AtomicPod for $pod_ty {
             type Blob = $blob_ty;

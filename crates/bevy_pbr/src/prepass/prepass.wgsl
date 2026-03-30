@@ -2,7 +2,7 @@
     prepass_bindings,
     mesh_bindings::mesh,
     mesh_functions,
-    prepass_io::{Vertex, VertexOutput, FragmentOutput},
+    prepass_io::{Vertex, UncompressedVertex, VertexOutput, FragmentOutput, decompress_vertex},
     skinning,
     morph,
     morph::{morph_position, morph_normal, morph_tangent},
@@ -17,7 +17,7 @@
 #ifdef MORPH_TARGETS
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
+fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex  {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
@@ -46,7 +46,7 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 //
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
+fn morph_prev_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
@@ -67,11 +67,11 @@ fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph, vertex_no_morph.instance_index);
+    var vertex = morph_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else
-    var vertex = vertex_no_morph;
+    var vertex = uncompressed_vertex_no_morph;
 #endif
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
@@ -140,13 +140,13 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef MORPH_TARGETS
 
 #ifdef HAS_PREVIOUS_MORPH
-    let prev_vertex = morph_prev_vertex(vertex_no_morph);
+    let prev_vertex = morph_prev_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else   // HAS_PREVIOUS_MORPH
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // HAS_PREVIOUS_MORPH
 
 #else   // MORPH_TARGETS
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // MORPH_TARGETS
 
     // Take skinning into account.

@@ -1,43 +1,25 @@
-#import bevy_sprite::{    
+#import bevy_sprite::{
     mesh2d_functions as mesh_functions,
     mesh2d_vertex_output::VertexOutput,
     mesh2d_view_bindings::view,
+    mesh2d_vertex_input::{Vertex, decompress_vertex}
 }
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
 #endif
 
-struct Vertex {
-    @builtin(instance_index) instance_index: u32,
-#ifdef VERTEX_POSITIONS
-    @location(0) position: vec3<f32>,
-#endif
-#ifdef VERTEX_NORMALS
-    @location(1) normal: vec3<f32>,
-#endif
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
-#endif
-#ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
-#endif
-#ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
-#endif
-};
-
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
-
+    let uncompressed_vertex = decompress_vertex(vertex, vertex.instance_index);
 #ifdef VERTEX_UVS
-    out.uv = vertex.uv;
+    out.uv = uncompressed_vertex.uv;
 #endif
 
 #ifdef VERTEX_POSITIONS
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
-    let position = vec4<f32>(vertex.position * vec3<f32>(material.vertex_scale, 1.0) + vec3<f32>(material.vertex_offset, 0.0), 1.0);
+    let position = vec4<f32>(uncompressed_vertex.position * vec3<f32>(material.vertex_scale, 1.0) + vec3<f32>(material.vertex_offset, 0.0), 1.0);
 
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
         world_from_local,
@@ -47,18 +29,18 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_NORMALS
-    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal, vertex.instance_index);
+    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(uncompressed_vertex.normal, vertex.instance_index);
 #endif
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
         world_from_local,
-        vertex.tangent
+        uncompressed_vertex.tangent
     );
 #endif
 
 #ifdef VERTEX_COLORS
-    out.color = vertex.color;
+    out.color = uncompressed_vertex.color;
 #endif
     return out;
 }
@@ -66,11 +48,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 struct SpriteMaterial {
     color: vec4<f32>,
     flags: u32,
-    alpha_cutoff: f32, 
+    alpha_cutoff: f32,
     vertex_scale: vec2<f32>,
     vertex_offset: vec2<f32>,
     uv_transform: mat3x3<f32>,
-    
+
     tile_stretch_value: vec2<f32>,
 
     scale: vec2<f32>,
@@ -99,7 +81,7 @@ fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
 
-    var uv = mesh.uv; 
+    var uv = mesh.uv;
 
     if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
         uv.x = 1.0 - uv.x;
@@ -123,12 +105,12 @@ fn fragment(
     uv = (material.uv_transform * vec3(uv, 1.0)).xy;
 
     let sprite_color = textureSample(texture, texture_sampler, uv);
-    var output_color = alpha_discard(sprite_color * material.color); 
+    var output_color = alpha_discard(sprite_color * material.color);
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
 #endif
-    
+
     return output_color;
 }
 
@@ -138,18 +120,18 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
 
     let left = uv.x < min_inset_scaled.x;
     let right = uv.x > 1.0 - max_inset_scaled.x;
-    let top = uv.y < min_inset_scaled.y; 
+    let top = uv.y < min_inset_scaled.y;
     let bottom = uv.y > 1.0 - max_inset_scaled.y;
 
     // top-left corner
     if top && left {
-        return uv * material.scale; 
-    } 
+        return uv * material.scale;
+    }
 
     // top-right corner
-    if top && right { 
+    if top && right {
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * material.scale.x,  
+            1.0 - (1.0 - uv.x) * material.scale.x,
             uv.y * material.scale.y,
         );
     }
@@ -157,7 +139,7 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
     // bottom-left corner
     if bottom && left {
         return vec2<f32>(
-            uv.x * material.scale.x, 
+            uv.x * material.scale.x,
             1.0 - (1.0 - uv.y) * material.scale.y
         );
     }
@@ -186,7 +168,7 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
     // left edge
     if left {
         return vec2<f32>(
-            uv.x * material.scale.x, 
+            uv.x * material.scale.x,
             tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
         );
     }
@@ -194,7 +176,7 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
     // right edge
     if right {
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * material.scale.x,  
+            1.0 - (1.0 - uv.x) * material.scale.x,
             tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
         );
     }
@@ -206,10 +188,10 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
     );
 }
 
-// Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0. 
+// Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0.
 fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
     if stretch_value == 0.0 {
-        return stretch_interval(p, a, b, c, d); 
+        return stretch_interval(p, a, b, c, d);
     }
     return tile_interval(p, a, b, c, d, stretch_value);
 }
@@ -217,8 +199,8 @@ fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -
 // Takes a point p from an interval [a, b] and maps it to a portion of the tile [c, d]
 fn tile_interval(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
     let value = (p - a) / (b - a);
-    let tile_value = (value - stretch_value * floor(value / stretch_value)) / stretch_value; 
-    return tile_value * (d - c) + c; 
+    let tile_value = (value - stretch_value * floor(value / stretch_value)) / stretch_value;
+    return tile_value * (d - c) + c;
 }
 
 // Takes a point p from an interval [a, b] and translates it to the interval [c, d]
@@ -229,12 +211,12 @@ fn stretch_interval(p: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
 fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     let alpha_mode = material.flags & SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    
+
     if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
     }
-    
+
 #ifdef MAY_DISCARD
     else if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK {
     if color.a >= material.alpha_cutoff {
