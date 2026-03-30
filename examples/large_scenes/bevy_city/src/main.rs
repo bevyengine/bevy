@@ -15,6 +15,10 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
+    render::{
+        settings::{Backends, InstanceFlags, RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
@@ -26,6 +30,10 @@ use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 mod assets;
 mod generate_city;
 mod settings;
+
+#[cfg(feature = "traffic")]
+mod traffic;
+
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -41,23 +49,32 @@ pub struct Args {
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// forces Vulkan backend and clears instance flags for RenderDoc capture
+    #[argh(switch)]
+    renderdoc: bool,
 }
 
 fn main() {
     let args: Args = argh::from_env();
 
+
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "bevy_city".into(),
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
-                    position: WindowPosition::Centered(MonitorSelection::Primary),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "bevy_city".into(),
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        present_mode: PresentMode::AutoNoVsync,
+                        position: WindowPosition::Centered(MonitorSelection::Primary),
+                        ..default()
+                    }),
                     ..default()
                 }),
-                ..default()
-            }),
+            #[cfg(feature = "traffic")]
+            traffic_light::TrafficLightPlugin,    
             FreeCameraPlugin,
             FeathersPlugins,
             WireframePlugin::default(),
