@@ -299,8 +299,6 @@ impl BsnType {
 
                     names.push(field_name);
 
-                    // NOTE: It is very important to still produce outputs for None field values. This is what
-                    // enables field autocomplete in Rust Analyzer
                     assigns.push(self.process_enum_field(ctx, field_name, field.value.as_ref())?);
                 }
 
@@ -370,8 +368,6 @@ impl BsnType {
                         ));
                     }
 
-                    // NOTE: It is very important to still produce outputs for None field values. This is what
-                    // enables field autocomplete in Rust Analyzer
                     self.process_field(
                         ctx,
                         assignments,
@@ -409,11 +405,17 @@ impl BsnType {
         match value {
             // Enables field autocomplete in Rust Analyzer
             Some(field_value_type!()) | None => {
-                // Provide a fallback default "ghost", so that the LSP
-                // can infer information about the field without a value.
-                let values = value.map(|v| quote! { #v }).unwrap_or(quote! { default() });
-                assignments.push(quote! { #(#base_path.)*#member = #values; });
+                // NOTE: It is very important to still produce outputs for None field values. This is what
+                // enables field autocomplete in Rust Analyzer
+                assignments.push(
+                    value
+                        .map(|v| quote! { #(#base_path.)*#member = #v; })
+                        .unwrap_or(quote! {
+                            #(#base_path.)*#member;
+                        }),
+                );
             }
+
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let ecs = ctx.bevy_ecs;
@@ -474,10 +476,11 @@ impl BsnType {
             return Ok(quote! {#(#type_assigns)*});
         }
 
-        // Provide a fallback default "ghost", so that the LSP
-        // can infer information about the field without a value.
-        let values = value.map(|v| quote! { #v }).unwrap_or(quote! { default() });
-        Ok(quote! { *#bind_name = #values; })
+        // NOTE: It is very important to still produce outputs for None field values. This is what
+        // enables field autocomplete in Rust Analyzer
+        value
+            .map(|v| Ok(quote! { *#bind_name = #v; }))
+            .unwrap_or(Ok(quote! { #bind_name; }))
     }
 }
 
@@ -742,7 +745,7 @@ mod tests {
         // Assert
         assert_eq!(assignments.len(), 1);
         let tokens = assignments[0].to_string();
-        assert!(tokens.contains("value . translation = default ()"));
+        assert!(tokens.contains("value . translation = { }"));
     }
 
     #[test]
@@ -815,7 +818,7 @@ mod tests {
 
         // Assert
         let tokens = assignments[0].to_string();
-        assert!(tokens.contains("* x = default ()"));
+        assert!(tokens.contains("* x = { }"));
     }
 
     #[test]
