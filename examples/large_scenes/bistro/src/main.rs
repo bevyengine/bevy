@@ -279,7 +279,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
             specular_map: asset_server
                 .load("environment_maps/san_giuseppe_bridge_4k_specular.ktx2"),
             intensity: 600.0,
-            ..default()
+            ..EnvironmentMapLight::default()
         },
         ContactShadows::default(),
         FreeCamera::default(),

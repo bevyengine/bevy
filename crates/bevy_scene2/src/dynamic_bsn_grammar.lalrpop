@@ -1,0 +1,125 @@
+use crate::dynamic_bsn::{
+    BsnAst, BsnExpr, BsnField, BsnNamedTuple, BsnPatch, BsnRelation, BsnStruct, BsnSymbol, BsnVar,
+};
+use crate::dynamic_bsn_lexer;
+use bevy_ecs::entity::Entity;
+use std::cell::RefCell;
+
+grammar(ast: &RefCell<BsnAst>);
+
+pub TopLevelPatches: Entity = {
+    <p:Patch*> => ast.borrow_mut().create_patches(p),
+}
+
+pub Patches: Entity = {
+    <p:Patch+> => ast.borrow_mut().create_patches(p),
+};
+
+pub Patch: Entity = {
+    <n:Name> => ast.borrow_mut().create_name_patch(n),
+    <b:Base> => ast.borrow_mut().create_patch(BsnPatch::Base(b)),
+    <r:Relation> => ast.borrow_mut().create_patch(BsnPatch::Relation(r)),
+    <a:"@"?> <s:Symbol> => ast.borrow_mut().create_patch(BsnPatch::Var(BsnVar(s, a.is_some()))),
+    <a:"@"?> <s:Symbol> "{" <f:Fields> "}" => {
+        ast.borrow_mut().create_patch(BsnPatch::Struct(BsnStruct(s, f, a.is_some())))
+    },
+    <a:"@"?> <s:Symbol> "(" <n:NamedTupleArgs> ")" => {
+        ast.borrow_mut().create_patch(BsnPatch::NamedTuple(BsnNamedTuple(s, n, a.is_some())))
+    },
+};
+
+Name: String = {
+    "#" <i:"ident"> => i,
+    "#" <s:"string_lit"> => s,
+};
+
+Base: String = {
+    ":" <s:"string_lit"> => s,
+};
+
+Symbol: BsnSymbol = {
+    <s:Symbol> "::" <n:"ident"> => s.append(n),
+    <n:"ident"> => BsnSymbol::from_ident(n),
+};
+
+Fields: Vec<BsnField> = {
+    => Vec::new(),
+    <f:FieldsInner> ","? => f,
+}
+
+FieldsInner: Vec<BsnField> = {
+    <t:Field> => { let mut v = Vec::new(); v.push(t); v },
+    <h:FieldsInner> "," <t:Field> => { let mut h = h; h.push(t); h },
+};
+
+Field: BsnField = {
+    <n:"ident"> ":" <e:Expr> => BsnField(n, e),
+};
+
+NamedTupleArgs: Vec<Entity> = {
+    => Vec::new(),
+    <n:NamedTupleArgsInner> ","? => n,
+};
+
+NamedTupleArgsInner: Vec<Entity> = {
+    <t:Expr> => { let mut v = Vec::new(); v.push(t); v },
+    <h:NamedTupleArgsInner> "," <t:Expr> => { let mut h = h; h.push(t); h },
+};
+
+Expr: Entity = {
+    <a:"@"?> <s:Symbol> => ast.borrow_mut().create_expr(BsnExpr::Var(BsnVar(s, a.is_some()))),
+    <a:"@"?> <s:Symbol> "{" <f:Fields> "}" => {
+        ast.borrow_mut().create_expr(BsnExpr::Struct(BsnStruct(s, f, a.is_some())))
+    },
+    <a:"@"?> <s:Symbol> "(" <n:NamedTupleArgs> ")" => {
+        ast.borrow_mut().create_expr(BsnExpr::NamedTuple(BsnNamedTuple(s, n, a.is_some())))
+    },
+    <s:"string_lit"> => ast.borrow_mut().create_expr(BsnExpr::StringLit(s)),
+    <f:"float_lit"> => ast.borrow_mut().create_expr(BsnExpr::FloatLit(f)),
+    <b:"bool_lit"> => ast.borrow_mut().create_expr(BsnExpr::BoolLit(b)),
+    <i:"int_lit"> => ast.borrow_mut().create_expr(BsnExpr::IntLit(i)),
+    "[" <n:NamedTupleArgsInner> ","? "]" => {
+        ast.borrow_mut().create_expr(BsnExpr::List(n))
+    },
+    "[" "]" => {
+        ast.borrow_mut().create_expr(BsnExpr::List(Vec::new()))
+    },
+};
+
+Relation: BsnRelation = {
+    <s:Symbol> "[" <r:Relations> "]" => BsnRelation(s, r),
+};
+
+Relations: Vec<Entity> = {
+    => Vec::new(),
+    <r:RelationsInner> ","? => r,
+};
+
+RelationsInner: Vec<Entity> = {
+    <h:RelationsInner> "," <t:Patches> => { let mut h = h; h.push(t); h },
+    <t:Patches> => { let mut v = Vec::new(); v.push(t); v },
+};
+
+extern {
+    type Location = usize;
+    type Error = dynamic_bsn_lexer::Error;
+
+    enum dynamic_bsn_lexer::Token {
+        "ident" => dynamic_bsn_lexer::Token::Ident(<String>),
+        "string_lit" => dynamic_bsn_lexer::Token::StringLit(<String>),
+        "float_lit" => dynamic_bsn_lexer::Token::FloatLit(<f64>),
+        "bool_lit" => dynamic_bsn_lexer::Token::BoolLit(<bool>),
+        "int_lit" => dynamic_bsn_lexer::Token::IntLit(<i128>),
+        "[" => dynamic_bsn_lexer::Token::LBracket,
+        "]" => dynamic_bsn_lexer::Token::RBracket,
+        "(" => dynamic_bsn_lexer::Token::LParen,
+        ")" => dynamic_bsn_lexer::Token::RParen,
+        "{" => dynamic_bsn_lexer::Token::LBrace,
+        "}" => dynamic_bsn_lexer::Token::RBrace,
+        "," => dynamic_bsn_lexer::Token::Comma,
+        ":" => dynamic_bsn_lexer::Token::Colon,
+        "#" => dynamic_bsn_lexer::Token::Hash,
+        "@" => dynamic_bsn_lexer::Token::At,
+        "::" => dynamic_bsn_lexer::Token::DoubleColon,
+    }
+}

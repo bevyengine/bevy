@@ -1,7 +1,9 @@
 //! Provides shadow cascade configuration and construction helpers.
 
 use bevy_camera::{Camera, Projection};
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{
+    entity::EntityHashMap, prelude::*, reflect::ReflectTemplate, template::TemplateContext,
+};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -56,6 +58,8 @@ fn calculate_cascade_bounds(
 }
 
 /// Builder for [`CascadeShadowConfig`].
+#[derive(Reflect)]
+#[reflect(Default, Template)]
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
     /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
@@ -160,6 +164,24 @@ impl Default for CascadeShadowConfigBuilder {
 impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     fn from(builder: CascadeShadowConfigBuilder) -> Self {
         builder.build()
+    }
+}
+
+impl Template for CascadeShadowConfigBuilder {
+    type Output = CascadeShadowConfig;
+
+    fn build_template(&self, _: &mut TemplateContext) -> Result<Self::Output> {
+        Ok(self.build())
+    }
+
+    fn clone_template(&self) -> Self {
+        Self {
+            num_cascades: self.num_cascades,
+            minimum_distance: self.minimum_distance,
+            maximum_distance: self.maximum_distance,
+            first_cascade_far_bound: self.first_cascade_far_bound,
+            overlap_proportion: self.overlap_proportion,
+        }
     }
 }
 

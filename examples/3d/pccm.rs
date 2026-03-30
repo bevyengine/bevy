@@ -141,7 +141,7 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map,
             specular_map,
             intensity: ENVIRONMENT_MAP_INTENSITY,
-            ..default()
+            ..EnvironmentMapLight::default()
         },
         // HACK: slightly larger than 10.0 to avoid z-fighting from the outer cube
         // faces being partially inside and partially outside the light probe influence

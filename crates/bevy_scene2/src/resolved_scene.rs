@@ -111,7 +111,7 @@ pub struct ResolvedScene {
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
     // PERF: special casing Children might make sense here to avoid hashing
-    related: TypeIdMap<RelatedResolvedScenes>,
+    pub related: TypeIdMap<RelatedResolvedScenes>,
     /// The inherited [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
     inherited: Option<Handle<ScenePatch>>,
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
@@ -216,14 +216,6 @@ impl ResolvedScene {
         Ok(())
     }
 
-    /// This will get the [`Template`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
-    /// it will use [`Default`] to create a new [`Template`].
-    ///
-    /// This uses "copy-on-write" behavior for inherited scenes. If a [`Template`] that the inherited scene has is requested, it will be
-    /// cloned (using [`Template::clone_template`]), added to the current [`ResolvedScene`], and returned.
-    ///
-    /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
-    /// [`Template`] for a given [`TypeId`].
     pub fn get_or_insert_template<
         'a,
         T: Template<Output: Bundle> + Default + Send + Sync + 'static,
@@ -232,6 +224,7 @@ impl ResolvedScene {
         context: &mut ResolveContext,
     ) -> &'a mut T {
         self.get_or_insert_erased_template(context, TypeId::of::<T>(), || Box::new(T::default()))
+            .as_any_mut()
             .downcast_mut()
             .unwrap()
     }
@@ -245,12 +238,15 @@ impl ResolvedScene {
     ///
     /// This will ignore [`Template`]s added to this scene using [`ResolvedScene::push_template`], as these are not registered as the "canonical"
     /// [`Template`] for a given [`TypeId`].
-    pub fn get_or_insert_erased_template<'a>(
+    pub fn get_or_insert_erased_template<'a, F>(
         &'a mut self,
         context: &mut ResolveContext,
         type_id: TypeId,
-        default: fn() -> Box<dyn ErasedTemplate>,
-    ) -> &'a mut dyn ErasedTemplate {
+        default: F,
+    ) -> &'a mut dyn ErasedTemplate
+    where
+        F: Fn() -> Box<dyn ErasedTemplate>,
+    {
         self.internal_get_or_insert_template_with(type_id, || {
             if let Some(inherited_scene) = context.inherited
                 && let Some(resolved_inherited) = &inherited_scene.resolved

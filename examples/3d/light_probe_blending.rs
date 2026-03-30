@@ -324,7 +324,7 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load(get_web_asset_url("diffuse_room1.ktx2")),
             specular_map: asset_server.load(get_web_asset_url("specular_room1.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
-            ..default()
+            ..EnvironmentMapLight::default()
         },
         Transform::from_scale(vec3(1.0, -1.0, 1.0) * LIGHT_PROBE_SIDE_LENGTH)
             .with_rotation(Quat::from_rotation_x(PI)),
@@ -340,7 +340,7 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load(get_web_asset_url("diffuse_room2.ktx2")),
             specular_map: asset_server.load(get_web_asset_url("specular_room2.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
-            ..default()
+            ..EnvironmentMapLight::default()
         },
         Transform::from_scale(vec3(1.0, -1.0, 1.0) * LIGHT_PROBE_SIDE_LENGTH)
             .with_rotation(Quat::from_rotation_x(PI))
