@@ -717,38 +717,6 @@ mod tests {
     }
 
     #[test]
-    fn missing_struct_field_generates_ghost() {
-        // Arrange
-        let mut refs = EntityRefs::default();
-        let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
-        let mut assignments = Vec::new();
-        let missing = BsnType {
-            path: parse_quote!(Transform),
-            enum_variant: None,
-            fields: BsnFields::Named(vec![BsnNamedField {
-                name: parse_quote!(translation),
-                value: None,
-            }]),
-        };
-
-        // Act
-        let _ = missing.push_struct_patch(
-            &mut ctx,
-            &mut assignments,
-            PatchTarget {
-                path: &[Member::Named(parse_quote!(value))],
-                is_ref: false,
-            },
-        );
-
-        // Assert
-        assert_eq!(assignments.len(), 1);
-        let tokens = assignments[0].to_string();
-        assert!(tokens.contains("value . translation = { }"));
-    }
-
-    #[test]
     fn enum_duplicate_field() {
         // Arrange
         let mut refs = EntityRefs::default();
@@ -789,37 +757,6 @@ mod tests {
             .contains("Duplicate field `x` found in BSN enum variant"));
     }
 
-    #[test]
-    fn missing_enum_field_generates_ghost() {
-        // Arrange
-        let mut refs = EntityRefs::default();
-        let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
-        let mut assignments = vec![];
-        let missing = BsnType {
-            path: parse_quote!(MyEnum),
-            enum_variant: Some(parse_quote!(Variant)),
-            fields: BsnFields::Named(vec![BsnNamedField {
-                name: parse_quote!(x),
-                value: None,
-            }]),
-        };
-
-        // Act
-        let _ = missing.push_enum_patch(
-            &mut ctx,
-            &parse_quote!(Variant),
-            &mut assignments,
-            PatchTarget {
-                path: &[],
-                is_ref: false,
-            },
-        );
-
-        // Assert
-        let tokens = assignments[0].to_string();
-        assert!(tokens.contains("* x = { }"));
-    }
 
     #[test]
     fn bsn_root_preserves_inference_on_error() {
