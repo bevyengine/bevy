@@ -253,8 +253,6 @@ fn position_popover(
                 + parent_matrix.inverse() * physical_translation)
                 / computed_target.scale_factor();
             let ui_translation = Val2::px(logical_translation.x, logical_translation.y);
-
-            //visibility.set_if_neq(Visibility::Visible);
             if transform.translation != ui_translation {
                 transform.translation = ui_translation;
             }
