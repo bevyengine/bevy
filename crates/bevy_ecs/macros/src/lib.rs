@@ -9,6 +9,8 @@ mod event;
 mod message;
 mod query_data;
 mod query_filter;
+mod template;
+mod variant_defaults;
 mod world_query;
 
 use crate::{
@@ -774,4 +776,16 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 }
             }
     })
+}
+
+/// Derives `FromTemplate`.
+#[proc_macro_derive(FromTemplate, attributes(template, default))]
+pub fn derive_from_template(input: TokenStream) -> TokenStream {
+    template::derive_from_template(input)
+}
+
+/// Derives `VariantDefaults`.
+#[proc_macro_derive(VariantDefaults)]
+pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
+    variant_defaults::derive_variant_defaults(input)
 }

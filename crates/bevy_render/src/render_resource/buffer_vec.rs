@@ -551,8 +551,6 @@ where
         let element_size = u64::from(T::min_size()) as usize;
         let offset = self.data.len();
 
-        // `extend` does not optimize for reallocation. Related `trusted_len` feature is unstable.
-        self.data.reserve(self.data.len() + element_size);
         // We can't optimize and push uninitialized data here (using e.g. spare_capacity_mut())
         // because write_into() does not initialize inner padding bytes in T's expansion
         self.data.extend(iter::repeat_n(0, element_size));
