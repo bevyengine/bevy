@@ -50,28 +50,28 @@ mod fmt_tests {
         r#"{
             #Name
     Node {
-                width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-            align_items: AlignItems::Center,
+                width: Val:: Percent(100.0 ) ,
+                    height: Val ::Percent (100.0 ),
+            align_items: AlignItems:: Center,
             justify_content: JustifyContent::Center,
             column_gap: Val::Px(5.),
         }
-        Children [
-            (
-                    button("Ok")
-                on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
-            ),
-            (
+Children [
+    (
+            button("Ok")
+        on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+    ),
+    (
 
 
-                button("Cancel")
-                on(|_event: On<Pointer<Press>>| {
-                            let hello = "nested";
-                println!("Cancel pressed!")
-                })
-                BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-                ),
-        ]
+         button ("Cancel")
+        on(|_event: On< Pointer < Press> >| {
+                    let hello = "nested";
+        println!("Cancel pressed!")
+        })
+        BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
+        ),
+]
     }"#,
         r#"
     #Name
@@ -107,13 +107,13 @@ mod fmt_tests {
             #Button
         Button
         Node {
-        width: Val::Px(150.0),
-                height: Val::Px(65.0),
-                     border: UiRect::all(Val::Px(5.0)),
-                        border_radius: BorderRadius::MAX,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-        }
+    width: Val:: Px ( 150.0),
+            height: Val ::Px(65.0),
+                 border : UiRect::all(Val::Px(5.0)),
+                    border_radius: BorderRadius::MAX,
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+    }
         BorderColor::from(Color::BLACK)
             BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
             Children [(
@@ -168,10 +168,10 @@ mod fmt_tests {
         BsnRoot,
         r#"{
             : "scenes/player.bsn"
-            @Transform {
-                translation: Vec3::new(0.0, 1.0, 0.0),
-                    rotation: Quat::IDENTITY,
-            }
+    @Transform {
+        translation: Vec3:: new (0.0, 1.0, 0.0),
+            rotation: Quat::IDENTITY,
+    }
             @Sprite::default()
                 @Visibility::Visible
                     #my_entity
@@ -208,15 +208,16 @@ mod fmt_tests {
         BsnRoot,
         r#"{
             Node {
-                    width: Val::Percent(100.0),
+                    width: Val ::
+                    Percent(100.0),
             }
-            Children [
-                (
-                    : "ui/button.bsn"
-                            @BackgroundColor(Color::BLUE)
-                            @Node {
-                        margin: UiRect::all(Val::Px(10.0)),
-            }
+    Children [
+        (
+            : "ui/button.bsn"
+                    @BackgroundColor(Color::BLUE)
+                    @Node {
+                margin: UiRect::all(Val::Px(10.0)),
+    }
                 ),
             ]
         }"#,
