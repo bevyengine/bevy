@@ -560,8 +560,7 @@ mod color_consistency {
 
     use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 
-    // The sRGB value from issue #23577: 0.1 * 255 = 25.5 exactly in 8-bit space,
-    // so inconsistent rounding shows up as a 1-step difference.
+    // We've chosen the sRGB value from issue #23577, in case it can be reproduced elsewhere.
     const TEST_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
     const DEFAULT_WIDTH: f32 = 1280.0;
     const DEFAULT_HEIGHT: f32 = 720.0;
