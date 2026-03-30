@@ -15,10 +15,6 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
-    render::{
-        settings::{Backends, InstanceFlags, RenderCreation, WgpuSettings},
-        RenderPlugin,
-    },
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
@@ -33,7 +29,6 @@ mod settings;
 
 #[cfg(feature = "traffic")]
 mod traffic;
-
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -50,31 +45,28 @@ pub struct Args {
     #[argh(switch)]
     no_cpu_culling: bool,
 
-    /// forces Vulkan backend and clears instance flags for RenderDoc capture
-    #[argh(switch)]
-    renderdoc: bool,
+    // forces Vulkan backend and clears instance flags for RenderDoc capture
+    //#[argh(switch)]
+    //renderdoc: bool,
 }
 
 fn main() {
     let args: Args = argh::from_env();
 
-
     App::new()
         .add_plugins((
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "bevy_city".into(),
-                        resolution: WindowResolution::new(1920, 1080)
-                            .with_scale_factor_override(1.0),
-                        present_mode: PresentMode::AutoNoVsync,
-                        position: WindowPosition::Centered(MonitorSelection::Primary),
-                        ..default()
-                    }),
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "bevy_city".into(),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    present_mode: PresentMode::AutoNoVsync,
+                    position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
+                ..default()
+            }),
             #[cfg(feature = "traffic")]
-            traffic_light::TrafficLightPlugin,    
+            traffic::TrafficPlugin,
             FreeCameraPlugin,
             FeathersPlugins,
             WireframePlugin::default(),
@@ -249,6 +241,29 @@ struct Car {
     offset: Vec3,
     distance_traveled: f32,
     dir: f32,
+    #[cfg(feature = "traffic")]
+    car_state: CarState,
+    #[cfg(feature = "traffic")]
+    car_at_stop_state: CarAtStopState,
+    #[cfg(feature = "traffic")]
+    next_lane: Option<Entity>,
+}
+
+#[cfg(feature = "traffic")]
+pub enum CarState {
+    Accelerating,
+    Driving,
+    Breaking,
+    Stopped,
+}
+
+#[cfg(feature = "traffic")]
+pub enum CarAtStopState {
+    Default,
+    WaitForIntersection,
+    MoveOnIntersection,
+    WaitProtectedIntersection,
+    MoveOnProtectedIntersection,
 }
 
 fn simulate_cars(
