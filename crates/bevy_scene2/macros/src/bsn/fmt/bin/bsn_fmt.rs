@@ -134,7 +134,6 @@ fn main() {
             );
 
             let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
-
             for group in diff.grouped_ops(3) {
                 for op in group {
                     for change in diff.iter_inline_changes(&op) {
@@ -160,6 +159,6 @@ fn main() {
             }
             println!("--------------------------------------------------");
         }
-        println!("\nRun with \x1b[1m--write\x1b[0m to apply these changes in-place.");
+        println!("\nRun with \x1b[1m--write\x1b[0m to apply changes.");
     }
 }
