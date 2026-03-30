@@ -2483,7 +2483,7 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
 
         // We use the *representative entity* as the key for the later loop to
         // find the `BatchSetBinUnpackingMetadata`, because it's a unique value
-        // that can fetched from the `BinnedRenderPhaseBatchSet`.
+        // that can be fetched from the `BinnedRenderPhaseBatchSet`.
         let mut representative_entity_to_batch_set_bin_unpacking_metadata =
             MainEntityHashMap::default();
 
