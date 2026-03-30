@@ -607,7 +607,7 @@ mod color_consistency {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(0.0),
                 left: Val::Px(0.0),
-                width: Val::Percent(100.0),
+                width: Val::Percent(33.3),
                 height: Val::Px(STRIP_HEIGHT),
                 ..default()
             },
