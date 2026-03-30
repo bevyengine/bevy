@@ -1176,12 +1176,7 @@ pub fn prepare_view_targets(
             });
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(
-                a.clone(),
-                sampled.clone(),
-                None,
-                converted_clear_color,
-            ),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
             b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
