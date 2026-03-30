@@ -46,7 +46,10 @@ pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
+    /// Set of schedule labels that have been removed to execute in [`World::try_schedule_scope`].
     temporarily_removed: HashSet<InternedScheduleLabel>,
+    /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`],
+    /// but have no associated [`Schedule`] in `inner`
     empty_labels: HashSet<InternedScheduleLabel>,
 }
 
