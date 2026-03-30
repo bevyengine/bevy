@@ -1010,6 +1010,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multiple_text_inputs"
+path = "examples/ui/text/mutiple_text_inputs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiple_text_inputs]
+name = "Multiple Text Inputs"
+description = "Demonstrates multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
