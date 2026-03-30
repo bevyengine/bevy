@@ -96,7 +96,7 @@ impl Clone for Popover {
 }
 
 fn position_popover(
-    mut popover_query: Query<(
+    mut q_popover: Query<(
         Entity,
         &mut Node,
         &mut UiTransform,
@@ -106,11 +106,11 @@ fn position_popover(
         &Popover,
         &ChildOf,
     )>,
-    mut transform_queries: ParamSet<(
+    mut qs_transform: ParamSet<(
         Query<(&ComputedNode, &UiGlobalTransform), Without<Popover>>,
         Query<&mut UiGlobalTransform, Without<Popover>>,
     )>,
-    children_query: Query<&Children>,
+    q_children: Query<&Children>,
 ) {
     for (
         popover_entity,
@@ -121,7 +121,7 @@ fn position_popover(
         computed_target,
         popover,
         parent,
-    ) in popover_query.iter_mut()
+    ) in q_popover.iter_mut()
     {
         // A rectangle which represents the area of the window.
         let window_rect = Rect {
@@ -131,7 +131,7 @@ fn position_popover(
         .inflate(-popover.window_margin);
 
         // Compute the parent rectangle.
-        let q_parent = transform_queries.p0();
+        let q_parent = qs_transform.p0();
         let Ok((parent_node, parent_transform)) = q_parent.get(parent.parent()) else {
             continue;
         };
@@ -267,13 +267,13 @@ fn position_popover(
                 affine.translation += physical_translation;
                 *ui_global_transform = affine.into();
 
-                if let Ok(children) = children_query.get(popover_entity) {
+                if let Ok(children) = q_children.get(popover_entity) {
                     for child in children.iter() {
                         translate_ui_children_recursive(
                             *child,
                             physical_translation,
-                            &children_query,
-                            &mut transform_queries.p1(),
+                            &q_children,
+                            &mut qs_transform.p1(),
                         );
                     }
                 }
