@@ -285,24 +285,19 @@ fn position_popover(
 fn translate_ui_children_recursive(
     entity: Entity,
     translation: Vec2,
-    children_query: &Query<&Children>,
-    ui_global_transform_query: &mut Query<&mut UiGlobalTransform, Without<Popover>>,
+    q_children: &Query<&Children>,
+    q_transform: &mut Query<&mut UiGlobalTransform, Without<Popover>>,
 ) {
-    let Ok(mut ui_global_transform) = ui_global_transform_query.get_mut(entity) else {
+    let Ok(mut ui_global_transform) = q_transform.get_mut(entity) else {
         return;
     };
 
     *ui_global_transform =
         (ui_global_transform.affine() * Affine2::from_translation(translation)).into();
 
-    if let Ok(children) = children_query.get(entity) {
+    if let Ok(children) = q_children.get(entity) {
         for child in children.iter() {
-            translate_ui_children_recursive(
-                *child,
-                translation,
-                children_query,
-                ui_global_transform_query,
-            );
+            translate_ui_children_recursive(*child, translation, q_children, q_transform);
         }
     }
 }
