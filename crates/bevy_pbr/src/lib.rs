@@ -26,9 +26,10 @@ pub mod experimental {
 
 mod atmosphere;
 mod cluster;
-mod components;
 pub mod contact_shadows;
+#[cfg(feature = "bevy_gltf")]
 mod gltf;
+use bevy_light::cluster::GlobalClusterSettings;
 use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
@@ -60,7 +61,6 @@ pub use atmosphere::*;
 use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
-pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
@@ -95,7 +95,8 @@ pub mod prelude {
     };
 }
 
-use crate::deferred::DeferredPbrLightingPlugin;
+use crate::gpu::GpuClusteringPlugin;
+use crate::{deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_clustering};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
@@ -113,7 +114,8 @@ use bevy_render::{
         TextureUsages,
     },
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
+    RenderSystems,
 };
 
 use std::path::PathBuf;
@@ -222,8 +224,13 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight, Self>::default(),
                 SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
-            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
+            .add_plugins((
+                ScatteringMediumPlugin,
+                AtmospherePlugin,
+                GpuClusteringPlugin,
+            ));
 
+        #[cfg(feature = "bevy_gltf")]
         if self.gltf_enable_standard_materials {
             gltf::add_gltf(app);
         }
@@ -291,7 +298,15 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_clusters,
+                    extract_clusters_for_cpu_clustering
+                        .run_if(not(gpu_clustering_is_enabled_during_extraction)),
+                    extract_clusters_for_gpu_clustering
+                        .run_if(gpu_clustering_is_enabled_during_extraction),
+                ),
+            )
+            .add_systems(
+                ExtractSchedule,
+                (
                     extract_lights,
                     extract_ambient_light_resource,
                     extract_ambient_light,
@@ -305,11 +320,17 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
-                    prepare_clusters.in_set(RenderSystems::PrepareResources),
+                    prepare_clusters_for_cpu_clustering
+                        .in_set(RenderSystems::PrepareResources)
+                        .run_if(
+                            |global_cluster_settings: Res<GlobalClusterSettings>| -> bool {
+                                global_cluster_settings.gpu_clustering.is_none()
+                            },
+                        ),
                 ),
             )
-            .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>()
+            .init_gpu_resource::<LightMeta>()
+            .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
@@ -367,17 +388,17 @@ pub fn stbn_placeholder() -> Image {
 }
 
 impl SyncComponent<PbrPlugin> for DirectionalLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for PointLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
-    type Out = Self;
+    type Target = Self;
 }

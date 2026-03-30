@@ -63,7 +63,7 @@ ron = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-uuid = { version = "1.13.1", default-features = false, features = [
+uuid = { version = "1.21.0", default-features = false, features = [
   "v4",
   "serde",
 ] }
@@ -85,7 +85,7 @@ web-sys = { version = "0.3", features = [
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+uuid = { version = "1.21.0", default-features = false, features = ["js"] }
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
@@ -103,5 +103,9 @@ blocking = { version = "1.6", optional = true }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

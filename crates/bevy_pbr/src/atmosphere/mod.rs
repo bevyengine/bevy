@@ -65,7 +65,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 
 use bevy_shader::load_shader_library;
@@ -155,11 +155,11 @@ impl Plugin for AtmospherePlugin {
 
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
-            .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSampler>()
-            .init_resource::<AtmosphereLutPipelines>()
-            .init_resource::<AtmosphereTransforms>()
-            .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .init_gpu_resource::<RenderSkyBindGroupLayouts>()
+            .init_gpu_resource::<AtmosphereSampler>()
+            .init_gpu_resource::<AtmosphereLutPipelines>()
+            .init_gpu_resource::<AtmosphereTransforms>()
+            .init_gpu_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
                 (
@@ -373,12 +373,13 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
 }
 
 impl SyncComponent for GpuAtmosphereSettings {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone().into())

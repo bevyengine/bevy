@@ -1,8 +1,3 @@
-#![expect(
-    unused_assignments,
-    reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
-)]
-
 use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
@@ -47,7 +42,7 @@ impl Content {
             .ancestors()
             .nth(3)
             .ok_or(diagnostic!("failed to determine path to repo root"))?
-            .join("release-content");
+            .join("_release-content");
 
         let release_notes_dir = content_dir.join("release-notes");
         let release_notes = load_content(release_notes_dir, "release note")?;

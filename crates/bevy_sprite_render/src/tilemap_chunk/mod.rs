@@ -26,6 +26,10 @@ mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
 
+mod tile_orientation;
+
+pub use tile_orientation::*;
+
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
 pub struct TilemapChunkPlugin;
@@ -95,6 +99,8 @@ pub struct TileData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileData {
@@ -113,6 +119,7 @@ impl Default for TileData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }

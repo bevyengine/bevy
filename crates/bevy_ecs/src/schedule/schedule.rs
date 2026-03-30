@@ -46,6 +46,11 @@ pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
+    /// Set of schedule labels that have been removed to execute in [`World::try_schedule_scope`].
+    temporarily_removed: HashSet<InternedScheduleLabel>,
+    /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`],
+    /// but have no associated [`Schedule`] in `inner`
+    empty_labels: HashSet<InternedScheduleLabel>,
 }
 
 impl Schedules {
@@ -59,6 +64,18 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
+        self.temporarily_removed.remove(&schedule.label);
+        // error if above is true
+        self.inner.insert(schedule.label, schedule)
+    }
+
+    /// Inserts a labeled schedule into the map.
+    ///
+    /// If the map already had an entry for `label`, `schedule` is inserted,
+    /// and the old schedule is returned. Otherwise, `None` is returned.
+    pub fn reinsert(&mut self, schedule: Schedule) -> Option<Schedule> {
+        self.temporarily_removed.remove(&schedule.label);
+        // error if above false
         self.inner.insert(schedule.label, schedule)
     }
 
@@ -67,12 +84,36 @@ impl Schedules {
         self.inner.remove(&label.intern())
     }
 
+    /// Removes the schedule corresponding to the `label` from the map, returning it if it existed, tracks.
+    pub fn remove_temporarily(&mut self, label: impl ScheduleLabel) -> Option<Schedule> {
+        let label = label.intern();
+        let k = self.inner.remove(&label);
+        if k.is_some() {
+            self.temporarily_removed.insert(label);
+            // error if above false
+            self.empty_labels.remove(&label);
+        } else {
+            self.empty_labels.insert(label);
+        }
+        k
+    }
+
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
     pub fn remove_entry(
         &mut self,
         label: impl ScheduleLabel,
     ) -> Option<(InternedScheduleLabel, Schedule)> {
         self.inner.remove_entry(&label.intern())
+    }
+
+    /// Gets a set of temporarily removed schedules
+    pub fn get_temporarily_removed(&self) -> HashSet<InternedScheduleLabel> {
+        self.temporarily_removed.clone()
+    }
+
+    /// Gets a set of empty schedule labels
+    pub fn get_empty_labels(&self) -> HashSet<InternedScheduleLabel> {
+        self.empty_labels.clone()
     }
 
     /// Does a schedule with the provided label already exist?
@@ -235,14 +276,6 @@ impl Schedules {
     }
 }
 
-fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
-    match kind {
-        ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
-        #[cfg(feature = "std")]
-        ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
-    }
-}
-
 /// Chain systems into dependencies
 #[derive(Default)]
 pub enum Chain {
@@ -374,7 +407,7 @@ impl Schedule {
             label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
-            executor: make_executor(ExecutorKind::default()),
+            executor: default_executor(),
             executor_initialized: false,
             warnings: Vec::new(),
         };
@@ -503,17 +536,10 @@ impl Schedule {
         self.graph.settings.clone()
     }
 
-    /// Returns the schedule's current execution strategy.
-    pub fn get_executor_kind(&self) -> ExecutorKind {
-        self.executor.kind()
-    }
-
-    /// Sets the schedule's execution strategy.
-    pub fn set_executor_kind(&mut self, executor: ExecutorKind) -> &mut Self {
-        if executor != self.executor.kind() {
-            self.executor = make_executor(executor);
-            self.executor_initialized = false;
-        }
+    /// Replaces the schedule's executor.
+    pub fn set_executor(&mut self, executor: impl SystemExecutor + 'static) -> &mut Self {
+        self.executor = Box::new(executor);
+        self.executor_initialized = false;
         self
     }
 

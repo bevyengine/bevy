@@ -47,7 +47,6 @@ impl Measure for NodeMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
-
             NodeMeasure::Text(text) => text.measure(measure_args, style),
             NodeMeasure::Image(image) => image.measure(measure_args, style),
             NodeMeasure::Custom(custom) => custom.measure(measure_args, style),
@@ -82,6 +81,11 @@ impl ContentSize {
     /// Set a `Measure` for the UI node entity with this component
     pub fn set(&mut self, measure: NodeMeasure) {
         self.measure = Some(measure);
+    }
+
+    /// Clear the current `Measure` for this UI node.
+    pub fn clear(&mut self) {
+        self.measure = None;
     }
 
     /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.

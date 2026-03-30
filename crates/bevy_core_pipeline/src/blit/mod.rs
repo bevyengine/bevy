@@ -9,7 +9,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    RenderApp, RenderStartup,
+    GpuResourceAppExt, RenderApp, RenderStartup,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -27,7 +27,7 @@ impl Plugin for BlitPlugin {
 
         render_app
             .allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<BlitPipeline>>()
             .add_systems(RenderStartup, init_blit_pipeline);
     }
 }

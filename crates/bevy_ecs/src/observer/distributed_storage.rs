@@ -469,7 +469,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             observer.descriptor.components.extend(components);
 
             let system: &mut dyn Any = observer.system.as_mut();
-            system.downcast_mut::<S>().unwrap() as *mut dyn ObserverSystem<E, B>
+            core::ptr::from_mut(system.downcast_mut::<S>().unwrap())
         };
 
         // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias

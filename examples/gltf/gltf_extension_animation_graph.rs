@@ -3,14 +3,17 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    animation::{AnimationEvent, AnimationTargetId},
     asset::LoadContext,
     ecs::entity::EntityHashSet,
-    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    gltf::extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
     light::CascadeShadowConfigBuilder,
     platform::collections::{HashMap, HashSet},
     prelude::*,
     scene::SceneInstanceReady,
 };
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 /// An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
@@ -23,12 +26,18 @@ fn main() {
             ..default()
         })
         .add_plugins((DefaultPlugins, GltfExtensionHandlerAnimationPlugin))
+        .init_resource::<ParticleAssets>()
         .add_systems(
             Startup,
             (setup_mesh_and_animation, setup_camera_and_environment),
         )
+        .add_systems(Update, simulate_particles)
+        .add_observer(observe_on_step)
         .run();
 }
+
+#[derive(Resource)]
+struct SeededRng(ChaCha8Rng);
 
 /// A component that stores a reference to an animation we want to play. This is
 /// created when we start loading the mesh (see `setup_mesh_and_animation`) and
@@ -108,6 +117,11 @@ fn setup_camera_and_environment(
         }
         .build(),
     ));
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
+    commands.insert_resource(SeededRng(seeded_rng));
 }
 
 struct GltfExtensionHandlerAnimationPlugin;
@@ -140,14 +154,77 @@ struct GltfExtensionHandlerAnimation {
 }
 
 impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 
     #[cfg(feature = "bevy_animation")]
-    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {
-        if gltf_animation.name().is_some_and(|v| v == "Walk") {
-            self.clip = Some(handle.clone());
+    fn on_animation(
+        &mut self,
+        _load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    ) {
+        if gltf_animation.name().is_some_and(|v| v == "Run") {
+            let hip_node = ["root", "_rootJoint", "b_Root_00", "b_Hip_01"];
+            let front_left_foot = hip_node.iter().chain(
+                [
+                    "b_Spine01_02",
+                    "b_Spine02_03",
+                    "b_LeftUpperArm_09",
+                    "b_LeftForeArm_010",
+                    "b_LeftHand_011",
+                ]
+                .iter(),
+            );
+            let front_right_foot = hip_node.iter().chain(
+                [
+                    "b_Spine01_02",
+                    "b_Spine02_03",
+                    "b_RightUpperArm_06",
+                    "b_RightForeArm_07",
+                    "b_RightHand_08",
+                ]
+                .iter(),
+            );
+            let back_left_foot = hip_node.iter().chain(
+                [
+                    "b_LeftLeg01_015",
+                    "b_LeftLeg02_016",
+                    "b_LeftFoot01_017",
+                    "b_LeftFoot02_018",
+                ]
+                .iter(),
+            );
+            let back_right_foot = hip_node.iter().chain(
+                [
+                    "b_RightLeg01_019",
+                    "b_RightLeg02_020",
+                    "b_RightFoot01_021",
+                    "b_RightFoot02_022",
+                ]
+                .iter(),
+            );
+            animation_clip.add_event_to_target(
+                AnimationTargetId::from_iter(front_left_foot),
+                0.625,
+                Step,
+            );
+            animation_clip.add_event_to_target(
+                AnimationTargetId::from_iter(front_right_foot),
+                0.5,
+                Step,
+            );
+            animation_clip.add_event_to_target(
+                AnimationTargetId::from_iter(back_left_foot),
+                0.0,
+                Step,
+            );
+            animation_clip.add_event_to_target(
+                AnimationTargetId::from_iter(back_right_foot),
+                0.125,
+                Step,
+            );
         }
     }
     #[cfg(feature = "bevy_animation")]
@@ -155,10 +232,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         &mut self,
         _load_context: &mut LoadContext<'_>,
         _animations: &[Handle<AnimationClip>],
-        _named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
+        named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
         animation_roots: &HashSet<usize>,
     ) {
         self.animation_root_indices = animation_roots.clone();
+
+        if let Some(handle) = named_animations.get("Run") {
+            self.clip = Some(handle.clone());
+        }
     }
 
     fn on_gltf_node(
@@ -197,4 +278,86 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         let mut entity = world.entity_mut(*self.animation_root_entities.iter().next().unwrap());
         entity.insert(animation_to_play);
     }
+}
+
+fn simulate_particles(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut Particle)>,
+    time: Res<Time>,
+) {
+    for (entity, mut transform, mut particle) in &mut query {
+        if particle.lifetime_timer.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn();
+            return;
+        }
+
+        transform.translation += particle.velocity * time.delta_secs();
+        transform.scale = Vec3::splat(particle.size.lerp(0.0, particle.lifetime_timer.fraction()));
+        particle
+            .velocity
+            .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_secs());
+    }
+}
+
+#[derive(Component)]
+struct Particle {
+    lifetime_timer: Timer,
+    size: f32,
+    velocity: Vec3,
+}
+
+#[derive(Resource)]
+struct ParticleAssets {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for ParticleAssets {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            mesh: world.add_asset::<Mesh>(Sphere::new(10.0)),
+            material: world.add_asset::<StandardMaterial>(StandardMaterial {
+                base_color: Color::WHITE,
+                ..Default::default()
+            }),
+        }
+    }
+}
+
+#[derive(AnimationEvent, Reflect, Clone)]
+struct Step;
+
+fn observe_on_step(
+    step: On<Step>,
+    particle: Res<ParticleAssets>,
+    mut commands: Commands,
+    transforms: Query<&GlobalTransform>,
+    mut seeded_rng: ResMut<SeededRng>,
+) -> Result {
+    let translation = transforms.get(step.trigger().target)?.translation();
+    // Spawn a bunch of particles.
+    for _ in 0..14 {
+        let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);
+        let vertical = seeded_rng.0.random_range(0.0..4.0);
+        let size = seeded_rng.0.random_range(0.2..1.0);
+
+        commands.spawn((
+            Particle {
+                lifetime_timer: Timer::from_seconds(
+                    seeded_rng.0.random_range(0.2..0.6),
+                    TimerMode::Once,
+                ),
+                size,
+                velocity: Vec3::new(horizontal.x, vertical, horizontal.y) * 10.0,
+            },
+            Mesh3d(particle.mesh.clone()),
+            MeshMaterial3d(particle.material.clone()),
+            Transform {
+                translation,
+                scale: Vec3::splat(size),
+                ..Default::default()
+            },
+        ));
+    }
+    Ok(())
 }

@@ -282,9 +282,9 @@ impl AssetServer {
                 };
             };
 
-            let mut extensions = vec![full_extension.clone()];
+            let mut extensions = vec![full_extension.to_string()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
+                AssetPath::iter_secondary_extensions(full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
@@ -368,6 +368,16 @@ impl AssetServer {
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None, (), true)
+    }
+
+    /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
+    /// `type_id`.
+    pub fn load_erased<'a>(
+        &self,
+        type_id: TypeId,
+        path: impl Into<AssetPath<'a>>,
+    ) -> UntypedHandle {
+        self.load_erased_with_meta_transform(path, type_id, None, ())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -838,8 +848,9 @@ impl AssetServer {
         {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
-                    match loaded_asset.labeled_assets.get(&label) {
+                    match loaded_asset.label_to_asset_index.get(&label) {
                         Some(labeled_asset) => {
+                            let labeled_asset = &loaded_asset.labeled_assets[*labeled_asset];
                             // If we know the requested type then check it
                             // matches the labeled asset.
                             if let Some(asset_id) = asset_id
@@ -862,7 +873,7 @@ impl AssetServer {
                         }
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
-                                .labeled_assets
+                                .label_to_asset_index
                                 .keys()
                                 .map(|s| (**s).to_owned())
                                 .collect();

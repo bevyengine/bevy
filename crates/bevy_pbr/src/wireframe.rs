@@ -1,10 +1,11 @@
 use crate::{
+    collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
-    ViewKeyCache, ViewSpecializationTicks,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
+    SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
-use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
@@ -14,10 +15,9 @@ use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::Tick,
     prelude::*,
     query::ROQueryItem,
-    system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
+    system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
@@ -30,10 +30,12 @@ use bevy_render::{
         GpuPreprocessingMode, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
         IndirectParametersNonIndexed,
     },
-    camera::{extract_cameras, ExtractedCamera},
+    camera::{
+        DirtySpecializationSystems, DirtyWireframeSpecializations, ExtractedCamera, PendingQueues,
+    },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, SlabId},
+        allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -53,7 +55,7 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
@@ -91,6 +93,7 @@ impl Plugin for WireframePlugin {
             RenderAssetPlugin::<RenderWireframeMaterial>::default(),
         ))
         .init_asset::<WireframeMaterial>()
+        .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
@@ -98,7 +101,7 @@ impl Plugin for WireframePlugin {
         .register_type::<WireframeTopology>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
-            Update,
+            PostUpdate,
             (
                 wireframe_config_changed.run_if(resource_changed::<WireframeConfig>),
                 wireframe_color_changed,
@@ -135,30 +138,36 @@ impl Plugin for WireframePlugin {
         // we need storage for vertex pulling in the wide wireframe path
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::STORAGE;
 
         render_app
-            .init_resource::<WireframeEntitySpecializationTicks>()
-            .init_resource::<SpecializedWireframePipelineCache>()
+            .init_gpu_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe3d>>()
             .add_render_command::<Wireframe3d, DrawWireframe3dThin>()
             .add_render_command::<Wireframe3d, DrawWireframe3dWide>()
-            .init_resource::<RenderWireframeInstances>()
-            .init_resource::<WireframeWideBindGroups>()
-            .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .init_gpu_resource::<RenderWireframeInstances>()
+            .init_gpu_resource::<WireframeWideBindGroups>()
+            .init_gpu_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
+            .init_gpu_resource::<PendingWireframeQueues>()
+            .add_systems(
+                RenderStartup,
+                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(
                 Core3d,
                 wireframe_3d
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             )
             .add_systems(
                 ExtractSchedule,
                 (
                     extract_wireframe_3d_camera,
-                    extract_wireframe_entities_needing_specialization.after(extract_cameras),
+                    extract_wireframe_entities_needing_specialization
+                        .in_set(DirtySpecializationSystems::CheckForChanges),
+                    extract_wireframe_entities_that_need_specializations_removed
+                        .in_set(DirtySpecializationSystems::CheckForRemovals),
                     extract_wireframe_materials,
                 ),
             )
@@ -166,9 +175,11 @@ impl Plugin for WireframePlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
-                        .after(prepare_assets::<RenderMesh>),
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
                     prepare_wireframe_wide_bind_groups
                         .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<RenderWireframeMaterial>)
@@ -274,16 +285,14 @@ pub struct Wireframe3dBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
-    /// The ID of the slab of GPU memory that contains vertex data.
-    ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
 
-    /// The ID of the slab of GPU memory that contains index data, if present.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// For the wide wireframe path, the mesh asset ID ensures all draws in one
     /// batch set share the same vertex-pull params uniform. `None` for the thin
@@ -293,7 +302,7 @@ pub struct Wireframe3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -435,7 +444,7 @@ pub fn prepare_wireframe_wide_bind_groups(
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*entity) else {
             continue;
         };
-        let mesh_id = mesh_instance.mesh_asset_id;
+        let mesh_id = mesh_instance.mesh_asset_id();
         if !seen.insert(mesh_id) {
             continue;
         }
@@ -534,7 +543,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dWideBindGroup {
         let Some((bind_group, dynamic_offset)) = wide_bind_groups
             .into_inner()
             .bind_groups
-            .get(&mesh_instance.mesh_asset_id)
+            .get(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -952,15 +961,15 @@ impl RenderAsset for RenderWireframeMaterial {
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct RenderWireframeInstances(MainEntityHashMap<AssetId<WireframeMaterial>>);
 
-#[derive(Clone, Resource, Deref, DerefMut, Debug, Default)]
+/// Temporarily stores entities that were determined to either need their
+/// specialized pipelines for wireframes updated or to have their specialized
+/// pipelines for wireframes removed.
+#[derive(Clone, Resource, Debug, Default)]
 pub struct WireframeEntitiesNeedingSpecialization {
-    #[deref]
-    pub entities: Vec<Entity>,
-}
-
-#[derive(Resource, Deref, DerefMut, Clone, Debug, Default)]
-pub struct WireframeEntitySpecializationTicks {
-    pub entities: MainEntityHashMap<Tick>,
+    /// Entities that need to have their pipelines updated.
+    pub changed: Vec<Entity>,
+    /// Entities that need to have their pipelines removed.
+    pub removed: Vec<Entity>,
 }
 
 #[derive(Resource, Default)]
@@ -973,7 +982,7 @@ pub struct SpecializedWireframePipelineCache {
 pub struct SpecializedWireframeViewPipelineCache {
     // material entity -> (tick, pipeline_id)
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
+    map: MainEntityHashMap<CachedRenderPipelineId>,
 }
 
 #[derive(Resource)]
@@ -1265,29 +1274,34 @@ fn extract_wireframe_3d_camera(
 
 pub fn extract_wireframe_entities_needing_specialization(
     entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
-    mut entity_specialization_ticks: ResMut<WireframeEntitySpecializationTicks>,
-    views: Query<&ExtractedView>,
-    mut specialized_wireframe_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
-    mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    ticks: SystemChangeTick,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
 ) {
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
-    }
-
-    for entity in removed_meshes_query.read() {
-        for view in &views {
-            if let Some(view_cache) = specialized_wireframe_pipeline_cache
-                .views
-                .get_mut(&view.retained_view_entity)
-            {
-                view_cache.remove(&MainEntity::from(entity));
-            }
-        }
+    // Drain the list of entities needing specialization from the main world
+    // into the render-world `DirtySpecializations` table.
+    for entity in entities_needing_specialization.changed.iter() {
+        dirty_wireframe_specializations
+            .changed_renderables
+            .insert(MainEntity::from(*entity));
     }
 }
 
+/// A system that adds entities that were judged to need their wireframe
+/// specializations removed to the appropriate table in
+/// [`DirtyWireframeSpecializations`].
+pub fn extract_wireframe_entities_that_need_specializations_removed(
+    entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
+) {
+    for entity in entities_needing_specialization.removed.iter() {
+        dirty_wireframe_specializations
+            .removed_renderables
+            .insert(MainEntity::from(*entity));
+    }
+}
+
+/// Finds 3D wireframe entities that have changed in such a way as to
+/// potentially require specialization and adds them to the
+/// [`WireframeEntitiesNeedingSpecialization`] list.
 pub fn check_wireframe_entities_needing_specialization(
     needs_specialization: Query<
         Entity,
@@ -1301,12 +1315,35 @@ pub fn check_wireframe_entities_needing_specialization(
         )>,
     >,
     mut entities_needing_specialization: ResMut<WireframeEntitiesNeedingSpecialization>,
+    mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
+    mut removed_mesh_3d_wireframe_components: RemovedComponents<Mesh3dWireframe>,
 ) {
-    entities_needing_specialization.clear();
+    entities_needing_specialization.changed.clear();
+    entities_needing_specialization.removed.clear();
+
+    // Gather all entities that need their specializations regenerated.
     for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
+        entities_needing_specialization.changed.push(entity);
+    }
+
+    // All entities that removed their `Mesh3d` or `Mesh3dWireframe` components
+    // need to have their specializations removed as well.
+    //
+    // It's possible that `Mesh3d` was removed and re-added in the same frame,
+    // but we don't have to handle that situation specially here, because
+    // `specialize_wireframes` processes specialization removals before
+    // additions. So, if the pipeline specialization gets spuriously removed,
+    // it'll just be immediately re-added again, which is harmless.
+    for entity in removed_mesh_3d_components
+        .read()
+        .chain(removed_mesh_3d_wireframe_components.read())
+    {
+        entities_needing_specialization.removed.push(entity);
     }
 }
+
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingWireframeQueues(pub PendingQueues);
 
 pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
@@ -1317,14 +1354,13 @@ pub fn specialize_wireframes(
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
-    view_specialization_ticks: Res<ViewSpecializationTicks>,
+    dirty_wireframe_specializations: Res<DirtyWireframeSpecializations>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe3dPipeline>>,
+    mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     pipeline: Res<Wireframe3dPipeline>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
-    ticks: SystemChangeTick,
 ) {
     let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
@@ -1344,38 +1380,62 @@ pub fn specialize_wireframes(
             continue;
         };
 
-        let view_tick = view_specialization_ticks
-            .get(&view.retained_view_entity)
-            .unwrap();
         let view_specialized_material_pipeline_cache = views_pipeline_cache
             .entry(view.retained_view_entity)
             .or_default();
 
-        for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        // Initialize the pending queues.
+        let view_pending_wireframe_queues =
+            pending_wireframe_queues.prepare_for_new_frame(view.retained_view_entity);
+
+        // Remove cached pipeline IDs corresponding to entities that
+        // either have been removed or need to be respecialized.
+        if dirty_wireframe_specializations
+            .must_wipe_specializations_for_view(view.retained_view_entity)
+        {
+            view_specialized_material_pipeline_cache.clear();
+        } else {
+            for &renderable_entity in dirty_wireframe_specializations.iter_to_despecialize() {
+                view_specialized_material_pipeline_cache.remove(&renderable_entity);
+            }
+        }
+
+        // Now process all wireframe meshes that need to be re-specialized.
+        for (render_entity, visible_entity) in dirty_wireframe_specializations.iter_to_specialize(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_wireframe_queues.prev_frame,
+        ) {
+            if view_specialized_material_pipeline_cache.contains_key(visible_entity) {
+                continue;
+            }
+
             if !render_wireframe_instances.contains_key(visible_entity) {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't loaded
+                // yet. Add the entity to the list of pending wireframes and
+                // bail.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
-            let last_specialized_tick = view_specialized_material_pipeline_cache
-                .get(visible_entity)
-                .map(|(tick, _)| *tick);
-            let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
-            });
-            if !needs_specialization {
-                continue;
-            }
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
@@ -1384,13 +1444,13 @@ pub fn specialize_wireframes(
             if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
                 // If the previous frame have skins or morph targets, note that.
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1453,15 +1513,13 @@ pub fn specialize_wireframes(
                 }
             };
 
-            if pipeline_id == CachedRenderPipelineId::INVALID {
-                continue;
-            }
-
-            view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+            view_specialized_material_pipeline_cache.insert(*visible_entity, pipeline_id);
         }
     }
 
+    pending_wireframe_queues.expire_stale_views(&all_views);
+
+    // Delete specialized pipelines belonging to views that have expired.
     views_pipeline_cache.retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
 }
 
@@ -1472,8 +1530,10 @@ fn queue_wireframes(
     mesh_allocator: Res<MeshAllocator>,
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
+    dirty_wireframe_specializations: Res<DirtyWireframeSpecializations>,
     render_wireframe_assets: Res<RenderAssets<RenderWireframeMaterial>>,
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
+    mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
 ) {
     for (view, visible_entities) in &mut views {
@@ -1491,23 +1551,47 @@ fn queue_wireframes(
             continue;
         };
 
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+        let Some(render_mesh_visible_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        let view_pending_wireframe_queues = pending_wireframe_queues
+            .get_mut(&view.retained_view_entity)
+            .expect(
+                "View pending wireframe queues should have been created in `specialize_wireframes`",
+            );
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_wireframe_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_mesh_visible_entities)
+        {
+            wireframe_phase.remove(main_entity);
+        }
+
+        // Now iterate through all newly-visible entities and those needing respecialization.
+        for (render_entity, visible_entity) in dirty_wireframe_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_mesh_visible_entities,
+            &view_pending_wireframe_queues.prev_frame,
+        ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
             };
-            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+            let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
-                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
+                .copied()
             else {
                 continue;
             };
 
-            // Skip the entity if it's cached in a bin and up to date.
-            if wireframe_phase.validate_cached_entity(*visible_entity, current_change_tick) {
-                continue;
-            }
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't loaded
+                // yet. Add the entity to the list of pending wireframes and
+                // bail.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 
@@ -1517,21 +1601,32 @@ fn queue_wireframes(
                 .unwrap_or(false);
             let draw_function = if is_wide { draw_wide } else { draw_thin };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
+            else {
+                continue;
+            };
             let bin_key = Wireframe3dBinKey {
-                asset_id: mesh_instance.mesh_asset_id.untyped(),
+                asset_id: mesh_instance.mesh_asset_id().untyped(),
             };
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
                 draw_function,
-                vertex_slab: vertex_slab.unwrap_or_default(),
-                // wide wireframes use non-indexed draws (vertex pulling from storage),
-                // so set index_slab to None to make the preprocessor emit
-                // IndirectParametersNonIndexed instead of IndirectParametersIndexed.
-                index_slab: if is_wide { None } else { index_slab },
+                slabs: MeshSlabs {
+                    vertex_slab_id: vertex_slab,
+                    morph_target_slab_id: morph_target_slab,
+                    // wide wireframes use non-indexed draws (vertex pulling
+                    // from storage), so set index_slab to None to make the
+                    // preprocessor emit IndirectParametersNonIndexed instead of
+                    // IndirectParametersIndexed.
+                    index_slab_id: if is_wide { None } else { index_slab },
+                },
                 mesh_asset_id: if is_wide {
-                    Some(mesh_instance.mesh_asset_id.untyped())
+                    Some(mesh_instance.mesh_asset_id().untyped())
                 } else {
                     None
                 },
@@ -1545,7 +1640,6 @@ fn queue_wireframes(
                     mesh_instance.should_batch(),
                     &gpu_preprocessing_support,
                 ),
-                current_change_tick,
             );
         }
     }

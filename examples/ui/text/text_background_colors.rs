@@ -1,7 +1,7 @@
 //! This example demonstrates UI text with a background color
 
 use bevy::{
-    color::palettes::css::{BLUE, GREEN, PURPLE, RED, YELLOW},
+    color::palettes::css::{BLUE, DARK_CYAN, GREEN, PURPLE, RED, YELLOW},
     prelude::*,
 };
 
@@ -41,11 +41,17 @@ fn setup(mut commands: Commands) {
         .with_children(|commands| {
             commands
                 .spawn((
+                    Node {
+                        border: px(5.).all(),
+                        padding: px(10.).all(),
+                        ..Default::default()
+                    },
                     Text::default(),
                     TextLayout {
                         justify: Justify::Center,
                         ..Default::default()
                     },
+                    BorderColor::all(DARK_CYAN),
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
