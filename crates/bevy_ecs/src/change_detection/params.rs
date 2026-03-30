@@ -724,6 +724,9 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
+// `Ref` is `Copy` to facilitate creation of split borrows. Compared to `Res`
+// (which isn't `Copy`), `Ref` is not as widely used so can afford to require
+// `ref.as_ref().clone()` or `ref.deref().clone()` in order to clone the inner `T`.
 impl<'w, T: ?Sized> Copy for Ref<'w, T> {}
 
 impl<'w, T: ?Sized> Clone for Ref<'w, T> {
