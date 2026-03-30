@@ -37,5 +37,5 @@ fmt = [
   "syn/visit",
   "syn/visit-mut",
   "proc-macro2/span-locations",
-  "similar/inline"
+  "similar/inline",
 ]
