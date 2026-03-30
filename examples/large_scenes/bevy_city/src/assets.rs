@@ -1,8 +1,17 @@
-use bevy::{color::palettes::css::WHITE, prelude::*};
+use bevy::prelude::*;
 use rand::RngExt;
+
+const BASE_URL: &str = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
+
+pub fn strip_base_url(path: String) -> String {
+    path.strip_prefix(BASE_URL)
+        .map(|s| s.trim_start_matches('/').to_string())
+        .unwrap_or(path)
+}
 
 #[derive(Resource)]
 pub struct CityAssets {
+    pub untyped_assets: Vec<UntypedHandle>,
     pub cars: Vec<Handle<Scene>>,
     pub crossroad: Handle<Scene>,
     pub road_straight: Handle<Scene>,
@@ -47,7 +56,17 @@ pub fn load_assets(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let base_url = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
+    let base_url = BASE_URL;
+
+    let mut untyped_assets = vec![];
+    /// Wraps asset_server.load_asset to automatically track all the assets that are being loaded
+    macro_rules! load_asset {
+        ($path:expr) => {{
+            let handle = asset_server.load($path);
+            untyped_assets.push(handle.clone().untyped());
+            handle
+        }};
+    }
 
     let cars = {
         // TODO generate color variations
@@ -70,26 +89,23 @@ pub fn load_assets(
         ]
         .iter()
         .map(|t| {
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/car-kit/{t}.glb")))
+            load_asset!(GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/car-kit/{t}.glb")))
         })
         .collect::<Vec<_>>()
     };
 
-    let crossroad = asset_server.load(
-        GltfAssetLabel::Scene(0)
-            .from_asset(format!("{base_url}/city-kit-roads/road-crossroad-path.glb")),
-    );
-    let road_straight = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-roads/road-straight.glb")),
-    );
+    let crossroad = load_asset!(GltfAssetLabel::Scene(0)
+        .from_asset(format!("{base_url}/city-kit-roads/road-crossroad-path.glb")));
+    let road_straight =
+        load_asset!(GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-roads/road-straight.glb")));
 
     let high_density = {
         let materials = ["colormap", "variation-a", "variation-b"]
             .iter()
             .map(|variation| {
                 materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
+                    base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
                     ..Default::default()
@@ -100,25 +116,21 @@ pub fn load_assets(
         let mut meshes = ["a", "b", "c", "d", "e"]
             .iter()
             .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!(
-                        "{base_url}/city-kit-commercial/building-skyscraper-{t}.glb"
-                    )),
-                )
-            })
-            .collect::<Vec<_>>();
-        meshes.extend(["m", "l"].iter().map(|t| {
-            asset_server.load(
-                GltfAssetLabel::Primitive {
+                load_asset!(GltfAssetLabel::Primitive {
                     mesh: 0,
                     primitive: 0,
                 }
-                .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")),
-            )
+                .from_asset(format!(
+                    "{base_url}/city-kit-commercial/building-skyscraper-{t}.glb"
+                )))
+            })
+            .collect::<Vec<_>>();
+        meshes.extend(["m", "l"].iter().map(|t| {
+            load_asset!(GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")))
         }));
 
         Buildings { meshes, materials }
@@ -129,7 +141,7 @@ pub fn load_assets(
             .iter()
             .map(|variation| {
                 materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
+                    base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
                     ..Default::default()
@@ -139,13 +151,11 @@ pub fn load_assets(
         let meshes = ["a", "b", "c", "d", "f", "g", "h"]
             .iter()
             .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")),
-                )
+                load_asset!(GltfAssetLabel::Primitive {
+                    mesh: 0,
+                    primitive: 0,
+                }
+                .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")))
             })
             .collect::<Vec<_>>();
 
@@ -156,7 +166,7 @@ pub fn load_assets(
             .iter()
             .map(|variation| {
                 materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
+                    base_color_texture: Some(load_asset!(format!(
                         "{base_url}/city-kit-suburban/Textures/{variation}.png"
                     ))),
                     ..Default::default()
@@ -166,15 +176,13 @@ pub fn load_assets(
         let meshes = ["b", "c", "d", "e", "f", "g", "h", "i", "k", "l", "o", "u"]
             .iter()
             .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!(
-                        "{base_url}/city-kit-suburban/building-type-{t}.glb"
-                    )),
-                )
+                load_asset!(GltfAssetLabel::Primitive {
+                    mesh: 0,
+                    primitive: 0,
+                }
+                .from_asset(format!(
+                    "{base_url}/city-kit-suburban/building-type-{t}.glb"
+                )))
             })
             .collect::<Vec<_>>();
 
@@ -182,42 +190,37 @@ pub fn load_assets(
     };
 
     let ground_tile = {
-        let mesh = asset_server.load(
-            GltfAssetLabel::Primitive {
-                mesh: 0,
-                primitive: 0,
-            }
-            .from_asset(format!("{base_url}/city-kit-roads/tile-low.glb")),
-        );
-        // TODO use this once https://github.com/bevyengine/bevy/pull/22943 is merged
-        // let default_material: Handle<StandardMaterial> = asset_server.load(format!(
-        //     "ground_tile/tile-low.glb#{}/std",
-        //     GltfAssetLabel::DefaultMaterial
-        // ));
-        let white_material = materials.add(StandardMaterial::from_color(WHITE));
+        let mesh = load_asset!(GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset(format!("{base_url}/city-kit-roads/tile-low.glb")));
+        let default_material: Handle<StandardMaterial> = load_asset!(format!(
+            "{base_url}/city-kit-roads/tile-low.glb#{}/std",
+            GltfAssetLabel::DefaultMaterial
+        ));
         let grass_material =
             materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
 
-        (mesh, white_material, grass_material)
+        (mesh, default_material, grass_material)
     };
 
-    let tree_small: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")),
-    );
-    let tree_large: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")),
-    );
+    let tree_small: Handle<Scene> =
+        load_asset!(GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")));
+    let tree_large: Handle<Scene> =
+        load_asset!(GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")));
 
-    let path_stones_long: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0)
-            .from_asset(format!("{base_url}/city-kit-suburban/path-stones-long.glb")),
-    );
+    let path_stones_long: Handle<Scene> = load_asset!(GltfAssetLabel::Scene(0)
+        .from_asset(format!("{base_url}/city-kit-suburban/path-stones-long.glb")));
 
-    let fence: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb")),
+    let fence: Handle<Scene> = load_asset!(
+        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
     commands.insert_resource(CityAssets {
+        untyped_assets,
         cars,
         crossroad,
         road_straight,

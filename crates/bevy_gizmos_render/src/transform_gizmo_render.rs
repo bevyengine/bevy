@@ -13,7 +13,7 @@ use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     hierarchy::ChildOf,
-    query::{With, Without},
+    query::{Or, With, Without},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -24,7 +24,10 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    systems::propagate_transforms_for,
+};
 
 use bevy_gizmos::transform_gizmo::{
     TransformGizmoAxis, TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMeshMarker,
@@ -86,7 +89,18 @@ impl Plugin for TransformGizmoRenderPlugin {
         )
         .add_systems(
             PostUpdate,
-            update_gizmo_meshes
+            (
+                update_gizmo_meshes,
+                propagate_transforms_for::<
+                    Or<(
+                        With<TransformGizmoRoot>,
+                        With<GizmoOverlayCamera>,
+                        With<TransformGizmoMeshMarker>,
+                    )>,
+                >
+                    .ambiguous_with_all(),
+            )
+                .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
