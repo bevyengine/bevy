@@ -62,9 +62,36 @@ impl BsnTokenStream for BsnRoot {
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
 
+        // NOTE: Assigning the result to a variable first so that the LSP's
+        // type inference can see assignments before it encounters
+        // any compile errors. This keeps autocomplete working in broken states,
+        // e.g. when typing the name of a field but no value yet.
         quote! {
-            #(#errors)*
-            #bevy_scene::SceneScope(#tokens)
+            #bevy_scene::SceneScope({
+                let _res = #tokens;
+                #(#errors)*
+                _res
+            })
+        }
+    }
+}
+
+impl BsnTokenStream for BsnListRoot {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let tokens = self.0.to_tokens(ctx);
+        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+        let bevy_scene = ctx.bevy_scene;
+
+        // NOTE: Assigning the result to a variable first so that the LSP's
+        // type inference can see assignments before it encounters
+        // any compile errors. This keeps autocomplete working in broken states,
+        // e.g. when typing the name of a field but no value yet.
+        quote! {
+            {
+                let _res = #bevy_scene::SceneListScope(#tokens);
+                #(#errors)*
+                _res
+            }
         }
     }
 }
@@ -74,21 +101,25 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let mut seen = HashSet::with_capacity(self.entries.len());
-        let entries = self.entries.iter().map(|entry| {
-            if let Some(path) = entry.component_path() {
-                let path_str = path.to_token_stream().to_string();
-                if !seen.insert(path_str.clone()) {
-                    ctx.errors.push(syn::Error::new_spanned(
-                        path,
-                        format!("Duplicate component type `{}` found in BSN tuple", path_str),
-                    ));
+        let entries: Vec<_> = self
+            .entries
+            .iter()
+            .map(|entry| {
+                if let Some(path) = entry.component_path() {
+                    let path_str = path.to_token_stream().to_string();
+                    if !seen.insert(path_str.clone()) {
+                        ctx.errors.push(syn::Error::new_spanned(
+                            path,
+                            format!("Duplicate component type `{}` found in BSN tuple", path_str),
+                        ));
+                    }
                 }
-            }
 
-            entry
-                .try_to_tokens(ctx)
-                .unwrap_or_else(|e| e.to_compile_error())
-        });
+                entry
+                    .try_to_tokens(ctx)
+                    .unwrap_or_else(|e| e.to_compile_error())
+            })
+            .collect();
 
         Ok(quote! { (#(#entries,)*) })
     }
@@ -113,13 +144,11 @@ impl BsnEntry {
 
     fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
-        let val_member = [Member::Named(Ident::new(
-            "value",
-            proc_macro2::Span::call_site(),
-        ))];
-
         let target = PatchTarget {
-            path: &val_member,
+            path: &[Member::Named(Ident::new(
+                "value",
+                proc_macro2::Span::call_site(),
+            ))],
             is_ref: true,
         };
 
@@ -254,11 +283,27 @@ impl BsnType {
 
         let (check_pattern, binding_pattern, field_updates) = match &self.fields {
             BsnFields::Named(fields) => {
-                let names: Vec<_> = fields.iter().map(|f| &f.name).collect();
-                let assigns = fields
-                    .iter()
-                    .map(|f| self.process_enum_field(ctx, &f.name, f.value.as_ref()))
-                    .collect::<syn::Result<Vec<_>>>()?;
+                let mut seen = HashSet::with_capacity(fields.len());
+                let mut names = Vec::new();
+                let mut assigns = Vec::new();
+
+                for field in fields {
+                    let field_name = &field.name;
+                    if !seen.insert(field_name.to_string()) {
+                        ctx.errors.push(syn::Error::new_spanned(
+                            field_name,
+                            format!("Duplicate field `{}` found in BSN enum variant", field_name),
+                        ));
+                        continue;
+                    }
+
+                    names.push(field_name);
+
+                    // NOTE: It is very important to still produce outputs for None field values. This is what
+                    // enables field autocomplete in Rust Analyzer
+                    assigns.push(self.process_enum_field(ctx, field_name, field.value.as_ref())?);
+                }
+
                 (
                     quote! { #variant { .. } },
                     quote! { #variant { #(#names,)* .. } },
@@ -269,13 +314,13 @@ impl BsnType {
                 (quote! { #variant }, quote! { #variant }, vec![])
             }
             BsnFields::Tuple(fields) => {
-                // root template enums produce per-field "patches", at the cost of requiring the EnumDefaults pattern
                 let names: Vec<_> = (0..fields.len()).map(|i| format_ident!("t{}", i)).collect();
                 let assigns = fields
                     .iter()
                     .enumerate()
                     .map(|(i, f)| self.process_enum_field(ctx, &names[i], Some(&f.value)))
                     .collect::<syn::Result<Vec<_>>>()?;
+
                 (
                     quote! { #variant(..) },
                     quote! { #variant(#(#names,)* ..) },
@@ -318,35 +363,27 @@ impl BsnType {
                         continue;
                     }
 
-                    match &field.value {
-                        Some(value) => {
-                            if let Err(err) = self.push_field_logic(
-                                ctx,
-                                assignments,
-                                target.path,
-                                Member::Named(field_name.clone()),
-                                Some(value),
-                            ) {
-                                ctx.errors.push(err);
-                            }
-                        }
-                        None => {
-                            // NOTE: It is very important to still produce outputs for None field values. This is what
-                            // enables field autocomplete in Rust Analyzer
-                            ctx.errors.push(syn::Error::new_spanned(
-                                field_name,
-                                format!(
-                                    "Field `{}` is missing a value. Expected `{}: value`",
-                                    field_name, field_name
-                                ),
-                            ));
-                        }
+                    if field.value.is_none() {
+                        ctx.errors.push(syn::Error::new_spanned(
+                            field_name,
+                            format!("Field `{}` is missing a value.", field_name),
+                        ));
                     }
+
+                    // NOTE: It is very important to still produce outputs for None field values. This is what
+                    // enables field autocomplete in Rust Analyzer
+                    self.process_field(
+                        ctx,
+                        assignments,
+                        target.path,
+                        Member::Named(field_name.clone()),
+                        field.value.as_ref(),
+                    )?;
                 }
             }
             BsnFields::Tuple(fields) => {
                 for (i, field) in fields.iter().enumerate() {
-                    if let Err(err) = self.push_field_logic(
+                    if let Err(err) = self.process_field(
                         ctx,
                         assignments,
                         target.path,
@@ -361,7 +398,7 @@ impl BsnType {
         Ok(())
     }
 
-    fn push_field_logic(
+    fn process_field(
         &self,
         ctx: &mut BsnCodegenCtx,
         assignments: &mut Vec<TokenStream>,
@@ -370,8 +407,12 @@ impl BsnType {
         value: Option<&BsnValue>,
     ) -> syn::Result<()> {
         match value {
+            // Enables field autocomplete in Rust Analyzer
             Some(field_value_type!()) | None => {
-                assignments.push(quote! { #(#base_path.)*#member = #value; });
+                // Provide a fallback default "ghost", so that the LSP
+                // can infer information about the field without a value.
+                let values = value.map(|v| quote! { #v }).unwrap_or(quote! { default() });
+                assignments.push(quote! { #(#base_path.)*#member = #values; });
             }
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
@@ -410,6 +451,13 @@ impl BsnType {
         bind_name: &Ident,
         value: Option<&BsnValue>,
     ) -> syn::Result<TokenStream> {
+        if value.is_none() {
+            ctx.errors.push(syn::Error::new_spanned(
+                bind_name,
+                format!("Enum field `{}` is missing a value", bind_name),
+            ));
+        }
+
         if let Some(BsnValue::Type(ty)) = value
             && ty.enum_variant.is_none()
         {
@@ -426,7 +474,10 @@ impl BsnType {
             return Ok(quote! {#(#type_assigns)*});
         }
 
-        Ok(quote! { *#bind_name = #value; })
+        // Provide a fallback default "ghost", so that the LSP
+        // can infer information about the field without a value.
+        let values = value.map(|v| quote! { #v }).unwrap_or(quote! { default() });
+        Ok(quote! { *#bind_name = #values; })
     }
 }
 
@@ -489,21 +540,8 @@ impl ToTokens for BsnValue {
     }
 }
 
-impl BsnTokenStream for BsnListRoot {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let tokens = self.0.to_tokens(ctx);
-        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
-        let bevy_scene = ctx.bevy_scene;
-
-        quote! {
-            #(#errors)*
-            #bevy_scene::SceneListScope(#tokens)
-        }
-    }
-}
-
 #[cfg(test)]
-mod error_tests {
+mod tests {
     use super::*;
     use crate::bsn::types::*;
     use syn::parse_quote;
@@ -557,7 +595,7 @@ mod error_tests {
             &mut assignments,
             PatchTarget {
                 path: &[],
-                is_ref: true,
+                is_ref: false,
             },
         );
 
@@ -602,7 +640,7 @@ mod error_tests {
             true,
             PatchTarget {
                 path: &[],
-                is_ref: true,
+                is_ref: false,
             },
         );
 
@@ -614,7 +652,7 @@ mod error_tests {
     }
 
     #[test]
-    fn test_missing_field_value() {
+    fn missing_struct_field() {
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut ctx = paths.ctx(&mut refs);
@@ -633,7 +671,7 @@ mod error_tests {
             &mut assignments,
             PatchTarget {
                 path: &[Member::Named(parse_quote!(value))],
-                is_ref: true,
+                is_ref: false,
             },
         );
 
@@ -645,7 +683,7 @@ mod error_tests {
     }
 
     #[test]
-    fn bsn_scene_duplicate_components() {
+    fn duplicate_components() {
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut ctx = paths.ctx(&mut refs);
@@ -673,5 +711,158 @@ mod error_tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Duplicate component type `BackgroundColor`"));
+    }
+
+    #[test]
+    fn missing_struct_field_generates_ghost() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut ctx = paths.ctx(&mut refs);
+        let mut assignments = Vec::new();
+        let missing = BsnType {
+            path: parse_quote!(Transform),
+            enum_variant: None,
+            fields: BsnFields::Named(vec![BsnNamedField {
+                name: parse_quote!(translation),
+                value: None,
+            }]),
+        };
+
+        // Act
+        let _ = missing.push_struct_patch(
+            &mut ctx,
+            &mut assignments,
+            PatchTarget {
+                path: &[Member::Named(parse_quote!(value))],
+                is_ref: false,
+            },
+        );
+
+        // Assert
+        assert_eq!(assignments.len(), 1);
+        let tokens = assignments[0].to_string();
+        assert!(tokens.contains("value . translation = default ()"));
+    }
+
+    #[test]
+    fn enum_duplicate_field() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut ctx = paths.ctx(&mut refs);
+        let mut assignments = vec![];
+        let duplicate = BsnType {
+            path: parse_quote!(MyEnum),
+            enum_variant: Some(parse_quote!(Variant)),
+            fields: BsnFields::Named(vec![
+                BsnNamedField {
+                    name: parse_quote!(x),
+                    value: Some(BsnValue::Expr(quote!(1))),
+                },
+                BsnNamedField {
+                    name: parse_quote!(x),
+                    value: Some(BsnValue::Expr(quote!(2))),
+                },
+            ]),
+        };
+
+        // Act
+        let res = duplicate.push_enum_patch(
+            &mut ctx,
+            &parse_quote!(Variant),
+            &mut assignments,
+            PatchTarget {
+                path: &[],
+                is_ref: false,
+            },
+        );
+
+        // Assert
+        assert!(res.is_ok());
+        assert_eq!(ctx.errors.len(), 1);
+        assert!(ctx.errors[0]
+            .to_string()
+            .contains("Duplicate field `x` found in BSN enum variant"));
+    }
+
+    #[test]
+    fn missing_enum_field_generates_ghost() {
+        // Arrange
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut ctx = paths.ctx(&mut refs);
+        let mut assignments = vec![];
+        let missing = BsnType {
+            path: parse_quote!(MyEnum),
+            enum_variant: Some(parse_quote!(Variant)),
+            fields: BsnFields::Named(vec![BsnNamedField {
+                name: parse_quote!(x),
+                value: None,
+            }]),
+        };
+
+        // Act
+        let _ = missing.push_enum_patch(
+            &mut ctx,
+            &parse_quote!(Variant),
+            &mut assignments,
+            PatchTarget {
+                path: &[],
+                is_ref: false,
+            },
+        );
+
+        // Assert
+        let tokens = assignments[0].to_string();
+        assert!(tokens.contains("* x = default ()"));
+    }
+
+    #[test]
+    fn bsn_root_preserves_inference_on_error() {
+        // Arrange
+        let expected = "bevy_scene :: SceneScope ({ let _res = () ;".to_string()
+            + " :: core :: compile_error ! { \"Test Error\" }"
+            + " _res })";
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut ctx = paths.ctx(&mut refs);
+        ctx.errors.push(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "Test Error",
+        ));
+        let root = BsnRoot(Bsn::<true> { entries: vec![] });
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+
+        // Assert
+        assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn bsn_list_root_preserves_inference_on_error() {
+        // Arrange
+        let expected =
+            "{ let _res = bevy_scene :: SceneListScope (bevy_scene :: auto_nest_tuple ! ()) ;"
+                .to_string()
+                + " :: core :: compile_error ! { \"Test Error\" }"
+                + " _res }";
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut ctx = paths.ctx(&mut refs);
+        ctx.errors.push(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "Test Error",
+        ));
+        let root = BsnListRoot(BsnSceneListItems(vec![]));
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+
+        // Assert
+        assert_eq!(res, expected,);
     }
 }
