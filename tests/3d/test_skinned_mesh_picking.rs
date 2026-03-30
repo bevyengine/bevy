@@ -3,7 +3,7 @@
 use bevy::{
     camera::RenderTarget,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    color::palettes::css::{BLUE, WHITE},
+    color::palettes::css::{BLUE, RED, WHITE},
     picking::pointer::PointerLocation,
     prelude::*,
     scene::SceneInstanceReady,
@@ -61,10 +61,10 @@ fn setup(
             // Use a non-zero translation to make sure we're accounting for the
             // mesh's transform.
             Transform::from_xyz(0.0, 1.0, 0.0)
-                // `Fox.glb` uses centimeters instead of meters, so scale to compensate.
+                // "Fox.glb" uses centimeters instead of meters, so scale to compensate.
                 .with_scale(Vec3::splat(0.01)),
         ))
-        .observe(play_animation);
+        .observe(on_scene_ready);
 }
 
 #[derive(Component)]
@@ -73,12 +73,13 @@ struct PendingAnimation {
     index: AnimationNodeIndex,
 }
 
-fn play_animation(
+fn on_scene_ready(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations: Query<&PendingAnimation>,
     mut players: Query<&mut AnimationPlayer>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if let Ok(animation) = animations.get(scene_ready.entity) {
         for child in children.iter_descendants(scene_ready.entity) {
@@ -90,6 +91,11 @@ fn play_animation(
                     .insert(AnimationGraphHandle(animation.graph_handle.clone()));
             }
         }
+    }
+
+    // "Fox.glb" lacks tangents by default, so add them here.
+    for (_, mesh) in meshes.iter_mut() {
+        mesh.generate_tangents().expect("Should always succeed.");
     }
 }
 
@@ -125,11 +131,14 @@ fn draw_intersections(
                 continue;
             };
 
-            // Draw the normal.
             gizmos.arrow(hit.point, hit.point + (hit.normal.normalize() * 0.1), BLUE);
 
-            // Draw the triangle, biasing it slightly away from the mesh.
+            if let Some(tangent) = hit.tangent {
+                gizmos.arrow(hit.point, hit.point + (tangent.normalize() * 0.1), RED);
+            }
+
             if let Some(triangle) = hit.triangle {
+                // Bias the triangle slightly away from the mesh.
                 let bias = hit.normal.normalize() * 0.001;
 
                 for i in 0..3usize {
