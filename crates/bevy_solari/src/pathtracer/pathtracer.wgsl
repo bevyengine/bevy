@@ -1,12 +1,12 @@
 enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
-#import bevy_pbr::utils::{rand_f, rand_vec2f, sample_cosine_hemisphere}
+#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_F0}
+#import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
+#import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, fresnel}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
@@ -40,21 +40,22 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
     var p_bounce = 0.0;
-    var bounce_was_perfect_reflection = true;
     loop {
         let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
 
+            // Emissive contribution
             var mis_weight = 1.0;
-            if !bounce_was_perfect_reflection {
+            if p_bounce != 0.0 { // Not first bounce
                 let p_light = random_emissive_light_pdf(ray_hit);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
             radiance += mis_weight * throughput * ray_hit.material.emissive;
 
             // Sample direct lighting, but only if the surface is not mirror-like
+            // TODO: randomly choose to use NEE or not with probability proportional to roughness and metallicness
             let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
@@ -65,21 +66,18 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
                 }
 
-                let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+                let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material);
                 radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
             }
 
-            // Sample new ray direction from the material BRDF for next bounce
-            let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
+            // Sample new ray direction from the material BRDF for next bounce and apply BRDF
+            let next_bounce = evaluate_and_sample_brdf(wo, ray_hit.world_normal, ray_hit.world_tangent, ray_hit.material, &rng);
+            if next_bounce.pdf == 0.0 { break; }
             ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position;
             ray_t_min = RAY_T_MIN;
             p_bounce = next_bounce.pdf;
-            bounce_was_perfect_reflection = next_bounce.perfectly_specular_bounce;
-
-            // Update throughput for next bounce
-            let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
-            throughput *= brdf / next_bounce.pdf;
+            throughput *= next_bounce.throughput;
 
             // Russian roulette for early termination
             let p = luminance(throughput);
@@ -97,47 +95,12 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
 }
 
-struct NextBounce {
-    wi: vec3<f32>,
-    pdf: f32,
-    perfectly_specular_bounce: bool,
-}
-
-fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
-    let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
-    if is_perfectly_specular {
-        return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, true);
-    }
-    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.perceptual_roughness), 0.0, ray_hit.material.metallic);
-    let specular_weight = 1.0 - diffuse_weight;
-
-    let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
-    let T = TBN[0];
-    let B = TBN[1];
-    let N = TBN[2];
-
-    let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
-
-    var wi: vec3<f32>;
-    var wi_tangent: vec3<f32>;
-    let diffuse_selected = rand_f(rng) < diffuse_weight;
-    if diffuse_selected {
-        wi = sample_cosine_hemisphere(ray_hit.world_normal, rng);
-        wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
-    } else {
-        wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
-        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-    }
-
-    let diffuse_pdf = dot(wi, ray_hit.world_normal) / PI;
-    let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
-
-    return NextBounce(wi, pdf, false);
-}
-
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
-    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.roughness), 0.0, ray_hit.material.metallic);
+    let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
+    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
+    let df = 1.0 - luminance(fresnel(F0, NdotV));
+
+    let diffuse_weight = mix(df, 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);

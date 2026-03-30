@@ -288,16 +288,11 @@ fn pick_ui_text_section(
 ) -> Option<Entity> {
     let local_point = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())?;
-
-    for run in text_layout_info.run_geometry.iter() {
-        if run.bounds.contains(local_point) {
-            return text_block
-                .entities()
-                .get(run.section_index)
-                .map(|e| e.entity);
-        }
-    }
-
-    None
+        .map(|transform| transform.transform_point2(point) - uinode.content_box().min)?;
+    let section_index = text_layout_info
+        .run_geometry
+        .iter()
+        .find(|run| run.bounds.contains(local_point))
+        .map(|run| run.section_index)?;
+    text_block.entities().get(section_index).map(|e| e.entity)
 }

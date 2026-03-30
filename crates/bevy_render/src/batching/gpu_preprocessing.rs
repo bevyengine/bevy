@@ -20,7 +20,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_log::{error, info};
+use bevy_log::{error, info_once};
 use bevy_math::UVec4;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::ComputeTaskPool;
@@ -1337,7 +1337,9 @@ impl FromWorld for GpuPreprocessingSupport {
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
         // Depth downsampling for occlusion culling requires 12 textures
+        // and the early occlusion culling pass requires 10 storage buffers
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
+            device.limits().max_storage_buffers_per_shader_stage >= 10 &&
             // Even if the adapter supports compute, we might be simulating a lack of
             // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
             // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
@@ -1355,16 +1357,16 @@ impl FromWorld for GpuPreprocessingSupport {
             || is_non_supported_android_device(&adapter_info)
             || adapter_info.backend == wgpu::Backend::Gl
         {
-            info!(
+            info_once!(
                 "GPU preprocessing is not supported on this device. \
                 Falling back to CPU preprocessing.",
             );
             GpuPreprocessingMode::None
         } else if !(culling_feature_support && limit_support && downlevel_support) {
-            info!("Some GPU preprocessing are limited on this device.");
+            info_once!("Some GPU preprocessing are limited on this device.");
             GpuPreprocessingMode::PreprocessingOnly
         } else {
-            info!("GPU preprocessing is fully supported on this device.");
+            info_once!("GPU preprocessing is fully supported on this device.");
             GpuPreprocessingMode::Culling
         };
 
@@ -1685,17 +1687,16 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                             &mut phase_indirect_parameters_buffers.buffers,
                             indirect_parameters_index,
                         );
+                    }
 
-                        batch_set = Some(SortedRenderBatchSet {
-                            phase_item_start_index: current_index as u32,
-                            instance_start_index: output_index,
-                            indexed: item_is_indexed,
-                            indirect_parameters_index_range: Some(
-                                indirect_parameters_index..(indirect_parameters_index + 1),
-                            ),
-                            meta: current_meta,
-                        });
-                    };
+                    batch_set = Some(SortedRenderBatchSet {
+                        phase_item_start_index: current_index as u32,
+                        instance_start_index: output_index,
+                        indexed: item_is_indexed,
+                        indirect_parameters_index_range: indirect_parameters_index
+                            .map(|i| i..(i + 1)),
+                        meta: current_meta,
+                    });
                 }
 
                 SortedPhaseItemBatchability::BreakBatch => {
