@@ -134,30 +134,32 @@ fn main() {
             );
 
             let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
-            for group in diff.grouped_ops(3) {
-                for op in group {
-                    for change in diff.iter_inline_changes(&op) {
-                        let (sign, color) = match change.tag() {
-                            ChangeTag::Delete => ("-", "\x1b[31m"), // red
-                            ChangeTag::Insert => ("+", "\x1b[32m"), // green
-                            ChangeTag::Equal => (" ", "\x1b[90m"),  // gark Gray
-                        };
+            for change in diff
+                .grouped_ops(3)
+                .iter()
+                .flatten()
+                .flat_map(|op| diff.iter_inline_changes(op))
+            {
+                let (sign, color) = match change.tag() {
+                    ChangeTag::Delete => ("-", "\x1b[31m"), // red
+                    ChangeTag::Insert => ("+", "\x1b[32m"), // green
+                    ChangeTag::Equal => (" ", "\x1b[90m"),  // gark Gray
+                };
 
-                        print!("{}{} ", color, sign);
-                        for (emphasized, value) in change.iter_strings_lossy() {
-                            if emphasized {
-                                // bold intra-line changes
-                                print!("\x1b[1m{}\x1b[22m", value);
-                            } else {
-                                print!("{}", value);
-                            }
-                        }
-                        // reset color
-                        print!("\x1b[0m");
+                print!("{}{} ", color, sign);
+
+                for (emphasized, value) in change.iter_strings_lossy() {
+                    if emphasized {
+                        // bold intra-line changes
+                        print!("\x1b[1m{}\x1b[22m", value);
+                    } else {
+                        print!("{}", value);
                     }
                 }
+                // reset color
+                print!("\x1b[0m");
             }
-            println!("--------------------------------------------------");
+            println!("\n");
         }
         println!("\nRun with \x1b[1m--write\x1b[0m to apply changes.");
     }
