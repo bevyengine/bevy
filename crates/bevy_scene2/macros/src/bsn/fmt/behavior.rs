@@ -43,7 +43,7 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
 
         let is_comment = mac_text.contains("//") || mac_text.contains("/*");
         if is_comment {
-            println!(
+            eprintln!(
                 "\x1b[1;33m⚠ Skipped bsn! block at line {}:
                     Formatting blocks with comments is currently unsupported.\x1b[0m",
                 mac_span.start().line

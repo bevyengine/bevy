@@ -97,7 +97,13 @@ fn main() {
         .expect("Should have a value if 'is_stdin' is false.");
 
     if visitor.edits.is_empty() {
-        println!("\x1b[1;32mNo formatting changes needed in {}\x1b[0m", path);
+        if !is_stdin && !args.write {
+            eprintln!("\x1b[1;32mNo formatting changes needed in {}\x1b[0m", path);
+        }
+
+        if is_stdin {
+            print!("{}", src);
+        }
         return;
     }
 
