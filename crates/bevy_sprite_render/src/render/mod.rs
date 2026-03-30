@@ -496,10 +496,12 @@ pub fn queue_sprites(
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
+            if let Some(tonemapping) = tonemapping
+                && *tonemapping != Tonemapping::None
+            {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {
-                    Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::None => unreachable!(),
                     Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
                     Tonemapping::ReinhardLuminance => {
                         SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE

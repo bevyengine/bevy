@@ -468,7 +468,9 @@ pub fn check_views_need_specialization(
         }
 
         if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
+            if let Some(tonemapping) = tonemapping
+                && *tonemapping != Tonemapping::None
+            {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
             }
