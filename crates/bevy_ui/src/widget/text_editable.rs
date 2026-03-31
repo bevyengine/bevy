@@ -6,6 +6,7 @@ use bevy_asset::Assets;
 
 use bevy_ecs::{
     change_detection::DetectChanges,
+    component::Component,
     entity::Entity,
     system::{Local, Query, Res, ResMut},
     world::Ref,
@@ -23,6 +24,9 @@ use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem};
 use swash::FontRef;
 use taffy::MaybeMath;
+
+#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
+pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
     height: f32,
