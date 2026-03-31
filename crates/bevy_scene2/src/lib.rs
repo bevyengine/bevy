@@ -454,15 +454,21 @@
 //!
 //! ### Expressions as scenes
 //!
-//! A `{...}` block can also appear at the top level of [`bsn!`] to embed a variable or
-//! expression that implements [`Scene`]:
+//! A `{...}` block can also represent a variable or
+//! expression that implements [`Scene`].
+//! This allows you to pass in scenes to helper functions,
+//! allowing you to provide APIs based around partially complete scenes:
 //!
 //! ```ignore
-//! let unit_base = bsn! { Health { current: 100, max: 100 } };
-//! commands.spawn_scene(bsn! {
-//!     {unit_base}
-//!     Armor(50)
-//! });
+//! fn unit_with_armor(unit_base: impl Scene) -> impl Scene {
+//!     bsn! {
+//!         {unit_base}
+//!         Armor(50)
+//!     }
+//! }
+//!
+//! let my_unit = bsn! { Health { current: 100, max: 100 } };
+//! commands.spawn_scene(unit_with_armor(my_unit));
 //! ```
 //!
 //! ## .bsn Asset Format
