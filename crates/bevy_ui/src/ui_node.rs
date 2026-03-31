@@ -820,6 +820,7 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+    pub direction: InlineDirection,
 }
 
 impl Node {
@@ -839,6 +840,7 @@ impl Node {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -872,6 +874,22 @@ impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Sets the direction of grid columns.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InlineDirection {
+    /// Left-to-right
+    #[default]
+    Ltr,
+    /// Right-to-left
+    Rtl,
 }
 
 /// Used to control how each individual item is aligned by default within the space they're given.
