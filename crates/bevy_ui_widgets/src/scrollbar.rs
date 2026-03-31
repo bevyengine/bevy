@@ -86,7 +86,7 @@ pub struct Scrollbar {
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct CoreScrollbarThumb {
-    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`update_scrollbar_thumb`].
+    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::PostLayout`].
     pub border_radius: BorderRadius,
 }
 
