@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemState, prelude::*};
 use rand::RngExt;
 
 const BASE_URL: &str = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
@@ -257,7 +257,7 @@ pub fn load_assets(
 /// was causing a lot of performance issues.
 pub fn merge_car_meshes(
     city_assets: &mut CityAssets,
-    scenes: &Assets<Scene>,
+    scenes: &mut Assets<Scene>,
     meshes: &mut Assets<Mesh>,
 ) {
     for car_scene in &city_assets.cars {
@@ -270,12 +270,16 @@ pub fn merge_car_meshes(
 
 /// Merge an entire scene into a single mesh
 fn merge_scene(
-    scenes: &Assets<Scene>,
+    scenes: &mut Assets<Scene>,
     meshes: &mut Assets<Mesh>,
     scene_handle: &Handle<Scene>,
 ) -> Option<Mesh> {
-    let scene = scenes.get(scene_handle)?;
+    let mut scene = scenes.get_mut(scene_handle)?;
     let mut merged: Option<Mesh> = None;
+
+    let mut system_state = SystemState::<TransformHelper>::new(&mut scene.world);
+    let helper = system_state.get(&scene.world).ok()?;
+
     for entity_ref in scene.world.iter_entities() {
         let Some(mesh) = entity_ref
             .get::<Mesh3d>()
@@ -283,7 +287,10 @@ fn merge_scene(
         else {
             continue;
         };
-        let transform = compute_transform(entity_ref.id(), &scene.world);
+        let Ok(global_transform) = helper.compute_global_transform(entity_ref.id()) else {
+            continue;
+        };
+        let transform = global_transform.compute_transform();
         let transformed = mesh.clone().transformed_by(transform);
         match &mut merged {
             Some(mesh) => {
@@ -293,16 +300,4 @@ fn merge_scene(
         }
     }
     merged
-}
-
-/// Computes the transform relative to the scene origin
-fn compute_transform(entity: Entity, world: &World) -> Transform {
-    let entity_ref = world.entity(entity);
-    let local = entity_ref.get::<Transform>().copied().unwrap_or_default();
-    if let Some(child_of) = entity_ref.get::<ChildOf>() {
-        let parent = compute_transform(child_of.0, world);
-        parent.mul_transform(local)
-    } else {
-        local
-    }
 }
