@@ -14,7 +14,8 @@ use core::{
 /// these levels are fundamentally advisory metadata.
 /// The global error handler ultimately has discretion to respond to each of these errors
 /// according to its configuration.
-/// You can change this behavior by modifying the [default error handler].
+/// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
+/// You can change the behavior of the default handler by modifying the [`DefaultErrorHandler`] resource.
 ///
 /// By default, errors without an assigned severity use [`Severity::Fatal`], and will cause your application to panic.
 /// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
