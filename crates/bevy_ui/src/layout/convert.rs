@@ -478,7 +478,7 @@ mod tests {
             justify_items: JustifyItems::Default,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
-            direction: crate::InlineDirection::Ltr,
+            direction: InlineDirection::Ltr,
             margin: UiRect {
                 left: Val::ZERO,
                 right: Val::Px(10.),
