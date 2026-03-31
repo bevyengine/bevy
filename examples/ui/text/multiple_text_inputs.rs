@@ -26,7 +26,14 @@ fn main() {
             TabNavigationPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (synchronise_output_text, text_submission))
+        .add_systems(
+            Update,
+            (
+                synchronise_output_text,
+                text_submission,
+                update_row_border_colors,
+            ),
+        )
         .run();
 }
 
@@ -58,8 +65,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_content: AlignContent::Center,
                 grid_template_columns: RepeatedGridTrack::px(3, 320.),
                 grid_template_rows: RepeatedGridTrack::auto(6),
-                row_gap: px(16.),
-                column_gap: px(16.),
+                row_gap: px(8.),
+                column_gap: px(8.),
                 ..default()
             },
             TabGroup::default(),
@@ -70,8 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     grid_column: GridPlacement::span(3),
                     justify_self: JustifySelf::Center,
-                    row_gap: px(6),
-                    column_gap: px(6),
+                    margin: px(16).bottom(),
                     ..default()
                 },
                 TextColor::WHITE,
@@ -85,6 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     label_font.clone(),
                     Node {
                         justify_self: JustifySelf::Center,
+                        margin: px(-4).bottom(),
                         ..default()
                     },
                 ));
@@ -93,8 +100,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             for row in 0..3 {
                 let mut input = parent.spawn((
                     Node {
-                        border: px(5.).all(),
-                        padding: px(5.).all(),
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
                         ..default()
                     },
                     EditableText::default(),
@@ -116,8 +123,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     Node {
-                        border: px(5.).all(),
-                        padding: px(5.).all(),
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
                         ..default()
                     },
                     font.clone(),
@@ -134,8 +141,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     Node {
-                        border: px(5.).all(),
-                        padding: px(5.).all(),
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
                         ..default()
                     },
                     font.clone(),
@@ -151,6 +158,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     grid_column: GridPlacement::span(3),
                     justify_self: JustifySelf::Center,
+                    margin: px(16).top(),
                     ..default()
                 },
                 font.clone(),
@@ -184,7 +192,7 @@ fn synchronise_output_text(
     }
 }
 
-// Submit the text when Ctrl+Enter is pressed
+// Submit the focused input's text when Ctrl+Enter is pressed.
 fn text_submission(
     input_focus: Res<InputFocus>,
     keyboard_input: Res<ButtonInput<Key>>,
@@ -210,5 +218,33 @@ fn text_submission(
             }
         }
         editable_text.clear(&mut font_context.0, &mut layout_context.0);
+    }
+}
+
+/// Dim a row's border colors when its `EditableText` does not have input focus.
+fn update_row_border_colors(
+    input_focus: Res<InputFocus>,
+    input_rows: Query<&TextInputRow, With<EditableText>>,
+    mut row_borders: Query<(&TextInputRow, &mut BorderColor, Has<EditableText>)>,
+) {
+    if !input_focus.is_changed() {
+        return;
+    }
+
+    let focused_row = input_focus
+        .get()
+        .and_then(|focused_entity| input_rows.get(focused_entity).ok())
+        .map(|row| row.0);
+
+    for (row, mut border_color, is_input) in &mut row_borders {
+        let mut color = if is_input {
+            YELLOW.into()
+        } else {
+            Color::WHITE
+        };
+        if Some(row.0) != focused_row {
+            color = color.darker(0.75);
+        }
+        border_color.set_all(color);
     }
 }
