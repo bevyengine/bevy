@@ -27,6 +27,8 @@ mod assets;
 mod generate_city;
 mod settings;
 
+mod traffic;
+
 #[derive(FromArgs, Resource, Clone)]
 /// Config
 pub struct Args {
@@ -41,14 +43,23 @@ pub struct Args {
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
+    // forces Vulkan backend and clears instance flags for RenderDoc capture
+    //#[argh(switch)]
+    //renderdoc: bool,
 }
 
 fn main() {
     let args: Args = argh::from_env();
 
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
+    let mut app = App::new();
+
+    app.add_plugins((
+        DefaultPlugins
+            .set(AssetPlugin {
+                file_path: "./".to_string(),
+                ..default()
+            })
+            .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "bevy_city".into(),
                     resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
@@ -58,30 +69,34 @@ fn main() {
                 }),
                 ..default()
             }),
-            FreeCameraPlugin,
-            FeathersPlugins,
-            WireframePlugin::default(),
-        ))
-        .insert_resource(args.clone())
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WinitSettings::continuous())
-        .init_resource::<Settings>()
-        .insert_resource(UiTheme(create_dark_theme()))
-        .insert_resource(WireframeConfig {
-            global: false,
-            default_color: WHITE.into(),
-            ..default()
-        })
-        // Like in many realistic large scenes, many of the objects don't move
-        // We can accelerate transform propagation by optimizing for this case
-        .insert_resource(StaticTransformOptimizations::Enabled)
-        .add_systems(Startup, (setup, load_assets))
-        .add_systems(Update, (simulate_cars, loading_screen))
-        .add_observer(add_no_cpu_culling)
-        .add_observer(add_no_cpu_culling_on_scene_ready)
-        .add_observer(on_city_assets_ready)
-        .add_observer(setup_settings_ui)
-        .run();
+        traffic::TrafficPlugin,
+        FreeCameraPlugin,
+        FeathersPlugins,
+        WireframePlugin::default(),
+    ))
+    .insert_resource(args.clone())
+    .insert_resource(ClearColor(Color::BLACK))
+    .insert_resource(WinitSettings::continuous())
+    .init_resource::<Settings>()
+    .insert_resource(UiTheme(create_dark_theme()))
+    .insert_resource(WireframeConfig {
+        global: false,
+        default_color: WHITE.into(),
+        ..default()
+    })
+    // Like in many realistic large scenes, many of the objects don't move
+    // We can accelerate transform propagation by optimizing for this case
+    .insert_resource(StaticTransformOptimizations::Enabled)
+    .add_systems(Startup, (setup, load_assets))
+    .add_systems(Update, (simulate_cars, loading_screen))
+    .add_observer(add_no_cpu_culling)
+    .add_observer(add_no_cpu_culling_on_scene_ready)
+    .add_observer(on_city_assets_ready)
+    .add_observer(setup_settings_ui);
+
+    app.add_systems(Update, apply_traffic_rules.before(simulate_cars));
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
@@ -225,6 +240,7 @@ fn on_city_assets_ready(
 struct Road {
     start: Vec3,
     end: Vec3,
+    intersection: Entity,
 }
 
 #[derive(Component)]
@@ -232,6 +248,28 @@ struct Car {
     offset: Vec3,
     distance_traveled: f32,
     dir: f32,
+    car_state: CarState,
+    car_at_stop_state: CarAtStopState,
+    next_lane: Option<Entity>,
+}
+
+#[derive(PartialEq, Eq, Default)]
+pub enum CarState {
+    Accelerating,
+    #[default]
+    Driving,
+    Breaking,
+    Stopped,
+}
+
+#[derive(PartialEq, Eq, Default)]
+pub enum CarAtStopState {
+    #[default]
+    Default,
+    WaitForIntersection,
+    MoveOnIntersection,
+    WaitProtectedIntersection,
+    MoveOnProtectedIntersection,
 }
 
 fn simulate_cars(
@@ -251,6 +289,10 @@ fn simulate_cars(
                 continue;
             };
 
+            if matches!(car.car_state, CarState::Stopped) {
+                continue;
+            }
+
             car.distance_traveled += speed * time.delta_secs();
             let road_len = (road.end - road.start).length();
             if car.distance_traveled > road_len {
@@ -260,6 +302,38 @@ fn simulate_cars(
 
             let progress = car.distance_traveled / road_len;
             car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
+        }
+    }
+}
+
+fn apply_traffic_rules(
+    settings: Res<Settings>,
+    roads: Query<(&Road, &Children), Without<Car>>,
+    mut cars: Query<&mut Car>,
+    traffic_lights: Query<&traffic::TrafficLight>,
+    time: Res<Time>,
+) {
+    let elapsed = time.elapsed_secs();
+    let stop_distance = 0.4;
+    for (road, children) in &roads {
+        let Ok(light) = traffic_lights.get(road.intersection) else {
+            continue;
+        };
+        let phase = light.phase(elapsed);
+        for child in children.iter() {
+            let Ok(mut car) = cars.get_mut(child) else {
+                continue;
+            };
+            let road_len = (road.end - road.start).length();
+            let remaining = road_len - car.distance_traveled;
+            car.car_state = if settings.traffic_enabled
+                && remaining < stop_distance
+                && phase == traffic::TrafficLightPhase::Red
+            {
+                CarState::Stopped
+            } else {
+                CarState::Driving
+            };
         }
     }
 }

@@ -19,6 +19,7 @@ use crate::{assets::CityAssets, CitySpawned};
 #[derive(Resource)]
 pub struct Settings {
     pub simulate_cars: bool,
+    pub traffic_enabled: bool,
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
@@ -29,6 +30,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             simulate_cars: true,
+            traffic_enabled: true,
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
             wireframe_enabled: false,
@@ -74,6 +76,15 @@ pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
                     observe(
                         |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
                             settings.simulate_cars = change.value;
+                        }
+                    )
+                ),
+                (
+                    checkbox(Checked, Spawn((Text::new("Simulate traffic"), ThemedText))),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                            settings.traffic_enabled = change.value;
                         }
                     )
                 ),
