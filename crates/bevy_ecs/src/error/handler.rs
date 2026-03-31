@@ -127,9 +127,10 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
     match err.severity() {
         Severity::Ignore => ignore(err, ctx),
         Severity::Debug => debug(err, ctx),
+        Severity::Info => info(err, ctx),
         Severity::Warning => warn(err, ctx),
         Severity::Error => error(err, ctx),
-        Severity::Critical => panic(err, ctx),
+        Severity::Fatal => panic(err, ctx),
     }
 }
 
