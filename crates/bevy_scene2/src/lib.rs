@@ -111,9 +111,69 @@
 //! ## Entity Hierarchies and Relationships
 //!
 //! Use `Children [scene1, scene2]` inside [`bsn!`] to spawn child entities.
+//! Children (and entities within [`bsn_list!`]) are separated by commas;
+//! add multiple components to the same entity by listing them without a comma:
+//!
+//! ```ignore
+//! // Spawns one child entity
+//! bsn! { #Parent Children [ComponentA ComponentB ComponentC] }
+//!
+//! // Spawns two child entities due to the added comma
+//! bsn! { #Parent Children [ComponentA ComponentB, ComponentC] }
+//!
+//! // Spawns two child entities, but more clearly
+//! bsn! { #Parent Children [(ComponentA ComponentB), ComponentC] }
+//! ```
+//!
 //! These invocations can be nested to build deeper hierarchies.
 //!
-//! This behavior is not limited to [`Children`]: any [`RelationshipTarget`] type can be used the same way.
+//! ```ignore
+//! bsn! {
+//!   #Parent,
+//!   Children [
+//!     #Child1
+//!     ComponentA
+//!     ComponentB,
+//!     #Child2
+//!     ComponentA
+//!     Children [
+//!        #GrandChild1
+//!        ComponentA,
+//!        #GrandChild2
+//!        ComponentB
+//!     ]
+//!   ]
+//! }
+//! ```
+//!
+//! We can improve clarity at the cost of compactness through the careful use of newlines, parentheses and indentation:
+//!
+//! ```ignore
+//! bsn! {
+//!   #Parent,
+//!   Children [
+//!      (
+//!        #Child1
+//!        ComponentA
+//!        ComponentB
+//!      ),
+//!      (
+//!        #Child2
+//!        ComponentA
+//!        Children [
+//!           #GrandChild1
+//!           ComponentA,
+//!           #GrandChild2
+//!           ComponentB
+//!        ]
+//!      ),
+//!   ]
+//! }
+//! ```
+//!
+//! This is fundamentally a stylistic choice: white space and parentheses used in this way are ignored.
+//!
+//! The tools discussed here are not limited to [`Children`]: any [`RelationshipTarget`] type can be used the same way.
 //!
 //! ## Named Entity References
 //!
