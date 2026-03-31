@@ -114,14 +114,18 @@ struct InnerBevyError {
 pub enum Severity {
     /// The error can be safely ignored.
     Ignore,
+    /// The error can be ignored, unless verbose debugging is required
+    Trace,
     /// The error can be safely ignored, but may need to be surfaced during debugging.
     Debug,
+    /// The error is informational and relevant to see during normal operation
+    Info,
     /// Something unexpected but recoverable happened.
     Warning,
     /// A real error occurred, but the program may continue.
     Error,
     /// A fatal error; the default handler may panic.
-    Critical,
+    Panic,
 }
 
 impl BevyError {
@@ -178,7 +182,7 @@ where
         BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
-                severity: Severity::Critical,
+                severity: Severity::Panic,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
