@@ -226,7 +226,7 @@
 //!
 //! Deriving [`FromTemplate`] and [`Default`] on the same type is not allowed —
 //! both would supply a [`FromTemplate`] impl and conflict.
-//! You don't still have access to a default constructor though: the derive generates a companion
+//! You still have access to a default constructor of sorts though: the derive generates a companion
 //! `YourTypeTemplate` struct that implements `Default`, so `YourTypeTemplate::default()` serves the same purpose.
 //!
 //! You compose scenes by writing functions that return `impl Scene` and calling them
