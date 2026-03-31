@@ -1,9 +1,9 @@
 //! Composable scene authoring for Bevy, defined using the Bevy Scene Notation (BSN) format.
 //!
 //! Game entities rarely exist in isolation.
-//! A 3D character might need a mesh, a collider, and swappable children for the equipment.
-//! A 2D sprite might need an animation controller and a particle effect for sparkle.
-//! A UI button might need a text label, an image background, and a click handler.
+//! A 3D character might be made of multiple meshes to enable animation and swappable equipment.
+//! A 2D sprite might need a distinct weapon, hat and a particle effect for a sparkling trail.
+//! A UI popup might need text and multiple buttons for accept, cancel, minimize and close actions.
 //! Spawning these collections as individual, disjointed entities is tedious, error-prone, and hard to reuse.
 //! A **scene** lets you describe a conceptual **object** — an entity, its components, children, and assets — once
 //! and spawn it wherever you need it.
