@@ -126,6 +126,7 @@ impl Default for DefaultErrorHandler {
 pub fn match_severity(err: BevyError, ctx: ErrorContext) {
     match err.severity() {
         Severity::Ignore => ignore(err, ctx),
+        Severity::Trace => trace(err, ctx),
         Severity::Debug => debug(err, ctx),
         Severity::Info => info(err, ctx),
         Severity::Warning => warn(err, ctx),

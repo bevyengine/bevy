@@ -134,6 +134,8 @@ struct InnerBevyError {
 pub enum Severity {
     /// The error can be safely ignored, and can be completely discarded.
     Ignore,
+    /// The error can be ignored, unless verbose debugging is required.
+    Trace,
     /// The error can be safely ignored, but may need to be surfaced during debugging.
     Debug,
     /// Nothing has gone wrong, but the error is useful to the user and should be reported.
