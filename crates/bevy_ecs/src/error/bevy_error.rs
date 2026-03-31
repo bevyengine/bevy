@@ -204,7 +204,7 @@ where
         BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
-                severity: Severity::Fatal,
+                severity: Severity::Panic,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
