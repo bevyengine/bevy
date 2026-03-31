@@ -110,7 +110,7 @@ pub fn extract_text_cursor(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
-                clip: maybe_clip.map(|clip| clip.clip),
+                clip,
                 image: AssetId::default(),
                 extracted_camera_entity,
                 transform: transform * Affine2::from_translation(cursor_rect.center()),
