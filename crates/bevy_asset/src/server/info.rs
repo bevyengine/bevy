@@ -314,6 +314,11 @@ impl AssetInfos {
         self.get_index_handle(ErasedAssetIndex::new(index, type_id))
     }
 
+    pub(crate) fn get_path_ref(&self, index: ErasedAssetIndex) -> Option<&AssetPath<'static>> {
+        let info = self.infos.get(&index)?;
+        info.path.as_ref()
+    }
+
     pub(crate) fn get_path_indices<'a>(
         &'a self,
         path: &'a AssetPath<'_>,
