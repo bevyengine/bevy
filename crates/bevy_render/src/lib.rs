@@ -185,6 +185,9 @@ pub enum RenderSystems {
     PrepareResources,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
     PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that writes batches
+    /// for render phases to the GPU.
+    PrepareResourcesWritePhaseBuffers,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
     /// [`PrepareResourcesBatchPhases`](RenderSystems::PrepareResourcesBatchPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
@@ -242,6 +245,8 @@ impl GpuResourceAppExt for SubApp {
 struct RenderRecovery;
 
 /// Defines the schedules to be run for the rendering, including their order.
+///
+/// This is the same approach as [`MainScheduleOrder`](`bevy_app::MainScheduleOrder`).
 #[derive(Resource, Debug)]
 pub struct RenderScheduleOrder {
     /// The labels to run for the rendering schedule (in the order they will be run).
@@ -320,6 +325,7 @@ impl Render {
             (
                 PrepareResources,
                 PrepareResourcesBatchPhases,
+                PrepareResourcesWritePhaseBuffers,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
@@ -394,6 +400,15 @@ impl Plugin for RenderPlugin {
                     PipelineCache::extract_shaders,
                 ),
             );
+
+            #[cfg(not(feature = "reflect_auto_register"))]
+            render_app.init_resource::<AppTypeRegistry>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            render_app.insert_resource(AppTypeRegistry::new_with_derived_types());
+
+            #[cfg(feature = "reflect_functions")]
+            render_app.init_resource::<AppFunctionRegistry>();
 
             render_app.add_schedule(RenderGraph::base_schedule());
 

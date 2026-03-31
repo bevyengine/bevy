@@ -66,10 +66,7 @@ fn setup(
                 font_size: FontSize::Px(30.0),
                 ..default()
             },
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(0.0),
-                y: Val::Px(0.0),
-            }),
+            UiTransform::from_translation(Val2::ZERO),
         ))
         .id();
 
@@ -97,12 +94,7 @@ fn setup(
             Node {
                 width: px(400),
                 height: px(100),
-                border: UiRect {
-                    left: px(5),
-                    right: px(5),
-                    top: px(5),
-                    bottom: px(5),
-                },
+                border: px(5).all(),
                 ..Default::default()
             },
             BorderColor::from(Color::from(YELLOW)),
@@ -113,10 +105,7 @@ fn setup(
                 font_size: FontSize::Px(70.0),
                 ..default()
             },
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(5.0),
-                y: Val::Px(200.0),
-            }),
+            UiTransform::from_translation(Val2::px(5.0, 200.0)),
         ))
         .id();
 
@@ -158,10 +147,7 @@ fn build_input_text(
             TextCursorStyle::default(),
             TabIndex(if is_left { 0 } else { 1 }),
             BackgroundColor(DARK_GREY.into()),
-            UiTransform::from_translation(Val2 {
-                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
-                y: Val::Px(50.0),
-            }),
+            UiTransform::from_translation(Val2::px(if is_left { 0.0 } else { 300.0 }, 50.0)),
         ))
         .id()
 }
@@ -181,8 +167,7 @@ fn text_submission(
         && let Some(focused_entity) = input_focus.get()
         && let Ok((mut text_input, name)) = text_input.get_mut(focused_entity)
     {
-        let input = text_input.value().clone().to_string();
-        text_output.0 = format!("{:}: {:}", name, input);
+        text_output.0 = format!("{:}: {:}", name, text_input.value());
 
         text_input.clear(&mut font_context.0, &mut layout_context.0);
     }
