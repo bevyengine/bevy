@@ -108,14 +108,11 @@ fn scroll_area_demo() -> impl Bundle {
                     min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        border_radius: BorderRadius::all(px(4)),
-                        ..default()
-                    },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
+                    CoreScrollbarThumb {
+                        border_radius: BorderRadius::all(px(4)),
+                    },
                 ))),
             ));
 
@@ -140,7 +137,9 @@ fn scroll_area_demo() -> impl Bundle {
                     },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
+                    CoreScrollbarThumb {
+                        border_radius: BorderRadius::all(px(4)),
+                    },
                 ))),
             ));
         }),)),
