@@ -181,7 +181,6 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
-            .before(UiSystems::PostLayout)
             .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config
