@@ -674,4 +674,25 @@ mod tests {
         world.trigger(Heal(id));
         assert_eq!(world.resource::<TotalHealed>().0, 42);
     }
+
+    #[test]
+    fn comments_in_bsn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Clone, Default)]
+        struct Marker;
+
+        fn yappy() -> impl Scene {
+            bsn! {
+                // Look ma, a comment!
+                #MyName
+                /*
+                   Wow, a block comment now?
+                */
+                Marker
+            }
+        }
+        world.spawn_scene(yappy()).unwrap();
+    }
 }
