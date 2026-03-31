@@ -17,12 +17,12 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
-    FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
-    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineBreak,
+    LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
     TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
-use parley::{BoundingBox, PositionedLayoutItem};
+use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
 
@@ -142,16 +142,39 @@ pub fn editable_text_system(
 
         let family = font_family.into_owned();
         let style_set = editable_text.editor.edit_styles();
-        style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
-        style_set.insert(parley::StyleProperty::FontFamily(family));
+        style_set.insert(StyleProperty::LineHeight(line_height.eval()));
+        style_set.insert(StyleProperty::FontFamily(family));
 
         let logical_viewport_size = target.logical_size();
         let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
-        style_set.insert(parley::StyleProperty::FontSize(font_size));
-        style_set.insert(parley::StyleProperty::Brush(TextBrush::new(
+        style_set.insert(StyleProperty::FontSize(font_size));
+        style_set.insert(StyleProperty::Brush(TextBrush::new(
             0,
             text_font.font_smoothing,
         )));
+
+        match text_layout.linebreak {
+            LineBreak::AnyCharacter => {
+                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::BreakAll));
+                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+            }
+            LineBreak::WordOrCharacter => {
+                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Anywhere));
+                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+            }
+            LineBreak::NoWrap => {
+                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::NoWrap));
+            }
+            LineBreak::WordBoundary => {
+                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+            }
+        }
 
         if target.is_changed() {
             editable_text.editor.set_scale(target.scale_factor());
