@@ -25,7 +25,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -905,6 +905,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
+            Option<&TextScroll>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -924,6 +925,7 @@ pub fn extract_text_sections(
         computed_block,
         text_color,
         text_layout_info,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -935,8 +937,10 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform =
-            Affine2::from(*transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(*transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
 
         let mut color = text_color.0.to_linear();
 
@@ -1008,6 +1012,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
+            Option<&TextScroll>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1027,6 +1032,7 @@ pub fn extract_text_shadows(
         text_layout_info,
         shadow,
         computed_block,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1040,7 +1046,8 @@ pub fn extract_text_shadows(
 
         let node_transform = Affine2::from(*transform)
             * Affine2::from_translation(
-                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor(),
+                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
+                    - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
         for (
@@ -1159,6 +1166,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
+            Option<&TextScroll>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1181,6 +1189,7 @@ pub fn extract_text_decorations(
         clip,
         camera,
         text_layout_info,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1192,8 +1201,10 @@ pub fn extract_text_decorations(
             continue;
         };
 
-        let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
 
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block

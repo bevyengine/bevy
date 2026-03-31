@@ -7,7 +7,8 @@ use bevy_render::{sync_world::TemporaryRenderEntity, Extract};
 use bevy_sprite::BorderRect;
 use bevy_text::{TextCursorStyle, TextLayoutInfo};
 use bevy_ui::{
-    CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform,
+    widget::TextScroll, CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius,
+    UiGlobalTransform,
 };
 
 use crate::{
@@ -27,6 +28,7 @@ pub fn extract_text_cursor(
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
             &TextCursorStyle,
+            Option<&TextScroll>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -42,6 +44,7 @@ pub fn extract_text_cursor(
         target_camera,
         text_layout_info,
         cursor_style,
+        text_scroll,
     ) in text_node_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -53,8 +56,10 @@ pub fn extract_text_cursor(
             continue;
         };
 
-        let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
 
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()
