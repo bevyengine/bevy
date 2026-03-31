@@ -617,7 +617,7 @@ mod color_consistency {
     }
 
     // Remember to reset the clear color
-    // Tonemapping is per-camera, and is reset by despawning
+    // Tonemapping is per-camera, and is reset when the camera despawns
     pub fn teardown(mut commands: Commands) {
         commands.insert_resource(ClearColor::default());
     }
