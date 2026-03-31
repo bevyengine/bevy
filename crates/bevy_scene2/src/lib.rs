@@ -103,9 +103,6 @@
 //! In all cases, your `*_spawn_scene` method call should wrap an invocation of the [`bsn!`] macro,
 //! or call a function which returns a [`Scene`].
 //!
-//! You can also add a [`ScenePatchInstance`] component to an entity, which will automatically
-//! apply the referenced [`ScenePatch`] once it is resolved.
-//!
 //! See the [`WorldSceneExt`], [`CommandsSceneExt`], [`EntityWorldMutSceneExt`], and
 //! [`EntityCommandsSceneExt`] extension traits for the full set of scene-spawning APIs.
 //!
