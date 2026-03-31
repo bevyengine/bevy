@@ -367,9 +367,7 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag)
             .add_systems(
                 PostUpdate,
-                update_scrollbar_thumb
-                    .in_set(UiSystems::ComputeRelative)
-                    .ambiguous_with(UiSystems::ComputeRelative),
+                update_scrollbar_thumb.in_set(UiSystems::Prepare),
             );
     }
 }

@@ -112,8 +112,6 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Stack,
-    /// After this label, TODO
-    ComputeRelative,
 }
 
 /// The current scale of the UI.
@@ -152,7 +150,6 @@ impl Plugin for UiPlugin {
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
-                    UiSystems::ComputeRelative.after(VisibilitySystems::VisibilityPropagate),
                 )
                     .chain(),
             )
@@ -184,6 +181,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
+            .before(UiSystems::PostLayout)
             .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config
@@ -195,15 +193,19 @@ impl Plugin for UiPlugin {
             (
                 propagate_ui_target_cameras.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
-                ui_stack_system
-                    .in_set(UiSystems::Stack)
-                    // These systems don't care about stack index
-                    .ambiguous_with(widget::measure_text_system)
-                    .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(ui_layout_system)
-                    .ambiguous_with(widget::update_viewport_render_target_size)
-                    .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::Propagate),
+                (
+                    ui_stack_system
+                        .in_set(UiSystems::Stack)
+                        .after(UiSystems::Prepare)
+                        // These systems don't care about stack index
+                        .ambiguous_with(widget::measure_text_system)
+                        .ambiguous_with(update_clipping_system)
+                        .ambiguous_with(ui_layout_system)
+                        .ambiguous_with(widget::update_viewport_render_target_size)
+                        .in_set(AmbiguousWithText),
+                    update_clipping_system.after(TransformSystems::Propagate),
+                )
+                    .before(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -219,8 +221,7 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystems::PostLayout)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),
-            )
-                .before(UiSystems::ComputeRelative),
+            ),
         );
 
         build_text_interop(app);

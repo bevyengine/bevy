@@ -102,8 +102,7 @@ impl Plugin for TransformGizmoRenderPlugin {
             )
                 .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
-                .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate)
-                .ambiguous_with(bevy_ui::UiSystems::ComputeRelative),
+                .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
         );
     }
 }
