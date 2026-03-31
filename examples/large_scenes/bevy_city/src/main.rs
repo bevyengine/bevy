@@ -274,7 +274,7 @@ pub enum CarAtStopState {
 
 fn simulate_cars(
     settings: Res<Settings>,
-    roads: Query<(&Road, &Transform, &Children), Without<Car>>,
+    roads: Query<(&Road, &Children), Without<Car>>,
     mut cars: Query<(&mut Car, &mut Transform), Without<Road>>,
     time: Res<Time>,
 ) {
@@ -282,10 +282,24 @@ fn simulate_cars(
         return;
     }
     let speed = 1.5;
+    let minimum_gap = 0.5;
 
-    for (road, _, children) in &roads {
-        for child in children {
-            let Ok((mut car, mut car_transform)) = cars.get_mut(*child) else {
+    for (road, children) in &roads {
+        let road_len = (road.end - road.start).length();
+        let direction = (road.end - road.start).normalize();
+
+        // Snapshot distances before moving anything this frame
+        let distances: Vec<(Entity, f32, f32)> = children
+            .iter()
+            .filter_map(|e| {
+                cars.get(e)
+                    .ok()
+                    .map(|(car, _)| (e, car.distance_traveled, car.dir))
+            })
+            .collect();
+
+        for child in children.iter() {
+            let Ok((mut car, mut car_transform)) = cars.get_mut(child) else {
                 continue;
             };
 
@@ -293,15 +307,25 @@ fn simulate_cars(
                 continue;
             }
 
-            car.distance_traveled += speed * time.delta_secs();
-            let road_len = (road.end - road.start).length();
-            if car.distance_traveled > road_len {
-                car.distance_traveled = 0.0;
+            let blocked = distances.iter().any(|&(e, other_d, other_dir)| {
+                e != child
+                    && other_dir == car.dir
+                    && {
+                        let gap = (other_d - car.distance_traveled) * car.dir;
+                        gap > 0.0 && gap < minimum_gap
+                    }
+            });
+
+            if !blocked {
+                car.distance_traveled += speed * time.delta_secs();
+                if car.distance_traveled > road_len {
+                    car.distance_traveled = 0.0;
+                }
             }
-            let direction = (road.end - road.start).normalize() * car.dir;
 
             let progress = car.distance_traveled / road_len;
-            car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
+            car_transform.translation =
+                (road.start + car.offset) + direction * car.dir * road_len * progress;
         }
     }
 }
