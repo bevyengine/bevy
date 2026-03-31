@@ -195,7 +195,6 @@ impl Plugin for UiPlugin {
                 (
                     ui_stack_system
                         .in_set(UiSystems::Stack)
-                        .after(UiSystems::Prepare)
                         // These systems don't care about stack index
                         .ambiguous_with(widget::measure_text_system)
                         .ambiguous_with(update_clipping_system)
