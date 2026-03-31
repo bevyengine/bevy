@@ -9,7 +9,7 @@ use bevy::input::keyboard::Key;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-    InputDispatchPlugin, InputFocus,
+    InputFocus,
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
