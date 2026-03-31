@@ -131,7 +131,7 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
         Severity::Info => info(err, ctx),
         Severity::Warning => warn(err, ctx),
         Severity::Error => error(err, ctx),
-        Severity::Fatal => panic(err, ctx),
+        Severity::Panic => panic(err, ctx),
     }
 }
 

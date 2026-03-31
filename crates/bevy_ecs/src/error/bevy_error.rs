@@ -147,7 +147,7 @@ pub enum Severity {
     /// A real error occurred, but the program may continue.
     Error,
     /// A fatal error; the program cannot continue.
-    Fatal,
+    Panic,
 }
 
 impl BevyError {
