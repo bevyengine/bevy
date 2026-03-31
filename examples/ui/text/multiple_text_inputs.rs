@@ -19,7 +19,6 @@ fn main() {
         // `EditableTextInputPlugin` is part of `DefaultPlugins`
         // Input focus is required to direct keyboard input to the correct `EditableText`
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
-        .add_plugins()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
