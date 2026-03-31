@@ -150,6 +150,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
+                    UiSystems::Stack,
                 )
                     .chain(),
             )
