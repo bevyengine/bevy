@@ -1157,7 +1157,7 @@ pub struct ViewPhaseBinUnpackingBuffers {
 
 /// A key used to look up the bin unpacking buffers for a specific phase of a
 /// specific view.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct BinUnpackingBuffersKey {
     /// The ID of the phase.
     pub phase: TypeId,
@@ -1167,7 +1167,7 @@ pub struct BinUnpackingBuffersKey {
 
 /// The index of the metadata corresponding to one bin unpacking job in the
 /// [`BinUnpackingBuffers::bin_unpacking_metadata`] buffer.
-#[derive(Clone, Copy, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Deref, DerefMut)]
 pub struct BinUnpackingMetadataIndex(pub NonMaxU32);
 
 impl BinUnpackingMetadataIndex {
@@ -2154,7 +2154,7 @@ where
         &mut self,
         batch_set: &RenderMultidrawableBatchSet<BPI>,
         data_buffer: &mut UninitBufferVec<GFBD::BufferData>,
-        indexed_work_item_buffer: &mut PartialBufferVec<PreprocessWorkItem>,
+        work_item_buffer: &mut PartialBufferVec<PreprocessWorkItem>,
         mesh_class_buffers: &mut MeshClassIndirectParametersBuffers<IP>,
         batch_sets: &mut Vec<BinnedRenderPhaseBatchSet<BPI::BinKey>>,
     ) where
@@ -2162,7 +2162,7 @@ where
     {
         let current_indexed_batch_set_index = self.batch_set_index;
         let current_output_index = data_buffer.len() as u32;
-        let first_work_item_index = indexed_work_item_buffer.len() as u32;
+        let first_work_item_index = work_item_buffer.len() as u32;
 
         let indirect_parameters_base = self.indirect_parameters_index;
 
@@ -2219,7 +2219,7 @@ where
             // item buffer and data buffer. Also, advance the output index and
             // work item count.
             let bin_entity_count = bin.entity_to_binned_mesh_instance_index.len();
-            indexed_work_item_buffer.push_multiple_uninit(bin_entity_count);
+            work_item_buffer.push_multiple_uninit(bin_entity_count);
             data_buffer.add_multiple(bin_entity_count);
             self.work_item_count += bin_entity_count;
         }
