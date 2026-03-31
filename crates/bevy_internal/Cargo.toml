@@ -453,7 +453,7 @@ gestures = ["bevy_input/gestures"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 
