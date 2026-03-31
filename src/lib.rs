@@ -51,6 +51,74 @@
 
 pub use bevy_internal::*;
 
+// Workaround for https://github.com/rust-lang/rust/issues/141256. Normally, if
+// a user references a module that's behind a disabled feature then the compiler
+// diagnostic will mention the feature. But this doesn't happen if the module
+// came through a glob import like the above `bevy_internal::*`. The workaround
+// is to directly import the modules and duplicate the bevy_internal feature gates.
+#[cfg(feature = "bevy_window")]
+pub use bevy_internal::a11y;
+#[cfg(feature = "bevy_animation")]
+pub use bevy_internal::animation;
+#[cfg(feature = "bevy_anti_aliasing")]
+pub use bevy_internal::anti_aliasing;
+pub use bevy_internal::app;
+#[cfg(feature = "bevy_asset")]
+pub use bevy_internal::asset;
+#[cfg(feature = "bevy_audio")]
+pub use bevy_internal::audio;
+#[cfg(feature = "bevy_color")]
+pub use bevy_internal::color;
+#[cfg(feature = "bevy_core_pipeline")]
+pub use bevy_internal::core_pipeline;
+#[cfg(feature = "bevy_dev_tools")]
+pub use bevy_internal::dev_tools;
+pub use bevy_internal::diagnostic;
+pub use bevy_internal::ecs;
+#[cfg(feature = "bevy_gilrs")]
+pub use bevy_internal::gilrs;
+#[cfg(feature = "bevy_gizmos")]
+pub use bevy_internal::gizmos;
+#[cfg(feature = "bevy_gltf")]
+pub use bevy_internal::gltf;
+#[cfg(feature = "bevy_image")]
+pub use bevy_internal::image;
+pub use bevy_internal::input;
+#[cfg(feature = "bevy_input_focus")]
+pub use bevy_internal::input_focus;
+#[cfg(feature = "bevy_log")]
+pub use bevy_internal::log;
+pub use bevy_internal::math;
+#[cfg(feature = "bevy_pbr")]
+pub use bevy_internal::pbr;
+#[cfg(feature = "bevy_picking")]
+pub use bevy_internal::picking;
+pub use bevy_internal::platform;
+pub use bevy_internal::ptr;
+pub use bevy_internal::reflect;
+#[cfg(feature = "bevy_remote")]
+pub use bevy_internal::remote;
+#[cfg(feature = "bevy_render")]
+pub use bevy_internal::render;
+#[cfg(feature = "bevy_scene")]
+pub use bevy_internal::scene;
+#[cfg(feature = "bevy_sprite")]
+pub use bevy_internal::sprite;
+#[cfg(feature = "bevy_state")]
+pub use bevy_internal::state;
+pub use bevy_internal::tasks;
+#[cfg(feature = "bevy_text")]
+pub use bevy_internal::text;
+pub use bevy_internal::time;
+pub use bevy_internal::transform;
+#[cfg(feature = "bevy_ui")]
+pub use bevy_internal::ui;
+pub use bevy_internal::utils;
+#[cfg(feature = "bevy_window")]
+pub use bevy_internal::window;
+#[cfg(feature = "bevy_winit")]
+pub use bevy_internal::winit;
+
 // Wasm does not support dynamic linking.
 #[cfg(all(feature = "dynamic_linking", not(target_family = "wasm")))]
 #[expect(
