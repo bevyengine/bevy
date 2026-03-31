@@ -1,8 +1,8 @@
 //! Demonstrates multiple text inputs
 //!
-//! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an `EditableText` text input node, the second column is a `Text` node
-//! that is kept synchronised with the `EditableText`'s contents by the `synchronise_output_text` system, and the third column is updated
-//! by the `text_submission` when the user submits the `EditableText`'s text by pressing `Ctrl` + `Enter`.
+//! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an [`EditableText`] text input node, the second column is a `Text` node
+//! that is kept synchronised with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
+//! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Ctrl` + `Enter`.
 
 use bevy::color::palettes::css::YELLOW;
 use bevy::input::keyboard::Key;
@@ -19,9 +19,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins((
-            // This is also part of UiWidgetsPlugins, but we only need EditableText for this example
+            // `EditableTextInputPlugin` is also part of `UiWidgetsPlugins`, but we only need `EditableText` for this example
             EditableTextInputPlugin,
-            // Input focus is required to direct keyboard input to the correct EditableText
+            // Input focus is required to direct keyboard input to the correct `EditableText`
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -29,8 +29,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                synchronise_output_text,
-                text_submission,
+                synchronize_output_text,
+                submit_text,
                 update_row_border_colors,
             ),
         )
@@ -166,9 +166,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-/// This system keeps the text of the `TextOutput` `Text` nodes synchronised with the text
-/// of the `EditableText` node on the same row.
-fn synchronise_output_text(
+/// This system keeps the text of the [`TextOutput`] [`Text`] nodes synchronised with the text
+/// of the [`EditableText`] node on the same row.
+fn synchronize_output_text(
     changed_inputs: Query<(&EditableText, &TextInputRow), Changed<EditableText>>,
     mut outputs: Query<(&mut Text, &TextInputRow), With<TextOutput>>,
 ) {
@@ -193,7 +193,7 @@ fn synchronise_output_text(
 }
 
 // Submit the focused input's text when Ctrl+Enter is pressed.
-fn text_submission(
+fn submit_text(
     input_focus: Res<InputFocus>,
     keyboard_input: Res<ButtonInput<Key>>,
     mut text_input: Query<(&mut EditableText, &TextInputRow)>,
@@ -221,7 +221,7 @@ fn text_submission(
     }
 }
 
-/// Dim a row's border colors when its `EditableText` does not have input focus.
+/// Dim a row's border colors when its [`EditableText`] does not have input focus.
 fn update_row_border_colors(
     input_focus: Res<InputFocus>,
     input_rows: Query<&TextInputRow, With<EditableText>>,
