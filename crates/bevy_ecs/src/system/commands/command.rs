@@ -79,7 +79,7 @@ pub trait Command: Send + 'static {
         }
     }
 
-    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
+    /// Takes a [`Command`] that returns a Result and uses the fallback error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
     fn handle_error(self) -> impl Command<Out = ()>

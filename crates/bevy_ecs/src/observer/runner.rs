@@ -127,7 +127,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
 mod tests {
     use super::*;
     use crate::{
-        error::{ignore, DefaultErrorHandler},
+        error::{ignore, FallbackErrorHandler},
         event::Event,
         observer::On,
     };
@@ -171,7 +171,7 @@ mod tests {
         world.spawn(Observer::new(system));
         // Test that the correct handler is used when the observer was added
         // before the default handler
-        world.insert_resource(DefaultErrorHandler(ignore));
+        world.insert_resource(FallbackErrorHandler(ignore));
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
     }

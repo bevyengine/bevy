@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{FallbackErrorHandler, ErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
     observer::IntoObserver,
@@ -1184,7 +1184,7 @@ impl App {
         if let Some(handler) = self.default_error_handler {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
@@ -1416,7 +1416,7 @@ impl App {
         self.default_error_handler
     }
 
-    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// Set the [fallback error handler] for the all subapps (including the main one and future ones)
     /// that do not have one.
     ///
     /// May only be called once and should be set by the application, not by libraries.
@@ -1437,7 +1437,7 @@ impl App {
     ///     .run();
     /// ```
     ///
-    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
+    /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
             self.default_error_handler.is_none(),
@@ -1447,7 +1447,7 @@ impl App {
         for sub_app in self.sub_apps.iter_mut() {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self
     }
