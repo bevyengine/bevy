@@ -395,6 +395,8 @@
 //!
 //! This is useful for self-contained logic like click handlers, damage reactions,
 //! or scripting-style triggers.
+//! Closures passed to `on` work like any Rust closure:
+//! you can use `move` and capture variables from the enclosing scope normally.
 //!
 //! ## Using Dynamic Expressions in Scenes
 //!
