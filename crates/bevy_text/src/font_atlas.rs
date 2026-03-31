@@ -59,7 +59,7 @@ impl FontAtlas {
         Self {
             texture_atlas: TextureAtlasLayout::new_empty(size),
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 2),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 2, true),
             texture,
         }
     }
