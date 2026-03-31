@@ -3,7 +3,7 @@
 use bevy::color::palettes::css::{DARK_SLATE_GRAY, YELLOW};
 use bevy::input_focus::{AutoFocus, InputDispatchPlugin};
 use bevy::prelude::*;
-use bevy::text::{EditableText, TextCursorStyle};
+use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
 use bevy::ui_widgets::EditableTextInputPlugin;
 
 fn main() {
@@ -15,6 +15,7 @@ fn main() {
             InputDispatchPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, report_bounds)
         .run();
 }
 
@@ -56,4 +57,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 AutoFocus,
             ));
         });
+}
+
+fn report_bounds(
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut query: Query<(&mut EditableText, &ComputedNode), Changed<EditableText>>,
+) {
+    for (mut editable_text, node) in query.iter_mut() {
+        let mut driver = editable_text
+            .bypass_change_detection()
+            .editor
+            .driver(&mut font_cx.0, &mut layout_cx.0);
+        let w = driver.layout().full_width();
+        println!("node width = {:?}", node.size.x);
+        println!("layout width = {:?}", w);
+    }
 }

@@ -18,7 +18,8 @@ use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
     FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
-    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
+    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
+    TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem};
@@ -112,6 +113,8 @@ pub fn editable_text_system(
         &mut EditableText,
         &mut TextLayoutInfo,
         Ref<ComputedNode>,
+        &mut TextScroll,
+        &TextLayout,
     )>,
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
@@ -129,6 +132,8 @@ pub fn editable_text_system(
         mut editable_text,
         mut info,
         computed_node,
+        mut text_scroll,
+        text_layout,
     ) in input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
@@ -155,7 +160,7 @@ pub fn editable_text_system(
         if computed_node.is_changed() {
             editable_text
                 .editor
-                .set_width(Some(computed_node.content_size().x));
+                .set_width(Some(computed_node.content_box().width()));
         }
 
         let mut driver = editable_text
