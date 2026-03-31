@@ -57,6 +57,7 @@
 //! // #Player adds a `Name("Player")` component to the root entity.
 //! // Children spawns two child entities: one with Sword, one with Shield.
 //! world.spawn_scene(bsn! {
+//!     // This names the entity "Player"
 //!     #Player
 //!     Score(0)
 //!     Children [
@@ -171,7 +172,7 @@
 //! }
 //! ```
 //!
-//! This is fundamentally a stylistic choice: white space and parentheses used in this way are ignored.
+//! This is fundamentally a stylistic choice: white space, Rust comments (`//` and `/* */`), and parentheses used in this way are ignored.
 //!
 //! The tools discussed here are not limited to [`Children`]: any [`RelationshipTarget`] type can be used the same way.
 //!
