@@ -27,7 +27,6 @@ pub struct CityAssets {
     pub tree_large: Handle<Scene>,
     pub path_stones_long: Handle<Scene>,
     pub fence: Handle<Scene>,
-    #[cfg(feature = "traffic")]
     pub traffic_light: Handle<Scene>,
 }
 
@@ -221,7 +220,6 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
-    #[cfg(feature = "traffic")]
     let traffic_light: Handle<Scene> =
         load_asset!(GltfAssetLabel::Scene(0).from_asset("traffic_assets/traffic_light.glb"));
 
@@ -238,7 +236,6 @@ pub fn load_assets(
         tree_large,
         path_stones_long,
         fence,
-        #[cfg(feature = "traffic")]
         traffic_light,
     });
 }

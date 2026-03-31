@@ -1,3 +1,4 @@
+use crate::settings::Settings;
 use bevy::{prelude::*, scene::SceneInstanceReady};
 
 pub const RED_DURATION: f32 = 5.0;
@@ -16,11 +17,17 @@ pub enum TrafficLightPhase {
 #[derive(Component)]
 pub struct TrafficLight {
     pub time_offset: f32,
+    last_phase: Option<TrafficLightPhase>,
+    bulbs: Vec<(Entity, TrafficLightColor)>,
 }
 
 impl TrafficLight {
     pub fn new(time_offset: f32) -> Self {
-        Self { time_offset }
+        Self {
+            time_offset,
+            last_phase: None,
+            bulbs: Vec::new(),
+        }
     }
 
     pub fn phase(&self, time: f32) -> TrafficLightPhase {
@@ -36,19 +43,12 @@ impl TrafficLight {
     }
 }
 
-// Component/material for bulb
+// Component for each bulb on a traffic light, which is updated based on light's current phase
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrafficLightColor {
     Red,
     Yellow,
     Green,
-}
-
-#[derive(Component)]
-pub struct TrafficLightBulb {
-    pub color: TrafficLightColor,
-    pub light_entity: Entity,
-    pub last_phase: Option<TrafficLightPhase>,
 }
 
 #[derive(Resource)]
@@ -108,15 +108,16 @@ fn setup_traffic_light_materials(
 
 fn on_traffic_light_scene_ready(
     trigger: On<SceneInstanceReady>,
-    traffic_lights: Query<(), With<TrafficLight>>,
+    mut traffic_lights: Query<&mut TrafficLight>,
     children: Query<&Children>,
     names: Query<&Name>,
-    mut commands: Commands,
+    mut mesh_materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    light_materials: Res<TrafficLightMaterials>,
 ) {
     let root = trigger.entity;
-    if traffic_lights.get(root).is_err() {
+    let Ok(mut light) = traffic_lights.get_mut(root) else {
         return;
-    }
+    };
     for descendant in children.iter_descendants(root) {
         let Ok(name) = names.get(descendant) else {
             continue;
@@ -127,41 +128,44 @@ fn on_traffic_light_scene_ready(
             "GREEN_LIGHT" => TrafficLightColor::Green,
             _ => continue,
         };
-        commands.entity(descendant).insert(TrafficLightBulb {
-            color,
-            light_entity: root,
-            last_phase: None,
-        });
+        light.bulbs.push((descendant, color));
+        if let Ok(mut material) = mesh_materials.get_mut(descendant) {
+            material.0 = light_materials.red_off.clone();
+        }
     }
 }
 
 fn update_bulb_materials(
-    mut bulbs: Query<(Entity, &mut TrafficLightBulb)>,
-    traffic_lights: Query<&TrafficLight>,
+    settings: Res<Settings>,
+    mut traffic_lights: Query<&mut TrafficLight>,
+    mut mesh_materials: Query<&mut MeshMaterial3d<StandardMaterial>>,
     time: Res<Time>,
     materials: Res<TrafficLightMaterials>,
-    mut commands: Commands,
 ) {
+    if !settings.traffic_enabled {
+        return;
+    }
     let elapsed = time.elapsed_secs();
-    for (entity, mut bulb) in bulbs.iter_mut() {
-        let Ok(light) = traffic_lights.get(bulb.light_entity) else {
-            continue;
-        };
+    for mut light in traffic_lights.iter_mut() {
         let phase = light.phase(elapsed);
-        if bulb.last_phase == Some(phase) {
+        if light.last_phase == Some(phase) {
             continue;
         }
-        bulb.last_phase = Some(phase);
-        let handle = match (bulb.color, phase) {
-            (TrafficLightColor::Red, TrafficLightPhase::Red) => &materials.red_on,
-            (TrafficLightColor::Red, _) => &materials.red_off,
-            (TrafficLightColor::Yellow, TrafficLightPhase::Yellow) => &materials.yellow_on,
-            (TrafficLightColor::Yellow, _) => &materials.yellow_off,
-            (TrafficLightColor::Green, TrafficLightPhase::Green) => &materials.green_on,
-            (TrafficLightColor::Green, _) => &materials.green_off,
-        };
-        commands
-            .entity(entity)
-            .insert(MeshMaterial3d(handle.clone()));
+        light.last_phase = Some(phase);
+        for (entity, color) in &light.bulbs {
+            let Ok(mut material) = mesh_materials.get_mut(*entity) else {
+                continue;
+            };
+            material.0 = match (color, phase) {
+                (TrafficLightColor::Red, TrafficLightPhase::Red) => materials.red_on.clone(),
+                (TrafficLightColor::Red, _) => materials.red_off.clone(),
+                (TrafficLightColor::Yellow, TrafficLightPhase::Yellow) => {
+                    materials.yellow_on.clone()
+                }
+                (TrafficLightColor::Yellow, _) => materials.yellow_off.clone(),
+                (TrafficLightColor::Green, TrafficLightPhase::Green) => materials.green_on.clone(),
+                (TrafficLightColor::Green, _) => materials.green_off.clone(),
+            };
+        }
     }
 }

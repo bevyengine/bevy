@@ -27,7 +27,6 @@ mod assets;
 mod generate_city;
 mod settings;
 
-#[cfg(feature = "traffic")]
 mod traffic;
 
 #[derive(FromArgs, Resource, Clone)]
@@ -70,7 +69,6 @@ fn main() {
                 }),
                 ..default()
             }),
-        #[cfg(feature = "traffic")]
         traffic::TrafficPlugin,
         FreeCameraPlugin,
         FeathersPlugins,
@@ -96,7 +94,6 @@ fn main() {
     .add_observer(on_city_assets_ready)
     .add_observer(setup_settings_ui);
 
-    #[cfg(feature = "traffic")]
     app.add_systems(Update, apply_traffic_rules.before(simulate_cars));
 
     app.run();
@@ -243,7 +240,6 @@ fn on_city_assets_ready(
 struct Road {
     start: Vec3,
     end: Vec3,
-    #[cfg(feature = "traffic")]
     intersection: Entity,
 }
 
@@ -252,15 +248,11 @@ struct Car {
     offset: Vec3,
     distance_traveled: f32,
     dir: f32,
-    #[cfg(feature = "traffic")]
     car_state: CarState,
-    #[cfg(feature = "traffic")]
     car_at_stop_state: CarAtStopState,
-    #[cfg(feature = "traffic")]
     next_lane: Option<Entity>,
 }
 
-#[cfg(feature = "traffic")]
 #[derive(PartialEq, Eq, Default)]
 pub enum CarState {
     Accelerating,
@@ -270,7 +262,6 @@ pub enum CarState {
     Stopped,
 }
 
-#[cfg(feature = "traffic")]
 #[derive(PartialEq, Eq, Default)]
 pub enum CarAtStopState {
     #[default]
@@ -298,7 +289,6 @@ fn simulate_cars(
                 continue;
             };
 
-            #[cfg(feature = "traffic")]
             if matches!(car.car_state, CarState::Stopped) {
                 continue;
             }
@@ -316,8 +306,8 @@ fn simulate_cars(
     }
 }
 
-#[cfg(feature = "traffic")]
 fn apply_traffic_rules(
+    settings: Res<Settings>,
     roads: Query<(&Road, &Children), Without<Car>>,
     mut cars: Query<&mut Car>,
     traffic_lights: Query<&traffic::TrafficLight>,
@@ -336,7 +326,9 @@ fn apply_traffic_rules(
             };
             let road_len = (road.end - road.start).length();
             let remaining = road_len - car.distance_traveled;
-            car.car_state = if remaining < stop_distance && phase == traffic::TrafficLightPhase::Red
+            car.car_state = if settings.traffic_enabled
+                && remaining < stop_distance
+                && phase == traffic::TrafficLightPhase::Red
             {
                 CarState::Stopped
             } else {

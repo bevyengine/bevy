@@ -2,9 +2,7 @@ use bevy::prelude::*;
 use noise::{NoiseFn, OpenSimplex};
 use rand::{rngs::SmallRng, RngExt, SeedableRng};
 
-use crate::{assets::CityAssets, Car, Road};
-#[cfg(feature = "traffic")]
-use crate::{traffic, CarAtStopState, CarState};
+use crate::{assets::CityAssets, traffic, Car, CarAtStopState, CarState, Road};
 #[derive(Component)]
 pub struct CityRoot;
 
@@ -88,30 +86,25 @@ fn spawn_roads_and_cars<R: RngExt>(
     let x = offset.x;
     let z = offset.z;
 
-    #[cfg_attr(not(feature = "traffic"), allow(unused_variables))]
     let crossroad = commands
         .spawn((
             SceneRoot(assets.crossroad.clone()),
             Transform::from_xyz(x, 0.0, z),
-            #[cfg(feature = "traffic")]
             traffic::TrafficLight::new((x * 7.3 + z * 3.7).rem_euclid(traffic::CYCLE_DURATION)),
         ))
         .id();
 
-    #[cfg(feature = "traffic")]
-    {
-        // 2 traffic lights at diagonal corners,
-        for (dx, dz, y_rot) in [
-            (-0.5_f32, -0.5_f32, 0.0_f32),                     // NW corner
-            (0.5_f32, -0.5_f32, -std::f32::consts::FRAC_PI_2), // NE corner
-        ] {
-            commands.spawn((
-                SceneRoot(assets.traffic_light.clone()),
-                Transform::from_translation(Vec3::new(x + dx, 0.0, z + dz))
-                    .with_rotation(Quat::from_rotation_y(y_rot))
-                    .with_scale(Vec3::splat(0.3)),
-            ));
-        }
+    // 2 traffic lights at diagonal corners
+    for (dx, dz, y_rot) in [
+        (-0.5_f32, -0.5_f32, 0.0_f32),
+        (0.5_f32, -0.5_f32, std::f32::consts::FRAC_PI_2),
+    ] {
+        commands.spawn((
+            SceneRoot(assets.traffic_light.clone()),
+            Transform::from_translation(Vec3::new(x + dx, 0.0, z + dz))
+                .with_rotation(Quat::from_rotation_y(y_rot))
+                .with_scale(Vec3::splat(0.3)),
+        ));
     }
 
     let max_car_density = 0.4;
@@ -130,7 +123,6 @@ fn spawn_roads_and_cars<R: RngExt>(
             Road {
                 start: Vec3::new(0.75, 0.0, 0.0),
                 end: Vec3::new(0.75 + (0.5 * car_count as f32), 0.0, 0.0),
-                #[cfg(feature = "traffic")]
                 intersection: crossroad,
             },
         ))
@@ -157,11 +149,8 @@ fn spawn_roads_and_cars<R: RngExt>(
                             distance_traveled: i as f32 * 0.5,
                             dir: -1.0,
                             offset: Vec3::new(4.25, 0.0, -0.15),
-                            #[cfg(feature = "traffic")]
                             car_state: CarState::Driving,
-                            #[cfg(feature = "traffic")]
                             car_at_stop_state: CarAtStopState::Default,
-                            #[cfg(feature = "traffic")]
                             next_lane: None,
                         },
                     ));
@@ -180,11 +169,8 @@ fn spawn_roads_and_cars<R: RngExt>(
                             distance_traveled: i as f32 * 0.5,
                             dir: 1.0,
                             offset: Vec3::new(-0.25, 0.0, 0.15),
-                            #[cfg(feature = "traffic")]
                             car_state: CarState::Driving,
-                            #[cfg(feature = "traffic")]
                             car_at_stop_state: CarAtStopState::Default,
-                            #[cfg(feature = "traffic")]
                             next_lane: None,
                         },
                     ));
@@ -201,7 +187,6 @@ fn spawn_roads_and_cars<R: RngExt>(
             Road {
                 start: Vec3::new(0.0, 0.0, 0.75),
                 end: Vec3::new(0.0, 0.0, 0.75 + (0.5 * car_count as f32)),
-                #[cfg(feature = "traffic")]
                 intersection: crossroad,
             },
         ))
@@ -225,11 +210,8 @@ fn spawn_roads_and_cars<R: RngExt>(
                             distance_traveled: i as f32 * 0.5,
                             dir: 1.0,
                             offset: Vec3::new(-0.15, 0.0, -0.25),
-                            #[cfg(feature = "traffic")]
                             car_state: CarState::Driving,
-                            #[cfg(feature = "traffic")]
                             car_at_stop_state: CarAtStopState::Default,
-                            #[cfg(feature = "traffic")]
                             next_lane: None,
                         },
                     ));
@@ -245,11 +227,8 @@ fn spawn_roads_and_cars<R: RngExt>(
                             distance_traveled: i as f32 * 0.5,
                             dir: -1.0,
                             offset: Vec3::new(0.15, 0.0, 2.75),
-                            #[cfg(feature = "traffic")]
                             car_state: CarState::Driving,
-                            #[cfg(feature = "traffic")]
                             car_at_stop_state: CarAtStopState::Default,
-                            #[cfg(feature = "traffic")]
                             next_lane: None,
                         },
                     ));
