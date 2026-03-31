@@ -649,6 +649,11 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
 
+    /// Sets the inline axis direction (LTR or RTL) used for layout.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/direction>
+    pub direction: InlineDirection,
+
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -820,7 +825,6 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
-    pub direction: InlineDirection,
 }
 
 impl Node {
@@ -876,7 +880,7 @@ impl Default for Node {
     }
 }
 
-/// Sets the direction of grid columns.
+/// Sets the inline axis direction (LTR or RTL) used for layout.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
