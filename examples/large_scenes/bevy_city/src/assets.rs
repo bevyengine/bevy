@@ -253,8 +253,10 @@ pub fn load_assets(
 /// Merge the meshes of all the cars gltf into a single mesh per car.
 ///
 /// The asset pack we are using uses a separate mesh for each tire of the car and some also have
-/// doors as separate meshes. For our purposes we don't need them to be separate meshes and this
-/// was causing a lot of performance issues.
+/// doors as separate meshes. This is useful if you want to animate these element individually but
+/// in this scene we don't need to do that. Having multiple meshes for a single car means we need
+/// to run transform propagation on all these meshes and it will also generate even more indirect
+/// commands for each of those meshes.
 pub fn merge_car_meshes(
     city_assets: &mut CityAssets,
     scenes: &mut Assets<Scene>,
