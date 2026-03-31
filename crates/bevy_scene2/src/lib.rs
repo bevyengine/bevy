@@ -636,4 +636,63 @@ mod tests {
         }
         world.spawn_scene(a()).unwrap();
     }
+
+    #[test]
+    fn closures_in_bsn() {
+        #[derive(Resource, Default)]
+        struct TotalHealed(u32);
+
+        #[derive(EntityEvent)]
+        struct Heal(Entity);
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.init_resource::<TotalHealed>();
+
+        fn non_move_scene() -> impl Scene {
+            bsn! {
+                on(|_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                    healed.0 += 1;
+                })
+            }
+        }
+
+        let id = world.spawn_scene(non_move_scene()).unwrap().id();
+        world.trigger(Heal(id));
+        assert_eq!(world.resource::<TotalHealed>().0, 1);
+        world.resource_mut::<TotalHealed>().0 = 0;
+
+        fn move_scene(bonus: u32) -> impl Scene {
+            bsn! {
+                on(move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                    healed.0 += bonus;
+                })
+            }
+        }
+
+        let id = world.spawn_scene(move_scene(42)).unwrap().id();
+        world.trigger(Heal(id));
+        assert_eq!(world.resource::<TotalHealed>().0, 42);
+    }
+
+    #[test]
+    fn comments_in_bsn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Clone, Default)]
+        struct Marker;
+
+        fn yappy() -> impl Scene {
+            bsn! {
+                // Look ma, a comment!
+                #MyName
+                /*
+                   Wow, a block comment now?
+                */
+                Marker
+            }
+        }
+        world.spawn_scene(yappy()).unwrap();
+    }
 }
