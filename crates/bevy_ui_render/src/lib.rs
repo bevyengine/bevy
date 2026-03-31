@@ -918,7 +918,7 @@ pub fn extract_text_sections(
     for (
         entity,
         uinode,
-        transform,
+        global_transform,
         inherited_visibility,
         maybe_clip,
         camera,
@@ -937,7 +937,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = Affine2::from(*transform)
+        let transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
@@ -945,7 +945,7 @@ pub fn extract_text_sections(
         let clip = if text_scroll.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
-                transform.translation + content_box.center(),
+                global_transform.affine().translation + content_box.center(),
                 content_box.size(),
             );
             Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
@@ -1036,7 +1036,7 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
-        transform,
+        global_transform,
         target,
         inherited_visibility,
         maybe_clip,
@@ -1055,7 +1055,7 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let node_transform = Affine2::from(*transform)
+        let node_transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
                 uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
                     - text_scroll.map_or(Vec2::ZERO, |s| s.0),
@@ -1064,7 +1064,7 @@ pub fn extract_text_shadows(
         let clip = if text_scroll.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
-                transform.translation + content_box.center(),
+                global_transform.affine().translation + content_box.center(),
                 content_box.size(),
             );
             Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
@@ -1231,7 +1231,7 @@ pub fn extract_text_decorations(
         let clip = if text_scroll.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
-                transform.translation + content_box.center(),
+                global_transform.affine().translation + content_box.center(),
                 content_box.size(),
             );
             Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))

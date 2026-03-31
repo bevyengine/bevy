@@ -64,7 +64,7 @@ pub fn extract_text_cursor(
         let clip = if text_scroll.is_some() {
             let content_box = uinode.content_box();
             let text_clip = Rect::from_center_size(
-                transform.translation + content_box.center(),
+                global_transform.affine().translation + content_box.center(),
                 content_box.size(),
             );
             Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
