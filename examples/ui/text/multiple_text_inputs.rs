@@ -1,4 +1,8 @@
 //! Demonstrates multiple text inputs
+//!
+//! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an `EditableText` text input node, the second column is a `Text` node
+//! that is kept synchronised with the `EditableText`'s contents by the `synchronise_output_text` system, and the third column is updated
+//! by the `text_submission` when the user submits the `EditableText`'s text by pressing `Ctrl` + `Enter`.
 
 use bevy::color::palettes::css::YELLOW;
 use bevy::input::keyboard::Key;
@@ -22,7 +26,7 @@ fn main() {
             TabNavigationPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_output, text_submission))
+        .add_systems(Update, (synchronise_output_text, text_submission))
         .run();
 }
 
@@ -142,7 +146,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_output(
+/// This system keeps the contents of the `TextOutput` `Text` nodes synchronised with the contents
+/// of the text node on the same row.
+fn synchronise_output_text(
     changed_inputs: Query<(&EditableText, &TextInputRow), Changed<EditableText>>,
     mut outputs: Query<(&mut Text, &TextInputRow), With<TextOutput>>,
 ) {
@@ -175,7 +181,6 @@ fn text_submission(
                 break;
             }
         }
-
         text_input.clear(&mut font_context.0, &mut layout_context.0);
     }
 }
