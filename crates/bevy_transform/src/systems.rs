@@ -485,7 +485,7 @@ mod parallel {
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         queue: Local<WorkQueue>,
-        mut roots: RootQuery,
+        roots: RootQuery,
         nodes: NodeQuery,
         static_optimizations: Res<StaticTransformOptimizations>,
     ) {
@@ -504,8 +504,9 @@ mod parallel {
         let static_optimizations = &*static_optimizations;
 
         task_pool.scope(|s| {
-            // Spawn a producer task that processes root entities and feeds the work queue.
-            let roots = &mut roots;
+            // Spawn a producer that identifies dirty roots, sets their GlobalTransform, and pushes
+            // them into the work queue for workers to propagate.
+            let roots = &roots;
             s.spawn(async move {
                 seeding_worker(roots, nodes, queue, static_optimizations);
             });
@@ -517,40 +518,34 @@ mod parallel {
         });
     }
 
-    /// Iterates root entities, propagates their transforms, and seeds the work queue for
-    /// [`propagation_worker`]s to process. Decrements `busy_threads` when complete.
+    /// Iterates dirty root entities, sets their [`GlobalTransform`], and pushes them into the work
+    /// queue for [`propagation_worker`]s to propagate their descendants.
     fn seeding_worker(
-        roots: &mut RootQuery,
+        roots: &RootQuery,
         nodes: &NodeQuery,
         queue: &WorkQueue,
         static_optimizations: &StaticTransformOptimizations,
     ) {
+        let _s = bevy_log::info_span!("seeding_worker").entered();
         let mut outbox = Vec::new();
-        for (entity, transform, mut parent_transform, children, transform_tree) in roots.iter_mut()
-        {
+        for (entity, transform_tree) in roots.iter() {
             if static_optimizations.is_enabled() && !transform_tree.is_changed() {
                 continue;
             }
 
-            *parent_transform = GlobalTransform::from(*transform);
-
-            // SAFETY: each root entity is unique, preventing mutable aliasing.
+            // SAFETY: Root entities are unique and not yet in the work queue. We access
+            // through NodeQuery (which now matches roots via optional ChildOf) to set
+            // the GlobalTransform. RootQuery doesn't borrow GlobalTransform, so there
+            // is no aliased mutable access.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
-                propagate_descendants_unchecked(
-                    entity,
-                    parent_transform,
-                    children,
-                    nodes,
-                    &mut outbox,
-                    queue,
-                    static_optimizations,
-                    1,
-                );
+                let (_, (transform, mut global_transform, _), _) =
+                    nodes.get_unchecked(entity).unwrap();
+                *global_transform = GlobalTransform::from(*transform);
             }
 
-            // Flush the outbox periodically so workers can pick up tasks immediately
-            // instead of waiting for all roots to be processed.
+            outbox.push(entity);
+
             if outbox.len() >= WorkQueue::CHUNK_SIZE {
                 WorkQueue::send_batches_with(&queue.sender, &mut outbox);
             }
@@ -685,29 +680,36 @@ mod parallel {
             };
 
             let mut last_child = None;
-            let new_children = children_iter.filter_map(
-                |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if static_optimizations.is_enabled()
-                        && !tree.is_changed()
-                        && !p_global_transform.is_changed()
-                    {
-                        // Static scene optimization
-                        return None;
-                    }
-                    assert_eq!(child_of.parent(), parent);
+            for (child, (transform, mut global_transform, tree), (children, child_of)) in
+                children_iter
+            {
+                if static_optimizations.is_enabled()
+                    && !tree.is_changed()
+                    && !p_global_transform.is_changed()
+                {
+                    // Static scene optimization
+                    continue;
+                }
+                assert_eq!(
+                    child_of.expect("child entity missing ChildOf").parent(),
+                    parent
+                );
 
-                    // Transform prop is expensive - this helps avoid updating entire subtrees if
-                    // the GlobalTransform is unchanged, at the cost of an added equality check.
-                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+                // Transform prop is expensive - this helps avoid updating entire subtrees if
+                // the GlobalTransform is unchanged, at the cost of an added equality check.
+                global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
 
-                    children.map(|children| {
-                        // Only continue propagation if the entity has children.
-                        last_child = Some((child, global_transform, children));
-                        child
-                    })
-                },
-            );
-            outbox.extend(new_children);
+                if let Some(children) = children {
+                    // Only continue propagation if the entity has children.
+                    last_child = Some((child, global_transform, children));
+                    outbox.push(child);
+                }
+
+                // Flush periodically so other workers can start on siblings immediately
+                if outbox.len() >= WorkQueue::CHUNK_SIZE {
+                    WorkQueue::send_batches_with(&queue.sender, outbox);
+                }
+            }
 
             if depth >= max_depth || last_child.is_none() {
                 break; // Don't remove anything from the outbox or send any chunks, just exit.
@@ -729,22 +731,16 @@ mod parallel {
         }
     }
 
-    /// Alias for the root entity query. Root entities have no parent but have children.
+    /// Alias for the root entity query. Root entities don't have a parent but have children.
     type RootQuery<'w, 's> = Query<
         'w,
         's,
-        (
-            Entity,
-            Ref<'static, Transform>,
-            &'static mut GlobalTransform,
-            &'static Children,
-            Ref<'static, TransformTreeChanged>,
-        ),
-        Without<ChildOf>,
+        (Entity, Ref<'static, TransformTreeChanged>),
+        (Without<ChildOf>, With<Children>),
     >;
 
-    /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
-    /// parent and possibly children, thus they are not roots.
+    /// Alias for a large, repeatedly used query. `ChildOf` is optional so that workers can also
+    /// look up root entities.
     type NodeQuery<'w, 's> = Query<
         'w,
         's,
@@ -755,7 +751,7 @@ mod parallel {
                 Mut<'static, GlobalTransform>,
                 Ref<'static, TransformTreeChanged>,
             ),
-            (Option<Read<Children>>, Read<ChildOf>),
+            (Option<Read<Children>>, Option<Read<ChildOf>>),
         ),
     >;
 
