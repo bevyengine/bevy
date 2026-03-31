@@ -61,6 +61,17 @@ pub fn extract_text_cursor(
                 uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
 
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                transform.translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
+
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()
         {
@@ -70,7 +81,7 @@ pub fn extract_text_cursor(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SELECTION,
-                    clip: maybe_clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(selection.center()),
