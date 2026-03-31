@@ -280,7 +280,7 @@
 //! ```ignore
 //! // Inline composition: call with parentheses, no `:`
 //! bsn! {
-//!     enemy(100)
+//!     enemy()
 //!     Health { max: 200 }
 //! }
 //! ```
