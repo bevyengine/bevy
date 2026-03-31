@@ -166,8 +166,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-/// This system keeps the contents of the `TextOutput` `Text` nodes synchronised with the contents
-/// of the text node on the same row.
+/// This system keeps the text of the `TextOutput` `Text` nodes synchronised with the text
+/// of the `EditableText` node on the same row.
 fn synchronise_output_text(
     changed_inputs: Query<(&EditableText, &TextInputRow), Changed<EditableText>>,
     mut outputs: Query<(&mut Text, &TextInputRow), With<TextOutput>>,
