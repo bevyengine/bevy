@@ -417,7 +417,11 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag)
             .add_systems(
                 PostUpdate,
-                update_scrollbar_thumb.in_set(UiSystems::PostLayout),
+                update_scrollbar_thumb
+                    .in_set(UiSystems::PostLayout)
+                    .after(crate::popover::position_popover)
+                    .after(bevy_ui::widget::editable_text_system)
+                    .after(bevy_ui::widget::text_system),
             );
     }
 }

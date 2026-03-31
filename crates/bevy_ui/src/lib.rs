@@ -193,17 +193,16 @@ impl Plugin for UiPlugin {
             (
                 propagate_ui_target_cameras.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
-                (
-                    ui_stack_system
-                        .in_set(UiSystems::Stack)
-                        // These systems don't care about stack index
-                        .ambiguous_with(widget::measure_text_system)
-                        .ambiguous_with(update_clipping_system)
-                        .ambiguous_with(ui_layout_system)
-                        .ambiguous_with(widget::update_viewport_render_target_size)
-                        .in_set(AmbiguousWithText),
-                    update_clipping_system.after(TransformSystems::Propagate),
-                )
+                ui_stack_system
+                    .in_set(UiSystems::Stack)
+                    // These systems don't care about stack index
+                    .ambiguous_with(widget::measure_text_system)
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(widget::update_viewport_render_target_size)
+                    .in_set(AmbiguousWithText),
+                update_clipping_system
+                    .after(TransformSystems::Propagate)
                     .before(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
