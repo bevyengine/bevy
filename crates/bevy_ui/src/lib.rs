@@ -74,7 +74,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
-use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
+use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_transform::TransformSystems;
