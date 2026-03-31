@@ -5,7 +5,7 @@ pull_requests: [23346]
 
 `UiWidgetsPlugins` and `InputDispatchPlugin` are now part of `DefaultPlugins`.
 
-TODO: Why did we make this breaking change?
+These plugins are now mature enough to be included as part of the default Bevy experience.
 
 Remove `UiWidgetsPlugins` if you have `DefaultPlugins`
 
