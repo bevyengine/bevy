@@ -1,7 +1,7 @@
 //! Demonstrates multiple text inputs
 //!
 //! This example arranges three text inputs in a 3x3 grid layout.  The first column of each row is an [`EditableText`] text input node, the second column is a `Text` node
-//! that is kept synchronised with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
+//! that is kept synchronized with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
 //! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Ctrl` + `Enter`.
 
 use bevy::color::palettes::css::YELLOW;
