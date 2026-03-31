@@ -55,16 +55,21 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "bevy_city".into(),
-                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
-                present_mode: PresentMode::AutoNoVsync,
-                position: WindowPosition::Centered(MonitorSelection::Primary),
+        DefaultPlugins
+            .set(AssetPlugin {
+                file_path: "./".to_string(),
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "bevy_city".into(),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    present_mode: PresentMode::AutoNoVsync,
+                    position: WindowPosition::Centered(MonitorSelection::Primary),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }),
         #[cfg(feature = "traffic")]
         traffic::TrafficPlugin,
         FreeCameraPlugin,

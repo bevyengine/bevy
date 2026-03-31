@@ -222,8 +222,8 @@ pub fn load_assets(
     );
 
     #[cfg(feature = "traffic")]
-    let traffic_light: Handle<Scene> = load_asset!(GltfAssetLabel::Scene(0)
-        .from_asset("examples/large_scenes/bevy_city/traffic_assets/traffic_light.glb"));
+    let traffic_light: Handle<Scene> =
+        load_asset!(GltfAssetLabel::Scene(0).from_asset("traffic_assets/traffic_light.glb"));
 
     commands.insert_resource(CityAssets {
         untyped_assets,

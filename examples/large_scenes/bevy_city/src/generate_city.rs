@@ -100,17 +100,15 @@ fn spawn_roads_and_cars<R: RngExt>(
 
     #[cfg(feature = "traffic")]
     {
-        // 4 corners of the intersection, each rotated to face inward
-        for (dx, dz, rot) in [
-            (-0.5_f32, -0.5_f32, 0.0_f32),
-            (0.5_f32, -0.5_f32, std::f32::consts::FRAC_PI_2),
-            (0.5_f32, 0.5_f32, std::f32::consts::PI),
-            (-0.5_f32, 0.5_f32, -std::f32::consts::FRAC_PI_2),
+        // 2 traffic lights at diagonal corners,
+        for (dx, dz, y_rot) in [
+            (-0.5_f32, -0.5_f32, 0.0_f32),                     // NW corner
+            (0.5_f32, -0.5_f32, -std::f32::consts::FRAC_PI_2), // NE corner
         ] {
             commands.spawn((
                 SceneRoot(assets.traffic_light.clone()),
                 Transform::from_translation(Vec3::new(x + dx, 0.0, z + dz))
-                    .with_rotation(Quat::from_rotation_y(rot))
+                    .with_rotation(Quat::from_rotation_y(y_rot))
                     .with_scale(Vec3::splat(0.3)),
             ));
         }
