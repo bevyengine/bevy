@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 align_content: AlignContent::Center,
                 grid_template_columns: RepeatedGridTrack::px(3, 320.),
-                grid_template_rows: RepeatedGridTrack::auto(5),
+                grid_template_rows: RepeatedGridTrack::auto(6),
                 row_gap: px(16.),
                 column_gap: px(16.),
                 ..default()
@@ -78,15 +78,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font.clone(),
             ));
 
-            parent.spawn((
-                Text::new("Press Ctrl + Enter to submit"),
-                Node {
-                    grid_column: GridPlacement::span(3),
-                    justify_self: JustifySelf::Center,
-                    ..default()
-                },
-                font.clone(),
-            ));
+            let label_font = font.clone().with_font_size(14.);
+            for label in ["EditableText", "value", "submission"] {
+                parent.spawn((
+                    Text::new(label),
+                    label_font.clone(),
+                    Node {
+                        justify_self: JustifySelf::Center,
+                        ..default()
+                    },
+                ));
+            }
 
             for row in 0..3 {
                 let mut input = parent.spawn((
@@ -143,6 +145,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     SubmitOutput,
                 ));
             }
+
+            parent.spawn((
+                Text::new("Press Ctrl + Enter to submit"),
+                Node {
+                    grid_column: GridPlacement::span(3),
+                    justify_self: JustifySelf::Center,
+                    ..default()
+                },
+                font.clone(),
+            ));
         });
 }
 
@@ -164,8 +176,8 @@ fn synchronise_output_text(
                 text.0.clear();
                 text.0
                     .reserve(editable_text.value().into_iter().map(str::len).sum());
-                for sub_string in editable_text.value() {
-                    text.0.push_str(sub_string);
+                for sub_str in editable_text.value() {
+                    text.0.push_str(sub_str);
                 }
             }
         }
@@ -184,19 +196,19 @@ fn text_submission(
     if keyboard_input.just_pressed(Key::Enter)
         && keyboard_input.pressed(Key::Control)
         && let Some(focused_entity) = input_focus.get()
-        && let Ok((mut text_input, input_row)) = text_input.get_mut(focused_entity)
+        && let Ok((mut editable_text, input_row)) = text_input.get_mut(focused_entity)
     {
         for (mut text, output_row) in &mut text_output {
             if input_row.0 == output_row.0 {
                 text.0.clear();
                 text.0
                     .reserve(editable_text.value().into_iter().map(str::len).sum());
-                for sub_string in editable_text.value() {
-                    text.0.push_str(part);
+                for sub_str in editable_text.value() {
+                    text.0.push_str(sub_str);
                 }
                 break;
             }
         }
-        text_input.clear(&mut font_context.0, &mut layout_context.0);
+        editable_text.clear(&mut font_context.0, &mut layout_context.0);
     }
 }
