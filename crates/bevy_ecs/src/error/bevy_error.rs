@@ -12,7 +12,7 @@ use core::{
 /// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is. Severity is advisory
 /// metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
 ///
-/// By default, errors have [`Severity::Critical`], which preserves Bevy’s known panic-on-error behavior unless explicitly overridden.
+/// By default, errors have [`Severity::Panic`], which preserves Bevy’s known panic-on-error behavior unless explicitly overridden.
 ///
 /// # Backtraces
 ///
