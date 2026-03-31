@@ -776,7 +776,7 @@ mod parallel {
         }
     }
     impl WorkQueue {
-        const CHUNK_SIZE: usize = 512;
+        const CHUNK_SIZE: usize = 1024;
 
         #[inline]
         fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
