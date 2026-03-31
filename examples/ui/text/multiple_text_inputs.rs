@@ -155,7 +155,18 @@ fn synchronise_output_text(
     for (editable_text, input_row) in &changed_inputs {
         for (mut text, output_row) in &mut outputs {
             if output_row.0 == input_row.0 {
-                text.0 = editable_text.value().to_string();
+                // `EditableText::value()` returns a `SplitString` because Parley may keep IME preedit text
+                // in a contiguous range of the editor’s internal `String` buffer during composition.
+                // The returned `SplitString` omits that preedit range, exposing only the text before and after it.
+                //
+                // To avoid allocating a new `String`, we reserve the total length of the `SplitString`'s slices,
+                // then append them to the output `Text`.
+                text.0.clear();
+                text.0
+                    .reserve(editable_text.value().into_iter().map(str::len).sum());
+                for sub_string in editable_text.value() {
+                    text.0.push_str(sub_string);
+                }
             }
         }
     }
@@ -177,7 +188,12 @@ fn text_submission(
     {
         for (mut text, output_row) in &mut text_output {
             if input_row.0 == output_row.0 {
-                text.0 = text_input.value().to_string();
+                text.0.clear();
+                text.0
+                    .reserve(editable_text.value().into_iter().map(str::len).sum());
+                for sub_string in editable_text.value() {
+                    text.0.push_str(part);
+                }
                 break;
             }
         }
