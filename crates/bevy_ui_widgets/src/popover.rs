@@ -95,7 +95,7 @@ impl Clone for Popover {
     }
 }
 
-fn position_popover(
+pub(crate) fn position_popover(
     mut q_popover: Query<(
         Entity,
         &mut Node,
