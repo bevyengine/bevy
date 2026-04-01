@@ -34,6 +34,7 @@ pub struct Core3d;
 /// These stages include and run in the following order:
 /// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing opaque and transparent objects.
+/// - `EarlyPostProcess`: Initial post processing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
@@ -42,6 +43,7 @@ pub struct Core3d;
 pub enum Core3dSystems {
     Prepass,
     MainPass,
+    EarlyPostProcess,
     PostProcess,
 }
 
@@ -57,7 +59,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
 
         schedule
     }
@@ -69,14 +71,18 @@ pub struct Core2d;
 
 /// System sets for the Core 2D rendering pipeline, defining the main stages of rendering.
 /// These stages include and run in the following order:
+/// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing 2D sprites and meshes.
+/// - `EarlyPostProcess`: Initial post processing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
 /// sets can be created relative to these core sets.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Core2dSystems {
+    Prepass,
     MainPass,
+    EarlyPostProcess,
     PostProcess,
 }
 
@@ -92,11 +98,15 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets((MainPass, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
 
         schedule
     }
 }
+
+/// Holds the entity of windows that are a render target for a camera
+#[derive(Resource)]
+struct CameraWindows(HashSet<Entity>);
 
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
@@ -154,13 +164,12 @@ pub fn camera_driver(world: &mut World) {
             world.run_schedule(schedule);
         }
     }
-
-    submit_pending_command_buffers(world);
     world.remove_resource::<CurrentView>();
-    handle_uncovered_swap_chains(world, &camera_windows);
+
+    world.insert_resource(CameraWindows(camera_windows));
 }
 
-fn submit_pending_command_buffers(world: &mut World) {
+pub(crate) fn submit_pending_command_buffers(world: &mut World) {
     let mut pending = world.resource_mut::<PendingCommandBuffers>();
     let buffer_count = pending.len();
     let buffers = pending.take();
@@ -172,15 +181,17 @@ fn submit_pending_command_buffers(world: &mut World) {
     }
 }
 
-fn handle_uncovered_swap_chains(world: &mut World, camera_windows: &HashSet<Entity>) {
+pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
     let windows_to_clear: Vec<_> = {
         let clear_color = world.resource::<ClearColor>().0.to_linear();
+        let Some(camera_windows) = world.remove_resource::<CameraWindows>() else {
+            return;
+        };
         let windows = world.resource::<ExtractedWindows>();
-
         windows
             .iter()
             .filter_map(|(window_entity, window)| {
-                if camera_windows.contains(window_entity) {
+                if camera_windows.0.contains(window_entity) {
                     return None;
                 }
                 let swap_chain_texture = window.swap_chain_texture_view.as_ref()?;

@@ -13,7 +13,6 @@ use bevy_ecs::{
     query::Has,
     resource::Resource,
     system::{Commands, Query, Res},
-    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
@@ -368,9 +367,8 @@ pub fn layout_entries(
     ));
 
     // Prepass
-    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-        || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
-            && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
+    if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
+        || !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
@@ -479,49 +477,50 @@ pub struct MeshPipelineViewLayouts(
     pub Arc<[MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT]>,
 );
 
-impl FromWorld for MeshPipelineViewLayouts {
-    fn from_world(world: &mut World) -> Self {
-        // Generates all possible view layouts for the mesh pipeline, based on all combinations of
-        // [`MeshPipelineViewLayoutKey`] flags.
+pub fn init_mesh_pipeline_view_layouts(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    // Generates all possible view layouts for the mesh pipeline, based on all combinations of
+    // [`MeshPipelineViewLayoutKey`] flags.
 
-        let render_device = world.resource::<RenderDevice>();
-        let render_adapter = world.resource::<RenderAdapter>();
+    let clustered_forward_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let visibility_ranges_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-        let clustered_forward_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let visibility_ranges_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
+    let res = MeshPipelineViewLayouts(Arc::new(array::from_fn(|i| {
+        let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
+        let entries = layout_entries(
+            clustered_forward_buffer_binding_type,
+            visibility_ranges_buffer_binding_type,
+            key,
+            &render_device,
+            &render_adapter,
+        );
+        #[cfg(debug_assertions)]
+        let texture_count: usize = entries
+            .iter()
+            .flat_map(|e| {
+                e.iter()
+                    .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+            })
+            .count();
 
-        Self(Arc::new(array::from_fn(|i| {
-            let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-            let entries = layout_entries(
-                clustered_forward_buffer_binding_type,
-                visibility_ranges_buffer_binding_type,
-                key,
-                render_device,
-                render_adapter,
-            );
+        MeshPipelineViewLayout {
+            main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
+            binding_array_layout: BindGroupLayoutDescriptor::new(
+                format!("{}_binding_array", key.label()),
+                &entries[1],
+            ),
+            empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
             #[cfg(debug_assertions)]
-            let texture_count: usize = entries
-                .iter()
-                .flat_map(|e| {
-                    e.iter()
-                        .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
-                })
-                .count();
+            texture_count,
+        }
+    })));
 
-            MeshPipelineViewLayout {
-                main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
-                binding_array_layout: BindGroupLayoutDescriptor::new(
-                    format!("{}_binding_array", key.label()),
-                    &entries[1],
-                ),
-                empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
-                #[cfg(debug_assertions)]
-                texture_count,
-            }
-        })))
-    }
+    commands.insert_resource(res);
 }
 
 impl MeshPipelineViewLayouts {
@@ -544,7 +543,7 @@ impl MeshPipelineViewLayouts {
 
 /// Generates all possible view layouts for the mesh pipeline, based on all combinations of
 /// [`MeshPipelineViewLayoutKey`] flags.
-#[deprecated(since = "0.16.0", note = "Use `layout_entries` instead")]
+#[deprecated(since = "0.19.0", note = "Use `layout_entries` instead")]
 pub fn generate_view_layouts(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
@@ -742,10 +741,10 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
 
-            // When using WebGL, we can't have a depth texture with multisampling
+            // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
+            // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
-            {
+            if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
                 for (binding, index) in prepass_bindings
                     .iter()

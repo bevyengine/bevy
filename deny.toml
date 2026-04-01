@@ -48,9 +48,6 @@ exceptions = [
   { name = "symphonia-codec-aac", allow = [
     "MPL-2.0",
   ] },
-  { name = "symphonia-codec-adpcm", allow = [
-    "MPL-2.0",
-  ] },
   { name = "symphonia-codec-pcm", allow = [
     "MPL-2.0",
   ] },
@@ -61,6 +58,9 @@ exceptions = [
     "MPL-2.0",
   ] },
   { name = "symphonia-format-isomp4", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-ogg", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-format-riff", allow = [
@@ -80,7 +80,9 @@ wildcards = "deny"
 # Certain crates that we don't want multiple versions of in the dependency tree
 deny = [
   { name = "ahash", deny-multiple-versions = true },
+  { name = "accesskit", deny-multiple-versions = true },
   { name = "android-activity", deny-multiple-versions = true },
+  { name = "parley", deny-multiple-versions = true },
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]

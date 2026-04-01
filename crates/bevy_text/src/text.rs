@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -8,6 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
+use parley::setting::Tag;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -38,7 +39,7 @@ pub struct TextEntity {
 pub struct ComputedTextBlock {
     /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) layout: Layout<(u32, FontSmoothing)>,
+    pub(crate) layout: Layout<TextBrush>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -64,8 +65,6 @@ pub struct ComputedTextBlock {
     // Used by dependents to determine if they should update a text block on changes to
     // the rem size.
     pub(crate) uses_rem_sizes: bool,
-    /// Hinting mode to use when rasterizing glyphs for this block.
-    pub(crate) font_hinting: FontHinting,
 }
 
 impl Debug for ComputedTextBlock {
@@ -76,7 +75,6 @@ impl Debug for ComputedTextBlock {
             .field("needs_rerender", &self.needs_rerender)
             .field("uses_viewport_sizes", &self.uses_viewport_sizes)
             .field("uses_rem_sizes", &self.uses_rem_sizes)
-            .field("font_hinting", &self.font_hinting)
             .finish()
     }
 }
@@ -84,7 +82,7 @@ impl Debug for ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -105,7 +103,7 @@ impl ComputedTextBlock {
     }
 
     /// Accesses the shaped layout buffer.
-    pub fn buffer(&self) -> &Layout<(u32, FontSmoothing)> {
+    pub fn buffer(&self) -> &Layout<TextBrush> {
         &self.layout
     }
 }
@@ -118,7 +116,6 @@ impl Default for ComputedTextBlock {
             needs_rerender: true,
             uses_rem_sizes: false,
             uses_viewport_sizes: false,
-            font_hinting: FontHinting::Disabled,
         }
     }
 }
@@ -192,7 +189,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, LineHeight)]
+#[require(TextFont, TextColor, LineHeight, LetterSpacing)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -202,13 +199,11 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
+impl TextSection for TextSpan {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -381,7 +376,9 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// or a generic font category that is resolved using Parley's
+    /// [`FontContext`](`parley::FontContext`) which is accessible through the
+    /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -414,6 +411,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified font weight
+    pub fn from_font_weight(weight: impl Into<FontWeight>) -> Self {
+        Self::default().with_font_weight(weight)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = FontSource::Handle(font);
@@ -435,6 +437,12 @@ impl TextFont {
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified [`FontWeight`].
+    pub fn with_font_weight(mut self, weight: impl Into<FontWeight>) -> Self {
+        self.weight = weight.into();
         self
     }
 }
@@ -891,14 +899,14 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
                 })
                 .collect(),
@@ -919,7 +927,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, _font_size: f32) -> parley::LineHeight {
+    /// eval a line height
+    pub fn eval(self) -> parley::LineHeight {
         match self {
             LineHeight::Px(px) => parley::LineHeight::Absolute(px),
             LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
@@ -930,6 +939,33 @@ impl LineHeight {
 impl Default for LineHeight {
     fn default() -> Self {
         LineHeight::RelativeToFont(1.2)
+    }
+}
+
+/// Specifies the space between each letter of text for `Text` and `Text2d`
+///
+/// Default is 0
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub enum LetterSpacing {
+    /// Set letter spacing to a specific number of logical pixels
+    Px(f32),
+    /// Set letter spacing to a multiple of the font size
+    Rem(f32),
+}
+
+impl LetterSpacing {
+    pub(crate) fn eval(self, rem_size: f32) -> f32 {
+        match self {
+            LetterSpacing::Px(px) => px,
+            LetterSpacing::Rem(rem) => rem * rem_size,
+        }
+    }
+}
+
+impl Default for LetterSpacing {
+    fn default() -> Self {
+        Self::Px(0.0)
     }
 }
 
@@ -1084,27 +1120,26 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
-    pub(crate) fn should_hint(self) -> bool {
+    /// Returns true if font hinting is enabled.
+    pub fn is_enabled(self) -> bool {
         matches!(self, FontHinting::Enabled)
     }
 }
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
+/// Does not check root text components (e.g. `Text`/`Text2d`) for changes. Their systems must handle change detection.
+pub fn detect_text_needs_rerender(
     changed_roots: Query<
         Entity,
         (
             Or<(
-                Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
             )>,
-            With<Root>,
             With<TextFont>,
             With<TextLayout>,
         ),
@@ -1116,6 +1151,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
@@ -1137,8 +1173,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
+            once!(warn!("found entity {} with a root text component but no ComputedTextBlock; this warning only \
+                prints once", root));
             continue;
         };
         computed.needs_rerender = true;
@@ -1151,16 +1187,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
+                text entities; this warning only prints once",
+                entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
+                with a root text component; this warning only prints once",
+                entity
             ));
             continue;
         };
@@ -1189,9 +1224,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
-                    entity,
-                    core::any::type_name::<Root>()
+                    component; this warning only prints once",
+                    entity
                 ));
                 break;
             };

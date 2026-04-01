@@ -5,6 +5,11 @@ use crate::{
 
 /// Writes [`Message`]s of type `T`.
 ///
+/// This system parameter takes exclusive access to the [`Messages<T>`] resource,
+/// so a system cannot also have a [`MessageReader`](super::MessageReader) parameter of the same type.
+/// If you need to both read and write messages of the same type,
+/// use [`MessageMutator`](super::MessageMutator).
+///
 /// # Usage
 ///
 /// `MessageWriter`s are usually declared as a [`SystemParam`].
@@ -12,9 +17,9 @@ use crate::{
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Message)]
-/// pub struct MyMessage; // Custom message type.
+/// pub struct MyMessage(String); // Custom message type.
 /// fn my_system(mut writer: MessageWriter<MyMessage>) {
-///     writer.write(MyMessage);
+///     writer.write(MyMessage("My custom payload!".to_string()));
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);

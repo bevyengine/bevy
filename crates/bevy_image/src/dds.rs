@@ -10,6 +10,12 @@ use {bevy_utils::once, tracing::warn};
 
 use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
+/// Converts DDS bytes to a bevy [`Image`] using the given compressed format support.
+///
+/// # Errors
+///
+/// Returns an error if the provided buffer contained invalid data, decompression fails, or transcoding
+/// of unsupported data formats fails.
 #[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
     buffer: &[u8],
@@ -119,6 +125,11 @@ pub fn dds_buffer_to_image(
     Ok(image)
 }
 
+/// Gets a [`TextureFormat`] from a [`Dds`] file.
+///
+/// # Errors
+///
+/// Returns an error for unsupported texture formats.
 #[cfg(feature = "dds")]
 pub fn dds_format_to_texture_format(
     dds: &Dds,

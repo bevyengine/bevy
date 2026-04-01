@@ -7,6 +7,28 @@ use parley::LayoutContext;
 use parley::{FontContext, GenericFamily};
 use swash::scale::ScaleContext;
 
+#[derive(Copy, Clone, PartialEq, Default, Debug)]
+/// Per-section metadata attached to shaped text runs.
+///
+/// This brush is stored in Parley's [`Layout`](`parley::Layout`) so Bevy can identify which text section
+/// a glyph run belongs to, and the antialiasing method that should be used during rendering.
+pub struct TextBrush {
+    /// Index of the text section within its `ComputedTextBlock`.
+    pub section_index: u32,
+    /// Antialiasing method to use when rendering the text.
+    pub font_smoothing: FontSmoothing,
+}
+
+impl TextBrush {
+    /// Creates a new brush for glyphs from the given text section.
+    pub fn new(section_index: u32, font_smoothing: FontSmoothing) -> Self {
+        TextBrush {
+            section_index,
+            font_smoothing,
+        }
+    }
+}
+
 /// A font database and cache, used for font family resolution and text layout.
 ///
 /// This resource is a wrapper around [`parley::FontContext`].
@@ -44,7 +66,7 @@ impl FontCx {
     /// Sets the fallback font for a given generic family.
     ///
     /// In most cases, these methods do not need to called manually,
-    /// as [`parley::fontique`] will automatically select appropriate default fonts based based on available system fonts.
+    /// as [`parley::fontique`] will automatically select appropriate default fonts based on available system fonts.
     ///
     /// Note that the `parley/system` feature must be enabled to allow automatic system font discovery.
     ///
@@ -131,7 +153,7 @@ impl FontCx {
 
 /// Text layout context
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct LayoutCx(pub LayoutContext<(u32, FontSmoothing)>);
+pub struct LayoutCx(pub LayoutContext<TextBrush>);
 
 /// Text scaler context
 #[derive(Resource, Default, Deref, DerefMut)]

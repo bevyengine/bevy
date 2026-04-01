@@ -44,21 +44,13 @@ pub enum GltfAssetLabel {
         /// Index of this primitive in its parent mesh
         primitive: usize,
     },
-    /// `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
-    /// as a Bevy [`Image`](bevy_image::prelude::Image)
-    MorphTarget {
-        /// Index of the mesh for this primitive
-        mesh: usize,
-        /// Index of this primitive in its parent mesh
-        primitive: usize,
-    },
     /// `Texture{}`: glTF Texture as a Bevy [`Image`](bevy_image::prelude::Image)
     Texture(usize),
     /// `Material{}`: glTF Material as Bevy [`GltfMaterial`](crate::GltfMaterial)
     Material {
         /// Index of this material
         index: usize,
-        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material,
+        /// Used to set the [`Face`](wgpu_types::Face) of the material,
         /// useful if it is used with negative scale
         is_scale_inverted: bool,
     },
@@ -81,9 +73,6 @@ impl core::fmt::Display for GltfAssetLabel {
             GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
             GltfAssetLabel::Primitive { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
-            }
-            GltfAssetLabel::MorphTarget { mesh, primitive } => {
-                f.write_str(&format!("Mesh{mesh}/Primitive{primitive}/MorphTargets"))
             }
             GltfAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
             GltfAssetLabel::Material {

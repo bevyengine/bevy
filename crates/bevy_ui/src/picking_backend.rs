@@ -203,47 +203,37 @@ pub fn ui_picking(
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
-                if let Some((text_layout_info, text_block)) = node.text_node {
-                    if let Some(text_entity) = pick_ui_text_section(
-                        node.node,
-                        node.transform,
-                        *cursor_position,
-                        text_layout_info,
-                        text_block,
-                    ) && clip_check_recursive(
-                        *cursor_position,
-                        node_entity,
-                        &clipping_query,
-                        &child_of_query,
-                    ) {
-                        if settings.require_markers && !pickable_query.contains(text_entity) {
-                            continue;
-                        }
-
-                        hit_nodes
-                            .entry((camera_entity, *pointer_id))
-                            .or_default()
-                            .push((
-                                text_entity,
-                                camera_entity,
-                                node.pickable.cloned(),
-                                node.transform.inverse().transform_point2(*cursor_position)
-                                    / node.node.size(),
-                            ));
-                    }
-                } else if node.node.contains_point(*node.transform, *cursor_position)
+                if node.node.contains_point(*node.transform, *cursor_position)
                     && clip_check_recursive(
                         *cursor_position,
                         node_entity,
                         &clipping_query,
                         &child_of_query,
                     )
+                    && let Some(target) = node
+                        .text_node
+                        .and_then(|(text_layout_info, text_block)| {
+                            pick_ui_text_section(
+                                node.node,
+                                node.transform,
+                                *cursor_position,
+                                text_layout_info,
+                                text_block,
+                            )
+                            .filter(|&text_entity| {
+                                !settings.require_markers || pickable_query.contains(text_entity)
+                            })
+                        })
+                        .or_else(|| {
+                            (!settings.require_markers || node.pickable.is_some())
+                                .then_some(node_entity)
+                        })
                 {
                     hit_nodes
                         .entry((camera_entity, *pointer_id))
                         .or_default()
                         .push((
-                            node_entity,
+                            target,
                             camera_entity,
                             node.pickable.cloned(),
                             node.transform.inverse().transform_point2(*cursor_position)
@@ -298,12 +288,11 @@ fn pick_ui_text_section(
 ) -> Option<Entity> {
     let local_point = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())?;
-
-    for run in text_layout_info.run_geometry.iter() {
-        if run.bounds.contains(local_point) {
-            return text_block.entities().get(run.span_index).map(|e| e.entity);
-        }
-    }
-    None
+        .map(|transform| transform.transform_point2(point) - uinode.content_box().min)?;
+    let section_index = text_layout_info
+        .run_geometry
+        .iter()
+        .find(|run| run.bounds.contains(local_point))
+        .map(|run| run.section_index)?;
+    text_block.entities().get(section_index).map(|e| e.entity)
 }

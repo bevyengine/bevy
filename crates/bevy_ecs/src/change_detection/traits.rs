@@ -36,6 +36,40 @@ pub trait DetectChanges {
     /// use `this.is_changed() && !this.is_added()`.
     fn is_changed(&self) -> bool;
 
+    /// Returns `true` if this value was added after the `other` tick.
+    fn is_added_after(&self, other: Tick) -> bool;
+
+    /// Returns `true` if this value was added or mutably dereferenced
+    /// after the `other` tick.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Source;
+    /// # #[derive(Component)]
+    /// # struct Target;
+    /// #
+    /// # impl Target {
+    /// #     fn from_source(_: &Source) -> Self {
+    /// #         Target
+    /// #     }
+    /// # }
+    /// #
+    /// fn system(query: Query<(Ref<Source>, &mut Target)>) {
+    ///     for (source, mut target) in query {
+    ///         // Only convert the source to the target if the source is newer
+    ///         if source.is_changed_after(target.last_changed()) {
+    ///             *target = Target::from_source(&source);
+    ///         }
+    ///     }
+    /// }
+    /// #
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    fn is_changed_after(&self, other: Tick) -> bool;
+
     /// Returns the change tick recording the time this data was most recently changed.
     ///
     /// Note that components and resources are also marked as changed upon insertion.
@@ -329,16 +363,26 @@ macro_rules! change_detection_impl {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
-                self.ticks
-                    .added
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                self.is_added_after(self.ticks.last_run)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
+                self.is_changed_after(self.ticks.last_run)
+            }
+
+            #[inline]
+             fn is_added_after(&self, other: Tick) -> bool {
+                self.ticks
+                    .added
+                    .is_newer_than(other, self.ticks.this_run)
+            }
+
+            #[inline]
+            fn is_changed_after(&self, other: Tick) -> bool {
                 self.ticks
                     .changed
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                    .is_newer_than(other, self.ticks.this_run)
             }
 
             #[inline]

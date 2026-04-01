@@ -77,7 +77,7 @@ pub fn ui_layout_system(
     mut node_query: Query<(
         Entity,
         Ref<Node>,
-        Option<&mut ContentSize>,
+        &mut ContentSize,
         Ref<ComputedUiRenderTargetInfo>,
     )>,
     added_node_query: Query<(), Added<Node>>,
@@ -94,29 +94,21 @@ pub fn ui_layout_system(
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
-    mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.read() {
-        ui_surface.try_remove_node_context(entity);
-    }
-
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
-        .for_each(|(entity, node, content_size, computed_target)| {
-            if computed_target.is_changed()
-                || node.is_changed()
-                || content_size
-                    .as_ref()
-                    .is_some_and(|c| c.is_changed() || c.measure.is_some())
-            {
+        .for_each(|(entity, node, mut content_size, computed_target)| {
+            if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
                 );
-                let measure = content_size.and_then(|mut c| c.measure.take());
+                if content_size.is_changed() && content_size.measure.is_none() {
+                    ui_surface.try_remove_node_context(entity);
+                }
+                let measure = content_size.bypass_change_detection().measure.take();
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
@@ -361,7 +353,7 @@ mod tests {
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
@@ -378,6 +370,7 @@ mod tests {
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
+        app.add_plugins(TaskPoolPlugin::default());
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
@@ -977,7 +970,55 @@ mod tests {
     }
 
     #[test]
-    fn measure_funcs_should_be_removed_on_content_size_removal() {
+    fn measured_node_includes_border_and_padding() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let ui_node = world
+            .spawn((
+                Node {
+                    align_self: AlignSelf::Start,
+                    border: UiRect {
+                        left: px(2.0),
+                        right: px(6.0),
+                        top: px(4.0),
+                        bottom: px(8.0),
+                    },
+                    padding: UiRect {
+                        left: px(3.0),
+                        right: px(5.0),
+                        top: px(7.0),
+                        bottom: px(11.0),
+                    },
+                    ..default()
+                },
+                ContentSize::fixed_size(Vec2::new(50.0, 25.0)),
+            ))
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        let layout = ui_surface.get_layout(ui_node, true).unwrap().0;
+
+        assert_eq!(layout.border.left, 2.0);
+        assert_eq!(layout.border.right, 6.0);
+        assert_eq!(layout.border.top, 4.0);
+        assert_eq!(layout.border.bottom, 8.0);
+        assert_eq!(layout.padding.left, 3.0);
+        assert_eq!(layout.padding.right, 5.0);
+        assert_eq!(layout.padding.top, 7.0);
+        assert_eq!(layout.padding.bottom, 11.0);
+        assert_eq!(layout.size.width, 66.0);
+        assert_eq!(layout.size.height, 55.0);
+        assert_eq!(layout.content_size.width, 58.0);
+        assert_eq!(layout.content_size.height, 43.0);
+        assert_eq!(layout.content_box_width(), 50.0);
+        assert_eq!(layout.content_box_height(), 25.0);
+    }
+
+    #[test]
+    fn measure_funcs_should_be_removed_on_content_size_clear() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
 
@@ -1004,16 +1045,64 @@ mod tests {
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
 
-        world.entity_mut(ui_entity).remove::<ContentSize>();
+        world
+            .entity_mut(ui_entity)
+            .get_mut::<ContentSize>()
+            .unwrap()
+            .clear();
 
         app.update();
         let world = app.world_mut();
 
         let mut ui_surface = world.resource_mut::<UiSurface>();
-        // a node without a content size should not have taffy context
+        // a node with a cleared content size should not have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node.id).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
+        assert_eq!(layout.size.width, 0.);
+        assert_eq!(layout.size.height, 0.);
+    }
+
+    #[test]
+    fn measure_funcs_should_persist_until_cleared() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let content_size = Vec2::new(50., 25.);
+        let ui_entity = world
+            .spawn((Node::default(), ContentSize::fixed_size(content_size)))
+            .id();
+
+        app.update();
+        let world = app.world_mut();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        let ui_node = ui_surface.entity_to_taffy[&ui_entity];
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_some());
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
+        assert_eq!(layout.size.width, content_size.x);
+        assert_eq!(layout.size.height, content_size.y);
+
+        world.entity_mut(ui_entity).insert(Node::default());
+
+        app.update();
+        let world = app.world_mut();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_some());
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
+        assert_eq!(layout.size.width, content_size.x);
+        assert_eq!(layout.size.height, content_size.y);
+
+        world
+            .entity_mut(ui_entity)
+            .get_mut::<ContentSize>()
+            .unwrap()
+            .clear();
+
+        app.update();
+        let world = app.world_mut();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_none());
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
@@ -1214,6 +1303,15 @@ mod tests {
             4
         );
 
+        // Should be two viewport nodes tracked in the root to viewport node map.
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            2
+        );
+
         // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
         // UI root entity.
         world
@@ -1230,5 +1328,18 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+
+        // The entry for `ui_root_entity_2` should have been removed from `root_entity_to_viewport_node`
+        assert_eq!(
+            world
+                .resource_mut::<UiSurface>()
+                .root_entity_to_viewport_node
+                .len(),
+            1
+        );
+        assert!(world
+            .resource_mut::<UiSurface>()
+            .root_entity_to_viewport_node
+            .contains_key(&ui_root_entity_1));
     }
 }

@@ -42,7 +42,6 @@ pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
 pub mod font_styles;
-pub mod handle_or_path;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;

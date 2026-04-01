@@ -1,34 +1,20 @@
 use crate::{
-    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
-    renderer::{RenderDevice, RenderQueue},
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, RenderApp,
 };
 use bevy_app::{App, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
-    component::Component,
+    bundle::NoBundleEffect,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
-use core::{marker::PhantomData, ops::Deref};
+use core::marker::PhantomData;
+
+pub use crate::uniform::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin};
 
 pub use bevy_render_macros::ExtractComponent;
-
-/// Stores the index of a uniform inside of [`ComponentUniforms`].
-#[derive(Component)]
-pub struct DynamicUniformIndex<C: Component> {
-    index: u32,
-    marker: PhantomData<C>,
-}
-
-impl<C: Component> DynamicUniformIndex<C> {
-    #[inline]
-    pub fn index(&self) -> u32 {
-        self.index
-    }
-}
 
 /// Describes how a component gets extracted for rendering.
 ///
@@ -46,103 +32,19 @@ pub trait ExtractComponent<F = ()>: SyncComponent<F> {
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
+    /// The output from extraction, i.e. [`ExtractComponent::extract_component`].
+    ///
+    /// The output components won't be removed automatically from the render world if the implementing component is removed,
+    /// unless you set them in the [`SyncComponent::Target`].
+    type Out: Bundle<Effect: NoBundleEffect>;
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Bundle<Effect: NoBundleEffect> = Self;
 
     /// Defines how the component is transferred into the "render world".
+    ///
+    /// Returning `None` based on the queried item will remove the [`SyncComponent::Target`] from the entity in
+    /// the render world.
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
-}
-
-/// This plugin prepares the components of the corresponding type for the GPU
-/// by transforming them into uniforms.
-///
-/// They can then be accessed from the [`ComponentUniforms`] resource.
-/// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
-/// for every processed entity.
-///
-/// Therefore it sets up the [`RenderSystems::Prepare`] step
-/// for the specified [`ExtractComponent`].
-pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
-
-impl<C> Default for UniformComponentPlugin<C> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .insert_resource(ComponentUniforms::<C>::default())
-                .add_systems(
-                    Render,
-                    prepare_uniform_components::<C>.in_set(RenderSystems::PrepareResources),
-                );
-        }
-    }
-}
-
-/// Stores all uniforms of the component type.
-#[derive(Resource)]
-pub struct ComponentUniforms<C: Component + ShaderType> {
-    uniforms: DynamicUniformBuffer<C>,
-}
-
-impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
-    type Target = DynamicUniformBuffer<C>;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.uniforms
-    }
-}
-
-impl<C: Component + ShaderType> ComponentUniforms<C> {
-    #[inline]
-    pub fn uniforms(&self) -> &DynamicUniformBuffer<C> {
-        &self.uniforms
-    }
-}
-
-impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
-    fn default() -> Self {
-        Self {
-            uniforms: Default::default(),
-        }
-    }
-}
-
-/// This system prepares all components of the corresponding component type.
-/// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C>(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut component_uniforms: ResMut<ComponentUniforms<C>>,
-    components: Query<(Entity, &C)>,
-) where
-    C: Component + ShaderType + WriteInto + Clone,
-{
-    let components_iter = components.iter();
-    let count = components_iter.len();
-    let Some(mut writer) =
-        component_uniforms
-            .uniforms
-            .get_writer(count, &render_device, &render_queue)
-    else {
-        return;
-    };
-    let entities = components_iter
-        .map(|(entity, component)| {
-            (
-                entity,
-                DynamicUniformIndex::<C> {
-                    index: writer.write(component),
-                    marker: PhantomData,
-                },
-            )
-        })
-        .collect::<Vec<_>>();
-    commands.try_insert_batch(entities);
 }
 
 /// This plugin extracts the components into the render world for synced
@@ -203,7 +105,7 @@ fn extract_components<C: ExtractComponent<F>, F>(
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
         } else {
-            commands.entity(entity).remove::<C::Out>();
+            commands.entity(entity).remove::<C::Target>();
         }
     }
     *previous_len = values.len();
@@ -222,7 +124,7 @@ fn extract_visible_components<C: ExtractComponent<F>, F>(
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
             } else {
-                commands.entity(entity).remove::<C::Out>();
+                commands.entity(entity).remove::<C::Target>();
             }
         }
     }

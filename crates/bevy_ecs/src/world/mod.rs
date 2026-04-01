@@ -2852,12 +2852,14 @@ impl World {
                 // ran during self.flush(), interact with the correct ticks on the resource component.
                 {
                     let location = entity_mut.location();
-                    let mut bundle_inserter = BundleInserter::new::<R>(
-                        // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                        unsafe { entity_mut.world_mut() },
-                        location.archetype_id,
-                        self.ticks.changed,
-                    );
+                    // SAFETY:
+                    // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
+                    let world = unsafe { entity_mut.world_mut() };
+                    // SAFETY:
+                    // - `location.archetype_id` is part of a valid `EntityLocation`.
+                    let mut bundle_inserter = unsafe {
+                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
+                    };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -3269,13 +3271,12 @@ impl World {
         Some(check)
     }
 
-    /// Clears all entities and resources, invalidating all [`Entity`] and resource fetches
-    /// such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
-    ///
-    /// Since resources are entities, this is identical to [`clear_entities`](Self::clear_entities).
-    /// Non-send data is not cleared.
+    /// Clears all entities, resources, and non-send data.
+    /// This invalidates all [`Entity`] and resource fetches such as [`Res`](crate::system::Res),
+    /// [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
+        self.clear_non_send();
     }
 
     /// Despawns all entities in this [`World`].
@@ -3752,14 +3753,14 @@ impl World {
         let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
-            .and_then(|mut s| s.remove(label))
+            .and_then(|mut s| s.remove_temporarily(label))
         else {
             return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
 
-        let old = self.resource_mut::<Schedules>().insert(schedule);
+        let old = self.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }

@@ -4,7 +4,7 @@
     draw_uinode_border,
 }
 
-#import bevy_ui_render::color_space::{
+#import bevy_render::color_operations::{
     convert_to_linear_rgba,
     mix_oklch,
     mix_oklch_long,
@@ -124,7 +124,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     if enabled(in.flags, BORDER_ANY) {
         return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
     } else {
-        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border);
+        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
     }
 }
 

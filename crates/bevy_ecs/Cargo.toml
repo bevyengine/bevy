@@ -76,6 +76,7 @@ std = [
   "arrayvec/std",
   "log/std",
   "bevy_platform/std",
+  "downcast-rs/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -126,6 +127,7 @@ log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-rc.0", optional = true }
 slotmap = { version = "1.0.7", default-features = false }
+downcast-rs = { version = "2", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
@@ -134,7 +136,7 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rand = "0.9"
+rand = "0.10"
 static_assertions = "1.1.0"
 serde_test = "1.0"
 
@@ -154,6 +156,10 @@ path = "examples/change_detection.rs"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true
 features = ["bevy_reflect/auto_register_static"]
