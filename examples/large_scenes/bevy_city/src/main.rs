@@ -8,7 +8,10 @@ use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
-    light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
+    light::{
+        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        Atmosphere, AtmosphereEnvironmentMapLight,
+    },
     pbr::{
         wireframe::{WireframeConfig, WireframePlugin},
         AtmosphereSettings, ContactShadows,
@@ -85,17 +88,38 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
+    // Earth atmosphere plus an extra near-ground fog term.
+    let mut earth_medium = ScatteringMedium::default();
+    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+    const HAZE_VISIBILITY_KM: f32 = 12.0;
+    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+    const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
+    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+    earth_medium.terms.push(ScatteringTerm {
+        absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
+        scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
+        falloff: Falloff::Exponential {
+            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+        },
+        phase: PhaseFunction::Mie { asymmetry: 0.76 },
+    });
+
     commands.spawn((
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
-        Atmosphere::earth(scattering_mediums.add(ScatteringMedium::default())),
-        AtmosphereSettings::default(),
+        Atmosphere::earth(scattering_mediums.add(earth_medium)),
+        AtmosphereSettings {
+            // 1 city block will be roughly 100 meters
+            scene_units_to_m: 20.0,
+            aerial_view_lut_max_distance: 1.6e4,
+            ..default()
+        },
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 13.0 },
+        Exposure { ev100: 12.0 },
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
