@@ -99,10 +99,10 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build .so file
-        run: cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
+        run: cargo ndk build -t aarch64-linux-android -P 26 -p bevy_mobile_example -o ./examples/mobile/android/app/src/main/jniLibs
 
       - name: Build app for Android
-        run: cd examples/mobile/android_example && chmod +x gradlew && ./gradlew build
+        run: cd ./examples/mobile/android && ./gradlew build
 
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}

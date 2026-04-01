@@ -77,8 +77,8 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
-    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -690,6 +690,10 @@ Example | Description
 
 ### Android
 
+Example | File | Description
+--- | --- | ---
+`mobile` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+
 #### Setup
 
 ```sh
@@ -705,16 +709,20 @@ Alternatively, you can install Android Studio.
 
 #### Build & Run
 
+**⚠️ Note:** For running the example on `x86_64`, the `--release` flag is currently required.
+
+**⚠️ Note:** The `-P 26` flag is currently required for building the example. If not included, you might get the error: `unable to find library -laaudio`.
+
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> -P 26 -o <project_name>/app/src/main/jniLibs build
+cargo ndk build -t <target_name> -P 26 -o <project_path>/app/src/main/jniLibs
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build
+cargo ndk build -t aarch64-linux-android -P 26 -o ./android/app/src/main/jniLibs
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
@@ -724,6 +732,7 @@ See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other optio
 After this you can build it with `gradlew`:
 
 ```sh
+cd ./android
 ./gradlew build
 ```
 
@@ -749,29 +758,23 @@ adb uninstall org.bevyengine.example
 
 #### Old phones
 
-In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
-[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
+**⚠️ Note:** If you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
 
-Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
+In its example, Bevy uses Android API 36 as `targetSdk` to be able to benefit from security and performance improvements. For backwards compatibility, the example specifies Android API 31 as `minSdk`. This approach is recommended in the [Android Developers documentation](https://developer.android.com/google/play/requirements/target-sdk#why-target).
 
-To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API 31 and higher, so if you want to use an older API, you need to switch to [`NativeActivity`](https://developer.android.com/reference/android/app/NativeActivity).
+
+To use `NativeActivity`, you need to write a custom `MainActivity.kt` using `NativeActivity` instead of `GameActivity` and add the `android-native-activity` feature to Bevy in your `Cargo.toml` like this:
 
 ```toml
 bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
 ```
 
-Then build it as the [Build & Run](#build--run) section stated above.
-
-##### About `cargo-apk`
-
-You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
+### iOS
 
 Example | File | Description
 --- | --- | ---
-`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
-
-### iOS
+`mobile` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 #### Setup
 
@@ -810,10 +813,6 @@ open bevy_mobile_example.xcodeproj/
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
-
-Example | File | Description
---- | --- | ---
-`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ### Wasm
 
