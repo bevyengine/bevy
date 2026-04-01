@@ -253,8 +253,8 @@ impl BsnType {
         target: PatchTarget,
     ) -> syn::Result<()> {
         if !is_root {
-            let (path, scene) = (&self.path, ctx.bevy_scene);
-            assignments.push(quote! {#scene::macro_utils::touch_type::<#path>();});
+            let (path, bevy_scene) = (&self.path, ctx.bevy_scene);
+            assignments.push(quote! {#bevy_scene::macro_utils::touch_type::<#path>();});
         }
 
         if let Some(variant) = &self.enum_variant {
@@ -275,7 +275,7 @@ impl BsnType {
     ) -> syn::Result<()> {
         let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
         let variant_default = format_ident!("default_{}", variant.to_string().to_lowercase());
-        let helper = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
+        let template_path = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
 
         let maybe_deref = target.is_ref.then(|| quote! {*});
         let maybe_borrow_mut = (!target.is_ref).then(|| quote! {&mut});
@@ -330,10 +330,10 @@ impl BsnType {
         assignments.push(quote! {
             {
                 let _node = #maybe_borrow_mut #(#field_path).*;
-                if !matches!(_node, #helper::#check_pattern) {
-                    #maybe_deref _node = #helper::#variant_default();
+                if !matches!(_node, #template_path::#check_pattern) {
+                    #maybe_deref _node = #template_path::#variant_default();
                 }
-                if let #helper::#binding_pattern = _node {
+                if let #template_path::#binding_pattern = _node {
                     #(#field_updates)*
                 }
             }
@@ -418,10 +418,10 @@ impl BsnType {
 
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
-                let ecs = ctx.bevy_ecs;
+                let bevy_ecs = ctx.bevy_ecs;
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #ecs::template::EntityReference::ScopedEntityIndex(
-                        #ecs::template::ScopedEntityIndex {
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityReference::ScopedEntityIndex(
+                        #bevy_ecs::template::ScopedEntityIndex {
                             scope: _context.current_entity_scope(), index: #index
                         }
                     );
@@ -486,16 +486,16 @@ impl BsnType {
 
 impl BsnTokenStream for BsnSceneListItems {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let scene = ctx.bevy_scene;
+        let bevy_scene = ctx.bevy_scene;
         let scenes = self.0.iter().map(|s| match s {
             BsnSceneListItem::Scene(bsn) => {
                 let tokens = bsn.to_tokens(ctx);
-                quote! {#scene::EntityScene(#tokens)}
+                quote! {#bevy_scene::EntityScene(#tokens)}
             }
             BsnSceneListItem::Expression(stmts) => quote! {#(#stmts)*},
         });
 
-        quote! { #scene::auto_nest_tuple!(#(#scenes),*) }
+        quote! { #bevy_scene::auto_nest_tuple!(#(#scenes),*) }
     }
 }
 
@@ -508,8 +508,8 @@ impl ToTokens for BsnType {
         match &self.fields {
             BsnFields::Named(fields) => {
                 let assigns = fields.iter().map(|f| {
-                    let (n, v) = (&f.name, &f.value);
-                    quote! {#n: #v}
+                    let (name, value) = (&f.name, &f.value);
+                    quote! {#name: #value}
                 });
                 quote! { #path #variant { #(#assigns,)* } }
             }
