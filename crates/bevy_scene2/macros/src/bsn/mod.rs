@@ -1,10 +1,8 @@
 pub mod codegen;
 pub mod parse;
-pub mod traits;
 pub mod types;
 
 use codegen::*;
-use traits::*;
 use types::*;
 
 use bevy_macro_utils::BevyManifest;

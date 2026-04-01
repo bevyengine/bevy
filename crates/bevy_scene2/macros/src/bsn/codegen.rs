@@ -1,14 +1,11 @@
-use crate::bsn::{
-    traits::BsnTokenStream,
-    types::{
-        Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot,
-        BsnRelatedSceneList, BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
-    },
+use crate::bsn::types::{
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
+    BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{Ident, Index, Lit, Member, Path};
+use syn::{parse::Parse, Ident, Index, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -548,6 +545,10 @@ impl ToTokens for BsnValue {
             }
         }
     }
+}
+
+pub trait BsnTokenStream: Parse {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
 }
 
 #[cfg(test)]
