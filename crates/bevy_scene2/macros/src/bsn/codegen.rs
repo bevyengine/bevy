@@ -102,7 +102,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
             .entries
             .iter()
             .map(|entry| {
-                if let Some(path) = entry.component_path() {
+                if let Some(path) = entry.template_path() {
                     let path_str = path.to_token_stream().to_string();
                     if !seen.insert(path_str.clone()) {
                         ctx.errors.push(syn::Error::new_spanned(
@@ -131,7 +131,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn component_path(&self) -> Option<&Path> {
+    fn template_path(&self) -> Option<&Path> {
         match self {
             BsnEntry::TemplatePatch(ty) | BsnEntry::FromTemplatePatch(ty) => Some(&ty.path),
             BsnEntry::TemplateConst { type_path, .. } => Some(type_path),
