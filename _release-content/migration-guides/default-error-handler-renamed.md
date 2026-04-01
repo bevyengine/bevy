@@ -1,6 +1,6 @@
 ---
 title: "`DefaultErrorHandler` renamed to `FallbackErrorHandler`"
-pull_requests: [TODO]
+pull_requests: [23610]
 ---
 
 `DefaultErrorHandler` has been renamed to `FallbackErrorHandler` to better reflect its role as the handler of last resort when no specific error handling is performed.
