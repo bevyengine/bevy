@@ -144,17 +144,17 @@ impl BsnEntry {
 
     fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
-        let target = PatchTarget {
-            path: &[Member::Named(Ident::new(
-                "value",
-                proc_macro2::Span::call_site(),
-            ))],
-            is_ref: true,
-        };
 
         match self {
             BsnEntry::TemplatePatch(ty) => {
                 let mut assigns = Vec::new();
+                let target = PatchTarget {
+                    path: &[Member::Named(Ident::new(
+                        "value",
+                        proc_macro2::Span::call_site(),
+                    ))],
+                    is_ref: true,
+                };
                 ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
                 let path = &ty.path;
                 Ok(quote! {
@@ -165,6 +165,13 @@ impl BsnEntry {
             }
             BsnEntry::FromTemplatePatch(ty) => {
                 let mut assigns = Vec::new();
+                let target = PatchTarget {
+                    path: &[Member::Named(Ident::new(
+                        "value",
+                        proc_macro2::Span::call_site(),
+                    ))],
+                    is_ref: true,
+                };
                 ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
                 let path = &ty.path;
                 Ok(quote! {
