@@ -310,7 +310,7 @@ pub fn color_slider_bundle<B: Bundle>(props: ColorSliderProps, overrides: B) -> 
             orientation: SliderOrientation::Horizontal,
         },
         ColorSlider {
-            channel: props.channel.clone(),
+            channel: props.channel,
         },
         SliderValue(props.value),
         props.channel.range(),
