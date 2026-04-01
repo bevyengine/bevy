@@ -446,7 +446,7 @@ impl SyncComponent<PbrPlugin> for SpotLight {
     type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for RectLight {
-    type Out = Self;
+    type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
     type Target = Self;
