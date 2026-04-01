@@ -61,7 +61,7 @@ impl UiRect {
     }
 }
 
-pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
+pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
     taffy::style::Style {
         display: node.display.into(),
         box_sizing: node.box_sizing.into(),
@@ -93,14 +93,9 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         padding: node
             .padding
             .map_to_taffy_rect(|m| m.into_length_percentage(context)),
-        // Ignore border for leaf nodes as it isn't implemented in the rendering engine.
-        // TODO: Implement rendering of border for leaf nodes
-        border: if ignore_border {
-            taffy::Rect::zero()
-        } else {
-            node.border
-                .map_to_taffy_rect(|m| m.into_length_percentage(context))
-        },
+        border: node
+            .border
+            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         flex_grow: node.flex_grow,
         flex_shrink: node.flex_shrink,
         flex_basis: node.flex_basis.into_dimension(context),
@@ -528,7 +523,7 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
-        let taffy_style = from_node(&node, &viewport_values, false);
+        let taffy_style = from_node(&node, &viewport_values);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);

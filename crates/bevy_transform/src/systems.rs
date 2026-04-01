@@ -1,6 +1,36 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
+use crate::{
+    components::{GlobalTransform, Transform, TransformTreeChanged},
+    helper::TransformHelper,
+};
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryFilter};
+#[cfg(feature = "bevy_log")]
+use bevy_log::warn_once;
+
+/// Generic system that propagates transforms,
+/// using [`TransformHelper`] for any entity matching the filter `F`.
+/// Useful for moving and rendering in the same frame.
+pub fn propagate_transforms_for<F: QueryFilter + 'static>(
+    tf_helper: TransformHelper,
+    mut query: Query<(Entity, &mut GlobalTransform), F>,
+) {
+    for (entity, mut gtf) in query.iter_mut() {
+        let result = tf_helper
+            .compute_global_transform(entity)
+            .inspect_err(|_err| {
+                #[cfg(feature = "bevy_log")]
+                warn_once!(
+                    "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                    entity,
+                    _err
+                );
+            });
+
+        if let Ok(computed) = result {
+            *gtf = computed;
+        }
+    }
+}
 
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;

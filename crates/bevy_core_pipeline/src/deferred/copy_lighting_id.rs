@@ -124,8 +124,8 @@ pub fn init_copy_deferred_lighting_id_pipeline(
         }),
         depth_stencil: Some(DepthStencilState {
             format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Always,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(CompareFunction::Always),
             stencil: StencilState::default(),
             bias: DepthBiasState::default(),
         }),

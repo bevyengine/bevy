@@ -183,12 +183,9 @@ impl<A: Asset> LoadedAsset<A> {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
+    pub fn get_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedLoadedAsset> {
         self.label_to_asset_index
-            .get(&label.into())
+            .get(label.as_ref())
             .map(|index| self.labeled_assets.get(*index).unwrap())
             .map(|a| &a.asset)
     }
@@ -267,12 +264,9 @@ impl ErasedLoadedAsset {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
+    pub fn get_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedLoadedAsset> {
         self.label_to_asset_index
-            .get(&label.into())
+            .get(label.as_ref())
             .map(|index| self.labeled_assets.get(*index).unwrap())
             .map(|a| &a.asset)
     }

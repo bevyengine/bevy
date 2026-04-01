@@ -282,7 +282,7 @@ fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
 }
 
 // Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }

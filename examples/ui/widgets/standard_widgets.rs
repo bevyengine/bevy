@@ -838,7 +838,6 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
                 ..default()
             },
             MenuPopup::default(),
-            Visibility::Hidden, // Will be visible after positioning
             BorderColor::all(GREEN),
             BackgroundColor(GRAY.into()),
             BoxShadow::new(

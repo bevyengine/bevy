@@ -100,6 +100,7 @@ impl LayoutCache {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
                     .map(BindGroupLayout::value)
+                    .map(Some)
                     .collect::<Vec<_>>();
                 Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {

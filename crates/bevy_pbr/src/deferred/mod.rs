@@ -361,8 +361,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Equal,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Equal),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

@@ -697,7 +697,15 @@ pub fn prepare_view_depth_pyramids(
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
     views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
+    stale_views: Query<Entity, (With<ViewDepthPyramid>, Without<OcclusionCulling>)>,
 ) {
+    // Remove old resources when occlusion culling gets disabled
+    for view_entity in &stale_views {
+        commands
+            .entity(view_entity)
+            .remove::<(ViewDepthPyramid, ViewDownsampleDepthBindGroup)>();
+    }
+
     for (view_entity, view) in &views {
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
             &render_device,

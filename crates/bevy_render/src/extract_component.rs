@@ -6,6 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
+    bundle::NoBundleEffect,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
@@ -31,8 +32,18 @@ pub trait ExtractComponent<F = ()>: SyncComponent<F> {
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
+    /// The output from extraction, i.e. [`ExtractComponent::extract_component`].
+    ///
+    /// The output components won't be removed automatically from the render world if the implementing component is removed,
+    /// unless you set them in the [`SyncComponent::Target`].
+    type Out: Bundle<Effect: NoBundleEffect>;
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Bundle<Effect: NoBundleEffect> = Self;
 
     /// Defines how the component is transferred into the "render world".
+    ///
+    /// Returning `None` based on the queried item will remove the [`SyncComponent::Target`] from the entity in
+    /// the render world.
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
@@ -94,7 +105,7 @@ fn extract_components<C: ExtractComponent<F>, F>(
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
         } else {
-            commands.entity(entity).remove::<C::Out>();
+            commands.entity(entity).remove::<C::Target>();
         }
     }
     *previous_len = values.len();
@@ -113,7 +124,7 @@ fn extract_visible_components<C: ExtractComponent<F>, F>(
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
             } else {
-                commands.entity(entity).remove::<C::Out>();
+                commands.entity(entity).remove::<C::Target>();
             }
         }
     }

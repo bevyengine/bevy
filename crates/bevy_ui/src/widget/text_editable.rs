@@ -1,14 +1,17 @@
 use core::hash::BuildHasher;
+use core::time::Duration;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
     change_detection::DetectChanges,
-    system::{Query, Res, ResMut},
+    entity::Entity,
+    system::{Local, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_image::prelude::*;
+use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
@@ -16,8 +19,74 @@ use bevy_text::{
     FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineHeight,
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
-use parley::{swash::FontRef, BoundingBox};
-use parley::{FontFamily, FontStack, PositionedLayoutItem};
+use bevy_time::{Real, Time};
+use parley::{BoundingBox, PositionedLayoutItem};
+use swash::FontRef;
+use taffy::MaybeMath;
+
+struct TextInputMeasure {
+    height: f32,
+}
+
+impl crate::Measure for TextInputMeasure {
+    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>) -> Vec2 {
+        let width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
+
+        let x = width
+            .effective
+            .unwrap_or(match measure_args.available_width {
+                crate::AvailableSpace::Definite(x) => x,
+                crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
+            })
+            .maybe_clamp(width.min, width.max);
+        let y = height
+            .effective
+            .unwrap_or(self.height)
+            .maybe_clamp(height.min, height.max);
+
+        Vec2::new(x, y).ceil()
+    }
+}
+
+/// If `visible_lines` is `Some`, sets a `ContentSize` that determines the node's height
+/// as `line_height * visible_lines`, using the resolved font line height.
+pub fn update_editable_text_content_size(
+    mut text_input_query: Query<(
+        Ref<EditableText>,
+        Ref<TextFont>,
+        Ref<LineHeight>,
+        Ref<ComputedUiRenderTargetInfo>,
+        &mut ContentSize,
+    )>,
+    fonts: Res<Assets<Font>>,
+    rem_size: Res<RemSize>,
+) {
+    for (editable_text, text_font, line_height, target, mut content_size) in &mut text_input_query {
+        if !(editable_text.is_changed()
+            || text_font.is_changed()
+            || line_height.is_changed()
+            || target.is_changed()
+            || fonts.is_changed()
+            || rem_size.is_changed())
+        {
+            continue;
+        }
+
+        if let Some(visible_lines) = editable_text.visible_lines {
+            let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+            let logical_line_height = match *line_height {
+                LineHeight::Px(px) => px,
+                LineHeight::RelativeToFont(scale) => scale * font_size,
+            };
+            content_size.set(NodeMeasure::Custom(Box::new(TextInputMeasure {
+                height: visible_lines * logical_line_height * target.scale_factor(),
+            })));
+        } else {
+            content_size.measure = None;
+        }
+    }
+}
 
 /// Updates [`EditableText::editor`] to match e.g. [`TextFont`]
 /// Writes layout to [`TextLayoutInfo`] for rendering
@@ -31,6 +100,7 @@ pub fn editable_text_system(
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut textures: ResMut<Assets<Image>>,
     mut input_field_query: Query<(
+        Entity,
         &TextFont,
         &LineHeight,
         &FontHinting,
@@ -40,21 +110,31 @@ pub fn editable_text_system(
         Ref<ComputedNode>,
     )>,
     rem_size: Res<RemSize>,
+    input_focus: Option<Res<InputFocus>>,
+    mut cursor_timer: Local<Duration>,
+    time: Res<Time<Real>>,
 ) {
-    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
-        input_field_query.iter_mut()
+    *cursor_timer += time.delta();
+
+    for (
+        entity,
+        text_font,
+        line_height,
+        hinting,
+        target,
+        mut editable_text,
+        mut info,
+        computed_node,
+    ) in input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
         };
 
-        let family = match font_family {
-            FontFamily::Named(name) => FontFamily::Named(name.into_owned().into()),
-            FontFamily::Generic(generic) => FontFamily::Generic(generic),
-        };
+        let family = font_family.into_owned();
         let style_set = editable_text.editor.edit_styles();
         style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
-        style_set.insert(parley::StyleProperty::FontStack(FontStack::Single(family)));
+        style_set.insert(parley::StyleProperty::FontFamily(family));
 
         let logical_viewport_size = target.logical_size();
         let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
@@ -69,7 +149,9 @@ pub fn editable_text_system(
         }
 
         if computed_node.is_changed() {
-            editable_text.editor.set_width(Some(computed_node.size().x));
+            editable_text
+                .editor
+                .set_width(Some(computed_node.content_size().x));
         }
 
         let mut driver = editable_text
@@ -182,14 +264,31 @@ pub fn editable_text_system(
             .editor
             .cursor_geometry(editable_text.cursor_width * font_size);
 
-        info.cursor = geom.map(bounding_box_to_rect);
+        if let Some(input_focus) = input_focus.as_ref()
+            && Some(entity) == input_focus.0
+        {
+            if input_focus.is_changed()
+                || editable_text.text_edited
+                || *cursor_timer >= editable_text.cursor_blink_period
+            {
+                *cursor_timer = Duration::ZERO;
+            }
 
-        info.selection_rects = editable_text
-            .editor
-            .selection_geometry()
-            .iter()
-            .map(|&b| bounding_box_to_rect(b.0))
-            .collect();
+            if *cursor_timer < editable_text.cursor_blink_period / 2 {
+                info.cursor = geom.map(bounding_box_to_rect);
+            } else {
+                info.cursor = None;
+            }
+
+            info.selection_rects = editable_text
+                .editor
+                .selection_geometry()
+                .iter()
+                .map(|&b| bounding_box_to_rect(b.0))
+                .collect();
+        } else {
+            info.cursor = None;
+        }
     }
 }
 

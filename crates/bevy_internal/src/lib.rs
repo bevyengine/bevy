@@ -78,6 +78,8 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_scene2")]
+pub use bevy_scene2 as scene2;
 #[cfg(feature = "bevy_settings")]
 pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]

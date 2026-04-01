@@ -24,7 +24,9 @@ bevy_camera = { path = "../crates/bevy_camera" }
 bevy_mesh = { path = "../crates/bevy_mesh" }
 bevy_asset = { path = "../crates/bevy_asset" }
 bevy_render = { path = "../crates/bevy_render" }
+bevy_scene2 = { path = "../crates/bevy_scene2" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_ui = { path = "../crates/bevy_ui" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
 ] }
@@ -97,6 +99,11 @@ harness = false
 [[bench]]
 name = "render"
 path = "benches/bevy_render/main.rs"
+harness = false
+
+[[bench]]
+name = "scene"
+path = "benches/bevy_scene/main.rs"
 harness = false
 
 [[bench]]

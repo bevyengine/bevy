@@ -281,6 +281,12 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
                 naga::ShaderStage::Task => panic!("task shaders not yet implemented"),
                 naga::ShaderStage::Mesh => panic!("mesh shaders not yet implemented"),
+                naga::ShaderStage::RayGeneration => {
+                    panic!("ray generation shader not yet implemented")
+                }
+                naga::ShaderStage::Miss => panic!("miss shader not yet implemented"),
+                naga::ShaderStage::AnyHit => panic!("any hit shader not yet implemented"),
+                naga::ShaderStage::ClosestHit => panic!("closest hit shader not yet implemented"),
             },
             #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
             Source::Glsl(_, _) => panic!(

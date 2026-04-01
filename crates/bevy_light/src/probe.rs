@@ -116,7 +116,7 @@ pub struct EnvironmentMapLight {
     /// After applying this multiplier, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     ///
-    /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
+    /// See also <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
 
     /// World space rotation applied to the environment light cubemaps.
@@ -330,7 +330,7 @@ pub struct IrradianceVolume {
     /// After applying this multiplier, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     ///
-    /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
+    /// See also <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
 
     /// Whether the light from this irradiance volume has an effect on meshes

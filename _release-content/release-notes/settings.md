@@ -20,3 +20,5 @@ Preferences are defined using `bevy_reflect` annotations, and are automatically 
 resources when the settings framework starts up.
 
 See the `examples/app/persisting_preferences` for a simple example of how to use the framework.
+
+A special thanks to Andhrimnir (@tecbeast42) for giving Bevy ownership of the `bevy_settings` crate name.

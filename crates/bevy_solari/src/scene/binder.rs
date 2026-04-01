@@ -131,7 +131,7 @@ pub fn prepare_raytracing_scene_bindings(
             perceptual_roughness: material.perceptual_roughness,
             emissive: material.emissive.to_vec3(),
             metallic: material.metallic,
-            reflectance: LinearRgba::from(material.specular_tint).to_vec3() * material.reflectance,
+            reflectance: material.reflectance,
             _padding: Default::default(),
         });
 
@@ -379,8 +379,8 @@ struct GpuMaterial {
     perceptual_roughness: f32,
     emissive: Vec3,
     metallic: f32,
-    reflectance: Vec3,
-    _padding: f32,
+    _padding: Vec3,
+    reflectance: f32,
 }
 
 #[derive(ShaderType)]

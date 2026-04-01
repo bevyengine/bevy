@@ -151,13 +151,13 @@ mod test {
     struct RenderComponentNoExtract;
 
     impl SyncComponent for RenderComponent {
-        type Out = (RenderComponent, RenderComponentExtra);
+        type Target = (RenderComponent, RenderComponentExtra);
     }
 
     impl ExtractComponent for RenderComponent {
         type QueryData = &'static Self;
-
         type QueryFilter = ();
+        type Out = (RenderComponent, RenderComponentExtra);
 
         fn extract_component(
             _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,

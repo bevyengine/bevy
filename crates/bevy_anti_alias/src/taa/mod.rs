@@ -130,7 +130,7 @@ impl Default for TemporalAntiAliasing {
 }
 
 impl SyncComponent for TemporalAntiAliasing {
-    type Out = Self;
+    type Target = Self;
 }
 
 fn temporal_anti_alias(

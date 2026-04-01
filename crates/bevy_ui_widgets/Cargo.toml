@@ -25,7 +25,7 @@ bevy_text = { path = "../bevy_text", version = "0.19.0-dev" }
 
 # other
 accesskit = "0.24"
-parley = { version = "0.7", default-features = false }
+parley = { version = "0.8.0", default-features = false }
 smol_str = "0.2"
 
 [features]

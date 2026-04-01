@@ -86,12 +86,13 @@ impl Default for ChromaticAberration {
 }
 
 impl SyncComponent for ChromaticAberration {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for ChromaticAberration {
     type QueryData = Read<ChromaticAberration>;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(
         chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,

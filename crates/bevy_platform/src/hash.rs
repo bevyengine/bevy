@@ -52,6 +52,12 @@ impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
         }
     }
 
+    /// Mutates the current value and re-computes the hash.
+    pub fn mutate(&mut self, func: impl FnOnce(&mut V)) {
+        func(&mut self.value);
+        self.hash = H::default().hash_one(&self.value);
+    }
+
     /// The pre-computed hash.
     #[inline]
     pub fn hash(&self) -> u64 {

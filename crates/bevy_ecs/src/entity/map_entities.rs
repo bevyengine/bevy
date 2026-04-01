@@ -195,6 +195,10 @@ impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
     }
 }
 
+impl MapEntities for () {
+    fn map_entities<E: EntityMapper>(&mut self, _entity_mapper: &mut E) {}
+}
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities

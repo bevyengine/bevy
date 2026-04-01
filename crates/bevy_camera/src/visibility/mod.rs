@@ -1,3 +1,32 @@
+//! Components that control the visibility of entities.
+//!
+//! ## What is the difference between visibility components
+//!
+//! There are three components that indicate various kinds
+//! of visibility modes of an entity:
+//! - [`Visibility`]
+//! - [`InheritedVisibility`]
+//! - [`ViewVisibility`]
+//!
+//! [`Visibility`] is the user-defined visibility.
+//! It is the only component that users should typically add to an entity[^1],
+//! the other two are then added automatically.
+//!
+//! [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
+//! Entities with [`Visibility::Inherited`] copy the visibility
+//! of their parent entities. If they have no [`ChildOf`] component, they are visible.
+//! The propagation is done in `visibility_propagate_system`, which runs
+//! in the [`PostUpdate`] schedule.
+//!
+//! [`ViewVisibility`] indicates whether the entity should be
+//! extracted for rendering. This component is recomputed in every frame
+//! in the [`PostUpdate`] schedule.
+//!
+//! [^1]: If at all -- most components that go together with [`Visibility`]
+//! already [require](bevy_ecs::component::Component#required-components) it,
+//! so users only need to explicitly add it if they wish to override
+//! the default value of [`Visibility::Inherited`].
+
 mod range;
 mod render_layers;
 
@@ -44,8 +73,10 @@ pub struct NoCpuCulling;
 /// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
 /// are set to [`Inherited`](Self::Inherited) will also be hidden.
 ///
-/// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
-/// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
+/// Users should set this component if they wish to change the visibility of an entity.
+///
+/// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
@@ -116,7 +147,14 @@ impl PartialEq<&Visibility> for Visibility {
 }
 
 /// Whether or not an entity is visible in the hierarchy.
-/// This will not be accurate until [`VisibilityPropagate`] runs in the [`PostUpdate`] schedule.
+///
+/// This is a computed component that users should not change manually.
+/// To set the visibility of an entity, use [`Visibility`] instead.
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
+///
+/// This property is updated in [`VisibilityPropagate`] in the [`PostUpdate`] schedule.
+/// Until then, it is not up to date with [`Visibility`] if it was changed
+/// in the same frame.
 ///
 /// If this is false, then [`ViewVisibility`] should also be false.
 ///
@@ -174,6 +212,9 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically computed indication of whether an entity is visible and should be extracted for
 /// rendering.
+///
+/// Not to be confused with [`Visibility`] and [`InheritedVisibility`].
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 ///
 /// If you wish to add a custom visibility system that sets this value, be sure to add it to the
 /// [`CheckVisibility`] set.

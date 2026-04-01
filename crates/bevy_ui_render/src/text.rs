@@ -54,7 +54,7 @@ pub fn extract_text_cursor(
         };
 
         let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
+            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
 
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()

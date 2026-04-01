@@ -40,6 +40,7 @@ fn main() {
             OnEnter(Scene::WhiteFurnaceEnvironmentMapLight),
             white_furnace_environment_map_light::setup,
         )
+        .add_systems(OnEnter(Scene::RenderLayers), render_layers::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
@@ -70,6 +71,7 @@ enum Scene {
     GltfCoordinateConversion,
     WhiteFurnaceSolidColorLight,
     WhiteFurnaceEnvironmentMapLight,
+    RenderLayers,
 }
 
 impl std::str::FromStr for Scene {
@@ -97,7 +99,8 @@ impl Next for Scene {
             Scene::Gizmos => Scene::GltfCoordinateConversion,
             Scene::GltfCoordinateConversion => Scene::WhiteFurnaceSolidColorLight,
             Scene::WhiteFurnaceSolidColorLight => Scene::WhiteFurnaceEnvironmentMapLight,
-            Scene::WhiteFurnaceEnvironmentMapLight => Scene::Light,
+            Scene::WhiteFurnaceEnvironmentMapLight => Scene::RenderLayers,
+            Scene::RenderLayers => Scene::Light,
         }
     }
 }
@@ -706,5 +709,100 @@ mod white_furnace_environment_map_light {
             generated_light,
             DespawnOnExit(CURRENT_SCENE),
         ));
+    }
+}
+
+mod render_layers {
+    const CURRENT_SCENE: super::Scene = super::Scene::RenderLayers;
+
+    use bevy::{
+        camera::{visibility::RenderLayers, Viewport},
+        prelude::*,
+        window::PrimaryWindow,
+    };
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        window: Single<&Window, With<PrimaryWindow>>,
+    ) {
+        // circular base
+        commands.spawn((
+            Mesh3d(meshes.add(Circle::new(4.0))),
+            MeshMaterial3d(materials.add(Color::WHITE)),
+            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+            RenderLayers::layer(0).with(1).with(2),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+
+        // cubes
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
+            Transform::from_xyz(-1.5, 0.5, 0.0),
+            // No render layer for this one to test the default case
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(materials.add(Color::srgb(0.0, 1.0, 0.0))),
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            RenderLayers::layer(1),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(materials.add(Color::srgb(0.0, 0.0, 1.0))),
+            Transform::from_xyz(1.5, 0.5, 0.0),
+            RenderLayers::layer(2),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+
+        // Light
+        commands.spawn((
+            PointLight {
+                shadow_maps_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(4.0, 8.0, 4.0),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+
+        let window_half_size = window.physical_size() / 2;
+
+        // Split the screen in 4 different viewports with each of them having a specific render
+        // layer
+        for index in 0..4 {
+            let viewport_pos = UVec2::new((index % 2) as u32, (index / 2) as u32);
+            let mut entity_cmds = commands.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Camera {
+                    // Renders cameras with different priorities to prevent ambiguities
+                    order: index as isize,
+                    viewport: Some(Viewport {
+                        physical_position: viewport_pos * window_half_size,
+                        physical_size: window_half_size,
+                        ..default()
+                    }),
+                    ..default()
+                },
+                DespawnOnExit(CURRENT_SCENE),
+            ));
+            match index {
+                0 => {}
+                1 => {
+                    entity_cmds.insert(RenderLayers::layer(1));
+                }
+                2 => {
+                    entity_cmds.insert(RenderLayers::layer(2));
+                }
+                3 => {
+                    entity_cmds.insert(RenderLayers::layer(0).with(1).with(2));
+                }
+                _ => warn!("Unexpected index {index}"),
+            }
+        }
     }
 }

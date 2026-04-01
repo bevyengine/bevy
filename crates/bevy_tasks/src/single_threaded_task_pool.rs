@@ -194,23 +194,21 @@ impl TaskPool {
     {
         crate::cfg::switch! {{
             crate::cfg::web => {
-                Task::wrap_future(future)
+                web_task::spawn_local(future)
             }
             crate::cfg::std => {
                 LOCAL_EXECUTOR.with(|executor| {
                     let task = executor.spawn(future);
                     // Loop until all tasks are done
                     while executor.try_tick() {}
-
-                    Task::new(task)
+                    task
                 })
             }
             _ => {
                 let task = LOCAL_EXECUTOR.spawn(future);
                 // Loop until all tasks are done
                 while LOCAL_EXECUTOR.try_tick() {}
-
-                Task::new(task)
+                task
             }
         }}
     }
@@ -330,13 +328,13 @@ crate::cfg::std! {
     if {
         pub trait MaybeSend {}
         impl<T> MaybeSend for T {}
-    
+
         pub trait MaybeSync {}
         impl<T> MaybeSync for T {}
     } else {
         pub trait MaybeSend: Send {}
         impl<T: Send> MaybeSend for T {}
-    
+
         pub trait MaybeSync: Sync {}
         impl<T: Sync> MaybeSync for T {}
     }

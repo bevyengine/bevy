@@ -7,7 +7,7 @@ enable wgpu_ray_query;
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
-#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 #import bevy_solari::world_cache::{query_world_cache, get_cell_size, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
@@ -51,14 +51,21 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let N = TBN[2];
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, surface.material.roughness, &rng);
-        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-        let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
+        if ggx_vndf_sample_invalid(wi_tangent) {
+            wi = vec3(0.0);
+            radiance = vec3(0.0);
+        } else {
+            wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+            let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
+            radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng);
+            if surface.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
+                radiance /= pdf;
+            }
+        }
     }
 
-    let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
-        surface.material.reflectance, surface.material.perceptual_roughness, surface.material.roughness);
+    let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
     radiance *= brdf * view.exposure;
 
     var pixel_color = textureLoad(view_output, global_id.xy);
@@ -77,7 +84,6 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var ray_origin = primary_surface.world_position;
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
-    var surface_perfect_mirror = false;
     var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
@@ -101,11 +107,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
 
         // Add emissive contribution
-        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit, surface_perfect_mirror);
+        let mis_weight = emissive_mis_weight(i, primary_surface.material.roughness, p_bounce, ray_hit);
         radiance += throughput * mis_weight * ray_hit.material.emissive;
 
         // Should not perform NEE for mirror-like surfaces
-        surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
+        let surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
 
         // Primary surface replacement for perfect mirrors
         // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
@@ -132,20 +138,23 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         } else if !surface_perfect_mirror {
             // Sample direct lighting (NEE)
             let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
-            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+            let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material);
             let mis_weight = nee_mis_weight(direct_lighting.inverse_pdf, direct_lighting.brdf_rays_can_hit, wo_tangent, direct_lighting.wi, ray_hit, TBN);
             radiance += throughput * mis_weight * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
         }
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
+        if ggx_vndf_sample_invalid(wi_tangent) { break; }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         ray_origin = ray_hit.world_position;
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
-        let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
-        throughput *= brdf / p_bounce;
+        throughput *= evaluate_brdf(wo, wi, N, ray_hit.material);
+        if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
+            throughput /= p_bounce;
+        }
 
         // Path spread increase
         path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
@@ -154,10 +163,8 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     return radiance;
 }
 
-fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull, previous_surface_perfect_mirror: bool) -> f32 {
+fn emissive_mis_weight(i: u32, initial_roughness: f32, p_bounce: f32, ray_hit: ResolvedRayHitFull) -> f32 {
     if i != 0u {
-        if previous_surface_perfect_mirror { return 1.0; }
-
         let p_light = random_emissive_light_pdf(ray_hit);
         return power_heuristic(p_bounce, p_light);
     } else {
@@ -210,7 +217,7 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
     let virtual_previous_frame_position = (mirror_rotations * (ray_hit.previous_frame_world_position - primary_surface_world_position)) + primary_surface_world_position;
     let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_frame_position);
 
-    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, ray_hit.material.reflectance);
+    let F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
     let wo = normalize(view.world_position - virtual_position);
     let virtual_normal = normalize(mirror_rotations * ray_hit.world_normal);
 

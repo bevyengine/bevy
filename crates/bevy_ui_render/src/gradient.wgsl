@@ -4,7 +4,7 @@
     draw_uinode_border,
 }
 
-#import bevy_ui_render::color_space::{
+#import bevy_render::color_operations::{
     convert_to_linear_rgba,
     mix_oklch,
     mix_oklch_long,

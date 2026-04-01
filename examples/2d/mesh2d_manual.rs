@@ -126,7 +126,7 @@ fn star(
 pub struct ColoredMesh2d;
 
 impl SyncComponent for ColoredMesh2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 /// Custom pipeline for 2d meshes with vertex colors
@@ -205,8 +205,8 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

@@ -185,7 +185,7 @@ impl Plugin for ClusteredDecalPlugin {
 }
 
 impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
-    type Out = Self;
+    type Target = Self;
 }
 
 // This is needed because of the orphan rule not allowing implementing

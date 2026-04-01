@@ -160,7 +160,7 @@ struct Velocity(Vec3);
 ///
 /// If you want to make sure that this component is always initialized
 /// with the same value as the `Transform`'s translation, you can
-/// use a [component lifecycle hook](https://docs.rs/bevy/0.14.0/bevy/ecs/component/struct.ComponentHooks.html)
+/// use a [component lifecycle hook](https://docs.rs/bevy/latest/bevy/ecs/component/struct.ComponentHooks.html)
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PhysicalTranslation(Vec3);
 
