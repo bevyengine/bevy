@@ -584,12 +584,13 @@ impl Default for CloudLayer {
 }
 
 impl SyncComponent for CloudLayer {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for CloudLayer {
     type QueryData = Read<CloudLayer>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
