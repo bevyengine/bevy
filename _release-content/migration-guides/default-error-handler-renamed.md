@@ -15,3 +15,5 @@ world.insert_resource(DefaultErrorHandler(my_error_handler));
 // After
 world.insert_resource(FallbackErrorHandler(my_error_handler));
 ```
+
+The `default_error_handler` method has similarly been renamed to `fallback_error_handler`.

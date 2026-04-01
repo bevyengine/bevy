@@ -88,7 +88,7 @@ pub trait Command: Send + 'static {
     {
         move |world: &mut World| {
             if let Some(error) = self.apply(world).to_err() {
-                world.default_error_handler()(
+                world.fallback_error_handler()(
                     error,
                     ErrorContext::Command {
                         name: DebugName::type_name::<Self>(),

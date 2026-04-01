@@ -3377,7 +3377,7 @@ impl World {
     /// Convenience method for accessing the world's fallback error handler,
     /// which can be overwritten with [`FallbackErrorHandler`].
     #[inline]
-    pub fn default_error_handler(&self) -> ErrorHandler {
+    pub fn fallback_error_handler(&self) -> ErrorHandler {
         self.get_resource::<FallbackErrorHandler>()
             .copied()
             .unwrap_or_default()

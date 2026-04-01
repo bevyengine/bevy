@@ -93,7 +93,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
-    default_error_handler: Option<ErrorHandler>,
+    fallback_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -153,7 +153,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
-            default_error_handler: None,
+            fallback_error_handler: None,
         }
     }
 
@@ -1181,7 +1181,7 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
-        if let Some(handler) = self.default_error_handler {
+        if let Some(handler) = self.fallback_error_handler {
             sub_app
                 .world_mut()
                 .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
@@ -1413,7 +1413,7 @@ impl App {
     ///
     /// Note that the error handler of existing subapps may differ.
     pub fn get_error_handler(&self) -> Option<ErrorHandler> {
-        self.default_error_handler
+        self.fallback_error_handler
     }
 
     /// Set the [fallback error handler] for the all subapps (including the main one and future ones)
@@ -1440,10 +1440,10 @@ impl App {
     /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
-            self.default_error_handler.is_none(),
+            self.fallback_error_handler.is_none(),
             "`set_error_handler` called multiple times on same `App`"
         );
-        self.default_error_handler = Some(handler);
+        self.fallback_error_handler = Some(handler);
         for sub_app in self.sub_apps.iter_mut() {
             sub_app
                 .world_mut()

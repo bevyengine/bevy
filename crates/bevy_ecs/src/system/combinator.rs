@@ -172,7 +172,7 @@ where
                 // let the world's fallback error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
                     // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
-                    (unsafe { world.0.default_error_handler() })(
+                    (unsafe { world.0.fallback_error_handler() })(
                         err,
                         ErrorContext::System {
                             name: system.name(),

@@ -741,7 +741,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// Must have read access to [`FallbackErrorHandler`].
     #[inline]
-    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+    pub unsafe fn fallback_error_handler(&self) -> ErrorHandler {
         // SAFETY: Upheld by caller
         unsafe { self.get_resource::<FallbackErrorHandler>() }
             .copied()

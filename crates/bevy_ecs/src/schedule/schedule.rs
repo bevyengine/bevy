@@ -566,7 +566,7 @@ impl Schedule {
             )
         });
 
-        let error_handler = world.default_error_handler();
+        let error_handler = world.fallback_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
