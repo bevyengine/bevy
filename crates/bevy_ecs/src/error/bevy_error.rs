@@ -25,9 +25,17 @@ use core::{
 ///
 /// # Backtraces
 ///
-/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl).
-/// When printed, the backtrace will be displayed. By default, the backtrace will be trimmed down to filter out noise. To see the full backtrace,
-/// set the `BEVY_BACKTRACE=full` environment variable.
+/// When used with the `backtrace` Cargo feature, it can capture a backtrace when the error is constructed (generally in the [`From`] impl).
+///
+/// To enable backtrace capture on supported platforms,
+/// set the `RUST_BACKTRACE` environment variable.
+/// See [`Backtrace::capture`] for details.
+///
+/// When the error is printed, the backtrace will be displayed.
+/// By default, the backtrace will be trimmed down to filter out noise.
+/// To see the full backtrace, set the `BEVY_BACKTRACE=full` environment variable.
+///
+/// [`Backtrace::capture`]: https://doc.rust-lang.org/std/backtrace/struct.Backtrace.html#method.capture
 ///
 /// # Usage
 ///
