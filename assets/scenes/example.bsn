@@ -1,0 +1,31 @@
+// Example BSN file.
+
+#Root
+bevy_transform::components::transform::Transform
+bevy_camera::visibility::Visibility::Visible
+bevy_ecs::hierarchy::Children [
+    bevy_camera::components::Camera3d
+    bevy_transform::components::transform::Transform {
+        translation: glam::Vec3 { x: 0.7, y: 0.7, z: 1.0 },
+        rotation: glam::Quat { x: -0.15037778, y: 0.2968788, z: 0.04740241, w: 0.941808 },
+    }
+    bevy_camera::visibility::Visibility::Visible
+    bevy_light::probe::EnvironmentMapLight {
+        diffuse_map: "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2",
+        specular_map: "environment_maps/pisa_specular_rgb9e5_zstd.ktx2",
+        intensity: 250.0,
+    },
+
+    bevy_transform::components::transform::Transform
+    // Embed an asset as a handle:
+    bevy_scene::components::SceneRoot("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+
+    bevy_light::directional_light::DirectionalLight {
+        shadow_maps_enabled: true,
+    }
+    // A template:
+    @bevy_light::cascade::CascadeShadowConfigBuilder {
+        num_cascades: 1,
+        maximum_distance: 1.6,
+    }
+]

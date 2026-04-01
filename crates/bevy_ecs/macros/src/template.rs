@@ -8,6 +8,7 @@ use syn::{
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
 const TEMPLATE_ATTRIBUTE: &str = "template";
+const TEMPLATE_REFLECT: &str = "reflect";
 
 pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -20,6 +21,27 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
     let is_pub = matches!(ast.vis, syn::Visibility::Public(_));
     let maybe_pub = if is_pub { quote!(pub) } else { quote!() };
+
+    let should_make_template_reflectable = ast
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident(&TEMPLATE_ATTRIBUTE))
+        .any(|template_attr| {
+            let mut found = false;
+            let _ = template_attr.parse_nested_meta(|meta| {
+                found = found || meta.path.is_ident(TEMPLATE_REFLECT);
+                Ok(())
+            });
+            found
+        });
+    let maybe_reflect = if should_make_template_reflectable {
+        quote! {
+            #[derive(Reflect)]
+            #[reflect(Default, Template)]
+        }
+    } else {
+        quote! {}
+    };
 
     let template = match &ast.data {
         Data::Struct(data_struct) => {
@@ -38,6 +60,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Named(_) => {
                     quote! {
                         #[allow(missing_docs)]
+                        #maybe_reflect
                         #maybe_pub struct #template_ident #impl_generics #where_clause {
                             #(#template_fields,)*
                         }
@@ -69,6 +92,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unnamed(_) => {
                     quote! {
                         #[allow(missing_docs)]
+                        #maybe_reflect
                         #maybe_pub struct #template_ident #impl_generics (
                             #(#template_fields,)*
                         )  #where_clause;
@@ -100,6 +124,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unit => {
                     quote! {
                         #[allow(missing_docs)]
+                        #maybe_reflect
                         #maybe_pub struct #template_ident;
 
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
@@ -272,6 +297,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[allow(missing_docs)]
+                #maybe_reflect
                 #maybe_pub enum #template_ident #type_generics #where_clause {
                     #(#variant_definitions,)*
                 }

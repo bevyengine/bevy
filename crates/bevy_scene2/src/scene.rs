@@ -103,6 +103,12 @@ pub enum ResolveSceneError {
     /// Caused when a dependency listed in [`Scene::register_dependencies`] is not available when calling [`Scene::resolve`]
     #[error("Cannot resolve scene because the asset dependency {0} is not present. This could be because it isn't loaded yet, or because the asset does not exist. Consider using `queue_spawn_scene()` if you would like to wait for scene dependencies before spawning.")]
     MissingSceneDependency(AssetPath<'static>),
+    #[error("Cannot resolve scene because an unsupported relationship was used")]
+    UnsupportedRelationship,
+    #[error("Cannot resolve scene because a type wasn't reflectable")]
+    TypeNotReflectable,
+    #[error("Cannot resolve scene because a type didn't reflect `Default`")]
+    TypeDoesntReflectDefault,
     /// Caused when inheriting a scene during [`Scene::resolve`] fails.
     #[error(transparent)]
     InheritSceneError(#[from] InheritSceneError),
@@ -204,6 +210,20 @@ all_tuples!(scene_impl, 0, 12, P);
 /// // applying patch to position would result in { x: 10, y: 0 }
 /// ```
 pub struct TemplatePatch<F: Fn(&mut T, &mut ResolveContext), T>(pub F, pub PhantomData<T>);
+
+impl Scene for Box<dyn Scene> {
+    fn resolve(
+        &self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        (**self).resolve(context, scene)
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        (**self).register_dependencies(dependencies);
+    }
+}
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.

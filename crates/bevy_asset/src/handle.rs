@@ -3,9 +3,9 @@ use crate::{
     ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
-use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
+use bevy_ecs::{reflect::{ReflectFromTemplate, ReflectTemplate}, template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext}};
 use bevy_platform::collections::Equivalent;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{FromReflect, Reflect, TypePath, prelude::ReflectDefault};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -130,7 +130,7 @@ impl core::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Debug, Hash, PartialEq, Clone, Handle)]
+#[reflect(Debug, Hash, PartialEq, Clone, Handle, FromTemplate)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -208,6 +208,8 @@ impl<T: Asset> FromTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
 }
 
+#[derive(Reflect)]
+#[reflect(Default, Template)]
 pub enum HandleTemplate<T: Asset> {
     Path(AssetPath<'static>),
     Handle(Handle<T>),

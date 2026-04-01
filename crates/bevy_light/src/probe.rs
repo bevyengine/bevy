@@ -1,7 +1,10 @@
 use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
 use bevy_color::{Color, ColorToComponents, Srgba};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    prelude::*,
+    reflect::{ReflectFromTemplate, ReflectTemplate},
+};
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -101,8 +104,9 @@ impl LightProbe {
 /// area in space.
 ///
 /// See `bevy_pbr::environment_map` for detailed information.
-#[derive(Clone, Component, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[derive(Clone, Component, Reflect, FromTemplate)]
+#[reflect(Component, Clone, FromTemplate)]
+#[template(reflect)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -159,7 +163,7 @@ impl EnvironmentMapLight {
         Self {
             diffuse_map: handle.clone(),
             specular_map: handle,
-            ..Default::default()
+            ..EnvironmentMapLight::default()
         }
     }
 
@@ -200,10 +204,8 @@ impl EnvironmentMapLight {
             )
         }
     }
-}
 
-impl Default for EnvironmentMapLight {
-    fn default() -> Self {
+    pub fn default() -> Self {
         EnvironmentMapLight {
             diffuse_map: Handle::default(),
             specular_map: Handle::default(),
