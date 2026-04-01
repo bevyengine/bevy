@@ -18,8 +18,21 @@ use crate::schedule_data::serde::AppData;
 
 /// A plugin to automatically collect and write all schedule data on boot to a file that can later
 /// be parsed.
+///
+/// By default, the schedule data is written to "<current working directory>/app_data.ron". This can
+/// be configured to a different path using [`SerializeSchedulesFilePath`].
 pub struct SerializeSchedulesPlugin {
-    /// The schedule that systems will be added to.
+    /// The schedule into which the systems for collecting/writing the schedule data are added.
+    ///
+    /// This schedule **will not** have its schedule data collected, as well as any "parent"
+    /// schedules. In order to run a schedule, Bevy removes it from the world, meaning if this
+    /// system is added to schedule [`Update`](bevy_app::Update), that schedule and also [`Main`]
+    /// will not be included in the [`AppData`]. The default is the [`Main`] schedule since usually
+    /// there is only one system ([`Main::run_main`]), so there's very little data to collect.
+    ///
+    /// Avoid changing this field. This is intended for power-users who might not use the [`Main`]
+    /// schedule at all. It may also be worth considering just calling [`AppData::from_schedules`]
+    /// manually to ensure a particular schedule is present.
     ///
     /// Usually, this will be set using [`Self::in_schedule`].
     pub schedule: Interned<dyn ScheduleLabel>,
@@ -46,10 +59,12 @@ impl Plugin for SerializeSchedulesPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SerializeSchedulesFilePath>()
             .add_systems(
-                Main,
+                self.schedule,
                 collect_system_data
                     .run_if(run_once)
                     .in_set(SerializeSchedulesSystems)
+                    // While we may not be in the `Main` schedule at all, the default is that, so we
+                    // should make this work properly in the default case.
                     .before(Main::run_main),
             );
     }

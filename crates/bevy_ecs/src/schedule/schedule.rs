@@ -1642,6 +1642,8 @@ pub struct ScheduleBuildMetadata {
 /// An event triggered when a schedule is successfully built.
 ///
 /// Note: When this event is triggered, the corresponding [`Schedule`] is not present in the world.
+/// So, observers will need to cache whatever data they need from this and access it later once the
+/// schedule is not running.
 #[derive(Event)]
 pub struct ScheduleBuilt {
     /// The schedule that was built.
