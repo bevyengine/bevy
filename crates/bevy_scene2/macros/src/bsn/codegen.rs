@@ -98,27 +98,13 @@ impl BsnTokenStream for BsnListRoot {
 }
 
 impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
-    /// Performs validation checks, e.g., catching duplicate component defs.
+    /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
-        let mut seen = HashSet::with_capacity(self.entries.len());
         let entries: Vec<_> = self
             .entries
             .iter()
             .map(|entry| {
-                if let Some(path) = entry.template_path() {
-                    let path_str = path.to_token_stream().to_string();
-                    if !seen.insert(path_str.clone()) {
-                        ctx.errors.push(syn::Error::new_spanned(
-                            path,
-                            format!(
-                                "Duplicate component type `{}` found on BSN entity",
-                                path_str
-                            ),
-                        ));
-                    }
-                }
-
                 entry
                     .try_to_tokens(ctx)
                     .unwrap_or_else(|e| e.to_compile_error())
@@ -135,17 +121,6 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn template_path(&self) -> Option<&Path> {
-        match self {
-            BsnEntry::TemplatePatch(ty) | BsnEntry::FromTemplatePatch(ty) => Some(&ty.path),
-            BsnEntry::TemplateConst { type_path, .. } => Some(type_path),
-            BsnEntry::TemplateConstructor(c) | BsnEntry::FromTemplateConstructor(c) => {
-                Some(&c.type_path)
-            }
-            _ => None,
-        }
-    }
-
     fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
@@ -694,37 +669,6 @@ mod tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Field `x` is missing a value"));
-    }
-
-    #[test]
-    fn duplicate_components() {
-        let mut refs = EntityRefs::default();
-        let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
-
-        let duplicate_1 = BsnEntry::TemplatePatch(BsnType {
-            path: parse_quote!(BackgroundColor),
-            enum_variant: None,
-            fields: BsnFields::Tuple(vec![]),
-        });
-
-        let duplicate_2 = BsnEntry::TemplatePatch(BsnType {
-            path: parse_quote!(BackgroundColor),
-            enum_variant: None,
-            fields: BsnFields::Tuple(vec![]),
-        });
-
-        let scene = Bsn::<true> {
-            entries: vec![duplicate_1, duplicate_2],
-        };
-
-        let res = scene.try_to_tokens(&mut ctx);
-
-        assert!(res.is_ok());
-        assert_eq!(ctx.errors.len(), 1);
-        assert!(ctx.errors[0]
-            .to_string()
-            .contains("Duplicate component type `BackgroundColor`"));
     }
 
     #[test]
