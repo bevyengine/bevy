@@ -6,6 +6,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, SerializeSchedulesPlugin::default()))
         // This resource is only necessary to put the output in a nice spot for the example code.
+        // By default, this lands at "<working directory>/app_data.ron".
         .insert_resource(SerializeSchedulesFilePath(
             "examples/dev_tools/app_data.ron".into(),
         ))
