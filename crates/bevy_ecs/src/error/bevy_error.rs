@@ -12,7 +12,7 @@ use core::{
 /// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is.
 /// While the levels within [`Severity`] correspond to traditional logging levels,
 /// these levels are fundamentally advisory metadata.
-/// The global error handler ultimately has discretion to respond to each of these errors
+/// The fallback error handler ultimately has discretion to respond to each of these errors
 /// according to its configuration.
 /// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
 /// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.

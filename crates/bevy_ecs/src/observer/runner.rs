@@ -170,7 +170,7 @@ mod tests {
         world.init_resource::<Ran>();
         world.spawn(Observer::new(system));
         // Test that the correct handler is used when the observer was added
-        // before the default handler
+        // before the fallback handler
         world.insert_resource(FallbackErrorHandler(ignore));
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
