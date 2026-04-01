@@ -53,6 +53,10 @@ struct PatchTarget<'a> {
     pub is_ref: bool,
 }
 
+pub trait BsnTokenStream: Parse {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
+}
+
 impl BsnTokenStream for BsnRoot {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let tokens = self.0.to_tokens(ctx);
@@ -548,10 +552,6 @@ impl ToTokens for BsnValue {
             }
         }
     }
-}
-
-pub trait BsnTokenStream: Parse {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
 }
 
 #[cfg(test)]
