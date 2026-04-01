@@ -41,7 +41,7 @@ use bevy_mesh::{
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::PreviousInstanceInputUniformBuffer;
 use bevy_render::impl_atomic_pod;
-use bevy_render::mesh::allocator::{MeshSlabs, SlabId};
+use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
 };
@@ -662,6 +662,14 @@ impl MeshUniform {
             Some((slot_index, _)) => slot_index.into(),
         };
 
+        let material_slot = u32::from(material_bind_group_slot);
+        debug_assert!(
+            material_slot <= 0xFFFF,
+            "Material bind group slot {material_slot} overflowed"
+        );
+        let material_and_lightmap_bind_group_slot =
+            material_slot | ((lightmap_bind_group_slot as u32) << 16);
+
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
@@ -671,8 +679,7 @@ impl MeshUniform {
             flags: mesh_transforms.flags,
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
-            material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
-                | ((lightmap_bind_group_slot as u32) << 16),
+            material_and_lightmap_bind_group_slot,
             tag: tag.unwrap_or(0),
             morph_descriptor_index: match morph_descriptor_index {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
@@ -774,6 +781,9 @@ bitflags::bitflags! {
         /// The mesh had morph targets last frame and so they should be taken
         /// into account for motion vector computation.
         const HAS_PREVIOUS_MORPH      = 1 << 4;
+        /// CPU culling has been disabled because the `NoCpuCulling` component
+        /// is present on the mesh instance.
+        const NO_CPU_CULLING          = 1 << 5;
     }
 }
 
@@ -1092,15 +1102,17 @@ impl RenderMeshInstanceSharedFlat {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        no_cpu_culling: bool,
         aabb: Option<&Aabb>,
     ) -> Self {
-        Self::for_cpu_building(
+        Self::new(
             previous_transform,
             mesh,
             tag,
             default(),
             not_shadow_caster,
             no_automatic_batching,
+            no_cpu_culling,
             aabb,
         )
     }
@@ -1115,6 +1127,28 @@ impl RenderMeshInstanceSharedFlat {
         no_automatic_batching: bool,
         aabb: Option<&Aabb>,
     ) -> Self {
+        Self::new(
+            previous_transform,
+            mesh,
+            tag,
+            material_bindings_index,
+            not_shadow_caster,
+            no_automatic_batching,
+            false,
+            aabb,
+        )
+    }
+
+    fn new(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+        no_cpu_culling: bool,
+        aabb: Option<&Aabb>,
+    ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
         mesh_instance_flags.set(
@@ -1125,6 +1159,7 @@ impl RenderMeshInstanceSharedFlat {
             RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM,
             previous_transform.is_some(),
         );
+        mesh_instance_flags.set(RenderMeshInstanceFlags::NO_CPU_CULLING, no_cpu_culling);
 
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
@@ -1465,6 +1500,13 @@ impl RenderMeshInstanceGpuBuilder {
         };
 
         // Create the mesh input uniform.
+        let material_slot = u32::from(self.shared.material_bindings_index.slot);
+        debug_assert!(
+            material_slot <= 0xFFFF,
+            "Material bind group slot {material_slot} overflowed"
+        );
+        let material_and_lightmap_bind_group_slot = material_slot | ((lightmap_slot as u32) << 16);
+
         let mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
@@ -1479,9 +1521,7 @@ impl RenderMeshInstanceGpuBuilder {
                 vertex_count
             },
             current_skin_index,
-            material_and_lightmap_bind_group_slot: u32::from(
-                self.shared.material_bindings_index.slot,
-            ) | ((lightmap_slot as u32) << 16),
+            material_and_lightmap_bind_group_slot,
             tag: self.shared.tag,
             morph_descriptor_index,
         };
@@ -1522,7 +1562,7 @@ impl RenderMeshInstanceGpuPrepared {
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &PreviousInstanceInputUniformBuffer<MeshInputUniform>,
-    ) -> Option<u32> {
+    ) -> u32 {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
         match render_mesh_instances.entry(entity) {
@@ -1575,7 +1615,7 @@ impl RenderMeshInstanceGpuPrepared {
             }
         }
 
-        Some(current_uniform_index)
+        current_uniform_index
     }
 }
 
@@ -1716,14 +1756,26 @@ impl RenderGpuCulledEntities {
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
-    pub fn update(&mut self, new_entity: MainEntity, render_layers: RenderLayers) {
+    pub fn update(
+        &mut self,
+        new_entity: MainEntity,
+        render_layers: RenderLayers,
+        no_cpu_culling: bool,
+    ) {
         match self.entities.entry(new_entity) {
             Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.insert(render_layers);
+                if no_cpu_culling {
+                    occupied_entry.insert(render_layers);
+                } else {
+                    occupied_entry.remove();
+                    self.removed.push(new_entity);
+                }
             }
             Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(render_layers);
-                self.added.push(new_entity);
+                if no_cpu_culling {
+                    vacant_entry.insert(render_layers);
+                    self.added.push(new_entity);
+                }
             }
         }
     }
@@ -1900,14 +1952,14 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Aabb>,
                 Changed<Mesh3d>,
                 Changed<MeshTag>,
-                (
+                Or<(
                     Changed<NoFrustumCulling>,
                     Changed<NotShadowReceiver>,
                     Changed<TransmittedShadowReceiver>,
                     Changed<NotShadowCaster>,
                     Changed<NoAutomaticBatching>,
                     Changed<NoCpuCulling>,
-                ),
+                )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
             )>,
@@ -2123,6 +2175,7 @@ fn extract_mesh_for_gpu_building(
         tag,
         not_shadow_caster,
         no_automatic_batching,
+        no_cpu_culling,
         aabb,
     );
 
@@ -2512,81 +2565,84 @@ pub fn collect_meshes_for_gpu_building(
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
                             let _span = info_span!("prepared_mesh_producer").entered();
-                            changed_cpu_culling
-                                .drain(..)
-                                .chain(changed_gpu_culling.drain(..))
-                                .for_each(
-                                    |(entity, mesh_instance_builder, mesh_culling_builder)| {
-                                        match mesh_instance_builder.prepare(
-                                            entity,
-                                            mesh_allocator,
-                                            mesh_material_ids,
-                                            render_material_bindings,
-                                            render_lightmaps,
-                                            skin_uniforms,
-                                            morph_indices,
-                                            frame_count,
-                                        ) {
-                                            Some(mut prepared) => {
-                                                if let Some(render_mesh_instance) =
-                                                    render_mesh_instances.get(&entity)
-                                                    && prepared.render_layers
-                                                        == render_mesh_instance.render_layers
-                                                {
-                                                    // We can take a fast path and
-                                                    // write directly to shared
-                                                    // memory, since the only fields
-                                                    // that changed are POD fields.
+                            for (entity, mesh_instance_builder, mesh_culling_builder) in
+                                changed_cpu_culling
+                                    .drain(..)
+                                    .chain(changed_gpu_culling.drain(..))
+                            {
+                                let Some(mut prepared) = mesh_instance_builder.prepare(
+                                    entity,
+                                    mesh_allocator,
+                                    mesh_material_ids,
+                                    render_material_bindings,
+                                    render_lightmaps,
+                                    skin_uniforms,
+                                    morph_indices,
+                                    frame_count,
+                                ) else {
+                                    reextract_tx.send(entity).ok();
+                                    continue;
+                                };
 
-                                                    prepared.shared.write_to_blob(
-                                                        &render_mesh_instance.shared,
-                                                    );
-                                                    render_mesh_instance
-                                                        .gpu_specific
-                                                        .set_world_space_center(prepared.center);
+                                let Some(render_mesh_instance) = render_mesh_instances.get(&entity)
+                                else {
+                                    // We must take the slow path because we
+                                    // haven't seen the mesh instance yet. Send
+                                    // the mesh instance to the collection sink.
+                                    let _ = prepared_tx.send((
+                                        entity,
+                                        prepared,
+                                        Some(mesh_culling_builder),
+                                    ));
+                                    continue;
+                                };
 
-                                                    let current_uniform_index =
-                                                        render_mesh_instance
-                                                            .gpu_specific
-                                                            .current_uniform_index();
+                                if prepared.render_layers != render_mesh_instance.render_layers
+                                    || prepared
+                                        .shared
+                                        .flags
+                                        .contains(RenderMeshInstanceFlags::NO_CPU_CULLING)
+                                        != render_mesh_instance
+                                            .shared
+                                            .flags()
+                                            .contains(RenderMeshInstanceFlags::NO_CPU_CULLING)
+                                {
+                                    // We must take the slow path because the
+                                    // instance either changed render layers or
+                                    // CPU/GPU culling mode. Send the mesh
+                                    // instance to the collection sink.
+                                    let _ = prepared_tx.send((
+                                        entity,
+                                        prepared,
+                                        Some(mesh_culling_builder),
+                                    ));
+                                    continue;
+                                }
 
-                                                    let previous_mesh_input_uniform =
-                                                        current_input_buffer
-                                                            .get_unchecked(current_uniform_index);
-                                                    let previous_input_index =
-                                                        previous_input_buffer
-                                                            .push(previous_mesh_input_uniform);
-                                                    prepared
-                                                        .mesh_input_uniform
-                                                        .previous_input_index =
-                                                        previous_input_index;
+                                // If we got here, we can take a fast path and
+                                // write directly to shared memory, since the
+                                // only fields that changed are POD fields.
 
-                                                    current_input_buffer.set(
-                                                        current_uniform_index,
-                                                        prepared.mesh_input_uniform,
-                                                    );
-                                                    mesh_culling_data_buffer.set(
-                                                        current_uniform_index,
-                                                        mesh_culling_builder,
-                                                    );
-                                                } else {
-                                                    // This is the slow path. Send
-                                                    // the mesh instance to the
-                                                    // collection sink.
-                                                    let data = (
-                                                        entity,
-                                                        prepared,
-                                                        Some(mesh_culling_builder),
-                                                    );
-                                                    prepared_tx.send(data).ok();
-                                                }
-                                            }
-                                            None => {
-                                                reextract_tx.send(entity).ok();
-                                            }
-                                        }
-                                    },
-                                );
+                                prepared.shared.write_to_blob(&render_mesh_instance.shared);
+                                render_mesh_instance
+                                    .gpu_specific
+                                    .set_world_space_center(prepared.center);
+
+                                let current_uniform_index =
+                                    render_mesh_instance.gpu_specific.current_uniform_index();
+
+                                let previous_mesh_input_uniform =
+                                    current_input_buffer.get_unchecked(current_uniform_index);
+                                let previous_input_index =
+                                    previous_input_buffer.push(previous_mesh_input_uniform);
+                                prepared.mesh_input_uniform.previous_input_index =
+                                    previous_input_index;
+
+                                current_input_buffer
+                                    .set(current_uniform_index, prepared.mesh_input_uniform);
+                                mesh_culling_data_buffer
+                                    .set(current_uniform_index, mesh_culling_builder);
+                            }
 
                             for entity in removed.drain(..) {
                                 removed_tx.send(entity).unwrap();
@@ -2607,25 +2663,31 @@ pub fn collect_meshes_for_gpu_building(
 
     while let Ok(batch) = prepared_rx.recv() {
         let (entity, prepared, mesh_culling_builder) = batch;
-        let Some(instance_data_index) = prepared.update(
+        let instance_data_index = prepared.update(
             entity,
             &mut *render_mesh_instances,
             current_input_buffer,
             previous_input_buffer,
-        ) else {
-            continue;
-        };
+        );
         if let Some(mesh_culling_data) = mesh_culling_builder {
             mesh_culling_data.update(&mut mesh_culling_data_buffer, instance_data_index);
         }
         // If the instance is already visible, just update the layers.
         // Otherwise, mark it as newly-added.
-        let render_layers = render_mesh_instances
-            .get(&entity)
-            .and_then(|render_mesh_instance| render_mesh_instance.render_layers.as_ref())
-            .cloned()
-            .unwrap_or_else(RenderLayers::default);
-        render_gpu_culled_entities.update(entity, render_layers);
+        let (render_layers, no_cpu_culling) = match render_mesh_instances.get(&entity) {
+            None => (RenderLayers::default(), false),
+            Some(render_mesh_instance) => (
+                render_mesh_instance
+                    .render_layers
+                    .clone()
+                    .unwrap_or_default(),
+                render_mesh_instance
+                    .shared
+                    .flags()
+                    .contains(RenderMeshInstanceFlags::NO_CPU_CULLING),
+            ),
+        };
+        render_gpu_culled_entities.update(entity, render_layers, no_cpu_culling);
     }
     while let Ok(batch) = removed_rx.recv() {
         let entity = batch;
@@ -2967,7 +3029,7 @@ bitflags::bitflags! {
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
+    // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u64 {
         // Nothing
         const NONE                              = 0;
@@ -3096,11 +3158,29 @@ impl MeshPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    /// Create a [`BaseMeshPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, [`BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
+    pub fn from_primitive_topology_and_strip_index(
+        primitive_topology: PrimitiveTopology,
+        strip_index_format: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE,
+                Some(indices) => match indices {
+                    IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u64)
             & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -3114,6 +3194,20 @@ impl MeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & BaseMeshPipelineKey::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16.bits() => {
+                Some(IndexFormat::Uint16)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32.bits() => {
+                Some(IndexFormat::Uint32)
+            }
+            x if x == BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }
@@ -3137,12 +3231,11 @@ const_assert_eq!(
     0
 );
 
-// Ensure that the reserved bits don't overlap with the topology bits
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
 const_assert_eq!(
-    (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
-        << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
-    0
+    BaseMeshPipelineKey::all().bits() & MeshPipelineKey::all().bits(),
+    MeshPipelineKey::MORPH_TARGETS.bits()
 );
 
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
@@ -3554,12 +3647,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 cull_mode: Some(Face::Back),
                 unclipped_depth: false,
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(depth_write_enabled),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -3610,7 +3704,7 @@ pub enum MeshMorphTargetBindGroups {
 
     /// Maps a morph target slab ID that the mesh allocator manages to the bind
     /// groups for morph displacements in that slab.
-    Storage(HashMap<SlabId, MeshMorphTargetStorageBindGroups>),
+    Storage(HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>),
 }
 
 /// The bind groups associated with a single morph displacements slab.
@@ -3762,7 +3856,7 @@ pub enum MeshMorphBindGroupKey {
     ///
     /// In this case, there's a bind group per morph displacement slab (managed
     /// by the mesh allocator).
-    Storage(SlabId),
+    Storage(MeshSlabId),
 }
 
 /// Creates the per-mesh bind groups for each type of mesh and each phase.
@@ -4037,7 +4131,7 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     mesh_allocator: &MeshAllocator,
-    morph_target_storage_bind_groups: &mut HashMap<SlabId, MeshMorphTargetStorageBindGroups>,
+    morph_target_storage_bind_groups: &mut HashMap<MeshSlabId, MeshMorphTargetStorageBindGroups>,
 ) {
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     let weights = weights_uniform

@@ -17,6 +17,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene2::prelude::*;
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
@@ -28,7 +29,6 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
@@ -48,6 +48,62 @@ struct CheckboxOutline;
 #[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
+/// Scene function to spawn a checkbox.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+pub fn checkbox() -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Start,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(4.0),
+        }
+        Checkbox
+        CheckboxFrame
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeFontColor(tokens::CHECKBOX_TEXT)
+        InheritableFont {
+            font: fonts::REGULAR,
+            font_size: FontSize::Px(14.0),
+            weight: FontWeight::NORMAL,
+        }
+        Children [(
+            Node {
+                width: size::CHECKBOX_SIZE,
+                height: size::CHECKBOX_SIZE,
+                border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(4.0)),
+            }
+            CheckboxOutline
+            ThemeBackgroundColor(tokens::CHECKBOX_BG)
+            ThemeBorderColor(tokens::CHECKBOX_BORDER)
+            Children [(
+                // Cheesy checkmark: rotated node with L-shaped border.
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(4.0),
+                    top: Val::Px(0.0),
+                    width: Val::Px(6.),
+                    height: Val::Px(11.),
+                    border: UiRect {
+                        bottom: Val::Px(2.0),
+                        right: Val::Px(2.0),
+                    },
+                }
+                UiTransform::from_rotation(Rot2::FRAC_PI_4)
+                CheckboxMark
+                ThemeBorderColor(tokens::CHECKBOX_MARK)
+            )]
+        )]
+    }
+}
 /// Template function to spawn a checkbox.
 ///
 /// # Arguments
@@ -59,7 +115,8 @@ struct CheckboxMark;
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
+#[deprecated(since = "0.19.0", note = "Use the checkbox() BSN function")]
+pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,
 ) -> impl Bundle {
@@ -79,9 +136,9 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
             font_size: FontSize::Px(14.0),
             weight: FontWeight::NORMAL,
+            ..Default::default()
         },
         overrides,
         Children::spawn((

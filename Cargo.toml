@@ -133,27 +133,13 @@ unused_qualifications = "warn"
 [features]
 default = ["2d", "3d", "ui", "audio"]
 
-# PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
-2d = [
-  "default_app",
-  "default_platform",
-  "2d_bevy_render",
-  "ui",
-  "scene",
-  "picking",
-]
+# PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, scenes and picking.
+2d = ["default_app", "default_platform", "2d_bevy_render", "scene", "picking"]
 
-# PROFILE: The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.
-3d = [
-  "default_app",
-  "default_platform",
-  "3d_bevy_render",
-  "ui",
-  "scene",
-  "picking",
-]
+# PROFILE: The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, scenes and picking.
+3d = ["default_app", "default_platform", "3d_bevy_render", "scene", "picking"]
 
-# PROFILE: The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.
+# PROFILE: The default Bevy UI experience. This includes the core Bevy framework, Bevy UI, scenes, and picking.
 ui = [
   "default_app",
   "default_platform",
@@ -174,8 +160,11 @@ dev = [
 # COLLECTION: Features used to build audio Bevy apps.
 audio = ["bevy_audio", "vorbis"]
 
+# COLLECTION: Enables audio features and all supported formats.
+audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
+
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_scene"]
+scene = ["bevy_scene", "bevy_scene2"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -196,7 +185,6 @@ default_app = [
 default_platform = [
   "std",
   "android-game-activity",
-  "android_shared_stdcxx",
   "bevy_gilrs",
   "bevy_winit",
   "default_font",
@@ -331,6 +319,9 @@ bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
+
+# Provides scene functionality
+bevy_scene2 = ["bevy_internal/bevy_scene2"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
@@ -497,35 +488,32 @@ zstd_rust = ["bevy_internal/zstd_rust"]
 # For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
 zstd_c = ["bevy_internal/zstd_c"]
 
-# FLAC audio format support
-flac = ["bevy_internal/flac"]
-
-# MP3 audio format support
-mp3 = ["bevy_internal/mp3"]
-
-# OGG/VORBIS audio format support
-vorbis = ["bevy_internal/vorbis"]
-
-# WAV audio format support
-wav = ["bevy_internal/wav"]
-
-# AAC audio format support (through symphonia)
-symphonia-aac = ["bevy_internal/symphonia-aac"]
-
-# AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)
-symphonia-all = ["bevy_internal/symphonia-all"]
-
-# FLAC audio format support (through symphonia)
+# FLAC audio format support (through `symphonia`)
 symphonia-flac = ["bevy_internal/symphonia-flac"]
 
-# MP4 audio format support (through symphonia)
-symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
-
-# OGG/VORBIS audio format support (through symphonia)
+# OGG/VORBIS audio format support (through `symphonia`)
 symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 
-# WAV audio format support (through symphonia)
+# WAV audio format support (through `symphonia`)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
+
+# AAC audio format support (through `symphonia`)
+aac = ["bevy_internal/aac"]
+
+# FLAC audio format support (through `claxon`)
+flac = ["bevy_internal/flac"]
+
+# MP4 audio format support (through `symphonia`). It also enables AAC support.
+mp4 = ["bevy_internal/mp4"]
+
+# MP3 audio format support (through `symphonia`)
+mp3 = ["bevy_internal/mp3"]
+
+# OGG/VORBIS audio format support (through `lewton`)
+vorbis = ["bevy_internal/vorbis"]
+
+# WAV audio format support (through `hound`)
+wav = ["bevy_internal/wav"]
 
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
@@ -559,9 +547,6 @@ morph = ["bevy_internal/morph"]
 
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["bevy_internal/morph_animation"]
-
-# Enable using a shared stdlib for cxx on Android
-android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
@@ -749,6 +734,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-featu
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
+bevy_scene2 = { path = "crates/bevy_scene2", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -1024,6 +1010,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multiple_text_inputs"
+path = "examples/ui/text/multiple_text_inputs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiple_text_inputs]
+name = "Multiple Text Inputs"
+description = "Demonstrates multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -1293,8 +1290,7 @@ doc-scrape-examples = true
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
-# Wasm does not support the `POLYGON_MODE_LINE` feature.
-wasm = false
+wasm = true
 
 [[example]]
 name = "ssao"
@@ -2260,6 +2256,17 @@ description = "Shows how to directly play a simple pitch"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "play_sound_effect"
+path = "examples/audio/play_sound_effect.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.play_sound_effect]
+name = "Play Sound Effect"
+description = "Shows how to play a sound effect in response to an event"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -3037,6 +3044,17 @@ description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
 
+[[example]]
+name = "bsn"
+path = "examples/scene/bsn.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bsn]
+name = "BSN example"
+description = "Demonstrates how to use BSN to compose scenes"
+category = "Scene"
+wasm = true
+
 # Shaders
 [[package.metadata.example_category]]
 name = "Shaders"
@@ -3550,7 +3568,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4402,6 +4420,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "transform_gizmo"
+path = "examples/gizmos/transform_gizmo.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.transform_gizmo]
+name = "Transform Gizmo"
+description = "Interactive transform gizmo for translating, rotating, and scaling entities"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "axes"
 path = "examples/gizmos/axes.rs"
 doc-scrape-examples = true
@@ -4585,6 +4615,24 @@ path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "infinite_grid"
+path = "examples/dev_tools/infinite_grid.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "free_camera"]
+
+[package.metadata.example.infinite_grid]
+name = "Infinite grid"
+description = "Demonstrates Bevy's infinite grid, suitable as a ground plane for editors"
+category = "Dev tools"
+wasm = true
+
 [[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
@@ -4672,12 +4720,6 @@ doc-scrape-examples = true
 name = "2D on Bevy UI"
 description = "Shows how to render 2D objects on top of Bevy UI"
 category = "Camera"
-wasm = true
-
-[package.metadata.example.fps_overlay]
-name = "FPS overlay"
-description = "Demonstrates FPS overlay"
-category = "Dev tools"
 wasm = true
 
 [[example]]

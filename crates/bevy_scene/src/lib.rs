@@ -46,7 +46,9 @@ pub mod prelude {
 use bevy_app::prelude::*;
 
 #[cfg(feature = "serialize")]
-use {bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs};
+use {
+    bevy_app::SceneSpawnerSystems, bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs,
+};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -63,7 +65,7 @@ impl Plugin for ScenePlugin {
                 SpawnScene,
                 (scene_spawner, scene_spawner_system)
                     .chain()
-                    .in_set(SceneSpawnerSystems::Spawn),
+                    .in_set(SceneSpawnerSystems::SceneSpawn),
             );
 
         // Register component hooks for DynamicSceneRoot

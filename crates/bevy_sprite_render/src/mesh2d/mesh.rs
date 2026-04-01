@@ -1,6 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::{visibility::ViewVisibility, Camera2d};
+use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_render::{camera::DirtySpecializations, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
@@ -132,6 +132,19 @@ pub fn check_views_need_specialization(
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if view
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Srgb)
+        {
+            view_key |= Mesh2dPipelineKey::SRGB_COMPOSITING;
+        }
+        if view
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Oklab)
+        {
+            view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
+        }
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
@@ -447,6 +460,8 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = 1 << 2;
         const BLEND_ALPHA                       = 1 << 3;
         const MAY_DISCARD                       = 1 << 4;
+        const SRGB_COMPOSITING                  = 1 << 5;
+        const OKLAB_COMPOSITING                 = 1 << 6;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -458,6 +473,10 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_RESERVED_BITS        = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_NONE                 = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U32                  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const STRIP_INDEX_FORMAT_U16                  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -469,6 +488,9 @@ impl Mesh2dPipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    pub const INDEX_FORMAT_MASK_BITS: u32 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -488,11 +510,29 @@ impl Mesh2dPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    /// Create a [`Mesh2dPipelineKey`] from mesh primitive topology and index format.
+    ///
+    /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
+    pub fn from_primitive_topology_and_strip_index(
+        primitive_topology: PrimitiveTopology,
+        strip_index_format: Option<IndexFormat>,
+    ) -> Self {
+        let index_bits = if primitive_topology.is_strip() {
+            match strip_index_format {
+                None => Self::STRIP_INDEX_FORMAT_NONE,
+                Some(indices) => match indices {
+                    IndexFormat::Uint16 => Self::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => Self::STRIP_INDEX_FORMAT_U32,
+                },
+            }
+        } else {
+            Self::STRIP_INDEX_FORMAT_NONE
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -505,6 +545,16 @@ impl Mesh2dPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & Self::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == Self::STRIP_INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
+            x if x == Self::STRIP_INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
+            x if x == Self::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }
@@ -594,12 +644,22 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
             shader_defs.push("MAY_DISCARD".into());
         }
+        if key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(Mesh2dPipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        let format = match (
+            key.contains(Mesh2dPipelineKey::HDR),
+            key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING),
+        ) {
+            (true, _) => ViewTarget::TEXTURE_FORMAT_HDR,
+            (_, true) => TextureFormat::Rgba8Unorm,
+            _ => TextureFormat::bevy_default(),
         };
 
         let (depth_write_enabled, label, blend);
@@ -638,12 +698,12 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                strip_index_format: key.strip_index_format(),
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(depth_write_enabled),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
