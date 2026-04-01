@@ -9,19 +9,10 @@ use core::{
 ///
 /// # Severity
 ///
-/// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is.
-/// While the levels within [`Severity`] correspond to traditional logging levels,
-/// these levels are fundamentally advisory metadata.
-/// The global error handler ultimately has discretion to respond to each of these errors
-/// according to its configuration.
-/// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
-/// You can change the behavior of the default handler by modifying the [`DefaultErrorHandler`] resource.
+/// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is. Severity is advisory
+/// metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
 ///
-/// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
-/// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
-///
-/// [`DefaultErrorHandler`]: crate::error::handler::DefaultErrorHandler
-/// [`with_severity`]: ResultSeverityExt::with_severity
+/// By default, errors have [`Severity::Critical`], which preserves Bevy’s known panic-on-error behavior unless explicitly overridden.
 ///
 /// # Backtraces
 ///
@@ -119,36 +110,18 @@ struct InnerBevyError {
 }
 
 /// Indicates how severe a [`BevyError`] is.
-///
-/// These levels correspond to traditional logging levels,
-/// but the severity is advisory metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
-///
-/// To change the behavior of unhandled errors returned from systems,
-/// you can modify the [default error handler], and read the [`Severity`] stored inside of each [`BevyError`].
-///
-/// You can change the severity of an error (including assigning an error severity) to an ordinary result
-/// by calling [`with_severity`].
-///
-/// [`with_severity`]: ResultSeverityExt::with_severity
-/// [default error handler]: crate::error::handler::DefaultErrorHandler
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Severity {
-    /// The error can be safely ignored, and can be completely discarded.
+    /// The error can be safely ignored.
     Ignore,
-    /// The error can be ignored, unless verbose debugging is required.
-    Trace,
     /// The error can be safely ignored, but may need to be surfaced during debugging.
     Debug,
-    /// Nothing has gone wrong, but the error is useful to the user and should be reported.
-    Info,
     /// Something unexpected but recoverable happened.
-    ///
-    /// Something has probably gone wrong.
     Warning,
     /// A real error occurred, but the program may continue.
     Error,
-    /// A fatal error; the program cannot continue.
-    Panic,
+    /// A fatal error; the default handler may panic.
+    Critical,
 }
 
 impl BevyError {
@@ -169,7 +142,7 @@ impl BevyError {
 
 /// Extension methods for annotating errors with a [`Severity`].
 pub trait ResultSeverityExt<T> {
-    /// Overrides the [`Severity`] of the error if this result is `Err`.
+    /// Overrides the severity of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
     /// # Example
@@ -205,7 +178,7 @@ where
         BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
-                severity: Severity::Panic,
+                severity: Severity::Critical,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
