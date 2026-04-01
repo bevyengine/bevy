@@ -197,6 +197,34 @@ impl Animatable for Quat {
     }
 }
 
+impl Animatable for Rot2 {
+    /// Performs a slerp to smoothly interpolate between 2D rotations.
+    #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        // We want to smoothly interpolate between the two rotations by default,
+        // mirroring the behavior of `Quat` to ensure shortest-path consistency.
+        a.slerp(*b, t)
+    }
+    
+    #[inline]
+    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+        let mut value = Self::IDENTITY;
+        for BlendInput {
+            weight,
+            value: incoming_value,
+            additive
+        } in inputs
+        {
+            if additive {
+                value = Self::slerp(Self::IDENTITY, incoming_value, weight) * value;
+            } else {
+                value = Self::interpolate(&value, &incoming_value, weight);
+            }
+        }
+        value
+    }
+}
+
 /// Evaluates a cubic Bézier curve at a value `t`, given two endpoints and the
 /// derivatives at those endpoints.
 ///
