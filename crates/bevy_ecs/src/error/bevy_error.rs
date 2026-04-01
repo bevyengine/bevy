@@ -17,9 +17,10 @@ use core::{
 /// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
 /// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.
 ///
-/// By default, errors without an assigned severity use [`Severity::Fatal`], and will cause your application to panic.
+/// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
 /// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
 ///
+/// [`FallbackErrorHandler`]: crate::error::handler::FallbackErrorHandler
 /// [`with_severity`]: ResultSeverityExt::with_severity
 ///
 /// # Backtraces
