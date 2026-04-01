@@ -12,7 +12,7 @@ use crate::{
     entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
     },
-    error::{FallbackErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,

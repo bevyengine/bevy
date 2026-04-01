@@ -1634,7 +1634,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::error::{BevyError, FallbackErrorHandler, ErrorContext};
+    use crate::error::{BevyError, ErrorContext, FallbackErrorHandler};
     use crate::{
         change_detection::{Res, ResMut},
         component::Component,

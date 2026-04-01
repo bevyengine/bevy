@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{FallbackErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
     observer::IntoObserver,
