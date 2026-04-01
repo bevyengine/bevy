@@ -107,7 +107,10 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     if !seen.insert(path_str.clone()) {
                         ctx.errors.push(syn::Error::new_spanned(
                             path,
-                            format!("Duplicate component type `{}` found on BSN entity", path_str),
+                            format!(
+                                "Duplicate component type `{}` found on BSN entity",
+                                path_str
+                            ),
                         ));
                     }
                 }
