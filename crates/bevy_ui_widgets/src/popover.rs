@@ -305,7 +305,13 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, position_popover.in_set(UiSystems::PostLayout));
+        app.add_systems(
+            PostUpdate,
+            position_popover
+                .in_set(UiSystems::Layout)
+                .after(ui_layout_system)
+                .before(update_scrollbar_thumb),
+        );
     }
 }
 
