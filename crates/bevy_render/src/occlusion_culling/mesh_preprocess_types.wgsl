@@ -71,3 +71,14 @@ struct IndirectBatchSet {
     indirect_parameters_count: atomic<u32>,
     indirect_parameters_base: u32,
 }
+
+// One invocation of this compute shader: i.e. one mesh instance in a view.
+struct PreprocessWorkItem {
+    // The index of the `MeshInput` in the `current_input` buffer that we read
+    // from.
+    input_index: u32,
+    // In direct mode, the index of the `Mesh` in `output` that we write to. In
+    // indirect mode, the index of the `IndirectParameters` in
+    // `indirect_parameters` that we write to.
+    output_or_indirect_parameters_index: u32,
+}

@@ -260,7 +260,7 @@ mod tests {
 
         use crate::{
             change_detection::DetectChanges,
-            error::{ignore, DefaultErrorHandler, Result},
+            error::{ignore, FallbackErrorHandler, Result},
         };
 
         use super::*;
@@ -288,7 +288,7 @@ mod tests {
         #[test]
         fn system_with_condition_result_bool() {
             let mut world = World::default();
-            world.insert_resource(DefaultErrorHandler(ignore));
+            world.insert_resource(FallbackErrorHandler(ignore));
             let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();

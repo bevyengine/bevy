@@ -23,8 +23,8 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
+    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -471,6 +471,7 @@ pub fn extract_cameras(
             &Frustum,
             (
                 Has<Hdr>,
+                Option<&CompositingSpace>,
                 Option<&ColorGrading>,
                 Option<&Exposure>,
                 Option<&TemporalJitter>,
@@ -512,6 +513,7 @@ pub fn extract_cameras(
         frustum,
         (
             hdr,
+            compositing_space,
             color_grading,
             exposure,
             temporal_jitter,
@@ -606,6 +608,7 @@ pub fn extract_cameras(
                     world_from_view: *transform,
                     clip_from_world: None,
                     hdr,
+                    compositing_space: compositing_space.copied(),
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

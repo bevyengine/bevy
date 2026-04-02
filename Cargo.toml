@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_scene", "bevy_scene2"]
+scene = ["bevy_ecs_serialization", "bevy_scene2"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -317,8 +317,8 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
 
-# Provides scene functionality
-bevy_scene = ["bevy_internal/bevy_scene"]
+# Provides ECS serialization functionality
+bevy_ecs_serialization = ["bevy_internal/bevy_ecs_serialization"]
 
 # Provides scene functionality
 bevy_scene2 = ["bevy_internal/bevy_scene2"]
@@ -1006,6 +1006,17 @@ doc-scrape-examples = true
 [package.metadata.example.editable_text]
 name = "Editable Text"
 description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "multiple_text_inputs"
+path = "examples/ui/text/multiple_text_inputs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiple_text_inputs]
+name = "Multiple Text Inputs"
+description = "Demonstrates multiple text inputs"
 category = "UI (User Interface)"
 wasm = true
 
