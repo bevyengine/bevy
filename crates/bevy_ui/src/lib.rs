@@ -191,7 +191,9 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 propagate_ui_target_cameras.in_set(UiSystems::Prepare),
-                ui_layout_system_config,
+                ui_layout_system
+                    .in_set(UiSystems::Layout)
+                    .ambiguous_with(bevy_sprite::update_text2d_layout),
                 (
                     ui_stack_system
                         .in_set(UiSystems::Stack)
