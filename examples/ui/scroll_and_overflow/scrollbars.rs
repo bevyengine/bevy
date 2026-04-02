@@ -123,12 +123,7 @@ fn scroll_area_demo() -> impl Bundle {
                     BorderColor::all(colors::GRAY3),
                     CoreScrollbarThumb {
                         border_radius: BorderRadius::all(px(4)),
-                        border: UiRect {
-                            left: px(3.),
-                            right: px(1.),
-                            top: px(3.),
-                            bottom: px(1.),
-                        },
+                        border: px(1).all(),
                     },
                 ))),
             ));
@@ -152,12 +147,7 @@ fn scroll_area_demo() -> impl Bundle {
                     BorderColor::all(colors::GRAY3),
                     CoreScrollbarThumb {
                         border_radius: BorderRadius::all(px(4)),
-                        border: UiRect {
-                            left: px(3.),
-                            right: px(1.),
-                            top: px(3.),
-                            bottom: px(1.),
-                        },
+                        border: px(1).all(),
                     },
                 ))),
             ));
