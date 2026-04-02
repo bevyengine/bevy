@@ -671,4 +671,3 @@ impl Mul<Vec3> for Transform {
     reflect(Serialize, Deserialize)
 )]
 pub struct TransformTreeChanged;
-
