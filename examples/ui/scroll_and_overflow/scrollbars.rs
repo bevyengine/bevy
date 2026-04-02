@@ -21,7 +21,7 @@ fn main() {
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
-        .insert_resource(UiScale(1.25))
+        .insert_resource(UiScale(2.))
         .add_systems(Startup, setup_view_root)
         .add_systems(Update, update_scrollbar_thumb)
         .run();
@@ -120,8 +120,15 @@ fn scroll_area_demo() -> impl Bundle {
                 Children::spawn(Spawn((
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
+                    BorderColor::all(colors::GRAY3),
                     CoreScrollbarThumb {
                         border_radius: BorderRadius::all(px(4)),
+                        border: UiRect {
+                            left: px(3.),
+                            right: px(1.),
+                            top: px(3.),
+                            bottom: px(1.),
+                        },
                     },
                 ))),
             ));
@@ -140,15 +147,17 @@ fn scroll_area_demo() -> impl Bundle {
                     min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        border_radius: BorderRadius::all(px(4)),
-                        ..default()
-                    },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
+                    BorderColor::all(colors::GRAY3),
                     CoreScrollbarThumb {
                         border_radius: BorderRadius::all(px(4)),
+                        border: UiRect {
+                            left: px(3.),
+                            right: px(1.),
+                            top: px(3.),
+                            bottom: px(1.),
+                        },
                     },
                 ))),
             ));
@@ -180,7 +189,7 @@ fn update_scrollbar_thumb(
     for (mut thumb_bg, Hovered(is_hovering), drag) in q_thumb.iter_mut() {
         let color: Color = if *is_hovering || drag.dragging {
             // If hovering, use a lighter color
-            colors::GRAY3
+            colors::GRAY4
         } else {
             // Default color for the slider
             colors::GRAY2
@@ -199,5 +208,6 @@ mod colors {
 
     pub const GRAY1: Srgba = Srgba::new(0.224, 0.224, 0.243, 1.0);
     pub const GRAY2: Srgba = Srgba::new(0.486, 0.486, 0.529, 1.0);
-    pub const GRAY3: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+    pub const GRAY3: Srgba = Srgba::new(0.71, 0.71, 0.772, 1.0);
+    pub const GRAY4: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
 }
