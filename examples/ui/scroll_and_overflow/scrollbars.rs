@@ -5,9 +5,7 @@ use bevy::{
     input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
-    ui_widgets::{
-        ControlOrientation, CoreScrollbarDragState, Scrollbar, ScrollbarPlugin, ScrollbarThumb,
-    },
+    ui_widgets::{ControlOrientation, CoreScrollbarDragState, Scrollbar, ScrollbarThumb},
 };
 
 fn main() {
