@@ -27,8 +27,8 @@ plugin_group! {
         bevy_asset::io::web:::WebAssetPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
-        #[cfg(feature = "bevy_scene")]
-        bevy_scene:::ScenePlugin,
+        #[cfg(feature = "bevy_ecs_serialization")]
+        bevy_ecs_serialization:::ScenePlugin,
         #[cfg(feature = "bevy_scene2")]
         bevy_scene2:::ScenePlugin,
         // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
