@@ -81,6 +81,26 @@ impl AnimationInfo {
             ),
         );
 
+        // Create a curve that animates `UiTransform::rotation`.
+        //
+        // This animates the 2D rotation of the UI element using `Rot2`.
+        // Like other `Animatable` types, it uses shortest-path interpolation (slerp)
+        // to ensure smooth movement between keyframes.
+        use std::f32::consts::TAU;
+
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(
+                animated_field!(UiTransform::rotation),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 1.0, 2.0, 3.0]
+                        .into_iter()
+                        .zip([0., TAU / 3., TAU / 1.5, TAU].map(Rot2::radians)),
+                )
+                .expect("should be able to build rotation curve because we pass in valid samples"),
+            ),
+        );
+
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);
 
