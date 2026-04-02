@@ -1,6 +1,7 @@
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -14,9 +15,9 @@ use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    BackgroundColor, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
-    ComputedUiTargetCamera, ContentSize, FocusPolicy, ScrollPosition, UiGlobalTransform, UiScale,
-    UiSystems, UiTransform, ZIndex,
+    prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
+    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -66,20 +67,22 @@ pub struct Scrollbar {
     pub min_thumb_length: f32,
 }
 
-/// Marker component to indicate that the entity is a scrollbar thumb (the moving, draggable part of
+/// This component indicates that the entity is a scrollbar thumb (the moving, draggable part of
 /// the scrollbar). This should be a child of the scrollbar entity.
+///
+/// A `CoreScrollbarThumb` UI node does not have a `Node` component. It only has `Border` and `BorderRadius` stlyling properties.
+/// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that it's size and position can be set relative to the scrolling area's
+/// size and scroll position.
 #[derive(Component, Debug, Default)]
 #[require(
     CoreScrollbarDragState,
     ComputedNode,
-    ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy,
-    ScrollPosition,
+    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]
@@ -88,6 +91,10 @@ pub struct Scrollbar {
 pub struct CoreScrollbarThumb {
     /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::PostLayout`].
     pub border_radius: BorderRadius,
+    /// Thickness of the thumb node's border.
+    ///
+    /// If the border is too large to fit inside the thumb node, the width of the border will be scaled to fit.
+    pub border: UiRect,
 }
 
 impl Scrollbar {
@@ -389,6 +396,42 @@ fn update_scrollbar_thumb(
             if thumb_node.border_radius != border_radius {
                 thumb_node.border_radius = border_radius;
             }
+
+            let resolve_border_val = |val: Val| {
+                val.resolve(
+                    target_info.scale_factor(),
+                    thumb_physical_size.x,
+                    target_info.physical_size().as_vec2(),
+                )
+                .unwrap_or(0.)
+            };
+
+            let mut resolved_border = BorderRect {
+                min_inset: Vec2::new(
+                    resolve_border_val(thumb.border.left),
+                    resolve_border_val(thumb.border.top),
+                ),
+                max_inset: Vec2::new(
+                    resolve_border_val(thumb.border.right),
+                    resolve_border_val(thumb.border.bottom),
+                ),
+            };
+
+            if thumb_node.size.x < resolved_border.min_inset.x + resolved_border.max_inset.x {
+                let r =
+                    thumb_node.size.x / (resolved_border.min_inset.x + resolved_border.max_inset.x);
+                resolved_border.min_inset.x *= r;
+                resolved_border.max_inset.y *= r;
+            }
+
+            if thumb_node.size.y < resolved_border.min_inset.y + resolved_border.max_inset.y {
+                let r =
+                    thumb_node.size.y / (resolved_border.min_inset.y + resolved_border.max_inset.y);
+                resolved_border.min_inset.y *= r;
+                resolved_border.max_inset.y *= r;
+            }
+
+            thumb_node.bypass_change_detection().border = resolved_border;
 
             let new_transform = scrollbar_transform.affine()
                 * thumb_transform.compute_affine(
