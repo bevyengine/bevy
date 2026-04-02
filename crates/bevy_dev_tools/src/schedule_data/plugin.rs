@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use bevy_app::{App, Main, Plugin};
 use bevy_ecs::{
-    error::BevyError,
+    error::{BevyError, ResultSeverityExt, Severity},
     intern::Interned,
     resource::Resource,
     schedule::{
@@ -98,7 +98,10 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
         let mut schedules = world.resource_mut::<Schedules>();
         let mut schedule = schedules.remove(label).unwrap();
         let Some(build_metadata) = schedule.initialize(world)? else {
-            return Err("Main hasn't run yet so the schedules hasn't been built".into());
+            return Err(BevyError::from(
+                "The schedule has already been built, so we can't collect its system data",
+            )
+            .with_severity(Severity::Warning));
         };
 
         label_to_build_metadata.insert(label, build_metadata);
@@ -108,16 +111,18 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
     }
 
     let schedules = world.resource::<Schedules>();
-    let app_data =
-        AppData::from_schedules(schedules, world.components(), &label_to_build_metadata)?;
+    let app_data = AppData::from_schedules(schedules, world.components(), &label_to_build_metadata)
+        .with_severity(Severity::Warning)?;
 
     let file_path = world
         .get_resource::<SerializeSchedulesFilePath>()
-        .ok_or("Missing SerializeSchedulesFilePath resource")?;
-    let mut file = File::create(&file_path.0)?;
+        .ok_or("Missing SerializeSchedulesFilePath resource")
+        .with_severity(Severity::Warning)?;
+    let mut file = File::create(&file_path.0).with_severity(Severity::Warning)?;
     // Use \n unconditionally so that Windows formatting is predictable.
     let serialized = ron::ser::to_string_pretty(&app_data, PrettyConfig::default().new_line("\n"))?;
-    file.write_all(serialized.as_bytes())?;
+    file.write_all(serialized.as_bytes())
+        .with_severity(Severity::Warning)?;
 
     Ok(())
 }
