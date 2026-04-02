@@ -231,17 +231,15 @@ impl UiSurface {
                                 ctx,
                                 buffer_query,
                             );
-                            let size = ctx.measure(
-                                MeasureArgs {
-                                    width: known_dimensions.width,
-                                    height: known_dimensions.height,
-                                    available_width: available_space.width,
-                                    available_height: available_space.height,
-                                    font_system,
-                                    buffer,
-                                },
+                            let size = ctx.measure(MeasureArgs {
+                                known_width: known_dimensions.width,
+                                known_height: known_dimensions.height,
+                                available_width: available_space.width,
+                                available_height: available_space.height,
+                                font_system,
+                                buffer,
                                 style,
-                            );
+                            });
                             taffy::Size {
                                 width: size.x,
                                 height: size.y,

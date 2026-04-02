@@ -50,7 +50,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
@@ -3374,11 +3374,11 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Convenience method for accessing the world's default error handler,
-    /// which can be overwritten with [`DefaultErrorHandler`].
+    /// Convenience method for accessing the world's fallback error handler,
+    /// which can be overwritten with [`FallbackErrorHandler`].
     #[inline]
-    pub fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+    pub fn fallback_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<FallbackErrorHandler>()
             .copied()
             .unwrap_or_default()
             .0

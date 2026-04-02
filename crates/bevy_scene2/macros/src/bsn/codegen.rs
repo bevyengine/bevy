@@ -1,14 +1,11 @@
-use crate::bsn::{
-    traits::BsnTokenStream,
-    types::{
-        Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot,
-        BsnRelatedSceneList, BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
-    },
+use crate::bsn::types::{
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
+    BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{Ident, Index, Lit, Member, Path};
+use syn::{parse::Parse, Ident, Index, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -56,6 +53,10 @@ struct PatchTarget<'a> {
     pub is_ref: bool,
 }
 
+pub trait BsnTokenStream: Parse {
+    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
+}
+
 impl BsnTokenStream for BsnRoot {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let tokens = self.0.to_tokens(ctx);
@@ -97,24 +98,13 @@ impl BsnTokenStream for BsnListRoot {
 }
 
 impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
-    /// Performs validation checks, e.g., catching duplicate component defs.
+    /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
-        let mut seen = HashSet::with_capacity(self.entries.len());
         let entries: Vec<_> = self
             .entries
             .iter()
             .map(|entry| {
-                if let Some(path) = entry.component_path() {
-                    let path_str = path.to_token_stream().to_string();
-                    if !seen.insert(path_str.clone()) {
-                        ctx.errors.push(syn::Error::new_spanned(
-                            path,
-                            format!("Duplicate component type `{}` found in BSN tuple", path_str),
-                        ));
-                    }
-                }
-
                 entry
                     .try_to_tokens(ctx)
                     .unwrap_or_else(|e| e.to_compile_error())
@@ -131,30 +121,19 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
 }
 
 impl BsnEntry {
-    fn component_path(&self) -> Option<&Path> {
-        match self {
-            BsnEntry::TemplatePatch(ty) | BsnEntry::FromTemplatePatch(ty) => Some(&ty.path),
-            BsnEntry::TemplateConst { type_path, .. } => Some(type_path),
-            BsnEntry::TemplateConstructor(c) | BsnEntry::FromTemplateConstructor(c) => {
-                Some(&c.type_path)
-            }
-            _ => None,
-        }
-    }
-
     fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
-        let target = PatchTarget {
-            path: &[Member::Named(Ident::new(
-                "value",
-                proc_macro2::Span::call_site(),
-            ))],
-            is_ref: true,
-        };
 
         match self {
             BsnEntry::TemplatePatch(ty) => {
                 let mut assigns = Vec::new();
+                let target = PatchTarget {
+                    path: &[Member::Named(Ident::new(
+                        "value",
+                        proc_macro2::Span::call_site(),
+                    ))],
+                    is_ref: true,
+                };
                 ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
                 let path = &ty.path;
                 Ok(quote! {
@@ -165,6 +144,13 @@ impl BsnEntry {
             }
             BsnEntry::FromTemplatePatch(ty) => {
                 let mut assigns = Vec::new();
+                let target = PatchTarget {
+                    path: &[Member::Named(Ident::new(
+                        "value",
+                        proc_macro2::Span::call_site(),
+                    ))],
+                    is_ref: true,
+                };
                 ty.to_patch_tokens(ctx, &mut assigns, true, target)?;
                 let path = &ty.path;
                 Ok(quote! {
@@ -253,8 +239,8 @@ impl BsnType {
         target: PatchTarget,
     ) -> syn::Result<()> {
         if !is_root {
-            let (path, scene) = (&self.path, ctx.bevy_scene);
-            assignments.push(quote! {#scene::macro_utils::touch_type::<#path>();});
+            let (path, bevy_scene) = (&self.path, ctx.bevy_scene);
+            assignments.push(quote! {#bevy_scene::macro_utils::touch_type::<#path>();});
         }
 
         if let Some(variant) = &self.enum_variant {
@@ -275,7 +261,7 @@ impl BsnType {
     ) -> syn::Result<()> {
         let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
         let variant_default = format_ident!("default_{}", variant.to_string().to_lowercase());
-        let helper = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
+        let template_path = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
 
         let maybe_deref = target.is_ref.then(|| quote! {*});
         let maybe_borrow_mut = (!target.is_ref).then(|| quote! {&mut});
@@ -330,10 +316,10 @@ impl BsnType {
         assignments.push(quote! {
             {
                 let _node = #maybe_borrow_mut #(#field_path).*;
-                if !matches!(_node, #helper::#check_pattern) {
-                    #maybe_deref _node = #helper::#variant_default();
+                if !matches!(_node, #template_path::#check_pattern) {
+                    #maybe_deref _node = #template_path::#variant_default();
                 }
-                if let #helper::#binding_pattern = _node {
+                if let #template_path::#binding_pattern = _node {
                     #(#field_updates)*
                 }
             }
@@ -418,10 +404,10 @@ impl BsnType {
 
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
-                let ecs = ctx.bevy_ecs;
+                let bevy_ecs = ctx.bevy_ecs;
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #ecs::template::EntityReference::ScopedEntityIndex(
-                        #ecs::template::ScopedEntityIndex {
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityReference::ScopedEntityIndex(
+                        #bevy_ecs::template::ScopedEntityIndex {
                             scope: _context.current_entity_scope(), index: #index
                         }
                     );
@@ -486,16 +472,16 @@ impl BsnType {
 
 impl BsnTokenStream for BsnSceneListItems {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let scene = ctx.bevy_scene;
+        let bevy_scene = ctx.bevy_scene;
         let scenes = self.0.iter().map(|s| match s {
             BsnSceneListItem::Scene(bsn) => {
                 let tokens = bsn.to_tokens(ctx);
-                quote! {#scene::EntityScene(#tokens)}
+                quote! {#bevy_scene::EntityScene(#tokens)}
             }
             BsnSceneListItem::Expression(stmts) => quote! {#(#stmts)*},
         });
 
-        quote! { #scene::auto_nest_tuple!(#(#scenes),*) }
+        quote! { #bevy_scene::auto_nest_tuple!(#(#scenes),*) }
     }
 }
 
@@ -508,8 +494,8 @@ impl ToTokens for BsnType {
         match &self.fields {
             BsnFields::Named(fields) => {
                 let assigns = fields.iter().map(|f| {
-                    let (n, v) = (&f.name, &f.value);
-                    quote! {#n: #v}
+                    let (name, value) = (&f.name, &f.value);
+                    quote! {#name: #value}
                 });
                 quote! { #path #variant { #(#assigns,)* } }
             }
@@ -683,37 +669,6 @@ mod tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Field `x` is missing a value"));
-    }
-
-    #[test]
-    fn duplicate_components() {
-        let mut refs = EntityRefs::default();
-        let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
-
-        let duplicate_1 = BsnEntry::TemplatePatch(BsnType {
-            path: parse_quote!(BackgroundColor),
-            enum_variant: None,
-            fields: BsnFields::Tuple(vec![]),
-        });
-
-        let duplicate_2 = BsnEntry::TemplatePatch(BsnType {
-            path: parse_quote!(BackgroundColor),
-            enum_variant: None,
-            fields: BsnFields::Tuple(vec![]),
-        });
-
-        let scene = Bsn::<true> {
-            entries: vec![duplicate_1, duplicate_2],
-        };
-
-        let res = scene.try_to_tokens(&mut ctx);
-
-        assert!(res.is_ok());
-        assert_eq!(ctx.errors.len(), 1);
-        assert!(ctx.errors[0]
-            .to_string()
-            .contains("Duplicate component type `BackgroundColor`"));
     }
 
     #[test]
