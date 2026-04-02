@@ -2,25 +2,36 @@
 
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Asset, AssetEvent, AssetId, Handle};
-use bevy_camera::Hdr;
 use bevy_color::{ColorToComponents, Gray, LinearRgba};
 use bevy_ecs::{
     component::Component,
+    lifecycle::HookContext,
     message::MessageReader,
     system::{Res, ResMut},
+    world::DeferredWorld,
 };
 use bevy_image::Image;
 use bevy_math::curve::{FunctionCurve, Interval, SampleAutoCurve};
 use bevy_math::{ops, Curve, FloatPow, Vec3};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
+use bevy_transform::components::Transform;
 use core::f32::{self, consts::PI};
 use smallvec::SmallVec;
 use wgpu_types::TextureFormat;
 
-/// Enables atmospheric scattering for an HDR camera.
+/// Atmosphere for one planet. The entity's [`Transform`] is the planet center in world space.
+///
+/// Add `AtmosphereSettings` to each 3D camera that should use it, the nearest atmosphere is used for rendering.
+///
+/// If [`Transform`] is still [`Default`] when this component is first added, it is placed for a Y-up
+/// frame with the planet's north pole toward world +Y. Set your own transform for anything else.
+///
+/// The scale on [`Transform`] rescales the planet in world space. Tune it with the radius offset
+/// when your scene uses other units, like kilometer-sized scenes.
 #[derive(Clone, Component)]
-#[require(Hdr)]
+#[require(Transform::default())]
+#[component(on_add = set_default_transform)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
@@ -42,6 +53,22 @@ pub struct Atmosphere {
     /// A handle to a [`ScatteringMedium`], which describes the substance
     /// of the atmosphere and how it scatters light.
     pub medium: Handle<ScatteringMedium>,
+}
+
+fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
+    let Some(bottom_radius) = world
+        .entity(entity)
+        .get::<Atmosphere>()
+        .map(|a| a.bottom_radius)
+    else {
+        return;
+    };
+
+    if let Some(mut transform) = world.get_mut::<Transform>(entity) {
+        if *transform == Transform::default() {
+            transform.translation = -Vec3::Y * bottom_radius;
+        }
+    }
 }
 
 impl Atmosphere {

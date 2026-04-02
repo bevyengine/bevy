@@ -153,8 +153,11 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
 
 fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
     let view_pos = view.view_from_clip * vec4(ndc, 1.0);
-    let t = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
-    return t;
+    let p_view = view_pos.xyz / view_pos.w;
+    let p_world = (view.world_from_view * vec4(p_view, 1.0)).xyz;
+    let p_atmo = (atmosphere.world_to_atmosphere * vec4(p_world, 1.0)).xyz;
+    let cam_atmo = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
+    return length(p_atmo - cam_atmo);
 }
 
 // RGB channels: total inscattered light along the camera ray to the current sample.
@@ -304,7 +307,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
-    var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
+    let world_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
     return clamp_to_surface(atmosphere, world_pos);
 }
 
