@@ -15,8 +15,8 @@ use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
+    prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
+    ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
     UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
@@ -460,7 +460,9 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag)
             .add_systems(
                 PostUpdate,
-                update_scrollbar_thumb.in_set(UiSystems::PostLayout),
+                update_scrollbar_thumb
+                    .in_set(UiSystems::Layout)
+                    .after(ui_layout_system),
             );
     }
 }
