@@ -125,10 +125,18 @@ pub struct SystemConflict {
     pub system_1: u32,
     /// The second system index.
     pub system_2: u32,
-    /// The indices of the components that both systems are conflicting on.
-    ///
-    /// If empty, the systems conflict on world access.
-    pub conflicting_components: Vec<u32>,
+    /// The kind of conflict between these systems.
+    pub conflicting_access: AccessConflict,
+}
+
+/// Data for describing the kind of access conflict.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+pub enum AccessConflict {
+    /// There is a conflict on the **whole world**, since one of the systems requires world access
+    /// and the other needs mutable access to (some of) the world.
+    World,
+    /// There is incompatible accesses to the listed components.
+    Components(Vec<u32>),
 }
 
 impl ScheduleData {
@@ -264,22 +272,29 @@ impl ScheduleData {
                 SystemConflict {
                     system_1: *system_1 as _,
                     system_2: *system_2 as _,
-                    conflicting_components: conflicts
-                        .iter()
-                        .map(|id| match component_id_to_index.entry(*id) {
-                            Entry::Occupied(entry) => *entry.get() as _,
-                            Entry::Vacant(entry) => {
-                                let component = world_components.get_info(*id).expect(
+                    conflicting_access: if conflicts.is_empty() {
+                        // The systems conflict on the world if there's no particular component IDs.
+                        AccessConflict::World
+                    } else {
+                        AccessConflict::Components(
+                            conflicts
+                                .iter()
+                                .map(|id| match component_id_to_index.entry(*id) {
+                                    Entry::Occupied(entry) => *entry.get() as _,
+                                    Entry::Vacant(entry) => {
+                                        let component = world_components.get_info(*id).expect(
                                     "the component has already been registered by the system",
                                 );
 
-                                components.push(ComponentData {
-                                    name: debug_name_string(&component.name()),
-                                });
-                                *entry.insert(components.len() - 1) as _
-                            }
-                        })
-                        .collect(),
+                                        components.push(ComponentData {
+                                            name: debug_name_string(&component.name()),
+                                        });
+                                        *entry.insert(components.len() - 1) as _
+                                    }
+                                })
+                                .collect(),
+                        )
+                    },
                 }
             })
             .collect();
@@ -316,8 +331,8 @@ mod tests {
     use bevy_platform::collections::HashMap;
 
     use crate::schedule_data::serde::{
-        AppData, ComponentData, ExtractAppDataError, ScheduleData, ScheduleIndex, SystemConflict,
-        SystemData, SystemSetData,
+        AccessConflict, AppData, ComponentData, ExtractAppDataError, ScheduleData, ScheduleIndex,
+        SystemConflict, SystemData, SystemSetData,
     };
 
     fn app_data_from_app(app: &mut App) -> Result<AppData, ExtractAppDataError> {
@@ -476,11 +491,13 @@ mod tests {
                     core::mem::swap(&mut conflict.system_1, &mut conflict.system_2);
                 }
 
-                conflict
-                    .conflicting_components
-                    .iter_mut()
-                    .for_each(reindex_component);
-                conflict.conflicting_components.sort();
+                match &mut conflict.conflicting_access {
+                    AccessConflict::World => {}
+                    AccessConflict::Components(components) => {
+                        components.iter_mut().for_each(reindex_component);
+                        components.sort();
+                    }
+                };
             }
             schedule
                 .conflicts
@@ -512,11 +529,15 @@ mod tests {
     }
 
     /// Convenience to create a [`SystemConflict`] to make test cases shorter.
-    fn conflict(system_1: u32, system_2: u32, components: Vec<u32>) -> SystemConflict {
+    fn conflict(
+        system_1: u32,
+        system_2: u32,
+        conflicting_access: AccessConflict,
+    ) -> SystemConflict {
         SystemConflict {
             system_1,
             system_2,
-            conflicting_components: components,
+            conflicting_access,
         }
     }
 
@@ -858,7 +879,10 @@ mod tests {
         );
         assert_eq!(
             schedule.conflicts,
-            [conflict(2, 3, vec![0]), conflict(4, 5, vec![1, 2])]
+            [
+                conflict(2, 3, AccessConflict::Components(vec![0])),
+                conflict(4, 5, AccessConflict::Components(vec![1, 2]))
+            ]
         );
     }
 }
