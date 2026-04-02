@@ -77,6 +77,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_ecs_serialization|Provides ECS serialization functionality|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
 |bevy_gizmos_render|Adds support for rendering gizmos|
@@ -93,7 +94,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
-|bevy_ecs_serialization|Provides scene functionality|
 |bevy_scene2|Provides scene functionality|
 |bevy_settings|Load and save user preferences|
 |bevy_shader|Provides shaders usable through asset handles.|
