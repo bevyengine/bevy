@@ -179,7 +179,8 @@ impl ScheduleData {
 
                 SystemData {
                     name: debug_name_string(&system.name()),
-                    apply_deferred: system.type_id() == core::any::TypeId::of::<ApplyDeferred>(),
+                    apply_deferred: system.system_type()
+                        == core::any::TypeId::of::<ApplyDeferred>(),
                     exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
                 }
