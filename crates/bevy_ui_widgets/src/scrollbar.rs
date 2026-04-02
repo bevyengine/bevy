@@ -46,7 +46,7 @@ pub enum ControlOrientation {
 /// entity directly.
 ///
 /// A scrollbar can have any number of child entities, but one entity must be the scrollbar thumb,
-/// which is marked with the [`CoreScrollbarThumb`] component. Other children are ignored. The core
+/// which is marked with the [`ScrollbarThumb`] component. Other children are ignored. The core
 /// scrollbar will directly update the position and size of this entity; the application is free to
 /// set any other style properties as desired.
 ///
