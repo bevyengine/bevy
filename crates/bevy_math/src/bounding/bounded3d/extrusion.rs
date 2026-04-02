@@ -222,7 +222,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
             // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
             // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
-            let aabb2d = self.aabb_2d(Rot2::radians(angle));
+            let aabb2d = self.aabb_2d(Rot2::radians(angle).into());
             (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
         });
 
