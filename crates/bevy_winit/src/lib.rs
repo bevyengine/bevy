@@ -140,7 +140,7 @@ impl Plugin for WinitPlugin {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     changed_cursor_options,
-                    despawn_windows.before(ExitSystem),
+                    despawn_windows.after(ExitSystem),
                     check_keyboard_focus_lost,
                 )
                     .chain(),
