@@ -236,12 +236,13 @@ impl Plugin for InputDispatchPlugin {
                 #[cfg(feature = "keyboard")]
                 dispatch_focused_input::<KeyboardInput>,
                 #[cfg(feature = "gamepad")]
-                dispatch_focused_input::<GamepadButtonChangedEvent>.after(InputSystems),
+                dispatch_focused_input::<GamepadButtonChangedEvent>,
                 #[cfg(feature = "mouse")]
                 dispatch_focused_input::<MouseWheel>,
             )
                 .chain()
-                .in_set(InputFocusSystems::Dispatch),
+                .in_set(InputFocusSystems::Dispatch)
+                .after(InputSystems),
         );
     }
 }
