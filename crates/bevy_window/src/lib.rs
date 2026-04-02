@@ -46,7 +46,7 @@ pub mod prelude {
 
 use alloc::sync::Arc;
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
@@ -138,17 +138,17 @@ impl Plugin for WindowPlugin {
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_systems(Last, exit_on_primary_closed.in_set(ExitOnSystem));
+                app.add_systems(Last, exit_on_primary_closed.in_set(ExitSystem));
             }
             ExitCondition::OnAllClosed => {
-                app.add_systems(Last, exit_on_all_closed.in_set(ExitOnSystem));
+                app.add_systems(Last, exit_on_all_closed.in_set(ExitSystem));
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
             // Need to run before `exit_on_*` systems
-            app.add_systems(Last, close_when_requested.before(ExitOnSystem));
+            app.add_systems(Last, close_when_requested.before(ExitSystem));
         }
     }
 }
@@ -172,6 +172,3 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
-
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct ExitOnSystem;

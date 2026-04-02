@@ -16,7 +16,7 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystem, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -140,7 +140,7 @@ impl Plugin for WinitPlugin {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     changed_cursor_options,
-                    despawn_windows,
+                    despawn_windows.before(ExitSystem),
                     check_keyboard_focus_lost,
                 )
                     .chain(),
