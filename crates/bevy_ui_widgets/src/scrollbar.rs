@@ -71,7 +71,7 @@ pub struct Scrollbar {
 /// the scrollbar). This should be a child of the scrollbar entity.
 ///
 /// A `ScrollbarThumb` UI node does not have a `Node` component. It only has `Border` and `BorderRadius` styling properties.
-/// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that it's size and position can be set relative to the scrolling area's
+/// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that its size and position can be set relative to the scrolling area's
 /// size and scroll position.
 #[derive(Component, Debug, Default)]
 #[require(
