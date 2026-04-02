@@ -1893,7 +1893,7 @@ fn get_resource_entity_pair(
         .resource_entities()
         .get(component_id)
         .ok_or(anyhow!("Resource entity does not exist."))?;
-    Ok((*entity, component_id))
+    Ok((entity, component_id))
 }
 
 #[cfg(test)]
