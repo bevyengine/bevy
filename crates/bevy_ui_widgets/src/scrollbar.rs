@@ -88,7 +88,7 @@ pub struct Scrollbar {
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
-pub struct CoreScrollbarThumb {
+pub struct ScrollbarThumb {
     /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::PostLayout`].
     pub border_radius: BorderRadius,
     /// Thickness of the thumb node's border.
@@ -127,7 +127,7 @@ pub struct CoreScrollbarDragState {
 
 fn scrollbar_on_pointer_down(
     mut ev: On<Pointer<Press>>,
-    q_thumb: Query<&ChildOf, With<CoreScrollbarThumb>>,
+    q_thumb: Query<&ChildOf, With<ScrollbarThumb>>,
     mut q_scrollbar: Query<(
         &Scrollbar,
         &ComputedNode,
@@ -186,7 +186,7 @@ fn scrollbar_on_pointer_down(
 
 fn scrollbar_on_drag_start(
     mut ev: On<Pointer<DragStart>>,
-    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<CoreScrollbarThumb>>,
+    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<ScrollbarThumb>>,
     q_scrollbar: Query<&Scrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
 ) {
@@ -206,7 +206,7 @@ fn scrollbar_on_drag_start(
 
 fn scrollbar_on_drag(
     mut ev: On<Pointer<Drag>>,
-    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<CoreScrollbarThumb>>,
+    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<ScrollbarThumb>>,
     mut q_scrollbar: Query<(&ComputedNode, &Scrollbar)>,
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     ui_scale: Res<UiScale>,
@@ -248,7 +248,7 @@ fn scrollbar_on_drag(
 
 fn scrollbar_on_drag_end(
     mut ev: On<Pointer<DragEnd>>,
-    mut q_thumb: Query<&mut CoreScrollbarDragState, With<CoreScrollbarThumb>>,
+    mut q_thumb: Query<&mut CoreScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
@@ -260,7 +260,7 @@ fn scrollbar_on_drag_end(
 
 fn scrollbar_on_drag_cancel(
     mut ev: On<Pointer<Cancel>>,
-    mut q_thumb: Query<&mut CoreScrollbarDragState, With<CoreScrollbarThumb>>,
+    mut q_thumb: Query<&mut CoreScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
@@ -271,20 +271,20 @@ fn scrollbar_on_drag_cancel(
 }
 
 fn update_scrollbar_thumb(
-    q_scroll_area: Query<(&ScrollPosition, &ComputedNode), Without<CoreScrollbarThumb>>,
+    q_scroll_area: Query<(&ScrollPosition, &ComputedNode), Without<ScrollbarThumb>>,
     q_scrollbar: Query<
         (&Scrollbar, &ComputedNode, &UiGlobalTransform, &Children),
-        Without<CoreScrollbarThumb>,
+        Without<ScrollbarThumb>,
     >,
     mut q_thumb: Query<
         (
-            &CoreScrollbarThumb,
+            &ScrollbarThumb,
             &UiTransform,
             &ComputedUiRenderTargetInfo,
             &mut ComputedNode,
             &mut UiGlobalTransform,
         ),
-        With<CoreScrollbarThumb>,
+        With<ScrollbarThumb>,
     >,
 ) {
     for (scrollbar, scrollbar_node, scrollbar_transform, children) in q_scrollbar.iter() {
