@@ -47,6 +47,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
+    texture::GpuImage,
     view::ExtractedView,
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -280,7 +281,7 @@ where
         app.init_asset::<M>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
             .register_type::<MeshMaterial2d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>, GpuImage>::default())
             .add_systems(
                 PostUpdate,
                 check_entities_needing_specialization::<M>.after(AssetEventSystems),
@@ -830,7 +831,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                )
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(

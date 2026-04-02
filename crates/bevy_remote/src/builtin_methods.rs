@@ -11,6 +11,7 @@ use bevy_ecs::{
     message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    schedule::Schedules,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -92,6 +93,12 @@ pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
+
+/// The method path for a `schedule.list` request.
+pub const BRP_SCHEDULE_LIST: &str = "schedule.list";
+
+/// The method path for a `schedule.graph` request.
+pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -332,6 +339,18 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
+/// `schedule.graph`:
+///
+/// The server responds with [`BrpScheduleGraphResponse`] if the schedule is found,
+/// or a `resource_error` if not found.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpScheduleGraphParams {
+    /// The schedule to describe.
+    ///
+    /// A list of describable schedules can be fetched from the `schedule.list` endpoint.
+    pub schedule_label: String,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -480,6 +499,53 @@ pub struct BrpListComponentsWatchingResponse {
 
 /// The response to a `world.query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
+
+/// The response to a `schedule.list` request.
+///
+/// Returns [`ScheduleLabel`](bevy_ecs::schedule::ScheduleLabel)s as [`String`]s.
+/// - `schedule_labels` are available for further inspect.
+/// - `unavailable_schedule_labels` are unavailable for further inspect.
+/// - `empty_schedule_labels` are labels that don't have schedules.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpScheduleListResponse {
+    schedule_labels: Vec<String>,
+    unavailable_schedule_labels: Vec<String>,
+    empty_schedule_labels: Vec<String>,
+}
+
+/// The response to a `schedule.graph` request.
+///
+/// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
+/// A system can be placed inside a systemset in order to organize them.
+/// Relative ordering can be defined between systems and/or systemsets.
+/// The graph can be thought of as two Directed Acylic Graph's (DAG's) overlaid.
+///
+/// Each system (f1) creates a corresponding system set (F1).
+/// Both these "system derived" system sets and developer-created systemsets are in `systemsets`.
+/// There is a hierarchy edge between the system set and the system (F1 -> f1).
+/// If a system (f2) is placed in a developer-created set (S1), then there is a hierarchy edge (S1 -> f2).
+///
+/// If a schedule adds a condition f1.after(S1) , then a dependency edge is added (S1 -> f1)
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpScheduleGraphResponse {
+    systemsets: Vec<BrpSystemSet>,
+
+    hierarchy_nodes: Vec<String>,
+    hierarchy_edges: Vec<(String, String)>,
+
+    dependency_nodes: Vec<String>,
+    dependency_edges: Vec<(String, String)>,
+}
+
+/// Details on a system set
+///
+/// The `key` is used in the nodes and edges in [`BrpScheduleGraphResponse`]
+/// The `method` is either the fully qualified system name, or the system set name
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpSystemSet {
+    key: String,
+    method: String,
+}
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1529,6 +1595,84 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }
 
+/// Handles a `schedule.list` request coming from a client.
+pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
+    let schedules = world.resource::<Schedules>();
+
+    let response = BrpScheduleListResponse {
+        schedule_labels: schedules
+            .iter()
+            .map(|(label, _schedule)| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        unavailable_schedule_labels: schedules
+            .get_temporarily_removed()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        empty_schedule_labels: schedules
+            .get_empty_labels()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+    };
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Handles a `schedule.graph` request coming from a client.
+///
+/// Bevy removes a schedule from the world before running it, meaning that not all Schedules are available.
+pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpScheduleGraphParams { schedule_label } = parse_some(params)?;
+
+    let schedules = world.resource::<Schedules>();
+
+    let matching_schedule = schedules
+        .iter()
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label);
+
+    if matching_schedule.is_none() {
+        return Err(BrpError::resource_error(format!(
+            "Schedule with label={:} not found",
+            schedule_label
+        )));
+    }
+
+    let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
+
+    let (_label, schedule) = matching_schedule.unwrap();
+
+    let g = schedule.graph();
+    for (systemsetkey, method, _b) in g.system_sets.iter() {
+        response.systemsets.push(BrpSystemSet {
+            key: format!("{:?}", systemsetkey),
+            method: format!("{:?}", method),
+        });
+    }
+
+    let hie = g.hierarchy();
+    for node in hie.nodes() {
+        response.hierarchy_nodes.push(format!("{:?}", node));
+    }
+    for (n1, n2) in hie.all_edges() {
+        response
+            .hierarchy_edges
+            .push((format!("{:?}", n1), format!("{:?}", n2)));
+    }
+
+    let dep = g.dependency();
+    for node in dep.nodes() {
+        response.dependency_nodes.push(format!("{:?}", node));
+    }
+    for (n1, n2) in dep.all_edges() {
+        response
+            .dependency_edges
+            .push((format!("{:?}", n1), format!("{:?}", n2)));
+    }
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
 fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
@@ -1781,7 +1925,8 @@ mod tests {
         message::{Message, Messages},
         observer::On,
         resource::Resource,
-        system::ResMut,
+        schedule::{IntoScheduleConfigs as _, Schedule, ScheduleLabel, SystemSet},
+        system::{Commands, Res, ResMut},
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1958,5 +2103,132 @@ mod tests {
         test_serialize_deserialize(BrpListComponentsParams {
             entity: Entity::from_raw_u32(0).unwrap(),
         });
+    }
+
+    #[test]
+    fn test_schedule_list() {
+        let mut world = World::default();
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct ScheduleOuter;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule1;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule2;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule3;
+
+        // ScheduleOuter runs each schedule sequentially
+
+        fn run_schedules(world: &mut World) {
+            let _ = world.try_run_schedule(Schedule1);
+            let _ = world.try_run_schedule(Schedule2);
+            let _ = world.try_run_schedule(Schedule3);
+        }
+
+        let mut schedule_outer = Schedule::new(ScheduleOuter);
+        schedule_outer.add_systems(run_schedules);
+
+        let _ = schedule_outer.initialize(&mut world);
+        world.add_schedule(schedule_outer);
+
+        // Schedule1 is a "regular schedule"
+
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+
+        let mut schedule1 = Schedule::new(Schedule1);
+        schedule1.add_systems(f1);
+
+        let _ = schedule1.initialize(&mut world);
+        world.add_schedule(schedule1);
+
+        // Purposely skip Schedule2
+
+        // Schedule3 is the "BRP schedule"
+
+        fn f3(world: &World) {
+            let res = schedule_list(In(None), world);
+            let res2 = res.expect("expect to work");
+            let res3 = serde_json::from_value::<BrpScheduleListResponse>(res2).unwrap();
+
+            assert_eq!(res3.schedule_labels.len(), 1); // Schedule1
+            assert_eq!(res3.unavailable_schedule_labels.len(), 2); // ScheduleOuter, Schedule3
+            assert_eq!(res3.empty_schedule_labels.len(), 1); // Schedule2
+        }
+
+        let mut schedule3 = Schedule::new(Schedule3);
+        schedule3.add_systems(f3);
+
+        let _ = schedule3.initialize(&mut world);
+        world.add_schedule(schedule3);
+
+        // Run the outer
+
+        world.run_schedule(ScheduleOuter);
+    }
+
+    #[test]
+    fn test_schedule_graph() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+        fn f3(_s: Res<Resource1>) {}
+        fn f4(_t: Res<Resource1>) {}
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S1;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S2;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+        schedule.add_systems(f3.in_set(S1));
+        schedule.add_systems(f4.in_set(S2).after(S1));
+
+        let mut world = World::default();
+
+        let _ = schedule.initialize(&mut world);
+        world.add_schedule(schedule);
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .expect("FAIL");
+
+        // Each system creates a corresponding system set.
+        // In the below notation we use f1 for the system, and F1 for the corresponding system set.
+        // Above schedule should have the following layout:
+        // - 4 systems (f1, f2, f3, f4)
+        // - 6 system sets (F1, F2, F3, F4, S1, S2)
+        // - 10 hierarchy nodes and 10 dependency nodes (4 + 6)
+        // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
+        // - 2 dependency edges: f1 -> f2, S1 -> f4
+
+        let res = schedule_graph(In(Some(params)), &mut world);
+        let res2 = res.expect("expect to work");
+        let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
+
+        assert_eq!(res3.systemsets.len(), 6);
+        assert_eq!(res3.hierarchy_nodes.len(), 10);
+        assert_eq!(res3.dependency_nodes.len(), 10);
+        assert_eq!(res3.hierarchy_edges.len(), 6);
+        assert_eq!(res3.dependency_edges.len(), 2);
     }
 }

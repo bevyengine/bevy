@@ -91,7 +91,7 @@ pub enum TrackClick {
 ///
 /// In cases where overhang is desired for artistic reasons, the thumb may have additional
 /// decorative child elements, absolutely positioned, which don't affect the size measurement.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
     CoreSliderDragState,
@@ -107,7 +107,7 @@ pub struct Slider {
 }
 
 /// Marker component that identifies which descendant element is the slider thumb.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Clone)]
 pub struct SliderThumb;
 
 /// A component which stores the current value of the slider.

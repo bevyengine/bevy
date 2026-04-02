@@ -17,9 +17,9 @@ use crate::{
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Message)]
-/// pub struct MyMessage; // Custom message type.
+/// pub struct MyMessage(String); // Custom message type.
 /// fn my_system(mut writer: MessageWriter<MyMessage>) {
-///     writer.write(MyMessage);
+///     writer.write(MyMessage("My custom payload!".to_string()));
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
