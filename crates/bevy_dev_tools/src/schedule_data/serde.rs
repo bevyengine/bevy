@@ -60,7 +60,7 @@ pub struct ScheduleData {
     /// A list of relationships indicating that a system/system set is contained in a system set.
     ///
     /// The order is (parent, child).
-    pub hierarchy: Vec<(u32, ScheduleIndex)>,
+    pub hierarchy: Vec<(SystemSetIndex, ScheduleIndex)>,
     /// A list of ordering constraints, ensuring that one system/system set runs before another.
     ///
     /// The order is (first, second).
@@ -137,6 +137,13 @@ pub enum AccessConflict {
     /// There is incompatible accesses to the listed components.
     Components(Vec<u32>),
 }
+
+/// A newtype for the index of a system set.
+///
+/// This is the same kind of index as [`ScheduleIndex::SystemSet`], but for cases where we know we
+/// can't have a system.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub struct SystemSetIndex(pub u32);
 
 impl ScheduleData {
     /// Creates the data from the underlying [`Schedule`].
@@ -225,7 +232,7 @@ impl ScheduleData {
                     .expect("the system set this key refers to should have already been seen");
                 let child = node_id_to_schedule_index(child);
 
-                (*parent as _, child)
+                (SystemSetIndex(*parent as _), child)
             })
             .collect();
 
@@ -328,7 +335,7 @@ mod tests {
 
     use crate::schedule_data::serde::{
         AccessConflict, AppData, ComponentData, ExtractAppDataError, ScheduleData, ScheduleIndex,
-        SystemConflict, SystemData, SystemSetData,
+        SystemConflict, SystemData, SystemSetData, SystemSetIndex,
     };
 
     fn app_data_from_app(app: &mut App) -> Result<AppData, ExtractAppDataError> {
@@ -464,7 +471,7 @@ mod tests {
 
             // Reindex the hierarchy, and sort it.
             for (parent, child) in schedule.hierarchy.iter_mut() {
-                reindex_system_set(parent);
+                reindex_system_set(&mut parent.0);
                 reindex_schedule_index(child);
             }
             schedule.hierarchy.sort();
@@ -582,9 +589,9 @@ mod tests {
         assert_eq!(
             schedule.hierarchy,
             [
-                (0, ScheduleIndex::System(0)),
-                (1, ScheduleIndex::System(1)),
-                (2, ScheduleIndex::System(2)),
+                (SystemSetIndex(0), ScheduleIndex::System(0)),
+                (SystemSetIndex(1), ScheduleIndex::System(1)),
+                (SystemSetIndex(2), ScheduleIndex::System(2)),
             ]
         );
         // There are 2 dependency edges to connect a-b and b-c.
@@ -658,10 +665,10 @@ mod tests {
         assert_eq!(
             schedule.hierarchy,
             [
-                (0, ScheduleIndex::System(0)),
-                (1, ScheduleIndex::SystemSet(0)),
-                (2, ScheduleIndex::SystemSet(1)),
-                (3, ScheduleIndex::System(0)),
+                (SystemSetIndex(0), ScheduleIndex::System(0)),
+                (SystemSetIndex(1), ScheduleIndex::SystemSet(0)),
+                (SystemSetIndex(2), ScheduleIndex::SystemSet(1)),
+                (SystemSetIndex(3), ScheduleIndex::System(0)),
             ]
         );
         assert_eq!(schedule.dependency, []);
@@ -738,12 +745,12 @@ mod tests {
         assert_eq!(
             schedule.hierarchy,
             [
-                (0, ScheduleIndex::System(0)),
-                (1, ScheduleIndex::System(1)),
-                (2, ScheduleIndex::System(3)),
-                (3, ScheduleIndex::System(4)),
-                (4, ScheduleIndex::System(5)),
-                (5, ScheduleIndex::System(6)),
+                (SystemSetIndex(0), ScheduleIndex::System(0)),
+                (SystemSetIndex(1), ScheduleIndex::System(1)),
+                (SystemSetIndex(2), ScheduleIndex::System(3)),
+                (SystemSetIndex(3), ScheduleIndex::System(4)),
+                (SystemSetIndex(4), ScheduleIndex::System(5)),
+                (SystemSetIndex(5), ScheduleIndex::System(6)),
             ]
         );
         assert_eq!(
@@ -846,16 +853,16 @@ mod tests {
         assert_eq!(
             schedule.hierarchy,
             [
-                (0, ScheduleIndex::System(0)),
-                (1, ScheduleIndex::System(1)),
-                (2, ScheduleIndex::System(2)),
-                (3, ScheduleIndex::System(3)),
-                (4, ScheduleIndex::System(4)),
-                (5, ScheduleIndex::System(5)),
-                (6, ScheduleIndex::System(6)),
-                (7, ScheduleIndex::System(7)),
-                (8, ScheduleIndex::System(8)),
-                (9, ScheduleIndex::System(9)),
+                (SystemSetIndex(0), ScheduleIndex::System(0)),
+                (SystemSetIndex(1), ScheduleIndex::System(1)),
+                (SystemSetIndex(2), ScheduleIndex::System(2)),
+                (SystemSetIndex(3), ScheduleIndex::System(3)),
+                (SystemSetIndex(4), ScheduleIndex::System(4)),
+                (SystemSetIndex(5), ScheduleIndex::System(5)),
+                (SystemSetIndex(6), ScheduleIndex::System(6)),
+                (SystemSetIndex(7), ScheduleIndex::System(7)),
+                (SystemSetIndex(8), ScheduleIndex::System(8)),
+                (SystemSetIndex(9), ScheduleIndex::System(9)),
             ]
         );
         assert_eq!(
