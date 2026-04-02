@@ -79,6 +79,11 @@ impl FlattenedDependencies<'_> {
     /// Note: this edges are **not** reported like the added edges are.
     pub fn remove_edge(&mut self, system_1: SystemKey, system_2: SystemKey) {
         self.dag.remove_edge(system_1, system_2);
+        // We intentionally don't record edges (like `self.added_edges`) because it's unlikely that
+        // users call this for anything other than redundant edges, and because these redundant
+        // edges are actually important. It would be confusing if a visualizer omitted the removed
+        // edges, since an edge you add in your plugin may not appear in the visualizer due to being
+        // removed!
     }
 
     /// Returns a topological ordering of the graph, computing it if the graph is dirty.
