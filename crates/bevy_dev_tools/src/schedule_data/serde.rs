@@ -323,7 +323,10 @@ pub enum ExtractAppDataError {
 }
 
 #[cfg(test)]
-mod tests {
+/// Tests for extracted schedule data.
+///
+/// This is public to allow other test modules in this crate to use its utilities.
+pub mod tests {
     use bevy_app::{App, Update};
     use bevy_ecs::{
         component::Component,
@@ -369,8 +372,14 @@ mod tests {
             &label_to_build_metadata,
         )?;
 
-        // We don't want the names of items to include module paths for this test (otherwise moving
-        // the test would change the output).
+        remove_module_paths(&mut app_data);
+        sort_app_data(&mut app_data);
+        Ok(app_data)
+    }
+
+    /// Removes the module paths from all items in the [`AppData`], so that moving tests around
+    /// doesn't change the output.
+    pub fn remove_module_paths(app_data: &mut AppData) {
         for schedule in app_data.schedules.iter_mut() {
             for system in schedule.systems.iter_mut() {
                 system.name = system.name.rsplit_once(":").unwrap().1.to_string();
@@ -394,16 +403,13 @@ mod tests {
                 component.name = component.name.rsplit_once(":").unwrap().1.to_string();
             }
         }
-
-        sort_app_data(&mut app_data);
-        Ok(app_data)
     }
 
     /// Sorts the [`AppData`] so we have a deterministic order when asserting.
     // Note: we could do this when extracting unconditionally (even in prod), but there's not much
     // point since schedule order is not guaranteed to be deterministic anyway. So relying on the
     // same order seems weird.
-    fn sort_app_data(app_data: &mut AppData) {
+    pub fn sort_app_data(app_data: &mut AppData) {
         // Sort schedules by name.
         app_data
             .schedules
@@ -509,7 +515,7 @@ mod tests {
     }
 
     /// Convenience to create a [`SystemData`] for the common case of no flags set.
-    fn simple_system(name: &str) -> SystemData {
+    pub fn simple_system(name: &str) -> SystemData {
         SystemData {
             name: name.into(),
             apply_deferred: false,
@@ -519,7 +525,7 @@ mod tests {
     }
 
     /// Convenience to create a [`SystemSetData`] for the common case of being empty.
-    fn simple_system_set(name: &str) -> SystemSetData {
+    pub fn simple_system_set(name: &str) -> SystemSetData {
         SystemSetData {
             name: name.into(),
             conditions: vec![],
@@ -527,12 +533,12 @@ mod tests {
     }
 
     /// Convenience to create a [`ComponentData`] to make test cases shorter.
-    fn simple_component(name: &str) -> ComponentData {
+    pub fn simple_component(name: &str) -> ComponentData {
         ComponentData { name: name.into() }
     }
 
     /// Convenience to create a [`SystemConflict`] to make test cases shorter.
-    fn conflict(
+    pub fn conflict(
         system_1: u32,
         system_2: u32,
         conflicting_access: AccessConflict,

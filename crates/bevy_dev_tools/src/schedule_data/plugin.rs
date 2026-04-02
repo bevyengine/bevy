@@ -86,7 +86,9 @@ impl Default for SerializeSchedulesFilePath {
     }
 }
 
-fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
+/// The inner part of [`collect_system_data`] that returns the [`AppData`] so we can write tests
+/// without needing to write to disk.
+fn collect_system_data_inner(world: &mut World) -> Result<AppData, BevyError> {
     let schedules = world.resource::<Schedules>();
     let labels = schedules
         .iter()
@@ -98,10 +100,9 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
         let mut schedules = world.resource_mut::<Schedules>();
         let mut schedule = schedules.remove(label).unwrap();
         let Some(build_metadata) = schedule.initialize(world)? else {
-            return Err(BevyError::from(
-                "The schedule has already been built, so we can't collect its system data",
-            )
-            .with_severity(Severity::Warning));
+            return Err(
+                "The schedule has already been built, so we can't collect its system data".into(),
+            );
         };
 
         label_to_build_metadata.insert(label, build_metadata);
@@ -111,9 +112,16 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
     }
 
     let schedules = world.resource::<Schedules>();
-    let app_data = AppData::from_schedules(schedules, world.components(), &label_to_build_metadata)
-        .with_severity(Severity::Warning)?;
+    Ok(AppData::from_schedules(
+        schedules,
+        world.components(),
+        &label_to_build_metadata,
+    )?)
+}
 
+/// A system the collects all the schedule data, and writes it to [`SerializeSchedulesFilePath`].
+fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
+    let app_data = collect_system_data_inner(world).with_severity(Severity::Warning)?;
     let file_path = world
         .get_resource::<SerializeSchedulesFilePath>()
         .ok_or("Missing SerializeSchedulesFilePath resource")
@@ -123,6 +131,41 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
     let serialized = ron::ser::to_string_pretty(&app_data, PrettyConfig::default().new_line("\n"))?;
     file.write_all(serialized.as_bytes())
         .with_severity(Severity::Warning)?;
-
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, PostUpdate, Update};
+
+    use crate::schedule_data::{
+        plugin::collect_system_data_inner,
+        serde::tests::{remove_module_paths, simple_system, sort_app_data},
+    };
+
+    #[test]
+    fn collects_all_schedules() {
+        // Start with an empty app so only our stuff gets added.
+        let mut app = App::empty();
+
+        fn a() {}
+        fn b() {}
+        fn c() {}
+        app.add_systems(Update, (a, b));
+        app.add_systems(PostUpdate, c);
+
+        // Normally users would use the plugin, but to avoid writing to disk in a test, we just call
+        // the inner part of the system directly.
+        let mut app_data = collect_system_data_inner(app.world_mut()).unwrap();
+        remove_module_paths(&mut app_data);
+        sort_app_data(&mut app_data);
+
+        assert_eq!(app_data.schedules.len(), 2);
+        let post_update = &app_data.schedules[0];
+        assert_eq!(post_update.name, "PostUpdate");
+        assert_eq!(post_update.systems, [simple_system("c")]);
+        let update = &app_data.schedules[1];
+        assert_eq!(update.name, "Update");
+        assert_eq!(update.systems, [simple_system("a"), simple_system("b")]);
+    }
 }
