@@ -41,7 +41,7 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_scene::{DynamicScene, serde::SceneSerializer};
+/// # use bevy_ecs_serialization::{DynamicScene, serde::SceneSerializer};
 /// # let mut world = World::default();
 /// # world.insert_resource(AppTypeRegistry::default());
 /// // Get the type registry
@@ -689,32 +689,32 @@ mod tests {
 
         let expected = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
+    "bevy_ecs_serialization::serde::tests::MyResource": (
       foo: 123,
     ),
   },
   entities: {
     4294967290: (
       components: {
-        "bevy_scene::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+        "bevy_ecs_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },
     ),
     4294967291: (
       components: {
-        "bevy_scene::serde::tests::Bar": (345),
-        "bevy_scene::serde::tests::Baz": (789),
-        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Bar": (345),
+        "bevy_ecs_serialization::serde::tests::Baz": (789),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
       },
     ),
     4294967292: (
       components: {
-        "bevy_scene::serde::tests::Bar": (345),
-        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Bar": (345),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
       },
     ),
     4294967293: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
       },
     ),
   },
@@ -744,32 +744,32 @@ mod tests {
 
         let input = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
+    "bevy_ecs_serialization::serde::tests::MyResource": (
       foo: 123,
     ),
   },
   entities: {
     8589934591: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
       },
     ),
     8589934590: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
-        "bevy_scene::serde::tests::Bar": (345),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Bar": (345),
       },
     ),
     8589934589: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
-        "bevy_scene::serde::tests::Bar": (345),
-        "bevy_scene::serde::tests::Baz": (789),
+        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_ecs_serialization::serde::tests::Bar": (345),
+        "bevy_ecs_serialization::serde::tests::Baz": (789),
       },
     ),
     8589934588: (
       components: {
-        "bevy_scene::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+        "bevy_ecs_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },
     ),
   },
@@ -918,10 +918,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
-                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-                67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
-                108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 1, 253, 255, 255, 255, 15, 1, 49, 98, 101, 118, 121, 95, 101, 99, 115, 95, 115,
+                101, 114, 105, 97, 108, 105, 122, 97, 116, 105, 111, 110, 58, 58, 115, 101, 114,
+                100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111,
+                110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72, 101,
+                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -960,11 +961,12 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
-                115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
-                116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
-                2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
-                108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 49, 98, 101, 118, 121, 95,
+                101, 99, 115, 95, 115, 101, 114, 105, 97, 108, 105, 122, 97, 116, 105, 111, 110,
+                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
+                67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166,
+                102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101,
+                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );

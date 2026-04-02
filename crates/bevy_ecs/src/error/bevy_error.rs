@@ -12,15 +12,15 @@ use core::{
 /// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is.
 /// While the levels within [`Severity`] correspond to traditional logging levels,
 /// these levels are fundamentally advisory metadata.
-/// The global error handler ultimately has discretion to respond to each of these errors
+/// The fallback error handler ultimately has discretion to respond to each of these errors
 /// according to its configuration.
 /// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
-/// You can change the behavior of the default handler by modifying the [`DefaultErrorHandler`] resource.
+/// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.
 ///
 /// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
 /// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
 ///
-/// [`DefaultErrorHandler`]: crate::error::handler::DefaultErrorHandler
+/// [`FallbackErrorHandler`]: crate::error::handler::FallbackErrorHandler
 /// [`with_severity`]: ResultSeverityExt::with_severity
 ///
 /// # Backtraces
@@ -132,13 +132,13 @@ struct InnerBevyError {
 /// but the severity is advisory metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
 ///
 /// To change the behavior of unhandled errors returned from systems,
-/// you can modify the [default error handler], and read the [`Severity`] stored inside of each [`BevyError`].
+/// you can modify the [fallback error handler], and read the [`Severity`] stored inside of each [`BevyError`].
 ///
 /// You can change the severity of an error (including assigning an error severity) to an ordinary result
 /// by calling [`with_severity`].
 ///
 /// [`with_severity`]: ResultSeverityExt::with_severity
-/// [default error handler]: crate::error::handler::DefaultErrorHandler
+/// [fallback error handler]: crate::error::handler::FallbackErrorHandler
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Severity {
     /// The error can be safely ignored, and can be completely discarded.

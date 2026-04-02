@@ -17,7 +17,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
@@ -42,7 +42,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::Gltf;
 //!

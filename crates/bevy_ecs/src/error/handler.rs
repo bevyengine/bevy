@@ -104,7 +104,7 @@ macro_rules! inner {
 /// Defines how Bevy reacts to errors.
 pub type ErrorHandler = fn(BevyError, ErrorContext);
 
-/// Error handler to call when an error is not handled otherwise.
+/// Fallback error handler to call when an error is not handled otherwise.
 /// Defaults to [`match_severity()`].
 ///
 /// When updated while a [`Schedule`] is running, it doesn't take effect for
@@ -112,13 +112,17 @@ pub type ErrorHandler = fn(BevyError, ErrorContext);
 ///
 /// [`Schedule`]: crate::schedule::Schedule
 #[derive(Resource, Deref, DerefMut, Copy, Clone)]
-pub struct DefaultErrorHandler(pub ErrorHandler);
+pub struct FallbackErrorHandler(pub ErrorHandler);
 
-impl Default for DefaultErrorHandler {
+impl Default for FallbackErrorHandler {
     fn default() -> Self {
         Self(match_severity)
     }
 }
+
+/// Deprecated alias for [`FallbackErrorHandler`].
+#[deprecated(since = "0.19.0", note = "Renamed to `FallbackErrorHandler`.")]
+pub type DefaultErrorHandler = FallbackErrorHandler;
 
 /// Error handler that defers to an error's [`Severity`].
 #[track_caller]
