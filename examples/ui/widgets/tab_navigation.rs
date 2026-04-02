@@ -4,14 +4,14 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        InputFocus,
     },
     prelude::*,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (button_system, focus_system))
         .run();

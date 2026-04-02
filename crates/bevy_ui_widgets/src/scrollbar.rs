@@ -53,7 +53,7 @@ pub enum ControlOrientation {
 /// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
 /// the content to make room for the scrollbars.
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, Clone, PartialEq)]
 #[reflect(Component)]
 pub struct Scrollbar {
     /// Entity being scrolled.
@@ -270,7 +270,7 @@ fn scrollbar_on_drag_cancel(
     }
 }
 
-fn update_scrollbar_thumb(
+pub(crate) fn update_scrollbar_thumb(
     q_scroll_area: Query<(&ScrollPosition, &ComputedNode), Without<ScrollbarThumb>>,
     q_scrollbar: Query<
         (&Scrollbar, &ComputedNode, &UiGlobalTransform, &Children),

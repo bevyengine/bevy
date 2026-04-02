@@ -11,9 +11,11 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
-    UiTransform, Val2,
+    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
+    UiGlobalTransform, UiSystems, UiTransform, Val2,
 };
+
+use crate::update_scrollbar_thumb;
 
 /// Which side of the parent element the popover element should be placed.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -95,7 +97,7 @@ impl Clone for Popover {
     }
 }
 
-fn position_popover(
+pub(crate) fn position_popover(
     mut q_popover: Query<(
         Entity,
         &mut Node,
@@ -305,7 +307,13 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, position_popover.in_set(UiSystems::PostLayout));
+        app.add_systems(
+            PostUpdate,
+            position_popover
+                .in_set(UiSystems::Layout)
+                .after(ui_layout_system)
+                .before(update_scrollbar_thumb),
+        );
     }
 }
 
