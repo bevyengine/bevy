@@ -113,7 +113,6 @@ pub fn editable_text_system(
         &mut EditableText,
         &mut TextLayoutInfo,
         Ref<ComputedNode>,
-        &mut TextScroll,
         &TextLayout,
     )>,
     rem_size: Res<RemSize>,
@@ -132,7 +131,6 @@ pub fn editable_text_system(
         mut editable_text,
         mut info,
         computed_node,
-        mut text_scroll,
         text_layout,
     ) in input_field_query.iter_mut()
     {
@@ -342,6 +340,39 @@ pub fn scroll_editable_text(mut query: Query<(&EditableText, &mut TextScroll, &C
     for (editable_text, mut scroll, node) in query.iter_mut() {
         if !editable_text.text_edited {
             continue;
+        }
+
+        let view_size = node.content_box().size();
+        if view_size.cmple(Vec2::ZERO).any() {
+            continue;
+        }
+
+        let Some(cursor) = editable_text
+            .editor
+            .cursor_geometry(1.0)
+            .map(bounding_box_to_rect)
+        else {
+            continue;
+        };
+
+        let mut new_scroll = scroll.0;
+
+        if cursor.min.x < new_scroll.x {
+            new_scroll.x = cursor.min.x;
+        } else if new_scroll.x + view_size.x < cursor.max.x {
+            new_scroll.x = cursor.max.x - view_size.x;
+        }
+
+        if cursor.min.y < new_scroll.y {
+            new_scroll.y = cursor.min.y;
+        } else if new_scroll.y + view_size.y < cursor.max.y {
+            new_scroll.y = cursor.max.y - view_size.y;
+        }
+
+        new_scroll = new_scroll.max(Vec2::ZERO);
+
+        if scroll.0 != new_scroll {
+            scroll.0 = new_scroll;
         }
     }
 }
