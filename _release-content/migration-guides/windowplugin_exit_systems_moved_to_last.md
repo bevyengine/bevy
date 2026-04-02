@@ -1,5 +1,5 @@
 ---
-title: `WindowPlugin` exit systems moved to `Last`
+title: "`WindowPlugin` exit systems moved to `Last`"
 pull_requests: [23624]
 ---
 
