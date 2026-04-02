@@ -19,7 +19,7 @@ use crate::schedule_data::serde::AppData;
 /// A plugin to automatically collect and write all schedule data on boot to a file that can later
 /// be parsed.
 ///
-/// By default, the schedule data is written to "<current working directory>/app_data.ron". This can
+/// By default, the schedule data is written to `<current working directory>/app_data.ron`. This can
 /// be configured to a different path using [`SerializeSchedulesFilePath`].
 pub struct SerializeSchedulesPlugin {
     /// The schedule into which the systems for collecting/writing the schedule data are added.
