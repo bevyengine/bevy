@@ -22,6 +22,7 @@ use bevy_ui_widgets::Button;
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeFontColor},
@@ -76,6 +77,7 @@ pub fn button(props: ButtonProps) -> impl Scene {
         Hovered
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
+        FocusIndicator
         ThemeBackgroundColor(tokens::BUTTON_BG)
         ThemeFontColor(tokens::BUTTON_TEXT)
         InheritableFont {
@@ -120,6 +122,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {

@@ -31,6 +31,7 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
@@ -98,6 +99,7 @@ pub fn slider(props: SliderProps) -> impl Scene {
         SliderRange::new(props.min, props.max)
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
         TabIndex(0)
+        FocusIndicator
         // Use a gradient to draw the moving bar
         BackgroundGradient({vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -162,6 +164,7 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
+        FocusIndicator,
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
