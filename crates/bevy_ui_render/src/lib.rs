@@ -567,7 +567,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            Option<&Node>,
             &ComputedNode,
             &UiGlobalTransform,
             &InheritedVisibility,
@@ -593,7 +593,7 @@ pub fn extract_uinode_borders(
     ) in &uinode_query
     {
         // Skip invisible borders and removed nodes
-        if !inherited_visibility.get() || node.display == Display::None {
+        if !inherited_visibility.get() || node.is_some_and(|node| node.display == Display::None) {
             continue;
         }
 
