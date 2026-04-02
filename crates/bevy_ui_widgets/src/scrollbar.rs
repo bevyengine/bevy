@@ -421,7 +421,7 @@ fn update_scrollbar_thumb(
                 let r =
                     thumb_node.size.x / (resolved_border.min_inset.x + resolved_border.max_inset.x);
                 resolved_border.min_inset.x *= r;
-                resolved_border.max_inset.y *= r;
+                resolved_border.max_inset.x *= r;
             }
 
             if thumb_node.size.y < resolved_border.min_inset.y + resolved_border.max_inset.y {
