@@ -55,6 +55,8 @@ fn on_focused_keyboard_input(
         return; // Focused entity is not an EditableText, nothing to do
     };
 
+    let allow_newlines = editable_text.allow_newlines;
+
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
     let mod_flags = (SUPER * u8::from(keys.pressed(Key::Super)))
@@ -121,9 +123,12 @@ fn on_focused_keyboard_input(
                 queue_edit(TextEdit::Insert(text.clone()));
             }
         }
+        (NONE, Key::Enter) => {
+            if allow_newlines {
+                queue_edit(TextEdit::Insert("\n".into()));
+            }
+        }
         _ => {
-            // Enter and Tab ignored for now.
-            // Enter needs extra logic for handling special cases and Parley doesn't support tabs yet.
             // Ignore and propagate to allow for tab navigation and submit actions.
         }
     }

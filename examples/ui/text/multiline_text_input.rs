@@ -40,6 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 EditableText {
                     visible_lines: Some(8.),
+                    allow_newlines: true,
                     ..default()
                 },
                 TextLayout {
