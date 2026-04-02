@@ -11,9 +11,11 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
-    UiTransform, Val2,
+    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
+    UiGlobalTransform, UiSystems, UiTransform, Val2,
 };
+
+use crate::update_scrollbar_thumb;
 
 /// Which side of the parent element the popover element should be placed.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]

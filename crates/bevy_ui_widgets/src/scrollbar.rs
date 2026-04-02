@@ -270,7 +270,7 @@ fn scrollbar_on_drag_cancel(
     }
 }
 
-fn update_scrollbar_thumb(
+pub(crate) fn update_scrollbar_thumb(
     q_scroll_area: Query<(&ScrollPosition, &ComputedNode), Without<ScrollbarThumb>>,
     q_scrollbar: Query<
         (&Scrollbar, &ComputedNode, &UiGlobalTransform, &Children),
