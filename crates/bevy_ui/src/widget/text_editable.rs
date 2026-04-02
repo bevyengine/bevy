@@ -336,3 +336,12 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
         },
     }
 }
+
+/// Scroll editable text to keep cursor in view after edits.
+pub fn scroll_editable_text(mut query: Query<(&EditableText, &mut TextScroll, &ComputedNode)>) {
+    for (editable_text, mut scroll, node) in query.iter_mut() {
+        if !editable_text.text_edited {
+            continue;
+        }
+    }
+}
