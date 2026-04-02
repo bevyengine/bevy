@@ -13,7 +13,6 @@ use bevy_ecs::{
     system::SystemStateFlags,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
-use bevy_utils::prelude::DebugName;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -153,15 +152,11 @@ impl ScheduleData {
         let mut system_key_to_index = HashMap::new();
         let mut system_set_key_to_index = HashMap::new();
 
-        fn debug_name_string(debug_name: &DebugName) -> String {
-            format!("{}", debug_name)
-        }
-
         fn extract_condition_data(conditions: &[ConditionWithAccess]) -> Vec<ConditionData> {
             conditions
                 .iter()
                 .map(|condition| ConditionData {
-                    name: debug_name_string(&condition.condition.name()),
+                    name: format!("{}", condition.condition.name()),
                 })
                 .collect()
         }
@@ -178,7 +173,7 @@ impl ScheduleData {
                 let flags = system.flags();
 
                 SystemData {
-                    name: debug_name_string(&system.name()),
+                    name: format!("{}", system.name()),
                     apply_deferred: system.system_type()
                         == core::any::TypeId::of::<ApplyDeferred>(),
                     exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
@@ -288,7 +283,7 @@ impl ScheduleData {
                                 );
 
                                         components.push(ComponentData {
-                                            name: debug_name_string(&component.name()),
+                                            name: format!("{}", component.name()),
                                         });
                                         *entry.insert(components.len() - 1) as _
                                     }
