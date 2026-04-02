@@ -12,7 +12,7 @@ use crate::{
     entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
     },
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
@@ -736,14 +736,14 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Convenience method for accessing the world's default error handler,
+    /// Convenience method for accessing the world's fallback error handler,
     ///
     /// # Safety
-    /// Must have read access to [`DefaultErrorHandler`].
+    /// Must have read access to [`FallbackErrorHandler`].
     #[inline]
-    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+    pub unsafe fn fallback_error_handler(&self) -> ErrorHandler {
         // SAFETY: Upheld by caller
-        unsafe { self.get_resource::<DefaultErrorHandler>() }
+        unsafe { self.get_resource::<FallbackErrorHandler>() }
             .copied()
             .unwrap_or_default()
             .0
