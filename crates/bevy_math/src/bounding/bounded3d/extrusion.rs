@@ -122,7 +122,7 @@ impl BoundedExtrusion for Rectangle {
         Cuboid {
             half_size: self.half_size.extend(half_depth),
         }
-        .aabb_3d(isometry)
+        .aabb_3d(isometry.into())
     }
 }
 
@@ -157,7 +157,7 @@ impl BoundedExtrusion for Capsule2d {
             half_height: half_depth,
             radius: self.radius,
         }
-        .aabb_3d(isometry.rotation * Quat::from_rotation_x(FRAC_PI_2));
+        .aabb_3d((isometry.rotation * Quat::from_rotation_x(FRAC_PI_2)).into());
 
         let up = isometry.rotation * Vec3A::new(0., self.half_length, 0.);
         let half_size = aabb.max + up.abs();
@@ -181,11 +181,11 @@ impl<T: BoundedExtrusion> BoundedExtrusion for Ring<T> {
 }
 
 impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
-    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
         self.base_shape.extrusion_aabb_3d(self.half_depth, isometry)
     }
 
-    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
         self.base_shape
             .extrusion_bounding_sphere(self.half_depth, isometry)
     }
@@ -277,11 +277,11 @@ mod tests {
         let cylinder = Extrusion::new(Circle::new(0.5), 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
-        let aabb = cylinder.aabb_3d(translation);
+        let aabb = cylinder.aabb_3d(translation.into());
         assert_eq!(aabb.center(), Vec3A::from(translation));
         assert_eq!(aabb.half_size(), Vec3A::new(0.5, 0.5, 1.0));
 
-        let bounding_sphere = cylinder.bounding_sphere(translation);
+        let bounding_sphere = cylinder.bounding_sphere(translation.into());
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
