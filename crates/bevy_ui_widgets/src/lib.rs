@@ -55,8 +55,8 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(CheckboxPlugin)
             .add(MenuPlugin)
             .add(RadioGroupPlugin)
-            .add(SliderPlugin)
             .add(ScrollbarPlugin)
+            .add(SliderPlugin)
             .add(EditableTextInputPlugin)
     }
 }
