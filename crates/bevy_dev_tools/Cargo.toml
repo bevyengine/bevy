@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["schedule_data"]
 bevy_ci_testing = ["dep:serde", "dep:ron"]
 screenrecording = ["dep:x264"]
 webgl = ["bevy_render/webgl"]
