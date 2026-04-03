@@ -1,10 +1,10 @@
 //! A procedurally generated city
 
 use argh::FromArgs;
-use assets::{load_assets, CityAssets};
+use assets::{load_assets, resolve_pending_lods, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{visibility::NoCpuCulling, Exposure, Hdr},
+    camera::{visibility::NoCpuCulling, visibility::VisibilityRange, Exposure, Hdr},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
@@ -20,8 +20,11 @@ use bevy::{
     winit::WinitSettings,
 };
 
-use crate::{assets::strip_base_url, settings::Settings};
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
+use crate::{
+    assets::strip_base_url,
+    generate_city::{spawn_city, CityStats},
+    settings::{setup_settings_ui, Settings},
+};
 
 mod assets;
 mod generate_city;
@@ -38,9 +41,29 @@ pub struct Args {
     #[argh(option, default = "30")]
     size: u32,
 
+    /// car density. Controls the probability of spawning a car on a road. Range 0..1
+    #[argh(option, default = "0.4")]
+    car_density: f32,
+
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// minimum range for LODs
+    #[argh(option, default = "200.0")]
+    lod_min_range: f32,
+
+    /// maximum range for LODs
+    #[argh(option, default = "500.0")]
+    lod_max_range: f32,
+
+    /// minimum range for car LODs
+    #[argh(option, default = "40.0")]
+    car_lod_min_range: f32,
+
+    /// maximum range for car LODs
+    #[argh(option, default = "80.0")]
+    car_lod_max_range: f32,
 }
 
 fn main() {
@@ -76,11 +99,15 @@ fn main() {
         // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::Enabled)
         .add_systems(Startup, (setup, load_assets))
-        .add_systems(Update, (simulate_cars, loading_screen))
+        .add_systems(
+            Update,
+            (simulate_cars, loading_screen, resolve_pending_lods),
+        )
         .add_observer(add_no_cpu_culling)
         .add_observer(add_no_cpu_culling_on_scene_ready)
         .add_observer(on_city_assets_ready)
         .add_observer(setup_settings_ui)
+        .add_observer(propagate_visibility_range)
         .run();
 }
 
@@ -89,7 +116,11 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamera::default(),
+        FreeCamera {
+            walk_speed: 10.0,
+            run_speed: 25.0,
+            ..Default::default()
+        },
         Atmosphere::earth(scattering_mediums.add(ScatteringMedium::default())),
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene is
@@ -217,8 +248,25 @@ fn on_city_assets_ready(
     assets: Res<CityAssets>,
     args: Res<Args>,
 ) {
-    spawn_city(&mut commands, &assets, args.seed, args.size);
-    commands.trigger(CitySpawned);
+    let mut stats = CityStats::default();
+    spawn_city(
+        &mut commands,
+        &assets,
+        args.seed,
+        args.size,
+        args.car_density,
+        &mut stats,
+    );
+    println!("cars: {}", stats.cars);
+    println!("roads: {}", stats.roads);
+    println!("trees: {}", stats.trees);
+    println!("buildings: {}", stats.buildings);
+    println!("fences: {}", stats.fences);
+    println!("paths: {}", stats.paths);
+    println!(
+        "total: {}",
+        stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
+    );
 }
 
 #[derive(Component)]
@@ -289,6 +337,24 @@ fn add_no_cpu_culling_on_scene_ready(
             if meshes.get(descendant).is_ok() {
                 commands.entity(descendant).insert(NoCpuCulling);
             }
+        }
+    }
+}
+
+fn propagate_visibility_range(
+    scene_ready: On<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    range: Query<&VisibilityRange>,
+    mesh: Query<(), With<Mesh3d>>,
+) {
+    let Ok(range) = range.get(scene_ready.entity) else {
+        return;
+    };
+
+    for descendant in children.iter_descendants(scene_ready.entity) {
+        if mesh.get(descendant).is_ok() {
+            commands.entity(descendant).insert(range.clone());
         }
     }
 }
