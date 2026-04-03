@@ -4,10 +4,10 @@ use bevy::{
     color::palettes,
     feathers::{
         controls::{
-            button, checkbox, color_plane, color_slider, color_swatch, radio, slider,
+            button, checkbox, color_plane, color_slider, color_swatch, radio, slider, text_input,
             toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
             ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
-            SliderProps,
+            SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -15,7 +15,7 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
-    input_focus::tab_navigation::TabGroup,
+    input_focus::{tab_navigation::TabGroup, AutoFocus},
     prelude::*,
     scene2::prelude::{Scene, *},
     ui::{Checked, InteractionDisabled},
@@ -39,6 +39,9 @@ enum SwatchType {
     Rgb,
     Hsl,
 }
+
+#[derive(Component, Clone, Copy, Default)]
+struct HexColorInput;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoDisabledButton;
@@ -100,6 +103,7 @@ fn demo_root() -> impl Scene {
                             on(|_activate: On<Activate>| {
                                 info!("Normal button clicked!");
                             })
+                            AutoFocus
                             Children [ (Text::new("Normal") ThemedText) ]
                         ),
                         (
@@ -273,9 +277,26 @@ fn demo_root() -> impl Scene {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
+                        column_gap: px(4.0),
                     }
                     Children [
                         Text("Srgba"),
+                        // Spacer
+                        Node {
+                            flex_grow: 1.0,
+                        },
+                        // Text input
+                        (
+                            text_input(TextInputProps {
+                                adorn_left: None,
+                                adorn_right: None,
+                                max_characters: None,
+                            })
+                            Node {
+                                flex_grow: 1.0,
+                            }
+                            HexColorInput
+                        )
                         (color_swatch() SwatchType::Rgb),
                     ]
                 ),
