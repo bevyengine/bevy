@@ -15,6 +15,7 @@ pub mod macro_utils;
 
 extern crate alloc;
 
+pub mod bsn_asset_catalog;
 mod dynamic_bsn;
 mod dynamic_bsn_lexer;
 mod resolved_scene;

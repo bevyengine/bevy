@@ -160,7 +160,7 @@ impl AssetLoader for DynamicBsnLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &Self::Settings,
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut buffer = vec![];
         reader.read_to_end(&mut buffer).await?;
@@ -179,16 +179,112 @@ impl AssetLoader for DynamicBsnLoader {
         };
 
         let ast = ast.into_inner();
-        let patch = ast.convert_bsn_patches_to_patch(patches_id, &self.type_registry)?;
 
-        // FIXME: We throw the AST away here. Probably not what we want to do
-        // for the editor!
+        // Register named asset entries as labeled sub-assets (e.g., materials)
+        self.register_labeled_assets(&ast, patches_id, load_context);
+
+        let patch = ast.convert_bsn_patches_to_patch(patches_id, &self.type_registry)?;
 
         Ok(ScenePatch {
             scene: Box::new(SceneScope(patch.scene)),
             dependencies: patch.dependencies,
             resolved: None,
         })
+    }
+}
+
+impl DynamicBsnLoader {
+    /// Scan the parsed AST for named entries with asset types and register them
+    /// as labeled sub-assets so they're resolvable via
+    /// `asset_server.load("file.bsn#name")`.
+    fn register_labeled_assets(
+        &self,
+        ast: &BsnAst,
+        patches_id: Entity,
+        load_context: &mut LoadContext<'_>,
+    ) {
+        let Some(patches) = ast.0.get::<BsnPatches>(patches_id) else {
+            return;
+        };
+
+        // Unwrap Children wrapper if present
+        let entries: Vec<Entity> = if patches.0.len() == 1 {
+            if let Some(BsnPatch::Relation(relation)) = ast.0.get::<BsnPatch>(patches.0[0]) {
+                relation.1.clone()
+            } else {
+                vec![patches_id]
+            }
+        } else {
+            vec![patches_id]
+        };
+
+        let type_registry = self.type_registry.read();
+
+        for entry_id in entries {
+            let Some(entry_patches) = ast.0.get::<BsnPatches>(entry_id) else {
+                continue;
+            };
+
+            let mut name: Option<String> = None;
+            let mut struct_patch: Option<&BsnStruct> = None;
+
+            for &pid in &entry_patches.0 {
+                let Some(patch) = ast.0.get::<BsnPatch>(pid) else {
+                    continue;
+                };
+                match patch {
+                    BsnPatch::Name(n, _) => name = Some(n.clone()),
+                    BsnPatch::Struct(s) => struct_patch = Some(s),
+                    _ => {}
+                }
+            }
+
+            let (Some(name), Some(bsn_struct)) = (name, struct_patch) else {
+                continue;
+            };
+
+            let type_path = bsn_struct.0.as_path();
+            let Some(registration) = type_registry.get_with_type_path(&type_path) else {
+                continue;
+            };
+            let Some(reflect_asset) =
+                registration.data::<bevy_asset::ReflectAsset>()
+            else {
+                continue;
+            };
+            let Some(reflect_default) =
+                registration.data::<bevy_reflect::prelude::ReflectDefault>()
+            else {
+                continue;
+            };
+
+            let mut value = reflect_default.default();
+            if let bevy_reflect::ReflectMut::Struct(s) = value.reflect_mut() {
+                if let Ok(struct_info) = registration.type_info().as_struct() {
+                    for field in &bsn_struct.1 {
+                        if let Some(field_info) = struct_info.field(&field.0) {
+                            if let Ok(reflected) = ast.convert_bsn_expr_to_reflect(
+                                field.1,
+                                &self.type_registry,
+                                field_info.ty().id(),
+                            ) {
+                                if let Some(target) = s.field_mut(&field.0) {
+                                    target.apply(&*reflected);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(erased) = reflect_asset.into_loaded_asset(value.as_partial_reflect()) {
+                load_context.add_loaded_labeled_asset_erased(
+                    name,
+                    erased,
+                    registration.type_id(),
+                );
+            }
+        }
     }
 }
 
@@ -831,7 +927,7 @@ impl BsnSymbol {
         Ok(ResolvedSymbol::new(type_registration, true, is_template))
     }
 
-    fn as_path(&self) -> String {
+    pub(crate) fn as_path(&self) -> String {
         let mut path = String::new();
         for component in &self.0 {
             let _ = write!(&mut path, "{}::", &**component);

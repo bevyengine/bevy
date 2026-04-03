@@ -468,6 +468,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[BSN Asset Catalog](../examples/scene/bsn_asset_catalog.rs) | Demonstrates loading named material definitions from a BSN asset catalog
 [BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 

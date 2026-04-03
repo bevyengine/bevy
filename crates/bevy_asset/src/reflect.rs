@@ -12,6 +12,7 @@ use bevy_reflect::{
 };
 
 use crate::{
+    loader::{ErasedLoadedAsset, LoadedAsset},
     Asset, AssetId, AssetPath, AssetServer, Assets, Handle, InvalidGenerationError, LoadContext,
     UntypedAssetId, UntypedHandle,
 };
@@ -39,6 +40,7 @@ pub struct ReflectAsset {
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedAssetId) -> Option<Box<dyn Reflect>>,
+    into_loaded_asset: fn(&dyn PartialReflect) -> Option<ErasedLoadedAsset>,
 }
 
 impl ReflectAsset {
@@ -154,6 +156,15 @@ impl ReflectAsset {
     pub fn ids<'w>(&self, world: &'w World) -> impl Iterator<Item = UntypedAssetId> + 'w {
         (self.ids)(world)
     }
+
+    /// Convert a reflected asset value into an [`ErasedLoadedAsset`] suitable
+    /// for registering as a labeled sub-asset via [`LoadContext`].
+    pub fn into_loaded_asset(
+        &self,
+        value: &dyn PartialReflect,
+    ) -> Option<ErasedLoadedAsset> {
+        (self.into_loaded_asset)(value)
+    }
 }
 
 impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
@@ -198,6 +209,10 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value = assets.remove(asset_id.typed_debug_checked());
                 value.map(|value| Box::new(value) as Box<dyn Reflect>)
+            },
+            into_loaded_asset: |value| {
+                let asset: A = FromReflect::from_reflect(value)?;
+                Some(LoadedAsset::from(asset).into())
             },
         }
     }

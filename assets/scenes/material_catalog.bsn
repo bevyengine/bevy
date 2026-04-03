@@ -1,0 +1,34 @@
+// Example BSN asset catalog: named materials for reuse across scenes.
+//
+// Each named entry creates an asset that can be loaded via:
+//   asset_server.load("scenes/material_catalog.bsn#PolishedMetal")
+
+bevy_ecs::hierarchy::Children [
+    #PolishedMetal
+    bevy_pbr::pbr_material::StandardMaterial {
+        metallic: 1.0,
+        perceptual_roughness: 0.05,
+        reflectance: 1.0,
+    },
+
+    #BrushedMetal
+    bevy_pbr::pbr_material::StandardMaterial {
+        metallic: 1.0,
+        perceptual_roughness: 0.4,
+        reflectance: 0.8,
+    },
+
+    #RoughStone
+    bevy_pbr::pbr_material::StandardMaterial {
+        metallic: 0.0,
+        perceptual_roughness: 0.9,
+        reflectance: 0.3,
+    },
+
+    #Plastic
+    bevy_pbr::pbr_material::StandardMaterial {
+        metallic: 0.0,
+        perceptual_roughness: 0.3,
+        reflectance: 0.5,
+    },
+]

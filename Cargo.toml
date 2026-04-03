@@ -3033,6 +3033,17 @@ category = "Scene"
 wasm = true
 
 [[example]]
+name = "bsn_asset_catalog"
+path = "examples/scene/bsn_asset_catalog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bsn_asset_catalog]
+name = "BSN Asset Catalog"
+description = "Demonstrates loading named material definitions from a BSN asset catalog"
+category = "Scene"
+wasm = true
+
+[[example]]
 name = "dynamic_bsn"
 path = "examples/scene/dynamic_bsn.rs"
 
