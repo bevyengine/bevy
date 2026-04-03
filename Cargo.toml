@@ -3027,7 +3027,7 @@ path = "examples/scene/world_serialization.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.world_serialization]
-name = "Scene"
+name = "World Serialization"
 description = "Demonstrates loading from and saving world to files"
 category = "Scene"
 wasm = false
