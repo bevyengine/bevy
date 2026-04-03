@@ -9,10 +9,12 @@
 //! to distance fog, but more complex) is handled as well, and takes into
 //! account the directional light color and direction.
 //!
-//! Spawn an [`Atmosphere`] on an entity with [`GlobalTransform`](bevy_transform::GlobalTransform),
-//! and add [`AtmosphereSettings`] and [`Hdr`] on each 3d camera that should render it. [`Atmosphere`]
-//! holds radii and medium data; placement and scene scale come from the entity's transform. If several
-//! atmospheres exist, each camera uses the one whose origin is nearest in world space.
+//! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
+//! [`Transform`](bevy_transform::components::Transform), and add [`AtmosphereSettings`] and [`Hdr`] to each
+//! 3D camera that should render it. Detailed documentation is on the [`Atmosphere`] component.
+//!
+//! Placement and scene scale come from the entity's transform. With several atmospheres in one
+//! scene, each camera picks the atmosphere whose origin is closest in world space.
 //!
 //! Performance-wise, the effect should be fairly cheap since the LUTs (Look
 //! Up Tables) that encode most of the data are small, and take advantage of the

@@ -64,10 +64,10 @@ fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. 
         return;
     };
 
-    if let Some(mut transform) = world.get_mut::<Transform>(entity) {
-        if *transform == Transform::default() {
-            transform.translation = -Vec3::Y * bottom_radius;
-        }
+    if let Some(mut transform) = world.get_mut::<Transform>(entity)
+        && *transform == Transform::default()
+    {
+        transform.translation = -Vec3::Y * bottom_radius;
     }
 }
 

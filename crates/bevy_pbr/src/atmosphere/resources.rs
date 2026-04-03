@@ -539,7 +539,6 @@ pub(super) fn prepare_atmosphere_transforms(
             Entity,
             &ExtractedView,
             &GpuAtmosphere,
-            &GpuAtmosphereSettings,
         ),
         (With<ExtractedAtmosphere>, With<Camera3d>),
     >,
@@ -557,7 +556,7 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view, gpu_atmosphere, _settings) in &views {
+    for (entity, view, gpu_atmosphere) in &views {
         // Camera position in atmosphere space
         let cam_world = view.world_from_view.translation();
         let cam_pos = Vec3A::from(
