@@ -24,8 +24,7 @@ use wgpu_types::TextureFormat;
 ///
 /// Add `AtmosphereSettings` to each 3D camera that should use it, the nearest atmosphere is used for rendering.
 ///
-/// If [`Transform`] is still [`Default`] when this component is first added, it is placed for a Y-up
-/// frame with the planet's north pole toward world +Y. Set your own transform for anything else.
+/// If [`Transform`] is still [`Default`] when this component is first added, it is placed `radius` units directly below the origin on the `Y` axis, so that the planet's normal is roughly `Vec3::Y` around the origin, likely where your camera/scene is located. Unless you're making a game set in space, this is probably what you want. Otherwise, feel free to override this default by setting a transform manually.
 ///
 /// The scale on [`Transform`] rescales the planet in world space. Tune it with the radius offset
 /// when your scene uses other units, like kilometer-sized scenes.
@@ -57,11 +56,10 @@ pub struct Atmosphere {
 
 fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(bottom_radius) = world
-        .entity(entity)
-        .get::<Atmosphere>()
+        .get::<Atmosphere>(entity)
         .map(|a| a.bottom_radius)
     else {
-        return;
+        unreachable!("on_add hooks guarantee the component is present");
     };
 
     if let Some(mut transform) = world.get_mut::<Transform>(entity)

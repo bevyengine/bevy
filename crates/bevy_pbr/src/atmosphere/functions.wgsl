@@ -307,7 +307,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
-    let world_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
+    let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
     return clamp_to_surface(atmosphere, world_pos);
 }
 

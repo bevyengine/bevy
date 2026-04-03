@@ -144,7 +144,6 @@ fn setup_camera_fog(
 
     commands.spawn((
         Camera3d::default(),
-        Hdr,
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Can be adjusted to change the rendering quality
         AtmosphereSettings::default(),
