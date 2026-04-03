@@ -68,6 +68,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),

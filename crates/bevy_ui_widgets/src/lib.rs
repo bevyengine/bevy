@@ -44,6 +44,7 @@ use crate::popover::PopoverPlugin;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
+#[derive(Default)]
 pub struct UiWidgetsPlugins;
 
 impl PluginGroup for UiWidgetsPlugins {

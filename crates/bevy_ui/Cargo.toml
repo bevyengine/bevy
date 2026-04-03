@@ -37,7 +37,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-fea
 ] }
 
 # other
-taffy = { version = "0.9", default-features = false, features = [
+taffy = { version = "0.10", default-features = false, features = [
   "std",
   "block_layout",
   "flexbox",
@@ -51,7 +51,8 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }
 accesskit = "0.24"
-parley = { version = "0.7.0", default-features = false, features = ["std"] }
+parley = { version = "0.8.0", default-features = false, features = ["std"] }
+swash = { version = "0.2.6" }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]

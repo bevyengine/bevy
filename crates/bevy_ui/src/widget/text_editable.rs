@@ -20,22 +20,31 @@ use bevy_text::{
     PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
-use parley::{swash::FontRef, BoundingBox};
-use parley::{FontFamily, FontStack, PositionedLayoutItem};
+use parley::{BoundingBox, PositionedLayoutItem};
+use swash::FontRef;
+use taffy::MaybeMath;
 
 struct TextInputMeasure {
     height: f32,
 }
 
 impl crate::Measure for TextInputMeasure {
-    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
-        let x = measure_args
-            .width
+    fn measure(&mut self, measure_args: crate::MeasureArgs<'_>) -> Vec2 {
+        let width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
+
+        let x = width
+            .effective
             .unwrap_or(match measure_args.available_width {
                 crate::AvailableSpace::Definite(x) => x,
                 crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
-            });
-        let y = measure_args.height.unwrap_or(self.height);
+            })
+            .maybe_clamp(width.min, width.max);
+        let y = height
+            .effective
+            .unwrap_or(self.height)
+            .maybe_clamp(height.min, height.max);
+
         Vec2::new(x, y).ceil()
     }
 }
@@ -122,13 +131,10 @@ pub fn editable_text_system(
             continue;
         };
 
-        let family = match font_family {
-            FontFamily::Named(name) => FontFamily::Named(name.into_owned().into()),
-            FontFamily::Generic(generic) => FontFamily::Generic(generic),
-        };
+        let family = font_family.into_owned();
         let style_set = editable_text.editor.edit_styles();
         style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
-        style_set.insert(parley::StyleProperty::FontStack(FontStack::Single(family)));
+        style_set.insert(parley::StyleProperty::FontFamily(family));
 
         let logical_viewport_size = target.logical_size();
         let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);

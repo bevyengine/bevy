@@ -46,7 +46,10 @@ pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
+    /// Set of schedule labels that have been removed to execute in [`World::try_schedule_scope`].
     temporarily_removed: HashSet<InternedScheduleLabel>,
+    /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`],
+    /// but have no associated [`Schedule`] in `inner`
     empty_labels: HashSet<InternedScheduleLabel>,
 }
 
@@ -563,7 +566,7 @@ impl Schedule {
             )
         });
 
-        let error_handler = world.default_error_handler();
+        let error_handler = world.fallback_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -1622,7 +1625,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
-        error::{ignore, panic, DefaultErrorHandler, Result},
+        error::{ignore, panic, FallbackErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
             passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
@@ -2424,10 +2427,10 @@ mod tests {
             Err("I failed!".into())
         }
 
-        // Test that the default error handler is used
+        // Test that the fallback error handler is used
         let mut world = World::default();
         world.init_resource::<Ran>();
-        world.insert_resource(DefaultErrorHandler(ignore));
+        world.insert_resource(FallbackErrorHandler(ignore));
         let mut schedule = Schedule::default();
         schedule.add_systems(system).run(&mut world);
         assert!(world.resource::<Ran>().0);
@@ -2435,7 +2438,7 @@ mod tests {
         // Test that the handler doesn't change within the schedule
         schedule.add_systems(
             (|world: &mut World| {
-                world.insert_resource(DefaultErrorHandler(panic));
+                world.insert_resource(FallbackErrorHandler(panic));
             })
             .before(system),
         );
