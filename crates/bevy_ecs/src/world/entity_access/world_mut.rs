@@ -697,7 +697,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`World::resource_scope`] for further details.
     #[track_caller]
-    pub fn resource_scope<R: Resource, U>(
+    pub fn resource_scope<R: Resource + Component<Mutability = Mutable>, U>(
         &mut self,
         f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
     ) -> U {
@@ -716,7 +716,7 @@ impl<'w> EntityWorldMut<'w> {
     /// then re-adds the resource before returning. Returns `None` if the resource does not exist in the [`World`].
     ///
     /// See [`World::try_resource_scope`] for further details.
-    pub fn try_resource_scope<R: Resource, U>(
+    pub fn try_resource_scope<R: Resource + Component<Mutability = Mutable>, U>(
         &mut self,
         f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
     ) -> Option<U> {

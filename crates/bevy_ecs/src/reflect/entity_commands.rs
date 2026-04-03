@@ -1,4 +1,5 @@
 use crate::{
+    component::{Component, Mutable},
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
     resource::Resource,
@@ -96,7 +97,9 @@ pub trait ReflectCommandExt {
     /// # Note
     ///
     /// - The given [`Resource`] is removed from the [`World`](crate::world::World) before the command is applied.
-    fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn insert_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self;
@@ -161,7 +164,9 @@ pub trait ReflectCommandExt {
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
     /// `AppTypeRegistry`.
-    fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn remove_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self;
@@ -174,7 +179,9 @@ impl ReflectCommandExt for EntityCommands<'_> {
         })
     }
 
-    fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn insert_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
@@ -190,7 +197,9 @@ impl ReflectCommandExt for EntityCommands<'_> {
         })
     }
 
-    fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn remove_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
@@ -240,7 +249,9 @@ impl<'w> EntityWorldMut<'w> {
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`](crate::world::World).
-    pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    pub fn insert_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
@@ -293,7 +304,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
-    pub fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    pub fn remove_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component_type_path: Cow<'static, str>,
     ) -> &mut Self {
@@ -342,7 +355,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
-    pub fn take_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    pub fn take_reflect_with_registry<
+        T: Resource + AsRef<TypeRegistry> + Component<Mutability = Mutable>,
+    >(
         &mut self,
         component_type_path: Cow<'static, str>,
     ) -> Option<Box<dyn Reflect>> {
