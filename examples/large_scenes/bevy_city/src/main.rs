@@ -15,9 +15,9 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 use crate::{assets::strip_base_url, settings::Settings};
@@ -278,7 +278,7 @@ fn add_no_cpu_culling(
 }
 
 fn add_no_cpu_culling_on_scene_ready(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     meshes: Query<(), (With<Mesh3d>, Without<NoCpuCulling>)>,

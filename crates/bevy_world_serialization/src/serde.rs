@@ -1,6 +1,6 @@
-//! `serde` serialization and deserialization implementation for Bevy scenes.
+//! `serde` serialization and deserialization implementation for Bevy worlds.
 
-use crate::{DynamicEntity, DynamicScene};
+use crate::{DynamicEntity, DynamicWorld};
 use bevy_asset::{
     EphemeralHandleBehavior, HandleDeserializeProcessor, HandleSerializeProcessor, LoadFromPath,
 };
@@ -20,79 +20,79 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-/// Name of the serialized scene struct type.
-pub const SCENE_STRUCT: &str = "Scene";
-/// Name of the serialized resources field in a scene struct.
-pub const SCENE_RESOURCES: &str = "resources";
-/// Name of the serialized entities field in a scene struct.
-pub const SCENE_ENTITIES: &str = "entities";
+/// Name of the serialized world struct type.
+pub const WORLD_STRUCT: &str = "World";
+/// Name of the serialized resources field in a world struct.
+pub const WORLD_RESOURCES: &str = "resources";
+/// Name of the serialized entities field in a world struct.
+pub const WORLD_ENTITIES: &str = "entities";
 
 /// Name of the serialized entity struct type.
 pub const ENTITY_STRUCT: &str = "Entity";
 /// Name of the serialized component field in an entity struct.
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
-/// Serializer for a [`DynamicScene`].
+/// Serializer for a [`DynamicWorld`].
 ///
-/// Helper object defining Bevy's serialize format for a [`DynamicScene`] and implementing
+/// Helper object defining Bevy's serialize format for a [`DynamicWorld`] and implementing
 /// the [`Serialize`] trait for use with Serde.
 ///
 /// # Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs_serialization::{DynamicScene, serde::SceneSerializer};
+/// # use bevy_world_serialization::{DynamicWorld, serde::DynamicWorldSerializer};
 /// # let mut world = World::default();
 /// # world.insert_resource(AppTypeRegistry::default());
 /// // Get the type registry
 /// let registry = world.resource::<AppTypeRegistry>();
 /// let registry = registry.read();
 ///
-/// // Get a DynamicScene to serialize, for example from the World itself
-/// let scene = DynamicScene::from_world(&world);
+/// // Get a DynamicWorld to serialize, for example from the World itself
+/// let dynamic_world = DynamicWorld::from_world(&world);
 ///
-/// // Create a serializer for that DynamicScene, using the associated TypeRegistry
-/// let scene_serializer = SceneSerializer::new(&scene, &registry);
+/// // Create a serializer for that DynamicWorld, using the associated TypeRegistry
+/// let serializer = DynamicWorldSerializer::new(&dynamic_world, &registry);
 ///
 /// // Serialize through any serde-compatible Serializer
-/// let ron_string = ron::ser::to_string(&scene_serializer);
+/// let ron_string = ron::ser::to_string(&serializer);
 /// ```
-pub struct SceneSerializer<'a> {
-    /// The scene to serialize.
-    pub scene: &'a DynamicScene,
-    /// The type registry containing the types present in the scene.
+pub struct DynamicWorldSerializer<'a> {
+    /// The dynamic world to serialize.
+    pub world: &'a DynamicWorld,
+    /// The type registry containing the types present in the dynamic world.
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> SceneSerializer<'a> {
-    /// Create a new serializer from a [`DynamicScene`] and an associated [`TypeRegistry`].
+impl<'a> DynamicWorldSerializer<'a> {
+    /// Create a new serializer from a [`DynamicWorld`] and an associated [`TypeRegistry`].
     ///
-    /// The type registry must contain all types present in the scene. This is generally the case
-    /// if you obtain both the scene and the registry from the same [`World`].
+    /// The type registry must contain all types present in the [`DynamicWorld`]. This is generally the case
+    /// if you obtain both the [`DynamicWorld`] and the registry from the same [`World`].
     ///
     /// [`World`]: bevy_ecs::world::World
-    pub fn new(scene: &'a DynamicScene, registry: &'a TypeRegistry) -> Self {
-        SceneSerializer { scene, registry }
+    pub fn new(world: &'a DynamicWorld, registry: &'a TypeRegistry) -> Self {
+        DynamicWorldSerializer { world, registry }
     }
 }
 
-impl<'a> Serialize for SceneSerializer<'a> {
+impl<'a> Serialize for DynamicWorldSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
+        let mut state = serializer.serialize_struct(WORLD_STRUCT, 2)?;
         state.serialize_field(
-            SCENE_RESOURCES,
-            &SceneMapSerializer {
-                entries: &self.scene.resources,
+            WORLD_RESOURCES,
+            &WorldMapSerializer {
+                entries: &self.world.resources,
                 registry: self.registry,
             },
         )?;
         state.serialize_field(
-            SCENE_ENTITIES,
+            WORLD_ENTITIES,
             &EntitiesSerializer {
-                entities: &self.scene.entities,
+                entities: &self.world.entities,
                 registry: self.registry,
             },
         )?;
@@ -143,7 +143,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
         let mut state = serializer.serialize_struct(ENTITY_STRUCT, 1)?;
         state.serialize_field(
             ENTITY_FIELD_COMPONENTS,
-            &SceneMapSerializer {
+            &WorldMapSerializer {
                 entries: &self.entity.components,
                 registry: self.registry,
             },
@@ -154,19 +154,19 @@ impl<'a> Serialize for EntitySerializer<'a> {
 
 /// Handles serializing a list of values with a unique type as a map of type to value.
 ///
-/// Used to serialize scene resources in [`SceneSerializer`] and entity components in [`EntitySerializer`].
+/// Used to serialize world resources in [`DynamicWorldSerializer`] and entity components in [`EntitySerializer`].
 /// Note that having several entries of the same type in `entries` will lead to an error when using the RON format and
-/// deserializing through [`SceneMapDeserializer`].
+/// deserializing through [`WorldMapDeserializer`].
 ///
 /// Note: The entries are sorted by type path before they're serialized.
-pub struct SceneMapSerializer<'a> {
+pub struct WorldMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
     pub entries: &'a [Box<dyn PartialReflect>],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for SceneMapSerializer<'a> {
+impl<'a> Serialize for WorldMapSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -206,7 +206,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
 
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
-enum SceneField {
+enum WorldField {
     Resources,
     Entities,
 }
@@ -217,25 +217,25 @@ enum EntityField {
     Components,
 }
 
-/// Handles scene deserialization.
-pub struct SceneDeserializer<'a> {
-    /// Type registry in which the components and resources types used in the scene to deserialize are registered.
+/// Handles world deserialization.
+pub struct WorldDeserializer<'a> {
+    /// Type registry in which the components and resources types used in the world to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
     pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
-    type Value = DynamicScene;
+impl<'a, 'de> DeserializeSeed<'de> for WorldDeserializer<'a> {
+    type Value = DynamicWorld;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
         deserializer.deserialize_struct(
-            SCENE_STRUCT,
-            &[SCENE_RESOURCES, SCENE_ENTITIES],
-            SceneVisitor {
+            WORLD_STRUCT,
+            &[WORLD_RESOURCES, WORLD_ENTITIES],
+            WorldVisitor {
                 type_registry: self.type_registry,
                 load_from_path: self.load_from_path,
             },
@@ -243,16 +243,16 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     }
 }
 
-struct SceneVisitor<'a> {
+struct WorldVisitor<'a> {
     type_registry: &'a TypeRegistry,
     load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
-    type Value = DynamicScene;
+impl<'a, 'de> Visitor<'de> for WorldVisitor<'a> {
+    type Value = DynamicWorld;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
-        formatter.write_str("scene struct")
+        formatter.write_str("world struct")
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -260,20 +260,20 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(SceneMapDeserializer {
+            .next_element_seed(WorldMapDeserializer {
                 registry: self.type_registry,
                 load_from_path: self.load_from_path,
             })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+            .ok_or_else(|| Error::missing_field(WORLD_RESOURCES))?;
 
         let entities = seq
-            .next_element_seed(SceneEntitiesDeserializer {
+            .next_element_seed(WorldEntitiesDeserializer {
                 type_registry: self.type_registry,
                 load_from_path: self.load_from_path,
             })?
-            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+            .ok_or_else(|| Error::missing_field(WORLD_ENTITIES))?;
 
-        Ok(DynamicScene {
+        Ok(DynamicWorld {
             resources,
             entities,
         })
@@ -287,20 +287,20 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         let mut entities = None;
         while let Some(key) = map.next_key()? {
             match key {
-                SceneField::Resources => {
+                WorldField::Resources => {
                     if resources.is_some() {
-                        return Err(Error::duplicate_field(SCENE_RESOURCES));
+                        return Err(Error::duplicate_field(WORLD_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(SceneMapDeserializer {
+                    resources = Some(map.next_value_seed(WorldMapDeserializer {
                         registry: self.type_registry,
                         load_from_path: self.load_from_path,
                     })?);
                 }
-                SceneField::Entities => {
+                WorldField::Entities => {
                     if entities.is_some() {
-                        return Err(Error::duplicate_field(SCENE_ENTITIES));
+                        return Err(Error::duplicate_field(WORLD_ENTITIES));
                     }
-                    entities = Some(map.next_value_seed(SceneEntitiesDeserializer {
+                    entities = Some(map.next_value_seed(WorldEntitiesDeserializer {
                         type_registry: self.type_registry,
                         load_from_path: self.load_from_path,
                     })?);
@@ -308,10 +308,10 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
             }
         }
 
-        let resources = resources.ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-        let entities = entities.ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+        let resources = resources.ok_or_else(|| Error::missing_field(WORLD_RESOURCES))?;
+        let entities = entities.ok_or_else(|| Error::missing_field(WORLD_ENTITIES))?;
 
-        Ok(DynamicScene {
+        Ok(DynamicWorld {
             resources,
             entities,
         })
@@ -319,33 +319,33 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 }
 
 /// Handles deserialization for a collection of entities.
-pub struct SceneEntitiesDeserializer<'a> {
+pub struct WorldEntitiesDeserializer<'a> {
     /// Type registry in which the component types used by the entities to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
     pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for WorldEntitiesDeserializer<'a> {
     type Value = Vec<DynamicEntity>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_map(SceneEntitiesVisitor {
+        deserializer.deserialize_map(WorldEntitiesVisitor {
             type_registry: self.type_registry,
             load_from_path: self.load_from_path,
         })
     }
 }
 
-struct SceneEntitiesVisitor<'a> {
+struct WorldEntitiesVisitor<'a> {
     type_registry: &'a TypeRegistry,
     load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for WorldEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -358,7 +358,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     {
         let mut entities = Vec::new();
         while let Some(entity) = map.next_key::<Entity>()? {
-            let entity = map.next_value_seed(SceneEntityDeserializer {
+            let entity = map.next_value_seed(WorldEntityDeserializer {
                 entity,
                 type_registry: self.type_registry,
                 load_from_path: self.load_from_path,
@@ -371,7 +371,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 }
 
 /// Handle deserialization of an entity and its components.
-pub struct SceneEntityDeserializer<'a> {
+pub struct WorldEntityDeserializer<'a> {
     /// Id of the deserialized entity.
     pub entity: Entity,
     /// Type registry in which the component types used by the entity to deserialize are registered.
@@ -380,7 +380,7 @@ pub struct SceneEntityDeserializer<'a> {
     pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for WorldEntityDeserializer<'a> {
     type Value = DynamicEntity;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -390,7 +390,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
             &[ENTITY_FIELD_COMPONENTS],
-            SceneEntityVisitor {
+            WorldEntityVisitor {
                 entity: self.entity,
                 registry: self.type_registry,
                 load_from_path: self.load_from_path,
@@ -399,13 +399,13 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     }
 }
 
-struct SceneEntityVisitor<'a> {
+struct WorldEntityVisitor<'a> {
     entity: Entity,
     registry: &'a TypeRegistry,
     load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for WorldEntityVisitor<'a> {
     type Value = DynamicEntity;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -417,7 +417,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let components = seq
-            .next_element_seed(SceneMapDeserializer {
+            .next_element_seed(WorldMapDeserializer {
                 registry: self.registry,
                 load_from_path: self.load_from_path,
             })?
@@ -441,7 +441,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
                         return Err(Error::duplicate_field(ENTITY_FIELD_COMPONENTS));
                     }
 
-                    components = Some(map.next_value_seed(SceneMapDeserializer {
+                    components = Some(map.next_value_seed(WorldMapDeserializer {
                         registry: self.registry,
                         load_from_path: self.load_from_path,
                     })?);
@@ -460,33 +460,33 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
 }
 
 /// Handles deserialization of a sequence of values with unique types.
-pub struct SceneMapDeserializer<'a> {
+pub struct WorldMapDeserializer<'a> {
     /// Type registry in which the types of the values to deserialize are registered.
     pub registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
     pub load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for WorldMapDeserializer<'a> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_map(SceneMapVisitor {
+        deserializer.deserialize_map(WorldMapVisitor {
             registry: self.registry,
             load_from_path: self.load_from_path,
         })
     }
 }
 
-struct SceneMapVisitor<'a> {
+struct WorldMapVisitor<'a> {
     registry: &'a TypeRegistry,
     load_from_path: &'a mut dyn LoadFromPath,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -548,8 +548,8 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        serde::{SceneDeserializer, SceneSerializer},
-        DynamicScene, DynamicSceneBuilder,
+        serde::{DynamicWorldSerializer, WorldDeserializer},
+        DynamicWorld, DynamicWorldBuilder,
     };
     use bevy_asset::{Asset, AssetPath, Handle, LoadFromPath, ReflectAsset, UntypedHandle};
     use bevy_ecs::{
@@ -679,9 +679,9 @@ mod tests {
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let scene = {
+        let dynamic_world = {
             let type_registry = world.resource::<AppTypeRegistry>().read();
-            DynamicSceneBuilder::from_world(&world, &type_registry)
+            DynamicWorldBuilder::from_world(&world, &type_registry)
                 .extract_entities([a, b, c, d].into_iter())
                 .extract_resources()
                 .build()
@@ -689,43 +689,43 @@ mod tests {
 
         let expected = r#"(
   resources: {
-    "bevy_ecs_serialization::serde::tests::MyResource": (
+    "bevy_world_serialization::serde::tests::MyResource": (
       foo: 123,
     ),
   },
   entities: {
     4294967290: (
       components: {
-        "bevy_ecs_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+        "bevy_world_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },
     ),
     4294967291: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Bar": (345),
-        "bevy_ecs_serialization::serde::tests::Baz": (789),
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Bar": (345),
+        "bevy_world_serialization::serde::tests::Baz": (789),
+        "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
     4294967292: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Bar": (345),
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Bar": (345),
+        "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
     4294967293: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
   },
 )"#;
-        let output = scene
+        let output = dynamic_world
             .serialize(&world.resource::<AppTypeRegistry>().read())
             .unwrap();
         assert_eq!(expected, output);
     }
 
-    /// A fake handle creator for the purposes of testing scene loading.
+    /// A fake handle creator for the purposes of testing world loading.
     struct FakeHandleCreator;
 
     impl LoadFromPath for FakeHandleCreator {
@@ -744,57 +744,59 @@ mod tests {
 
         let input = r#"(
   resources: {
-    "bevy_ecs_serialization::serde::tests::MyResource": (
+    "bevy_world_serialization::serde::tests::MyResource": (
       foo: 123,
     ),
   },
   entities: {
     8589934591: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
     8589934590: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
-        "bevy_ecs_serialization::serde::tests::Bar": (345),
+        "bevy_world_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Bar": (345),
       },
     ),
     8589934589: (
       components: {
-        "bevy_ecs_serialization::serde::tests::Foo": (123),
-        "bevy_ecs_serialization::serde::tests::Bar": (345),
-        "bevy_ecs_serialization::serde::tests::Baz": (789),
+        "bevy_world_serialization::serde::tests::Foo": (123),
+        "bevy_world_serialization::serde::tests::Bar": (345),
+        "bevy_world_serialization::serde::tests::Baz": (789),
       },
     ),
     8589934588: (
       components: {
-        "bevy_ecs_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
+        "bevy_world_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },
     ),
   },
 )"#;
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
-        let scene_deserializer = SceneDeserializer {
+        let world_deserializer = WorldDeserializer {
             type_registry: &world.resource::<AppTypeRegistry>().read(),
             load_from_path: &mut FakeHandleCreator,
         };
-        let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+        let dynamic_world = world_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(
             1,
-            scene.resources.len(),
+            dynamic_world.resources.len(),
             "expected `resources` to contain 1 resource"
         );
         assert_eq!(
             4,
-            scene.entities.len(),
+            dynamic_world.entities.len(),
             "expected `entities` to contain 3 entities"
         );
 
         let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
-        scene.write_to_world(&mut dst_world, &mut map).unwrap();
+        dynamic_world
+            .write_to_world(&mut dst_world, &mut map)
+            .unwrap();
 
         let my_resource = dst_world.get_resource::<MyResource>();
         assert!(my_resource.is_some());
@@ -807,17 +809,17 @@ mod tests {
         assert_eq!(1, dst_world.query::<&FakeMesh3d>().iter(&dst_world).count());
     }
 
-    fn roundtrip_ron(world: &World) -> (DynamicScene, DynamicScene) {
-        let scene = DynamicScene::from_world(world);
+    fn roundtrip_ron(world: &World) -> (DynamicWorld, DynamicWorld) {
+        let dynamic_world = DynamicWorld::from_world(world);
         let registry = world.resource::<AppTypeRegistry>().read();
-        let serialized = scene.serialize(&registry).unwrap();
+        let serialized = dynamic_world.serialize(&registry).unwrap();
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let scene_deserializer = SceneDeserializer {
+        let world_deserializer = WorldDeserializer {
             type_registry: &registry,
             load_from_path: &mut FakeHandleCreator,
         };
-        let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
-        (scene, deserialized_scene)
+        let deserialized_world = world_deserializer.deserialize(&mut deserializer).unwrap();
+        (dynamic_world, deserialized_world)
     }
 
     #[test]
@@ -831,16 +833,16 @@ mod tests {
         world.despawn(a);
         world.spawn(MyEntityRef(foo)).insert(Bar(123));
 
-        let (scene, deserialized_scene) = roundtrip_ron(&world);
+        let (input_world, deserialized_world) = roundtrip_ron(&world);
 
         let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
-        deserialized_scene
+        deserialized_world
             .write_to_world(&mut dst_world, &mut map)
             .unwrap();
 
-        assert_eq!(2, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
+        assert_eq!(2, deserialized_world.entities.len());
+        assert_world_eq(&input_world, &deserialized_world);
 
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
@@ -865,13 +867,13 @@ mod tests {
         let qux = Qux(42);
         world.spawn(qux);
 
-        let (scene, deserialized_scene) = roundtrip_ron(&world);
+        let (input_world, deserialized_world) = roundtrip_ron(&world);
 
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
+        assert_eq!(1, deserialized_world.entities.len());
+        assert_world_eq(&input_world, &deserialized_world);
 
         let mut world = create_world();
-        deserialized_scene
+        deserialized_world
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
         assert_eq!(&qux, world.query::<&Qux>().single(&world).unwrap());
@@ -883,13 +885,13 @@ mod tests {
         let fake_mesh = FakeMesh3d(Uuid::from_u128(1).into());
         world.spawn(fake_mesh.clone());
 
-        let (scene, deserialized_scene) = roundtrip_ron(&world);
+        let (input_world, deserialized_world) = roundtrip_ron(&world);
 
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
+        assert_eq!(1, deserialized_world.entities.len());
+        assert_world_eq(&input_world, &deserialized_world);
 
         let mut world = create_world();
-        deserialized_scene
+        deserialized_world
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
         assert_eq!(
@@ -911,10 +913,10 @@ mod tests {
         let registry = world.resource::<AppTypeRegistry>();
         let registry = &registry.read();
 
-        let scene = DynamicScene::from_world(&world);
+        let dynamic_world = DynamicWorld::from_world(&world);
 
-        let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = postcard::to_allocvec(&scene_serializer).unwrap();
+        let dynamic_world_serializer = DynamicWorldSerializer::new(&dynamic_world, registry);
+        let serialized_world = postcard::to_allocvec(&dynamic_world_serializer).unwrap();
 
         assert_eq!(
             vec![
@@ -924,19 +926,19 @@ mod tests {
                 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72, 101,
                 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
-            serialized_scene
+            serialized_world
         );
 
-        let scene_deserializer = SceneDeserializer {
+        let world_deserializer = WorldDeserializer {
             type_registry: registry,
             load_from_path: &mut FakeHandleCreator,
         };
-        let deserialized_scene = scene_deserializer
-            .deserialize(&mut postcard::Deserializer::from_bytes(&serialized_scene))
+        let deserialized_world = world_deserializer
+            .deserialize(&mut postcard::Deserializer::from_bytes(&serialized_world))
             .unwrap();
 
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
+        assert_eq!(1, deserialized_world.entities.len());
+        assert_world_eq(&dynamic_world, &deserialized_world);
     }
 
     #[test]
@@ -952,12 +954,12 @@ mod tests {
         let registry = world.resource::<AppTypeRegistry>();
         let registry = &registry.read();
 
-        let scene = DynamicScene::from_world(&world);
+        let dynamic_world = DynamicWorld::from_world(&world);
 
-        let scene_serializer = SceneSerializer::new(&scene, registry);
+        let dynamic_world_serializer = DynamicWorldSerializer::new(&dynamic_world, registry);
         let mut buf = Vec::new();
         let mut ser = rmp_serde::Serializer::new(&mut buf);
-        scene_serializer.serialize(&mut ser).unwrap();
+        dynamic_world_serializer.serialize(&mut ser).unwrap();
 
         assert_eq!(
             vec![
@@ -971,22 +973,22 @@ mod tests {
             buf
         );
 
-        let scene_deserializer = SceneDeserializer {
+        let world_deserializer = WorldDeserializer {
             type_registry: registry,
             load_from_path: &mut FakeHandleCreator,
         };
         let mut reader = BufReader::new(buf.as_slice());
 
-        let deserialized_scene = scene_deserializer
+        let deserialized_world = world_deserializer
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
-        assert_eq!(1, deserialized_scene.entities.len());
-        assert_scene_eq(&scene, &deserialized_scene);
+        assert_eq!(1, deserialized_world.entities.len());
+        assert_world_eq(&dynamic_world, &deserialized_world);
     }
 
-    /// A crude equality checker for [`DynamicScene`], used solely for testing purposes.
-    fn assert_scene_eq(expected: &DynamicScene, received: &DynamicScene) {
+    /// A crude equality checker for [`DynamicWorld`], used solely for testing purposes.
+    fn assert_world_eq(expected: &DynamicWorld, received: &DynamicWorld) {
         assert_eq!(
             expected.entities.len(),
             received.entities.len(),
@@ -1027,15 +1029,15 @@ mod tests {
         }
     }
 
-    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
-    mod assert_scene_eq_tests {
+    /// These tests just verify that the [`assert_world_eq`] function is working properly for our tests.
+    mod assert_world_eq_tests {
         use super::*;
 
         #[test]
         #[should_panic(expected = "entity count did not match")]
         fn should_panic_when_entity_count_not_eq() {
             let mut world = create_world();
-            let scene_a = DynamicScene::from_world(&world);
+            let a = DynamicWorld::from_world(&world);
 
             world.spawn(MyComponent {
                 foo: [1, 2, 3],
@@ -1043,9 +1045,9 @@ mod tests {
                 baz: MyEnum::Unit,
             });
 
-            let scene_b = DynamicScene::from_world(&world);
+            let b = DynamicWorld::from_world(&world);
 
-            assert_scene_eq(&scene_a, &scene_b);
+            assert_world_eq(&a, &b);
         }
 
         #[test]
@@ -1061,7 +1063,7 @@ mod tests {
                 })
                 .id();
 
-            let scene_a = DynamicScene::from_world(&world);
+            let a = DynamicWorld::from_world(&world);
 
             world.entity_mut(entity).insert(MyComponent {
                 foo: [3, 2, 1],
@@ -1069,9 +1071,9 @@ mod tests {
                 baz: MyEnum::Unit,
             });
 
-            let scene_b = DynamicScene::from_world(&world);
+            let b = DynamicWorld::from_world(&world);
 
-            assert_scene_eq(&scene_a, &scene_b);
+            assert_world_eq(&a, &b);
         }
 
         #[test]
@@ -1087,13 +1089,13 @@ mod tests {
                 })
                 .id();
 
-            let scene_a = DynamicScene::from_world(&world);
+            let a = DynamicWorld::from_world(&world);
 
             world.entity_mut(entity).remove::<MyComponent>();
 
-            let scene_b = DynamicScene::from_world(&world);
+            let b = DynamicWorld::from_world(&world);
 
-            assert_scene_eq(&scene_a, &scene_b);
+            assert_world_eq(&a, &b);
         }
     }
 }

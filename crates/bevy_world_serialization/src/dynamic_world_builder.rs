@@ -1,7 +1,7 @@
 use core::any::TypeId;
 
 use crate::reflect_utils::clone_reflect_value;
-use crate::{DynamicEntity, DynamicScene, SceneFilter};
+use crate::{DynamicEntity, DynamicWorld, WorldFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
@@ -15,14 +15,14 @@ use bevy_ecs::{
 use bevy_reflect::{PartialReflect, TypeRegistry};
 use bevy_utils::default;
 
-/// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
+/// A [`DynamicWorld`] builder, used to build a [`DynamicWorld`] from a [`World`] by extracting some entities and resources.
 ///
 /// # Component Extraction
 ///
 /// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
+/// This can be changed by [specifying a filter](DynamicWorldBuilder::with_component_filter) or by explicitly
+/// [allowing](DynamicWorldBuilder::allow_component)/[denying](DynamicWorldBuilder::deny_component) certain components.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
@@ -30,8 +30,8 @@ use bevy_utils::default;
 ///
 /// By default, all resources registered with [`ReflectResource`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
+/// This can be changed by [specifying a filter](DynamicWorldBuilder::with_resource_filter) or by explicitly
+/// [allowing](DynamicWorldBuilder::allow_resource)/[denying](DynamicWorldBuilder::deny_resource) certain resources.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
@@ -43,7 +43,7 @@ use bevy_utils::default;
 ///
 /// # Example
 /// ```
-/// # use bevy_ecs_serialization::DynamicSceneBuilder;
+/// # use bevy_world_serialization::DynamicWorldBuilder;
 /// # use bevy_ecs::reflect::AppTypeRegistry;
 /// # use bevy_ecs::{
 /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
@@ -56,58 +56,58 @@ use bevy_utils::default;
 /// # world.init_resource::<AppTypeRegistry>();
 /// # let entity = world.spawn(ComponentA).id();
 /// let type_registry = world.resource::<AppTypeRegistry>().read();
-/// let dynamic_scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+/// let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
 ///     .extract_entity(entity)
 ///     .build();
 /// ```
 ///
 /// [`AppTypeRegistry`]: bevy_ecs::reflect::AppTypeRegistry
 /// [`Reflect`]: bevy_reflect::Reflect
-pub struct DynamicSceneBuilder<'w> {
+pub struct DynamicWorldBuilder<'w> {
     /// The resources that have been extracted so far.
     extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
     /// The entities that have been extracted so far.
-    extracted_scene: BTreeMap<Entity, DynamicEntity>,
+    extracted_entities: BTreeMap<Entity, DynamicEntity>,
     /// The filter to determine which components extract.
-    component_filter: SceneFilter,
+    component_filter: WorldFilter,
     /// The filter to determine which resources to extract.
-    resource_filter: SceneFilter,
-    /// The world from which to build the scene.
+    resource_filter: WorldFilter,
+    /// The world from which to build the dynamic world.
     original_world: &'w World,
     /// The type registry to use for extracting items from the world.
     type_registry: &'w TypeRegistry,
 }
 
-impl<'w> DynamicSceneBuilder<'w> {
+impl<'w> DynamicWorldBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
     ///
     /// The `type_registry` provides type information for extracting components and resources
     /// through reflection. If the `world` is the "real" world (e.g., not a world in a
-    /// [`Scene`](crate::Scene)), the `world` will contain the registry, which can be acquired using
+    /// [`WorldAsset`](crate::WorldAsset)), the `world` will contain the registry, which can be acquired using
     /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "scene worlds", you
     /// will need to get the type registry from the main world (you can clone the `AppTypeRegistry`
     /// out of the world to avoid borrowing the world itself).
     pub fn from_world(world: &'w World, type_registry: &'w TypeRegistry) -> Self {
         Self {
             extracted_resources: default(),
-            extracted_scene: default(),
-            component_filter: SceneFilter::default(),
-            resource_filter: SceneFilter::default(),
+            extracted_entities: default(),
+            component_filter: WorldFilter::default(),
+            resource_filter: WorldFilter::default(),
             original_world: world,
             type_registry,
         }
     }
 
-    /// Specify a custom component [`SceneFilter`] to be used with this builder.
+    /// Specify a custom component [`WorldFilter`] to be used with this builder.
     #[must_use]
-    pub fn with_component_filter(mut self, filter: SceneFilter) -> Self {
+    pub fn with_component_filter(mut self, filter: WorldFilter) -> Self {
         self.component_filter = filter;
         self
     }
 
-    /// Specify a custom resource [`SceneFilter`] to be used with this builder.
+    /// Specify a custom resource [`WorldFilter`] to be used with this builder.
     #[must_use]
-    pub fn with_resource_filter(mut self, filter: SceneFilter) -> Self {
+    pub fn with_resource_filter(mut self, filter: WorldFilter) -> Self {
         self.resource_filter = filter;
         self
     }
@@ -117,8 +117,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// This is useful for resetting the filter so that types may be selectively denied
     /// with [`deny_component`](`Self::deny_component`) and [`deny_resource`](`Self::deny_resource`).
     pub fn allow_all(mut self) -> Self {
-        self.component_filter = SceneFilter::allow_all();
-        self.resource_filter = SceneFilter::allow_all();
+        self.component_filter = WorldFilter::allow_all();
+        self.resource_filter = WorldFilter::allow_all();
         self
     }
 
@@ -127,12 +127,12 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// This is useful for resetting the filter so that types may be selectively allowed
     /// with [`allow_component`](`Self::allow_component`) and [`allow_resource`](`Self::allow_resource`).
     pub fn deny_all(mut self) -> Self {
-        self.component_filter = SceneFilter::deny_all();
-        self.resource_filter = SceneFilter::deny_all();
+        self.component_filter = WorldFilter::deny_all();
+        self.resource_filter = WorldFilter::deny_all();
         self
     }
 
-    /// Allows the given component type, `T`, to be included in the generated scene.
+    /// Allows the given component type, `T`, to be included in the dynamic world.
     ///
     /// This method may be called multiple times for any number of components.
     ///
@@ -144,7 +144,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
-    /// Denies the given component type, `T`, from being included in the generated scene.
+    /// Denies the given component type, `T`, from being included in the dynamic world.
     ///
     /// This method may be called multiple times for any number of components.
     ///
@@ -163,7 +163,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [denied]: Self::deny_component
     #[must_use]
     pub fn allow_all_components(mut self) -> Self {
-        self.component_filter = SceneFilter::allow_all();
+        self.component_filter = WorldFilter::allow_all();
         self
     }
 
@@ -174,11 +174,11 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [allowed]: Self::allow_component
     #[must_use]
     pub fn deny_all_components(mut self) -> Self {
-        self.component_filter = SceneFilter::deny_all();
+        self.component_filter = WorldFilter::deny_all();
         self
     }
 
-    /// Allows the given resource type, `T`, to be included in the generated scene.
+    /// Allows the given resource type, `T`, to be included in the dynamic world.
     ///
     /// This method may be called multiple times for any number of resources.
     ///
@@ -190,7 +190,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
-    /// Denies the given resource type, `T`, from being included in the generated scene.
+    /// Denies the given resource type, `T`, from being included in the dynamic world.
     ///
     /// This method may be called multiple times for any number of resources.
     ///
@@ -209,7 +209,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [denied]: Self::deny_resource
     #[must_use]
     pub fn allow_all_resources(mut self) -> Self {
-        self.resource_filter = SceneFilter::allow_all();
+        self.resource_filter = WorldFilter::allow_all();
         self
     }
 
@@ -220,19 +220,19 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [allowed]: Self::allow_resource
     #[must_use]
     pub fn deny_all_resources(mut self) -> Self {
-        self.resource_filter = SceneFilter::deny_all();
+        self.resource_filter = WorldFilter::deny_all();
         self
     }
 
-    /// Consume the builder, producing a [`DynamicScene`].
+    /// Consume the builder, producing a [`DynamicWorld`].
     ///
-    /// To make sure the dynamic scene doesn't contain entities without any components, call
-    /// [`Self::remove_empty_entities`] before building the scene.
+    /// To make sure the dynamic world doesn't contain entities without any components, call
+    /// [`Self::remove_empty_entities`] before building the dynamic world.
     #[must_use]
-    pub fn build(self) -> DynamicScene {
-        DynamicScene {
+    pub fn build(self) -> DynamicWorld {
+        DynamicWorld {
             resources: self.extracted_resources.into_values().collect(),
-            entities: self.extracted_scene.into_values().collect(),
+            entities: self.extracted_entities.into_values().collect(),
         }
     }
 
@@ -249,7 +249,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// These were likely created because none of their components were present in the provided type registry upon extraction.
     #[must_use]
     pub fn remove_empty_entities(mut self) -> Self {
-        self.extracted_scene
+        self.extracted_entities
             .retain(|_, entity| !entity.components.is_empty());
 
         self
@@ -264,7 +264,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be used to extract entities from a query:
     /// ```
-    /// # use bevy_ecs_serialization::DynamicSceneBuilder;
+    /// # use bevy_world_serialization::DynamicWorldBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::{
     /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
@@ -280,7 +280,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// let mut query = world.query_filtered::<Entity, With<MyComponent>>();
     ///
     /// let type_registry = world.resource::<AppTypeRegistry>().read();
-    /// let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+    /// let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
     ///     .extract_entities(query.iter(&world))
     ///     .build();
     /// ```
@@ -292,7 +292,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
         for entity in entities {
-            if self.extracted_scene.contains_key(&entity) {
+            if self.extracted_entities.contains_key(&entity) {
                 continue;
             }
 
@@ -335,7 +335,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 };
                 extract_and_push();
             }
-            self.extracted_scene.insert(entity, entry);
+            self.extracted_entities.insert(entity, entry);
         }
 
         self
@@ -349,7 +349,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`deny_resource`] helper methods.
     ///
     /// ```
-    /// # use bevy_ecs_serialization::DynamicSceneBuilder;
+    /// # use bevy_world_serialization::DynamicWorldBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::prelude::{ReflectResource, Resource, World};
     /// # use bevy_reflect::Reflect;
@@ -362,9 +362,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// world.insert_resource(MyResource);
     ///
     /// let type_registry = world.resource::<AppTypeRegistry>().read();
-    /// let mut builder = DynamicSceneBuilder::from_world(&world, &type_registry)
+    /// let mut builder = DynamicWorldBuilder::from_world(&world, &type_registry)
     ///     .extract_resources();
-    /// let scene = builder.build();
+    /// let dynamic_world = builder.build();
     /// ```
     ///
     /// [`allow_resource`]: Self::allow_resource
@@ -427,7 +427,7 @@ mod tests {
 
     use bevy_reflect::{Reflect, TypeRegistry};
 
-    use super::DynamicSceneBuilder;
+    use super::DynamicWorldBuilder;
 
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Component)]
@@ -454,14 +454,14 @@ mod tests {
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert_eq!(dynamic_world.entities.len(), 1);
+        assert_eq!(dynamic_world.entities[0].entity, entity);
+        assert_eq!(dynamic_world.entities[0].components.len(), 1);
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentA>());
     }
 
     #[test]
@@ -473,15 +473,15 @@ mod tests {
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .extract_entity(entity)
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert_eq!(dynamic_world.entities.len(), 1);
+        assert_eq!(dynamic_world.entities[0].entity, entity);
+        assert_eq!(dynamic_world.entities[0].components.len(), 1);
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentA>());
     }
 
     #[test]
@@ -494,15 +494,15 @@ mod tests {
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entity(entity)
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 2);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
-        assert!(scene.entities[0].components[1].represents::<ComponentB>());
+        assert_eq!(dynamic_world.entities.len(), 1);
+        assert_eq!(dynamic_world.entities[0].entity, entity);
+        assert_eq!(dynamic_world.entities[0].components.len(), 2);
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentA>());
+        assert!(dynamic_world.entities[0].components[1].represents::<ComponentB>());
     }
 
     #[test]
@@ -517,7 +517,7 @@ mod tests {
 
         // Insert entities out of order
         let type_registry = TypeRegistry::default();
-        let builder = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let builder = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entity(entity_b)
             .extract_entities([entity_d, entity_a].into_iter())
             .extract_entity(entity_c);
@@ -544,14 +544,17 @@ mod tests {
         let _entity_b = world.spawn(ComponentB).id();
 
         let mut query = world.query_filtered::<Entity, With<ComponentA>>();
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entities(query.iter(&world))
             .build();
 
-        assert_eq!(scene.entities.len(), 2);
-        let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
-        scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a, entity_a_b]);
+        assert_eq!(dynamic_world.entities.len(), 2);
+        let mut dynamic_world_entities = vec![
+            dynamic_world.entities[0].entity,
+            dynamic_world.entities[1].entity,
+        ];
+        dynamic_world_entities.sort();
+        assert_eq!(dynamic_world_entities, [entity_a, entity_a_b]);
     }
 
     #[test]
@@ -564,13 +567,13 @@ mod tests {
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_entities([entity_a, entity_b].into_iter())
             .remove_empty_entities()
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity_a);
+        assert_eq!(dynamic_world.entities.len(), 1);
+        assert_eq!(dynamic_world.entities[0].entity, entity_a);
     }
 
     #[test]
@@ -582,12 +585,12 @@ mod tests {
 
         world.insert_resource(ResourceA);
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .build();
 
-        assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(dynamic_world.resources.len(), 1);
+        assert!(dynamic_world.resources[0].represents::<ResourceA>());
     }
 
     #[test]
@@ -599,13 +602,13 @@ mod tests {
 
         world.insert_resource(ResourceA);
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .extract_resources()
             .build();
 
-        assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(dynamic_world.resources.len(), 1);
+        assert!(dynamic_world.resources[0].represents::<ResourceA>());
     }
 
     #[test]
@@ -620,15 +623,15 @@ mod tests {
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .allow_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
-        assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[2].components[0].represents::<ComponentA>());
-        assert!(scene.entities[1].components[0].represents::<ComponentA>());
-        assert_eq!(scene.entities[0].components.len(), 0);
+        assert_eq!(dynamic_world.entities.len(), 3);
+        assert!(dynamic_world.entities[2].components[0].represents::<ComponentA>());
+        assert!(dynamic_world.entities[1].components[0].represents::<ComponentA>());
+        assert_eq!(dynamic_world.entities[0].components.len(), 0);
     }
 
     #[test]
@@ -643,15 +646,15 @@ mod tests {
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .deny_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
-        assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentB>());
-        assert_eq!(scene.entities[1].components.len(), 0);
-        assert!(scene.entities[2].components[0].represents::<ComponentB>());
+        assert_eq!(dynamic_world.entities.len(), 3);
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentB>());
+        assert_eq!(dynamic_world.entities[1].components.len(), 0);
+        assert!(dynamic_world.entities[2].components[0].represents::<ComponentB>());
     }
 
     #[test]
@@ -665,13 +668,13 @@ mod tests {
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .allow_resource::<ResourceA>()
             .extract_resources()
             .build();
 
-        assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(dynamic_world.resources.len(), 1);
+        assert!(dynamic_world.resources[0].represents::<ResourceA>());
     }
 
     #[test]
@@ -685,13 +688,13 @@ mod tests {
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .deny_resource::<ResourceA>()
             .extract_resources()
             .build();
 
-        assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceB>());
+        assert_eq!(dynamic_world.resources.len(), 1);
+        assert!(dynamic_world.resources[0].represents::<ResourceB>());
     }
 
     #[test]
@@ -712,18 +715,18 @@ mod tests {
         world.insert_resource(SomeResource(123));
         let entity = world.spawn(SomeType(123)).id();
 
-        let scene = DynamicSceneBuilder::from_world(&world, &type_registry)
+        let dynamic_world = DynamicWorldBuilder::from_world(&world, &type_registry)
             .extract_resources()
             .extract_entities(vec![entity].into_iter())
             .build();
 
-        let component = &scene.entities[0].components[0];
+        let component = &dynamic_world.entities[0].components[0];
         assert!(component
             .try_as_reflect()
             .expect("component should be concrete due to `FromReflect`")
             .is::<SomeType>());
 
-        let resource = &scene.resources[0];
+        let resource = &dynamic_world.resources[0];
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
