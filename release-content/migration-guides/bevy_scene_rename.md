@@ -15,7 +15,7 @@ Additionally, to avoid confusion / conflicts with the new scene system, all "sce
 - `Scene` -> `WorldAsset` (as this was always just a World wrapper)
 - `SceneRoot` -> `WorldAssetRoot`
 - `DynamicScene` -> `DynamicWorld`
-    - `DynamicScene::from_scene` -> `DynamicWorld::from_world_asset`
+  - `DynamicScene::from_scene` -> `DynamicWorld::from_world_asset`
 - `DynamicSceneBuilder` -> `DynamicWorldBuilder`
 - `DynamicSceneRoot` -> `DynamicWorldRoot`
 - `SceneInstanceReady` -> `WorldInstanceReady`
