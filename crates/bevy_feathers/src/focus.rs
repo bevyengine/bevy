@@ -11,7 +11,6 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::{InputFocus, InputFocusVisible};
-use bevy_log::info;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{Outline, UiSystems, Val};
