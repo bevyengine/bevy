@@ -17,8 +17,9 @@ use bevy_reflect::{
     enums::{DynamicEnum, DynamicVariant, StructVariantInfo, VariantInfoError},
     list::DynamicList,
     prelude::ReflectDefault,
-    structs::{DynamicStruct, StructInfo},
-    tuple_struct::DynamicTupleStruct,
+    structs::{DynamicStruct, Struct, StructInfo},
+    tuple::DynamicTuple,
+    tuple_struct::{DynamicTupleStruct, TupleStruct},
     NamedField, PartialReflect, Reflect, ReflectMut, TypePath, TypeRegistration, TypeRegistry,
 };
 use core::{
@@ -332,10 +333,16 @@ impl BsnAst {
                             return;
                         }
 
-                        // TODO: struct-like enum variants. Might need to
-                        // convert the `DynamicStruct` into a `DynamicEnum`
-                        // which should be doable
-                        error!("Unknown type: `{}`", struct_type_path);
+                        // Enum struct variant: wrap DynamicStruct in DynamicEnum and apply
+                        let dynamic_enum = DynamicEnum::new(
+                            symbol.1.clone(),
+                            DynamicVariant::Struct(dynamic_struct.to_dynamic_struct()),
+                        );
+                        let ReflectMut::Enum(reflect_enum) = reflect.reflect_mut() else {
+                            error!("Expected an enum: `{}`", struct_type_path);
+                            return;
+                        };
+                        reflect_enum.apply(&dynamic_enum);
                     },
                 }) as Box<dyn Scene>
             }
@@ -396,10 +403,20 @@ impl BsnAst {
                             return;
                         }
 
-                        // TODO: struct-like enum variants. Might need to
-                        // convert the `DynamicStruct` into a `DynamicEnum`
-                        // which should be doable
-                        error!("Unknown type: `{}`", struct_type_path);
+                        // Enum tuple variant: wrap DynamicTupleStruct in DynamicEnum and apply
+                        let dynamic_tuple = DynamicTuple::from_iter(
+                            (0..dynamic_tuple_struct.field_len())
+                                .map(|i| dynamic_tuple_struct.field(i).unwrap().to_dynamic()),
+                        );
+                        let dynamic_enum = DynamicEnum::new(
+                            symbol.1.clone(),
+                            DynamicVariant::Tuple(dynamic_tuple),
+                        );
+                        let ReflectMut::Enum(reflect_enum) = reflect.reflect_mut() else {
+                            error!("Expected an enum: `{}`", struct_type_path);
+                            return;
+                        };
+                        reflect_enum.apply(&dynamic_enum);
                     },
                 }) as Box<dyn Scene>
             }
@@ -522,15 +539,47 @@ impl BsnAst {
                     return Ok(reflect.into_partial_reflect());
                 }
 
-                // TODO: struct-like enum variants. Might need to
-                // convert the `DynamicStruct` into a `DynamicEnum`
-                // which should be doable
-                Err(DynamicBsnLoaderError::UnknownType(
-                    template_type_registration
-                        .type_info()
-                        .type_path()
-                        .to_owned(),
-                ))
+                // Enum struct variant: build fields and wrap in DynamicEnum
+                let enum_info = template_type_registration
+                    .type_info()
+                    .as_enum()
+                    .map_err(|_| DynamicBsnLoaderError::TypeNotStruct)?;
+                let variant_info = enum_info
+                    .variant(&bsn_struct.0 .1)
+                    .ok_or_else(|| {
+                        DynamicBsnLoaderError::UnknownType(bsn_struct.0.as_path())
+                    })?
+                    .as_struct_variant()?;
+
+                let mut dynamic_struct = DynamicStruct::default();
+                for field in &bsn_struct.1 {
+                    let Some(field_info) = variant_info.field(&field.0) else {
+                        return Err(DynamicBsnLoaderError::StructDoesntHaveField(
+                            field.0.clone(),
+                        ));
+                    };
+                    let reflected = self.convert_bsn_expr_to_reflect(
+                        field.1,
+                        app_type_registry,
+                        field_info.ty().id(),
+                    )?;
+                    dynamic_struct.insert_boxed(field.0.clone(), reflected);
+                }
+
+                let dynamic_enum = DynamicEnum::new(
+                    bsn_struct.0 .1.clone(),
+                    DynamicVariant::Struct(dynamic_struct),
+                );
+                let ReflectMut::Enum(reflect_enum) = reflect.reflect_mut() else {
+                    return Err(DynamicBsnLoaderError::UnknownType(
+                        template_type_registration
+                            .type_info()
+                            .type_path()
+                            .to_owned(),
+                    ));
+                };
+                reflect_enum.apply(&dynamic_enum);
+                Ok(reflect.into_partial_reflect())
             }
 
             BsnExpr::NamedTuple(ref named_tuple) => {
