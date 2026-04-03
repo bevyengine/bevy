@@ -232,7 +232,20 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
-    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
+    let on_add = if let Some(setup) = attrs.setup {
+        let on_add = on_add_path.map(|meta| quote! { #meta(world, ctx) });
+        let on_add = quote! {
+            fn on_add() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
+                ::core::option::Option::Some(|mut world, ctx| {
+                    world.commands().run_system_cached_with(#setup, ctx.entity);
+                    #on_add
+                })
+            }
+        };
+        Some(on_add)
+    } else {
+        hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path)
+    };
     let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
     let on_discard =
         hook_register_function_call(&bevy_ecs_path, quote! {on_discard}, on_discard_path);
@@ -457,6 +470,7 @@ pub(crate) fn map_entities(
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
+pub const SETUP: &str = "setup";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
 
@@ -583,6 +597,7 @@ impl Parse for MapEntitiesAttributeKind {
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
+    setup: Option<ExprPath>,
     on_add: Option<HookAttributeKind>,
     on_insert: Option<HookAttributeKind>,
     on_discard: Option<HookAttributeKind>,
@@ -629,6 +644,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_remove: None,
         on_despawn: None,
         requires: None,
+        setup: None,
         relationship: None,
         relationship_target: None,
         immutable: false,
@@ -705,6 +721,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             } else {
                 attrs.requires = Some(punctuated);
             }
+        } else if attr.path().is_ident(SETUP) {
+            let expr = attr.parse_args::<ExprPath>()?;
+            attrs.setup = Some(expr);
         } else if attr.path().is_ident(RELATIONSHIP) {
             let relationship = attr.parse_args::<Relationship>()?;
             attrs.relationship = Some(relationship);
