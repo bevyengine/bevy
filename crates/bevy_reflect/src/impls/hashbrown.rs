@@ -24,7 +24,7 @@ impl_type_path!(::hashbrown::hash_set::HashSet<V, S>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::hashbrown::hash_set::HashSet<V, S>;
     <
-        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration + MaybeTyped,
         S: TypePath + BuildHasher + Default + Send + Sync
     >
 );

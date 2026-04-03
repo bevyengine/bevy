@@ -281,7 +281,7 @@ impl_type_path!(::indexmap::IndexMap<K, V, S>);
 
 impl<T, S> Set for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
@@ -345,11 +345,11 @@ where
 
 impl<T, S> PartialReflect for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
+        Some(<Self>::type_info())
     }
 
     #[inline]
@@ -417,7 +417,7 @@ where
 
 impl<T, S> Reflect for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -452,7 +452,7 @@ where
 
 impl<T, S> Typed for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn type_info() -> &'static TypeInfo {
@@ -468,7 +468,7 @@ where
 
 impl<T, S> FromReflect for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
@@ -486,7 +486,7 @@ where
 
 impl<T, S> GetTypeRegistration for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash + Typed,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_type_registration() -> TypeRegistration {
