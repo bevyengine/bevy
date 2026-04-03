@@ -137,7 +137,6 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        FocusIndicator,
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
             font_size: FontSize::Px(14.0),

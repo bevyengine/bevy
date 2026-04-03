@@ -18,12 +18,12 @@ use crate::{theme::UiTheme, tokens};
 
 /// A marker component which indicates that this entity should display a visible focus outline
 /// when either it, or its ancestor, are focused. Insert this into a widget on the entity that
-/// you wisth to display a focus outline.
+/// you wish to display a focus outline.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FocusIndicator;
 
-fn focus_system(
+fn manage_focus_indicators(
     mut commands: Commands,
     input_focus: Res<InputFocus>,
     input_focus_visible: Res<InputFocusVisible>,
@@ -31,16 +31,17 @@ fn focus_system(
     q_ancestors: Query<&ChildOf>,
     theme: Res<UiTheme>,
 ) {
-    if !input_focus.is_changed() && !input_focus_visible.is_changed() {
+    if !input_focus.is_changed() && !input_focus_visible.is_changed() && !theme.is_changed() {
         return;
     }
 
     for entity in q_indicators.iter() {
-        let is_focused =
-            input_focus_visible.0 && input_focus.0.is_some() && Some(entity) == input_focus.0
+        let is_focused = input_focus_visible.0
+            && input_focus.0.is_some()
+            && (Some(entity) == input_focus.0
                 || q_ancestors
                     .iter_ancestors(entity)
-                    .any(|ancestor| Some(ancestor) == input_focus.0);
+                    .any(|ancestor| Some(ancestor) == input_focus.0));
         if !is_focused {
             commands.entity(entity).remove::<Outline>();
         } else {
@@ -58,6 +59,9 @@ pub struct FocusOutlinesPlugin;
 
 impl Plugin for FocusOutlinesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(PostUpdate, focus_system.in_set(UiSystems::Content));
+        app.add_systems(
+            PostUpdate,
+            manage_focus_indicators.in_set(UiSystems::Content),
+        );
     }
 }
