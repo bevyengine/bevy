@@ -113,19 +113,21 @@ pub struct Bloom {
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 
-    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-    /// Only tweak if you are seeing visual artifacts.
-    pub max_mip_dimension: u32,
+    /// The resolution scale for the largest mipchain texture used in downscaling/upscaling.
+    /// Lower values can improve performance but can cause visual artifacts.
+    pub mip_resolution_scale: f32,
+
+    /// Limits the maximum number of mipmaps used in downscaling/upscaling.
+    /// Lower values reduce downscaling/upscaling render passes which can greatly improve performance, but lose some low frequency contributions.
+    pub max_mip_count: u32,
 
     /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
     /// anamorphic blur by using a large x-value. For large values, you may need to increase
-    /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
+    /// [`Bloom::mip_resolution_scale`] to reduce sampling artifacts.
     pub scale: Vec2,
 }
 
 impl Bloom {
-    const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
-
     /// The default bloom preset.
     ///
     /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
@@ -139,14 +141,15 @@ impl Bloom {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
-        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        mip_resolution_scale: 0.5,
+        max_mip_count: u32::MAX,
         scale: Vec2::ONE,
     };
 
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
     pub const ANAMORPHIC: Self = Self {
         // The larger scale necessitates a larger resolution to reduce artifacts:
-        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
+        mip_resolution_scale: 1.0,
         scale: Vec2::new(4.0, 1.0),
         ..Self::NATURAL
     };
@@ -162,7 +165,8 @@ impl Bloom {
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
-        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        mip_resolution_scale: 0.5,
+        max_mip_count: u32::MAX,
         scale: Vec2::ONE,
     };
 
@@ -177,7 +181,8 @@ impl Bloom {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
-        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        mip_resolution_scale: 0.5,
+        max_mip_count: u32::MAX,
         scale: Vec2::ONE,
     };
 }
