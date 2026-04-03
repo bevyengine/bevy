@@ -1,6 +1,6 @@
 ---
 title: "The old `bevy_scene` is now `bevy_world_serialization"
-pull_requests: [23619]
+pull_requests: [23619, 23630]
 ---
 
 In **Bevy 0.19** we landed a subset of Bevy's Next Generation Scene system (often known as BSN), which now lives in the `bevy_scene` / `bevy::scene` crate. However the old `bevy_scene` system still needs to stick around for a bit longer, as it provides some features that Bevy's Next Generation Scene system doesn't (yet!):
