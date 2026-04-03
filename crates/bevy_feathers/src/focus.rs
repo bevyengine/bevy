@@ -4,13 +4,15 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    hierarchy::ChildOf,
+    hierarchy::Children,
     query::With,
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::{InputFocus, InputFocusVisible};
+use bevy_log::info;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{Outline, UiSystems, Val};
 
@@ -28,28 +30,41 @@ fn manage_focus_indicators(
     input_focus: Res<InputFocus>,
     input_focus_visible: Res<InputFocusVisible>,
     q_indicators: Query<Entity, With<FocusIndicator>>,
-    q_ancestors: Query<&ChildOf>,
+    q_children: Query<&Children>,
     theme: Res<UiTheme>,
 ) {
     if !input_focus.is_changed() && !input_focus_visible.is_changed() && !theme.is_changed() {
         return;
     }
 
-    for entity in q_indicators.iter() {
-        let is_focused = input_focus_visible.0
-            && input_focus.0.is_some()
-            && (Some(entity) == input_focus.0
-                || q_ancestors
-                    .iter_ancestors(entity)
-                    .any(|ancestor| Some(ancestor) == input_focus.0));
-        if !is_focused {
-            commands.entity(entity).remove::<Outline>();
-        } else {
-            commands.entity(entity).insert(Outline {
+    let mut visited = HashSet::<Entity>::with_capacity(q_indicators.count());
+    if let Some(focus) = input_focus.0
+        && input_focus_visible.0
+    {
+        if q_indicators.contains(focus) {
+            commands.entity(focus).insert(Outline {
                 color: theme.color(&tokens::FOCUS_RING),
                 width: Val::Px(2.0),
                 offset: Val::Px(2.0),
             });
+            visited.insert(focus);
+        }
+
+        for child in q_children.iter_descendants(focus) {
+            if q_indicators.contains(child) {
+                commands.entity(child).insert(Outline {
+                    color: theme.color(&tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+                visited.insert(child);
+            }
+        }
+    }
+
+    for entity in q_indicators.iter() {
+        if !visited.contains(&entity) {
+            commands.entity(entity).remove::<Outline>();
         }
     }
 }
