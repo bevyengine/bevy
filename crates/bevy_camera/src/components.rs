@@ -87,3 +87,16 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 #[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub struct Hdr;
+
+/// Color space for alpha compositing. Affects how overlapping semi-transparent layers blend.
+#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug, Default)]
+#[reflect(Component, PartialEq, Hash, Debug, Default)]
+pub enum CompositingSpace {
+    /// Gamma-encoded blending. Matches most image editors. Uses default sRGB target.
+    #[default]
+    Srgb,
+    /// Linear light blending. Physically correct. Requires [`Hdr`].
+    Linear,
+    /// Perceptually uniform blending. Often smoother gradients. Requires [`Hdr`].
+    Oklab,
+}

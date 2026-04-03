@@ -10,7 +10,10 @@ use bevy_ecs::prelude::*;
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn exit_on_all_closed(mut app_exit_writer: MessageWriter<AppExit>, windows: Query<&Window>) {
+pub fn exit_on_all_closed(
+    mut app_exit_writer: MessageWriter<AppExit>,
+    windows: Query<(), With<Window>>,
+) {
     if windows.is_empty() {
         log::info!("No windows are open, exiting");
         app_exit_writer.write(AppExit::Success);

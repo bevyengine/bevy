@@ -92,8 +92,8 @@ use crate::{
 /// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured via
-/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
+/// The fallback error handler panics. It can be configured via
+/// the [`FallbackErrorHandler`](crate::error::FallbackErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -594,7 +594,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// If the [`Command`] returns a [`Result`],
-    /// it will be handled using the [default error handler](crate::error::DefaultErrorHandler).
+    /// it will be handled using the [fallback error handler](crate::error::FallbackErrorHandler).
     ///
     /// To use a custom error handler, see [`Commands::queue_handled`].
     ///
@@ -646,7 +646,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If the [`Command`] returns a [`Result`],
     /// the given `error_handler` will be used to handle error cases.
     ///
-    /// To implicitly use the default error handler, see [`Commands::queue`].
+    /// To implicitly use the fallback error handler, see [`Commands::queue`].
     ///
     /// The command can be:
     /// - A custom struct that implements [`Command`].
@@ -738,7 +738,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
+    /// which will be handled by the [fallback error handler](crate::error::FallbackErrorHandler).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -769,7 +769,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
+    /// which will be handled by the [fallback error handler](crate::error::FallbackErrorHandler).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -1274,8 +1274,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured via
-/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
+/// The fallback error handler panics. It can be configured via
+/// the [`FallbackErrorHandler`](crate::error::FallbackErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].
@@ -1883,7 +1883,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue,
     /// which will get executed for the current [`Entity`].
     ///
-    /// The [default error handler](crate::error::DefaultErrorHandler)
+    /// The [fallback error handler](crate::error::FallbackErrorHandler)
     /// will be used to handle error cases.
     /// Every [`EntityCommand`] checks whether the entity exists at the time of execution
     /// and returns an error if it does not.
@@ -1923,7 +1923,7 @@ impl<'a> EntityCommands<'a> {
     /// Every [`EntityCommand`] checks whether the entity exists at the time of execution
     /// and returns an error if it does not.
     ///
-    /// To implicitly use the default error handler, see [`EntityCommands::queue`].
+    /// To implicitly use the fallback error handler, see [`EntityCommands::queue`].
     ///
     /// The command can be:
     /// - A custom struct that implements [`EntityCommand`].

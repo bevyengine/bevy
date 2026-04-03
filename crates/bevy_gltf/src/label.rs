@@ -9,7 +9,7 @@ use bevy_asset::AssetPath;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_asset::prelude::*;
-/// # use bevy_scene::prelude::*;
+/// # use bevy_ecs_serialization::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
@@ -22,7 +22,7 @@ use bevy_asset::AssetPath;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_asset::prelude::*;
-/// # use bevy_scene::prelude::*;
+/// # use bevy_ecs_serialization::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
@@ -31,7 +31,7 @@ use bevy_asset::AssetPath;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GltfAssetLabel {
-    /// `Scene{}`: glTF Scene as a Bevy [`Scene`](bevy_scene::Scene)
+    /// `Scene{}`: glTF Scene as a Bevy [`Scene`](bevy_ecs_serialization::Scene)
     Scene(usize),
     /// `Node{}`: glTF Node as a [`GltfNode`](crate::GltfNode)
     Node(usize),
@@ -102,7 +102,7 @@ impl GltfAssetLabel {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::prelude::*;
-    /// # use bevy_scene::prelude::*;
+    /// # use bevy_ecs_serialization::prelude::*;
     /// # use bevy_gltf::prelude::*;
     ///
     /// fn load_gltf_scene(asset_server: Res<AssetServer>) {

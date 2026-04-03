@@ -287,6 +287,7 @@ Example | Description
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
+[Play Sound Effect](../examples/audio/play_sound_effect.rs) | Shows how to play a sound effect in response to an event
 [Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
@@ -605,6 +606,7 @@ Example | Description
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
