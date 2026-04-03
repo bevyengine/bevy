@@ -29,10 +29,44 @@ fn calculate_1d_overlap(
     }
 }
 
-/// Calculate the overlap factor between two nodes in the perpendicular axis.
+/// Calculate 2D overlap of the 2D-candidate within a quadrant of the coordinate plane.
 ///
 /// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
-/// For diagonal directions, always returns 1.0.
+/// The overlap returned is the proportion of the candidate's area that lies within
+/// the quadrant, defined by `x_clamp` and `y_clamp`, by the candidate's original area.
+/// If the candidate's original area is <= 0.0, 0.0 (no overlap) is returned.
+///
+/// The x and y clamps must be unbounded, meaning that the minimum clamp must be `f32::NEG_INFINITY`
+/// or the maximum clamp must be `f32::INFINITY`. The clamps are specified in UI coordinates, i.e.
+/// y increases downwards. For example, an `x_clamp` between `30.` and `f32::INFINITY` alongside
+/// a `y_clamp` between `f32::NEG_INFINITY` and `20.` specifies a quadrant to the North
+/// and East with its center at `Vec2::new(30., 20.)`.
+fn calculate_unbounded_2d_overlap(
+    x_clamp: impl Fn(f32) -> f32,
+    y_clamp: impl Fn(f32) -> f32,
+    candidate_pos: Vec2,
+    candidate_size: Vec2,
+) -> f32 {
+    let area = candidate_size.x * candidate_size.y;
+    if area <= 0.0 {
+        return 0.0;
+    }
+    let cand_min = candidate_pos - candidate_size / 2.0;
+    let cand_max = candidate_pos + candidate_size / 2.0;
+
+    let cand_clamped_size = Vec2::new(
+        x_clamp(cand_max.x) - x_clamp(cand_min.x),
+        y_clamp(cand_max.y) - y_clamp(cand_min.y),
+    );
+    let clamped_area = (cand_clamped_size.x * cand_clamped_size.y).max(0.0);
+
+    // Using area as the denominator here only makes sense because the x and y clamps are unbounded
+    clamped_area / area
+}
+
+/// Calculate the overlap factor between two nodes.
+///
+/// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
 fn calculate_overlap(
     origin_pos: Vec2,
     origin_size: Vec2,
@@ -59,8 +93,50 @@ fn calculate_overlap(
                 candidate_size.y,
             )
         }
-        // Diagonal directions don't require strict overlap
-        _ => 1.0,
+        CompassOctant::NorthEast => {
+            // Check for overlap in the NorthEast quadrant with its center at the origin's NE Corner
+            let origin_pos_north_east = origin_pos + (origin_size / 2.) * Vec2::new(1., -1.);
+
+            calculate_unbounded_2d_overlap(
+                |x| x.clamp(origin_pos_north_east.x, f32::INFINITY),
+                |y| y.clamp(f32::NEG_INFINITY, origin_pos_north_east.y),
+                candidate_pos,
+                candidate_size,
+            )
+        }
+        CompassOctant::SouthEast => {
+            // Check for overlap in the SouthEast quadrant with its center at the origin's SE Corner
+            let origin_pos_south_east = origin_pos + (origin_size / 2.);
+
+            calculate_unbounded_2d_overlap(
+                |x| x.clamp(origin_pos_south_east.x, f32::INFINITY),
+                |y| y.clamp(origin_pos_south_east.y, f32::INFINITY),
+                candidate_pos,
+                candidate_size,
+            )
+        }
+        CompassOctant::SouthWest => {
+            // Check for overlap in the SouthWest quadrant with its center at the origin's SW Corner
+            let origin_pos_south_west = origin_pos + (origin_size / 2.) * Vec2::new(-1., 1.);
+
+            calculate_unbounded_2d_overlap(
+                |x| x.clamp(f32::NEG_INFINITY, origin_pos_south_west.x),
+                |y| y.clamp(origin_pos_south_west.y, f32::INFINITY),
+                candidate_pos,
+                candidate_size,
+            )
+        }
+        CompassOctant::NorthWest => {
+            // Check for overlap in the NorthWest quadrant with its center at the origin's NW Corner
+            let origin_pos_north_west = origin_pos - (origin_size / 2.);
+
+            calculate_unbounded_2d_overlap(
+                |x| x.clamp(f32::NEG_INFINITY, origin_pos_north_west.x),
+                |y| y.clamp(f32::NEG_INFINITY, origin_pos_north_west.y),
+                candidate_pos,
+                candidate_size,
+            )
+        }
     }
 }
 
@@ -298,5 +374,45 @@ mod tests {
             &config,
         );
         assert!(close_score < far_score);
+    }
+
+    #[test]
+    fn test_calculate_overlap_diagonal() {
+        let origin_pos = Vec2::new(100.0, 100.0);
+        let origin_size = Vec2::new(50.0, 50.0);
+
+        // Fully overlapping candidate to the south east
+        let south_east_pos = Vec2::new(150.0, 150.0);
+        let south_east_size = Vec2::new(30.0, 30.0);
+        let overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            south_east_pos,
+            south_east_size,
+            CompassOctant::SouthEast,
+        );
+        assert_eq!(overlap, 1.0); // Full overlap
+
+        // Partially overlapping node to the south east
+        let south_east_pos = Vec2::new(120.0, 150.0);
+        let partial_overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            south_east_pos,
+            south_east_size,
+            CompassOctant::SouthEast,
+        );
+        assert!(partial_overlap > 0.0 && partial_overlap < 1.0);
+
+        // No overlap
+        let south_east_pos = Vec2::new(110.0, 150.0);
+        let no_overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            south_east_pos,
+            south_east_size,
+            CompassOctant::SouthEast,
+        );
+        assert_eq!(no_overlap, 0.0);
     }
 }
