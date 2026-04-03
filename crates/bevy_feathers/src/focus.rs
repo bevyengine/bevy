@@ -41,23 +41,17 @@ fn manage_focus_indicators(
     if let Some(focus) = input_focus.0
         && input_focus_visible.0
     {
-        if q_indicators.contains(focus) {
-            commands.entity(focus).insert(Outline {
-                color: theme.color(&tokens::FOCUS_RING),
-                width: Val::Px(2.0),
-                offset: Val::Px(2.0),
-            });
-            visited.insert(focus);
-        }
-
-        for child in q_children.iter_descendants(focus) {
-            if q_indicators.contains(child) {
-                commands.entity(child).insert(Outline {
+        for entity in q_children
+            .iter_descendants(focus)
+            .chain(core::iter::once(focus))
+        {
+            if q_indicators.contains(entity) {
+                commands.entity(entity).insert(Outline {
                     color: theme.color(&tokens::FOCUS_RING),
                     width: Val::Px(2.0),
                     offset: Val::Px(2.0),
                 });
-                visited.insert(child);
+                visited.insert(entity);
             }
         }
     }
