@@ -9,22 +9,15 @@ use bevy::input::keyboard::Key;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-    InputDispatchPlugin, InputFocus,
+    InputFocus,
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
-use bevy::ui_widgets::EditableTextInputPlugin;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins((
-            // `EditableTextInputPlugin` is also part of `UiWidgetsPlugins`, but we only need `EditableText` for this example
-            EditableTextInputPlugin,
-            // Input focus is required to direct keyboard input to the correct `EditableText`
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        // `EditableTextInputPlugin` is part of `DefaultPlugins`
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

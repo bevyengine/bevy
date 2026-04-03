@@ -23,11 +23,10 @@ use bevy_app::{
 };
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
-use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
+use bevy_input_focus::tab_navigation::TabNavigationPlugin;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
-use bevy_ui_widgets::UiWidgetsPlugins;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
@@ -41,6 +40,7 @@ pub mod constants;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod focus;
 pub mod font_styles;
 pub mod palette;
 pub mod rounded_corners;
@@ -71,6 +71,7 @@ impl Plugin for FeathersPlugin {
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
+            focus::FocusOutlinesPlugin,
         ));
 
         // This needs to run in UiSystems::Propagate so the fonts are up-to-date for `measure_text_system`
@@ -100,8 +101,6 @@ pub struct FeathersPlugins;
 impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add_group(UiWidgetsPlugins)
-            .add(InputDispatchPlugin)
             .add(TabNavigationPlugin)
             .add(FeathersPlugin)
     }
