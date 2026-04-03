@@ -111,10 +111,10 @@ struct ResourceA {
 /// (and demonstrating how to serialize to disk).
 ///
 /// The initial world file will be loaded below and not change when the world is saved.
-const WORLD_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+const WORLD_FILE_PATH: &str = "serialized_worlds/load_scene_example.scn.ron";
 
 /// The new, updated world data will be saved here so that you can see the changes.
-const NEW_WORLD_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
+const NEW_WORLD_FILE_PATH: &str = "serialized_worlds/load_scene_example-new.scn.ron";
 
 /// Loads a world from an asset file and spawns it in the current world.
 ///
