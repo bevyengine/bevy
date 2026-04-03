@@ -21,7 +21,7 @@ fn bsn_token_stream<T: BsnTokenStream>(input: TokenStream) -> TokenStream {
     let scene = parse_macro_input!(input as T);
     let (bevy_scene, bevy_ecs) = BevyManifest::shared(|manifest| {
         (
-            manifest.get_path("bevy_scene2"),
+            manifest.get_path("bevy_scene"),
             manifest.get_path("bevy_ecs"),
         )
     });
