@@ -3,13 +3,17 @@
 //! Includes:
 //!
 //! - Chromatic Aberration
+//! - Lens Distortion
 //! - Vignette
 
 mod chromatic_aberration;
+mod lens_distortion;
 mod vignette;
 
 use bevy_color::ColorToComponents;
+use bevy_math::Vec2;
 pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
+pub use lens_distortion::{LensDistortion, LensDistortionUniform};
 pub use vignette::{Vignette, VignetteUniform};
 
 use crate::effect_stack::chromatic_aberration::{
@@ -64,6 +68,7 @@ use bevy_core_pipeline::{
 /// Includes:
 ///
 /// - Chromatic Aberration
+/// - Lens Distortion
 /// - Vignette
 #[derive(Default)]
 pub struct EffectStackPlugin;
@@ -106,6 +111,7 @@ pub struct PostProcessingPipelineId(CachedRenderPipelineId);
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
     vignette: DynamicUniformBuffer<VignetteUniform>,
+    lens_distortion: DynamicUniformBuffer<LensDistortionUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
@@ -115,11 +121,13 @@ pub struct PostProcessingUniformBuffers {
 pub struct PostProcessingUniformBufferOffsets {
     chromatic_aberration: u32,
     vignette: u32,
+    lens_distortion: u32,
 }
 
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "chromatic_aberration.wgsl");
+        load_shader_library!(app, "lens_distortion.wgsl");
         load_shader_library!(app, "vignette.wgsl");
 
         embedded_asset!(app, "post_process.wgsl");
@@ -139,6 +147,7 @@ impl Plugin for EffectStackPlugin {
         ));
 
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default())
+            .add_plugins(ExtractComponentPlugin::<LensDistortion>::default())
             .add_plugins(ExtractComponentPlugin::<Vignette>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -190,6 +199,8 @@ pub fn init_post_processing_pipeline(
                 uniform_buffer::<ChromaticAberrationUniform>(true),
                 // Vignette settings:
                 uniform_buffer::<VignetteUniform>(true),
+                // Lens Distortion settings;
+                uniform_buffer::<LensDistortionUniform>(true),
             ),
         ),
     );
@@ -246,7 +257,7 @@ pub(crate) fn post_processing(
     view: ViewQuery<(
         &ViewTarget,
         &PostProcessingPipelineId,
-        AnyOf<(&ChromaticAberration, &Vignette)>,
+        AnyOf<(&ChromaticAberration, &Vignette, &LensDistortion)>,
         &PostProcessingUniformBufferOffsets,
     )>,
     pipeline_cache: Res<PipelineCache>,
@@ -259,9 +270,12 @@ pub(crate) fn post_processing(
     let (view_target, pipeline_id, post_effects, post_processing_uniform_buffer_offsets) =
         view.into_inner();
 
-    let (maybe_chromatic_aberration, maybe_vignette) = post_effects;
+    let (maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) = post_effects;
 
-    if maybe_chromatic_aberration.is_none() && maybe_vignette.is_none() {
+    if maybe_chromatic_aberration.is_none()
+        && maybe_vignette.is_none()
+        && maybe_lens_distortion.is_none()
+    {
         return;
     }
 
@@ -288,6 +302,12 @@ pub(crate) fn post_processing(
     };
 
     let Some(vignette_uniform_buffer_binding) = post_processing_uniform_buffers.vignette.binding()
+    else {
+        return;
+    };
+
+    let Some(lens_distortion_uniform_buffer_binding) =
+        post_processing_uniform_buffers.lens_distortion.binding()
     else {
         return;
     };
@@ -319,6 +339,7 @@ pub(crate) fn post_processing(
             &post_processing_pipeline.chromatic_aberration_lut_sampler,
             chromatic_aberration_uniform_buffer_binding,
             vignette_uniform_buffer_binding,
+            lens_distortion_uniform_buffer_binding,
         )),
     );
 
@@ -335,6 +356,7 @@ pub(crate) fn post_processing(
         &[
             post_processing_uniform_buffer_offsets.chromatic_aberration,
             post_processing_uniform_buffer_offsets.vignette,
+            post_processing_uniform_buffer_offsets.lens_distortion,
         ],
     );
     render_pass.draw(0..3, 0..1);
@@ -348,7 +370,14 @@ pub fn prepare_post_processing_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedView), Or<(With<ChromaticAberration>, With<Vignette>)>>,
+    views: Query<
+        (Entity, &ExtractedView),
+        Or<(
+            With<ChromaticAberration>,
+            With<Vignette>,
+            With<LensDistortion>,
+        )>,
+    >,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
@@ -377,15 +406,26 @@ pub fn prepare_post_processing_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut views: Query<
-        (Entity, Option<&ChromaticAberration>, Option<&Vignette>),
-        Or<(With<ChromaticAberration>, With<Vignette>)>,
+        (
+            Entity,
+            Option<&ChromaticAberration>,
+            Option<&Vignette>,
+            Option<&LensDistortion>,
+        ),
+        Or<(
+            With<ChromaticAberration>,
+            With<Vignette>,
+            With<LensDistortion>,
+        )>,
     >,
 ) {
     post_processing_uniform_buffers.chromatic_aberration.clear();
     post_processing_uniform_buffers.vignette.clear();
 
     // Gather up all the postprocessing settings.
-    for (view_entity, maybe_chromatic_aberration, maybe_vignette) in views.iter_mut() {
+    for (view_entity, maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) in
+        views.iter_mut()
+    {
         let chromatic_aberration_uniform_buffer_offset =
             if let Some(chromatic_aberration) = maybe_chromatic_aberration {
                 post_processing_uniform_buffers.chromatic_aberration.push(
@@ -421,11 +461,30 @@ pub fn prepare_post_processing_uniforms(
                 .push(&VignetteUniform::default())
         };
 
+        let lens_distortion_uniform_buffer_offset =
+            if let Some(lens_distortion) = maybe_lens_distortion {
+                post_processing_uniform_buffers
+                    .lens_distortion
+                    .push(&LensDistortionUniform {
+                        intensity: lens_distortion.intensity,
+                        scale: lens_distortion.scale.max(1e-4),
+                        multiplier: lens_distortion.multiplier.max(Vec2::ZERO),
+                        center: lens_distortion.center.clamp(Vec2::ZERO, Vec2::ONE),
+                        edge_curvature: lens_distortion.edge_curvature,
+                        unused: 0,
+                    })
+            } else {
+                post_processing_uniform_buffers
+                    .lens_distortion
+                    .push(&LensDistortionUniform::default())
+            };
+
         commands
             .entity(view_entity)
             .insert(PostProcessingUniformBufferOffsets {
                 chromatic_aberration: chromatic_aberration_uniform_buffer_offset,
                 vignette: vignette_uniform_buffer_offset,
+                lens_distortion: lens_distortion_uniform_buffer_offset,
             });
     }
 
@@ -435,5 +494,8 @@ pub fn prepare_post_processing_uniforms(
         .write_buffer(&render_device, &render_queue);
     post_processing_uniform_buffers
         .vignette
+        .write_buffer(&render_device, &render_queue);
+    post_processing_uniform_buffers
+        .lens_distortion
         .write_buffer(&render_device, &render_queue);
 }
