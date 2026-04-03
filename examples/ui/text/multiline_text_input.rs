@@ -1,21 +1,14 @@
 //! Demonstrates a single, minimal multiline [`EditableText`] widget.
 
 use bevy::color::palettes::css::{DARK_SLATE_GRAY, YELLOW};
-use bevy::input_focus::{AutoFocus, InputDispatchPlugin};
+use bevy::input_focus::AutoFocus;
 use bevy::prelude::*;
-use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
-use bevy::ui_widgets::EditableTextInputPlugin;
+use bevy::text::{EditableText, TextCursorStyle};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((
-            EditableTextInputPlugin,
-            // Required so keyboard input is sent to the focused `EditableText`.
-            InputDispatchPlugin,
-        ))
         .add_systems(Startup, setup)
-        .add_systems(Update, report_bounds)
         .run();
 }
 
@@ -58,20 +51,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 AutoFocus,
             ));
         });
-}
-
-fn report_bounds(
-    mut font_cx: ResMut<FontCx>,
-    mut layout_cx: ResMut<LayoutCx>,
-    mut query: Query<(&mut EditableText, &ComputedNode), Changed<EditableText>>,
-) {
-    for (mut editable_text, node) in query.iter_mut() {
-        let mut driver = editable_text
-            .bypass_change_detection()
-            .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
-        let w = driver.layout().full_width();
-        println!("node width = {:?}", node.size.x);
-        println!("layout width = {:?}", w);
-    }
 }
