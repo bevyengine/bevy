@@ -6,11 +6,16 @@ use crate::{
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    sync::Arc,
+    vec::Vec,
+};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::trace;
 
 use super::ErasedAssetReader;
@@ -41,6 +46,10 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        self.reader.root_path()
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");

@@ -1,8 +1,11 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use alloc::{boxed::Box, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
 use bevy_platform::{collections::HashMap, sync::RwLock};
-use std::{path::Path, sync::PoisonError};
+use std::{
+    path::{Path, PathBuf},
+    sync::PoisonError,
+};
 
 /// A "gated" reader that will prevent asset reads from returning until
 /// a given path has been "opened" using [`GateOpener`].
@@ -55,6 +58,10 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        self.reader.root_path()
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
