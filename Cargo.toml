@@ -3043,6 +3043,17 @@ description = "Demonstrates how to use BSN to compose scenes"
 category = "Scene"
 wasm = true
 
+[[example]]
+name = "bsn_writer"
+path = "examples/scene/bsn_writer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bsn_writer]
+name = "BSN Writer"
+description = "Demonstrates serializing a scene to BSN text"
+category = "Scene"
+wasm = false
+
 # Shaders
 [[package.metadata.example_category]]
 name = "Shaders"

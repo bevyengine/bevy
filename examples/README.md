@@ -469,6 +469,7 @@ Example | Description
 Example | Description
 --- | ---
 [BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
+[BSN Writer](../examples/scene/bsn_writer.rs) | Demonstrates serializing a scene to BSN text
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 
 ### Shaders

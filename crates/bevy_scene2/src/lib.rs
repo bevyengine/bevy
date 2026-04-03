@@ -512,6 +512,7 @@ pub mod prelude {
 }
 
 /// Functionality used by the [`bsn!`] macro.
+pub mod dynamic_bsn_writer;
 pub mod macro_utils;
 
 extern crate alloc;
