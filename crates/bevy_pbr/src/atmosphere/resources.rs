@@ -535,11 +535,7 @@ impl AtmosphereTransformsOffset {
 
 pub(super) fn prepare_atmosphere_transforms(
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &GpuAtmosphere,
-        ),
+        (Entity, &ExtractedView, &GpuAtmosphere),
         (With<ExtractedAtmosphere>, With<Camera3d>),
     >,
     render_device: Res<RenderDevice>,
