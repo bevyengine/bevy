@@ -1767,8 +1767,8 @@ mod outer_color {
                             },
                             BorderColor::all(bevy::color::palettes::css::RED),
                         ))
-                        .insert_if(BackgroundColor(Color::WHITE), || !invert)
-                        .insert_if(OuterColor(Color::WHITE), || invert);
+                        .insert_if(BackgroundColor(Color::WHITE), !invert)
+                        .insert_if(OuterColor(Color::WHITE), invert);
                 }
             });
     }
