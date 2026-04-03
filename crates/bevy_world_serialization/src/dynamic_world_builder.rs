@@ -84,7 +84,7 @@ impl<'w> DynamicWorldBuilder<'w> {
     /// The `type_registry` provides type information for extracting components and resources
     /// through reflection. If the `world` is the "real" world (e.g., not a world in a
     /// [`WorldAsset`](crate::WorldAsset)), the `world` will contain the registry, which can be acquired using
-    /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "scene worlds", you
+    /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "serialized worlds", you
     /// will need to get the type registry from the main world (you can clone the `AppTypeRegistry`
     /// out of the world to avoid borrowing the world itself).
     pub fn from_world(world: &'w World, type_registry: &'w TypeRegistry) -> Self {

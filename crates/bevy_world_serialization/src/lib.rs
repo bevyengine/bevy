@@ -63,7 +63,7 @@ impl Plugin for WorldSerializationPlugin {
             .init_resource::<WorldInstanceSpawner>()
             .add_systems(
                 SpawnScene,
-                (scene_spawner, scene_spawner_system)
+                (world_instance_spawner, world_instance_spawner_system)
                     .chain()
                     .in_set(SceneSpawnerSystems::WorldInstanceSpawn),
             );
