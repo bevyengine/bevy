@@ -461,6 +461,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Automated Test](../examples/remote/automated_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
