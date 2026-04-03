@@ -4814,6 +4814,30 @@ category = "Remote Protocol"
 wasm = false
 
 [[example]]
+name = "app_under_test"
+path = "examples/remote/app_under_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.app_under_test]
+name = "App Under Test"
+description = "A Bevy app that you can connect to with the BRP and control"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "automated_test"
+path = "examples/remote/automated_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.automated_test]
+name = "Automated Test"
+description = "Connects to a running Bevy app via BRP, finds a button, and clicks it"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
 name = "anisotropy"
 path = "examples/3d/anisotropy.rs"
 doc-scrape-examples = true
