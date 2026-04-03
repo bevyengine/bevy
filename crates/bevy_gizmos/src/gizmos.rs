@@ -102,8 +102,15 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 /// cleared each time the [`RunFixedMainLoop`](bevy_app::RunFixedMainLoop)
 /// schedule is run.
 ///
-/// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule
-/// to ensure they are drawn.
+/// Gizmos should be spawned before [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) runs in
+/// either the [`PostUpdate`](bevy_app::PostUpdate) or the [`Last`](bevy_app::Last) schedule,
+/// depending on how the [`GizmoConfigGroup`] is configured. The [`DefaultGizmoConfigGroup`]
+/// runs [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) in
+/// [`PostUpdate`](bevy_app::PostUpdate).
+///
+/// If same frame rendering of gizmos is possible and desired, the [`GizmoConfigGroup`] should be
+/// configured to run its [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) within
+/// [`PostUpdate`](bevy_app::PostUpdate).
 ///
 /// To set up your own clearing context (useful for custom scheduling similar
 /// to [`FixedMain`](bevy_app::FixedMain)):
@@ -133,8 +140,9 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 ///            // If not running multiple times, put this with [`end_gizmo_context`].
 ///            .add_systems(EndOfRun, collect_requested_gizmos::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            // The DefaultGizmoConfigGroup is configured to run GizmoMeshSystems in PostUpdate.
 ///            .add_systems(
-///                Last,
+///                PostUpdate,
 ///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(GizmoMeshSystems),
 ///            );
 ///     }
