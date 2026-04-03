@@ -514,6 +514,22 @@ impl World {
         self.try_register_required_components_with::<T, R>(R::default)
     }
 
+    //work in progress
+    pub fn try_register_required_components_by_id(
+        &mut self,
+        requiree_id: ComponentId,
+        required_id: ComponentId,
+    ) -> Result<(), RequiredComponentsError> {
+        let requiree_component = get_required_components_by_id(self, requiree_id);
+        let required_component = get_required_components_by_id(self, required_id);
+
+        unsafe {
+            self.components.register_required_components::<R>(self, requiree_component, required_component);
+        }
+    }
+}
+
+
     /// Tries to register the given component `R` as a [required component] for `T`.
     ///
     /// When `T` is added to an entity, `R` and its own required components will also be added
