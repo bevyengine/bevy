@@ -89,7 +89,9 @@ impl BsnWriterConfig {
     }
 
     fn should_skip_entity(&self, name: &str) -> bool {
-        self.skip_entity_names.iter().any(|p| name.starts_with(p.as_str()))
+        self.skip_entity_names
+            .iter()
+            .any(|p| name.starts_with(p.as_str()))
     }
 }
 
@@ -123,7 +125,7 @@ pub fn serialize_to_bsn_with_config(world: &World, config: &BsnWriterConfig) -> 
     for &entity in &scene_entities {
         let parent = world
             .get::<ChildOf>(entity)
-            .map(|c| c.parent())
+            .map(bevy_ecs::hierarchy::ChildOf::parent)
             .filter(|p| entity_set.contains(p));
         match parent {
             Some(p) => children_map.entry(p).or_default().push(entity),
@@ -134,10 +136,28 @@ pub fn serialize_to_bsn_with_config(world: &World, config: &BsnWriterConfig) -> 
     let mut out = String::new();
     if roots.len() <= 1 {
         for &root in &roots {
-            emit_entity(world, root, &reg, asset_server, config, &children_map, 0, &mut out);
+            emit_entity(
+                world,
+                root,
+                &reg,
+                asset_server,
+                config,
+                &children_map,
+                0,
+                &mut out,
+            );
         }
     } else {
-        emit_children_block(&roots, world, &reg, asset_server, config, &children_map, 0, &mut out);
+        emit_children_block(
+            &roots,
+            world,
+            &reg,
+            asset_server,
+            config,
+            &children_map,
+            0,
+            &mut out,
+        );
     }
     out
 }
@@ -150,12 +170,14 @@ pub fn serialize_to_bsn_with_config(world: &World, config: &BsnWriterConfig) -> 
 ///
 /// Example output:
 ///
-///     bevy_ecs::hierarchy::Children [
-///         #ground06
-///         bevy_pbr::pbr_material::StandardMaterial {
-///             base_color_texture: "ground06.png",
-///         }
-///     ]
+/// ```text
+/// bevy_ecs::hierarchy::Children [
+///     #ground06
+///     bevy_pbr::pbr_material::StandardMaterial {
+///         base_color_texture: "ground06.png",
+///     }
+/// ]
+/// ```
 pub fn serialize_assets_to_bsn(
     world: &World,
     assets: &[(String, TypeId, bevy_asset::UntypedAssetId)],
@@ -171,14 +193,20 @@ pub fn serialize_assets_to_bsn(
     let mut entries: Vec<(String, String)> = Vec::new();
 
     for (name, type_id, asset_id) in assets {
-        let Some(registration) = reg.get(*type_id) else { continue };
-        let Some(reflect_asset) = registration.data::<bevy_asset::ReflectAsset>() else { continue };
-        let Some(asset_data) = reflect_asset.get(world, *asset_id) else { continue };
+        let Some(registration) = reg.get(*type_id) else {
+            continue;
+        };
+        let Some(reflect_asset) = registration.data::<bevy_asset::ReflectAsset>() else {
+            continue;
+        };
+        let Some(asset_data) = reflect_asset.get(world, *asset_id) else {
+            continue;
+        };
 
         let type_path = registration.type_info().type_path_table().path();
         let default_data = registration
             .data::<bevy_reflect::prelude::ReflectDefault>()
-            .map(|rd| rd.default());
+            .map(bevy_reflect::std_traits::ReflectDefault::default);
 
         let mut entry = String::new();
         emit_name(name, 1, &mut entry);
@@ -218,14 +246,28 @@ fn emit_entity(
 
     let entity_ref = world.entity(entity);
     for component_id in entity_ref.archetype().iter_components() {
-        let Some(info) = world.components().get_info(component_id) else { continue };
-        let Some(type_id) = info.type_id() else { continue };
-        if type_id == TypeId::of::<Name>() { continue; }
-        let Some(registration) = registry.get(type_id) else { continue };
+        let Some(info) = world.components().get_info(component_id) else {
+            continue;
+        };
+        let Some(type_id) = info.type_id() else {
+            continue;
+        };
+        if type_id == TypeId::of::<Name>() {
+            continue;
+        }
+        let Some(registration) = registry.get(type_id) else {
+            continue;
+        };
         let type_path = registration.type_info().type_path_table().path();
-        if config.should_skip_component(type_path) { continue; }
-        let Some(reflect_component) = registration.data::<ReflectComponent>() else { continue };
-        let Some(reflected) = reflect_component.reflect(entity_ref) else { continue };
+        if config.should_skip_component(type_path) {
+            continue;
+        }
+        let Some(reflect_component) = registration.data::<ReflectComponent>() else {
+            continue;
+        };
+        let Some(reflected) = reflect_component.reflect(entity_ref) else {
+            continue;
+        };
 
         // Skip components that are entirely at their default value
         if let Some(rd) = registration.data::<bevy_reflect::prelude::ReflectDefault>() {
@@ -242,7 +284,16 @@ fn emit_entity(
     }
 
     if let Some(children) = children_map.get(&entity) {
-        emit_children_block(children, world, registry, asset_server, config, children_map, indent, out);
+        emit_children_block(
+            children,
+            world,
+            registry,
+            asset_server,
+            config,
+            children_map,
+            indent,
+            out,
+        );
     }
 }
 
@@ -258,7 +309,16 @@ fn emit_children_block(
 ) {
     indent_write(out, indent, "bevy_ecs::hierarchy::Children [\n");
     for (i, &child) in children.iter().enumerate() {
-        emit_entity(world, child, registry, asset_server, config, children_map, indent + 1, out);
+        emit_entity(
+            world,
+            child,
+            registry,
+            asset_server,
+            config,
+            children_map,
+            indent + 1,
+            out,
+        );
         if i + 1 < children.len() {
             indent_write(out, indent + 1, ",\n");
         }
@@ -278,13 +338,17 @@ fn emit_component(
     let default_instance = registry
         .get_with_type_path(type_path)
         .and_then(|r| r.data::<bevy_reflect::prelude::ReflectDefault>())
-        .map(|rd| rd.default());
+        .map(bevy_reflect::std_traits::ReflectDefault::default);
 
     match reflected.reflect_ref() {
         ReflectRef::Struct(s) if s.field_len() > 0 => {
             // Collect non-default fields
             let default_struct = default_instance.as_ref().and_then(|d| {
-                if let ReflectRef::Struct(ds) = d.reflect_ref() { Some(ds) } else { None }
+                if let ReflectRef::Struct(ds) = d.reflect_ref() {
+                    Some(ds)
+                } else {
+                    None
+                }
             });
             let mut fields = Vec::new();
             for i in 0..s.field_len() {
@@ -313,8 +377,17 @@ fn emit_component(
         ReflectRef::TupleStruct(ts) => {
             indent_write(out, indent, &format!("{type_path}("));
             for i in 0..ts.field_len() {
-                if i > 0 { write!(out, ", ").unwrap(); }
-                emit_value(ts.field(i).unwrap(), registry, asset_server, indent, false, out);
+                if i > 0 {
+                    write!(out, ", ").unwrap();
+                }
+                emit_value(
+                    ts.field(i).unwrap(),
+                    registry,
+                    asset_server,
+                    indent,
+                    false,
+                    out,
+                );
             }
             writeln!(out, ")").unwrap();
         }
@@ -360,8 +433,17 @@ fn emit_enum_variant(
         bevy_reflect::enums::VariantType::Tuple => {
             indent_write(out, indent, &format!("{full_path}("));
             for i in 0..e.field_len() {
-                if i > 0 { write!(out, ", ").unwrap(); }
-                emit_value(e.field_at(i).unwrap(), registry, asset_server, indent, false, out);
+                if i > 0 {
+                    write!(out, ", ").unwrap();
+                }
+                emit_value(
+                    e.field_at(i).unwrap(),
+                    registry,
+                    asset_server,
+                    indent,
+                    false,
+                    out,
+                );
             }
             writeln!(out, ")").unwrap();
         }
@@ -378,9 +460,15 @@ fn emit_value(
     out: &mut String,
 ) {
     // Primitives
-    if let Some(v) = value.try_downcast_ref::<f32>() { return write_float(*v as f64, out); }
-    if let Some(v) = value.try_downcast_ref::<f64>() { return write_float(*v, out); }
-    if let Some(v) = value.try_downcast_ref::<bool>() { return write!(out, "{v}").unwrap(); }
+    if let Some(v) = value.try_downcast_ref::<f32>() {
+        return write_float(*v as f64, out);
+    }
+    if let Some(v) = value.try_downcast_ref::<f64>() {
+        return write_float(*v, out);
+    }
+    if let Some(v) = value.try_downcast_ref::<bool>() {
+        return write!(out, "{v}").unwrap();
+    }
     if let Some(v) = value.try_downcast_ref::<String>() {
         return write!(out, "\"{}\"", escape_string(v)).unwrap();
     }
@@ -403,16 +491,32 @@ fn emit_value(
                 writeln!(out, "{tp} {{").unwrap();
                 for i in 0..s.field_len() {
                     indent_write(out, indent + 1, &format!("{}: ", s.name_at(i).unwrap()));
-                    emit_value(s.field_at(i).unwrap(), registry, asset_server, indent + 1, true, out);
+                    emit_value(
+                        s.field_at(i).unwrap(),
+                        registry,
+                        asset_server,
+                        indent + 1,
+                        true,
+                        out,
+                    );
                     writeln!(out, ",").unwrap();
                 }
                 indent_write(out, indent, "}");
             } else {
                 write!(out, "{tp} {{ ").unwrap();
                 for i in 0..s.field_len() {
-                    if i > 0 { write!(out, ", ").unwrap(); }
+                    if i > 0 {
+                        write!(out, ", ").unwrap();
+                    }
                     write!(out, "{}: ", s.name_at(i).unwrap()).unwrap();
-                    emit_value(s.field_at(i).unwrap(), registry, asset_server, indent, false, out);
+                    emit_value(
+                        s.field_at(i).unwrap(),
+                        registry,
+                        asset_server,
+                        indent,
+                        false,
+                        out,
+                    );
                 }
                 write!(out, " }}").unwrap();
             }
@@ -421,8 +525,17 @@ fn emit_value(
         ReflectRef::TupleStruct(ts) => {
             write!(out, "{tp}(").unwrap();
             for i in 0..ts.field_len() {
-                if i > 0 { write!(out, ", ").unwrap(); }
-                emit_value(ts.field(i).unwrap(), registry, asset_server, indent, false, out);
+                if i > 0 {
+                    write!(out, ", ").unwrap();
+                }
+                emit_value(
+                    ts.field(i).unwrap(),
+                    registry,
+                    asset_server,
+                    indent,
+                    false,
+                    out,
+                );
             }
             write!(out, ")").unwrap();
         }
@@ -438,16 +551,32 @@ fn emit_value(
                         writeln!(out, "{full_path} {{").unwrap();
                         for i in 0..e.field_len() {
                             indent_write(out, indent + 1, &format!("{}: ", e.name_at(i).unwrap()));
-                            emit_value(e.field_at(i).unwrap(), registry, asset_server, indent + 1, true, out);
+                            emit_value(
+                                e.field_at(i).unwrap(),
+                                registry,
+                                asset_server,
+                                indent + 1,
+                                true,
+                                out,
+                            );
                             writeln!(out, ",").unwrap();
                         }
                         indent_write(out, indent, "}");
                     } else {
                         write!(out, "{full_path} {{ ").unwrap();
                         for i in 0..e.field_len() {
-                            if i > 0 { write!(out, ", ").unwrap(); }
+                            if i > 0 {
+                                write!(out, ", ").unwrap();
+                            }
                             write!(out, "{}: ", e.name_at(i).unwrap()).unwrap();
-                            emit_value(e.field_at(i).unwrap(), registry, asset_server, indent, false, out);
+                            emit_value(
+                                e.field_at(i).unwrap(),
+                                registry,
+                                asset_server,
+                                indent,
+                                false,
+                                out,
+                            );
                         }
                         write!(out, " }}").unwrap();
                     }
@@ -455,14 +584,23 @@ fn emit_value(
                 bevy_reflect::enums::VariantType::Tuple => {
                     write!(out, "{full_path}(").unwrap();
                     for i in 0..e.field_len() {
-                        if i > 0 { write!(out, ", ").unwrap(); }
-                        emit_value(e.field_at(i).unwrap(), registry, asset_server, indent, false, out);
+                        if i > 0 {
+                            write!(out, ", ").unwrap();
+                        }
+                        emit_value(
+                            e.field_at(i).unwrap(),
+                            registry,
+                            asset_server,
+                            indent,
+                            false,
+                            out,
+                        );
                     }
                     write!(out, ")").unwrap();
                 }
             }
         }
-        ReflectRef::List(l) if l.len() > 0 && multiline => {
+        ReflectRef::List(l) if !l.is_empty() && multiline => {
             writeln!(out, "[").unwrap();
             for i in 0..l.len() {
                 indent_write(out, indent + 1, "");
@@ -476,7 +614,9 @@ fn emit_value(
         ReflectRef::List(l) => {
             write!(out, "[").unwrap();
             for i in 0..l.len() {
-                if i > 0 { write!(out, ", ").unwrap(); }
+                if i > 0 {
+                    write!(out, ", ").unwrap();
+                }
                 if let Some(item) = l.get(i) {
                     emit_value(item, registry, asset_server, indent, false, out);
                 }
@@ -490,7 +630,7 @@ fn emit_value(
 fn type_path_of(value: &dyn PartialReflect) -> &str {
     value
         .get_represented_type_info()
-        .map(|i| i.type_path())
+        .map(bevy_reflect::TypeInfo::type_path)
         .unwrap_or("unknown")
 }
 
@@ -532,12 +672,11 @@ fn collect_non_default_fields(
         let name = s.name_at(i).unwrap();
         let value = s.field_at(i).unwrap();
 
-        if let Some(ds) = default_struct {
-            if let Some(df) = ds.field(name) {
-                if value.reflect_partial_eq(df).unwrap_or(false) {
-                    continue;
-                }
-            }
+        if let Some(ds) = default_struct
+            && let Some(df) = ds.field(name)
+            && value.reflect_partial_eq(df).unwrap_or(false)
+        {
+            continue;
         }
 
         // Try Handle → path (direct Handle<T> or Option<Handle<T>>)
@@ -547,13 +686,12 @@ fn collect_non_default_fields(
         }
         // Option<Handle<T>> — check if it's Some(handle) and resolve the inner value
         if let ReflectRef::Enum(e) = value.reflect_ref() {
-            if e.variant_name() == "Some" {
-                if let Some(inner) = e.field_at(0) {
-                    if let Some(path) = try_resolve_handle(inner, registry, asset_server) {
-                        fields.push((name.to_string(), format!("\"{}\"", escape_string(&path))));
-                        continue;
-                    }
-                }
+            if e.variant_name() == "Some"
+                && let Some(inner) = e.field_at(0)
+                && let Some(path) = try_resolve_handle(inner, registry, asset_server)
+            {
+                fields.push((name.to_string(), format!("\"{}\"", escape_string(&path))));
+                continue;
             }
             // Option::None for a Handle field — skip it (use default)
             if e.variant_name() == "None" {
@@ -562,10 +700,10 @@ fn collect_non_default_fields(
         }
 
         // Skip generic types the parser can't handle
-        if let Some(ti) = value.get_represented_type_info() {
-            if ti.type_path().contains('<') {
-                continue;
-            }
+        if let Some(ti) = value.get_represented_type_info()
+            && ti.type_path().contains('<')
+        {
+            continue;
         }
 
         let mut val = String::new();
@@ -575,7 +713,12 @@ fn collect_non_default_fields(
     fields
 }
 
-fn emit_struct_fields(type_path: &str, fields: &[(String, String)], indent: usize, out: &mut String) {
+fn emit_struct_fields(
+    type_path: &str,
+    fields: &[(String, String)],
+    indent: usize,
+    out: &mut String,
+) {
     if fields.is_empty() {
         indent_write(out, indent, &format!("{type_path}\n"));
     } else {
@@ -615,8 +758,11 @@ fn indent_write(out: &mut String, indent: usize, text: &str) {
 }
 
 fn write_float(f: f64, out: &mut String) {
-    if f.fract() == 0.0 { write!(out, "{f:.1}").unwrap(); }
-    else { write!(out, "{f}").unwrap(); }
+    if f.fract() == 0.0 {
+        write!(out, "{f:.1}").unwrap();
+    } else {
+        write!(out, "{f}").unwrap();
+    }
 }
 
 fn escape_string(s: &str) -> String {

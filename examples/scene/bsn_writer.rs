@@ -4,20 +4,12 @@
 //! Components include transforms, meshes, materials, and a custom enum
 //! to show how enum variant fields are serialized.
 //!
-//! ## Controls
-//!
-//! | Key | Action |
-//! |-----|--------|
-//! | `S` | Serialize the scene with default config |
-//! | `D` | Serialize with a custom config that also skips camera components |
-//!
+//! Press S to serialize with default config, or D to also skip camera components.
 //! The serialized BSN text is printed to the console via `info!`.
 
 use bevy::{
     prelude::*,
-    scene2::dynamic_bsn_writer::{
-        serialize_to_bsn, serialize_to_bsn_with_config, BsnWriterConfig,
-    },
+    scene2::dynamic_bsn_writer::{serialize_to_bsn, serialize_to_bsn_with_config, BsnWriterConfig},
 };
 
 /// Example enum component to demonstrate variant field serialization.
@@ -52,7 +44,13 @@ fn setup(
 ) {
     // UI elements intentionally have no Name, so they are excluded from serialization.
     // The writer only serializes named entities.
-    commands.spawn((Camera2d, Camera { order: 1, ..default() }));
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1,
+            ..default()
+        },
+    ));
 
     commands.spawn((
         Text::new("Press S to serialize scene\nPress D to serialize (skip camera components)"),
