@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 /// A [`SystemSet`] for the system that exits the application.
 /// Which can be either [`exit_on_all_closed`] or [`exit_on_primary_closed`].
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExitSystem;
+pub struct ExitSystems;
 
 /// Exit the application when there are no open windows.
 ///
