@@ -18,13 +18,13 @@ use bevy::{
 };
 
 #[derive(Component, Default, Debug)]
-struct Health(i32);
+struct Health;
 
 #[derive(Component, Default, Debug)]
-struct Mana(i32);
+struct Mana;
 
 #[derive(Component, Default, Debug)]
-struct Armor(i32);
+struct Armor;
 
 #[derive(Component, Default, Debug)]
 struct Enemy;
@@ -71,8 +71,8 @@ fn demo(mut commands: Commands, mut exit: MessageWriter<AppExit>) {
     log::info!("\n=== require constraint ===");
 
     // OK: Player + Health satisfies require(Health)
-    commands.spawn((Player, Health(100)));
-    log::info!("Spawning Player + Health(100)...");
+    commands.spawn((Player, Health));
+    log::info!("Spawning Player + Health...");
 
     // FAIL: Player alone - missing Health
     commands.spawn(Player);
@@ -91,7 +91,7 @@ fn demo(mut commands: Commands, mut exit: MessageWriter<AppExit>) {
     log::info!("\n=== or constraint ===");
 
     // OK: Caster + Mana
-    commands.spawn((Caster, Mana(50)));
+    commands.spawn((Caster, Mana));
     log::info!("Spawning Caster + Mana...");
 
     // OK: Caster + Scroll
@@ -105,17 +105,17 @@ fn demo(mut commands: Commands, mut exit: MessageWriter<AppExit>) {
     log::info!("\n=== only constraint ===");
 
     // OK: Warrior + Health + Armor - all in whitelist
-    commands.spawn((Warrior, Health(80), Armor(20)));
+    commands.spawn((Warrior, Health, Armor));
     log::info!("Spawning Warrior + Health + Armor...");
 
     // FAIL: Warrior + Health + Enemy - Enemy not in whitelist
-    commands.spawn((Warrior, Health(80), Enemy));
+    commands.spawn((Warrior, Health, Enemy));
     log::info!("Spawning Warrior + Health + Enemy (should be rejected)...");
 
     log::info!("\n=== only + require combined ===");
 
     // OK: Knight + Health
-    commands.spawn((Knight, Health(100)));
+    commands.spawn((Knight, Health));
     log::info!("Spawning Knight + Health...");
 
     // FAIL: Knight alone - missing required Health
@@ -123,7 +123,7 @@ fn demo(mut commands: Commands, mut exit: MessageWriter<AppExit>) {
     log::info!("Spawning Knight alone (should be rejected)...");
 
     // FAIL: Knight + Health + Enemy - Enemy violates only
-    commands.spawn((Knight, Health(100), Enemy));
+    commands.spawn((Knight, Health, Enemy));
     log::info!("Spawning Knight + Health + Enemy (should be rejected)...");
 
     exit.write(AppExit::Success);

@@ -201,7 +201,7 @@ impl Dnf {
     }
 }
 
-/// Convert a [`Constraint`] tree into a list of [`DnfClause`]s.
+/// Convert a [`ConstraintExpr`] tree into a list of [`DnfClause`]s.
 fn to_dnf_clauses(constraint: &ConstraintExpr) -> Vec<DnfClause> {
     match constraint {
         ConstraintExpr::Required(id) => {
