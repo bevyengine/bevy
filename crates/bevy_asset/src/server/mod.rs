@@ -33,9 +33,13 @@ use bevy_platform::{
     sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use bevy_tasks::IoTaskPool;
-use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
+use core::{
+    any::{type_name, TypeId},
+    future::Future,
+    panic::AssertUnwindSafe,
+    task::Poll,
+};
 use crossbeam_channel::{Receiver, Sender};
-use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
@@ -377,7 +381,7 @@ impl AssetServer {
         type_id: TypeId,
         path: impl Into<AssetPath<'a>>,
     ) -> UntypedHandle {
-        self.load_erased_with_meta_transform(path, type_id, None, ())
+        self.load_with_meta_transform_erased(path, type_id, None, None, (), false)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -507,6 +511,26 @@ impl AssetServer {
         guard: G,
         override_unapproved: bool,
     ) -> Handle<A> {
+        self.load_with_meta_transform_erased(
+            path,
+            TypeId::of::<A>(),
+            Some(type_name::<A>()),
+            meta_transform,
+            guard,
+            override_unapproved,
+        )
+        .typed_unchecked()
+    }
+
+    pub(crate) fn load_with_meta_transform_erased<'a, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        type_id: TypeId,
+        type_name: Option<&str>,
+        meta_transform: Option<MetaTransform>,
+        guard: G,
+        override_unapproved: bool,
+    ) -> UntypedHandle {
         let path = path.into().into_owned();
 
         if path.is_unapproved() {
@@ -514,38 +538,19 @@ impl AssetServer {
                 (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
                 (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
                     error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
-                    return Handle::default();
+                    return UntypedHandle::Uuid {
+                        type_id,
+                        uuid: AssetId::<()>::DEFAULT_UUID,
+                    };
                 }
             }
         }
 
         let mut infos = self.write_infos();
-        let (handle, should_load) = infos.get_or_create_path_handle::<A>(
-            path.clone(),
-            HandleLoadingMode::Request,
-            meta_transform,
-        );
-
-        if should_load {
-            self.spawn_load_task(handle.clone().untyped(), path, infos, guard);
-        }
-
-        handle
-    }
-
-    pub(crate) fn load_erased_with_meta_transform<'a, G: Send + Sync + 'static>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        type_id: TypeId,
-        meta_transform: Option<MetaTransform>,
-        guard: G,
-    ) -> UntypedHandle {
-        let path = path.into().into_owned();
-        let mut infos = self.write_infos();
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
             type_id,
-            None,
+            type_name,
             HandleLoadingMode::Request,
             meta_transform,
         );
@@ -765,7 +770,11 @@ impl AssetServer {
                 HandleLoadingMode::Request,
                 meta_transform,
             );
-            match unwrap_with_context(result, Either::Left(loader.asset_type_name())) {
+            match unwrap_with_context(
+                result,
+                loader.asset_type_id(),
+                Some(loader.asset_type_name()),
+            ) {
                 // We couldn't figure out the correct handle without its type ID (which can only
                 // happen if we are loading a subasset).
                 None => {
@@ -1024,8 +1033,7 @@ impl AssetServer {
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
         let mut infos = self.write_infos();
-        let handle =
-            infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
+        let handle = infos.create_loading_handle_untyped(TypeId::of::<A>(), type_name::<A>());
 
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
@@ -1083,13 +1091,11 @@ impl AssetServer {
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
-        let (handle, should_load) = self
-            .write_infos()
-            .get_or_create_path_handle::<LoadedFolder>(
-                path.clone(),
-                HandleLoadingMode::Request,
-                None,
-            );
+        let (handle, should_load) = self.write_infos().get_or_create_path_handle(
+            path.clone(),
+            HandleLoadingMode::Request,
+            None,
+        );
         if !should_load {
             return handle;
         }
@@ -1435,13 +1441,13 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
-        self.write_infos()
-            .get_or_create_path_handle::<A>(
-                path.into().into_owned(),
-                HandleLoadingMode::NotLoading,
-                meta_transform,
-            )
-            .0
+        self.get_or_create_path_handle_erased(
+            path.into().into_owned(),
+            TypeId::of::<A>(),
+            Some(type_name::<A>()),
+            meta_transform,
+        )
+        .typed_unchecked()
     }
 
     /// Retrieve a handle for the given path, where the asset type ID and name
@@ -1452,13 +1458,14 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
+        type_name: Option<&str>,
         meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
         self.write_infos()
             .get_or_create_path_handle_erased(
                 path.into().into_owned(),
                 type_id,
-                None,
+                type_name,
                 HandleLoadingMode::NotLoading,
                 meta_transform,
             )
