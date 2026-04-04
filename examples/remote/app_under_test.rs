@@ -13,6 +13,7 @@ use bevy::{
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
     time::common_conditions::on_timer,
+    ui::UiGlobalTransform,
 };
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
@@ -28,7 +29,10 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            move_button.run_if(on_timer(std::time::Duration::from_secs(5))),
+            (
+                move_button.run_if(on_timer(std::time::Duration::from_secs(5))),
+                log_button_position,
+            ),
         )
         .run();
 }
@@ -41,6 +45,15 @@ fn on_button_click(_click: On<Pointer<Click>>, mut exit: MessageWriter<AppExit>)
     exit.write(AppExit::Success);
 }
 
+fn log_button_position(
+    transform: Single<&UiGlobalTransform, (With<Button>, Changed<UiGlobalTransform>)>,
+) {
+    info!(
+        "Button at physical ({}, {})",
+        transform.translation.x, transform.translation.y
+    );
+}
+
 fn random_position(rng: &mut ChaCha8Rng) -> (f32, f32) {
     let left_pct = rng.random_range(0.0..=60.0);
     let top_pct = rng.random_range(0.0..=60.0);
@@ -49,7 +62,6 @@ fn random_position(rng: &mut ChaCha8Rng) -> (f32, f32) {
 
 fn move_button(mut rng: ResMut<SeededRng>, mut button_query: Query<&mut Node, With<Button>>) {
     let (left_pct, top_pct) = random_position(&mut rng.0);
-    info!("Button moved to ({left_pct:.1}%, {top_pct:.1}%)");
     for mut node in &mut button_query {
         node.left = percent(left_pct);
         node.top = percent(top_pct);
@@ -58,7 +70,6 @@ fn move_button(mut rng: ResMut<SeededRng>, mut button_query: Query<&mut Node, Wi
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>, mut rng: ResMut<SeededRng>) {
     let (left_pct, top_pct) = random_position(&mut rng.0);
-    info!("Button placed at ({left_pct:.1}%, {top_pct:.1}%)");
 
     commands.spawn(Camera2d);
     commands
