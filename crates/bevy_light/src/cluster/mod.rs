@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_image::Image;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec3A, Vec3Swizzles as _};
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec3, Vec3A, Vec3Swizzles as _};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use tracing::warn;
@@ -208,6 +208,8 @@ pub struct ClusterableObjectCounts {
     pub irradiance_volumes: u32,
     /// The number of decals in the cluster.
     pub decals: u32,
+    /// The number of emissive meshes in the cluster.
+    pub emissive_meshes: u32,
 }
 
 /// An object that projects a decal onto surfaces within its bounds.
@@ -503,6 +505,12 @@ impl ObjectsInClusterCpu {
         self.counts.decals += 1;
     }
 
+    /// Adds an emissive mesh to the list.
+    pub fn add_emissive_mesh(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.emissive_meshes += 1;
+    }
+
     /// Iterates through all objects in this cluster.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.clusterables.iter()
@@ -526,4 +534,14 @@ pub fn add_light_probe_and_decal_aabbs(
             half_extents: Vec3A::splat(0.5),
         });
     }
+}
+
+/// TODO: Docs.
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component, Debug, Clone, Default)]
+#[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
+pub struct ClusteredEmissiveMesh {
+    /// TODO: Docs.
+    pub emission: Vec3,
 }

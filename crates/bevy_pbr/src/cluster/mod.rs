@@ -7,7 +7,8 @@ use bevy_light::{
         ClusterableObjectCounts, ClusterableObjects, Clusters, GlobalClusterGpuSettings,
         GlobalClusterSettings,
     },
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
+    ClusteredDecal, ClusteredEmissiveMesh, EnvironmentMapLight, IrradianceVolume, PointLight,
+    SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
@@ -202,6 +203,10 @@ enum ExtractedClusterableObjectElement {
     ///
     /// The given entity is the render-world entity.
     Decal(Entity),
+    /// Represents an emissive mesh.
+    ///
+    /// The given entity is the render-world entity.
+    EmissiveMesh(Entity),
 }
 
 #[derive(Component)]
@@ -355,6 +360,7 @@ type ClusterExtractionMapperQueryFlags = (
     Has<EnvironmentMapLight>,
     Has<IrradianceVolume>,
     Has<ClusteredDecal>,
+    Has<ClusteredEmissiveMesh>,
 );
 /// A shortcut for testing whether an entity is any type of clusterable object.
 type ClusterExtractionMapperQueryFilter = Or<(
@@ -363,6 +369,7 @@ type ClusterExtractionMapperQueryFilter = Or<(
     With<EnvironmentMapLight>,
     With<IrradianceVolume>,
     With<ClusteredDecal>,
+    With<ClusteredEmissiveMesh>,
 )>;
 
 /// A run condition that tests whether GPU clustering is enabled.
@@ -424,6 +431,7 @@ pub fn extract_clusters_for_cpu_clustering(
                         is_reflection_probe,
                         is_irradiance_volume,
                         is_clustered_decal,
+                        is_emissive_mesh,
                     ),
                 )) = mapper.get(*clusterable_entity)
                 else {
@@ -439,6 +447,10 @@ pub fn extract_clusters_for_cpu_clustering(
                         data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
                     } else if is_point_light || is_spot_light {
                         data.push(ExtractedClusterableObjectElement::Light(**render_entity));
+                    } else if is_emissive_mesh {
+                        data.push(ExtractedClusterableObjectElement::EmissiveMesh(
+                            **render_entity,
+                        ));
                     }
                 }
                 if is_reflection_probe {
@@ -496,7 +508,8 @@ pub fn prepare_clusters_for_cpu_clustering(
                 }
 
                 ExtractedClusterableObjectElement::Light(entity)
-                | ExtractedClusterableObjectElement::Decal(entity) => {
+                | ExtractedClusterableObjectElement::Decal(entity)
+                | ExtractedClusterableObjectElement::EmissiveMesh(entity) => {
                     if let Some(clusterable_object_index) =
                         global_clusterable_object_meta.entity_to_index.get(entity)
                     {
