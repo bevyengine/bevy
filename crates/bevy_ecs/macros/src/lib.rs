@@ -713,7 +713,14 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(
     Component,
-    attributes(component, require, constraint, relationship, relationship_target, entities)
+    attributes(
+        component,
+        require,
+        constraint,
+        relationship,
+        relationship_target,
+        entities
+    )
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)

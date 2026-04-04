@@ -61,14 +61,15 @@ impl<'w> BundleInserter<'w> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
 
-        // This is a good place to trigger the [`ComponentsContraintError`] event, but the upper layer still needs to write Components
+        // This is a good place to trigger the [`ComponentsConstraintError`] event, but the upper layer still needs to write Components
+        // We chose to keep propagating it when violating.
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             archetype_id,
-        )?; // We chose to keep propagating it when violating.
+        )?;
 
         // TODO: trigger an event
 

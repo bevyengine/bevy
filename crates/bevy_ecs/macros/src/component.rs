@@ -326,19 +326,27 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let has_constraint = attrs.constraint_expr.is_some() || attrs.constraint_only.is_some();
     let register_constraint = has_constraint.then(|| {
-        let dnf_expr = attrs.constraint_expr.as_ref().map(|ast| {
-            let transformed = constraint_to_tokens(ast, &bevy_ecs_path);
-            quote! { Some(#transformed) }
-        }).unwrap_or_else(|| quote! { None });
+        let dnf_expr = attrs
+            .constraint_expr
+            .as_ref()
+            .map(|ast| {
+                let transformed = constraint_to_tokens(ast, &bevy_ecs_path);
+                quote! { Some(#transformed) }
+            })
+            .unwrap_or_else(|| quote! { None });
 
-        let only_expr = attrs.constraint_only.as_ref().map(|paths| {
-            quote! {{
-                let ids: &[#bevy_ecs_path::component::ComponentId] = &[
-                    #( _registrator.register_component::<#paths>(), )*
-                ];
-                Some(ids.to_vec())
-            }}
-        }).unwrap_or_else(|| quote! { None });
+        let only_expr = attrs
+            .constraint_only
+            .as_ref()
+            .map(|paths| {
+                quote! {{
+                    let ids: &[#bevy_ecs_path::component::ComponentId] = &[
+                        #( _registrator.register_component::<#paths>(), )*
+                    ];
+                    Some(ids.to_vec())
+                }}
+            })
+            .unwrap_or_else(|| quote! { None });
 
         quote! {
             fn register_constraint(
@@ -351,7 +359,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
         }
     });
-
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
@@ -396,22 +403,28 @@ fn constraint_to_tokens(ast: &ComponentConstraintAst, bevy_ecs_path: &Path) -> T
     match ast {
         ComponentConstraintAst::Require(path) => {
             quote! { #bevy_ecs_path::component::require(_registrator.register_component::<#path>()) }
-        },
+        }
         ComponentConstraintAst::Forbid(path) => {
             quote! { #bevy_ecs_path::component::forbid(_registrator.register_component::<#path>()) }
-        },
+        }
         ComponentConstraintAst::Not(inner) => {
             let inner = constraint_to_tokens(inner, bevy_ecs_path);
             quote! { #bevy_ecs_path::component::not(#inner) }
-        },
+        }
         ComponentConstraintAst::And(asts) => {
-            let items: Vec<TokenStream2> = asts.iter().map(|i| constraint_to_tokens(i, bevy_ecs_path)).collect();
+            let items: Vec<TokenStream2> = asts
+                .iter()
+                .map(|i| constraint_to_tokens(i, bevy_ecs_path))
+                .collect();
             quote! { #bevy_ecs_path::component::and([#(#items),*]) }
-        },
+        }
         ComponentConstraintAst::Or(asts) => {
-            let items: Vec<TokenStream2> = asts.iter().map(|i| constraint_to_tokens(i, bevy_ecs_path)).collect();
+            let items: Vec<TokenStream2> = asts
+                .iter()
+                .map(|i| constraint_to_tokens(i, bevy_ecs_path))
+                .collect();
             quote! { #bevy_ecs_path::component::or([#(#items),*]) }
-        },
+        }
     }
 }
 
@@ -649,7 +662,7 @@ struct Attrs {
     clone_behavior: Option<Expr>,
     map_entities: Option<MapEntitiesAttributeKind>,
     constraint_expr: Option<ComponentConstraintAst>,
-    constraint_only: Option<Vec<Path>>
+    constraint_only: Option<Vec<Path>>,
 }
 
 #[derive(Clone, Copy)]
@@ -961,7 +974,7 @@ impl Parse for RelationshipTarget {
 
 impl Parse for ComponentConstraintAst {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let ident: Ident  = input.parse()?;
+        let ident: Ident = input.parse()?;
         let content;
         parenthesized!(content in input);
 
@@ -993,7 +1006,7 @@ impl Parse for ComponentConstraintAst {
                 ))
             }
             _ => Err(syn::Error::new(
-                ident.span(), 
+                ident.span(),
                 format!("unknown constraint: `{}`, expected one of: require, forbid, not, and, or, only", ident)
             ))
         }

@@ -269,6 +269,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut filter_component_access = FilteredAccess::default();
         F::update_component_access(&filter_state, &mut filter_component_access);
 
+        // TODO: A good place, extend `filter_component_access.filter_sets.without` base on exclusions in Components
+        // i.e. extend the [`Without<A>`] to [`(Without<A>, Without<B>)`]
+
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);

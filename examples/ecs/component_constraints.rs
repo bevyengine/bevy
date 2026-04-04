@@ -12,9 +12,10 @@
 //! - `not(...)`: negates a sub-constraint
 //! - `only(T1, T2, ...)`: only these components (plus self) are allowed
 
-use bevy::{log::{self, LogPlugin}, prelude::*};
-
-// --- Component definitions with constraints ---
+use bevy::{
+    log::{self, LogPlugin},
+    prelude::*,
+};
 
 #[derive(Component, Default, Debug)]
 struct Health(i32);

@@ -5,9 +5,9 @@ mod add_remove_sparse_set;
 mod add_remove_table;
 mod add_remove_very_big_table;
 mod archetype_updates;
+mod component_constraints;
 mod insert_simple;
 mod insert_simple_unbatched;
-mod component_constraints;
 
 use archetype_updates::*;
 use component_constraints::*;

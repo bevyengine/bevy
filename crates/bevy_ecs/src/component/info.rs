@@ -368,6 +368,9 @@ pub struct Components {
     pub(super) indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
+    // ComponentId <-> Exclusion BitSet with all other components
+    // solve SAT problem for all components pair in registration phase
+    // exclusions: Vec<Option<FixBitSet>>,
 }
 
 impl Components {

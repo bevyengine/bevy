@@ -9,7 +9,7 @@ use fixedbitset::FixedBitSet;
 
 use super::ComponentId;
 
-/// [`ComponentConstraint`] stored in [`ComponentInfo`]
+/// [`ComponentConstraint`] stored in `ComponentInfo`
 #[derive(Debug, Clone)]
 pub struct ComponentConstraint {
     /// Compiled DNF form
@@ -471,5 +471,27 @@ mod tests {
         // Caster alone -> neither Mana nor Scroll
         let e = world.spawn(Caster).id();
         assert!(!world.entity(e).contains::<Caster>());
+    }
+
+    #[test]
+    fn ghost_entity_can_recover() {
+        let mut world = World::new();
+        let e = world.spawn(Player).id();
+        assert!(!world.entity(e).contains::<Player>());
+
+        world.entity_mut(e).insert((Player, Health));
+        assert!(world.entity(e).contains::<Player>());
+        assert!(world.entity(e).contains::<Health>());
+    }
+
+    #[test]
+    fn ghost_entity_can_despawn() {
+        let mut world = World::new();
+        let e = world.spawn(Player).id();
+        assert!(!world.entity(e).contains::<Player>());
+
+        // despawn should work
+        world.despawn(e);
+        assert!(world.get_entity(e).is_err());
     }
 }

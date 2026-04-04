@@ -1050,7 +1050,7 @@ impl FilteredAccess {
 #[derive(Eq, PartialEq, Default, Debug)]
 pub struct AccessFilters {
     pub(crate) with: ComponentIdSet,
-    pub(crate) without: ComponentIdSet,
+    pub(crate) without: ComponentIdSet, // TODO: extend it, just union from `exclusions` in [`Components`]
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
