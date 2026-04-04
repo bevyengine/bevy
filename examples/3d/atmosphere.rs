@@ -6,7 +6,6 @@ use std::f32::consts::PI;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
-    camera::Hdr,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
     image::{

@@ -15,7 +15,7 @@ use bevy_math::curve::{FunctionCurve, Interval, SampleAutoCurve};
 use bevy_math::{ops, Curve, FloatPow, Vec3};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
-use bevy_transform::components::Transform;
+use bevy_transform::components::GlobalTransform;
 use core::f32::{self, consts::PI};
 use smallvec::SmallVec;
 use wgpu_types::TextureFormat;
@@ -29,7 +29,7 @@ use wgpu_types::TextureFormat;
 /// The scale on [`Transform`] rescales the planet in world space. Tune it with the radius offset
 /// when your scene uses other units, like kilometer-sized scenes.
 #[derive(Clone, Component)]
-#[require(Transform::default())]
+#[require(GlobalTransform::default())]
 #[component(on_add = set_default_transform)]
 pub struct Atmosphere {
     /// Radius of the planet
@@ -55,17 +55,14 @@ pub struct Atmosphere {
 }
 
 fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
-    let Some(bottom_radius) = world
-        .get::<Atmosphere>(entity)
-        .map(|a| a.bottom_radius)
-    else {
+    let Some(bottom_radius) = world.get::<Atmosphere>(entity).map(|a| a.bottom_radius) else {
         unreachable!("on_add hooks guarantee the component is present");
     };
 
-    if let Some(mut transform) = world.get_mut::<Transform>(entity)
-        && *transform == Transform::default()
+    if let Some(mut transform) = world.get_mut::<GlobalTransform>(entity)
+        && *transform == GlobalTransform::default()
     {
-        transform.translation = -Vec3::Y * bottom_radius;
+        *transform = GlobalTransform::from_translation(-Vec3::Y * bottom_radius);
     }
 }
 
