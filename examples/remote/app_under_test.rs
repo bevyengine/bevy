@@ -1,4 +1,4 @@
-//! A Bevy app that can be used as an automated test target.
+//! A Bevy app that can be used as an integration test target.
 //! It displays a button that must be clicked. The button is placed at a random position and
 //! moves every 5 seconds.
 //!
@@ -6,7 +6,7 @@
 //! ```bash
 //! cargo run --example app_under_test --features="bevy_remote"
 //! ```
-//! This example can be paired with the `automated_test` example, which will run an automated
+//! This example can be paired with the `integration_test` example, which will run an integration
 //! test on this app.
 
 use bevy::{
@@ -20,7 +20,7 @@ use rand::{RngExt, SeedableRng};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // To make the app available for automated testing, we add these
+        // To make the app available for integration testing, we add these
         // remote plugins to expose API’s for a testing framework to call.
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())

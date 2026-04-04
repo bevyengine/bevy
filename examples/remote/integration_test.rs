@@ -1,9 +1,9 @@
-//! An automated test that connects to a running Bevy app via the BRP,
+//! An integration test that connects to a running Bevy app via the BRP,
 //! finds a button's position, and sends a mouse click to press it.
 //!
 //! Run with the `bevy_remote` feature enabled:
 //! ```bash
-//! cargo run --example automated_test --features="bevy_remote"
+//! cargo run --example integration_test --features="bevy_remote"
 //! ```
 //! This example assumes that the `app_under_test` example is running on the same machine.
 

@@ -4826,13 +4826,13 @@ category = "Remote Protocol"
 wasm = false
 
 [[example]]
-name = "automated_test"
-path = "examples/remote/automated_test.rs"
+name = "integration_test"
+path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
 required-features = ["bevy_remote"]
 
-[package.metadata.example.automated_test]
-name = "Automated Test"
+[package.metadata.example.integration_test]
+name = "Integration Test"
 description = "Connects to a running Bevy app via BRP, finds a button, and clicks it"
 category = "Remote Protocol"
 wasm = false
