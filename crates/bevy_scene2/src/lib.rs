@@ -546,8 +546,8 @@ impl Plugin for ScenePlugin {
                 SpawnScene,
                 (resolve_scene_patches, spawn_queued)
                     .chain()
-                    .in_set(SceneSpawnerSystems::Scene2Spawn)
-                    .after(SceneSpawnerSystems::SceneSpawn),
+                    .in_set(SceneSpawnerSystems::SceneSpawn)
+                    .after(SceneSpawnerSystems::WorldInstanceSpawn),
             )
             .add_observer(on_add_scene_patch_instance);
     }
