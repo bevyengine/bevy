@@ -219,21 +219,21 @@ impl Plugin for ImagePlugin {
             .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
             .unwrap();
 
-        #[cfg(feature = "compressed_image_saver")]
+        #[cfg(any(
+            feature = "compressed_image_saver_desktop",
+            feature = "compressed_image_saver_web"
+        ))]
         if let Some(processor) = app
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver.into());
-            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>("png");
+            for file_extension in ["png", "jpeg", "jpg"] {
+                processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                    ImageLoader,
+                    bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                    crate::CompressedImageSaver,
+                >>(file_extension);
+            }
         }
 
         app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);

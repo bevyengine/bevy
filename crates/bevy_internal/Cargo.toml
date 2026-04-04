@@ -29,8 +29,11 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["bevy_image/compressed_image_saver"]
+# Texture compression asset processor (for web)
+compressed_image_saver_web = ["bevy_image/compressed_image_saver_web"]
+
+# Texture compression asset processor (for desktop)
+compressed_image_saver_desktop = ["bevy_image/compressed_image_saver_desktop"]
 
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]

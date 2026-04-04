@@ -8,17 +8,26 @@ use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
-/// An [`AssetSaver`] that writes compressed basis universal (.ktx2) files.
+/// An [`AssetSaver`] for [`Image`] that compresses texture files.
+///
+/// Compressed textures both take up less space on disk, and use less VRAM.
+///
+/// TODO: Document what platforms are supported, how feature flags work,
+/// required native dependencies (https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prerequisites),
+/// what compression types exist, and mipmap generation?
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
-/// Errors encountered when writing compressed images.
+/// Errors encountered when writing compressed images via [`CompressedImageSaver`].
 #[non_exhaustive]
 #[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
     /// I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// The underlying compression library returned an error.
+    #[error(transparent)]
+    CompressionFailed(Box<dyn std::error::Error>),
     /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
@@ -31,6 +40,88 @@ impl AssetSaver for CompressedImageSaver {
     type OutputLoader = ImageLoader;
     type Error = CompressedImageSaverError;
 
+    #[cfg(feature = "compressed_image_saver_desktop")]
+    async fn save(
+        &self,
+        writer: &mut bevy_asset::io::Writer,
+        image: SavedAsset<'_, '_, Self::Asset>,
+        _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<ImageLoaderSettings, Self::Error> {
+        let Some(ref data) = image.data else {
+            return Err(CompressedImageSaverError::UninitializedImage);
+        };
+
+        if image.texture_descriptor.mip_level_count != 1 {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                "Expected texture_descriptor.mip_level_count to be 1".into(),
+            ));
+        }
+
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+        let color_space = if is_srgb {
+            ctt::format::ColorSpace::Srgb
+        } else {
+            ctt::format::ColorSpace::Linear
+        };
+
+        let is_cubemap = matches!(
+            image.texture_view_descriptor,
+            Some(wgpu_types::TextureViewDescriptor {
+                dimension: Some(wgpu_types::TextureViewDimension::Cube),
+                ..
+            })
+        );
+
+        let layers = (0..image.texture_descriptor.array_layer_count())
+            .into_iter()
+            .map(|layer| {
+                vec![ctt::image::RawImage {
+                    data: todo!(),
+                    width: image.width(),
+                    height: image.height(),
+                    stride: todo!(),
+                    pixel_format: ctt::format::PixelFormat {
+                        components: match image.texture_descriptor.format.components() {
+                            1 => ctt::format::PixelComponents::R,
+                            2 => ctt::format::PixelComponents::Rg,
+                            3 => ctt::format::PixelComponents::Rgb,
+                            4 => ctt::format::PixelComponents::Rgba,
+                            _ => unreachable!(),
+                        },
+                        channel_type: todo!(),
+                        color_space,
+                    },
+                }];
+            })
+            .collect();
+        let layout = ctt::image::ImageLayout { layers, is_cubemap };
+
+        let config = ctt::config::CompressConfig {
+            format: todo!(),
+            output_format: ctt::config::OutputFormat::Ktx2,
+            swizzle: None,
+            color_space,
+            encode_settings: None,
+        };
+
+        let compressed_bytes = ctt::pipeline::run(&config, layout)
+            .await
+            .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
+
+        writer.write_all(&compressed_bytes).await?;
+
+        Ok(ImageLoaderSettings {
+            format: ImageFormatSetting::Format(ImageFormat::Ktx2),
+            is_srgb,
+            sampler: image.sampler.clone(),
+            asset_usage: image.asset_usage,
+            texture_format: None,
+            array_layout: None,
+        })
+    }
+
+    #[cfg(feature = "compressed_image_saver_web")]
     async fn save(
         &self,
         writer: &mut bevy_asset::io::Writer,
@@ -47,6 +138,7 @@ impl AssetSaver for CompressedImageSaver {
             let color_space = if is_srgb {
                 basis_universal::ColorSpace::Srgb
             } else {
+                compressor_params.set_no_selector_rdo(true);
                 basis_universal::ColorSpace::Linear
             };
             compressor_params.set_color_space(color_space);
@@ -68,7 +160,9 @@ impl AssetSaver for CompressedImageSaver {
             // library bindings note that invalid params might produce undefined behavior.
             unsafe {
                 compressor.init(&compressor_params);
-                compressor.process().unwrap();
+                compressor
+                    .process()
+                    .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
             }
             compressor.basis_file().to_vec()
         };
