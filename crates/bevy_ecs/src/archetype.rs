@@ -1093,7 +1093,7 @@ impl Archetypes {
 
         if !disallowed.is_empty() {
             reasons.push(format!(
-                "These components are disallowed (not in \"any\" field): {:?}",
+                "These components are disallowed (not in \"only\" field): {:?}",
                 disallowed
             ));
         }
