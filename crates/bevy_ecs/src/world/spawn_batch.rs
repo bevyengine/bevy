@@ -18,8 +18,8 @@ where
     I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
-    spawner: BundleSpawner<'w>,
-    allocator: AllocEntitiesIterator<'w>,
+    spawner: Option<BundleSpawner<'w>>,
+    allocator: Option<AllocEntitiesIterator<'w>>,
     caller: MaybeLocation,
 }
 
@@ -36,15 +36,23 @@ where
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
-        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
-        spawner.reserve_storage(length);
-        let allocator = spawner.allocator().alloc_many(length as u32);
-
-        Self {
-            inner: iter,
-            allocator,
-            spawner,
-            caller,
+        match BundleSpawner::new::<I::Item>(world, change_tick) {
+            Ok(mut spawner) => {
+                spawner.reserve_storage(length);
+                let allocator = spawner.allocator().alloc_many(length as u32);
+                Self {
+                    inner: iter,
+                    spawner: Some(spawner),
+                    allocator: Some(allocator),
+                    caller,
+                }
+            }
+            Err(_) => Self {
+                inner: iter,
+                spawner: None,
+                allocator: None,
+                caller,
+            },
         }
     }
 }
@@ -58,12 +66,16 @@ where
         // Iterate through self in order to spawn remaining bundles.
         for _ in &mut *self {}
         // Free all the over allocated entities.
-        for e in self.allocator.by_ref() {
-            self.spawner.allocator().free(e);
+        if let Some(ref mut allocator) = self.allocator {
+            for e in allocator.by_ref() {
+                self.spawner.as_mut().unwrap().allocator().free(e);
+            }
         }
         // Apply any commands from those operations.
-        // SAFETY: `self.spawner` will be dropped immediately after this call.
-        unsafe { self.spawner.flush_commands() };
+        if let Some(ref mut spawner) = self.spawner {
+            // SAFETY: `self.spawner` will be dropped immediately after this call.
+            unsafe { spawner.flush_commands() };
+        }
     }
 }
 
@@ -76,21 +88,29 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
+        let spawner = self.spawner.as_mut()?;
         move_as_ptr!(bundle);
-        Some(if let Some(bulk) = self.allocator.next() {
-            // SAFETY: bundle matches spawner type and we just allocated it
-            unsafe {
-                self.spawner.spawn_at(bulk, bundle, self.caller);
-            }
-            bulk
-        } else {
-            // SAFETY: bundle matches spawner type
-            unsafe { self.spawner.spawn(bundle, self.caller) }
-        })
+        Some(
+            if let Some(allocator) = &mut self.allocator
+                && let Some(bulk) = allocator.next()
+            {
+                // SAFETY: bundle matches spawner type and we just allocated it
+                unsafe {
+                    spawner.spawn_at(bulk, bundle, self.caller);
+                }
+                bulk
+            } else {
+                // SAFETY: bundle matches spawner type
+                unsafe { spawner.spawn(bundle, self.caller) }
+            },
+        )
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.spawner.is_none() {
+            return (0, Some(0));
+        }
         self.inner.size_hint()
     }
 }
@@ -101,6 +121,9 @@ where
     T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
+        if self.spawner.is_none() {
+            return 0;
+        }
         self.inner.len()
     }
 }

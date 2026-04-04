@@ -324,6 +324,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         quote! {None}
     };
 
+    let has_constraint = attrs.constraint_expr.is_some() || attrs.constraint_only.is_some();
+    let register_constraint = has_constraint.then(|| {
+        let dnf_expr = attrs.constraint_expr.as_ref().map(|ast| {
+            let transformed = constraint_to_tokens(ast, &bevy_ecs_path);
+            quote! { Some(#transformed) }
+        }).unwrap_or_else(|| quote! { None });
+
+        let only_expr = attrs.constraint_only.as_ref().map(|paths| {
+            quote! {{
+                let ids: &[#bevy_ecs_path::component::ComponentId] = &[
+                    #( _registrator.register_component::<#paths>(), )*
+                ];
+                Some(ids.to_vec())
+            }}
+        }).unwrap_or_else(|| quote! { None });
+
+        quote! {
+            fn register_constraint(
+                _registrator: &mut #bevy_ecs_path::component::ComponentsRegistrator,
+            ) -> Option<#bevy_ecs_path::component::ComponentConstraint> {
+                Some(#bevy_ecs_path::component::ComponentConstraint::from_expr(
+                    #dnf_expr,
+                    #only_expr,
+                ))
+            }
+        }
+    });
+
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -353,12 +382,37 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
                 #relationship_accessor
             }
+
+            #register_constraint
         }
 
         #relationship
 
         #relationship_target
     })
+}
+
+fn constraint_to_tokens(ast: &ComponentConstraintAst, bevy_ecs_path: &Path) -> TokenStream2 {
+    match ast {
+        ComponentConstraintAst::Require(path) => {
+            quote! { #bevy_ecs_path::component::require(_registrator.register_component::<#path>()) }
+        },
+        ComponentConstraintAst::Forbid(path) => {
+            quote! { #bevy_ecs_path::component::forbid(_registrator.register_component::<#path>()) }
+        },
+        ComponentConstraintAst::Not(inner) => {
+            let inner = constraint_to_tokens(inner, bevy_ecs_path);
+            quote! { #bevy_ecs_path::component::not(#inner) }
+        },
+        ComponentConstraintAst::And(asts) => {
+            let items: Vec<TokenStream2> = asts.iter().map(|i| constraint_to_tokens(i, bevy_ecs_path)).collect();
+            quote! { #bevy_ecs_path::component::and([#(#items),*]) }
+        },
+        ComponentConstraintAst::Or(asts) => {
+            let items: Vec<TokenStream2> = asts.iter().map(|i| constraint_to_tokens(i, bevy_ecs_path)).collect();
+            quote! { #bevy_ecs_path::component::or([#(#items),*]) }
+        },
+    }
 }
 
 const ENTITIES: &str = "entities";
@@ -457,6 +511,7 @@ pub(crate) fn map_entities(
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
+pub const CONSTRAINT: &str = "constraint";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
 
@@ -593,6 +648,8 @@ struct Attrs {
     immutable: bool,
     clone_behavior: Option<Expr>,
     map_entities: Option<MapEntitiesAttributeKind>,
+    constraint_expr: Option<ComponentConstraintAst>,
+    constraint_only: Option<Vec<Path>>
 }
 
 #[derive(Clone, Copy)]
@@ -616,6 +673,14 @@ struct RelationshipTarget {
     linked_spawn: bool,
 }
 
+enum ComponentConstraintAst {
+    Require(Path),
+    Forbid(Path),
+    Not(Box<ComponentConstraintAst>),
+    And(Vec<ComponentConstraintAst>),
+    Or(Vec<ComponentConstraintAst>),
+}
+
 // values for `storage` attribute
 const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
@@ -634,6 +699,8 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
         clone_behavior: None,
         map_entities: None,
+        constraint_expr: None,
+        constraint_only: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -705,6 +772,20 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             } else {
                 attrs.requires = Some(punctuated);
             }
+        } else if attr.path().is_ident(CONSTRAINT) {
+            attr.parse_args_with(|input: syn::parse::ParseStream| {
+                let ident = input.fork().parse::<Ident>()?;
+                if ident == "only" {
+                    input.parse::<Ident>()?; // consume "only"
+                    let content;
+                    parenthesized!(content in input);
+                    let paths = Punctuated::<Path, Comma>::parse_terminated(&content)?;
+                    attrs.constraint_only = Some(paths.into_iter().collect());
+                } else {
+                    attrs.constraint_expr = Some(input.parse::<ComponentConstraintAst>()?);
+                }
+                Ok(())
+            })?;
         } else if attr.path().is_ident(RELATIONSHIP) {
             let relationship = attr.parse_args::<Relationship>()?;
             attrs.relationship = Some(relationship);
@@ -875,6 +956,47 @@ impl Parse for RelationshipTarget {
             })?,
             linked_spawn,
         })
+    }
+}
+
+impl Parse for ComponentConstraintAst {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        let ident: Ident  = input.parse()?;
+        let content;
+        parenthesized!(content in input);
+
+        match ident.to_string().as_str() {
+            "require" => {
+                let path: Path = content.parse()?;
+                Ok(ComponentConstraintAst::Require(path))
+            }
+            "forbid" => {
+                let path: Path = content.parse()?;
+                Ok(ComponentConstraintAst::Forbid(path))
+            }
+            "not" => {
+                let inner: ComponentConstraintAst = content.parse()?;
+                Ok(ComponentConstraintAst::Not(Box::new(inner)))
+            }
+            "and" => {
+                let items = Punctuated::<ComponentConstraintAst, Comma>::parse_terminated(&content)?;
+                Ok(ComponentConstraintAst::And(items.into_iter().collect()))
+            }
+            "or" => {
+                let items = Punctuated::<ComponentConstraintAst, Comma>::parse_terminated(&content)?;
+                Ok(ComponentConstraintAst::Or(items.into_iter().collect()))
+            }
+            "only" => {
+                Err(syn::Error::new(
+                        ident.span(),
+                        "`only` cannot be used inside expressions, use a separate #[constraint(only(...))] attribute",
+                ))
+            }
+            _ => Err(syn::Error::new(
+                ident.span(), 
+                format!("unknown constraint: `{}`, expected one of: require, forbid, not, and, or, only", ident)
+            ))
+        }
     }
 }
 

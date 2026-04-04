@@ -2,12 +2,14 @@
 
 mod clone;
 mod constants;
+mod constraint;
 mod info;
 mod register;
 mod required;
 
 pub use clone::*;
 pub use constants::*;
+pub use constraint::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
@@ -554,6 +556,13 @@ pub trait Component: Send + Sync + 'static {
         _component_id: ComponentId,
         _required_components: &mut RequiredComponentsRegistrator,
     ) {
+    }
+
+    /// Returns a constraint for this component, if any.
+    fn register_constraint(
+        _registrator: &mut ComponentsRegistrator,
+    ) -> Option<ComponentConstraint> {
+        None
     }
 
     /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.

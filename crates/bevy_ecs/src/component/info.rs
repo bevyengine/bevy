@@ -15,8 +15,8 @@ use indexmap::IndexSet;
 use crate::{
     archetype::ArchetypeFlags,
     component::{
-        Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
-        RequiredComponents, StorageType,
+        Component, ComponentCloneBehavior, ComponentConstraint, ComponentMutability,
+        QueuedComponents, RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
@@ -37,6 +37,9 @@ pub struct ComponentInfo {
     /// The set of components that require this components.
     /// Invariant: components in this set always appear after the components that they require.
     pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
+    /// If present, any archetype containing this
+    /// component must satisfy this constraint.
+    pub(super) constraint: Option<ComponentConstraint>,
 }
 
 impl ComponentInfo {
@@ -110,6 +113,7 @@ impl ComponentInfo {
             hooks: Default::default(),
             required_components: Default::default(),
             required_by: Default::default(),
+            constraint: None,
         }
     }
 
@@ -148,6 +152,11 @@ impl ComponentInfo {
     /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
         self.descriptor.relationship_accessor.accessor()
+    }
+
+    /// Returns the constraint DNF for this component, if any.
+    pub fn constraint(&self) -> Option<&ComponentConstraint> {
+        self.constraint.as_ref()
     }
 }
 

@@ -4,7 +4,9 @@ use bevy_utils::TypeIdMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
-use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
+use crate::component::{
+    enforce_no_required_components_recursion, ComponentConstraint, RequiredComponentsRegistrator,
+};
 use crate::lifecycle::ComponentHooks;
 use crate::{
     component::{
@@ -167,6 +169,7 @@ impl<'w> ComponentsRegistrator<'w> {
             ComponentDescriptor::new::<T>,
             T::register_required_components,
             ComponentHooks::update_from_component::<T>,
+            T::register_constraint,
         )
     }
 
@@ -177,6 +180,7 @@ impl<'w> ComponentsRegistrator<'w> {
         descriptor: fn() -> ComponentDescriptor,
         register_required_components: fn(ComponentId, &mut RequiredComponentsRegistrator),
         update_from_component: fn(&mut ComponentHooks) -> &mut ComponentHooks,
+        register_constraint: fn(&mut ComponentsRegistrator) -> Option<ComponentConstraint>,
     ) -> ComponentId {
         if let Some(&id) = self.indices.get(&type_id) {
             enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
@@ -205,6 +209,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 descriptor(),
                 register_required_components,
                 update_from_component,
+                register_constraint,
             );
         }
         id
@@ -221,6 +226,7 @@ impl<'w> ComponentsRegistrator<'w> {
         descriptor: ComponentDescriptor,
         register_required_components: fn(ComponentId, &mut RequiredComponentsRegistrator),
         update_from_component: fn(&mut ComponentHooks) -> &mut ComponentHooks,
+        register_constraint: fn(&mut ComponentsRegistrator) -> Option<ComponentConstraint>,
     ) {
         // SAFETY: ensured by caller.
         unsafe {
@@ -245,6 +251,9 @@ impl<'w> ComponentsRegistrator<'w> {
         }
         self.recursion_check_stack.pop();
 
+        // Resolve and set constraint if defined.
+        let constraint = register_constraint(self);
+
         // SAFETY: we just inserted it in `register_component_inner`
         let info = unsafe {
             &mut self
@@ -259,6 +268,19 @@ impl<'w> ComponentsRegistrator<'w> {
         update_from_component(&mut info.hooks);
 
         info.required_components = required_components;
+
+        // set [`ComponentConstraint`] to [`ComponentInfo`]
+        if let Some(constraint) = constraint {
+            info.constraint = Some(constraint);
+        }
+
+        // Ensure myself is in whitelist(`only` field)
+        if let Some(constraint) = &mut info.constraint
+            && let Some(only) = &mut constraint.only
+        {
+            only.grow(id.index() + 1);
+            only.insert(id.index());
+        }
     }
 
     /// Registers a component described by `descriptor`.
@@ -536,6 +558,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                                 descriptor,
                                 T::register_required_components,
                                 ComponentHooks::update_from_component::<T>,
+                                T::register_constraint,
                             );
                         }
                     },
