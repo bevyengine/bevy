@@ -45,7 +45,7 @@ use info::*;
 use loaders::*;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
@@ -362,7 +362,12 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, (), false)
+        self.load_builder().load(path.into())
+    }
+
+    #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
+    pub fn load_builder(&self) -> LoadBuilder<'_> {
+        LoadBuilder::new(self)
     }
 
     /// Same as [`load`](AssetServer::load), but you can load assets from unapproved paths
@@ -370,18 +375,22 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    #[deprecated(
+        note = "Use `asset_server.load_builder().override_unapproved().load(path)` instead"
+    )]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, (), true)
+        self.load_builder().override_unapproved().load(path.into())
     }
 
     /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
     /// `type_id`.
+    #[deprecated(note = "Use `asset_server.load_builder().load_erased(type_id, path)` instead")]
     pub fn load_erased<'a>(
         &self,
         type_id: TypeId,
         path: impl Into<AssetPath<'a>>,
     ) -> UntypedHandle {
-        self.load_with_meta_transform_erased(path, type_id, None, None, (), false)
+        self.load_builder().load_erased(type_id, path.into())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -399,13 +408,14 @@ impl AssetServer {
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
     ///
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
+    #[deprecated(note = "Use `asset_server.load_builder().with_guard(guard).load(path)` instead")]
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_acquire<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard, false)
+        self.load_builder().with_guard(guard).load(path.into())
     }
 
     /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unapproved paths
@@ -413,29 +423,35 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    #[deprecated(
+        note = "Use `asset_server.load_builder().with_guard(guard).override_unapproved().load(path)` instead"
+    )]
     pub fn load_acquire_override<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard, true)
+        self.load_builder()
+            .with_guard(guard)
+            .override_unapproved()
+            .load(path.into())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
+    #[deprecated(
+        note = "Use `asset_server.load_builder().with_settings(settings).load(path)` instead"
+    )]
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            (),
-            false,
-        )
+        self.load_builder()
+            .with_settings(settings)
+            .load(path.into())
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unapproved paths
@@ -443,17 +459,18 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    #[deprecated(
+        note = "Use `asset_server.load_builder().with_settings(settings).override_unapproved().load(path)` instead"
+    )]
     pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            (),
-            true,
-        )
+        self.load_builder()
+            .with_settings(settings)
+            .override_unapproved()
+            .load(path.into())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -465,6 +482,9 @@ impl AssetServer {
     /// The given `settings` function will override the asset's
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
+    #[deprecated(
+        note = "Use `asset_server.load_builder().with_guard(guard).with_settings(settings).load(path)` instead"
+    )]
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_acquire_with_settings<'a, A: Asset, S: Settings, G: Send + Sync + 'static>(
         &self,
@@ -472,12 +492,10 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            guard,
-            false,
-        )
+        self.load_builder()
+            .with_guard(guard)
+            .with_settings(settings)
+            .load(path.into())
     }
 
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unapproved paths
@@ -485,6 +503,9 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    #[deprecated(
+        note = "Use `asset_server.load_builder().with_guard(guard).with_settings(settings).override_unapproved().load(path)` instead"
+    )]
     pub fn load_acquire_with_settings_override<
         'a,
         A: Asset,
@@ -496,12 +517,11 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            guard,
-            true,
-        )
+        self.load_builder()
+            .with_guard(guard)
+            .with_settings(settings)
+            .override_unapproved()
+            .load(path.into())
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -602,25 +622,34 @@ impl AssetServer {
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
     /// you should use [`AssetServer::load`]. If you don't know the type of the asset, but you can't use an async method,
     /// consider using [`AssetServer::load_untyped`].
+    #[deprecated(note = "Use `asset_server.load_builder().load_untyped_async(path)` instead")]
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub async fn load_untyped_async<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        self.write_infos().stats.started_load_tasks += 1;
-
-        let path: AssetPath = path.into();
-        self.load_internal(None, path, false, None)
-            .await
-            .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
+        self.load_builder().load_untyped_async(path.into()).await
     }
 
-    pub(crate) fn load_unknown_type_with_meta_transform<'a>(
+    pub(crate) fn load_unknown_type_with_meta_transform<'a, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
+        guard: G,
+        override_unapproved: bool,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
+
+        if path.is_unapproved() {
+            match (&self.data.unapproved_path_mode, override_unapproved) {
+                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
+                    return Handle::default();
+                }
+            }
+        }
+
         let untyped_source = AssetSourceId::Name(match path.source() {
             AssetSourceId::Default => CowArc::Static(UNTYPED_SOURCE_SUFFIX),
             AssetSourceId::Name(source) => {
@@ -668,6 +697,7 @@ impl AssetServer {
                     });
                 }
             };
+            drop(guard);
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
@@ -702,9 +732,10 @@ impl AssetServer {
     ///
     /// This indirection enables a non blocking load of an untyped asset, since I/O is
     /// required to figure out the asset type before a handle can be created.
+    #[deprecated(note = "Use `asset_server.load_builder().load_untyped(path)` instead")]
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
-        self.load_unknown_type_with_meta_transform(path, None)
+        self.load_builder().load_untyped(path.into())
     }
 
     /// Performs an async asset load.
@@ -1130,7 +1161,7 @@ impl AssetServer {
                     } else {
                         let path = child_path.to_str().expect("Path should be a valid string.");
                         let asset_path = AssetPath::parse(path).with_source(source.clone());
-                        match server.load_untyped_async(asset_path).await {
+                        match server.load_builder().load_untyped_async(asset_path).await {
                             Ok(handle) => handles.push(handle),
                             // skip assets that cannot be loaded
                             Err(
@@ -1794,6 +1825,186 @@ impl AssetServer {
             .await?;
 
         Ok(())
+    }
+}
+
+/// A builder for initiating a more complex load than the one provided by [`AssetServer::load`].
+pub struct LoadBuilder<'a> {
+    /// The asset server on which the load is invoked.
+    asset_server: &'a AssetServer,
+    /// A function to modify the meta for an asset loader. In practice, this just mutates the loader
+    /// settings of a load.
+    meta_transform: Option<MetaTransform>,
+    /// Whether unapproved paths are allowed to be loaded.
+    override_unapproved: bool,
+    /// A "guard" that is held until the load has fully completed.
+    guard: Option<Box<dyn Send + Sync + 'static>>,
+}
+
+impl<'a> LoadBuilder<'a> {
+    /// Begins building a new load on the given `asset_server`.
+    #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
+    fn new(asset_server: &'a AssetServer) -> Self {
+        Self {
+            asset_server,
+            meta_transform: None,
+            override_unapproved: false,
+            guard: None,
+        }
+    }
+
+    /// Use the given `settings` function to override the asset's [`AssetLoader`] settings.
+    ///
+    /// The type `S` must match the configured [`AssetLoader::Settings`] or `settings` changes will
+    /// be ignored and an error will be printed to the log.
+    ///
+    /// Repeatedly calling this method will "chain" the operations (matching the order of these
+    /// calls).
+    #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
+    pub fn with_settings<S: Settings>(
+        mut self,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Self {
+        let new_transform = loader_settings_meta_transform(settings);
+        if let Some(prev_transform) = self.meta_transform.take() {
+            self.meta_transform = Some(Box::new(move |meta| {
+                prev_transform(meta);
+                new_transform(meta);
+            }));
+        } else {
+            self.meta_transform = Some(new_transform);
+        }
+        self
+    }
+
+    /// Loads from unapproved paths are allowed, even if
+    /// [`AssetPlugin::unapproved_path_mode`](crate::AssetPlugin::unapproved_path_mode) is
+    /// [`Deny`](crate::UnapprovedPathMode::Deny).
+    #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
+    pub fn override_unapproved(mut self) -> Self {
+        self.override_unapproved = true;
+        self
+    }
+
+    /// Sets the guard item that is held during the load.
+    ///
+    /// The guard item is dropped when either the asset is loaded or loading has failed. This allows
+    /// the [`Drop`] implementation of the guard item to notify the caller in some way. See the
+    /// `multi_asset_sync` example for usage.
+    ///
+    /// Only the last guard is kept. The previous guards are dropped before the load begins.
+    #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
+    pub fn with_guard(mut self, guard: impl Send + Sync + 'static) -> Self {
+        if self.guard.is_some() {
+            warn!("Adding a second guard to a LoadBuilder drops the first guard! This is likely a mistake.");
+        }
+        // If guard is already a box, then we might end up double-boxing, which is sad. But this is
+        // almost certainly not worth caring about.
+        self.guard = Some(Box::new(guard));
+        self
+    }
+
+    /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
+    /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
+    /// associated [`Assets`] resource.
+    ///
+    /// Note that if the asset at this path is already loaded, this function will return the existing handle,
+    /// and will not waste work spawning a new load task.
+    ///
+    /// This matches the behavior of [`AssetServer::load`], but supporting all other features of the
+    /// builder. See its docs for more details.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load<'b, A: Asset>(self, asset_path: impl Into<AssetPath<'b>>) -> Handle<A> {
+        self.load_typed_internal(TypeId::of::<A>(), Some(type_name::<A>()), asset_path.into())
+            .typed_unchecked()
+    }
+
+    /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
+    /// `type_id`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_erased<'b>(
+        self,
+        type_id: TypeId,
+        asset_path: impl Into<AssetPath<'b>>,
+    ) -> UntypedHandle {
+        self.load_typed_internal(type_id, None, asset_path.into())
+    }
+
+    /// Load an asset without knowing its type. The method returns a handle to a [`LoadedUntypedAsset`].
+    ///
+    /// Once the [`LoadedUntypedAsset`] is loaded, an untyped handle for the requested path can be
+    /// retrieved from it.
+    ///
+    /// ```
+    /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
+    /// use bevy_ecs::system::Res;
+    /// use bevy_ecs::resource::Resource;
+    ///
+    /// #[derive(Resource)]
+    /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
+    ///
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
+    ///         let handle = loaded_untyped_asset.handle.clone();
+    ///         // continue working with `handle` which points to the asset at the originally requested path
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// This indirection enables a non blocking load of an untyped asset, since I/O is
+    /// required to figure out the asset type before a handle can be created.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_untyped<'b>(
+        self,
+        asset_path: impl Into<AssetPath<'b>>,
+    ) -> Handle<LoadedUntypedAsset> {
+        self.asset_server.load_unknown_type_with_meta_transform(
+            asset_path,
+            self.meta_transform,
+            self.guard,
+            self.override_unapproved,
+        )
+    }
+
+    // We intentionally don't provide a `load_async` or `load_erased_async`, since these don't
+    // provide any value over doing a regular deferred load + `AssetServer::wait_for_asset_id`.
+    // `load_untyped_async` on the other hand lets you avoid dealing with the "missing type" of the
+    // asset (i.e., dealing with `LoadedUntypedAsset`).
+
+    /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
+    /// you should use [`AssetServer::load`]. If you don't know the type of the asset, but you can't use an async method,
+    /// consider using [`AssetServer::load_untyped`].
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub async fn load_untyped_async<'b>(
+        self,
+        asset_path: impl Into<AssetPath<'b>>,
+    ) -> Result<UntypedHandle, AssetLoadError> {
+        let path: AssetPath = asset_path.into();
+
+        self.asset_server.write_infos().stats.started_load_tasks += 1;
+
+        self.asset_server
+            .load_internal(None, path, false, None)
+            .await
+            .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
+    }
+
+    /// Begins a (deferred) load for an asset with the given `type_id` and `type_name`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    fn load_typed_internal(
+        self,
+        type_id: TypeId,
+        type_name: Option<&str>,
+        asset_path: AssetPath<'_>,
+    ) -> UntypedHandle {
+        self.asset_server.load_with_meta_transform_erased(
+            asset_path,
+            type_id,
+            type_name,
+            self.meta_transform,
+            self.guard,
+            self.override_unapproved,
+        )
     }
 }
 

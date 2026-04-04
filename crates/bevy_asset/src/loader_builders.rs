@@ -373,7 +373,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
-                .load_unknown_type_with_meta_transform(path, self.meta_transform)
+                .load_unknown_type_with_meta_transform(path, self.meta_transform, (), false)
         } else {
             self.load_context
                 .asset_server
