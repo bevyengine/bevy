@@ -10,7 +10,7 @@
 //! account the directional light color and direction.
 //!
 //! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
-//! [`GlobalTransform`](bevy_transform::components::GlobalTransform), and add [`AtmosphereSettings`]
+//! [`bevy_transform::components::GlobalTransform`], and add [`AtmosphereSettings`] to each
 //! 3D camera that should render it. Detailed documentation is on the [`Atmosphere`] component.
 //!
 //! Placement and scene scale come from the entity's transform. With several atmospheres in one

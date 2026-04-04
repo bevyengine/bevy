@@ -20,13 +20,13 @@ use core::f32::{self, consts::PI};
 use smallvec::SmallVec;
 use wgpu_types::TextureFormat;
 
-/// Atmosphere for one planet. The entity's [`Transform`] is the planet center in world space.
+/// Atmosphere for one planet. The entity's [`GlobalTransform`] is the planet center in world space.
 ///
 /// Add `AtmosphereSettings` to each 3D camera that should use it, the nearest atmosphere is used for rendering.
 ///
-/// If [`Transform`] is still [`Default`] when this component is first added, it is placed `radius` units directly below the origin on the `Y` axis, so that the planet's normal is roughly `Vec3::Y` around the origin, likely where your camera/scene is located. Unless you're making a game set in space, this is probably what you want. Otherwise, feel free to override this default by setting a transform manually.
+/// If [`GlobalTransform`] is still [`Default`] when this component is first added, it is placed `radius` units directly below the origin on the `Y` axis, so that the planet's normal is roughly `Vec3::Y` around the origin, likely where your camera/scene is located. Unless you're making a game set in space, this is probably what you want. Otherwise, feel free to override this default by setting a transform manually.
 ///
-/// The scale on [`Transform`] rescales the planet in world space. Tune it with the radius offset
+/// The scale on [`GlobalTransform`] rescales the planet in world space. Tune it with the radius offset
 /// when your scene uses other units, like kilometer-sized scenes.
 #[derive(Clone, Component)]
 #[require(GlobalTransform::default())]
