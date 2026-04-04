@@ -1634,7 +1634,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
+    use crate::error::{BevyError, ErrorContext, FallbackErrorHandler};
     use crate::{
         change_detection::{Res, ResMut},
         component::Component,
@@ -2031,7 +2031,7 @@ mod tests {
     #[test]
     fn run_if_error_contains_system() {
         let mut world = World::new();
-        world.insert_resource(DefaultErrorHandler(my_error_handler));
+        world.insert_resource(FallbackErrorHandler(my_error_handler));
 
         #[derive(Resource)]
         struct MyResource;

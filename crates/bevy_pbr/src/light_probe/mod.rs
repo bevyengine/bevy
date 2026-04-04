@@ -27,7 +27,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -408,8 +408,8 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .init_resource::<LightProbesBuffer>()
-            .init_resource::<EnvironmentMapUniformBuffer>()
+            .init_gpu_resource::<LightProbesBuffer>()
+            .init_gpu_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(
                 ExtractSchedule,
@@ -564,9 +564,11 @@ fn upload_light_probes(
     }
 
     // Initialize the uniform buffer writer.
-    let mut writer = light_probes_buffer
-        .get_writer(views.iter().len(), &render_device, &render_queue)
-        .unwrap();
+    let Some(mut writer) =
+        light_probes_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
 
     // Process each view.
     for view_entity in views.iter() {

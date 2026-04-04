@@ -239,7 +239,7 @@ fn setup_scene(
     ));
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),

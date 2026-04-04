@@ -2,7 +2,7 @@ use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -32,8 +32,8 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
+                .init_gpu_resource::<ExtractedWindows>()
+                .init_gpu_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
@@ -298,31 +298,36 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         match surface.get_current_texture() {
-            Ok(frame) => {
-                window.set_swapchain_texture(frame);
-            }
-            Err(wgpu::SurfaceError::Outdated) => {
-                render_device.configure_surface(surface, &surface_data.configuration);
-                let frame = match surface.get_current_texture() {
-                    Ok(frame) => frame,
-                    Err(err) => {
-                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
-                        // when opening and resizing the window.
-                        warn!("Couldn't get swap chain texture after configuring. Cause: '{err}'");
-                        continue;
-                    }
-                };
-                window.set_swapchain_texture(frame);
+            wgpu::CurrentSurfaceTexture::Success(surface_texture)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+                window.set_swapchain_texture(surface_texture);
             }
             #[cfg(target_os = "linux")]
-            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+            wgpu::CurrentSurfaceTexture::Timeout if may_erroneously_timeout() => {
                 bevy_log::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
             }
-            Err(err) => {
-                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(surface_texture)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+                    variant => {
+                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
+                        // when opening and resizing the window.
+                        warn!(
+                            "Couldn't get swap chain texture after configuring. Cause: '{variant:?}'"
+                        );
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
+            }
+            wgpu::CurrentSurfaceTexture::Occluded => {}
+            other => {
+                bevy_log::error!("Couldn't get swap chain texture: {other:?}");
             }
         }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
@@ -367,7 +372,7 @@ pub fn create_surfaces(
             .entry(window.entity)
             .or_insert_with(|| {
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_display_handle: Some(window.handle.get_display_handle()),
                     raw_window_handle: window.handle.get_window_handle(),
                 };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on

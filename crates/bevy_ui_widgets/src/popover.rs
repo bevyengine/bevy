@@ -1,15 +1,21 @@
 //! Framework for positioning of popups, tooltips, and other popover UI elements.
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, hierarchy::ChildOf, query::Without,
-    schedule::IntoScheduleConfigs, system::Query,
+    component::Component,
+    entity::Entity,
+    hierarchy::{ChildOf, Children},
+    query::Without,
+    schedule::IntoScheduleConfigs,
+    system::{ParamSet, Query},
 };
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Affine2, Rect, Vec2};
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems, Val,
+    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
+    UiGlobalTransform, UiSystems, UiTransform, Val2,
 };
+
+use crate::update_scrollbar_thumb;
 
 /// Which side of the parent element the popover element should be placed.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -91,19 +97,33 @@ impl Clone for Popover {
     }
 }
 
-fn position_popover(
+pub(crate) fn position_popover(
     mut q_popover: Query<(
+        Entity,
         &mut Node,
-        &mut Visibility,
+        &mut UiTransform,
+        &mut UiGlobalTransform,
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &Popover,
         &ChildOf,
     )>,
-    q_parent: Query<(&ComputedNode, &UiGlobalTransform), Without<Popover>>,
+    mut qs_transform: ParamSet<(
+        Query<(&ComputedNode, &UiGlobalTransform), Without<Popover>>,
+        Query<&mut UiGlobalTransform, Without<Popover>>,
+    )>,
+    q_children: Query<&Children>,
 ) {
-    for (mut node, mut visibility, computed_node, computed_target, popover, parent) in
-        q_popover.iter_mut()
+    for (
+        popover_entity,
+        mut node,
+        mut transform,
+        mut ui_global_transform,
+        computed_node,
+        computed_target,
+        popover,
+        parent,
+    ) in q_popover.iter_mut()
     {
         // A rectangle which represents the area of the window.
         let window_rect = Rect {
@@ -113,9 +133,11 @@ fn position_popover(
         .inflate(-popover.window_margin);
 
         // Compute the parent rectangle.
+        let q_parent = qs_transform.p0();
         let Ok((parent_node, parent_transform)) = q_parent.get(parent.parent()) else {
             continue;
         };
+
         // Computed node size includes the border, but since absolute positioning doesn't include
         // border we need to remove it from the calculations.
         let parent_size =
@@ -124,6 +146,7 @@ fn position_popover(
             Rect::from_center_size(parent_transform.translation, parent_size),
             parent_node.inverse_scale_factor,
         );
+        let parent_matrix = parent_transform.affine().matrix2;
 
         let mut best_occluded = f32::MAX;
         let mut best_rect = Rect::default();
@@ -215,24 +238,66 @@ fn position_popover(
         // Update node properties, but only if they are different from before (to avoid setting
         // change detection bit).
         if best_occluded < f32::MAX {
-            let left = Val::Px(best_rect.min.x - parent_rect.min.x);
-            let top = Val::Px(best_rect.min.y - parent_rect.min.y);
-            visibility.set_if_neq(Visibility::Visible);
-            if node.left != left {
-                node.left = left;
+            let best_center = 0.5 * (best_rect.min + best_rect.max);
+            let current_center =
+                ui_global_transform.translation * computed_node.inverse_scale_factor;
+            let physical_translation =
+                (best_center - current_center) * computed_target.scale_factor();
+            if parent_matrix.determinant() == 0.0 {
+                continue;
             }
-            if node.top != top {
-                node.top = top;
-            }
-            if node.bottom != Val::DEFAULT {
-                node.bottom = Val::DEFAULT;
-            }
-            if node.right != Val::DEFAULT {
-                node.right = Val::DEFAULT;
+            let resolved_translation = transform.translation.resolve(
+                computed_target.scale_factor(),
+                computed_node.size(),
+                computed_target.physical_size().as_vec2(),
+            );
+            let logical_translation = (resolved_translation
+                + parent_matrix.inverse() * physical_translation)
+                / computed_target.scale_factor();
+            let ui_translation = Val2::px(logical_translation.x, logical_translation.y);
+            if transform.translation != ui_translation {
+                transform.translation = ui_translation;
             }
             if node.position_type != PositionType::Absolute {
                 node.position_type = PositionType::Absolute;
             }
+
+            if physical_translation != Vec2::ZERO {
+                let mut affine = ui_global_transform.affine();
+                affine.translation += physical_translation;
+                *ui_global_transform = affine.into();
+
+                if let Ok(children) = q_children.get(popover_entity) {
+                    for child in children.iter() {
+                        translate_ui_children_recursive(
+                            *child,
+                            physical_translation,
+                            &q_children,
+                            &mut qs_transform.p1(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn translate_ui_children_recursive(
+    entity: Entity,
+    translation: Vec2,
+    q_children: &Query<&Children>,
+    q_transform: &mut Query<&mut UiGlobalTransform, Without<Popover>>,
+) {
+    let Ok(mut ui_global_transform) = q_transform.get_mut(entity) else {
+        return;
+    };
+
+    *ui_global_transform =
+        (ui_global_transform.affine() * Affine2::from_translation(translation)).into();
+
+    if let Ok(children) = q_children.get(entity) {
+        for child in children.iter() {
+            translate_ui_children_recursive(*child, translation, q_children, q_transform);
         }
     }
 }
@@ -242,7 +307,13 @@ pub struct PopoverPlugin;
 
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, position_popover.in_set(UiSystems::Prepare));
+        app.add_systems(
+            PostUpdate,
+            position_popover
+                .in_set(UiSystems::Layout)
+                .after(ui_layout_system)
+                .before(update_scrollbar_thumb),
+        );
     }
 }
 

@@ -237,7 +237,7 @@ fn setup_terrain_scene(
     // Terrain
     commands.spawn((
         Terrain,
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
         Transform::from_xyz(-1.0, 0.0, -0.5)

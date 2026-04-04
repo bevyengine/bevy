@@ -104,6 +104,8 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SRGB_COMPOSITING                 = 1 << 3;
+        const OKLAB_COMPOSITING                = 1 << 4;
     }
 }
 
@@ -179,9 +181,20 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        if key.contains(SpritePipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(SpritePipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
+
+        let format = match (
+            key.contains(SpritePipelineKey::HDR),
+            key.contains(SpritePipelineKey::SRGB_COMPOSITING),
+        ) {
+            (true, _) => ViewTarget::TEXTURE_FORMAT_HDR,
+            (_, true) => TextureFormat::Rgba8Unorm,
+            _ => TextureFormat::bevy_default(),
         };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
@@ -244,8 +257,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             // that wrote to depth is present.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -495,6 +508,19 @@ pub fn queue_sprites(
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
+        if view
+            .compositing_space
+            .is_some_and(|s| s == bevy_camera::CompositingSpace::Srgb)
+        {
+            view_key |= SpritePipelineKey::SRGB_COMPOSITING;
+        }
+        if view
+            .compositing_space
+            .is_some_and(|s| s == bevy_camera::CompositingSpace::Oklab)
+        {
+            view_key |= SpritePipelineKey::OKLAB_COMPOSITING;
+        }
+
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
@@ -524,8 +550,7 @@ pub fn queue_sprites(
         if let Some(visible_entities) = visible_entities.get::<Sprite>() {
             view_entities.extend(
                 visible_entities
-                    .entities
-                    .iter()
+                    .iter_visible()
                     .map(|(_, e)| e.index_u32() as usize),
             );
         }

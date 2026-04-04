@@ -2,8 +2,8 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
-    MainPassResolutionOverride, NormalizedRenderTarget,
+    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, CompositingSpace,
+    Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
@@ -22,11 +22,11 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
-use bevy_color::LinearRgba;
+use bevy_color::{LinearRgba, Oklaba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::{BevyDefault as _, ToExtents};
@@ -41,8 +41,8 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    BufferUsages, Color as WgpuColor, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 /// The matrix that converts from the RGB to the LMS color space.
@@ -129,6 +129,7 @@ impl Plugin for ViewPlugin {
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+                    collect_visible_cpu_culled_entities.in_set(RenderSystems::PrepareAssets),
                 ),
             );
         }
@@ -137,8 +138,8 @@ impl Plugin for ViewPlugin {
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetAttachments>();
+                .init_gpu_resource::<ViewUniforms>()
+                .init_gpu_resource::<ViewTargetAttachments>();
         }
     }
 }
@@ -291,6 +292,9 @@ pub struct ExtractedView {
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
     pub hdr: bool,
+    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
+    /// and shaders output sRGB-encoded values for gamma-encoded blending.
+    pub compositing_space: Option<CompositingSpace>,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -611,6 +615,8 @@ pub struct ViewTarget {
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
     out_texture: OutputColorAttachment,
+    /// Color space of values stored in the main texture (for blit conversion to output)
+    pub compositing_space: Option<CompositingSpace>,
 }
 
 /// Contains [`OutputColorAttachment`] used for each target present on any view in the current
@@ -1080,6 +1086,12 @@ pub fn prepare_view_targets(
 
         let main_texture_format = if view.hdr {
             ViewTarget::TEXTURE_FORMAT_HDR
+        } else if view
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Srgb)
+        {
+            // Linear storage; shaders output sRGB for gamma-encoded blending
+            TextureFormat::Rgba8Unorm
         } else {
             TextureFormat::bevy_default()
         };
@@ -1090,8 +1102,28 @@ pub fn prepare_view_targets(
             _ => Some(clear_color_global.0),
         };
 
+        // Convert clear color to the format expected by the main texture
+        let converted_clear_color: Option<WgpuColor> = clear_color.map(|color| {
+            let linear: LinearRgba = color.into();
+            if view
+                .compositing_space
+                .is_some_and(|s| s == CompositingSpace::Oklab)
+            {
+                // Main texture stores Oklab; convert linear RGB to Oklab for correct clear
+                let oklab: Oklaba = linear.into();
+                oklab.into()
+            } else {
+                linear.into()
+            }
+        });
+
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
+            .entry((
+                camera.target.clone(),
+                texture_usage.0,
+                main_texture_format,
+                msaa,
+            ))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
@@ -1143,8 +1175,6 @@ pub fn prepare_view_targets(
                 (a, b, sampled, main_texture)
             });
 
-        let converted_clear_color = clear_color.map(Into::into);
-
         let main_textures = MainTargetTextures {
             a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
             b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
@@ -1156,6 +1186,7 @@ pub fn prepare_view_targets(
             main_textures,
             main_texture_format,
             out_texture: out_attachment.clone(),
+            compositing_space: view.compositing_space,
         });
     }
 }

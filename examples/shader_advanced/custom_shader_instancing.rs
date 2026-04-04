@@ -87,12 +87,13 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct InstanceMaterialData(Vec<InstanceData>);
 
 impl SyncComponent for InstanceMaterialData {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))
@@ -158,8 +159,11 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
-            let key =
-                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            let key = view_key
+                | MeshPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                );
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();

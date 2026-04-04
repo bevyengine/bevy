@@ -40,7 +40,7 @@ use bevy_render::{
     sync_component::SyncComponent,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
@@ -209,8 +209,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         };
 
         render_app
-            .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
+            .init_gpu_resource::<ScreenSpaceReflectionsBuffer>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
             .add_systems(
                 RenderStartup,
                 init_screen_space_reflections_pipeline.after(MeshPipelineSet),
@@ -516,12 +516,17 @@ pub fn prepare_ssr_settings(
 }
 
 impl SyncComponent for ScreenSpaceReflections {
-    type Out = ScreenSpaceReflectionsUniform;
+    type Target = (
+        ScreenSpaceReflectionsUniform,
+        ViewScreenSpaceReflectionsUniformOffset,
+        ScreenSpaceReflectionsPipelineId,
+    );
 }
 
 impl ExtractComponent for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
+    type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {

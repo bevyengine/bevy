@@ -17,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
-use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -28,6 +27,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite_render::{
     init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
@@ -47,8 +47,8 @@ impl Plugin for LineGizmo2dPlugin {
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .add_render_command::<Transparent2d, DrawLineGizmo2dStrip>()
             .add_render_command::<Transparent2d, DrawLineJointGizmo2d>()
-            .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
                 GizmoRenderSystems::QueueLineGizmos2d
@@ -154,8 +154,8 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             layout,
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -243,8 +243,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

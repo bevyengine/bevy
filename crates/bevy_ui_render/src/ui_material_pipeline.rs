@@ -22,7 +22,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderRef};
 use bevy_sprite::BorderRect;
 use bevy_utils::default;
@@ -50,14 +50,14 @@ where
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>, GpuImage>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
-                .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+                .init_gpu_resource::<UiMaterialMeta<M>>()
+                .init_gpu_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(RenderStartup, init_ui_material_pipeline::<M>)
                 .add_systems(
                     ExtractSchedule,

@@ -220,6 +220,18 @@ impl ColorToComponents for Oklaba {
     }
 }
 
+#[cfg(feature = "wgpu-types")]
+impl From<Oklaba> for wgpu_types::Color {
+    fn from(color: Oklaba) -> Self {
+        wgpu_types::Color {
+            r: color.lightness as f64,
+            g: color.a as f64,
+            b: color.b as f64,
+            a: color.alpha as f64,
+        }
+    }
+}
+
 impl From<LinearRgba> for Oklaba {
     fn from(value: LinearRgba) -> Self {
         let LinearRgba {
