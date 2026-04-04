@@ -2555,7 +2555,7 @@ mod test {
     fn get_or_init_sampler_modifications() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_filter(ImageFilterMode::Linear)
@@ -2572,7 +2572,7 @@ mod test {
     fn get_or_init_sampler_anisotropy() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_anisotropic_filter(8);

@@ -398,7 +398,7 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
 pub trait LoadFromPath {
     /// Initiates the load for the given expected type ID, and the path.
     ///
-    /// See [`AssetServer::load_erased`] for more.
+    /// See [`LoadBuilder::load_erased`](crate::LoadBuilder::load_erased) for more.
     fn load_from_path_erased(&mut self, type_id: TypeId, path: AssetPath<'static>)
         -> UntypedHandle;
 }
@@ -419,7 +419,7 @@ impl LoadFromPath for AssetServer {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.load_erased(type_id, path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 
@@ -429,7 +429,7 @@ impl LoadFromPath for &AssetServer {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.load_erased(type_id, path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 
@@ -625,7 +625,7 @@ mod tests {
             let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
             let asset_server = app.world().resource::<AssetServer>().clone();
 
-            let untyped = asset_server.load_untyped("def.cool.ron");
+            let untyped = asset_server.load_builder().load_untyped("def.cool.ron");
             run_app_until(&mut app, |_| asset_server.is_loaded(&untyped).then_some(()));
             let untyped = app
                 .world()
