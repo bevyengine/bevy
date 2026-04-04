@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppExit, AppLabel, AppLabelBase, Plugin, SubApp};
+use bevy_app::{App, AppExit, AppLabel, AppLabelInterior, Plugin, SubApp};
 use bevy_ecs::{
     resource::Resource,
     schedule::MainThreadExecutor,
@@ -14,7 +14,7 @@ use crate::RenderApp;
 ///
 /// The Main schedule of this app can be used to run logic after the render schedule starts, but
 /// before I/O processing. This can be useful for something like frame pacing.
-#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabelBase)]
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabelInterior)]
 pub struct RenderExtractApp;
 
 impl AppLabel for RenderExtractApp {}

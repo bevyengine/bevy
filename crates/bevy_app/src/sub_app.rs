@@ -27,14 +27,14 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 ///
 /// ```
 /// # use bevy_app::{App, SubApp, Main, AppLabel};
-/// # use bevy_derive::AppLabelBase;
+/// # use bevy_derive::AppLabelInterior;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
 ///
-/// #[derive(AppLabelBase, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+/// #[derive(AppLabelInterior, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 /// struct ExampleApp;
 ///
 /// impl AppLabel for ExampleApp {}

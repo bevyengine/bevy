@@ -8,14 +8,14 @@ pull_requests: [23377]
 Before:
 
 ```rust,ignore
-#[derive(AppLabel, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 struct MyAppLabel;
 ```
 
 After:
 
 ```rust,ignore
-#[derive(AppLabelBase, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabelInterior)]
 struct MyAppLabel;
 
 impl AppLabel for MyAppLabel {}
