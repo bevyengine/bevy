@@ -92,7 +92,8 @@ pub(crate) struct WinitAppRunnerState {
             ),
         >,
     )>,
-    /// time at which next tick is scheduled to run when `update_mode` is [`UpdateMode::Reactive`]
+    /// Scheduled start time for the next timed update when `update_mode` is
+    /// [`UpdateMode::Reactive`] or [`UpdateMode::ContinuousCapped`].
     scheduled_tick_start: Option<Instant>,
 }
 
@@ -487,7 +488,10 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
             if self.app_exit.is_none()
                 && (self.startup_forced_updates > 0
-                    || matches!(self.update_mode, UpdateMode::Reactive { .. })
+                    || matches!(
+                        self.update_mode,
+                        UpdateMode::Reactive { .. } | UpdateMode::ContinuousCapped { .. }
+                    )
                     || self.window_event_received
                     || headless_or_all_invisible())
             {
@@ -704,6 +708,23 @@ impl WinitAppRunnerState {
                     self.redraw_requested = true;
                 }
             }
+            UpdateMode::ContinuousCapped { wait } => {
+                if self.wait_elapsed {
+                    self.redraw_requested = true;
+
+                    let begin_instant = self.scheduled_tick_start.unwrap_or(begin_frame_time);
+                    if let Some(next) = begin_instant.checked_add(wait) {
+                        let now = Instant::now();
+                        if next < now {
+                            event_loop.set_control_flow(ControlFlow::Poll);
+                            self.scheduled_tick_start = Some(now);
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            self.scheduled_tick_start = Some(next);
+                        }
+                    }
+                }
+            }
             UpdateMode::Reactive { wait, .. } => {
                 // Set the next timeout, starting from the instant we were scheduled to begin
                 if self.wait_elapsed {
@@ -749,6 +770,7 @@ impl WinitAppRunnerState {
                     || self.window_event_received
                     || self.device_event_received
             }
+            UpdateMode::ContinuousCapped { .. } => self.wait_elapsed,
             UpdateMode::Reactive {
                 react_to_device_events,
                 react_to_user_events,
@@ -957,7 +979,8 @@ pub(crate) fn react_to_scale_factor_change(
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::Update;
+    use bevy_app::{App, Update};
+    use core::time::Duration;
 
     use super::*;
 
@@ -1065,5 +1088,24 @@ mod tests {
         let window_entity = app.world_mut().spawn(window).id();
 
         (app, window_entity)
+    }
+
+    #[test]
+    fn continuous_capped_mode_ignores_events_before_timeout() {
+        let mut runner_state = WinitAppRunnerState::new(App::new());
+        runner_state.lifecycle = AppLifecycle::Running;
+        runner_state.window_event_received = true;
+        runner_state.device_event_received = true;
+        runner_state.user_event_received = true;
+
+        assert!(!runner_state.should_update(UpdateMode::ContinuousCapped {
+            wait: Duration::from_millis(8),
+        }));
+
+        runner_state.wait_elapsed = true;
+
+        assert!(runner_state.should_update(UpdateMode::ContinuousCapped {
+            wait: Duration::from_millis(8),
+        }));
     }
 }
