@@ -5,7 +5,7 @@
 //! Run with the `bevy_remote` feature enabled:
 //! ```bash
 //! cargo run --example app_under_test --features="bevy_remote"
-//! ```
+//! 
 
 use bevy::{
     prelude::*,
@@ -18,6 +18,8 @@ use rand::{RngExt, SeedableRng};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // To make the app available for automated testing, we add these
+        // remote plugins to expose API’s for a testing framework to call.
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
         .insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467712)))
