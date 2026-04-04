@@ -398,7 +398,7 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
 pub trait LoadFromPath {
     /// Initiates the load for the given expected type ID, and the path.
     ///
-    /// See [`AssetServer::load_erased`] for more.
+    /// See [`LoadBuilder::load_erased`](crate::LoadBuilder::load_erased) for more.
     fn load_from_path_erased(&mut self, type_id: TypeId, path: AssetPath<'static>)
         -> UntypedHandle;
 }

@@ -355,7 +355,7 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
                     self.meta_transform,
                 )
         };
-        // `load_erased_with_meta_transform` and `get_or_create_path_handle_erased` always returns a
+        // `load_with_meta_transform_erased` and `get_or_create_path_handle_erased` always returns a
         // Strong variant, so we are safe to unwrap.
         let index = (&handle).try_into().unwrap();
         self.load_context.dependencies.insert(index);

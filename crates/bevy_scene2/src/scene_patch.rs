@@ -151,7 +151,7 @@ impl SceneListPatch {
         scene_list.register_dependencies(&mut dependencies);
         let dependencies = dependencies
             .iter()
-            .map(|dep| assets.load_erased(dep.type_id, &dep.path))
+            .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
             .collect::<Vec<_>>();
         SceneListPatch {
             scene_list: Box::new(scene_list),
