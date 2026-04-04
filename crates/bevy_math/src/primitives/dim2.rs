@@ -1183,8 +1183,9 @@ impl Measured2d for Rhombus {
     }
 }
 
-/// An unbounded plane in 2D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+/// An unbounded plane in 2D space, defined by a normal and a signed offset from the origin.
+///
+/// The plane consists of all points `p` such that `dot(normal, p) + offset == 0`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1197,30 +1198,120 @@ impl Measured2d for Rhombus {
     reflect(Serialize, Deserialize)
 )]
 pub struct Plane2d {
-    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    /// The normal of the plane. The plane will be placed perpendicular to this direction.
     pub normal: Dir2,
+    /// The signed offset from the origin along the normal.
+    pub offset: f32,
 }
 
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
-    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction through the origin.
     fn default() -> Self {
-        Self { normal: Dir2::Y }
+        Self {
+            normal: Dir2::Y,
+            offset: 0.0,
+        }
     }
 }
 
 impl Plane2d {
-    /// Create a new `Plane2d` from a normal
+    /// Create a new `Plane2d` from a normal direction and a signed offset from the origin.
+    #[inline]
+    pub const fn new(normal: Dir2, offset: f32) -> Self {
+        Self { normal, offset }
+    }
+
+    /// Creates a new [`Plane2d`] from a point on the plane and an outward facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec2, normal: Dir2) -> Self {
+        let offset = -normal.dot(point);
+        Self::new(normal, offset)
+    }
+
+    /// Creates a new [`Plane2d`] from the coefficients of the plane equation `ax + by + c = 0`.
     ///
     /// # Panics
     ///
-    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
-    #[inline]
-    pub fn new(normal: Vec2) -> Self {
+    /// Panics if the normal vector `(a, b)` has a length of zero, infinity, or `NaN`.
+    pub fn from_coefficients(a: f32, b: f32, c: f32) -> Self {
+        let (normal, length) = Dir2::new_and_length(Vec2::new(a, b))
+            .expect("finite plane must be defined by a normal with a non-zero length");
+
         Self {
-            normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
+            normal,
+            offset: c / length,
         }
+    }
+
+    /// Tries to create a new [`Plane2d`] from the coefficients of the plane equation `ax + by + c = 0`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`InvalidDirectionError`] if the normal vector `(a, b)` has a length of zero, infinity, or `NaN`.
+    #[inline]
+    pub fn try_from_coefficients(a: f32, b: f32, c: f32) -> Result<Self, InvalidDirectionError> {
+        let (normal, length) = Dir2::new_and_length(Vec2::new(a, b))?;
+        Ok(Self {
+            normal,
+            offset: c / length,
+        })
+    }
+
+    /// Computes the signed distance from the plane to a point.
+    #[inline]
+    pub fn signed_distance_to_point(&self, point: Vec2) -> f32 {
+        self.normal.dot(point) + self.offset
+    }
+
+    /// Projects a point onto the plane along the plane's normal.
+    #[inline]
+    pub fn project_point(&self, point: Vec2) -> Vec2 {
+        point - *self.normal * self.signed_distance_to_point(point)
+    }
+}
+
+/// A region of 2D space bounded by a line (the 2D analog of a half-space).
+///
+/// Any point `p` is considered to be within the `HalfSpace2d` when
+/// `normal.dot(p) + offset > 0.` is satisfied.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, Default, PartialEq)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct HalfSpace2d(pub Plane2d);
+
+impl HalfSpace2d {
+    /// Creates a new `HalfSpace2d` from a normal direction and offset.
+    #[inline]
+    pub const fn new(normal: Dir2, offset: f32) -> Self {
+        Self(Plane2d::new(normal, offset))
+    }
+
+    /// Creates a new `HalfSpace2d` from a point on the boundary and an inward-facing normal.
+    #[inline]
+    pub fn from_point_and_normal(point: Vec2, normal: Dir2) -> Self {
+        Self(Plane2d::from_point_and_normal(point, normal))
+    }
+
+    /// Returns the underlying [`Plane2d`].
+    #[inline]
+    pub fn plane(&self) -> &Plane2d {
+        &self.0
+    }
+
+    /// Returns `true` if the point is inside the half-space (on the normal side of the boundary).
+    #[inline]
+    pub fn contains(&self, point: Vec2) -> bool {
+        self.0.signed_distance_to_point(point) > 0.0
     }
 }
 
@@ -2323,6 +2414,89 @@ mod tests {
 
     use super::*;
     use approx::{assert_abs_diff_eq, assert_relative_eq};
+
+    #[test]
+    fn plane_math() {
+        let origin = Vec2::new(1.0, 1.0);
+        let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
+
+        let plane = Plane2d::from_point_and_normal(origin, normal);
+        assert_relative_eq!(plane.offset, -normal.dot(origin), epsilon = 1e-6);
+        assert_eq!(plane.normal, normal);
+
+        // A point on the plane
+        let point_on_plane = origin + Vec2::new(1.0, -1.0);
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_on_plane),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_on_plane),
+            point_on_plane,
+            epsilon = 1e-6
+        );
+
+        // A point in front of the plane
+        let point_front = point_on_plane + *normal * 2.0;
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_front),
+            2.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_front),
+            point_on_plane,
+            epsilon = 1e-6
+        );
+
+        // A point behind the plane
+        let point_back = point_on_plane - *normal * 2.0;
+        assert_relative_eq!(
+            plane.signed_distance_to_point(point_back),
+            -2.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            plane.project_point(point_back),
+            point_on_plane,
+            epsilon = 1e-6
+        );
+
+        // coefficients
+        let c = plane.offset;
+        let plane_coeffs = Plane2d::from_coefficients(normal.x, normal.y, c);
+        assert_relative_eq!(*plane_coeffs.normal, *plane.normal, epsilon = 1e-6);
+        assert_relative_eq!(plane_coeffs.offset, plane.offset, epsilon = 1e-6);
+
+        let try_plane_coeffs = Plane2d::try_from_coefficients(normal.x, normal.y, c).unwrap();
+        assert_relative_eq!(*try_plane_coeffs.normal, *plane.normal, epsilon = 1e-6);
+        assert_relative_eq!(try_plane_coeffs.offset, plane.offset, epsilon = 1e-6);
+
+        // Try from coefficients failure
+        assert!(Plane2d::try_from_coefficients(0.0, 0.0, c).is_err());
+    }
+
+    #[test]
+    fn half_space_math() {
+        let origin = Vec2::new(1.0, 1.0);
+        let normal = Dir2::new(Vec2::new(1.0, 1.0)).unwrap();
+        let hs_1 = HalfSpace2d::from_point_and_normal(origin, normal);
+
+        let c = hs_1.plane().offset;
+        let hs_2 = HalfSpace2d::new(normal, c);
+        assert_relative_eq!(*hs_1.plane().normal, *hs_2.plane().normal, epsilon = 1e-6);
+        assert_relative_eq!(hs_1.plane().offset, hs_2.plane().offset, epsilon = 1e-6);
+
+        let point_on_plane = origin + Vec2::new(1.0, -1.0);
+        assert!(!hs_1.contains(point_on_plane));
+
+        let point_front = point_on_plane + *normal * 2.0;
+        assert!(hs_1.contains(point_front));
+
+        let point_back = point_on_plane - *normal * 2.0;
+        assert!(!hs_1.contains(point_back));
+    }
 
     #[test]
     fn rectangle_closest_point() {

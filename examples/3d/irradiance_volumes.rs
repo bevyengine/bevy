@@ -470,7 +470,7 @@ fn handle_mouse_clicks(
         return;
     };
     let Some(plane_intersection) =
-        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+        ray.plane_intersection_point(Vec3::ZERO, InfinitePlane3d::new(Dir3A::Y, 0.0))
     else {
         return;
     };
