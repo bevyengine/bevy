@@ -54,6 +54,8 @@ impl ComputedStates for InGame {
     // Our computed state depends on `AppState`, so we need to specify it as the SourceStates type.
     type SourceStates = AppState;
 
+    // This is necessary to prevent `setup_game` from running when the app is already in `AppState::InGame`
+    // and only `paused` and `turbo` are changed
     const ALLOW_SAME_STATE_TRANSITIONS: bool = false;
     // The compute function takes in the `SourceStates`
     fn compute(sources: AppState) -> Option<Self> {
