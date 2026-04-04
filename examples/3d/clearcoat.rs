@@ -100,18 +100,24 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.1,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.5,
-                base_color: BLUE.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.1,
+                    normal_map_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/BlueNoise-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.5,
+                    base_color: BLUE.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -166,18 +172,24 @@ fn spawn_scratched_gold_ball(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.3,
-                clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                    "textures/ScratchedGold-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.1,
-                base_color: GOLD.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.3,
+                    clearcoat_normal_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/ScratchedGold-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.1,
+                    base_color: GOLD.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
