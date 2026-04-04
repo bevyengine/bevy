@@ -35,13 +35,13 @@ pub struct Atmosphere {
     /// Radius of the planet
     ///
     /// units: m
-    pub bottom_radius: f32,
+    pub inner_radius: f32,
 
     /// Radius at which we consider the atmosphere to 'end' for our
     /// calculations (from center of planet)
     ///
     /// units: m
-    pub top_radius: f32,
+    pub outer_radius: f32,
 
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
@@ -55,26 +55,26 @@ pub struct Atmosphere {
 }
 
 fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
-    let Some(bottom_radius) = world.get::<Atmosphere>(entity).map(|a| a.bottom_radius) else {
+    let Some(inner_radius) = world.get::<Atmosphere>(entity).map(|a| a.inner_radius) else {
         unreachable!("on_add hooks guarantee the component is present");
     };
 
     if let Some(mut transform) = world.get_mut::<GlobalTransform>(entity)
         && *transform == GlobalTransform::default()
     {
-        *transform = GlobalTransform::from_translation(-Vec3::Y * bottom_radius);
+        *transform = GlobalTransform::from_translation(-Vec3::Y * inner_radius);
     }
 }
 
 impl Atmosphere {
     /// An atmosphere like that of earth. Use this with a [`ScatteringMedium::earth`] handle.
     pub fn earth(medium: Handle<ScatteringMedium>) -> Self {
-        const EARTH_BOTTOM_RADIUS: f32 = 6_360_000.0;
-        const EARTH_TOP_RADIUS: f32 = 6_460_000.0;
+        const EARTH_INNER_RADIUS: f32 = 6_360_000.0;
+        const EARTH_OUTER_RADIUS: f32 = 6_460_000.0;
         const EARTH_ALBEDO: Vec3 = Vec3::splat(0.3);
         Self {
-            bottom_radius: EARTH_BOTTOM_RADIUS,
-            top_radius: EARTH_TOP_RADIUS,
+            inner_radius: EARTH_INNER_RADIUS,
+            outer_radius: EARTH_OUTER_RADIUS,
             ground_albedo: EARTH_ALBEDO,
             medium,
         }
@@ -86,12 +86,12 @@ impl Atmosphere {
     ///
     /// [Seidelmann et al. 2007, Table 4]: https://doi.org/10.1007/s10569-007-9072-y
     pub fn mars(medium: Handle<ScatteringMedium>) -> Self {
-        const MARS_BOTTOM_RADIUS: f32 = 3_389_500.0;
-        const MARS_TOP_RADIUS: f32 = 3_509_500.0;
+        const MARS_INNER_RADIUS: f32 = 3_389_500.0;
+        const MARS_OUTER_RADIUS: f32 = 3_509_500.0;
         const MARS_ALBEDO: Vec3 = Vec3::splat(0.1);
         Self {
-            bottom_radius: MARS_BOTTOM_RADIUS,
-            top_radius: MARS_TOP_RADIUS,
+            inner_radius: MARS_INNER_RADIUS,
+            outer_radius: MARS_OUTER_RADIUS,
             ground_albedo: MARS_ALBEDO,
             medium,
         }

@@ -3,9 +3,9 @@
 struct Atmosphere {
     ground_albedo: vec3<f32>,
     // Radius of the planet
-    bottom_radius: f32, // units: m
+    inner_radius: f32, // units: m
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
-    top_radius: f32, // units: m
+    outer_radius: f32, // units: m
     // Transform from world space to atmosphere space, inverse of the atmosphere entity's transform
     world_to_atmosphere: mat4x4<f32>,
 }

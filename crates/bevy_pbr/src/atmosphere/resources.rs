@@ -477,8 +477,8 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
     pub world_to_atmosphere: Mat4,
 }
 
@@ -489,8 +489,8 @@ pub fn prepare_atmosphere_uniforms(
     for (entity, atmosphere) in atmospheres {
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
-            bottom_radius: atmosphere.bottom_radius,
-            top_radius: atmosphere.top_radius,
+            inner_radius: atmosphere.inner_radius,
+            outer_radius: atmosphere.outer_radius,
             world_to_atmosphere: atmosphere.world_to_atmosphere,
         });
     }
@@ -796,8 +796,8 @@ pub fn init_atmosphere_buffer(mut commands: Commands) {
     commands.insert_resource(AtmosphereBuffer {
         buffer: StorageBuffer::from(GpuAtmosphere {
             ground_albedo: Vec3::ZERO,
-            bottom_radius: 0.0,
-            top_radius: 0.0,
+            inner_radius: 0.0,
+            outer_radius: 0.0,
             world_to_atmosphere: Mat4::IDENTITY,
         }),
     });

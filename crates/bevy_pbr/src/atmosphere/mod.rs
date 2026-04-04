@@ -241,8 +241,8 @@ pub fn extract_atmosphere(
         let gt = selected.2;
 
         let extracted = ExtractedAtmosphere {
-            bottom_radius: atmo.bottom_radius,
-            top_radius: atmo.top_radius,
+            inner_radius: atmo.inner_radius,
+            outer_radius: atmo.outer_radius,
             ground_albedo: atmo.ground_albedo,
             medium: atmo.medium.id(),
             world_to_atmosphere: gt.to_matrix().inverse(),
@@ -258,8 +258,8 @@ pub fn extract_atmosphere(
 /// hasn't been converted into shader uniforms yet.
 #[derive(Clone, Component)]
 pub struct ExtractedAtmosphere {
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
     pub world_to_atmosphere: Mat4,
