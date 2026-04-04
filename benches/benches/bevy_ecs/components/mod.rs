@@ -7,8 +7,10 @@ mod add_remove_very_big_table;
 mod archetype_updates;
 mod insert_simple;
 mod insert_simple_unbatched;
+mod component_constraints;
 
 use archetype_updates::*;
+use component_constraints::*;
 use criterion::{criterion_group, Criterion};
 
 criterion_group!(
@@ -19,6 +21,11 @@ criterion_group!(
     insert_simple,
     no_archetypes,
     added_archetypes,
+    spawn_no_constraint,
+    spawn_with_simple_constraint,
+    spawn_with_complex_constraint,
+    spawn_chain_10_constraint,
+    spawn_chain_10_no_constraint,
 );
 
 fn add_remove(c: &mut Criterion) {
