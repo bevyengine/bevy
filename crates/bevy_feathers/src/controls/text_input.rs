@@ -32,27 +32,21 @@ use crate::{
 
 /// Marker to indicate a text input widget with feathers styling.
 #[derive(Component, Default, Clone)]
-struct FeathersTextInput;
+struct FeathersTextInputContainer;
 
 /// Marker to indicate a the inner part of the text input widget.
 #[derive(Component, Default, Clone)]
-struct FeathersTextInputInner;
+struct FeathersTextInput;
 
 /// Parameters for the text input template, passed to [`text_input`] function.
 pub struct TextInputProps {
-    /// Icons to be placed to the left of the input
-    pub adorn_left: Option<Box<dyn SceneList>>,
-    /// Icons to be placed to the right of the input
-    pub adorn_right: Option<Box<dyn SceneList>>,
     /// Max characters
     pub max_characters: Option<usize>,
 }
 
-/// Scene function to spawn a text input.
-///
-/// # Arguments
-/// * `props` - construction properties for the text input.
-pub fn text_input(props: TextInputProps) -> impl Scene {
+/// Decorative frame around a text input widget. This is a separate entity to allow icons
+/// (such as "search" or "clear") to be inserted adjacent to the input.
+pub fn text_input_container() -> impl Scene {
     bsn! {
         Node {
             height: size::ROW_HEIGHT,
@@ -62,8 +56,9 @@ pub fn text_input(props: TextInputProps) -> impl Scene {
             padding: UiRect::axes(Val::Px(6.0), Val::Px(0.)),
             flex_grow: 1.0,
             border_radius: {BorderRadius::all(px(4.0))},
+            column_gap: px(4),
         }
-        FeathersTextInput
+        FeathersTextInputContainer
         ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
         ThemeFontColor(tokens::TEXT_INPUT_TEXT)
         InheritableFont {
@@ -71,32 +66,35 @@ pub fn text_input(props: TextInputProps) -> impl Scene {
             font_size: FontSize::Px(13.0),
             weight: FontWeight::NORMAL,
         }
-        Children [
-            // {props.adorn_left},
-            (
-                Node {
-                    flex_grow: 1.0,
-                }
-                FeathersTextInputInner
-                EditableText {
-                    cursor_width: 0.3,
-                    max_characters: {props.max_characters},
-                }
-                TextLayout {
-                    linebreak: LineBreak::NoWrap,
-                }
-                TabIndex(0)
-                ThemedText
-                EntityCursor::System(bevy_window::SystemCursorIcon::Text)
-                TextCursorStyle::default()
-            )
-            // {props.adorn_right},
-        ]
+    }
+}
+
+/// Scene function to spawn a text input.
+///
+/// # Arguments
+/// * `props` - construction properties for the text input.
+pub fn text_input(props: TextInputProps) -> impl Scene {
+    bsn! {
+        Node {
+            flex_grow: 1.0,
+        }
+        FeathersTextInput
+        EditableText {
+            cursor_width: 0.3,
+            max_characters: {props.max_characters},
+        }
+        TextLayout {
+            linebreak: LineBreak::NoWrap,
+        }
+        TabIndex(0)
+        ThemedText
+        EntityCursor::System(bevy_window::SystemCursorIcon::Text)
+        TextCursorStyle::default()
     }
 }
 
 fn update_text_cursor_color(
-    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInputInner>>,
+    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInput>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {

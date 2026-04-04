@@ -5,9 +5,9 @@ use bevy::{
     feathers::{
         controls::{
             button, checkbox, color_plane, color_slider, color_swatch, radio, slider, text_input,
-            toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
-            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
-            SliderProps, TextInputProps,
+            text_input_container, toggle_switch, ButtonProps, ButtonVariant, ColorChannel,
+            ColorPlane, ColorPlaneValue, ColorSlider, ColorSliderProps, ColorSwatch,
+            ColorSwatchValue, SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -18,6 +18,7 @@ use bevy::{
     input_focus::{tab_navigation::TabGroup, AutoFocus},
     prelude::*,
     scene2::prelude::{Scene, *},
+    text::{EditableText, TextEdit},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
@@ -287,15 +288,18 @@ fn demo_root() -> impl Scene {
                         },
                         // Text input
                         (
-                            text_input(TextInputProps {
-                                adorn_left: None,
-                                adorn_right: None,
-                                max_characters: None,
-                            })
+                            :text_input_container
                             Node {
                                 flex_grow: 1.0,
                             }
-                            HexColorInput
+                            Children [
+                                (
+                                    text_input(TextInputProps {
+                                        max_characters: None,
+                                    })
+                                    HexColorInput
+                                )
+                            ]
                         )
                         (color_swatch() SwatchType::Rgb),
                     ]
@@ -391,6 +395,7 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
+    mut hex_input: Query<&mut EditableText, With<HexColorInput>>,
     mut commands: Commands,
 ) {
     if colors.is_changed() {
@@ -452,6 +457,11 @@ fn update_colors(
             plane_value.0.x = colors.rgb_color.red;
             plane_value.0.y = colors.rgb_color.blue;
             plane_value.0.z = colors.rgb_color.green;
+        }
+
+        for mut editable_text in hex_input.iter_mut() {
+            editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
         }
     }
 }
