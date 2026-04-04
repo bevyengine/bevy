@@ -27,6 +27,7 @@ use bevy_ui_widgets::RadioButton;
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     font_styles::InheritableFont,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
@@ -79,6 +80,7 @@ pub fn radio() -> impl Scene {
                 border_radius: BorderRadius::MAX,
             }
             RadioOutline
+            FocusIndicator
             ThemeBorderColor(tokens::RADIO_BORDER)
             Children [(
                 // Cheesy checkmark: rotated node with L-shaped border.
@@ -144,6 +146,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                     ..Default::default()
                 },
                 RadioOutline,
+                FocusIndicator,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
                     // Cheesy checkmark: rotated node with L-shaped border.

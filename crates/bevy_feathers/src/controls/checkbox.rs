@@ -28,6 +28,7 @@ use bevy_ui_widgets::Checkbox;
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     font_styles::InheritableFont,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
@@ -84,6 +85,7 @@ pub fn checkbox() -> impl Scene {
             CheckboxOutline
             ThemeBackgroundColor(tokens::CHECKBOX_BG)
             ThemeBorderColor(tokens::CHECKBOX_BORDER)
+            FocusIndicator
             Children [(
                 // Cheesy checkmark: rotated node with L-shaped border.
                 Node {
@@ -104,6 +106,7 @@ pub fn checkbox() -> impl Scene {
         )]
     }
 }
+
 /// Template function to spawn a checkbox.
 ///
 /// # Arguments
@@ -150,6 +153,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
                     border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..Default::default()
                 },
+                FocusIndicator,
                 CheckboxOutline,
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),

@@ -30,6 +30,7 @@ use bevy_ui_widgets::{
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
 };
@@ -206,6 +207,7 @@ pub fn color_slider(props: ColorSliderProps) -> impl Scene {
         template_value(props.channel.range())
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
+        FocusIndicator
         Children [
             // track
             (
@@ -316,6 +318,7 @@ pub fn color_slider_bundle<B: Bundle>(props: ColorSliderProps, overrides: B) -> 
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![
             // track
