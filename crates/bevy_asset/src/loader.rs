@@ -339,7 +339,7 @@ impl<A: Asset> AssetContainer for A {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
-    #[error("Attempting to load asset with no path \"{0}\"")]
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),

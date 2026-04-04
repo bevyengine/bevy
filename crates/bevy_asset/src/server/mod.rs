@@ -509,7 +509,7 @@ impl AssetServer {
     ) -> Handle<A> {
         let path = path.into().into_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Handle::default();
         }
 
@@ -546,7 +546,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let path = path.into().into_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return UntypedHandle::default_for_type(type_id);
         }
 
@@ -630,7 +630,7 @@ impl AssetServer {
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Handle::default();
         }
 
@@ -2101,7 +2101,7 @@ impl RecursiveDependencyLoadState {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
-    #[error("Attempting to load asset with no path \"{0}\"")]
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {

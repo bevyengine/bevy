@@ -307,7 +307,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Handle::default();
         }
         let handle = if self.load_context.should_load_dependencies {
@@ -341,7 +341,7 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
         let path = path.into().to_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return UntypedHandle::default_for_type(self.typing.asset_type_id);
         }
         let handle = if self.load_context.should_load_dependencies {
@@ -378,7 +378,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Handle::default();
         }
         let handle = if self.load_context.should_load_dependencies {
@@ -414,7 +414,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         asset_type_id: Option<TypeId>,
     ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
         if path.path() == Path::new("") {
-            error!("Attempting to load asset with no path \"{path}\"!");
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Err(LoadDirectError::EmptyPath(path.clone_owned()));
         }
         if path.label().is_some() {
