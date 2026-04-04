@@ -72,15 +72,13 @@ impl Plugin for WebAssetPlugin {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
-            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http))
-                .with_processed_reader(move || Box::new(WebAssetReader::Http)),
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
-            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https))
-                .with_processed_reader(move || Box::new(WebAssetReader::Https)),
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https)),
         );
     }
 }

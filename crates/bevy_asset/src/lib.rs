@@ -205,10 +205,15 @@ pub use server::*;
 pub use uuid;
 
 use crate::{
-    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
-    processor::{AssetProcessor, Process},
+    io::{
+        embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders,
+        AssetSourceBuildersToProcess, AssetSourceId,
+    },
+    processor::{AssetProcessor, FileTransactionLogFactory, Process},
 };
 use alloc::{
+    boxed::Box,
+    format,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -223,6 +228,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
+use std::path::Path;
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -344,72 +350,130 @@ impl Default for AssetPlugin {
 
 impl AssetPlugin {
     const DEFAULT_UNPROCESSED_FILE_PATH: &'static str = "assets";
-    /// NOTE: this is in the Default sub-folder to make this forward compatible with "import profiles"
-    /// and to allow us to put the "processor transaction log" at `imported_assets/log`
-    const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets/Default";
+    const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets";
 }
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
+        // Create the default asset source as a "final" source when in unprocessed mode, and an
+        // "unprocessed" source (whose final source is created later) in processed mode.
+        match self.mode {
+            AssetMode::Unprocessed => {
+                let mut sources = app
+                    .world_mut()
+                    .get_resource_or_init::<AssetSourceBuilders>();
+                sources.init_default_source(&self.file_path);
+            }
+            AssetMode::Processed => {
+                // Only (try to) register the default source as processed if the user hasn't set the
+                // default source to be unprocessed.
+                if !app
+                    .world()
+                    .get_resource::<AssetSourceBuilders>()
+                    .map(|sources| sources.contains(AssetSourceId::Default))
+                    .unwrap_or(false)
+                {
+                    let mut sources = app
+                        .world_mut()
+                        .get_resource_or_init::<AssetSourceBuildersToProcess>();
+                    sources.init_default_source(&self.file_path);
+                }
+            }
+        }
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
                 .world_mut()
                 .get_resource_or_init::<AssetSourceBuilders>();
-            sources.init_default_source(
-                &self.file_path,
-                (!matches!(self.mode, AssetMode::Unprocessed))
-                    .then_some(self.processed_file_path.as_str()),
-            );
             embedded.register_source(&mut sources);
         }
         {
             let watch = self
                 .watch_for_changes_override
                 .unwrap_or(cfg!(feature = "watch"));
-            match self.mode {
-                AssetMode::Unprocessed => {
-                    let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                    let sources = builders.build_sources(watch, false);
+            let use_asset_processor = self
+                .use_asset_processor_override
+                .unwrap_or(cfg!(feature = "asset_processor"));
 
-                    app.insert_resource(AssetServer::new_with_meta_check(
-                        Arc::new(sources),
-                        AssetServerMode::Unprocessed,
-                        self.meta_check.clone(),
-                        watch,
-                        self.unapproved_path_mode.clone(),
-                    ));
-                }
+            match self.mode {
                 AssetMode::Processed => {
-                    let use_asset_processor = self
-                        .use_asset_processor_override
-                        .unwrap_or(cfg!(feature = "asset_processor"));
-                    if use_asset_processor {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let (processor, sources) = AssetProcessor::new(&mut builders, watch);
-                        // the main asset server shares loaders with the processor asset server
-                        app.insert_resource(AssetServer::new_with_loaders(
-                            sources,
-                            processor.server().data.loaders.clone(),
-                            AssetServerMode::Processed,
-                            AssetMetaCheck::Always,
-                            watch,
-                            self.unapproved_path_mode.clone(),
-                        ))
-                        .insert_resource(processor)
-                        .add_systems(bevy_app::Startup, AssetProcessor::start);
-                    } else {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let sources = builders.build_sources(false, watch);
-                        app.insert_resource(AssetServer::new_with_meta_check(
-                            Arc::new(sources),
-                            AssetServerMode::Processed,
-                            AssetMetaCheck::Always,
-                            watch,
-                            self.unapproved_path_mode.clone(),
-                        ));
-                    }
+                    // Create the final sources for any sources that need to be processed.
+                    app.world_mut()
+                        .try_resource_scope::<AssetSourceBuildersToProcess, _>(
+                            |world, sources_to_process| {
+                                let mut final_sources =
+                                    world.get_resource_or_init::<AssetSourceBuilders>();
+                                // Create the corresponding "processed" source for each source to
+                                // process in the final sources.
+                                let create_processed_source = |id: &AssetSourceId<'_>| {
+                                    // Let the lifetime live longer while joining the paths.
+                                    let child_path;
+                                    AssetSourceBuilder::platform_default(
+                                        Path::new(&self.processed_file_path)
+                                            .join(match id {
+                                                AssetSourceId::Default => "Default",
+                                                AssetSourceId::Name(name) => {
+                                                    child_path = format!("Name/{name}");
+                                                    &child_path
+                                                }
+                                            })
+                                            .to_str()
+                                            .unwrap(),
+                                    )
+                                };
+                                for id in sources_to_process.ids() {
+                                    if final_sources.contains(&id) {
+                                        // Don't replace an existing source if it's already there.
+                                        // This allows
+                                        // `AssetApp::register_processed_asset_source_with_final_source`
+                                        // to configure a "replacement" source for writing
+                                        // processed assets.
+                                        continue;
+                                    }
+                                    final_sources
+                                        .insert(id.clone_owned(), create_processed_source(&id));
+                                }
+                            },
+                        );
                 }
+                AssetMode::Unprocessed => {}
+            }
+
+            if use_asset_processor {
+                let mut sources_to_process = app
+                    .world_mut()
+                    .remove_resource::<AssetSourceBuildersToProcess>()
+                    .unwrap_or_default()
+                    .0;
+                let mut final_sources = app.world_mut().resource_mut::<AssetSourceBuilders>();
+                let log_path = Path::new(&self.processed_file_path).join("log");
+                let (processor, sources) = AssetProcessor::new(
+                    &mut sources_to_process,
+                    &mut final_sources,
+                    watch,
+                    Box::new(FileTransactionLogFactory {
+                        file_path: log_path,
+                    }),
+                );
+                // the main asset server shares loaders with the processor asset server
+                app.insert_resource(AssetServer::new_with_loaders(
+                    sources,
+                    processor.server().data.loaders.clone(),
+                    AssetMetaCheck::Always,
+                    watch,
+                    self.unapproved_path_mode.clone(),
+                ))
+                .insert_resource(processor)
+                .add_systems(bevy_app::Startup, AssetProcessor::start);
+            } else {
+                let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
+                let sources = builders.build_sources(watch, /*create_root_for_writer=*/ false);
+                app.insert_resource(AssetServer::new_with_meta_check(
+                    Arc::new(sources),
+                    AssetMetaCheck::Always,
+                    watch,
+                    self.unapproved_path_mode.clone(),
+                ));
             }
         }
         app.insert_resource(embedded)
@@ -567,6 +631,36 @@ pub trait AssetApp {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self;
+    /// Registers an [`AssetSourceBuilder`] as an asset source that should be processed.
+    ///
+    /// The provided source builder will be read during asset processing (i.e., the
+    /// `asset_processor` feature is enabled), and the processed assets are written to an
+    /// automatically created source (readable from the given `id`).
+    ///
+    /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
+    /// since registered asset sources are built at that point and not after.
+    fn register_processed_asset_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source_to_process: AssetSourceBuilder,
+    ) -> &mut Self;
+    /// Registers both given sources as an asset source that should be processed.
+    ///
+    /// Assets are read from `source_to_process`, processed, then written to `processed_source`.
+    ///
+    /// Unlike [`Self::register_processed_asset_source`], this source does not automatically create
+    /// the processed source for you - the given `processed_source` is used instead. This should
+    /// only be used by advanced users who want fine-grained control of where processed assets are
+    /// written (e.g., to some shared artifact server), or by tests that don't want processed assets
+    /// written to disk at all.
+    ///
+    /// This method must be called before [`AssetPlugin`] is added to your [`App`].
+    fn register_processed_asset_source_with_final_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source_to_process: AssetSourceBuilder,
+        processed_source: AssetSourceBuilder,
+    ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self;
     /// Initializes the given loader in the [`App`]'s [`AssetServer`].
@@ -616,13 +710,81 @@ impl AssetApp for App {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
 
+        if let Some(unprocessed_sources) =
+            self.world().get_resource::<AssetSourceBuildersToProcess>()
+            && unprocessed_sources.contains(id.clone())
         {
-            let mut sources = self
-                .world_mut()
-                .get_resource_or_init::<AssetSourceBuilders>();
-            sources.insert(id, source);
+            error!("The given asset source id {id} has already been registered as a \"processed\" asset source. Cannot register the asset source as unprocessed");
+            return self;
         }
 
+        let mut sources = self
+            .world_mut()
+            .get_resource_or_init::<AssetSourceBuilders>();
+        sources.insert(id, source);
+
+        self
+    }
+
+    fn register_processed_asset_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source_to_process: AssetSourceBuilder,
+    ) -> &mut Self {
+        let id = id.into();
+        if self.world().get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+        }
+
+        if let Some(sources) = self.world().get_resource::<AssetSourceBuilders>()
+            && sources.contains(id.clone())
+            && !self
+                .world()
+                .get_resource::<AssetSourceBuildersToProcess>()
+                .map(|sources| sources.contains(id.clone()))
+                .unwrap_or(false)
+        {
+            error!("The given asset source id {id} has already been registered as an \"unprocessed\" asset source. Cannot register the asset source as processed");
+            return self;
+        }
+
+        let mut sources = self
+            .world_mut()
+            .get_resource_or_init::<AssetSourceBuildersToProcess>();
+        sources.insert(id, source_to_process);
+
+        self
+    }
+
+    fn register_processed_asset_source_with_final_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source_to_process: AssetSourceBuilder,
+        processed_source: AssetSourceBuilder,
+    ) -> &mut Self {
+        let id = id.into();
+        if self.world().get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+        }
+
+        if let Some(sources) = self.world().get_resource::<AssetSourceBuilders>()
+            && sources.contains(id.clone())
+            && !self
+                .world()
+                .get_resource::<AssetSourceBuildersToProcess>()
+                .map(|sources| sources.contains(id.clone()))
+                .unwrap_or(false)
+        {
+            error!("The given asset source id {id} has already been registered as an \"unprocessed\" asset source. Cannot register the asset source as processed");
+            return self;
+        }
+
+        self.world_mut()
+            .get_resource_or_init::<AssetSourceBuildersToProcess>()
+            .insert(id.clone(), source_to_process);
+        self.world_mut()
+            .get_resource_or_init::<AssetSourceBuilders>()
+            .insert(id, processed_source);
         self
     }
 

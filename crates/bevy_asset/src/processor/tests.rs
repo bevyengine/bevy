@@ -72,7 +72,30 @@ fn create_empty_asset_processor() -> AssetProcessor {
         AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
     );
 
-    AssetProcessor::new(&mut sources, false).0
+    let processed_dir = Dir::default();
+    let processed_dir_clone = processed_dir.clone();
+    let mut final_sources = AssetSourceBuilders::default();
+    final_sources.insert(
+        AssetSourceId::Default,
+        AssetSourceBuilder::new(move || {
+            Box::new(MemoryAssetReader {
+                root: processed_dir_clone.clone(),
+            })
+        })
+        .with_writer(move |_| {
+            Some(Box::new(MemoryAssetWriter {
+                root: processed_dir.clone(),
+            }))
+        }),
+    );
+
+    AssetProcessor::new(
+        &mut sources,
+        &mut final_sources,
+        false,
+        Box::new(FakeTransactionLogFactory),
+    )
+    .0
 }
 
 #[test]
@@ -237,48 +260,48 @@ fn serialize_as_cool_text(text: &str) -> String {
     ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
 }
 
+/// A dummy transaction log factory that just creates [`FakeTransactionLog`].
+struct FakeTransactionLogFactory;
+
+impl ProcessorTransactionLogFactory for FakeTransactionLogFactory {
+    fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
+        Box::pin(async move { Ok(vec![]) })
+    }
+
+    fn create_new_log(
+        &self,
+    ) -> BoxedFuture<'_, Result<Box<dyn ProcessorTransactionLog>, BevyError>> {
+        Box::pin(async move { Ok(Box::new(FakeTransactionLog) as _) })
+    }
+}
+
+/// A dummy transaction log that just drops every log.
+// TODO: In the future it's possible for us to have a test of the transaction log, so making
+// this more complex may be necessary.
+struct FakeTransactionLog;
+
+impl ProcessorTransactionLog for FakeTransactionLog {
+    fn begin_processing<'a>(
+        &'a mut self,
+        _asset: &'a AssetPath<'_>,
+    ) -> BoxedFuture<'a, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn end_processing<'a>(
+        &'a mut self,
+        _asset: &'a AssetPath<'_>,
+    ) -> BoxedFuture<'a, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn unrecoverable(&mut self) -> BoxedFuture<'_, Result<(), BevyError>> {
+        Box::pin(async move { Ok(()) })
+    }
+}
+
 /// Sets the transaction log for the app to a fake one to prevent touching the filesystem.
 fn set_fake_transaction_log(app: &mut App) {
-    /// A dummy transaction log factory that just creates [`FakeTransactionLog`].
-    struct FakeTransactionLogFactory;
-
-    impl ProcessorTransactionLogFactory for FakeTransactionLogFactory {
-        fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
-            Box::pin(async move { Ok(vec![]) })
-        }
-
-        fn create_new_log(
-            &self,
-        ) -> BoxedFuture<'_, Result<Box<dyn ProcessorTransactionLog>, BevyError>> {
-            Box::pin(async move { Ok(Box::new(FakeTransactionLog) as _) })
-        }
-    }
-
-    /// A dummy transaction log that just drops every log.
-    // TODO: In the future it's possible for us to have a test of the transaction log, so making
-    // this more complex may be necessary.
-    struct FakeTransactionLog;
-
-    impl ProcessorTransactionLog for FakeTransactionLog {
-        fn begin_processing<'a>(
-            &'a mut self,
-            _asset: &'a AssetPath<'_>,
-        ) -> BoxedFuture<'a, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-
-        fn end_processing<'a>(
-            &'a mut self,
-            _asset: &'a AssetPath<'_>,
-        ) -> BoxedFuture<'a, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-
-        fn unrecoverable(&mut self) -> BoxedFuture<'_, Result<(), BevyError>> {
-            Box::pin(async move { Ok(()) })
-        }
-    }
-
     app.world()
         .resource::<AssetProcessor>()
         .data()
@@ -340,16 +363,16 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
 
         impl AssetWatcher for FakeWatcher {}
 
-        app.register_asset_source(
-            source_id,
+        app.register_processed_asset_source_with_final_source(
+            source_id.clone(),
             AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
                 .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
                 .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
                     source_event_sender_sender.send_blocking(sender).unwrap();
                     Some(Box::new(FakeWatcher))
-                })
-                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+                }),
+            AssetSourceBuilder::new(move || Box::new(processed_memory_reader.clone()))
+                .with_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
         );
 
         UnfinishedProcessingDirs {
@@ -407,10 +430,10 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     // yet. So wait for processing to start, then finish.
     run_app_until(app, |_| {
         // Before we even consider whether the processor is started, make sure that none of the
-        // receivers have anything left in them. This prevents us accidentally, considering the
+        // receivers have anything left in them. This prevents us accidentally considering the
         // processor as processing before all the events have been processed.
-        for source in processor.sources().iter() {
-            let Some(recv) = source.event_receiver() else {
+        for (_, source) in processor.data.sources.iter() {
+            let Some(recv) = source.unprocessed_event_receiver() else {
                 continue;
             };
             if !recv.is_empty() {
@@ -1634,11 +1657,11 @@ fn only_reprocesses_wrong_hash_on_startup() {
         root: default_processed_dir.clone(),
     };
 
-    app.register_asset_source(
+    app.register_processed_asset_source_with_final_source(
         AssetSourceId::Default,
-        AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
-            .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-            .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone())),
+        AssetSourceBuilder::new(move || Box::new(processed_memory_reader.clone()))
+            .with_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
     );
 
     app.add_plugins((

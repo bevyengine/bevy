@@ -116,19 +116,6 @@ pub struct FileTransactionLogFactory {
     pub file_path: PathBuf,
 }
 
-const LOG_PATH: &str = "imported_assets/log";
-
-impl Default for FileTransactionLogFactory {
-    fn default() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        let base_path = crate::io::file::get_base_path();
-        #[cfg(target_arch = "wasm32")]
-        let base_path = PathBuf::new();
-        let file_path = base_path.join(LOG_PATH);
-        Self { file_path }
-    }
-}
-
 impl ProcessorTransactionLogFactory for FileTransactionLogFactory {
     fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
         let path = self.file_path.clone();

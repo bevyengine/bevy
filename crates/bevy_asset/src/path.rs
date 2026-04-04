@@ -246,7 +246,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn source(&self) -> &AssetSourceId<'_> {
+    pub fn source(&self) -> &AssetSourceId<'a> {
         &self.source
     }
 
@@ -270,7 +270,7 @@ impl<'a> AssetPath<'a> {
 
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
-    pub fn without_label(&self) -> AssetPath<'_> {
+    pub fn without_label(&self) -> AssetPath<'a> {
         Self {
             source: self.source.clone(),
             path: self.path.clone(),
