@@ -4,42 +4,42 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides scene definition, instantiation and serialization/deserialization.
+//! Provides dynamic world definition, instantiation, and serialization/deserialization.
 //!
-//! Scenes are collections of entities and their associated components that can be
-//! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
+//! [`DynamicWorld`]s are collections of entities and their associated components that can be
+//! instantiated or removed from a world to allow composition. [`DynamicWorld`]s can be serialized/deserialized,
 //! for example to save part of the world state to a file.
 
 extern crate alloc;
 
 mod components;
-mod dynamic_scene;
-mod dynamic_scene_builder;
+mod dynamic_world;
+mod dynamic_world_builder;
 mod reflect_utils;
-mod scene;
-mod scene_filter;
-mod scene_loader;
-mod scene_spawner;
+mod world_asset;
+mod world_asset_loader;
+mod world_asset_spawner;
+mod world_filter;
 
 #[cfg(feature = "serialize")]
 pub mod serde;
 
 pub use components::*;
-pub use dynamic_scene::*;
-pub use dynamic_scene_builder::*;
-pub use scene::*;
-pub use scene_filter::*;
-pub use scene_loader::*;
-pub use scene_spawner::*;
+pub use dynamic_world::*;
+pub use dynamic_world_builder::*;
+pub use world_asset::*;
+pub use world_asset_loader::*;
+pub use world_asset_spawner::*;
+pub use world_filter::*;
 
-/// The scene prelude.
+/// The `bevy_world_serialization` prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneRoot, Scene, SceneFilter, SceneRoot,
-        SceneSpawner,
+        DynamicWorld, DynamicWorldBuilder, DynamicWorldRoot, WorldAsset, WorldAssetRoot,
+        WorldFilter, WorldInstanceSpawner,
     };
 }
 
@@ -50,70 +50,76 @@ use {
     bevy_app::SceneSpawnerSystems, bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs,
 };
 
-/// Plugin that provides scene functionality to an [`App`].
+/// Plugin that provides world serialization functionality to an [`App`].
 #[derive(Default)]
-pub struct ScenePlugin;
+pub struct WorldSerializationPlugin;
 
 #[cfg(feature = "serialize")]
-impl Plugin for ScenePlugin {
+impl Plugin for WorldSerializationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<DynamicScene>()
-            .init_asset::<Scene>()
-            .init_asset_loader::<SceneLoader>()
-            .init_resource::<SceneSpawner>()
+        app.init_asset::<DynamicWorld>()
+            .init_asset::<WorldAsset>()
+            .init_asset_loader::<WorldAssetLoader>()
+            .init_resource::<WorldInstanceSpawner>()
             .add_systems(
                 SpawnScene,
-                (scene_spawner, scene_spawner_system)
+                (world_instance_spawner, world_instance_spawner_system)
                     .chain()
-                    .in_set(SceneSpawnerSystems::SceneSpawn),
+                    .in_set(SceneSpawnerSystems::WorldInstanceSpawn),
             );
 
-        // Register component hooks for DynamicSceneRoot
+        // Register component hooks for DynamicWorldRoot
         app.world_mut()
-            .register_component_hooks::<DynamicSceneRoot>()
+            .register_component_hooks::<DynamicWorldRoot>()
             .on_remove(|mut world, context| {
-                let Some(handle) = world.get::<DynamicSceneRoot>(context.entity) else {
+                let Some(handle) = world.get::<DynamicWorldRoot>(context.entity) else {
                     return;
                 };
                 let id = handle.id();
-                if let Some(&SceneInstance(scene_instance)) =
-                    world.get::<SceneInstance>(context.entity)
+                if let Some(&WorldInstance(instance_id)) =
+                    world.get::<WorldInstance>(context.entity)
                 {
-                    let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
+                    let Some(mut world_instance_spawner) =
+                        world.get_resource_mut::<WorldInstanceSpawner>()
+                    else {
                         return;
                     };
-                    if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
-                        instance_ids.remove(&scene_instance);
+                    if let Some(instance_ids) =
+                        world_instance_spawner.spawned_dynamic_worlds.get_mut(&id)
+                    {
+                        instance_ids.remove(&instance_id);
                     }
-                    scene_spawner.unregister_instance(scene_instance);
+                    world_instance_spawner.unregister_instance(instance_id);
                 }
             });
 
-        // Register component hooks for SceneRoot
+        // Register component hooks for WorldAssetRoot
         app.world_mut()
-            .register_component_hooks::<SceneRoot>()
+            .register_component_hooks::<WorldAssetRoot>()
             .on_remove(|mut world, context| {
-                let Some(handle) = world.get::<SceneRoot>(context.entity) else {
+                let Some(handle) = world.get::<WorldAssetRoot>(context.entity) else {
                     return;
                 };
                 let id = handle.id();
-                if let Some(&SceneInstance(scene_instance)) =
-                    world.get::<SceneInstance>(context.entity)
+                if let Some(&WorldInstance(instance_id)) =
+                    world.get::<WorldInstance>(context.entity)
                 {
-                    let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
+                    let Some(mut world_instance_spawner) =
+                        world.get_resource_mut::<WorldInstanceSpawner>()
+                    else {
                         return;
                     };
-                    if let Some(instance_ids) = scene_spawner.spawned_scenes.get_mut(&id) {
-                        instance_ids.remove(&scene_instance);
+                    if let Some(instance_ids) = world_instance_spawner.spawned_worlds.get_mut(&id) {
+                        instance_ids.remove(&instance_id);
                     }
-                    scene_spawner.unregister_instance(scene_instance);
+                    world_instance_spawner.unregister_instance(instance_id);
                 }
             });
     }
 }
 
 #[cfg(not(feature = "serialize"))]
-impl Plugin for ScenePlugin {
+impl Plugin for WorldSerializationPlugin {
     fn build(&self, _: &mut App) {}
 }
 
@@ -131,7 +137,8 @@ mod tests {
     use bevy_reflect::Reflect;
 
     use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneRoot, Scene, ScenePlugin, SceneRoot,
+        DynamicWorld, DynamicWorldBuilder, DynamicWorldRoot, WorldAsset, WorldAssetRoot,
+        WorldSerializationPlugin,
     };
 
     #[derive(Component, Reflect, PartialEq, Debug)]
@@ -159,10 +166,10 @@ mod tests {
     struct FinishLine;
 
     #[test]
-    fn scene_spawns_and_respawns_after_change() {
+    fn world_instance_spawns_and_respawns_after_change() {
         let mut app = App::new();
 
-        app.add_plugins((AssetPlugin::default(), ScenePlugin))
+        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin))
             .register_type::<ChildOf>()
             .register_type::<Children>()
             .register_type::<Circle>()
@@ -170,21 +177,25 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let scene_handle = app
+        let handle = app
             .world_mut()
-            .resource_mut::<Assets<Scene>>()
+            .resource_mut::<Assets<WorldAsset>>()
             .reserve_handle();
 
-        let scene_entity = app.world_mut().spawn(SceneRoot(scene_handle.clone())).id();
+        let instance_entity = app.world_mut().spawn(WorldAssetRoot(handle.clone())).id();
         app.update();
 
-        assert!(app.world().entity(scene_entity).get::<Children>().is_none());
+        assert!(app
+            .world()
+            .entity(instance_entity)
+            .get::<Children>()
+            .is_none());
 
-        let mut scene_1 = Scene {
+        let mut world_1 = WorldAsset {
             world: World::new(),
         };
-        let root = scene_1.world.spawn_empty().id();
-        scene_1.world.spawn((
+        let root = world_1.world.spawn_empty().id();
+        world_1.world.spawn((
             Rectangle {
                 width: 10.0,
                 height: 5.0,
@@ -192,30 +203,30 @@ mod tests {
             FinishLine,
             ChildOf(root),
         ));
-        scene_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
+        world_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
 
         app.world_mut()
-            .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_1)
+            .resource_mut::<Assets<WorldAsset>>()
+            .insert(&handle, world_1)
             .unwrap();
 
         app.update();
-        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        // TODO: multiple updates to avoid debounced asset events. See comment on WorldInstanceSpawner::debounced_world_asset_events
         app.update();
         app.update();
         app.update();
 
         let child_root = app
             .world()
-            .entity(scene_entity)
+            .entity(instance_entity)
             .get::<Children>()
             .and_then(|children| children.first().cloned())
-            .expect("There should be exactly one child on the scene root");
+            .expect("There should be exactly one child on the world asset root");
         let children = app
             .world()
             .entity(child_root)
             .get::<Children>()
-            .expect("The child of the scene root should itself have 2 children");
+            .expect("The child of the world asset root should itself have 2 children");
         assert_eq!(children.len(), 2);
 
         let finish_line = app.world().entity(children[0]);
@@ -237,14 +248,14 @@ mod tests {
         assert_eq!(circle, &Circle { radius: 7.0 });
         assert_eq!(child_of.0, child_root);
 
-        // Now that we know our scene contains exactly what we expect, we will change the scene
-        // asset and ensure it contains the new scene results.
+        // Now that we know our world contains exactly what we expect, we will change the world
+        // asset and ensure it contains the new results.
 
-        let mut scene_2 = Scene {
+        let mut world_2 = WorldAsset {
             world: World::new(),
         };
-        let root = scene_2.world.spawn_empty().id();
-        scene_2.world.spawn((
+        let root = world_2.world.spawn_empty().id();
+        world_2.world.spawn((
             Triangle {
                 base: 1.0,
                 height: 2.0,
@@ -253,8 +264,8 @@ mod tests {
         ));
 
         app.world_mut()
-            .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_2)
+            .resource_mut::<Assets<WorldAsset>>()
+            .insert(&handle, world_2)
             .unwrap();
 
         app.update();
@@ -262,15 +273,15 @@ mod tests {
 
         let child_root = app
             .world()
-            .entity(scene_entity)
+            .entity(instance_entity)
             .get::<Children>()
             .and_then(|children| children.first().cloned())
-            .expect("There should be exactly one child on the scene root");
+            .expect("There should be exactly one child on the world asset root");
         let children = app
             .world()
             .entity(child_root)
             .get::<Children>()
-            .expect("The child of the scene root should itself have 2 children");
+            .expect("The child of the world asset root should itself have 2 children");
         assert_eq!(children.len(), 1);
 
         let triangle = app.world().entity(children[0]);
@@ -287,10 +298,10 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_scene_spawns_and_respawns_after_change() {
+    fn dynamic_world_spawns_and_respawns_after_change() {
         let mut app = App::new();
 
-        app.add_plugins((AssetPlugin::default(), ScenePlugin))
+        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin))
             .register_type::<ChildOf>()
             .register_type::<Children>()
             .register_type::<Circle>()
@@ -298,32 +309,37 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let scene_handle = app
+        let handle = app
             .world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
+            .resource_mut::<Assets<DynamicWorld>>()
             .reserve_handle();
 
-        let scene_entity = app
-            .world_mut()
-            .spawn(DynamicSceneRoot(scene_handle.clone()))
-            .id();
+        let instance_entity = app.world_mut().spawn(DynamicWorldRoot(handle.clone())).id();
         app.update();
 
-        assert!(app.world().entity(scene_entity).get::<Children>().is_none());
+        assert!(app
+            .world()
+            .entity(instance_entity)
+            .get::<Children>()
+            .is_none());
 
-        let create_dynamic_scene = |mut scene: Scene, world: &World| {
+        let create_dynamic_world = |mut world_asset: WorldAsset, world: &World| {
             let type_registry = world.resource::<AppTypeRegistry>().read();
-            let entities: Vec<Entity> = scene.world.query::<Entity>().iter(&scene.world).collect();
-            DynamicSceneBuilder::from_world(&scene.world, &type_registry)
+            let entities: Vec<Entity> = world_asset
+                .world
+                .query::<Entity>()
+                .iter(&world_asset.world)
+                .collect();
+            DynamicWorldBuilder::from_world(&world_asset.world, &type_registry)
                 .extract_entities(entities.into_iter())
                 .build()
         };
 
-        let mut scene_1 = Scene {
+        let mut world_1 = WorldAsset {
             world: World::new(),
         };
-        let root = scene_1.world.spawn_empty().id();
-        scene_1.world.spawn((
+        let root = world_1.world.spawn_empty().id();
+        world_1.world.spawn((
             Rectangle {
                 width: 10.0,
                 height: 5.0,
@@ -331,31 +347,31 @@ mod tests {
             FinishLine,
             ChildOf(root),
         ));
-        scene_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
+        world_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
 
-        let scene_1 = create_dynamic_scene(scene_1, app.world());
+        let dynamic_world_1 = create_dynamic_world(world_1, app.world());
         app.world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_1)
+            .resource_mut::<Assets<DynamicWorld>>()
+            .insert(&handle, dynamic_world_1)
             .unwrap();
 
         app.update();
-        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        // TODO: multiple updates to avoid debounced asset events. See comment on WorldInstanceSpawner::debounced_world_asset_events
         app.update();
         app.update();
         app.update();
 
         let child_root = app
             .world()
-            .entity(scene_entity)
+            .entity(instance_entity)
             .get::<Children>()
             .and_then(|children| children.first().cloned())
-            .expect("There should be exactly one child on the scene root");
+            .expect("There should be exactly one child on the world asset root");
         let children = app
             .world()
             .entity(child_root)
             .get::<Children>()
-            .expect("The child of the scene root should itself have 2 children");
+            .expect("The child of the world asset root should itself have 2 children");
         assert_eq!(children.len(), 2);
 
         let finish_line = app.world().entity(children[0]);
@@ -377,14 +393,14 @@ mod tests {
         assert_eq!(circle, &Circle { radius: 7.0 });
         assert_eq!(child_of.0, child_root);
 
-        // Now that we know our scene contains exactly what we expect, we will change the scene
-        // asset and ensure it contains the new scene results.
+        // Now that we know our world contains exactly what we expect, we will change the world
+        // asset and ensure it contains the new results.
 
-        let mut scene_2 = Scene {
+        let mut world_2 = WorldAsset {
             world: World::new(),
         };
-        let root = scene_2.world.spawn_empty().id();
-        scene_2.world.spawn((
+        let root = world_2.world.spawn_empty().id();
+        world_2.world.spawn((
             Triangle {
                 base: 1.0,
                 height: 2.0,
@@ -392,11 +408,11 @@ mod tests {
             ChildOf(root),
         ));
 
-        let scene_2 = create_dynamic_scene(scene_2, app.world());
+        let dynamic_world_2 = create_dynamic_world(world_2, app.world());
 
         app.world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_2)
+            .resource_mut::<Assets<DynamicWorld>>()
+            .insert(&handle, dynamic_world_2)
             .unwrap();
 
         app.update();
@@ -404,15 +420,15 @@ mod tests {
 
         let child_root = app
             .world()
-            .entity(scene_entity)
+            .entity(instance_entity)
             .get::<Children>()
             .and_then(|children| children.first().cloned())
-            .expect("There should be exactly one child on the scene root");
+            .expect("There should be exactly one child on the world asset root");
         let children = app
             .world()
             .entity(child_root)
             .get::<Children>()
-            .expect("The child of the scene root should itself have 2 children");
+            .expect("The child of the world asset root should itself have 2 children");
         assert_eq!(children.len(), 1);
 
         let triangle = app.world().entity(children[0]);

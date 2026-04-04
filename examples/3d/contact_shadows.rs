@@ -182,14 +182,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            SceneRoot(asset_server.load(
+            WorldAssetRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
             Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
         ))
         .observe(
             |event: On<Pointer<Drag>>,
-             mut query: Query<&mut Transform, With<SceneRoot>>,
+             mut query: Query<&mut Transform, With<WorldAssetRoot>>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 for mut transform in query.iter_mut() {

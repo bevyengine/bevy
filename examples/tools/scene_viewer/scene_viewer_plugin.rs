@@ -6,7 +6,7 @@
 use bevy::{
     camera_controller::free_camera::FreeCamera,
     gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup, gltf::Gltf,
-    input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    input::common_conditions::input_just_pressed, prelude::*, world_serialization::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
@@ -102,10 +102,10 @@ fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
 
 fn scene_load_check(
     asset_server: Res<AssetServer>,
-    mut scenes: ResMut<Assets<Scene>>,
+    mut scenes: ResMut<Assets<WorldAsset>>,
     gltf_assets: Res<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
 ) {
     match scene_handle.instance_id {
         None => {
