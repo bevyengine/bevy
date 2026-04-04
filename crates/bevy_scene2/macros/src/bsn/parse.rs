@@ -45,7 +45,13 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            Ok(BsnRoot(content.parse::<Bsn<true>>()?))
+        } else {
+            Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        }
     }
 }
 
@@ -92,95 +98,100 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream, found_inherited_scene: bool) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
-            BsnEntry::InheritedScene(BsnInheritedScene::parse(input, found_inherited_scene)?)
-        } else if input.peek(Token![#]) {
+        if input.peek(Token![:]) {
+            return Ok(BsnEntry::InheritedScene(BsnInheritedScene::parse(
+                input,
+                found_inherited_scene,
+            )?));
+        }
+        if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            if input.peek(Brace) {
+            return Ok(if input.peek(Brace) {
                 BsnEntry::NameExpression(braced_tokens(input)?)
             } else {
                 BsnEntry::Name(input.parse::<Ident>()?)
-            }
-        } else if input.peek(Brace) {
-            BsnEntry::SceneExpression(braced_tokens(input)?)
-        } else {
-            let is_template = input.peek(At);
-            if is_template {
-                input.parse::<At>()?;
-            }
-            let mut path = input.parse::<Path>()?;
-            let path_type = PathType::new(&path);
-            match path_type {
-                PathType::Type | PathType::Enum => {
-                    let enum_variant = if matches!(path_type, PathType::Enum) {
-                        take_last_path_ident(&mut path)
-                    } else {
-                        None
-                    };
-                    if input.peek(Bracket) {
-                        // TODO: fail if this is an enum variant
-                        BsnEntry::RelatedSceneList(BsnRelatedSceneList {
-                            relationship_path: path,
-                            scene_list: input.parse::<BsnSceneList>()?,
-                        })
-                    } else {
-                        let fields = input.parse::<BsnFields>()?;
-                        let bsn_type = BsnType {
-                            path,
-                            enum_variant,
-                            fields,
-                        };
-                        if is_template {
-                            BsnEntry::TemplatePatch(bsn_type)
-                        } else {
-                            BsnEntry::FromTemplatePatch(bsn_type)
-                        }
-                    }
-                }
-                PathType::TypeConst => {
-                    let const_ident = take_last_path_ident(&mut path).unwrap();
-                    BsnEntry::TemplateConst {
-                        type_path: path,
-                        const_ident,
-                    }
-                }
-                PathType::Const => {
-                    return Err(syn::Error::new(
-                        path.span(),
-                        "Consts are not currently supported in this position",
-                    ))
-                }
-                PathType::TypeFunction => {
-                    let function = take_last_path_ident(&mut path).unwrap();
-                    let args = if input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in input);
-                        Some(content.parse_terminated(Expr::parse, Token![,])?)
-                    } else {
-                        None
-                    };
+            });
+        }
+        if input.peek(Brace) {
+            return Ok(BsnEntry::SceneExpression(braced_tokens(input)?));
+        }
 
-                    let bsn_constructor = BsnConstructor {
-                        type_path: path,
-                        function,
-                        args,
+        let is_template = input.peek(At);
+        if is_template {
+            input.parse::<At>()?;
+        }
+
+        let mut path = input.parse::<Path>()?;
+        let path_type = PathType::new(&path);
+
+        match path_type {
+            PathType::Type | PathType::Enum => {
+                let enum_variant = if matches!(path_type, PathType::Enum) {
+                    take_last_path_ident(&mut path)
+                } else {
+                    None
+                };
+                if input.peek(Bracket) {
+                    // TODO: fail if this is an enum variant
+                    Ok(BsnEntry::RelatedSceneList(BsnRelatedSceneList {
+                        relationship_path: path,
+                        scene_list: input.parse::<BsnSceneList>()?,
+                    }))
+                } else {
+                    let fields = input.parse::<BsnFields>()?;
+                    let bsn_type = BsnType {
+                        path,
+                        enum_variant,
+                        fields,
                     };
                     if is_template {
-                        BsnEntry::TemplateConstructor(bsn_constructor)
+                        Ok(BsnEntry::TemplatePatch(bsn_type))
                     } else {
-                        BsnEntry::FromTemplateConstructor(bsn_constructor)
-                    }
-                }
-                PathType::Function => {
-                    if input.peek(Paren) {
-                        let tokens = parenthesized_tokens(input)?;
-                        BsnEntry::SceneExpression(quote! {#path(#tokens)})
-                    } else {
-                        BsnEntry::SceneExpression(quote! {#path})
+                        Ok(BsnEntry::FromTemplatePatch(bsn_type))
                     }
                 }
             }
-        })
+            PathType::TypeConst => {
+                let const_ident = take_last_path_ident(&mut path).unwrap();
+                Ok(BsnEntry::TemplateConst {
+                    type_path: path,
+                    const_ident,
+                })
+            }
+            PathType::Const => Err(syn::Error::new(
+                path.span(),
+                "Consts are not currently supported in this position",
+            )),
+            PathType::TypeFunction => {
+                let function = take_last_path_ident(&mut path).unwrap();
+                let args = if input.peek(Paren) {
+                    let content;
+                    parenthesized!(content in input);
+                    Some(content.parse_terminated(Expr::parse, Token![,])?)
+                } else {
+                    None
+                };
+
+                let bsn_constructor = BsnConstructor {
+                    type_path: path,
+                    function,
+                    args,
+                };
+                if is_template {
+                    Ok(BsnEntry::TemplateConstructor(bsn_constructor))
+                } else {
+                    Ok(BsnEntry::FromTemplateConstructor(bsn_constructor))
+                }
+            }
+            PathType::Function => {
+                if input.peek(Paren) {
+                    let tokens = parenthesized_tokens(input)?;
+                    Ok(BsnEntry::SceneExpression(quote! {#path(#tokens)}))
+                } else {
+                    Ok(BsnEntry::SceneExpression(quote! {#path}))
+                }
+            }
+        }
     }
 }
 
