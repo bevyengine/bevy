@@ -32,7 +32,9 @@ impl AsAssetId for WorldAssetRoot {
 
 /// Adding this component will spawn the world as a child of that entity.
 /// Once it's spawned, the entity will have a [`WorldInstance`](crate::WorldInstance) component.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
 #[require(Visibility)]

@@ -8,6 +8,7 @@ use bevy_ecs::{
     component::Component,
     message::MessageReader,
     system::{Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_image::Image;
 use bevy_math::curve::{FunctionCurve, Interval, SampleAutoCurve};
@@ -19,7 +20,7 @@ use smallvec::SmallVec;
 use wgpu_types::TextureFormat;
 
 /// Enables atmospheric scattering for an HDR camera.
-#[derive(Clone, Component)]
+#[derive(Clone, Component, FromTemplate)]
 #[require(Hdr)]
 pub struct Atmosphere {
     /// Radius of the planet
