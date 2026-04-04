@@ -5,7 +5,9 @@
 //! Run with the `bevy_remote` feature enabled:
 //! ```bash
 //! cargo run --example app_under_test --features="bevy_remote"
-//! 
+//! ```
+//! This example can be paired with the `automated_test` example, which will run an automated
+//! test on this app.
 
 use bevy::{
     prelude::*,
