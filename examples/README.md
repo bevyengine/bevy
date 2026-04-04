@@ -468,6 +468,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[BSN Writer](../examples/scene/bsn_writer.rs) | Demonstrates serializing a scene to BSN text
 [BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
 [World Serialization](../examples/scene/world_serialization.rs) | Demonstrates loading from and saving world to files
 

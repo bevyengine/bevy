@@ -511,6 +511,8 @@ pub mod prelude {
     };
 }
 
+/// BSN scene writer: serialize ECS World and assets to `.bsn` text.
+pub mod dynamic_bsn_writer;
 /// Functionality used by the [`bsn!`] macro.
 pub mod macro_utils;
 
