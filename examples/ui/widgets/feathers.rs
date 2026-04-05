@@ -15,10 +15,10 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
-    input_focus::{tab_navigation::TabGroup, AutoFocus},
+    input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
     scene::prelude::Scene,
-    text::{EditableText, TextEdit},
+    text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
@@ -298,6 +298,7 @@ fn demo_root() -> impl Scene {
                                         max_characters: None,
                                     })
                                     HexColorInput
+                                    on(handle_hex_color_change)
                                 )
                             ]
                         )
@@ -395,8 +396,9 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
-    mut hex_input: Query<&mut EditableText, With<HexColorInput>>,
+    q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     mut commands: Commands,
+    focus: Res<InputFocus>,
 ) {
     if colors.is_changed() {
         for (slider_ent, slider, mut base) in sliders.iter_mut() {
@@ -459,9 +461,23 @@ fn update_colors(
             plane_value.0.z = colors.rgb_color.green;
         }
 
-        for mut editable_text in hex_input.iter_mut() {
+        // Only update the hex input field when it's not focused, otherwise it interferes
+        // with typing.
+        let (input_ent, mut editable_text) = q_text_input.into_inner();
+        if Some(input_ent) != focus.0 {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
         }
+    }
+}
+
+fn handle_hex_color_change(
+    _change: On<TextEditChange>,
+    q_text_input: Single<&EditableText, With<HexColorInput>>,
+    mut colors: ResMut<DemoWidgetStates>,
+) {
+    let editable_text = *q_text_input;
+    if let Ok(color) = Srgba::hex(editable_text.value().to_string()) {
+        colors.rgb_color = color;
     }
 }

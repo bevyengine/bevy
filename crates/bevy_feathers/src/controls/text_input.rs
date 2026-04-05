@@ -9,7 +9,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
 use bevy_picking::PickingSystems;
 use bevy_scene::prelude::*;
 use bevy_text::{EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextLayout};
@@ -140,11 +140,12 @@ fn update_text_input_focus(
     q_input_containers: Query<(Entity, &mut BorderColor), With<FeathersTextInputContainer>>,
     parents: Query<&ChildOf>,
     focus: Res<InputFocus>,
+    focus_visible: Res<InputFocusVisible>,
     theme: Res<UiTheme>,
 ) {
     if focus.is_changed() {
         let focus_parent = focus.0.and_then(|focus_ent| {
-            if q_inputs.contains(focus_ent) {
+            if focus_visible.0 && q_inputs.contains(focus_ent) {
                 parents
                     .iter_ancestors(focus_ent)
                     .find(|ent| q_input_containers.contains(*ent))

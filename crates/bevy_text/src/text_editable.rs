@@ -232,6 +232,6 @@ pub fn apply_text_edits(
 ///
 /// As [`TextEdit`] includes cursor motions, this will be emitted even if [`EditableText::value`] is unchanged.
 #[derive(EntityEvent)]
-struct TextEditChange {
+pub struct TextEditChange {
     entity: Entity,
 }
