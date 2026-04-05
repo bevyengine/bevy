@@ -13,13 +13,13 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene2::{prelude::*, template_value};
+use bevy_scene::{prelude::*, template_value};
 use bevy_text::{
     EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
 };
 use bevy_ui::{
-    px, AlignItems, AlignSelf, BorderColor, BorderRadius, Display, InteractionDisabled,
-    JustifyContent, Node, UiRect, Val,
+    px, AlignItems, BorderColor, BorderRadius, Display, InteractionDisabled, JustifyContent, Node,
+    UiRect, Val,
 };
 
 use crate::{
