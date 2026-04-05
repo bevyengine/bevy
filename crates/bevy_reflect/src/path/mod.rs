@@ -1,5 +1,7 @@
 pub mod access;
+
 pub use access::*;
+use alloc::borrow::Cow;
 
 mod error;
 pub use error::*;
@@ -372,6 +374,26 @@ pub struct ParsedPath(
 );
 
 impl ParsedPath {
+    /// Create a new, empty [`ParsedPath`]. This path won't perform any accesses, returning a
+    /// top-level value unchanged.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    ///
+    /// #[derive(Debug, PartialEq, Reflect)]
+    /// struct Foo(f64, u32);
+    ///
+    /// let foo = Foo(0.0, 1);
+    ///
+    /// let empty_path = ParsedPath::empty();
+    /// assert_eq!(empty_path.element::<bool>(&true).unwrap(), &true);
+    /// assert_eq!(empty_path.element::<Foo>(&foo).unwrap(), &foo);
+    /// ```
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
     /// Parses a [`ParsedPath`] from a string.
     ///
     /// Returns an error if the string does not represent a valid path to an element.
@@ -438,6 +460,92 @@ impl ParsedPath {
             });
         }
         Ok(Self(parts))
+    }
+
+    /// Append a field access to the end of the path.
+    pub fn push_field(&mut self, field: &str) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(Cow::Owned(field.into())),
+            offset: None,
+        });
+        self
+    }
+
+    /// Similar to [`Self::push_field`] but only works on `&'static str`
+    /// and does not allocate.
+    pub fn push_field_static(&mut self, field: &'static str) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(Cow::Borrowed(field)),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a field index access to the end of the path.
+    pub fn push_field_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::FieldIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a list access to the end of the path.
+    pub fn push_list_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::ListIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a tuple index access to the end of the path.
+    pub fn push_tuple_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::TupleIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Join two paths, chaining their accesses. This will produce a new [`ParsedPath`] that
+    /// performs the accesses of this path and then the other path in order.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    /// #[derive(Reflect)]
+    /// struct Foo {
+    ///   bar: Bar,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Bar {
+    ///   baz: Baz,
+    /// }
+    ///
+    /// #[derive(Clone, Debug, PartialEq, Reflect)]
+    /// struct Baz(f32, Vec<Option<u32>>);
+    ///
+    /// let baz = Baz(3.14, vec![None, None, Some(123)]);
+    ///
+    /// let foo = Foo {
+    ///   bar: Bar {
+    ///     baz: baz.clone(),
+    ///   },
+    /// };
+    ///
+    /// let first_path = ParsedPath::parse(".bar#0").unwrap();
+    /// let second_path = ParsedPath::parse(".1[2].0").unwrap();
+    ///
+    /// let joined_path = first_path.join(&second_path);
+    ///
+    /// assert_eq!(first_path.element::<Baz>(&foo).unwrap(), &baz);
+    /// assert_eq!(second_path.element::<u32>(&baz).unwrap(), &123);
+    /// assert_eq!(joined_path.element::<u32>(&foo).unwrap(), &123);
+    /// ```
+    pub fn join(&self, other: &Self) -> ParsedPath {
+        ParsedPath(self.0.iter().chain(other.0.iter()).cloned().collect())
     }
 }
 
