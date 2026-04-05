@@ -14,9 +14,7 @@
 // are known as *early mesh preprocessing* and *late mesh preprocessing*
 // respectively.
 
-#import bevy_pbr::mesh_preprocess_types::{
-    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput, PreprocessWorkItem
-}
+#import bevy_pbr::mesh_preprocess_types::{IndirectParametersMetadata, MeshInput, PreprocessWorkItem}
 #import bevy_pbr::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
     MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
@@ -84,11 +82,8 @@ struct Immediates {
 
 #ifdef INDIRECT
 // The array of indirect parameters for drawcalls.
-@group(0) @binding(7) var<storage> indirect_parameters_cpu_metadata:
-    array<IndirectParametersCpuMetadata>;
-
-@group(0) @binding(8) var<storage, read_write> indirect_parameters_gpu_metadata:
-    array<IndirectParametersGpuMetadata>;
+@group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
+    array<IndirectParametersMetadata>;
 #endif
 
 #ifdef FRUSTUM_CULLING
@@ -182,7 +177,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // building shader can access it.
 #ifndef LATE_PHASE
     if (instance_index == 0u) || (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
-        indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
+        indirect_parameters_metadata[indirect_parameters_index].mesh_index = input_index;
     }
 #endif  // LATE_PHASE
 
@@ -362,20 +357,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #ifdef INDIRECT
 #ifdef LATE_PHASE
     let batch_output_index = atomicLoad(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count
+        &indirect_parameters_metadata[indirect_parameters_index].early_instance_count
     ) + atomicAdd(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].late_instance_count,
+        &indirect_parameters_metadata[indirect_parameters_index].late_instance_count,
         1u
     );
 #else   // LATE_PHASE
     let batch_output_index = atomicAdd(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count,
+        &indirect_parameters_metadata[indirect_parameters_index].early_instance_count,
         1u
     );
 #endif  // LATE_PHASE
 
     let mesh_output_index =
-        indirect_parameters_cpu_metadata[indirect_parameters_index].base_output_index +
+        indirect_parameters_metadata[indirect_parameters_index].base_output_index +
         batch_output_index;
 
 #endif  // INDIRECT
