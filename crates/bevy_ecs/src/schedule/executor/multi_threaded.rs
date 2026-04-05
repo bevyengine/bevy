@@ -454,7 +454,7 @@ impl ExecutorState {
             context
                 .environment
                 .world_cell
-                .get_resource_ref::<HotPatchChanges>()
+                .get_resource_ref::<HotPatchChanges>(crate::world::All)
         }
         .map(|r| r.last_changed())
         .unwrap_or_default();

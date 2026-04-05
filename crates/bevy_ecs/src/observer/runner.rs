@@ -105,7 +105,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     unsafe {
         #[cfg(feature = "hotpatching")]
         if world
-            .get_resource_ref::<crate::HotPatchChanges>()
+            .get_resource_ref::<crate::HotPatchChanges>(All)
             .is_none_or(|r| r.is_changed_after((*system).get_last_run()))
         {
             (*system).refresh_hotpatch();

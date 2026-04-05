@@ -55,7 +55,7 @@ use thiserror::Error;
 /// use bevy_ecs::world::World;
 /// use bevy_ecs::change_detection::Mut;
 /// use bevy_ecs::resource::Resource;
-/// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
+/// use bevy_ecs::world::{All, unsafe_world_cell::UnsafeWorldCell};
 ///
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world
 /// struct OnlyResourceAccessWorld<'w>(UnsafeWorldCell<'w>);
@@ -65,7 +65,7 @@ use thiserror::Error;
 /// impl<'w> OnlyResourceAccessWorld<'w> {
 ///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
-///         unsafe { self.0.get_resource_mut::<T>() }
+///         unsafe { self.0.get_resource_mut::<T>(All) }
 ///     }
 /// }
 /// // impl<'w> OnlyComponentAccessWorld<'w> {
