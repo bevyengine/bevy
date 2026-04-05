@@ -1010,6 +1010,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multiline_text_input"
+path = "examples/ui/text/multiline_text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiline_text_input]
+name = "Multiline Text Input"
+description = "Demonstrates a single multiline EditableText widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "multiple_text_inputs"
 path = "examples/ui/text/multiple_text_inputs.rs"
 doc-scrape-examples = true
