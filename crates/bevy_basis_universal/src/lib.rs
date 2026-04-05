@@ -52,7 +52,7 @@ impl Default for BasisUniversalPlugin {
     target_vendor = "unknown",
     target_os = "unknown",
 ))]
-#[derive(Resource, Clone, Deref)]
+#[derive(bevy_ecs::resource::Resource, Clone)]
 struct BasisuWasmReady(Arc<AtomicUsize>);
 
 impl Plugin for BasisUniversalPlugin {
@@ -70,8 +70,8 @@ impl Plugin for BasisUniversalPlugin {
                     basisu_c_sys::extra::basisu_transcoder_init().await;
                     #[cfg(feature = "saver")]
                     basisu_c_sys::extra::basisu_encoder_init().await;
-                    bevy::log::debug!("Basisu wasm initialized");
-                    r.store(1, Ordering::Release);
+                    bevy_log::debug!("Basisu wasm initialized");
+                    r.0.store(1, Ordering::Release);
                 })
                 .detach();
             app.insert_resource(ready);
@@ -110,6 +110,7 @@ impl Plugin for BasisUniversalPlugin {
     fn ready(&self, app: &App) -> bool {
         app.world()
             .resource::<BasisuWasmReady>()
+            .0
             .load(Ordering::Acquire)
             != 0
     }
