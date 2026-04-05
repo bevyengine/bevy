@@ -463,8 +463,8 @@ pub struct TextLayoutInfo {
     pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
-    /// Range into `PositionedGlyph` of selected glyphs.
-    pub selection_range: Range<usize>,
+    /// Range of the current selection within the text buffer. A collapsed selection is represented by an empty range.
+    pub selection_text_range: Range<usize>,
 }
 
 impl TextLayoutInfo {
@@ -476,7 +476,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
-        self.selection_range = 0..0;
+        self.selection_text_range = 0..0;
     }
 }
 

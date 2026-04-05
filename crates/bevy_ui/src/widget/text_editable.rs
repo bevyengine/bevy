@@ -1,4 +1,5 @@
 use core::hash::BuildHasher;
+use core::ops::Range;
 use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
@@ -22,7 +23,7 @@ use bevy_text::{
     TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
-use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use parley::{BoundingBox, GlyphRun, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
 
@@ -184,6 +185,8 @@ pub fn editable_text_system(
                 .set_width(Some(computed_node.content_box().width()));
         }
 
+        info.selection_text_range = editable_text.editor.raw_selection().text_range();
+
         let mut driver = editable_text
             .editor
             .driver(&mut font_cx.0, &mut layout_cx.0);
@@ -201,14 +204,22 @@ pub fn editable_text_system(
 
         info.glyphs.clear();
         info.run_geometry.clear();
+        info.selection_rects.clear();
 
         for line in layout.lines() {
+            let mut run_index = usize::MAX;
+            let mut run_glyphs_consumed = 0;
+
             for (line_index, item) in line.items().enumerate() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let brush = glyph_run.style().brush;
 
                         let run = glyph_run.run();
+                        if run.index() != run_index {
+                            run_index = run.index();
+                            run_glyphs_consumed = 0;
+                        }
 
                         let font_data = run.font();
                         let font_size = run.font_size();
@@ -223,7 +234,12 @@ pub fn editable_text_system(
                             font_smoothing: brush.font_smoothing,
                         };
 
-                        for glyph in glyph_run.positioned_glyphs() {
+                        let glyph_text_ranges =
+                            glyph_text_ranges(&glyph_run, &mut run_glyphs_consumed);
+
+                        for (glyph, glyph_text_range) in
+                            glyph_run.positioned_glyphs().zip(glyph_text_ranges)
+                        {
                             let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
                             let Ok(atlas_info) = get_glyph_atlas_info(
                                 font_atlases,
@@ -262,8 +278,8 @@ pub fn editable_text_system(
                                 atlas_info,
                                 section_index: brush.section_index as usize,
                                 line_index,
-                                byte_index: line.text_range().start,
-                                byte_length: line.text_range().len(),
+                                byte_index: glyph_text_range.start,
+                                byte_length: glyph_text_range.len(),
                             });
                         }
 
@@ -333,6 +349,25 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             y: geom.y1 as f32,
         },
     }
+}
+
+fn glyph_text_ranges<'a>(
+    glyph_run: &'a GlyphRun<'a, TextBrush>,
+    run_glyphs_consumed: &mut usize,
+) -> impl Iterator<Item = Range<usize>> + Clone + 'a {
+    let glyph_count = glyph_run.glyphs().count();
+    let glyph_start = *run_glyphs_consumed;
+    *run_glyphs_consumed += glyph_count;
+
+    glyph_run
+        .run()
+        .visual_clusters()
+        .flat_map(|cluster| {
+            let cluster_text_range = cluster.text_range();
+            core::iter::repeat(cluster_text_range).take(cluster.glyphs().count())
+        })
+        .skip(glyph_start)
+        .take(glyph_count)
 }
 
 /// Scroll editable text to keep cursor in view after edits.
