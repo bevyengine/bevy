@@ -41,7 +41,10 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::{free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState}, snap_to_view::{SnapToViewCamera, SnapToViewPlugin}},
+    camera_controller::{
+        free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+        snap_to_view::{SnapToViewCamera, SnapToViewPlugin},
+    },
     color::palettes::tailwind,
     prelude::*,
 };

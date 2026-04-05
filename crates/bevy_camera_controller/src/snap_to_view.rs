@@ -1,6 +1,6 @@
 //! A camera controller that snaps camera to different axes.
 //!
-//! This controller is intended as addition to Free Camera controller and adds Blender-like hotkeys to snap camera orientation to global axes. 
+//! This controller is intended as addition to Free Camera controller and adds Blender-like hotkeys to snap camera orientation to global axes.
 //! It is useful for detailed scene look.
 //!
 //! To use this controller, add [`SnapToViewPlugin`] to your app,
@@ -8,7 +8,7 @@
 //! The required [`SnapToViewCameraState`] component will be added automatically.
 //!
 //! To configure the settings of this controller, modify the fields of the [`SnapToViewCamera`] component.
-//! 
+//!
 //! TODO: Add switching camera to orthographic mode.
 
 use core::{f32, fmt};

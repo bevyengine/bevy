@@ -12,7 +12,10 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
-    camera_controller::{free_camera::{FreeCamera, FreeCameraPlugin}, snap_to_view::{SnapToViewPlugin, SnapToViewCamera}},
+    camera_controller::{
+        free_camera::{FreeCamera, FreeCameraPlugin},
+        snap_to_view::{SnapToViewCamera, SnapToViewPlugin},
+    },
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
