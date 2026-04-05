@@ -36,9 +36,9 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
 /// A trait with methods that return 3D bounding volumes for a shape.
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d;
+    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d;
     /// Get a bounding sphere for the shape translated and rotated by the given isometry.
-    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere;
+    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
