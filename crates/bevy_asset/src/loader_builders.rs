@@ -9,6 +9,8 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
+use std::path::Path;
+use tracing::error;
 
 // Utility type for handling the sources of reader references
 enum ReaderRef<'a> {
@@ -304,6 +306,10 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     /// [`with_unknown_type`]: Self::with_unknown_type
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
         let handle = if self.load_context.should_load_dependencies {
             self.load_context.asset_server.load_with_meta_transform(
                 path,
@@ -334,6 +340,10 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
         let path = path.into().to_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return UntypedHandle::default_for_type(self.typing.asset_type_id);
+        }
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -367,6 +377,10 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     /// This will infer the asset type from metadata.
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -399,6 +413,10 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         path: &AssetPath<'static>,
         asset_type_id: Option<TypeId>,
     ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Err(LoadDirectError::EmptyPath(path.clone_owned()));
+        }
         if path.label().is_some() {
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
