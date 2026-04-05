@@ -971,7 +971,6 @@ pub fn extract_text_sections(
                 atlas_info,
                 section_index,
                 byte_index,
-                byte_length,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -989,11 +988,8 @@ pub fn extract_text_sections(
                 current_section_index = *section_index;
             }
 
-            let selection = &text_layout_info.selection_text_range;
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                color: if *byte_index < selection.end
-                    && selection.start < *byte_index + *byte_length
-                {
+                color: if text_layout_info.selection_text_range.contains(byte_index) {
                     selected_text_color
                 } else {
                     color
