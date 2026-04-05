@@ -204,17 +204,29 @@ impl EditableText {
 
 /// Applies pending text edit actions to all [`EditableText`] widgets.
 pub fn apply_text_edits(
-    mut query: Query<&mut EditableText>,
+    mut query: Query<(Entity, &mut EditableText)>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard_text: ResMut<Clipboard>,
+    mut commands: Commands,
 ) {
-    for mut editable_text in query.iter_mut() {
+    for (entity, mut editable_text) in query.iter_mut() {
         editable_text.text_edited = !editable_text.pending_edits.is_empty();
-        editable_text.apply_pending_edits(
-            &mut font_context.0,
-            &mut layout_context.0,
-            &mut clipboard_text.0,
-        );
+
+        if editable_text.text_edited {
+            editable_text.apply_pending_edits(
+                &mut font_context.0,
+                &mut layout_context.0,
+                &mut clipboard_text.0,
+            );
+
+            commands.trigger(TextEditChange { entity });
+        }
     }
+}
+
+/// Emitted by an [`EditableText`] after applying all pending text edit actions.
+#[derive(EntityEvent)]
+struct TextEditChange {
+    entity: Entity,
 }

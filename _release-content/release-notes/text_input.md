@@ -23,6 +23,8 @@ Our initial text entry supports:
 `EditableText` integrate with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
 `EditableText` entity is focused.
 
+The event `TextEditChange` is emitted *after* changes have been applied to the `EditableText`.
+
 Many important features are currently unimplemented (placeholder text, clipboard support, undo-redo...).
 While we've been careful to expose and document the internals so that you can readily implement these features in your own projects,
 we would like to continue to expand the functionality of the base widget: please consider making a PR!
