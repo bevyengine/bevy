@@ -25,13 +25,13 @@
 //!
 //! ## Snap To View controls
 //!
-//! This example also includes SnapToView controller that imitates blender-like axis snap.
+//! This example also includes `SnapToView` controller that imitates blender-like axis snap.
 //!
 //! | Default Key Binding | Action                 |
 //! |:--------------------|:-----------------------|
-//! | [LCtrl +] Numpad1   | Snap to front/back     |
-//! | [LCtrl +] Numpad3   | Snap to right/left     |
-//! | [LCtrl +] Numpad7   | Snap to top/bottom     |
+//! | [`LCtrl` +] Numpad1   | Snap to front/back     |
+//! | [`LCtrl` +] Numpad3   | Snap to right/left     |
+//! | [`LCtrl` +] Numpad7   | Snap to top/bottom     |
 //!
 //! ## Example controls
 //!
