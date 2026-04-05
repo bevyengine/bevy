@@ -1,26 +1,28 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    hierarchy::ChildOf,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
 use bevy_picking::PickingSystems;
 use bevy_scene::prelude::*;
 use bevy_text::{EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextLayout};
 use bevy_ui::{
-    px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect, Val,
+    px, AlignItems, BorderColor, BorderRadius, Display, InteractionDisabled, JustifyContent, Node,
+    UiRect, Val,
 };
 
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    theme::{ThemeBackgroundColor, ThemeFontColor, ThemedText, UiTheme},
+    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor, ThemedText, UiTheme},
     tokens,
 };
 
@@ -47,12 +49,14 @@ pub fn text_input_container() -> impl Scene {
             display: Display::Flex,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(6.0), Val::Px(0.)),
+            padding: UiRect::axes(Val::Px(4.0), Val::Px(0.)),
+            border: UiRect::all(Val::Px(2.0)),
             flex_grow: 1.0,
             border_radius: {BorderRadius::all(px(4.0))},
             column_gap: px(4),
         }
         FeathersTextInputContainer
+        ThemeBorderColor(tokens::TEXT_INPUT_BG)
         ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
         ThemeFontColor(tokens::TEXT_INPUT_TEXT)
         InheritableFont {
@@ -63,7 +67,15 @@ pub fn text_input_container() -> impl Scene {
     }
 }
 
-/// Scene function to spawn a text input.
+/// Scene function to spawn a text input. For proper styling, this should be enclosed by a
+/// `text_input_container`.
+///
+/// ```ignore
+/// :text_input_container
+/// Children [
+///     text_input(props)
+/// ]
+/// ```
 ///
 /// # Arguments
 /// * `props` - construction properties for the text input.
@@ -123,6 +135,36 @@ fn update_text_input_styles_remove(
     });
 }
 
+fn update_text_input_focus(
+    q_inputs: Query<(), With<FeathersTextInput>>,
+    q_input_containers: Query<(Entity, &mut BorderColor), With<FeathersTextInputContainer>>,
+    parents: Query<&ChildOf>,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+) {
+    if focus.is_changed() {
+        let focus_parent = focus.0.and_then(|focus_ent| {
+            if q_inputs.contains(focus_ent) {
+                parents
+                    .iter_ancestors(focus_ent)
+                    .find(|ent| q_input_containers.contains(*ent))
+            } else {
+                None
+            }
+        });
+
+        for (container, mut border_color) in q_input_containers {
+            let new_border_color = if Some(container) == focus_parent {
+                theme.color(&tokens::FOCUS_RING)
+            } else {
+                theme.color(&tokens::TEXT_INPUT_BG)
+            };
+
+            border_color.set_if_neq(BorderColor::all(new_border_color));
+        }
+    }
+}
+
 fn set_text_input_styles(
     button_ent: Entity,
     disabled: bool,
@@ -163,6 +205,7 @@ impl Plugin for TextInputPlugin {
                 update_text_cursor_color,
                 update_text_input_styles,
                 update_text_input_styles_remove,
+                update_text_input_focus,
             )
                 .in_set(PickingSystems::Last),
         );
