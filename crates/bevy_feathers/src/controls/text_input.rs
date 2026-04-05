@@ -2,24 +2,18 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    hierarchy::{ChildOf, Children},
+    entity::Entity,
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    query::{Added, Has, With},
     schedule::IntoScheduleConfigs,
-    spawn::{SpawnRelated, SpawnableList},
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{prelude::*, template_value};
-use bevy_text::{
-    EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
-};
+use bevy_picking::PickingSystems;
+use bevy_scene::prelude::*;
+use bevy_text::{EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextLayout};
 use bevy_ui::{
-    px, AlignItems, BorderColor, BorderRadius, Display, InteractionDisabled, JustifyContent, Node,
-    UiRect, Val,
+    px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect, Val,
 };
 
 use crate::{
@@ -105,119 +99,58 @@ fn update_text_cursor_color(
     }
 }
 
-// fn update_text_input_styles(
-//     q_buttons: Query<
-//         (
-//             Entity,
-//             &FeathersTextInput,
-//             Has<InteractionDisabled>,
-//             &ThemeBackgroundColor,
-//             &ThemeFontColor,
-//         ),
-//         Added<InteractionDisabled>,
-//     >,
-//     mut commands: Commands,
-// ) {
-//     for (button_ent, variant, disabled, pressed, hovered, bg_color, font_color) in q_buttons.iter()
-//     {
-//         set_text_input_styles(
-//             button_ent,
-//             variant,
-//             disabled,
-//             pressed,
-//             hovered.0,
-//             bg_color,
-//             font_color,
-//             &mut commands,
-//         );
-//     }
-// }
+fn update_text_input_styles(
+    q_inputs: Query<
+        (Entity, Has<InteractionDisabled>, &ThemeFontColor),
+        (With<FeathersTextInput>, Added<InteractionDisabled>),
+    >,
+    mut commands: Commands,
+) {
+    for (input_ent, disabled, font_color) in q_inputs.iter() {
+        set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+    }
+}
 
-// fn update_text_input_styles_remove(
-//     q_buttons: Query<(
-//         Entity,
-//         &FeathersTextInput,
-//         Has<InteractionDisabled>,
-//         &ThemeBackgroundColor,
-//         &ThemeFontColor,
-//     )>,
-//     mut removed_disabled: RemovedComponents<InteractionDisabled>,
-//     mut removed_pressed: RemovedComponents<Pressed>,
-//     mut commands: Commands,
-// ) {
-//     removed_disabled
-//         .read()
-//         .chain(removed_pressed.read())
-//         .for_each(|ent| {
-//             if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
-//                 q_buttons.get(ent)
-//             {
-//                 set_button_styles(
-//                     button_ent,
-//                     variant,
-//                     disabled,
-//                     pressed,
-//                     hovered.0,
-//                     bg_color,
-//                     font_color,
-//                     &mut commands,
-//                 );
-//             }
-//         });
-// }
+fn update_text_input_styles_remove(
+    q_inputs: Query<(Entity, Has<InteractionDisabled>, &ThemeFontColor), With<FeathersTextInput>>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    mut commands: Commands,
+) {
+    removed_disabled.read().for_each(|ent| {
+        if let Ok((input_ent, disabled, font_color)) = q_inputs.get(ent) {
+            set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+        }
+    });
+}
 
-// fn set_text_input_styles(
-//     button_ent: Entity,
-//     variant: &ButtonVariant,
-//     disabled: bool,
-//     pressed: bool,
-//     hovered: bool,
-//     bg_color: &ThemeBackgroundColor,
-//     font_color: &ThemeFontColor,
-//     commands: &mut Commands,
-// ) {
-//     let bg_token = match (variant, disabled, pressed, hovered) {
-//         (ButtonVariant::Normal, true, _, _) => tokens::BUTTON_BG_DISABLED,
-//         (ButtonVariant::Normal, false, true, _) => tokens::BUTTON_BG_PRESSED,
-//         (ButtonVariant::Normal, false, false, true) => tokens::BUTTON_BG_HOVER,
-//         (ButtonVariant::Normal, false, false, false) => tokens::BUTTON_BG,
-//         (ButtonVariant::Primary, true, _, _) => tokens::BUTTON_PRIMARY_BG_DISABLED,
-//         (ButtonVariant::Primary, false, true, _) => tokens::BUTTON_PRIMARY_BG_PRESSED,
-//         (ButtonVariant::Primary, false, false, true) => tokens::BUTTON_PRIMARY_BG_HOVER,
-//         (ButtonVariant::Primary, false, false, false) => tokens::BUTTON_PRIMARY_BG,
-//     };
+fn set_text_input_styles(
+    button_ent: Entity,
+    disabled: bool,
+    font_color: &ThemeFontColor,
+    commands: &mut Commands,
+) {
+    let font_color_token = match disabled {
+        true => tokens::TEXT_INPUT_TEXT,
+        false => tokens::TEXT_INPUT_TEXT_DISABLED,
+    };
 
-//     let font_color_token = match (variant, disabled) {
-//         (ButtonVariant::Normal, true) => tokens::BUTTON_TEXT_DISABLED,
-//         (ButtonVariant::Normal, false) => tokens::BUTTON_TEXT,
-//         (ButtonVariant::Primary, true) => tokens::BUTTON_PRIMARY_TEXT_DISABLED,
-//         (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
-//     };
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Text,
+    };
 
-//     let cursor_shape = match disabled {
-//         true => bevy_window::SystemCursorIcon::NotAllowed,
-//         false => bevy_window::SystemCursorIcon::Pointer,
-//     };
+    // Change font color
+    if font_color.0 != font_color_token {
+        commands
+            .entity(button_ent)
+            .insert(ThemeFontColor(font_color_token));
+    }
 
-//     // Change background color
-//     if bg_color.0 != bg_token {
-//         commands
-//             .entity(button_ent)
-//             .insert(ThemeBackgroundColor(bg_token));
-//     }
-
-//     // Change font color
-//     if font_color.0 != font_color_token {
-//         commands
-//             .entity(button_ent)
-//             .insert(ThemeFontColor(font_color_token));
-//     }
-
-//     // Change cursor shape
-//     commands
-//         .entity(button_ent)
-//         .insert(EntityCursor::System(cursor_shape));
-// }
+    // Change cursor shape
+    commands
+        .entity(button_ent)
+        .insert(EntityCursor::System(cursor_shape));
+}
 
 /// Plugin which registers the systems for updating the text input styles.
 pub struct TextInputPlugin;
@@ -226,7 +159,12 @@ impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_text_cursor_color).in_set(PickingSystems::Last),
+            (
+                update_text_cursor_color,
+                update_text_input_styles,
+                update_text_input_styles_remove,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }
