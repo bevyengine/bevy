@@ -124,8 +124,6 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This doesn't work on WebGPU.
-    ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
     Bokeh,
 
@@ -135,9 +133,6 @@ pub enum DepthOfFieldMode {
     /// aesthetically pleasing but requires less video memory bandwidth.
     ///
     /// This is the default.
-    ///
-    /// This works on native and WebGPU.
-    /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
     #[default]
     Gaussian,
 }
@@ -644,8 +639,8 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
-                    DofPass::BokehPass0 => "bokeh_pass_0".into(),
-                    DofPass::BokehPass1 => "bokeh_pass_1".into(),
+                    DofPass::BokehPass0 => "bokeh_pass_a".into(),
+                    DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
             }),

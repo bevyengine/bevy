@@ -150,6 +150,12 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
     type Key = BackgroundMotionVectorsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
+        if let Some(normal) = &mut targets[0] {
+            // We don't write normal, set it empty to avoid WebGPU validation error.
+            // It's a bug that wgpu doesn't validate this, see https://github.com/gfx-rs/wgpu/issues/9147
+            normal.write_mask = bevy_render::render_resource::ColorWrites::empty();
+        }
         RenderPipelineDescriptor {
             label: Some("background_motion_vectors_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
@@ -168,7 +174,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                targets,
                 ..default()
             }),
             ..default()
