@@ -225,7 +225,9 @@ pub fn apply_text_edits(
     }
 }
 
-/// Emitted by an [`EditableText`] after applying all pending text edit actions.
+/// Triggered after applying all pending [`TextEdit`]s to the [`EditableText`] by [`apply_text_edits`].
+///
+/// As [`TextEdit`] includes cursor motions, this will be emitted even if [`EditableText::value`] is unchanged.
 #[derive(EntityEvent)]
 struct TextEditChange {
     entity: Entity,
