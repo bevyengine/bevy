@@ -85,13 +85,13 @@ impl AssetLoader for BasisuLoader {
         &self,
         reader: &mut dyn bevy_asset::io::Reader,
         settings: &Self::Settings,
-        _load_context: &mut bevy_asset::LoadContext<'_>,
+        load_context: &mut bevy_asset::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut data = Vec::new();
         reader.read_to_end(&mut data).await?;
         let src_bytes = data.len();
 
-        let _span = bevy_log::info_span!("transcoding basisu texture").entered();
+        let _span = bevy_log::info_span!("Transcoding basisu texture").entered();
         let time = if bevy_log::STATIC_MAX_LEVEL >= bevy_log::Level::DEBUG {
             Some(bevy_platform::time::Instant::now())
         } else {
@@ -108,8 +108,10 @@ impl AssetLoader for BasisuLoader {
 
         if bevy_log::STATIC_MAX_LEVEL >= bevy_log::Level::DEBUG {
             bevy_log::debug!(
-                "Transcoded a basisu texture {:?} -> {:?}, {:?}kb -> {:?}kb,\
- preferred_target {:?}, extents {:?}, levels {:?}, view_dimension {:?}, in {:?}",
+                "Transcoded basisu texture \"{}\", \
+                {:?} -> {:?}, {}kb -> {}kb. \
+                Preferred target: {:?}, extents: {:?}, level count: {}, view dimension: {:?} in {:?}",
+                load_context.path(),
                 info.basis_format,
                 out_image.texture_descriptor.format,
                 src_bytes as f32 / 1000.0,
