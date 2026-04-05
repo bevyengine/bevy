@@ -17,7 +17,7 @@ use bevy::{
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus},
     prelude::*,
-    scene2::prelude::{Scene, *},
+    scene::prelude::{Scene, *},
     text::{EditableText, TextEdit},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{

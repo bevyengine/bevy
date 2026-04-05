@@ -106,7 +106,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     spawn_directional_light(&mut commands);
 
     commands.spawn((
-        SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
+        WorldAssetRoot(
+            asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
+        ),
         Transform::from_xyz(0.0, 0.07, -0.13),
         Scene::BarnLamp,
     ));

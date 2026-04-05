@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
-use bevy_scene2::prelude::*;
+use bevy_scene::prelude::*;
 use bevy_ui::Node;
 use bevy_ui::Val;
 use bevy_ui::{widget::Text, FlexDirection};

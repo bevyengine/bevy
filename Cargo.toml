@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_ecs_serialization", "bevy_scene2"]
+scene = ["bevy_world_serialization", "bevy_scene"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -318,10 +318,10 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides ECS serialization functionality
-bevy_ecs_serialization = ["bevy_internal/bevy_ecs_serialization"]
+bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 
 # Provides scene functionality
-bevy_scene2 = ["bevy_internal/bevy_scene2"]
+bevy_scene = ["bevy_internal/bevy_scene"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
@@ -734,7 +734,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-featu
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
-bevy_scene2 = { path = "crates/bevy_scene2", version = "0.19.0-dev", default-features = false }
+bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -3022,13 +3022,13 @@ wasm = false
 
 # Scene
 [[example]]
-name = "scene"
-path = "examples/scene/scene.rs"
+name = "world_serialization"
+path = "examples/scene/world_serialization.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.scene]
-name = "Scene"
-description = "Demonstrates loading from and saving scenes to files"
+[package.metadata.example.world_serialization]
+name = "World Serialization"
+description = "Demonstrates loading from and saving world to files"
 category = "Scene"
 wasm = false
 

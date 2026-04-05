@@ -1,7 +1,7 @@
 use core::any::TypeId;
 
 use crate::reflect_utils::clone_reflect_value;
-use crate::{DynamicScene, SceneSpawnError};
+use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
@@ -16,38 +16,41 @@ use bevy_reflect::{TypePath, TypeRegistry};
 
 /// A composition of [`World`] objects.
 ///
-/// To spawn a scene, you can use either:
-/// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
-/// * adding the [`SceneRoot`](crate::components::SceneRoot) component to an entity.
+/// To spawn a [`WorldAsset`], you can use either:
+/// * [`WorldInstanceSpawner::spawn`](crate::WorldInstanceSpawner::spawn)
+/// * adding the [`WorldAssetRoot`](crate::components::WorldAssetRoot) component to an entity.
 #[derive(Asset, TypePath, Debug)]
-pub struct Scene {
-    /// The world of the scene, containing its entities and resources.
+pub struct WorldAsset {
+    /// The world, containing its entities and resources.
     pub world: World,
 }
 
-impl Scene {
-    /// Creates a new scene with the given world.
+impl WorldAsset {
+    /// Creates a new [`WorldAsset`] with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }
 
-    /// Create a new scene from a given dynamic scene.
-    pub fn from_dynamic_scene(
-        dynamic_scene: &DynamicScene,
+    /// Create a new [`WorldAsset`] from a given dynamic world.
+    pub fn from_dynamic_world(
+        dynamic_world: &DynamicWorld,
         type_registry: &TypeRegistry,
-    ) -> Result<Scene, SceneSpawnError> {
+    ) -> Result<WorldAsset, WorldInstanceSpawnError> {
         let mut world = World::new();
         let mut entity_map = EntityHashMap::default();
-        dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
+        dynamic_world.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
     }
 
-    /// Clone the scene.
+    /// Clone the [`WorldAsset`].
     ///
-    /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
+    /// This method will return a [`WorldInstanceSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
+    pub fn clone_with(
+        &self,
+        type_registry: &AppTypeRegistry,
+    ) -> Result<WorldAsset, WorldInstanceSpawnError> {
         let mut new_world = World::new();
         let mut entity_map = EntityHashMap::default();
         self.write_to_world_with(&mut new_world, &mut entity_map, type_registry)?;
@@ -56,14 +59,14 @@ impl Scene {
 
     /// Write the entities and their corresponding components to the given world.
     ///
-    /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
+    /// This method will return a [`WorldInstanceSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
     pub fn write_to_world_with(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity>,
         type_registry: &AppTypeRegistry,
-    ) -> Result<(), SceneSpawnError> {
+    ) -> Result<(), WorldInstanceSpawnError> {
         let type_registry = type_registry.read();
 
         let self_dqf_id = self
@@ -94,14 +97,13 @@ impl Scene {
                 .type_id()
                 .expect("reflected resources must have a type_id");
 
-            let registration =
-                type_registry
-                    .get(type_id)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name(),
-                    })?;
+            let registration = type_registry.get(type_id).ok_or_else(|| {
+                WorldInstanceSpawnError::UnregisteredType {
+                    std_type_name: component_info.name(),
+                }
+            })?;
             registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
+                WorldInstanceSpawnError::UnregisteredResource {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
@@ -127,7 +129,7 @@ impl Scene {
             );
         }
 
-        // Ensure that all scene entities have been allocated in the destination
+        // Ensure that all source world entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
             if archetype.contains(IS_RESOURCE) {
@@ -165,12 +167,12 @@ impl Scene {
 
                     let registration = type_registry
                         .get(component_info.type_id().unwrap())
-                        .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                        .ok_or_else(|| WorldInstanceSpawnError::UnregisteredType {
                             std_type_name: component_info.name(),
                         })?;
                     let reflect_component =
                         registration.data::<ReflectComponent>().ok_or_else(|| {
-                            SceneSpawnError::UnregisteredComponent {
+                            WorldInstanceSpawnError::UnregisteredComponent {
                                 type_path: registration.type_info().type_path().to_string(),
                             }
                         })?;
@@ -184,8 +186,8 @@ impl Scene {
                         continue;
                     };
 
-                    // If this component references entities in the scene,
-                    // update them to the entities in the world.
+                    // If this component references entities in the source world,
+                    // update them to the entities in the destination world.
                     SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                         reflect_component.apply_or_insert_mapped(
                             &mut world.entity_mut(entity),

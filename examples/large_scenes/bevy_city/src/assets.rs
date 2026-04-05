@@ -12,9 +12,9 @@ pub fn strip_base_url(path: String) -> String {
 #[derive(Resource)]
 pub struct CityAssets {
     pub untyped_assets: Vec<UntypedHandle>,
-    pub cars: Vec<Handle<Scene>>,
-    pub crossroad: Handle<Scene>,
-    pub road_straight: Handle<Scene>,
+    pub cars: Vec<Handle<WorldAsset>>,
+    pub crossroad: Handle<WorldAsset>,
+    pub road_straight: Handle<WorldAsset>,
     pub high_density: Buildings,
     pub medium_density: Buildings,
     pub low_density: Buildings,
@@ -23,14 +23,14 @@ pub struct CityAssets {
         Handle<StandardMaterial>,
         Handle<StandardMaterial>,
     ),
-    pub tree_small: Handle<Scene>,
-    pub tree_large: Handle<Scene>,
-    pub path_stones_long: Handle<Scene>,
-    pub fence: Handle<Scene>,
+    pub tree_small: Handle<WorldAsset>,
+    pub tree_large: Handle<WorldAsset>,
+    pub path_stones_long: Handle<WorldAsset>,
+    pub fence: Handle<WorldAsset>,
 }
 
 impl CityAssets {
-    pub fn get_random_car<R: RngExt>(&self, rng: &mut R) -> Handle<Scene> {
+    pub fn get_random_car<R: RngExt>(&self, rng: &mut R) -> Handle<WorldAsset> {
         self.cars[rng.random_range(0..self.cars.len())].clone()
     }
 }
@@ -205,17 +205,17 @@ pub fn load_assets(
         (mesh, default_material, grass_material)
     };
 
-    let tree_small: Handle<Scene> =
+    let tree_small: Handle<WorldAsset> =
         load_asset!(GltfAssetLabel::Scene(0)
             .from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")));
-    let tree_large: Handle<Scene> =
+    let tree_large: Handle<WorldAsset> =
         load_asset!(GltfAssetLabel::Scene(0)
             .from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")));
 
-    let path_stones_long: Handle<Scene> = load_asset!(GltfAssetLabel::Scene(0)
+    let path_stones_long: Handle<WorldAsset> = load_asset!(GltfAssetLabel::Scene(0)
         .from_asset(format!("{base_url}/city-kit-suburban/path-stones-long.glb")));
 
-    let fence: Handle<Scene> = load_asset!(
+    let fence: Handle<WorldAsset> = load_asset!(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 

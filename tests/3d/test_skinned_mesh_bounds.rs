@@ -8,7 +8,7 @@ use bevy::{
         PrimitiveTopology, VertexAttributeValues,
     },
     prelude::*,
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
@@ -86,7 +86,7 @@ fn spawn_scene(
                 .entity(entity)
                 .remove::<PendingScene>()
                 .insert((
-                    SceneRoot(scene_handle.clone()),
+                    WorldAssetRoot(scene_handle.clone()),
                     PendingAnimation((graphs.add(graph), graph_node_index)),
                 ))
                 .observe(play_animation);
@@ -95,7 +95,7 @@ fn spawn_scene(
 }
 
 fn play_animation(
-    trigger: On<SceneInstanceReady>,
+    trigger: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations: Query<&PendingAnimation>,
