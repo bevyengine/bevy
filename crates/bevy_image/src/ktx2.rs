@@ -14,7 +14,7 @@ use wgpu_types::{
     TextureViewDimension,
 };
 
-use super::{CompressedImageFormats, Image, TextureChannelLayout, TextureError, TranscodeFormat};
+use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
 /// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
 ///
@@ -165,7 +165,6 @@ pub fn ktx2_buffer_to_image(
                         TextureFormat::Rgba8Unorm
                     }
                 }
-                _ => return Err(error),
             };
             levels = transcoded;
             Ok(texture_format)
@@ -1004,11 +1003,6 @@ pub fn ktx2_dfd_header_to_texture_format(
                 AstcChannel::Unorm
             },
         },
-        Some(ColorModel::ETC1S) => {
-            return Err(TextureError::FormatRequiresTranscodingError(
-                TranscodeFormat::Etc1s,
-            ));
-        }
         Some(ColorModel::PVRTC) => {
             return Err(TextureError::UnsupportedTextureFormat(
                 "PVRTC is not supported".to_string(),
@@ -1017,22 +1011,6 @@ pub fn ktx2_dfd_header_to_texture_format(
         Some(ColorModel::PVRTC2) => {
             return Err(TextureError::UnsupportedTextureFormat(
                 "PVRTC2 is not supported".to_string(),
-            ));
-        }
-        Some(ColorModel::UASTC) => {
-            return Err(TextureError::FormatRequiresTranscodingError(
-                TranscodeFormat::Uastc(match sample_information[0].channel_type {
-                    0 => TextureChannelLayout::Rgb,
-                    3 => TextureChannelLayout::Rgba,
-                    4 => TextureChannelLayout::Rrr,
-                    5 => TextureChannelLayout::Rrrg,
-                    6 => TextureChannelLayout::Rg,
-                    channel_type => {
-                        return Err(TextureError::UnsupportedTextureFormat(format!(
-                            "Invalid KTX2 UASTC channel type: {channel_type}",
-                        )))
-                    }
-                }),
             ));
         }
         None => {

@@ -108,22 +108,23 @@ impl AssetLoader for BasisuLoader {
 
         if bevy_log::STATIC_MAX_LEVEL >= bevy_log::Level::DEBUG {
             bevy_log::debug!(
-	            "Transcoded a basisu texture {:?} -> {:?}, {:?}kb -> {:?}kb, preferred_target {:?}, extents {:?}, levels {:?}, view_dimension {:?}, in {:?}",
-	            info.basis_format,
-	            out_image.texture_descriptor.format,
-	            src_bytes as f32 / 1000.0,
-	            out_image.data.as_ref().unwrap().len() as f32 / 1000.0,
-	            info.preferred_target,
-	            out_image.texture_descriptor.size,
-	            info.levels,
-	            out_image
-	                .texture_view_descriptor
-	                .as_ref()
-	                .unwrap()
-	                .dimension
-	                .unwrap(),
-	            time.unwrap().elapsed(),
-	        );
+                "Transcoded a basisu texture {:?} -> {:?}, {:?}kb -> {:?}kb,\
+ preferred_target {:?}, extents {:?}, levels {:?}, view_dimension {:?}, in {:?}",
+                info.basis_format,
+                out_image.texture_descriptor.format,
+                src_bytes as f32 / 1000.0,
+                out_image.data.as_ref().unwrap().len() as f32 / 1000.0,
+                info.preferred_target,
+                out_image.texture_descriptor.size,
+                info.levels,
+                out_image
+                    .texture_view_descriptor
+                    .as_ref()
+                    .unwrap()
+                    .dimension
+                    .unwrap(),
+                time.unwrap().elapsed(),
+            );
         }
 
         Ok(Image {

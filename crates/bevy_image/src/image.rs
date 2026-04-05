@@ -1965,30 +1965,9 @@ impl Image {
     }
 }
 
-/// A [UASTC] texture channel layout
-///
-/// [UASTC]: https://github.com/BinomialLLC/basis_universal/wiki/UASTC-Texture-Specification/b624c07ad3c659e7b0f0badcb36e9a6b8820a99d
-#[derive(Clone, Copy, Debug)]
-pub enum TextureChannelLayout {
-    /// 3-color
-    Rgb,
-    /// 4-color
-    Rgba,
-    /// 1-color (R) extended to 3 (RRR)
-    Rrr,
-    /// 2-color (RG) extended to 4 (RRRG)
-    Rrrg,
-    /// 2-color
-    Rg,
-}
-
 /// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
-    /// Has to be transcoded from a compressed ETC1S texture.
-    Etc1s,
-    /// Has to be transcoded from a compressed UASTC texture.
-    Uastc(TextureChannelLayout),
     /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
     /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
