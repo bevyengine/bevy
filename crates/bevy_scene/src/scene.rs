@@ -189,7 +189,7 @@ all_tuples!(scene_impl, 0, 12, P);
 /// any other fields:
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_scene2::PatchFromTemplate;
+/// # use bevy_scene::PatchFromTemplate;
 /// #[derive(FromTemplate)]
 /// struct Position {
 ///     x: usize,

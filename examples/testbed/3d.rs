@@ -269,7 +269,7 @@ mod gltf {
             DespawnOnExit(CURRENT_SCENE),
         ));
         commands.spawn((
-            SceneRoot(asset_server.load(
+            WorldAssetRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
             DespawnOnExit(CURRENT_SCENE),
@@ -280,7 +280,7 @@ mod gltf {
 mod animation {
     use std::{f32::consts::PI, time::Duration};
 
-    use bevy::{prelude::*, scene::SceneInstanceReady};
+    use bevy::{prelude::*, world_serialization::WorldInstanceReady};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Animation;
     const FOX_PATH: &str = "models/animated/Fox.glb";
@@ -323,14 +323,14 @@ mod animation {
 
         commands
             .spawn((
-                SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
+                WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
                 DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
     }
 
     fn pause_animation_frame(
-        scene_ready: On<SceneInstanceReady>,
+        scene_ready: On<WorldInstanceReady>,
         children: Query<&Children>,
         mut commands: Commands,
         animation: Res<Animation>,
@@ -409,7 +409,7 @@ mod gltf_coordinate_conversion {
         color::palettes::basic::*,
         gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
         prelude::*,
-        scene::SceneInstanceReady,
+        world_serialization::WorldInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
@@ -450,7 +450,7 @@ mod gltf_coordinate_conversion {
 
         commands
             .spawn((
-                SceneRoot(asset_server.load_with_settings(
+                WorldAssetRoot(asset_server.load_with_settings(
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
                         s.convert_coordinates = Some(GltfConvertCoordinates {
@@ -465,7 +465,7 @@ mod gltf_coordinate_conversion {
     }
 
     pub fn show_aabbs(
-        scene_ready: On<SceneInstanceReady>,
+        scene_ready: On<WorldInstanceReady>,
         mut commands: Commands,
         children: Query<&Children>,
         meshes: Query<(), With<Mesh3d>>,

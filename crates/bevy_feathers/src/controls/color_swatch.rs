@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene2::prelude::*;
+use bevy_scene::prelude::*;
 use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
 use bevy_ui_render::ui_material::MaterialNode;
 

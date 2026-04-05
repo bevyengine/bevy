@@ -11,7 +11,7 @@ use bevy_asset::{
     AssetApp, AssetLoader, AssetServer, Assets,
 };
 use bevy_ecs::prelude::*;
-use bevy_scene2::{prelude::*, ScenePatch};
+use bevy_scene::{prelude::*, ScenePatch};
 use bevy_ui::prelude::*;
 
 criterion_group!(benches, spawn);
@@ -144,7 +144,7 @@ fn spawn(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(4));
     group.bench_function("ui_immediate_function_scene", |b| {
         let mut app = App::new();
-        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene2::ScenePlugin));
+        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene::ScenePlugin));
 
         b.iter(move || {
             app.world_mut().spawn_scene(ui()).unwrap();
@@ -165,7 +165,7 @@ fn spawn(c: &mut Criterion) {
         app.add_plugins((
             bevy_app::TaskPoolPlugin::default(),
             bevy_asset::AssetPlugin::default(),
-            bevy_scene2::ScenePlugin,
+            bevy_scene::ScenePlugin,
         ));
         app.finish();
         app.cleanup();
@@ -215,7 +215,7 @@ fn spawn(c: &mut Criterion) {
     });
     group.bench_function("ui_raw_bundle_no_scene", |b| {
         let mut app = App::new();
-        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene2::ScenePlugin));
+        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene::ScenePlugin));
 
         b.iter(move || {
             app.world_mut().spawn(raw_ui());

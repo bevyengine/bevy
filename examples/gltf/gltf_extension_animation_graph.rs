@@ -10,7 +10,7 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     platform::collections::{HashMap, HashSet},
     prelude::*,
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
@@ -53,14 +53,14 @@ fn setup_mesh_and_animation(mut commands: Commands, asset_server: Res<AssetServe
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.
     commands
-        .spawn(SceneRoot(
+        .spawn(WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)),
         ))
         .observe(play_animation_when_ready);
 }
 
 fn play_animation_when_ready(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     mut players: Query<(&mut AnimationPlayer, &AnimationToPlay)>,

@@ -1,8 +1,8 @@
 [package]
-name = "bevy_ecs_serialization"
+name = "bevy_world_serialization"
 version = "0.19.0-dev"
 edition = "2024"
-description = "Provides ECS serialization functionality for Bevy Engine"
+description = "Provides ECS World serialization functionality for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
