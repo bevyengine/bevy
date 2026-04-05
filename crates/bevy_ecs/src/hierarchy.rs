@@ -364,6 +364,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
+    /// Returns &mut [`EntityWorldMut`] for parent.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
@@ -476,6 +477,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
+    /// Returns &mut [`EntityCommands`] for parent.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
