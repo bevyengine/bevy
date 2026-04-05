@@ -494,4 +494,29 @@ mod tests {
         world.despawn(e);
         assert!(world.get_entity(e).is_err());
     }
+
+    #[derive(Component, Default)]
+    #[constraint(only(BatchB))]
+    struct BatchA;
+
+    #[derive(Component, Default)]
+    struct BatchB;
+
+    #[derive(Component, Default)]
+    struct BatchC;
+
+    #[test]
+    fn batch_insert_mixed_archetypes_expect_panic() {
+        let mut world = World::new();
+
+        let a = world.spawn((BatchA, BatchB)).id();
+        let b = world.spawn((BatchB, BatchC)).id();
+        let c = world.spawn((BatchA, BatchB)).id();
+
+        // TODO: `insert_batch`` will fail totally because the first validation is fail
+        let _ = world.try_insert_batch([(a, Health), (b, Health), (c, Health)]);
+        assert!(!world.entity(a).contains::<Health>(), "a should not have Health");
+        assert!(world.entity(b).contains::<Health>(), "b should have Health");
+        assert!(!world.entity(c).contains::<Health>(), "c also should have Health");
+    }
 }

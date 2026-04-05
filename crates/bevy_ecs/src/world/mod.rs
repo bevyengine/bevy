@@ -2498,6 +2498,8 @@ impl World {
                             change_tick,
                         )
                     }) else {
+                        // TODO: if the first entity validation failed, just return is not good. Should find the first entity that is validated.
+                        // Maybe just return? corresponding to `try_insert_batch_with_caller`
                         return;
                     };
                     let mut cache = InserterArchetypeCache {
@@ -2525,19 +2527,32 @@ impl World {
                             }
                         };
                         if location.archetype_id != cache.archetype_id {
-                            cache = InserterArchetypeCache {
-                                // SAFETY: we initialized this bundle_id in `register_info`.
-                                // Constraint was already validated when the first inserter was created.
-                                inserter: unsafe {
-                                    BundleInserter::new_with_id(
-                                        self,
-                                        location.archetype_id,
-                                        bundle_id,
-                                        change_tick,
-                                    )
-                                    .expect("constraint already validated for this bundle type, THIS SHOULD NOT HAPPEN")
+                            let new_archetype_id = location.archetype_id;
+                            let old_archetype_id = cache.archetype_id;
+
+                            // SAFETY: we initialized this bundle_id in `register_info`.
+                            cache = match unsafe {
+                                BundleInserter::new_with_id(self, new_archetype_id, bundle_id, change_tick)
+                            } {
+                                Ok(inserter) => InserterArchetypeCache { 
+                                    inserter, 
+                                    archetype_id: new_archetype_id
                                 },
-                                archetype_id: location.archetype_id,
+                                Err(_) => {
+                                    InserterArchetypeCache { 
+                                        // SAFETY: we are rebuilding the previous inserter.
+                                        inserter: unsafe { 
+                                            BundleInserter::new_with_id(self, old_archetype_id, bundle_id, change_tick)
+                                            .expect("rebuilding previous inserter that was already valid, THIS SHOULD NOT HAPPEN")
+                                        },
+                                        archetype_id: old_archetype_id
+                                    }
+                                }
+                            };
+
+                            if cache.archetype_id != new_archetype_id {
+                                // Jump over this invalidate archetype
+                                continue;
                             }
                         }
                         move_as_ptr!(bundle);
@@ -2650,7 +2665,8 @@ impl World {
                             change_tick,
                         )
                     }) else {
-                        break None;
+                        // Validation failed
+                        continue;
                     };
                     let mut cache = InserterArchetypeCache {
                         inserter: first_inserter,
@@ -2688,20 +2704,33 @@ impl World {
                     continue;
                 };
                 if location.archetype_id != cache.archetype_id {
-                    cache = InserterArchetypeCache {
-                        // SAFETY: we initialized this bundle_id in `register_info`.
-                        // Constraint was already validated when the first inserter was created.
-                        inserter: unsafe {
-                            BundleInserter::new_with_id(
-                                self,
-                                location.archetype_id,
-                                bundle_id,
-                                change_tick,
-                            )
-                            .expect("constraint already validated for this bundle type, THIS SHOULD NOT HAPPEN")
+                    let new_archetype_id = location.archetype_id;
+                    let old_archetype_id = cache.archetype_id;
+
+                    // SAFETY: we initialized this bundle_id in `register_info`.
+                    cache = match unsafe {
+                        BundleInserter::new_with_id(self, new_archetype_id, bundle_id, change_tick)
+                    } {
+                        Ok(inserter) => InserterArchetypeCache { 
+                            inserter, 
+                            archetype_id: new_archetype_id
                         },
-                        archetype_id: location.archetype_id,
+                        Err(_) => {
+                            InserterArchetypeCache { 
+                                // SAFETY: we are rebuilding the previous inserter.
+                                inserter: unsafe { 
+                                    BundleInserter::new_with_id(self, old_archetype_id, bundle_id, change_tick)
+                                    .expect("rebuilding previous inserter that was already valid, THIS SHOULD NOT HAPPEN")
+                                },
+                                archetype_id: old_archetype_id
+                            }
+                        }
                     };
+
+                    if cache.archetype_id != new_archetype_id {
+                        // Jump over this invalidate archetype
+                        continue;
+                    }
                 }
 
                 move_as_ptr!(bundle);
