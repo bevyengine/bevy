@@ -6,6 +6,8 @@ pull_requests: [23651]
 Previously, the `Atmosphere` component was added on the camera. Instead,
 spawn an `Atmosphere` as an entity. The nearest atmosphere will be chosen for rendering.
 
+`AtmosphereSettings` still belongs on the camera. It is the component that enables atmosphere rendering for that view.
+
 The `scene_units_to_m` field has been removed from `AtmosphereSettings`. Use `Transform` on the `Atmosphere` entity for scale. It is inversely proportional to the old `scene_units_to_m` factor. For example, to treat one unit as 1 km (as with `scene_units_to_m: 1000.0`), set scale to `0.001`.
 
 ```rust
