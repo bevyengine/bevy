@@ -18,8 +18,6 @@ pub struct ImageLoader {
 impl ImageLoader {
     /// Full list of supported formats.
     pub const SUPPORTED_FORMATS: &'static [ImageFormat] = &[
-        #[cfg(feature = "basis-universal")]
-        ImageFormat::Basis,
         #[cfg(feature = "bmp")]
         ImageFormat::Bmp,
         #[cfg(feature = "dds")]

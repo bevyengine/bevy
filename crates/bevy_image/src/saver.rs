@@ -11,7 +11,7 @@ use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSett
 
 /// [`AssetSaver`] for images that can be saved by the `image` crate.
 ///
-/// Unlike `CompressedImageSaver`, this does not attempt to do any "texture optimization", like
+/// This does not attempt to do any "texture optimization", like
 /// compression (though some file formats intrinsically perform some compression, e.g., JPEG).
 ///
 /// Some file formats do not support all texture formats (e.g., PNG does not support

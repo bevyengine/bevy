@@ -429,10 +429,10 @@ trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
 trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
-basis-universal = ["bevy_internal/basis-universal"]
+basis_universal = ["bevy_internal/basis_universal"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+# Basis Universal saver and asset processor
+basis_universal_saver = ["bevy_internal/basis_universal_saver"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]

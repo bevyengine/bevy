@@ -16,7 +16,6 @@ default = ["bevy_reflect"]
 bevy_reflect = ["bevy_math/bevy_reflect"]
 
 # Image formats
-basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
 exr = ["image/exr"]
@@ -45,9 +44,6 @@ zstd_rust = ["zstd", "dep:ruzstd"]
 # Binding to zstd C implementation (faster)
 zstd_c = ["zstd", "dep:zstd"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["basis-universal"]
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
@@ -75,7 +71,6 @@ wgpu-types = { version = "29.0.1", default-features = false, features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
-futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
@@ -84,8 +79,6 @@ ktx2 = { version = "0.4.0", optional = true }
 flate2 = { version = "1.0.22", optional = true }
 zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
-# For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 
