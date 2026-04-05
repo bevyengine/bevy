@@ -125,6 +125,8 @@ pub struct EditableText {
     pub max_characters: Option<usize>,
     /// Sets the input’s height in number of visible lines.
     pub visible_lines: Option<f32>,
+    /// Allow new lines
+    pub allow_newlines: bool,
 }
 
 impl Default for EditableText {
@@ -138,6 +140,7 @@ impl Default for EditableText {
             text_edited: false,
             max_characters: None,
             visible_lines: Some(1.),
+            allow_newlines: false,
         }
     }
 }
