@@ -336,7 +336,6 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     }
 
     // Point lights and Spot lights
-    let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
 
     // Reset `background_alpha` for a new raymarch.
