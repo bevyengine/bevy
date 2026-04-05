@@ -40,12 +40,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     linebreak: LineBreak::AnyCharacter,
                     ..default()
                 },
+                TextCursorStyle {
+                    selected_text_color: Some(Color::BLACK),
+                    ..default()
+                },
                 TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
                     font_size: FontSize::Px(30.),
                     ..default()
                 },
-                TextCursorStyle::default(),
                 BackgroundColor(DARK_SLATE_GRAY.into()),
                 BorderColor::all(YELLOW),
                 AutoFocus,
