@@ -614,6 +614,35 @@ impl World {
             .register_component_with_descriptor(descriptor)
     }
 
+    /// Registers all components in the bundle as mutually exclusive.
+    ///
+    /// Only one of the mutually exclusive components may exist on an entity, and
+    /// when a component is added to an entity that is mutually exclusive with any
+    /// already existing components, these components are removed.
+    /// This is similar to an enum, except each member is it's own component.
+    ///
+    /// # Panics
+    /// - One of the provided components is required by another provided component
+    /// - There are existing archetypes with any of the provided components in the world
+    pub fn register_mutually_exclusive_components<B: Bundle>(&mut self) {
+        let mut registrator = self.components_registrator();
+        let component_ids: Vec<_> = B::component_ids(&mut registrator).collect();
+        registrator.apply_queued_registrations();
+        for (idx, &component_id_a) in component_ids.iter().enumerate() {
+            for &component_id_b in &component_ids[idx + 1..] {
+                if self
+                    .archetypes()
+                    .component_index()
+                    .contains_key(&component_id_a)
+                {
+                    panic!("An archetype with the component {component_id_a:?} already exists")
+                }
+                self.components
+                    .register_mutually_exclusive(component_id_a, component_id_b);
+            }
+        }
+    }
+
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
     ///
     /// The returned `ComponentId` is specific to the `World` instance
