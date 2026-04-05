@@ -8,7 +8,7 @@
 use bevy::color::palettes::css::{DARK_GREY, YELLOW};
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-     InputFocus,
+    InputFocus,
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
