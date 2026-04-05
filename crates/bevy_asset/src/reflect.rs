@@ -5,7 +5,7 @@ use thiserror::Error;
 use tracing::warn;
 use uuid::Uuid;
 
-use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
+use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, All, World};
 use bevy_reflect::{
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
     FromReflect, FromType, PartialReflect, Reflect, TypeRegistry,
@@ -170,7 +170,12 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
                 #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
-                let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
+                let assets = unsafe {
+                    world
+                        .get_resource_mut::<Assets<A>>(All)
+                        .unwrap()
+                        .into_inner()
+                };
                 let asset = assets.get_mut(asset_id.typed_debug_checked());
                 asset.map(|asset| asset.into_inner() as &mut dyn Reflect)
             },

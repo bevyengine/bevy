@@ -17,8 +17,8 @@ use crate::{
     resource::{Resource, IS_RESOURCE},
     system::{Query, Single, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
+        unsafe_world_cell::UnsafeWorldCell, All, DeferredWorld, FilteredResources,
+        FilteredResourcesMut, FromWorld, World,
     },
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
@@ -707,9 +707,11 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>("Resource does not exist")
-        })?;
+        // SAFETY: Access to the resource was registered in `init_access`.
+        let (ptr, ticks) =
+            unsafe { world.get_resource_with_ticks(All, component_id) }.ok_or_else(|| {
+                SystemParamValidationError::invalid::<Self>("Resource does not exist")
+            })?;
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
@@ -764,9 +766,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>("Resource does not exist")
-        })?;
+        // SAFETY: Access to the resource was registered in `init_access`.
+        let value =
+            unsafe { world.get_resource_mut_by_id(All, component_id) }.ok_or_else(|| {
+                SystemParamValidationError::invalid::<Self>("Resource does not exist")
+            })?;
         Ok(ResMut {
             value: value.value.deref_mut::<T>(),
             ticks: ComponentTicksMut {

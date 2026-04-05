@@ -3,7 +3,7 @@ use crate::{
     component::ComponentId,
     query::Access,
     resource::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, Filtered, World},
 };
 use bevy_ptr::Ptr;
 
@@ -159,13 +159,13 @@ impl<'w, 's> FilteredResources<'w, 's> {
             .components()
             .valid_component_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
-        if !self.access.has_read(component_id) {
-            return Err(ResourceFetchError::NoResourceAccess(component_id));
-        }
 
         // SAFETY: We have read access to this resource
-        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
+        let (value, ticks) = unsafe {
+            self.world
+                .get_resource_with_ticks(Filtered(self.access), component_id)
+        }
+        .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(Ref {
             // SAFETY: `component_id` was obtained from the type ID of `R`.
@@ -179,12 +179,12 @@ impl<'w, 's> FilteredResources<'w, 's> {
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
     pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
-        if !self.access.has_read(component_id) {
-            return Err(ResourceFetchError::NoResourceAccess(component_id));
-        }
         // SAFETY: We have read access to this resource
-        unsafe { self.world.get_resource_by_id(component_id) }
-            .ok_or(ResourceFetchError::DoesNotExist(component_id))
+        unsafe {
+            self.world
+                .get_resource_by_id(Filtered(self.access), component_id)
+        }
+        .ok_or(ResourceFetchError::DoesNotExist(component_id))
     }
 }
 
@@ -482,17 +482,16 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         &mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, ResourceFetchError> {
-        if !self.access.has_write(component_id) {
-            return Err(ResourceFetchError::NoResourceAccess(component_id));
-        }
-
         // SAFETY: We have read access to this resource
-        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
+        let (value, ticks) = unsafe {
+            self.world
+                .get_resource_mut_with_ticks(Filtered(self.access), component_id)
+        }
+        .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
-            value: unsafe { value.assert_unique() },
+            value,
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe {
                 ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)

@@ -25,9 +25,9 @@ pub use crate::{
 pub use bevy_ecs_macros::FromWorld;
 pub use deferred_world::DeferredWorld;
 pub use entity_access::{
-    ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-    EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
-    TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
+    All, AsAccess, ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef,
+    EntityRefExcept, EntityWorldMut, Except, Filtered, FilteredEntityMut, FilteredEntityRef,
+    OccupiedComponentEntry, TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use filtered_resource::*;
@@ -1019,7 +1019,7 @@ impl World {
                         self.read_change_tick(),
                     );
                     // SAFETY: `&self` gives read access to the entire world.
-                    unsafe { EntityRef::new(cell) }
+                    unsafe { EntityRef::new(cell, All) }
                 })
         })
     }
@@ -2212,7 +2212,7 @@ impl World {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource(All) }
     }
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
@@ -2221,7 +2221,7 @@ impl World {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref() }
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref(All) }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
@@ -2230,7 +2230,7 @@ impl World {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
-        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
+        unsafe { self.as_unsafe_world_cell().get_resource_mut(All) }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -3399,7 +3399,7 @@ impl World {
         // - `&self` ensures there are no mutable borrows on world data
         unsafe {
             self.as_unsafe_world_cell_readonly()
-                .get_resource_by_id(component_id)
+                .get_resource_by_id(All, component_id)
         }
     }
 
@@ -3416,7 +3416,7 @@ impl World {
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
         unsafe {
             self.as_unsafe_world_cell()
-                .get_resource_mut_by_id(component_id)
+                .get_resource_mut_by_id(All, component_id)
         }
     }
 
@@ -3605,7 +3605,7 @@ impl World {
                 // or resource_entities mutably
                 // - `resource_entities` doesn't contain duplicate entities, so
                 // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(All, component_id).ok()? };
 
                 Some((component_info, mut_untyped))
             })

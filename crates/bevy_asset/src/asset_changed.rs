@@ -5,6 +5,7 @@
 
 use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
+use bevy_ecs::world::All;
 use bevy_ecs::{
     archetype::Archetype,
     change_detection::Tick,
@@ -174,7 +175,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         //   read that resource here (see trait-level safety comments on `WorldQuery`)
         let Some(changes) = (unsafe {
             world
-                .get_resource_by_id(state.resource_id)
+                .get_resource_by_id(All, state.resource_id)
                 .map(|ptr| ptr.deref::<AssetChanges<A::Asset>>())
         }) else {
             error!(

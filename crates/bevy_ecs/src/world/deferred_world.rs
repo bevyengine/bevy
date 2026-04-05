@@ -16,7 +16,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     system::{Commands, Query},
-    world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
+    world::{error::EntityMutableFetchError, All, EntityFetcher, WorldEntityFetch},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
@@ -489,7 +489,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_resource_mut() }
+        unsafe { self.world.get_resource_mut(All) }
     }
 
     /// Gets a mutable reference to a non-send resource of the given type, if it exists.
@@ -581,7 +581,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_resource_mut_by_id(component_id) }
+        unsafe { self.world.get_resource_mut_by_id(All, component_id) }
     }
 
     /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.

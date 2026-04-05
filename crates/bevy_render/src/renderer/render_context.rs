@@ -12,7 +12,7 @@ use bevy_ecs::system::{
     Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
-use bevy_ecs::world::DeferredWorld;
+use bevy_ecs::world::{All, DeferredWorld};
 use bevy_log::info_span;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
@@ -267,7 +267,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         _change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
-        let current_view = unsafe { world.get_resource::<CurrentView>() };
+        let current_view = unsafe { world.get_resource::<CurrentView>(All) };
 
         let Some(current_view) = current_view else {
             return Err(SystemParamValidationError::skipped::<Self>(

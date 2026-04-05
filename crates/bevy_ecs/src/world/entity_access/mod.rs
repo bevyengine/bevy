@@ -1,3 +1,5 @@
+mod all;
+mod as_access;
 mod component_fetch;
 mod entity_mut;
 mod entity_ref;
@@ -6,6 +8,7 @@ mod except;
 mod filtered;
 mod world_mut;
 
+pub use as_access::*;
 pub use component_fetch::*;
 pub use entity_mut::*;
 pub use entity_ref::*;
@@ -785,7 +788,7 @@ mod tests {
         assert!(e.get::<A>().is_some());
         assert!(e.get_ref::<A>().is_some());
         assert!(e.get_change_ticks::<A>().is_some());
-        assert!(e.get_by_id(a_id).is_some());
+        assert!(e.get_by_id(a_id).is_ok());
         assert!(e.get_change_ticks_by_id(a_id).is_some());
     }
 
@@ -799,7 +802,7 @@ mod tests {
         assert!(e.get::<A>().is_none());
         assert!(e.get_ref::<A>().is_none());
         assert!(e.get_change_ticks::<A>().is_none());
-        assert!(e.get_by_id(a_id).is_none());
+        assert!(e.get_by_id(a_id).is_err());
         assert!(e.get_change_ticks_by_id(a_id).is_none());
     }
 
@@ -814,8 +817,8 @@ mod tests {
         assert!(e.get_ref::<A>().is_some());
         assert!(e.get_mut::<A>().is_some());
         assert!(e.get_change_ticks::<A>().is_some());
-        assert!(e.get_by_id(a_id).is_some());
-        assert!(e.get_mut_by_id(a_id).is_some());
+        assert!(e.get_by_id(a_id).is_ok());
+        assert!(e.get_mut_by_id(a_id).is_ok());
         assert!(e.get_change_ticks_by_id(a_id).is_some());
     }
 
@@ -830,8 +833,8 @@ mod tests {
         assert!(e.get_ref::<A>().is_none());
         assert!(e.get_mut::<A>().is_none());
         assert!(e.get_change_ticks::<A>().is_none());
-        assert!(e.get_by_id(a_id).is_none());
-        assert!(e.get_mut_by_id(a_id).is_none());
+        assert!(e.get_by_id(a_id).is_err());
+        assert!(e.get_mut_by_id(a_id).is_err());
         assert!(e.get_change_ticks_by_id(a_id).is_none());
     }
 
