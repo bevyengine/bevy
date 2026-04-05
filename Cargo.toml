@@ -401,6 +401,9 @@ bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 # Load and save user preferences
 bevy_settings = ["bevy_internal/bevy_settings"]
 
+# Undo / Redo framework
+bevy_undo_redo = ["bevy_internal/bevy_undo_redo"]
+
 # Feathers widget collection.
 experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
