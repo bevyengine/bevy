@@ -4905,6 +4905,18 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "custom_hit_data"
+path = "examples/picking/custom_hit_data.rs"
+doc-scrape-examples = true
+required-features = ["mesh_picking"]
+
+[package.metadata.example.custom_hit_data]
+name = "Custom Hit Data"
+description = "Demonstrates a custom picking backend with custom hit data."
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
