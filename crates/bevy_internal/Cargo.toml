@@ -460,6 +460,7 @@ hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
+schedule_data = ["bevy_dev_tools/schedule_data"]
 
 [dependencies]
 # bevy (no_std)

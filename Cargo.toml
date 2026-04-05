@@ -643,6 +643,9 @@ bevy_debug_stepping = [
   "bevy_internal/debug",
 ]
 
+# Enable collecting schedule data from the app.
+schedule_data = ["bevy_internal/schedule_data"]
+
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
@@ -4606,6 +4609,18 @@ required-features = ["bevy_dev_tools"]
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["debug", "schedule_data"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
 category = "Dev tools"
 wasm = true
 
