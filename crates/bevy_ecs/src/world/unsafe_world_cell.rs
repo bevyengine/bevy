@@ -22,7 +22,7 @@ use crate::{
     world::{All, AsAccess, RawCommandQueue},
 };
 use bevy_platform::sync::atomic::Ordering;
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, PtrMut, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use thiserror::Error;
 
@@ -697,6 +697,34 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures that we have permission to access this resource
         // - storage_type and location are valid
         get_component_and_ticks(self, component_id, storage_type, *entity, location)
+    }
+
+    // Shorthand helper function for getting the data and change ticks for a resource mutably.
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
+    /// - no mutable references to the resource exist at the same time
+    #[inline]
+    pub(crate) unsafe fn get_resource_mut_with_ticks(
+        self,
+        access: impl AsAccess,
+        component_id: ComponentId,
+    ) -> Option<(PtrMut<'w>, ComponentTickCells<'w>)> {
+        if !access.has_write(component_id) {
+            return None;
+        }
+
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
+        let storage_type = self.components().get_info(component_id)?.storage_type();
+        let location = self.get_entity(*entity).ok()?.location();
+        // SAFETY:
+        // - caller ensures there is no `&mut World`
+        // - caller ensures there are no mutable borrows of this resource
+        // - caller ensures that we have permission to access this resource
+        // - storage_type and location are valid
+        get_component_and_ticks(self, component_id, storage_type, *entity, location)
+            .map(|(ptr, ticks)| (ptr.assert_unique(), ticks))
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.

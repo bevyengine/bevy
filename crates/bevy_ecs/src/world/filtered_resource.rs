@@ -485,13 +485,13 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         // SAFETY: We have read access to this resource
         let (value, ticks) = unsafe {
             self.world
-                .get_resource_with_ticks(Filtered(self.access), component_id)
+                .get_resource_mut_with_ticks(Filtered(self.access), component_id)
         }
         .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
-            value: unsafe { value.assert_unique() },
+            value,
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe {
                 ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
