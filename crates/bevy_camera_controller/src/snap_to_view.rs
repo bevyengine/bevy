@@ -139,7 +139,6 @@ impl Default for SnapToViewCameraState {
 /// - [`SnapToViewCameraState`] stores the dynamic runtime state, including direction for camera rotation and enable flags.
 ///
 /// This system is typically added via the [`SnapToViewPlugin`].
-
 pub fn run_snap_to_view_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut SnapToViewCameraState, &SnapToViewCamera), With<Camera>>,
@@ -185,7 +184,6 @@ pub fn run_snap_to_view_controller(
 /// - [`SnapToViewCameraState`] stores the dynamic runtime state, including direction for camera rotation and enable flags.
 ///
 /// This system is typically added via the [`SnapToViewPlugin`].
-
 pub fn rotate_camera_to(
     mut query: Query<
         (
@@ -213,6 +211,6 @@ pub fn rotate_camera_to(
         freecam_state.yaw = yaw;
     }
     if transform.rotation == target {
-        state.rotate_to = None
+        state.rotate_to = None;
     }
 }
