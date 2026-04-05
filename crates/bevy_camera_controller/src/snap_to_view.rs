@@ -113,7 +113,7 @@ Snap camera to axis controls:
 /// and is updated by the [`SnapToViewPlugin`] systems in response to user input.
 #[derive(Component)]
 pub struct SnapToViewCameraState {
-    /// Enables [`FreeCamera`] controls when `true`.
+    /// Enables [`SnapToViewCamera`] controls when `true`.
     pub enabled: bool,
     /// Internal flag indicating if this controller has been initialized by the [`SnapToViewPlugin`].
     initialized: bool,
