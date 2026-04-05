@@ -911,10 +911,10 @@ color *= (*light).color.rgb * texture_sample;
 
 #ifdef ATMOSPHERE
     let P = (*input).P;
-    let atmosphere = view_bindings::atmosphere_data.atmosphere;
-    let O = vec3(0.0, atmosphere.bottom_radius, 0.0);
-    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
-    let P_as = P_scaled + O;
+    let atmosphere = view_bindings::atmosphere;
+    let P_as = (
+        view_bindings::atmosphere.world_to_atmosphere * vec4(P, 1.0)
+    ).xyz;
     let P_clamped = clamp_to_surface(atmosphere, P_as);
     let r = length(P_clamped);
     let local_up = normalize(P_clamped);
@@ -933,7 +933,7 @@ color *= (*light).color.rgb * texture_sample;
 
 #ifdef ATMOSPHERE
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere_data.atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
     return textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture, 
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;

@@ -61,13 +61,13 @@ fn sub_uvs_to_unit(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
 
 fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
     let u = 0.5 + 0.5 * mu;
-    let v = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius)); //TODO
+    let v = saturate((r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius)); //TODO
     return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.multiscattering_lut_size));
 }
 
 fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     let adj_uv = sub_uvs_to_unit(uv, vec2<f32>(settings.multiscattering_lut_size));
-    let r = mix(atmosphere.bottom_radius, atmosphere.top_radius, adj_uv.y);
+    let r = mix(atmosphere.inner_radius, atmosphere.outer_radius, adj_uv.y);
     let mu = adj_uv.x * 2 - 1;
     return vec2(r, mu);
 }
@@ -75,7 +75,7 @@ fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
 fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     let u = (azimuth * FRAC_2_PI) + 0.5;
 
-    let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+    let v_horizon = sqrt(r * r - atmosphere.inner_radius * atmosphere.inner_radius);
     let cos_beta = v_horizon / r;
     // Using fast_acos_4 for better precision at small angles
     // to avoid artifacts at the horizon
@@ -99,7 +99,7 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
     let azimuth = (adj_uv.x - 0.5) * PI_2;
 
     // Horizon parameters
-    let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+    let v_horizon = sqrt(r * r - atmosphere.inner_radius * atmosphere.inner_radius);
     let cos_beta = v_horizon / r;
     let beta = fast_acos_4(cos_beta);
     let horizon_zenith = PI - beta;
@@ -153,8 +153,11 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
 
 fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
     let view_pos = view.view_from_clip * vec4(ndc, 1.0);
-    let t = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
-    return t;
+    let p_view = view_pos.xyz / view_pos.w;
+    let p_world = (view.world_from_view * vec4(p_view, 1.0)).xyz;
+    let p_atmo = (atmosphere.world_to_atmosphere * vec4(p_world, 1.0)).xyz;
+    let cam_atmo = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
+    return length(p_atmo - cam_atmo);
 }
 
 // RGB channels: total inscattered light along the camera ray to the current sample.
@@ -189,7 +192,7 @@ const SCATTERING_DENSITY: f32 = 1.0;
 // while calling with `component = 1.0` will return the atmosphere's scattering density.
 fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
     // sampler clamps to [0, 1] anyways, no need to clamp the altitude
-    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
     let uv = vec2(1.0 - normalized_altitude, component);
     return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz;
 }
@@ -199,7 +202,7 @@ fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
 // Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
 const PHASE_MAPPING_N: f32 = 0.5;
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
-    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
     let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));
     let uv = vec2(1.0 - normalized_altitude, phase_uv);
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
@@ -259,10 +262,10 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
 }
 
 fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angular_size: f32) -> f32 {
-    let bottom_radius = atmosphere.bottom_radius;
+    let inner_radius = atmosphere.inner_radius;
     // Calculate the angle between horizon and sun center
     // Invert the horizon angle calculation to fix shading direction
-    let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));
+    let horizon_cos = -sqrt(1.0 - (inner_radius * inner_radius) / (r * r));
     let horizon_angle = fast_acos_4(horizon_cos);
     let sun_zenith_angle = fast_acos_4(mu);
     
@@ -286,7 +289,7 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
 
 /// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
 fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
-    let min_radius = atmosphere.bottom_radius + EPSILON;
+    let min_radius = atmosphere.inner_radius + EPSILON;
     let r = length(position);
     if r < min_radius {
         let up = normalize(position);
@@ -304,8 +307,8 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
-    var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    return clamp_to_surface(atmosphere, world_pos);
+    let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
+    return clamp_to_surface(atmosphere, atmo_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -385,16 +388,16 @@ struct RaymarchSegment {
 
 fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     // Get both intersection points with atmosphere
-    let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
-    let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
+    let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.outer_radius);
+    let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.inner_radius);
 
     var segment: RaymarchSegment;
 
-    if r < atmosphere.bottom_radius {
+    if r < atmosphere.inner_radius {
         // Inside planet - start from bottom of atmosphere
         segment.start = ground_intersections.y; // Use second intersection point with ground
         segment.end = atmosphere_intersections.y;
-    } else if r < atmosphere.top_radius {
+    } else if r < atmosphere.outer_radius {
         // Inside atmosphere
         segment.start = 0.0;
         segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));

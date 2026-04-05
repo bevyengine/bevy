@@ -477,8 +477,9 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub world_to_atmosphere: Mat4,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -488,8 +489,9 @@ pub fn prepare_atmosphere_uniforms(
     for (entity, atmosphere) in atmospheres {
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
-            bottom_radius: atmosphere.bottom_radius,
-            top_radius: atmosphere.top_radius,
+            inner_radius: atmosphere.inner_radius,
+            outer_radius: atmosphere.outer_radius,
+            world_to_atmosphere: atmosphere.world_to_atmosphere,
         });
     }
     Ok(())
@@ -533,12 +535,7 @@ impl AtmosphereTransformsOffset {
 
 pub(super) fn prepare_atmosphere_transforms(
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &ExtractedAtmosphere,
-            &GpuAtmosphereSettings,
-        ),
+        (Entity, &ExtractedView, &GpuAtmosphere),
         (With<ExtractedAtmosphere>, With<Camera3d>),
     >,
     render_device: Res<RenderDevice>,
@@ -555,11 +552,13 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view, atmosphere, settings) in &views {
+    for (entity, view, gpu_atmosphere) in &views {
         // Camera position in atmosphere space
+        let cam_world = view.world_from_view.translation();
         let cam_pos = Vec3A::from(
-            view.world_from_view.translation() * settings.scene_units_to_m
-                + Vec3::new(0.0, atmosphere.bottom_radius, 0.0),
+            gpu_atmosphere
+                .world_to_atmosphere
+                .transform_point3(cam_world),
         );
 
         // Up is the local planet surface normal.
@@ -793,44 +792,32 @@ pub(super) fn prepare_atmosphere_bind_groups(
     Ok(())
 }
 
-#[derive(ShaderType)]
-#[repr(C)]
-pub(crate) struct AtmosphereData {
-    pub atmosphere: GpuAtmosphere,
-    pub settings: GpuAtmosphereSettings,
-}
-
 pub fn init_atmosphere_buffer(mut commands: Commands) {
     commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(AtmosphereData {
-            atmosphere: GpuAtmosphere {
-                ground_albedo: Vec3::ZERO,
-                bottom_radius: 0.0,
-                top_radius: 0.0,
-            },
-            settings: GpuAtmosphereSettings::default(),
+        buffer: StorageBuffer::from(GpuAtmosphere {
+            ground_albedo: Vec3::ZERO,
+            inner_radius: 0.0,
+            outer_radius: 0.0,
+            world_to_atmosphere: Mat4::IDENTITY,
         }),
     });
 }
 
 #[derive(Resource)]
 pub struct AtmosphereBuffer {
-    pub(crate) buffer: StorageBuffer<AtmosphereData>,
+    pub(crate) buffer: StorageBuffer<GpuAtmosphere>,
 }
 
 pub(crate) fn write_atmosphere_buffer(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
+    atmosphere_entity: Query<&GpuAtmosphere, With<Camera3d>>,
     mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
+    let Ok(atmosphere) = atmosphere_entity.single() else {
         return;
     };
 
-    atmosphere_buffer.buffer.set(AtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-    });
+    atmosphere_buffer.buffer.set(atmosphere.clone());
     atmosphere_buffer.buffer.write_buffer(&device, &queue);
 }
