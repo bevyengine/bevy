@@ -1,10 +1,6 @@
 #[cfg(any(feature = "flate2", feature = "zstd_rust"))]
 use std::io::Read;
 
-#[cfg(feature = "basis-universal")]
-use basis_universal::{
-    DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
-};
 use bevy_color::Srgba;
 use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "zstd_rust", feature = "zstd_c"))]
@@ -146,7 +142,8 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rgb8 => {
                     let mut rgba = vec![255u8; width as usize * height as usize * 4];
                     for (level, level_data) in levels.iter().enumerate() {
-                        let n_pixels = (width as usize >> level).max(1) * (height as usize >> level).max(1);
+                        let n_pixels =
+                            (width as usize >> level).max(1) * (height as usize >> level).max(1);
 
                         let mut offset = 0;
                         for _layer in 0..layer_count {
@@ -168,76 +165,6 @@ pub fn ktx2_buffer_to_image(
                         TextureFormat::Rgba8Unorm
                     }
                 }
-                #[cfg(feature = "basis-universal")]
-                TranscodeFormat::Uastc(data_format) => {
-                    let (transcode_block_format, texture_format) =
-                        get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format;
-                    let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions().0,
-                        texture_format_info.block_dimensions().1,
-                    );
-                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
-                    let block_bytes = texture_format_info.block_copy_size(None).unwrap();
-
-                    let transcoder = LowLevelUastcTranscoder::new();
-                    for (level, level_data) in levels.iter().enumerate() {
-                        let (level_width, level_height) = (
-                            (width >> level as u32).max(1),
-                            (height >> level as u32).max(1),
-                        );
-                        let (num_blocks_x, num_blocks_y) = (
-                            level_width.div_ceil(block_width_pixels) .max(1),
-                            level_height.div_ceil(block_height_pixels) .max(1),
-                        );
-                        let level_bytes = (num_blocks_x * num_blocks_y * block_bytes) as usize;
-
-                        let mut offset = 0;
-                        for _layer in 0..layer_count {
-                            for _face in 0..face_count {
-                                // NOTE: SliceParametersUastc does not implement Clone nor Copy so
-                                // it has to be created per use
-                                let slice_parameters = SliceParametersUastc {
-                                    num_blocks_x,
-                                    num_blocks_y,
-                                    has_alpha: false,
-                                    original_width: level_width,
-                                    original_height: level_height,
-                                };
-                                transcoder
-                                    .transcode_slice(
-                                        &level_data[offset..(offset + level_bytes)],
-                                        slice_parameters,
-                                        DecodeFlags::HIGH_QUALITY,
-                                        transcode_block_format,
-                                    )
-                                    .map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level))
-                                    .map_err(|error| {
-                                        TextureError::SuperDecompressionError(format!(
-                                            "Failed to transcode mip level {level} from UASTC to {transcode_block_format:?}: {error:?}",
-                                        ))
-                                    })?;
-                                offset += level_bytes;
-                            }
-                        }
-                    }
-                    texture_format
-                }
-                // ETC1S is a subset of ETC1 which is a subset of ETC2
-                // TODO: Implement transcoding
-                TranscodeFormat::Etc1s => {
-                    let texture_format = if is_srgb {
-                        TextureFormat::Etc2Rgb8UnormSrgb
-                    } else {
-                        TextureFormat::Etc2Rgb8Unorm
-                    };
-                    if !supported_compressed_formats.supports(texture_format) {
-                        return Err(error);
-                    }
-                    transcoded = levels.to_vec();
-                    texture_format
-                }
-                #[cfg(not(feature = "basis-universal"))]
                 _ => return Err(error),
             };
             levels = transcoded;
@@ -302,89 +229,6 @@ pub fn ktx2_buffer_to_image(
         });
     }
     Ok(image)
-}
-
-/// Determines an appropriate wgpu-compatible format based on compressed format support, and a
-/// basis universal [`TextureChannelLayout`].
-#[cfg(feature = "basis-universal")]
-pub fn get_transcoded_formats(
-    supported_compressed_formats: CompressedImageFormats,
-    data_format: TextureChannelLayout,
-    is_srgb: bool,
-) -> (TranscoderBlockFormat, TextureFormat) {
-    match data_format {
-        TextureChannelLayout::Rrr => {
-            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-                (TranscoderBlockFormat::BC4, TextureFormat::Bc4RUnorm)
-            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
-                (
-                    TranscoderBlockFormat::ETC2_EAC_R11,
-                    TextureFormat::EacR11Unorm,
-                )
-            } else {
-                (TranscoderBlockFormat::RGBA32, TextureFormat::R8Unorm)
-            }
-        }
-        TextureChannelLayout::Rrrg | TextureChannelLayout::Rg => {
-            if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-                (TranscoderBlockFormat::BC5, TextureFormat::Bc5RgUnorm)
-            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
-                (
-                    TranscoderBlockFormat::ETC2_EAC_RG11,
-                    TextureFormat::EacRg11Unorm,
-                )
-            } else {
-                (TranscoderBlockFormat::RGBA32, TextureFormat::Rg8Unorm)
-            }
-        }
-        // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
-        // basis-universal, nor is ASTC_HDR supported by wgpu
-        TextureChannelLayout::Rgb | TextureChannelLayout::Rgba => {
-            // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
-            // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
-            // transcoding speed and quality.
-            if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
-                (
-                    TranscoderBlockFormat::ASTC_4x4,
-                    TextureFormat::Astc {
-                        block: AstcBlock::B4x4,
-                        channel: if is_srgb {
-                            AstcChannel::UnormSrgb
-                        } else {
-                            AstcChannel::Unorm
-                        },
-                    },
-                )
-            } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-                (
-                    TranscoderBlockFormat::BC7,
-                    if is_srgb {
-                        TextureFormat::Bc7RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Bc7RgbaUnorm
-                    },
-                )
-            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
-                (
-                    TranscoderBlockFormat::ETC2_RGBA,
-                    if is_srgb {
-                        TextureFormat::Etc2Rgba8UnormSrgb
-                    } else {
-                        TextureFormat::Etc2Rgba8Unorm
-                    },
-                )
-            } else {
-                (
-                    TranscoderBlockFormat::RGBA32,
-                    if is_srgb {
-                        TextureFormat::Rgba8UnormSrgb
-                    } else {
-                        TextureFormat::Rgba8Unorm
-                    },
-                )
-            }
-        }
-    }
 }
 
 /// Reads the [`TextureFormat`] from a [`ktx2::Reader`].

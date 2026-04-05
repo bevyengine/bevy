@@ -29,9 +29,6 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["bevy_image/compressed_image_saver"]
-
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
@@ -39,7 +36,6 @@ zstd_rust = ["bevy_image/zstd_rust"]
 zstd_c = ["bevy_image/zstd_c"]
 
 # Image format support (HDR and PNG enabled by default)
-basis-universal = ["bevy_image/basis-universal"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]

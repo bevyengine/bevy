@@ -1,7 +1,5 @@
 use crate::ImageLoader;
 
-#[cfg(feature = "basis-universal")]
-use super::basis::*;
 #[cfg(feature = "dds")]
 use super::dds::*;
 #[cfg(feature = "ktx2")]
@@ -219,23 +217,6 @@ impl Plugin for ImagePlugin {
             .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
             .unwrap();
 
-        #[cfg(feature = "compressed_image_saver")]
-        if let Some(processor) = app
-            .world()
-            .get_resource::<bevy_asset::processor::AssetProcessor>()
-        {
-            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver.into());
-            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>("png");
-        }
-
         app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
     }
 }
@@ -243,9 +224,6 @@ impl Plugin for ImagePlugin {
 /// The format of an on-disk image asset.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
-    /// An image in basis universal format.
-    #[cfg(feature = "basis-universal")]
-    Basis,
     /// An image in BMP format.
     #[cfg(feature = "bmp")]
     Bmp,
@@ -309,8 +287,6 @@ impl ImageFormat {
     /// Gets the file extensions for a given format.
     pub const fn to_file_extensions(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "basis-universal")]
-            ImageFormat::Basis => &["basis"],
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => &["bmp"],
             #[cfg(feature = "dds")]
@@ -359,8 +335,6 @@ impl ImageFormat {
     /// If a format doesn't have any dedicated MIME types, this list will be empty.
     pub const fn to_mime_types(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "basis-universal")]
-            ImageFormat::Basis => &["image/basis", "image/x-basis"],
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => &["image/bmp", "image/x-bmp"],
             #[cfg(feature = "dds")]
@@ -423,7 +397,6 @@ impl ImageFormat {
         )]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
-            "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
             "image/vnd.radiance" => feature_gate!("hdr", Hdr),
@@ -458,7 +431,6 @@ impl ImageFormat {
             reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
         )]
         Some(match extension.to_ascii_lowercase().as_str() {
-            "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
             "ff" | "farbfeld" => feature_gate!("ff", Farbfeld),
@@ -517,8 +489,6 @@ impl ImageFormat {
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             #[cfg(feature = "webp")]
             ImageFormat::WebP => image::ImageFormat::WebP,
-            #[cfg(feature = "basis-universal")]
-            ImageFormat::Basis => return None,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
             // FIXME: https://github.com/rust-lang/rust/issues/129031
@@ -1427,7 +1397,7 @@ impl Image {
         buffer: &[u8],
         image_type: ImageType,
         #[cfg_attr(
-            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
+            not(any(feature = "dds", feature = "ktx2")),
             expect(unused_variables, reason = "only used with certain features")
         )]
         supported_compressed_formats: CompressedImageFormats,
@@ -1444,10 +1414,6 @@ impl Image {
         // cases.
 
         let mut image = match format {
-            #[cfg(feature = "basis-universal")]
-            ImageFormat::Basis => {
-                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
-            }
             #[cfg(feature = "dds")]
             ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
@@ -2266,11 +2232,10 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc { channel, .. }
-                if matches!(channel, wgpu_types::AstcChannel::Hdr) =>
-            {
-                self.contains(CompressedImageFormats::ASTC_HDR)
-            }
+            TextureFormat::Astc {
+                channel: wgpu_types::AstcChannel::Hdr,
+                ..
+            } => self.contains(CompressedImageFormats::ASTC_HDR),
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
