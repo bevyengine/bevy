@@ -65,7 +65,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|basis-universal|Basis Universal compressed texture support|
+|basis_universal|Basis Universal compressed texture support|
+|basis_universal_saver|Enables Basis Universal saver and asset processor|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
@@ -110,7 +111,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_world_serialization|Provides ECS serialization functionality|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
-|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
