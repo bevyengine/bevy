@@ -109,9 +109,9 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SELECTION: f32 = 0.055;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const TEXT_SELECTION: f32 = 0.08;
     pub const TEXT_CURSOR: f32 = 0.085;
 }
 
