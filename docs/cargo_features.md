@@ -66,7 +66,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
 |basis_universal|Basis Universal compressed texture support|
-|basis_universal_saver|Enables Basis Universal saver and asset processor|
+|basis_universal_saver|Basis Universal saver and asset processor|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
