@@ -207,17 +207,31 @@ impl EditableText {
 
 /// Applies pending text edit actions to all [`EditableText`] widgets.
 pub fn apply_text_edits(
-    mut query: Query<&mut EditableText>,
+    mut query: Query<(Entity, &mut EditableText)>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard_text: ResMut<Clipboard>,
+    mut commands: Commands,
 ) {
-    for mut editable_text in query.iter_mut() {
+    for (entity, mut editable_text) in query.iter_mut() {
         editable_text.text_edited = !editable_text.pending_edits.is_empty();
-        editable_text.apply_pending_edits(
-            &mut font_context.0,
-            &mut layout_context.0,
-            &mut clipboard_text.0,
-        );
+
+        if editable_text.text_edited {
+            editable_text.apply_pending_edits(
+                &mut font_context.0,
+                &mut layout_context.0,
+                &mut clipboard_text.0,
+            );
+
+            commands.trigger(TextEditChange { entity });
+        }
     }
+}
+
+/// Triggered after applying all pending [`TextEdit`]s to the [`EditableText`] by [`apply_text_edits`].
+///
+/// As [`TextEdit`] includes cursor motions, this will be emitted even if [`EditableText::value`] is unchanged.
+#[derive(EntityEvent)]
+struct TextEditChange {
+    entity: Entity,
 }
