@@ -399,6 +399,7 @@ std = [
   "bevy_color?/std",
   "bevy_diagnostic/std",
   "bevy_ecs/std",
+  "bevy_async/std",
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
@@ -471,6 +472,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.19.0-dev", default
 bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_async = { path = "../bevy_async", version = "0.19.0-dev", default-features = false }
 bevy_input = { path = "../bevy_input", version = "0.19.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }

@@ -7,6 +7,7 @@ plugin_group! {
         #[cfg(feature = "bevy_log")]
         bevy_log:::LogPlugin,
         bevy_app:::TaskPoolPlugin,
+        bevy_async:::AsyncPlugin,
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
@@ -148,6 +149,7 @@ plugin_group! {
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,
+        bevy_async:::AsyncPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
     }
