@@ -215,7 +215,7 @@ pub enum HandleTemplate<T: Asset> {
 
 impl<T: Asset> Default for HandleTemplate<T> {
     fn default() -> Self {
-        Self::Path(Default::default())
+        Self::Handle(Default::default())
     }
 }
 

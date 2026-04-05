@@ -9,7 +9,6 @@ use bevy::{
         FeathersPlugins,
     },
     prelude::*,
-    scene2::prelude::{Scene, *},
 };
 
 fn main() {

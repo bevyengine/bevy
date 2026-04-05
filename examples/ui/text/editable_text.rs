@@ -8,22 +8,15 @@
 use bevy::color::palettes::css::{DARK_GREY, YELLOW};
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-    InputDispatchPlugin, InputFocus,
+    InputFocus,
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
-use bevy::ui_widgets::EditableTextInputPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((
-            // This is also part of UiWidgetsPlugins, but we only need EditableText for this example
-            EditableTextInputPlugin,
-            // Input focus is required to direct keyboard input to the correct EditableText
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins(TabNavigationPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, text_submission)
         .run();
