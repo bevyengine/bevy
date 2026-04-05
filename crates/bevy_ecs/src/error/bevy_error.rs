@@ -7,11 +7,35 @@ use core::{
 /// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that implements Rust's [`Error`],
 /// meaning it can be used as a "catch all" error.
 ///
+/// # Severity
+///
+/// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is.
+/// While the levels within [`Severity`] correspond to traditional logging levels,
+/// these levels are fundamentally advisory metadata.
+/// The fallback error handler ultimately has discretion to respond to each of these errors
+/// according to its configuration.
+/// The error handler ultimately has discretion to respond to each of these errors according to its configuration.
+/// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.
+///
+/// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
+/// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
+///
+/// [`FallbackErrorHandler`]: crate::error::handler::FallbackErrorHandler
+/// [`with_severity`]: ResultSeverityExt::with_severity
+///
 /// # Backtraces
 ///
-/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl]).
-/// When printed, the backtrace will be displayed. By default, the backtrace will be trimmed down to filter out noise. To see the full backtrace,
-/// set the `BEVY_BACKTRACE=full` environment variable.
+/// When used with the `backtrace` Cargo feature, it can capture a backtrace when the error is constructed (generally in the [`From`] impl).
+///
+/// To enable backtrace capture on supported platforms,
+/// set the `RUST_BACKTRACE` environment variable.
+/// See [`Backtrace::capture`] for details.
+///
+/// When the error is printed, the backtrace will be displayed.
+/// By default, the backtrace will be trimmed down to filter out noise.
+/// To see the full backtrace, set the `BEVY_BACKTRACE=full` environment variable.
+///
+/// [`Backtrace::capture`]: https://doc.rust-lang.org/std/backtrace/struct.Backtrace.html#method.capture
 ///
 /// # Usage
 ///
@@ -93,12 +117,90 @@ impl BevyError {
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
 /// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
-/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
+    severity: Severity,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
+}
+
+/// Indicates how severe a [`BevyError`] is.
+///
+/// These levels correspond to traditional logging levels,
+/// but the severity is advisory metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
+///
+/// To change the behavior of unhandled errors returned from systems,
+/// you can modify the [fallback error handler], and read the [`Severity`] stored inside of each [`BevyError`].
+///
+/// You can change the severity of an error (including assigning an error severity) to an ordinary result
+/// by calling [`with_severity`].
+///
+/// [`with_severity`]: ResultSeverityExt::with_severity
+/// [fallback error handler]: crate::error::handler::FallbackErrorHandler
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub enum Severity {
+    /// The error can be safely ignored, and can be completely discarded.
+    Ignore,
+    /// The error can be ignored, unless verbose debugging is required.
+    Trace,
+    /// The error can be safely ignored, but may need to be surfaced during debugging.
+    Debug,
+    /// Nothing has gone wrong, but the error is useful to the user and should be reported.
+    Info,
+    /// Something unexpected but recoverable happened.
+    ///
+    /// Something has probably gone wrong.
+    Warning,
+    /// A real error occurred, but the program may continue.
+    Error,
+    /// A fatal error; the program cannot continue.
+    Panic,
+}
+
+impl BevyError {
+    /// Returns the severity of this error.
+    pub fn severity(&self) -> Severity {
+        self.inner.severity
+    }
+
+    /// Returns this error with its severity overridden.
+    ///
+    /// Note that this doesn't change the underlying error value;
+    /// only the [`Severity`] metadata used by the error handler.
+    pub fn with_severity(mut self, severity: Severity) -> Self {
+        self.inner.severity = severity;
+        self
+    }
+}
+
+/// Extension methods for annotating errors with a [`Severity`].
+pub trait ResultSeverityExt<T> {
+    /// Overrides the [`Severity`] of the error if this result is `Err`.
+    /// This does not change control flow; it only annotates the error.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ResultSeverityExt, Severity};
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // This failure is expected in some contexts, so we downgrade its severity.
+    ///     let _parsed: usize = "I am not a number"
+    ///         .parse()
+    ///         .with_severity(Severity::Warning)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
+}
+
+impl<T, E> ResultSeverityExt<T> for Result<T, E>
+where
+    E: Into<BevyError>,
+{
+    fn with_severity(self, severity: Severity) -> Result<T, BevyError> {
+        self.map_err(|e| e.into().with_severity(severity))
+    }
 }
 
 // NOTE: writing the impl this way gives us From<&str> ... nice!
@@ -111,6 +213,7 @@ where
         BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
+                severity: Severity::Panic,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),

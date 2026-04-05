@@ -2,7 +2,6 @@ use crate::{
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
-        ShaderStages,
     },
     renderer::RenderDevice,
 };
@@ -13,7 +12,7 @@ use core::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 #[cfg(feature = "detailed_trace")]
-use tracing::trace;
+use bevy_log::trace;
 
 type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferSize);
 
@@ -533,18 +532,13 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.set_scissor_rect(x, y, width, height);
     }
 
-    /// Set push constant data.
+    /// Set immediates data.
     ///
-    /// `Features::PUSH_CONSTANTS` must be enabled on the device in order to call these functions.
-    pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+    /// `Features::IMMEDIATES` must be enabled on the device in order to call these functions.
+    pub fn set_immediates(&mut self, offset: u32, data: &[u8]) {
         #[cfg(feature = "detailed_trace")]
-        trace!(
-            "set push constants: {:?} offset: {} data.len: {}",
-            stages,
-            offset,
-            data.len()
-        );
-        self.pass.set_push_constants(stages, offset, data);
+        trace!("set immediates offset: {} data.len: {}", offset, data.len());
+        self.pass.set_immediates(offset, data);
     }
 
     /// Set the rendering viewport.

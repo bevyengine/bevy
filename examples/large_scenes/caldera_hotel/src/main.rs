@@ -8,7 +8,10 @@ use argh::FromArgs;
 use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::visibility::{NoCpuCulling, NoFrustumCulling},
+    camera::{
+        visibility::{NoCpuCulling, NoFrustumCulling},
+        Hdr,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -19,15 +22,15 @@ use bevy::{
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
-        experimental::occlusion_culling::OcclusionCulling,
+        occlusion_culling::OcclusionCulling,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{Hdr, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 #[derive(FromArgs, Resource, Clone)]
@@ -94,10 +97,7 @@ pub fn main() {
     app.init_resource::<CameraPositions>()
         .init_resource::<FrameLowHigh>()
         .insert_resource(args.clone())
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
@@ -145,7 +145,7 @@ pub fn setup(
     let hotel_01 = asset_server.load("hotel_01.glb#Scene0");
     commands
         .spawn((
-            SceneRoot(hotel_01.clone()),
+            WorldAssetRoot(hotel_01.clone()),
             Transform::from_scale(Vec3::splat(0.01)),
             PostProcScene,
             Spin,
@@ -165,7 +165,7 @@ pub fn setup(
                     continue;
                 }
                 commands.spawn((
-                    SceneRoot(hotel_01.clone()),
+                    WorldAssetRoot(hotel_01.clone()),
                     Transform::from_xyz(x as f32 * 50.0, 0.0, z as f32 * 50.0)
                         .with_scale(Vec3::splat(0.01)),
                     Spin,
@@ -244,8 +244,8 @@ pub fn setup(
         commands
             .spawn((
                 Node {
-                    left: Val::Px(1.5),
-                    top: Val::Px(1.5),
+                    left: px(1.5),
+                    top: px(1.5),
                     ..default()
                 },
                 GlobalZIndex(-1),
@@ -263,7 +263,7 @@ pub fn setup(
 // Each unique so instances are maintained.
 #[allow(clippy::too_many_arguments)]
 pub fn assign_rng_materials(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
@@ -271,7 +271,7 @@ pub fn assign_rng_materials(
     mesh_instances: Query<(Entity, &Mesh3d)>,
     args: Res<Args>,
     asset_server: Res<AssetServer>,
-    scenes: Query<&SceneRoot>,
+    scenes: Query<&WorldAssetRoot>,
 ) {
     if !args.random_materials {
         return;

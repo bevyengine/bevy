@@ -17,12 +17,14 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene::prelude::*;
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
 use bevy_ui_widgets::Checkbox;
 
 use crate::{
     constants::size,
     cursor::EntityCursor,
+    focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -37,6 +39,44 @@ struct ToggleSwitchOutline;
 #[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
 
+/// Scene function to spawn a toggle switch.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
+///
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
+pub fn toggle_switch() -> impl Scene {
+    bsn! {
+        Node {
+            width: size::TOGGLE_WIDTH,
+            height: size::TOGGLE_HEIGHT,
+            border: UiRect::all(Val::Px(2.0)),
+            border_radius: BorderRadius::all(Val::Px(5.0)),
+        }
+        Checkbox
+        ToggleSwitchOutline
+        ThemeBackgroundColor(tokens::SWITCH_BG)
+        ThemeBorderColor(tokens::SWITCH_BORDER)
+        AccessibilityNode(accesskit::Node::new(Role::Switch))
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        FocusIndicator
+        Children [(
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
+                width: Val::Percent(50.),
+                border_radius: BorderRadius::all(Val::Px(3.0)),
+            }
+            ToggleSwitchSlide
+            ThemeBackgroundColor(tokens::SWITCH_SLIDE)
+        )]
+    }
+}
+
 /// Template function to spawn a toggle switch.
 ///
 /// # Arguments
@@ -47,7 +87,8 @@ struct ToggleSwitchSlide;
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the toggle_switch() BSN function")]
+pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
             width: size::TOGGLE_WIDTH,
@@ -64,6 +105,7 @@ pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![(
             Node {

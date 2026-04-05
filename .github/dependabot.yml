@@ -14,9 +14,13 @@ updates:
       accesskit:
         patterns:
           - "accesskit*"
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     labels:
       - "C-Dependencies"
+    cooldown:
+      default-days: 7

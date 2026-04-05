@@ -3,13 +3,13 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::core_pipeline::Skybox;
+use bevy::light::Skybox;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+    camera::Hdr, ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*,
 };
 
 #[path = "../helpers/widgets.rs"]
@@ -182,14 +182,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            SceneRoot(asset_server.load(
+            WorldAssetRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
             Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
         ))
         .observe(
             |event: On<Pointer<Drag>>,
-             mut query: Query<&mut Transform, With<SceneRoot>>,
+             mut query: Query<&mut Transform, With<WorldAssetRoot>>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 for mut transform in query.iter_mut() {
@@ -252,7 +252,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text::new("Drag model to spin"),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
         )],

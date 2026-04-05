@@ -44,37 +44,25 @@ impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
-    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully black color with full alpha.
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully transparent color with no alpha (alpha = 0.0).
     #[doc(alias = "transparent")]
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
-    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully white color with full alpha.
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
-
+    /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully red color with full alpha.
-    pub const RED: Self = Self {
-        red: 1.0,
-        green: 0.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully green color with full alpha.
-    pub const GREEN: Self = Self {
-        red: 0.0,
-        green: 1.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const GREEN: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully blue color with full alpha.
-    pub const BLUE: Self = Self {
-        red: 0.0,
-        green: 0.0,
-        blue: 1.0,
-        alpha: 1.0,
-    };
+    pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///

@@ -64,6 +64,10 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
         // SAFETY: The pointer was not dropped in `get_components`, so the allocation is still
         // initialized.
         let add_observer = unsafe { ptr.assume_init() };
+        if entity.is_despawned() {
+            return;
+        }
+
         let add_observer = add_observer.read();
         entity.observe(add_observer.observer);
     }

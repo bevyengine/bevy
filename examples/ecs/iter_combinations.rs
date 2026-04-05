@@ -1,8 +1,8 @@
 //! Shows how to iterate over combinations of query results.
 
 use bevy::{color::palettes::css::ORANGE_RED, math::FloatPow, prelude::*};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()

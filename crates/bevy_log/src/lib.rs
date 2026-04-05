@@ -47,7 +47,7 @@ pub mod prelude {
 
 pub use bevy_utils::once;
 pub use tracing::{
-    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    self, debug, debug_span, error, error_span, event, info, info_span, trace, trace_span, warn,
     warn_span, Level,
 };
 pub use tracing_subscriber;

@@ -239,7 +239,7 @@ fn setup_scene(
     ));
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),
@@ -279,7 +279,7 @@ fn setup_node_rects(commands: &mut Commands) {
             .spawn((
                 Text::new(node_string),
                 TextFont {
-                    font_size: 16.0,
+                    font_size: FontSize::Px(16.0),
                     ..default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),

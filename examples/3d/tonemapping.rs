@@ -2,6 +2,7 @@
 
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::Hdr,
     core_pipeline::tonemapping::Tonemapping,
     light::CascadeShadowConfigBuilder,
     platform::collections::HashMap,
@@ -9,7 +10,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::AsBindGroup,
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     shader::ShaderRef,
 };
@@ -99,7 +100,7 @@ fn setup(
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands.spawn((
-        SceneRoot(asset_server.load(
+        WorldAssetRoot(asset_server.load(
             GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
         )),
         SceneNumber(1),
@@ -107,7 +108,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Flight Helmet
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -177,7 +178,7 @@ fn setup_image_viewer_scene(
     commands.spawn((
         Text::new("Drag and drop an HDR or EXR file"),
         TextFont {
-            font_size: 36.0,
+            font_size: FontSize::Px(36.0),
             ..default()
         },
         TextColor(Color::BLACK),
@@ -212,7 +213,7 @@ fn drag_drop_image(
     };
 
     for mat_h in &image_mat {
-        if let Some(mat) = materials.get_mut(mat_h) {
+        if let Some(mut mat) = materials.get_mut(mat_h) {
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions

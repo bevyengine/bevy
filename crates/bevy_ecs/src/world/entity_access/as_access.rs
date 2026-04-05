@@ -125,14 +125,14 @@ mod tests {
 
         let all = super::All;
 
-        assert!(all.has_component_read(c1));
-        assert!(all.has_component_write(c1));
+        assert!(all.has_read(c1));
+        assert!(all.has_write(c1));
 
-        assert!(all.has_component_read(c2));
-        assert!(all.has_component_write(c2));
+        assert!(all.has_read(c2));
+        assert!(all.has_write(c2));
 
-        assert!(all.has_component_read(c3));
-        assert!(all.has_component_write(c3));
+        assert!(all.has_read(c3));
+        assert!(all.has_write(c3));
     }
 
     #[test]
@@ -144,19 +144,19 @@ mod tests {
         let c3 = world.register_component::<TestComponent<3>>();
 
         let mut access = Access::new();
-        access.add_component_read(c1);
-        access.add_component_write(c2);
+        access.add_read(c1);
+        access.add_write(c2);
 
         let filtered = super::Filtered(&access);
 
-        assert!(filtered.has_component_read(c1));
-        assert!(!filtered.has_component_write(c1));
+        assert!(filtered.has_read(c1));
+        assert!(!filtered.has_write(c1));
 
-        assert!(filtered.has_component_read(c2));
-        assert!(filtered.has_component_write(c2));
+        assert!(filtered.has_read(c2));
+        assert!(filtered.has_write(c2));
 
-        assert!(!filtered.has_component_read(c3));
-        assert!(!filtered.has_component_write(c3));
+        assert!(!filtered.has_read(c3));
+        assert!(!filtered.has_write(c3));
     }
 
     #[test]
@@ -168,21 +168,21 @@ mod tests {
         let c3 = world.register_component::<TestComponent<3>>();
 
         let mut access = Access::new_write_all();
-        access.remove_component_read(c1);
-        access.remove_component_write(c1);
-        access.remove_component_read(c2);
-        access.remove_component_write(c2);
+        access.remove_read(c1);
+        access.remove_write(c1);
+        access.remove_read(c2);
+        access.remove_write(c2);
 
         // SAFETY: The `Access` accurately reflects the excluded components.
         let except = unsafe { Except::<(TestComponent<1>, TestComponent<2>)>::new(&access) };
 
-        assert!(!except.has_component_read(c1));
-        assert!(!except.has_component_write(c1));
+        assert!(!except.has_read(c1));
+        assert!(!except.has_write(c1));
 
-        assert!(!except.has_component_read(c2));
-        assert!(!except.has_component_write(c2));
+        assert!(!except.has_read(c2));
+        assert!(!except.has_write(c2));
 
-        assert!(except.has_component_read(c3));
-        assert!(except.has_component_write(c3));
+        assert!(except.has_read(c3));
+        assert!(except.has_write(c3));
     }
 }

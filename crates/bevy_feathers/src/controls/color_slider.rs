@@ -16,17 +16,21 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
+use bevy_scene::{prelude::*, template_value};
 use bevy_ui::{
     AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
     FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy_ui_widgets::{
+    Slider, SliderOrientation, SliderRange, SliderThumb, SliderValue, TrackClick,
+};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
 };
@@ -37,7 +41,7 @@ const TRACK_RADIUS: f32 = SLIDER_HEIGHT * 0.5 - TRACK_PADDING;
 const THUMB_SIZE: f32 = SLIDER_HEIGHT - 2.0;
 
 /// Indicates which color channel we want to edit.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Copy, Clone)]
 pub enum ColorChannel {
     /// Editing the RGB red channel (0..=1)
     #[default]
@@ -172,6 +176,114 @@ struct ColorSliderTrack;
 #[derive(Component, Default, Clone)]
 struct ColorSliderThumb;
 
+/// Spawn a new slider scene.
+///
+/// # Arguments
+///
+/// * `props` - construction properties for the slider.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+pub fn color_slider(props: ColorSliderProps) -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            height: Val::Px(SLIDER_HEIGHT),
+            align_items: AlignItems::Stretch,
+            flex_grow: 1.0,
+        }
+        Slider {
+            track_click: TrackClick::Snap,
+            orientation: SliderOrientation::Horizontal,
+        }
+        ColorSlider {
+            channel: {props.channel},
+        }
+        SliderValue({props.value})
+        template_value(props.channel.range())
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        FocusIndicator
+        Children [
+            // track
+            (
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.),
+                    right: Val::Px(0.),
+                    top: Val::Px(TRACK_PADDING),
+                    bottom: Val::Px(TRACK_PADDING),
+                    border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
+                }
+                ColorSliderTrack
+                AlphaPattern
+                MaterialNode::<AlphaPatternMaterial>
+                Children [
+                    // Left endcap
+                    (
+                        Node {
+                            width: Val::Px({THUMB_SIZE * 0.5}),
+                            border_radius: {RoundedCorners::Left.to_border_radius(TRACK_RADIUS)},
+                        }
+                        BackgroundColor(palette::X_AXIS)
+                    ),
+                    // Track with gradient
+                    (
+                        Node {
+                            flex_grow: 1.0,
+                        }
+                        BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+                            angle: PI * 0.5,
+                            stops: vec![
+                                ColorStop::new(Color::NONE, Val::Percent(0.)),
+                                ColorStop::new(Color::NONE, Val::Percent(50.)),
+                                ColorStop::new(Color::NONE, Val::Percent(100.)),
+                            ],
+                            color_space: InterpolationColorSpace::Srgba,
+                        })]})
+                        ZIndex(1)
+                        Children [(
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Percent(0.),
+                                top: Val::Percent(50.),
+                                width: Val::Px(THUMB_SIZE),
+                                height: Val::Px(THUMB_SIZE),
+                                border: UiRect::all(Val::Px(2.0)),
+                                border_radius: BorderRadius::MAX,
+                            }
+                            SliderThumb
+                            ColorSliderThumb
+                            BorderColor::all(palette::WHITE)
+                            Outline {
+                                width: Val::Px(1.),
+                                offset: Val::Px(0.),
+                                color: palette::BLACK
+                            }
+                            UiTransform::from_translation(Val2::new(
+                                Val::Percent(-50.0),
+                                Val::Percent(-50.0),
+                            ))
+                        )]
+                    ),
+                    // Right endcap
+                    (
+                        Node {
+                            width: Val::Px({THUMB_SIZE * 0.5}),
+                            border_radius: {RoundedCorners::Right.to_border_radius(TRACK_RADIUS)},
+                        }
+                        BackgroundColor(palette::Z_AXIS)
+                    )
+                ]
+            )
+        ]
+    }
+}
+
 /// Spawn a new slider widget.
 ///
 /// # Arguments
@@ -184,7 +296,8 @@ struct ColorSliderThumb;
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
+pub fn color_slider_bundle<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -196,14 +309,16 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
         },
         Slider {
             track_click: TrackClick::Snap,
+            orientation: SliderOrientation::Horizontal,
         },
         ColorSlider {
-            channel: props.channel.clone(),
+            channel: props.channel,
         },
         SliderValue(props.value),
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![
             // track

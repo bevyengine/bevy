@@ -146,6 +146,11 @@ fn impl_struct_internal(
     // The constructed "Self" ident
     let __this = Ident::new("__this", Span::call_site());
 
+    // Workaround for rustfmt issue: https://github.com/rust-lang/rustfmt/issues/6779
+    // `quote!(Self(#__this))` causes rustfmt to panic in Rust 1.93.0+
+    // TODO: not needed after Rust 1.94
+    let self_ty = quote!(Self);
+
     // The reflected type: either `Self` or a remote type
     let (reflect_ty, constructor, retval) = if let Some(remote_ty) = remote_ty {
         let constructor = match remote_ty.as_expr_path() {
@@ -157,10 +162,10 @@ fn impl_struct_internal(
         (
             quote!(#remote_ty),
             quote!(#constructor),
-            quote!(Self(#__this)),
+            quote!(#self_ty(#__this)),
         )
     } else {
-        (quote!(Self), quote!(Self), quote!(#__this))
+        (quote!(#self_ty), quote!(#self_ty), quote!(#__this))
     };
 
     let constructor = if is_defaultable {

@@ -1,11 +1,11 @@
 use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet};
+use chacha20::ChaCha8Rng;
 use criterion::{BenchmarkId, Criterion, Throughput};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
 
-fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
+fn make_entity(rng: &mut impl RngExt, size: usize) -> Entity {
     // -log₂(1-x) gives an exponential distribution with median 1.0
     // That lets us get values that are mostly small, but some are quite large
     // * For ids, half are in [0, size), half are unboundedly larger.

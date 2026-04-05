@@ -7,6 +7,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
+use bevy_math::primitives::ViewFrustum;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 use tracing::warn;
@@ -45,6 +46,8 @@ use super::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 ///
+/// Some of these are provided as constants in [`light_consts::lux`].
+///
 /// ## Shadows
 ///
 /// To enable shadows, set the `shadow_maps_enabled` property to `true`.
@@ -79,6 +82,7 @@ pub struct DirectionalLight {
     /// more-or-less the same way (depending on the angle of incidence). Lumens
     /// can only be specified for light sources which emit light from a specific
     /// area.
+    /// The default is [`light_consts::lux::AMBIENT_DAYLIGHT`] = 10,000.
     pub illuminance: f32,
 
     /// Whether this light casts shadows.
@@ -157,7 +161,9 @@ impl Default for DirectionalLight {
 }
 
 impl DirectionalLight {
+    /// The default value of [`DirectionalLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    /// The default value of [`DirectionalLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
@@ -207,6 +213,7 @@ pub fn validate_shadow_map_size(mut shadow_map: ResMut<DirectionalLightShadowMap
     }
 }
 
+/// Updates the frusta for all visible shadow mapped [`DirectionalLight`]s.
 pub fn update_directional_light_frusta(
     mut views: Query<
         (
@@ -237,7 +244,7 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .map(|c| Frustum(ViewFrustum::from_clip_from_world(&c.clip_from_world)))
                         .collect::<Vec<_>>(),
                 )
             })

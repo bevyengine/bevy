@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::world_cache
 
 #import bevy_pbr::utils::rand_vec2f
@@ -16,7 +18,7 @@
 }
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 20.0;
 /// How many direct light samples each cell takes when updating each frame
 const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 /// Maximum amount of distance to trace GI rays between two cache cells

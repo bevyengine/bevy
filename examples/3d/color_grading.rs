@@ -6,9 +6,10 @@ use std::{
 };
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
 use std::fmt::Display;
 
@@ -311,7 +312,7 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
         Text::new(label),
         TextFont {
             font: font.into(),
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(color),
@@ -343,13 +344,13 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
     )));
 
     // Spawn the flight helmet.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),

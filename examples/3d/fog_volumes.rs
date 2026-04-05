@@ -6,10 +6,10 @@
 //! light.
 
 use bevy::{
+    camera::Hdr,
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// Entry point.

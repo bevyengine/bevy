@@ -15,9 +15,12 @@
 // respectively.
 
 #import bevy_pbr::mesh_preprocess_types::{
-    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput
+    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput, PreprocessWorkItem
 }
-#import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
+#import bevy_pbr::mesh_types::{
+    Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
+    MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
+}
 #import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::occlusion_culling
 #import bevy_pbr::prepass_bindings::previous_view_uniforms
@@ -38,17 +41,6 @@ struct MeshCullingData {
     // The 3D extents of the AABB in model space, divided by two, padded with
     // an extra unused float value.
     aabb_half_extents: vec4<f32>,
-}
-
-// One invocation of this compute shader: i.e. one mesh instance in a view.
-struct PreprocessWorkItem {
-    // The index of the `MeshInput` in the `current_input` buffer that we read
-    // from.
-    input_index: u32,
-    // In direct mode, the index of the `Mesh` in `output` that we write to. In
-    // indirect mode, the index of the `IndirectParameters` in
-    // `indirect_parameters` that we write to.
-    output_or_indirect_parameters_index: u32,
 }
 
 // The parameters for the indirect compute dispatch for the late mesh
@@ -73,7 +65,7 @@ struct LatePreprocessWorkItemIndirectParameters {
 }
 
 // These have to be in a structure because of Naga limitations on DX12.
-struct PushConstants {
+struct Immediates {
     // The offset into the `late_preprocess_work_item_indirect_parameters`
     // buffer.
     late_preprocess_work_item_indirect_offset: u32,
@@ -104,20 +96,27 @@ struct PushConstants {
 //
 // At the moment, this consists only of AABBs.
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
+
+@group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
 #endif  // FRUSTUM_CULLING
 
 #ifdef OCCLUSION_CULLING
-@group(0) @binding(10) var depth_pyramid: texture_2d<f32>;
+@group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
 
 #ifdef EARLY_PHASE
-@group(0) @binding(11) var<storage, read_write> late_preprocess_work_items:
+@group(0) @binding(12) var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
+
+@group(0) @binding(13) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
+    array<LatePreprocessWorkItemIndirectParameters>;
 #endif  // EARLY_PHASE
 
-@group(0) @binding(12) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
+#ifdef LATE_PHASE
+@group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
+#endif  // LATE_PHASE
 
-var<push_constant> push_constants: PushConstants;
+var<immediate> immediates: Immediates;
 #endif  // OCCLUSION_CULLING
 
 #ifdef FRUSTUM_CULLING
@@ -164,7 +163,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
 #ifdef LATE_PHASE
     if (instance_index >= atomicLoad(&late_preprocess_work_item_indirect_parameters[
-            push_constants.late_preprocess_work_item_indirect_offset].work_item_count)) {
+            immediates.late_preprocess_work_item_indirect_offset].work_item_count)) {
         return;
     }
 #else   // LATE_PHASE
@@ -182,10 +181,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // `MeshInput` into the appropriate slot so that the indirect parameters
     // building shader can access it.
 #ifndef LATE_PHASE
-    // https://github.com/gfx-rs/wgpu/issues/4394
-    if (instance_index == 0u) {
-        indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
-    } else if (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
+    if (instance_index == 0u) || (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
         indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
     }
 #endif  // LATE_PHASE
@@ -198,8 +194,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
     let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
-    // Frustum cull if necessary.
 #ifdef FRUSTUM_CULLING
+    // Frustum cull if necessary.
     if ((current_input[input_index].flags & MESH_FLAGS_NO_FRUSTUM_CULLING_BIT) == 0u) {
         let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
         let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
@@ -210,7 +206,31 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             return;
         }
     }
-#endif
+
+    // Visibility range cull if necessary.
+    let visibility_buffer_array_len = arrayLength(&visibility_ranges);
+    let visibility_buffer_index =
+        current_input[input_index].flags & MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS;
+    if (visibility_buffer_index < visibility_buffer_array_len) {
+        let lod_range = visibility_ranges[visibility_buffer_index];
+
+        // If we're using the AABB as the mesh center, determine its world space position.
+        // Otherwise, just use the center of the transform.
+        var world_pos: vec3<f32>;
+        if ((current_input[input_index].flags & MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT) != 0u) {
+            let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+            world_pos = (world_from_local * vec4(aabb_center, 1.0)).xyz;
+        } else {
+            world_pos = world_from_local[3].xyz;
+        }
+
+        let camera_distance = length(position_world_to_view(world_pos));
+        // `x` is the minimum range; `w` is the largest range.
+        if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
+            return;
+        }
+    }
+#endif  // FRUSTUM_CULLING
 
     // See whether the `MeshInputUniform` was updated on this frame. If it
     // wasn't, then we know the transforms of this mesh must be identical to
@@ -305,14 +325,14 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         // case in which a mesh that was invisible last frame became visible in
         // this frame.
         let output_work_item_index = atomicAdd(&late_preprocess_work_item_indirect_parameters[
-            push_constants.late_preprocess_work_item_indirect_offset].work_item_count, 1u);
+            immediates.late_preprocess_work_item_indirect_offset].work_item_count, 1u);
         if (output_work_item_index % 64u == 0u) {
             // Our workgroup size is 64, and the indirect parameters for the
             // late mesh preprocessing phase are counted in workgroups, so if
             // we're the first thread in this workgroup, bump the workgroup
             // count.
             atomicAdd(&late_preprocess_work_item_indirect_parameters[
-                push_constants.late_preprocess_work_item_indirect_offset].dispatch_x, 1u);
+                immediates.late_preprocess_work_item_indirect_offset].dispatch_x, 1u);
         }
 
         // Enqueue a work item for the late prepass phase.
@@ -373,4 +393,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].material_and_lightmap_bind_group_slot =
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
+    output[mesh_output_index].morph_descriptor_index = current_input[input_index].morph_descriptor_index;
 }

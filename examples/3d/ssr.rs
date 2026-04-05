@@ -5,23 +5,21 @@ use std::ops::Range;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     input::mouse::MouseWheel,
+    light::Skybox,
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
         ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     prelude::*,
-    render::{
-        render_resource::{AsBindGroup, ShaderType},
-        view::Hdr,
-    },
+    render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
 };
 
@@ -279,7 +277,7 @@ fn spawn_cube(
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),

@@ -10,6 +10,8 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+extern crate alloc;
+
 pub mod auto_directional_navigation;
 pub mod interaction_states;
 pub mod measurement;
@@ -35,6 +37,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -43,6 +46,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
 pub use ui_transform::*;
+pub use widget::TextNodeFlags;
 
 /// The UI prelude.
 ///
@@ -175,29 +179,28 @@ impl Plugin for UiPlugin {
                 widget::viewport_picking.in_set(PickingSystems::PostInput),
             );
 
-        let ui_layout_system_config = ui_layout_system
+        ui_layout_system
             .in_set(UiSystems::Layout)
-            .before(TransformSystems::Propagate);
-
-        let ui_layout_system_config = ui_layout_system_config
+            .before(TransformSystems::Propagate)
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
+            .ambiguous_with(bevy_sprite::update_text2d_layout);
 
         app.add_systems(
             PostUpdate,
             (
                 propagate_ui_target_cameras.in_set(UiSystems::Prepare),
-                ui_layout_system_config,
+                ui_layout_system
+                    .in_set(UiSystems::Layout)
+                    .ambiguous_with(bevy_sprite::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
                     .ambiguous_with(widget::measure_text_system)
-                    .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
-                    .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::Propagate),
+                    .in_set(AmbiguousWithText)
+                    .before(UiSystems::PostLayout),
+                update_clipping_system.in_set(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -221,20 +224,15 @@ impl Plugin for UiPlugin {
 }
 
 fn build_text_interop(app: &mut App) {
-    use widget::Text;
-
     app.add_systems(
         PostUpdate,
         (
-            (
-                bevy_text::detect_text_needs_rerender::<Text>,
-                widget::measure_text_system,
-            )
+            widget::measure_text_system
                 .chain()
-                .after(bevy_text::load_font_assets_into_fontdb_system)
+                .after(detect_text_needs_rerender)
+                .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
@@ -244,11 +242,20 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
                 .in_set(UiSystems::PostLayout)
-                .after(bevy_text::load_font_assets_into_fontdb_system)
-                .after(bevy_asset::AssetEventSystems)
+                .after(bevy_text::load_font_assets_into_font_collection)
+                .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
+                .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            widget::update_editable_text_content_size
+                .in_set(UiSystems::Content)
+                .ambiguous_with(widget::update_image_content_size_system)
+                .ambiguous_with(widget::measure_text_system),
+            (widget::editable_text_system, widget::scroll_editable_text)
+                .chain()
+                .in_set(UiSystems::PostLayout)
+                .ambiguous_with(ui_stack_system)
+                .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
@@ -271,4 +278,7 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
+
+    // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
+    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Prepare));
 }

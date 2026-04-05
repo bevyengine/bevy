@@ -54,8 +54,8 @@ fn setup_scene(mut commands: Commands) {
 
     let node = Node {
         position_type: PositionType::Absolute,
-        top: Val::Px(12.0),
-        left: Val::Px(12.0),
+        top: px(12.0),
+        left: px(12.0),
         ..default()
     };
 

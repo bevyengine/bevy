@@ -42,6 +42,9 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 ///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
+/// Transforms compose from right to left: if `t1` and `t2` are transforms, then `t1 * t2`
+/// corresponds to applying `t2` *first*, *then* applying `t1`.
+///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
@@ -65,6 +68,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),

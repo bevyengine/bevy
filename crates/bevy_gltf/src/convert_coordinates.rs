@@ -54,7 +54,7 @@ impl ConvertCoordinates for [f32; 4] {
 /// options will behave like so:
 ///
 /// - `rotate_scene_entity` will make the glTF's scene forward align with the [`Transform::forward`]
-///   of the entity with the [`SceneInstance`](bevy_scene::SceneInstance) component.
+///   of the entity with the [`WorldInstance`](bevy_world_serialization::WorldInstance) component.
 /// - `rotate_meshes` will do the same for entities with a `Mesh3d` component.
 ///
 /// Other entities in the scene are not converted, so their forward may not
@@ -63,7 +63,7 @@ impl ConvertCoordinates for [f32; 4] {
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, convert scenes by rotating the top-level transform of the scene entity.
-    /// This will ensure that [`Transform::forward`] of the "root" entity (the one with [`SceneInstance`](bevy_scene::SceneInstance))
+    /// This will ensure that [`Transform::forward`] of the "root" entity (the one with [`WorldInstance`](bevy_world_serialization::WorldInstance))
     /// aligns with the "forward" of the glTF scene.
     ///
     /// The scene entity is created by the glTF loader. Its parent is the entity

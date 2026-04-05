@@ -20,7 +20,7 @@ use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
-        InputDispatchPlugin, InputFocus, InputFocusVisible,
+        InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2, Rot2},
     picking::{
@@ -34,12 +34,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        // Input focus is not enabled by default, so we need to add the corresponding plugins
-        .add_plugins((
-            DefaultPlugins,
-            InputDispatchPlugin,
-            DirectionalNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, DirectionalNavigationPlugin))
         // This resource is canonically used to track whether or not to render a focus indicator
         // It starts as false, but we set it to true here as we would like to see the focus indicator
         .insert_resource(InputFocusVisible(true))
@@ -166,7 +161,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
         },
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -186,7 +181,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
         },
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -451,17 +446,16 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
         && let Some(focused_entity) = input_focus.0
     {
-        commands.trigger(Pointer::<Click> {
-            entity: focused_entity,
-            pointer_id: PointerId::Mouse,
-            pointer_location: Location {
+        commands.trigger(Pointer::new(
+            PointerId::Mouse,
+            Location {
                 target: NormalizedRenderTarget::None {
                     width: 0,
                     height: 0,
                 },
                 position: Vec2::ZERO,
             },
-            event: Click {
+            Click {
                 button: PointerButton::Primary,
                 hit: HitData {
                     camera: Entity::PLACEHOLDER,
@@ -471,6 +465,7 @@ fn interact_with_focused_button(
                 },
                 duration: Duration::from_secs_f32(0.1),
             },
-        });
+            focused_entity,
+        ));
     }
 }

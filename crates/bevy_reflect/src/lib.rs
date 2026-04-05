@@ -5,7 +5,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -1117,7 +1118,7 @@ mod tests {
 
         let values: Vec<u32> = foo
             .iter_fields()
-            .map(|value| *value.try_downcast_ref::<u32>().unwrap())
+            .map(|(_, value)| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
     }
@@ -1677,7 +1678,7 @@ mod tests {
     }
 
     #[test]
-    fn enum_variant_index_ordering() {
+    fn enum_variant_ordering() {
         use core::cmp::Ordering;
 
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
@@ -1691,19 +1692,10 @@ mod tests {
         let b = MyEnum::Center;
         let c = MyEnum::Bottom;
 
-        // Variant ordering should follow variant index
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&a, &b),
-            Some(Ordering::Less)
-        );
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&b, &a),
-            Some(Ordering::Greater)
-        );
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&b, &c),
-            Some(Ordering::Less)
-        );
+        // Variant ordering of different variant name cannot be compared.
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a, &b), None);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&b, &a), None);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&b, &c), None);
         assert_eq!(
             PartialReflect::reflect_partial_cmp(&a, &a),
             Some(Ordering::Equal)
@@ -1713,23 +1705,17 @@ mod tests {
         enum MyEnum2 {
             A,
             B,
-            C,
+            Center,
         }
         let a1 = MyEnum2::A;
-        let c1 = MyEnum2::C;
+        let c1 = MyEnum2::Center;
 
-        // Unfortunately, it means that enums that have different types can also be compared
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&a1, &a),
-            Some(Ordering::Equal)
-        );
-        assert_eq!(
-            PartialReflect::reflect_partial_cmp(&a1, &b),
-            Some(Ordering::Less)
-        );
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &a), None);
+        assert_eq!(PartialReflect::reflect_partial_cmp(&a1, &b), None);
+        // Two enums with the same variant name across different types are currently comparable
         assert_eq!(
             PartialReflect::reflect_partial_cmp(&c1, &b),
-            Some(Ordering::Greater)
+            Some(Ordering::Equal)
         );
     }
 

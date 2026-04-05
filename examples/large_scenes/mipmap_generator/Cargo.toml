@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 anyhow = "1"
 bevy = { path = "../../../", default-features = false, features = [
   "bevy_asset",
-  "bevy_scene",
+  "bevy_world_serialization",
   "bevy_pbr",
   "ktx2",
   "jpeg",

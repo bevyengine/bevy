@@ -18,6 +18,7 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::AsBindGroup;
+use bevy_scene::{prelude::*, template_value};
 use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
     px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, Display,
@@ -84,6 +85,10 @@ struct ColorPlaneMaterial {
 
     #[uniform(0)]
     fixed_channel: f32,
+
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    #[uniform(0)]
+    _webgl2_padding_12b: Vec3,
 }
 
 impl From<&ColorPlaneMaterial> for ColorPlaneMaterialKey {
@@ -115,6 +120,59 @@ impl UiMaterial for ColorPlaneMaterial {
     }
 }
 
+/// Scene function to spawn a "color plane", which is a 2d picker that allows selecting two
+/// components of a color space.
+///
+/// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
+/// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
+/// is used to provide the fixed constant channel for the background gradient.
+///
+/// The control does not do any color space conversions internally, other than the shader code
+/// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
+/// implementing a color picker for cylindrical color spaces such as HSL.
+pub fn color_plane(plane: ColorPlane) -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            min_height: px(100.0),
+            align_self: AlignSelf::Stretch,
+            padding: UiRect::all(px(4)),
+            border_radius: BorderRadius::all(px(5)),
+        }
+        template_value(plane)
+        ColorPlaneValue
+        ThemeBackgroundColor(tokens::COLOR_PLANE_BG)
+        EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair)
+        Children [(
+            Node {
+                align_self: AlignSelf::Stretch,
+                flex_grow: 1.0,
+            }
+            ColorPlaneInner
+            Children [(
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(0.),
+                    top: Val::Percent(0.),
+                    width: px(10),
+                    height: px(10),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::MAX,
+                }
+                ColorPlaneThumb
+                BorderColor::all(palette::WHITE)
+                Outline {
+                    width: Val::Px(1.),
+                    offset: Val::Px(0.),
+                    color: palette::BLACK
+                }
+                Pickable::IGNORE
+                UiTransform::from_translation(Val2::new(Val::Percent(-50.0), Val::Percent(-50.0),))
+            )]
+        )]
+    }
+}
+
 /// Template function to spawn a "color plane", which is a 2d picker that allows selecting two
 /// components of a color space.
 ///
@@ -128,7 +186,8 @@ impl UiMaterial for ColorPlaneMaterial {
 ///
 /// # Arguments
 /// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
+pub fn color_plane_bundle<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -197,7 +256,7 @@ fn update_plane_color(
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if let Some(material) = r_materials.get_mut(material_node.id()) {
+            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
                 // Update properties
                 material.plane = *plane;
                 material.fixed_channel = plane_value.0.z;
@@ -207,6 +266,8 @@ fn update_plane_color(
             let material = r_materials.add(ColorPlaneMaterial {
                 plane: *plane,
                 fixed_channel: plane_value.0.z,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_12b: Default::default(),
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }

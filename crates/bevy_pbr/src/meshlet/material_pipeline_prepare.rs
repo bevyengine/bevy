@@ -22,11 +22,11 @@ use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedVie
 use bevy_utils::default;
 use core::any::{Any, TypeId};
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletMainOpaquePass3dNode`](`super::MeshletMainOpaquePass3dNode`).
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`meshlet_main_opaque_pass`](`super::meshlet_main_opaque_pass`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`MeshletMainOpaquePass3dNode`](`super::MeshletMainOpaquePass3dNode`),
+/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`meshlet_main_opaque_pass`](`super::meshlet_main_opaque_pass`),
 /// and register the material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     resource_manager: ResMut<ResourceManager>,
@@ -143,7 +143,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -197,7 +200,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout,
-                push_constant_ranges: vec![],
+                immediate_size: 0,
                 vertex: VertexState {
                     shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
@@ -207,8 +210,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
@@ -249,18 +252,18 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     }
 }
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletPrepassNode`](`super::MeshletPrepassNode`).
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`meshlet_prepass`](`super::meshlet_prepass`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletDeferredGBufferPrepassNode`](`super::MeshletDeferredGBufferPrepassNode`).
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`meshlet_deferred_gbuffer_prepass`](`super::meshlet_deferred_gbuffer_prepass`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsDeferredGBufferPrepass(
     pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
 );
 
-/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`MeshletPrepassNode`](`super::MeshletPrepassNode`),
-/// and [`MeshletDeferredGBufferPrepassNode`](`super::MeshletDeferredGBufferPrepassNode`) and register the material with [`InstanceManager`].
+/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`meshlet_prepass`](`super::meshlet_prepass`),
+/// and [`meshlet_deferred_gbuffer_prepass`](`super::meshlet_deferred_gbuffer_prepass`) and register the material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_prepass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
@@ -301,7 +304,10 @@ pub fn prepare_material_meshlet_meshes_prepass(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -399,8 +405,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),

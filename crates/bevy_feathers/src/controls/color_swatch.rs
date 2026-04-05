@@ -11,6 +11,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene::prelude::*;
 use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
 use bevy_ui_render::ui_material::MaterialNode;
 
@@ -38,11 +39,39 @@ pub struct ColorSwatchValue(pub Color);
 #[reflect(Component, Clone, Default)]
 pub struct ColorSwatchFg;
 
+/// Scene function to spawn a color swatch.
+pub fn color_swatch() -> impl Scene {
+    bsn! {
+        Node {
+            height: size::ROW_HEIGHT,
+            min_width: size::ROW_HEIGHT,
+            border_radius: BorderRadius::all(Val::Px(5.0)),
+        }
+        ColorSwatch
+        ColorSwatchValue
+        AlphaPattern
+        MaterialNode::<AlphaPatternMaterial>
+        Children [(
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
+                right: Val::Px(0.),
+                border_radius: BorderRadius::all(Val::Px(5.0)),
+            }
+            ColorSwatchFg
+            BackgroundColor({palette::ACCENT.with_alpha(0.5)})
+        )]
+    }
+}
+
 /// Template function to spawn a color swatch.
 ///
 /// # Arguments
 /// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-pub fn color_swatch<B: Bundle>(overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the color_swatch() BSN function")]
+pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
             height: size::ROW_HEIGHT,

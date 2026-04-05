@@ -36,8 +36,8 @@ fn setup(
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Start,
                 ..default()
@@ -49,9 +49,9 @@ fn setup(
                 .spawn((
                     DraggableButton,
                     Node {
-                        width: Val::Px(BUTTON_WIDTH),
-                        height: Val::Px(BUTTON_HEIGHT),
-                        margin: UiRect::all(Val::Px(10.0)),
+                        width: px(BUTTON_WIDTH),
+                        height: px(BUTTON_HEIGHT),
+                        margin: UiRect::all(px(10.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()

@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_solari::world_cache::WORLD_CACHE_EMPTY_CELL
 #import bevy_solari::realtime_bindings::{
     world_cache_life,

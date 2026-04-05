@@ -29,12 +29,12 @@
 #endif  // PCSS_SAMPLERS_AVAILABLE
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-@group(0) @binding(8) var<storage> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<storage> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #else
-@group(0) @binding(8) var<uniform> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<uniform> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif
 
@@ -91,18 +91,20 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(26) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(27) var<storage, read_write> oit_layers: array<vec2<u32>>;
-@group(0) @binding(28) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
-@group(0) @binding(29) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(27) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(28) var<uniform> oit_nodes_capacity: u32;
+@group(0) @binding(29) var<storage, read_write> oit_nodes: array<types::OitFragmentNode>;
+@group(0) @binding(30) var<storage, read_write> oit_heads: array<atomic<u32>>;
+@group(0) @binding(31) var<storage, read_write> oit_atomic_counter: atomic<u32>;
 #endif // OIT_ENABLED
 
 #ifdef ATMOSPHERE
-@group(0) @binding(30) var atmosphere_transmittance_texture: texture_2d<f32>;
-@group(0) @binding(31) var atmosphere_transmittance_sampler: sampler;
-@group(0) @binding(32) var<storage> atmosphere_data: atmosphere::AtmosphereData;
+@group(0) @binding(32) var atmosphere_transmittance_texture: texture_2d<f32>;
+@group(0) @binding(33) var atmosphere_transmittance_sampler: sampler;
+@group(0) @binding(34) var<storage> atmosphere_data: atmosphere::AtmosphereData;
 #endif // ATMOSPHERE
 #ifdef BLUE_NOISE_TEXTURE
-@group(0) @binding(33) var blue_noise_texture: texture_2d_array<f32>;
+@group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
 #endif // BLUE_NOISE_TEXTURE
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY

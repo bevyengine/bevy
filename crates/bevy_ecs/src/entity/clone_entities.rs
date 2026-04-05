@@ -590,7 +590,7 @@ impl EntityCloner {
             // the registry, which prevents future conflicts.
             let app_registry = unsafe {
                 world
-                    .get_resource::<crate::reflect::AppTypeRegistry>()
+                    .get_resource::<crate::reflect::AppTypeRegistry>(All)
                     .cloned()
             };
             #[cfg(not(feature = "bevy_reflect"))]
@@ -654,7 +654,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities_allocator(),
+                        world.entity_allocator(),
                         info,
                         state,
                         mapper,

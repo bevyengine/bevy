@@ -70,6 +70,8 @@ impl Default for VolumetricFog {
     }
 }
 
+/// A unit cube of fog at the origin. Can be positioned and scaled with a [`Transform`].
+/// Only visible by cameras with a [`VolumetricFog`] component when lit by a directional light with [`VolumetricLight`].
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]

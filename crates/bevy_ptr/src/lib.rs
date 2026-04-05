@@ -1104,6 +1104,24 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { &*self.ptr.add(index).as_ptr() }
     }
 
+    /// Returns a slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// - There must be no mutable aliases for the lifetime `'a` to the slice. to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
+    pub unsafe fn as_slice_unchecked(&self, len: usize) -> &'a [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY:
+        // - The caller guarantees `len` is not greater than the length of the slice.
+        // - The caller guarantees the aliasing rules.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
@@ -1113,6 +1131,36 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     pub unsafe fn get(self, index: usize) -> &'a T {
         // SAFETY: The caller guarantees that `index` is in-bounds.
         unsafe { self.get_unchecked(index) }
+    }
+}
+
+impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
+    /// Returns a mutable reference of the slice
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases for the lifetime `'a` to the slice.
+    /// - `len` must be less than or equal to the length of the slice.
+    pub unsafe fn as_mut_slice_unchecked(&self, len: usize) -> &'a mut [T] {
+        #[cfg(debug_assertions)]
+        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+
+        // SAFETY:
+        // - The caller ensures no aliases exist and `len` is in-bounds.
+        // - `self.ptr` is a valid pointer for the type `T`.
+        // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
+        unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
+    }
+
+    /// Returns a slice pointer to the underlying type `T`.
+    pub fn cast(&self) -> ThinSlicePtr<'a, T> {
+        ThinSlicePtr {
+            // SAFETY: `self.ptr` is non null hence `UnsafeCell::raw_get` always returns a non null pointer
+            ptr: unsafe { NonNull::new_unchecked(UnsafeCell::raw_get(self.ptr.as_ptr())) },
+            #[cfg(debug_assertions)]
+            len: self.len,
+            _marker: PhantomData,
+        }
     }
 }
 

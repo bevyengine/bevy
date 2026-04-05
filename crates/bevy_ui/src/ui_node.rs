@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    ContentSize, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -201,8 +201,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
+            bottom_right: clamp_corner(self.border_radius.bottom_right, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_left, s, b.zw()),
         }
     }
 
@@ -481,6 +481,7 @@ impl From<BVec2> for IgnoreScroll {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
@@ -647,6 +648,11 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
+
+    /// Sets the inline axis direction (LTR or RTL) used for layout.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/direction>
+    pub direction: InlineDirection,
 
     /// The amount of space around a node outside its border.
     ///
@@ -838,6 +844,7 @@ impl Node {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -871,6 +878,22 @@ impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Sets the inline axis direction (LTR or RTL) used for layout.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InlineDirection {
+    /// Left-to-right
+    #[default]
+    Ltr,
+    /// Right-to-left
+    Rtl,
 }
 
 /// Used to control how each individual item is aligned by default within the space they're given.
@@ -2423,6 +2446,36 @@ pub struct ZIndex(pub i32);
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
+
+/// Sets a color to fill the regions outside the Node's border created when a border radius is set.
+///
+/// This can be useful to create artistic "inner radius" effects when used with extra nodes beside existing nodes,
+/// such as when creating tab widgets.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OuterColor(pub Color);
+
+impl OuterColor {
+    /// Outer color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
+}
+
+impl Default for OuterColor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl<T: Into<Color>> From<T> for OuterColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
 /// rounded corners or specify different radii for each corner. If a given radius exceeds half
