@@ -75,6 +75,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // position relative to the center
                 VertexFormat::Float32x2,
+                // clip rect (min_x, min_y, max_x, max_y)
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = if key.anti_alias {
