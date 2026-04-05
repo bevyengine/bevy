@@ -25,7 +25,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -905,6 +905,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
+            Option<&TextScroll>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -917,13 +918,14 @@ pub fn extract_text_sections(
     for (
         entity,
         uinode,
-        transform,
+        global_transform,
         inherited_visibility,
-        clip,
+        maybe_clip,
         camera,
         computed_block,
         text_color,
         text_layout_info,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -935,8 +937,21 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform =
-            Affine2::from(*transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(*global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         let mut color = text_color.0.to_linear();
 
@@ -980,7 +995,7 @@ pub fn extract_text_sections(
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
@@ -1008,6 +1023,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
+            Option<&TextScroll>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1020,13 +1036,14 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
-        transform,
+        global_transform,
         target,
         inherited_visibility,
-        clip,
+        maybe_clip,
         text_layout_info,
         shadow,
         computed_block,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1038,10 +1055,22 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let node_transform = Affine2::from(*transform)
+        let node_transform = Affine2::from(*global_transform)
             * Affine2::from_translation(
-                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor(),
+                uinode.content_box().min + shadow.offset / uinode.inverse_scale_factor()
+                    - text_scroll.map_or(Vec2::ZERO, |s| s.0),
             );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         for (
             i,
@@ -1068,7 +1097,7 @@ pub fn extract_text_shadows(
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
@@ -1096,7 +1125,7 @@ pub fn extract_text_shadows(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: node_transform
@@ -1122,7 +1151,7 @@ pub fn extract_text_shadows(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: node_transform * Affine2::from_translation(run.underline_position()),
@@ -1159,6 +1188,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
+            Option<&TextScroll>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1178,9 +1208,10 @@ pub fn extract_text_decorations(
         computed_block,
         global_transform,
         inherited_visibility,
-        clip,
+        maybe_clip,
         camera,
         text_layout_info,
+        text_scroll,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1192,8 +1223,21 @@ pub fn extract_text_decorations(
             continue;
         };
 
-        let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(uinode.content_box().min);
+        let transform = Affine2::from(global_transform)
+            * Affine2::from_translation(
+                uinode.content_box().min - text_scroll.map_or(Vec2::ZERO, |s| s.0),
+            );
+
+        let clip = if text_scroll.is_some() {
+            let content_box = uinode.content_box();
+            let text_clip = Rect::from_center_size(
+                global_transform.affine().translation + content_box.center(),
+                content_box.size(),
+            );
+            Some(maybe_clip.map_or(text_clip, |clip| clip.clip.intersect(text_clip)))
+        } else {
+            maybe_clip.map(|clip| clip.clip)
+        };
 
         for run in text_layout_info.run_geometry.iter() {
             let Some(section_entity) = computed_block
@@ -1217,7 +1261,7 @@ pub fn extract_text_decorations(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -1247,7 +1291,7 @@ pub fn extract_text_decorations(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.strikethrough_position()),
@@ -1277,7 +1321,7 @@ pub fn extract_text_decorations(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform * Affine2::from_translation(run.underline_position()),

@@ -17,7 +17,6 @@ use bevy::{
     },
     input_focus::tab_navigation::TabGroup,
     prelude::*,
-    scene2::prelude::{Scene, *},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
