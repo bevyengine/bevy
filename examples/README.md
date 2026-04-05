@@ -327,6 +327,7 @@ Example | Description
 --- | ---
 [Callbacks](../examples/ecs/callbacks.rs) | Store arbitrary systems in components and run them on demand
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
+[Component Constraints](../examples/ecs/component_constraints.rs) | Declare constraints on component relationships using require, forbid, and, or, not, and only
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
 [Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor

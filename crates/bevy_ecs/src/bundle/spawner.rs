@@ -6,6 +6,7 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
+    component::ComponentsConstraintError,
     entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
@@ -25,7 +26,10 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(
+        world: &'w mut World,
+        change_tick: Tick,
+    ) -> Result<Self, ComponentsConstraintError> {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: we initialized this bundle_id in `init_info`
@@ -41,7 +45,7 @@ impl<'w> BundleSpawner<'w> {
         world: &'w mut World,
         bundle_id: BundleId,
         change_tick: Tick,
-    ) -> Self {
+    ) -> Result<Self, ComponentsConstraintError> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
@@ -49,7 +53,7 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
-        );
+        )?;
 
         let archetype = &mut world.archetypes[new_archetype_id];
         let table = &mut world.storages.tables[archetype.table_id()];
@@ -66,7 +70,7 @@ impl<'w> BundleSpawner<'w> {
                 .into_deferred()
                 .trigger(ArchetypeCreated(new_archetype_id));
         }
-        spawner
+        Ok(spawner)
     }
 
     #[inline]

@@ -2336,6 +2336,17 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "component_constraints"
+path = "examples/ecs/component_constraints.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.component_constraints]
+name = "Component Constraints"
+description = "Declare constraints on component relationships using require, forbid, and, or, not, and only"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true

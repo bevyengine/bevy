@@ -9,7 +9,7 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
-    component::{Components, StorageType},
+    component::{Components, ComponentsConstraintError, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
@@ -38,7 +38,7 @@ impl<'w> BundleInserter<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
-    ) -> Self {
+    ) -> Result<Self, ComponentsConstraintError> {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: We just ensured this bundle exists
@@ -56,17 +56,22 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         change_tick: Tick,
-    ) -> Self {
+    ) -> Result<Self, ComponentsConstraintError> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
+
+        // This is a good place to trigger the [`ComponentsConstraintError`] event, but the upper layer still needs to write Components
+        // We chose to keep propagating it when violating.
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             archetype_id,
-        );
+        )?;
+
+        // TODO: trigger an event
 
         // SAFETY:
         // - The caller ensures `archetype_id` is valid.
@@ -115,7 +120,7 @@ impl<'w> BundleInserter<'w> {
                 .into_deferred()
                 .trigger(ArchetypeCreated(new_archetype_id));
         }
-        inserter
+        Ok(inserter)
     }
 
     // A non-generic prelude to insert used to minimize duplicated monomorphized code.
@@ -510,12 +515,12 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
-    ) -> (ArchetypeId, bool) {
+    ) -> Result<(ArchetypeId, bool), ComponentsConstraintError> {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
             .get_archetype_after_bundle_insert(self.id)
         {
-            return (archetype_after_insert_id, false);
+            return Ok((archetype_after_insert_id, false));
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -569,7 +574,7 @@ impl BundleInfo {
                 added,
                 existing,
             );
-            (archetype_id, false)
+            Ok((archetype_id, false))
         } else {
             let table_id;
             let table_components;
@@ -613,7 +618,7 @@ impl BundleInfo {
                     table_components,
                     sparse_set_components,
                 )
-            };
+            }?;
 
             // Add an edge from the old archetype to the new archetype.
             archetypes[archetype_id]
@@ -626,7 +631,7 @@ impl BundleInfo {
                     added,
                     existing,
                 );
-            (new_archetype_id, is_new_created)
+            Ok((new_archetype_id, is_new_created))
         }
     }
 }

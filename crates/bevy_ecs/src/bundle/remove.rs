@@ -411,14 +411,19 @@ impl BundleInfo {
                 };
             }
 
-            let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
+            match archetypes.get_id_or_insert(
                 components,
                 observers,
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
-            );
-            (Some(new_archetype_id), is_new_created)
+            ) {
+                Ok((new_archetype_id, is_new_created)) => (Some(new_archetype_id), is_new_created),
+                Err(_) => {
+                    // Constraint violated (RESTRICT): reject the removal.
+                    (None, false)
+                }
+            }
         };
         let current_archetype = &mut archetypes[archetype_id];
         // Cache the result in an edge.

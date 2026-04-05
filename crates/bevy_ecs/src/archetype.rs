@@ -21,7 +21,10 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
+    component::{
+        ComponentConstraint, ComponentId, Components, ComponentsConstraintError,
+        RequiredComponentConstructor, StorageType,
+    },
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
@@ -29,11 +32,17 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_utils::prelude::DebugName;
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
+use fixedbitset::FixedBitSet;
 use nonmax::NonMaxU32;
 
 #[derive(Event)]
@@ -796,15 +805,17 @@ impl Archetypes {
             by_components: Default::default(),
             by_component: Default::default(),
         };
-        // SAFETY: Empty archetype has no components
+        // SAFETY: Empty archetype has no components, constraints always pass
         unsafe {
-            archetypes.get_id_or_insert(
-                &Components::default(),
-                &Observers::default(),
-                TableId::empty(),
-                Vec::new(),
-                Vec::new(),
-            );
+            archetypes
+                .get_id_or_insert(
+                    &Components::default(),
+                    &Observers::default(),
+                    TableId::empty(),
+                    Vec::new(),
+                    Vec::new(),
+                )
+                .expect("Empty archetype should always be valid, THIS SHOULD NOT HAPPEN");
         }
         archetypes
     }
@@ -908,7 +919,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
-    ) -> (ArchetypeId, bool) {
+    ) -> Result<(ArchetypeId, bool), ComponentsConstraintError> {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
             table_components: table_components.into_boxed_slice(),
@@ -917,12 +928,15 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let component_index = &mut self.by_component;
         match self.by_components.entry(archetype_identity) {
-            Entry::Occupied(occupied) => (*occupied.get(), false),
+            Entry::Occupied(occupied) => Ok((*occupied.get(), false)),
             Entry::Vacant(vacant) => {
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
                 } = vacant.key();
+
+                Self::validate_constraints(components, table_components, sparse_set_components)?;
+
                 let id = ArchetypeId::new(archetypes.len());
                 archetypes.push(Archetype::new(
                     components,
@@ -934,9 +948,176 @@ impl Archetypes {
                     sparse_set_components.iter().copied(),
                 ));
                 vacant.insert(id);
-                (id, true)
+                Ok((id, true))
             }
         }
+    }
+
+    /// Validates that all component constraints are satisfied for a proposed archetype.
+    fn validate_constraints(
+        components: &Components,
+        table_components: &[ComponentId],
+        sparse_set_components: &[ComponentId],
+    ) -> Result<(), ComponentsConstraintError> {
+        let all_iter = table_components.iter().chain(sparse_set_components.iter());
+        let max_id = all_iter.clone().map(|c| c.index()).max().unwrap_or(0);
+        let mut archetype_bits = FixedBitSet::with_capacity(max_id + 1);
+        for c in all_iter.clone() {
+            archetype_bits.insert(c.index());
+        }
+        for c in all_iter {
+            if let Some(info) = components.get_info(*c)
+                && let Some(constraint) = info.constraint()
+            {
+                let mut ok = true;
+
+                // First check only fields
+                if let Some(only) = &constraint.only
+                    && !archetype_bits.is_subset(only)
+                {
+                    ok = false;
+                }
+
+                // Second check requires fields
+                if ok
+                    && let Some(dnf) = &constraint.dnf
+                    && !dnf.satisfied_by(&archetype_bits)
+                {
+                    ok = false;
+                }
+
+                if !ok {
+                    let err = Self::build_constraint_error(*c, &archetype_bits, constraint);
+                    if cfg!(feature = "debug") {
+                        Self::log_constraint_violation(
+                            components,
+                            &archetype_bits,
+                            info.name(),
+                            &err,
+                        );
+                    }
+                    return Err(err);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn build_constraint_error(
+        component: ComponentId,
+        archetype_bits: &FixedBitSet,
+        constraint: &ComponentConstraint,
+    ) -> ComponentsConstraintError {
+        let mut missing = Vec::new();
+        let mut conflicting = Vec::new();
+        let mut disallowed = Vec::new();
+
+        if let Some(dnf) = &constraint.dnf {
+            for clause in dnf.clauses() {
+                let m = clause
+                    .required
+                    .ones()
+                    .filter(|&idx| !archetype_bits.contains(idx))
+                    .map(ComponentId::new)
+                    .collect::<Vec<ComponentId>>();
+
+                let c = clause
+                    .forbidden
+                    .intersection(archetype_bits)
+                    .map(ComponentId::new)
+                    .collect::<Vec<ComponentId>>();
+                if !m.is_empty() {
+                    missing.push(m);
+                }
+                if !c.is_empty() {
+                    conflicting.push(c);
+                }
+            }
+        }
+
+        if let Some(only) = &constraint.only {
+            disallowed = archetype_bits
+                .ones()
+                .filter(|&idx| !only.contains(idx))
+                .map(ComponentId::new)
+                .collect();
+        }
+
+        ComponentsConstraintError {
+            disallowed,
+            component,
+            missing,
+            conflicting,
+        }
+    }
+
+    fn log_constraint_violation(
+        components: &Components,
+        archetype_bits: &FixedBitSet,
+        violator_name: DebugName,
+        error: &ComponentsConstraintError,
+    ) {
+        let component_name = |id: ComponentId| -> String {
+            components
+                .get_info(id)
+                .map(|info| format!("{}", info.name()))
+                .unwrap_or_else(|| format!("ComponentId({})", id.index()))
+        };
+
+        let component_names = |ids: &Vec<ComponentId>| -> Vec<String> {
+            ids.iter().map(|id| component_name(*id)).collect()
+        };
+
+        // List all components in the proposed archetype.
+        let archetype_components: Vec<String> = archetype_bits
+            .ones()
+            .map(|id| component_name(ComponentId::new(id)))
+            .collect();
+
+        let mut reasons = Vec::new();
+        let disallowed = error
+            .disallowed
+            .iter()
+            .map(|id| component_name(*id))
+            .collect::<Vec<String>>();
+        let missing = error
+            .missing
+            .iter()
+            .map(component_names)
+            .collect::<Vec<Vec<String>>>();
+        let conflicting = error
+            .conflicting
+            .iter()
+            .map(component_names)
+            .collect::<Vec<Vec<String>>>();
+
+        if !disallowed.is_empty() {
+            reasons.push(format!(
+                "These components are disallowed (not in \"only\" field): {:?}",
+                disallowed
+            ));
+        }
+        if !missing.is_empty() {
+            reasons.push("Pick any:\n".to_string());
+            for entry in missing {
+                reasons.push(format!("    - add [{}]\n", entry.join(", ")));
+            }
+        }
+        if !conflicting.is_empty() {
+            reasons.push("Remove any:\n".to_string());
+            for entry in conflicting {
+                reasons.push(format!("    - remove [{}]\n", entry.join(", ")));
+            }
+        }
+
+        log::warn!(
+            "\n\nConstraint violated for component \"{}\" (RESTRICT), rollback.\n\
+             Proposed components: [{}]\n\n\
+             {}",
+            violator_name,
+            archetype_components.join(", "),
+            reasons.join("\n"),
+        );
     }
 
     /// Clears all entities from all archetypes.

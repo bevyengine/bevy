@@ -1055,8 +1055,11 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = self.world.change_tick();
         // SAFETY:
         // - `location.archetype_id` is part of a valid `EntityLocation`.
-        let mut bundle_inserter =
-            unsafe { BundleInserter::new::<T>(self.world, location.archetype_id, change_tick) };
+        let Ok(mut bundle_inserter) =
+            (unsafe { BundleInserter::new::<T>(self.world, location.archetype_id, change_tick) })
+        else {
+            return self;
+        };
         // SAFETY:
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.
@@ -1139,8 +1142,11 @@ impl<'w> EntityWorldMut<'w> {
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
 
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let Ok(bundle_inserter) =
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick)
+        else {
+            return self;
+        };
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
@@ -1198,8 +1204,14 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let Ok(bundle_inserter) =
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick)
+        else {
+            // components constraints violation failed, put it back
+            *self.world.bundles.get_storages_unchecked(bundle_id) =
+                core::mem::take(&mut storage_types);
+            return self;
+        };
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,

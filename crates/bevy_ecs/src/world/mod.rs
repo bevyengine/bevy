@@ -1125,7 +1125,10 @@ impl World {
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         let change_tick = self.change_tick();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        let Ok(mut bundle_spawner) = BundleSpawner::new::<B>(self, change_tick) else {
+            // The components of this [`Bundle`] has a [`Constraint`] and is in violation. spawn failed and the entity's components are empty.
+            return self.spawn_empty_at_unchecked(entity, caller);
+        };
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type
@@ -2486,16 +2489,21 @@ impl World {
                     panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                 }
                 Ok(first_location) => {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    let Ok(first_inserter) = (unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    }) else {
+                        // TODO: if the first entity validation failed, just return is not good. Should find the first entity that is validated.
+                        // Maybe just return? corresponding to `try_insert_batch_with_caller`
+                        return;
+                    };
                     let mut cache = InserterArchetypeCache {
-                        // SAFETY: we initialized this bundle_id in `register_info`
-                        inserter: unsafe {
-                            BundleInserter::new_with_id(
-                                self,
-                                first_location.archetype_id,
-                                bundle_id,
-                                change_tick,
-                            )
-                        },
+                        inserter: first_inserter,
                         archetype_id: first_location.archetype_id,
                     };
                     move_as_ptr!(first_bundle);
@@ -2512,39 +2520,53 @@ impl World {
                     };
 
                     for (entity, bundle) in batch_iter {
-                        match cache.inserter.entities().get_spawned(entity) {
-                            Ok(location) => {
-                                if location.archetype_id != cache.archetype_id {
-                                    cache = InserterArchetypeCache {
-                                        // SAFETY: we initialized this bundle_id in `register_info`
-                                        inserter: unsafe {
-                                            BundleInserter::new_with_id(
-                                                self,
-                                                location.archetype_id,
-                                                bundle_id,
-                                                change_tick,
-                                            )
-                                        },
-                                        archetype_id: location.archetype_id,
-                                    }
-                                }
-                                move_as_ptr!(bundle);
-                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                                unsafe {
-                                    cache.inserter.insert(
-                                        entity,
-                                        location,
-                                        bundle,
-                                        insert_mode,
-                                        caller,
-                                        RelationshipHookMode::Run,
-                                    )
-                                };
-                            }
+                        let location = match cache.inserter.entities().get_spawned(entity) {
+                            Ok(loc) => loc,
                             Err(err) => {
                                 panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                             }
+                        };
+                        if location.archetype_id != cache.archetype_id {
+                            let new_archetype_id = location.archetype_id;
+                            let old_archetype_id = cache.archetype_id;
+
+                            // SAFETY: we initialized this bundle_id in `register_info`.
+                            cache = match unsafe {
+                                BundleInserter::new_with_id(self, new_archetype_id, bundle_id, change_tick)
+                            } {
+                                Ok(inserter) => InserterArchetypeCache { 
+                                    inserter, 
+                                    archetype_id: new_archetype_id
+                                },
+                                Err(_) => {
+                                    InserterArchetypeCache { 
+                                        // SAFETY: we are rebuilding the previous inserter.
+                                        inserter: unsafe { 
+                                            BundleInserter::new_with_id(self, old_archetype_id, bundle_id, change_tick)
+                                            .expect("rebuilding previous inserter that was already valid, THIS SHOULD NOT HAPPEN")
+                                        },
+                                        archetype_id: old_archetype_id
+                                    }
+                                }
+                            };
+
+                            if cache.archetype_id != new_archetype_id {
+                                // Jump over this invalidate archetype
+                                continue;
+                            }
                         }
+                        move_as_ptr!(bundle);
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                caller,
+                                RelationshipHookMode::Run,
+                            )
+                        };
                     }
                 }
             }
@@ -2634,16 +2656,20 @@ impl World {
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
                 if let Ok(first_location) = self.entities().get_spawned(first_entity) {
+                    // SAFETY: we initialized this bundle_id in `register_bundle_info`
+                    let Ok(first_inserter) = (unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    }) else {
+                        // Validation failed
+                        continue;
+                    };
                     let mut cache = InserterArchetypeCache {
-                        // SAFETY: we initialized this bundle_id in `register_bundle_info`
-                        inserter: unsafe {
-                            BundleInserter::new_with_id(
-                                self,
-                                first_location.archetype_id,
-                                bundle_id,
-                                change_tick,
-                            )
-                        },
+                        inserter: first_inserter,
                         archetype_id: first_location.archetype_id,
                     };
 
@@ -2673,40 +2699,55 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                if let Ok(location) = cache.inserter.entities().get_spawned(entity) {
-                    if location.archetype_id != cache.archetype_id {
-                        cache = InserterArchetypeCache {
-                            // SAFETY: we initialized this bundle_id in `register_info`
-                            inserter: unsafe {
-                                BundleInserter::new_with_id(
-                                    self,
-                                    location.archetype_id,
-                                    bundle_id,
-                                    change_tick,
-                                )
-                            },
-                            archetype_id: location.archetype_id,
-                        }
-                    }
-
-                    move_as_ptr!(bundle);
-                    // SAFETY:
-                    // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
-                    // - `bundle` is not be accessed or dropped after this.
-                    unsafe {
-                        cache.inserter.insert(
-                            entity,
-                            location,
-                            bundle,
-                            insert_mode,
-                            caller,
-                            RelationshipHookMode::Run,
-                        )
-                    };
-                } else {
+                let Ok(location) = cache.inserter.entities().get_spawned(entity) else {
                     invalid_entities.push(entity);
+                    continue;
+                };
+                if location.archetype_id != cache.archetype_id {
+                    let new_archetype_id = location.archetype_id;
+                    let old_archetype_id = cache.archetype_id;
+
+                    // SAFETY: we initialized this bundle_id in `register_info`.
+                    cache = match unsafe {
+                        BundleInserter::new_with_id(self, new_archetype_id, bundle_id, change_tick)
+                    } {
+                        Ok(inserter) => InserterArchetypeCache { 
+                            inserter, 
+                            archetype_id: new_archetype_id
+                        },
+                        Err(_) => {
+                            InserterArchetypeCache { 
+                                // SAFETY: we are rebuilding the previous inserter.
+                                inserter: unsafe { 
+                                    BundleInserter::new_with_id(self, old_archetype_id, bundle_id, change_tick)
+                                    .expect("rebuilding previous inserter that was already valid, THIS SHOULD NOT HAPPEN")
+                                },
+                                archetype_id: old_archetype_id
+                            }
+                        }
+                    };
+
+                    if cache.archetype_id != new_archetype_id {
+                        // Jump over this invalidate archetype
+                        continue;
+                    }
                 }
+
+                move_as_ptr!(bundle);
+                // SAFETY:
+                // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - `apply_effect` is never called on this bundle.
+                // - `bundle` is not be accessed or dropped after this.
+                unsafe {
+                    cache.inserter.insert(
+                        entity,
+                        location,
+                        bundle,
+                        insert_mode,
+                        caller,
+                        RelationshipHookMode::Run,
+                    )
+                };
             }
         }
 
@@ -2857,8 +2898,10 @@ impl World {
                     let world = unsafe { entity_mut.world_mut() };
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter = unsafe {
+                    let Ok(mut bundle_inserter) = (unsafe {
                         BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
+                    }) else {
+                        return;
                     };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
