@@ -26,15 +26,18 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// # Example
 ///
 /// ```
-/// # use bevy_app::{App, AppLabel, SubApp, Main};
+/// # use bevy_app::{App, SubApp, Main, AppLabel};
+/// # use bevy_derive::AppLabelInterior;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
 ///
-/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// #[derive(AppLabelInterior, Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 /// struct ExampleApp;
+///
+/// impl AppLabel for ExampleApp {}
 ///
 /// // Create an app with a certain resource.
 /// let mut app = App::new();

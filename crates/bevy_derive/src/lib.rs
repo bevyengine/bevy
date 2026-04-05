@@ -222,13 +222,16 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     enum_variant_meta::derive_enum_variant_meta(input)
 }
 
-/// Generates an impl of the `AppLabel` trait.
+/// Generates an impl of the `AppLabelInterior` trait.
 ///
 /// This does not work for unions.
-#[proc_macro_derive(AppLabel)]
-pub fn derive_app_label(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(AppLabelInterior)]
+pub fn derive_app_label_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
     let mut trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
-    trait_path.segments.push(format_ident!("AppLabel").into());
-    derive_label(input, "AppLabel", &trait_path)
+    trait_path
+        .segments
+        .push(format_ident!("AppLabelInterior").into());
+    derive_label(input, "AppLabelInterior", &trait_path)
 }

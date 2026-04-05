@@ -7,7 +7,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-pub use bevy_derive::AppLabel;
+pub use bevy_derive::AppLabelInterior;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{ErrorHandler, FallbackErrorHandler},
@@ -39,16 +39,19 @@ use std::{
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     #[diagnostic::on_unimplemented(
-        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+        note = "consider annotating `{Self}` with `#[derive(AppLabelInterior)]`"
     )]
-    AppLabel,
-    APP_LABEL_INTERNER
+    AppLabelInterior,
+    APP_LABEL_INTERIOR_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
 
-/// A shorthand for `Interned<dyn AppLabel>`.
-pub type InternedAppLabel = Interned<dyn AppLabel>;
+/// A shorthand for `Interned<dyn AppLabelInterior>`.
+pub type InternedAppLabel = Interned<dyn AppLabelInterior>;
+
+/// [`SubApp`]'s within an [`App`] are identified by their [`AppLabel`].
+pub trait AppLabel: AppLabelInterior + Default + Clone + Eq + Copy {}
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
@@ -1566,7 +1569,7 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    use crate::{App, AppExit, Plugin, SubApp, Update};
+    use crate::{App, AppExit, AppLabel, AppLabelInterior, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1736,15 +1739,13 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-        use super::AppLabel;
-
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct TupleLabel(u32, u32);
 
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct StructLabel {
             a: u32,
             b: u32,
@@ -1754,17 +1755,17 @@ mod tests {
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
         #[expect(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         enum EnumLabel {
             #[default]
             Unit,
@@ -1775,7 +1776,7 @@ mod tests {
             },
         }
 
-        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct GenericLabel<T>(PhantomData<T>);
 
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
@@ -1875,10 +1876,10 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-        use super::AppLabel;
-
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct MySubApp;
+
+        impl AppLabel for MySubApp {}
 
         #[derive(Resource)]
         struct Foo(usize);
