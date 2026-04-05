@@ -30,7 +30,7 @@ pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
 /// Error from accessing mesh vertex attributes or indices
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq)]
 pub enum MeshAccessError {
     #[error("The mesh vertex/index data has been extracted to the RenderWorld (via `Mesh::asset_usage`)")]
     ExtractedToRenderWorld,
@@ -349,6 +349,25 @@ impl Mesh {
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
             enable_raytracing: true,
+            final_aabb: None,
+            skinned_mesh_bounds: None,
+        }
+    }
+
+    /// Returns a copy of the mesh without attributes, indices, morph targets,
+    /// and the data derived from them (like the AABB). Settings like
+    /// `primitive_topology` and `asset_usage` are preserved.
+    pub fn as_empty(&self) -> Mesh {
+        Mesh {
+            primitive_topology: self.primitive_topology,
+            enable_raytracing: self.enable_raytracing,
+            asset_usage: self.asset_usage,
+            attributes: MeshExtractableData::Data(Default::default()),
+            indices: MeshExtractableData::NoData,
+            #[cfg(feature = "morph")]
+            morph_targets: MeshExtractableData::NoData,
+            #[cfg(feature = "morph")]
+            morph_target_names: MeshExtractableData::NoData,
             final_aabb: None,
             skinned_mesh_bounds: None,
         }

@@ -1,9 +1,11 @@
-use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
-use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
+use crate::{
+    Mesh, Mesh3d, MeshAccessError, MeshVertexAttribute, VertexAttributeValues, VertexFormat,
+};
+use bevy_asset::{AsAssetId, Asset, AssetId, Assets, Handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent, system::Query};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
-    Affine3A, Mat4, Vec3, Vec3A,
+    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4,
 };
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -101,7 +103,7 @@ pub struct SkinnedMeshBounds {
     pub aabb_index_to_joint_index: Vec<JointIndex>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Error)]
+#[derive(Clone, PartialEq, Debug, Error)]
 pub enum SkinnedMeshBoundsError {
     #[error("The mesh does not contain any joints that are skinned to vertices")]
     NoSkinnedJoints,
@@ -333,6 +335,10 @@ impl AabbAccumulator {
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 pub struct JointIndex(pub u16);
 
+// The number of influences contained in `Mesh::ATTRIBUTE_JOINT_INDEX` and
+// `Mesh::ATTRIBUTE_JOINT_WEIGHT`.
+const INFLUENCE_COUNT: usize = 4;
+
 /// A single vertex influence. Used by [`InfluenceIterator`].
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Influence {
@@ -345,8 +351,8 @@ pub struct Influence {
 #[derive(Clone, Debug)]
 pub struct InfluenceIterator<'a> {
     vertex_count: usize,
-    joint_indices: &'a [[u16; 4]],
-    joint_weights: &'a [[f32; 4]],
+    joint_indices: &'a [[u16; INFLUENCE_COUNT]],
+    joint_weights: &'a [[f32; INFLUENCE_COUNT]],
     vertex_index: usize,
     influence_index: usize,
 }
@@ -364,11 +370,6 @@ impl<'a> InfluenceIterator<'a> {
             influence_index: 0,
         })
     }
-
-    // `Mesh` only supports four influences, so we can make this const for
-    // simplicity. If `Mesh` gains support for variable influences then this
-    // will become a variable.
-    const MAX_INFLUENCES: usize = 4;
 }
 
 impl Iterator for InfluenceIterator<'_> {
@@ -376,10 +377,10 @@ impl Iterator for InfluenceIterator<'_> {
 
     fn next(&mut self) -> Option<Influence> {
         loop {
-            assert!(self.influence_index <= Self::MAX_INFLUENCES);
+            assert!(self.influence_index <= INFLUENCE_COUNT);
             assert!(self.vertex_index <= self.vertex_count);
 
-            if self.influence_index >= Self::MAX_INFLUENCES {
+            if self.influence_index >= INFLUENCE_COUNT {
                 self.influence_index = 0;
                 self.vertex_index += 1;
             }
@@ -406,12 +407,14 @@ impl Iterator for InfluenceIterator<'_> {
 
 /// Generic error for when a mesh was expected to have a certain attribute with
 /// a certain format.
-#[derive(Copy, Clone, PartialEq, Debug, Error)]
+#[derive(Clone, PartialEq, Debug, Error)]
 pub enum MeshAttributeError {
     #[error("Missing attribute \"{0}\"")]
     MissingAttribute(&'static str),
     #[error("Attribute \"{0}\" has unexpected format {1:?}")]
     UnexpectedFormat(&'static str, VertexFormat),
+    #[error(transparent)]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 // Implements a function that returns a mesh attribute's data or `MeshAttributeError`.
@@ -419,16 +422,16 @@ pub enum MeshAttributeError {
 // ```
 // impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
 //
-// let positions: Vec<[f32; 3]> = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
+// let positions: &[[f32; 3]] = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
 // ```
 macro_rules! impl_expect_attribute {
     ($name:ident, $value_type:ident, $output_type:ty) => {
         fn $name<'a>(
             mesh: &'a Mesh,
             attribute: MeshVertexAttribute,
-        ) -> Result<&'a Vec<$output_type>, MeshAttributeError> {
-            match mesh.attribute(attribute) {
-                Some(VertexAttributeValues::$value_type(v)) => Ok(v),
+        ) -> Result<&'a [$output_type], MeshAttributeError> {
+            match mesh.try_attribute_option(attribute)? {
+                Some(VertexAttributeValues::$value_type(v)) => Ok(&v),
                 Some(v) => {
                     return Err(MeshAttributeError::UnexpectedFormat(
                         attribute.name,
@@ -445,12 +448,314 @@ impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
 impl_expect_attribute!(expect_attribute_float32x4, Float32x4, [f32; 4]);
 impl_expect_attribute!(expect_attribute_uint16x4, Uint16x4, [u16; 4]);
 
+// Multiply an `Affine3A` by the given weight.
+fn weight_affine3(affine: Affine3A, weight: f32) -> Affine3A {
+    Affine3A::from_cols(
+        weight * affine.matrix3.x_axis,
+        weight * affine.matrix3.y_axis,
+        weight * affine.matrix3.z_axis,
+        weight * affine.translation,
+    )
+}
+
+// Add two `Affine3A`s.
+fn add_affine3(l: Affine3A, r: Affine3A) -> Affine3A {
+    Affine3A::from_cols(
+        l.matrix3.x_axis + r.matrix3.x_axis,
+        l.matrix3.y_axis + r.matrix3.y_axis,
+        l.matrix3.z_axis + r.matrix3.z_axis,
+        l.translation + r.translation,
+    )
+}
+
+// Sum a slice of `Affine3A`s.
+fn sum_affine3(affines: &[Affine3A]) -> Affine3A {
+    affines
+        .iter()
+        .copied()
+        .reduce(add_affine3)
+        .unwrap_or(Affine3A::IDENTITY)
+}
+
+// Matches the `inverse_transpose_3x3m` function in `bevy_pbr/skinning.wgsl`.
+fn inverse_transpose_3x3m(m: Mat3A) -> Mat3A {
+    let x = m.y_axis.cross(m.z_axis);
+    let y = m.z_axis.cross(m.x_axis);
+    let z = m.x_axis.cross(m.y_axis);
+    let det = m.z_axis.dot(z);
+    Mat3A::from_cols(x / det, y / det, z / det)
+}
+
+// Matches the `skin_normals` function in `bevy_pbr/skinning.wgsl`.
+fn skin_normal(transform: &Affine3A, normal: Vec3A) -> Vec3A {
+    (inverse_transpose_3x3m(transform.matrix3) * normal).normalize()
+}
+
+// Based on the `mesh_tangent_local_to_world` function in
+// `bevy_pbr/mesh_functions.wgsl`, but we don't need to sign flip from the
+// mesh-to-world determinant because we're skinning in mesh space.
+fn skin_tangent(transform: &Affine3A, tangent: Vec4) -> Vec4 {
+    if tangent == Vec4::ZERO {
+        tangent
+    } else {
+        (transform.matrix3 * tangent.truncate())
+            .normalize()
+            .extend(tangent.w)
+    }
+}
+
+// Check that an attribute has the expected length, returning
+// `SkinMeshError::MismatchedMeshAttributeLengths` if not.
+fn check_attribute_length<T>(expected: usize, actual: Option<&[T]>) -> Result<(), SkinMeshError> {
+    if actual.is_some_and(|actual| expected != actual.len()) {
+        Err(SkinMeshError::MismatchedMeshAttributeLengths)
+    } else {
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Error)]
+pub enum SkinMeshError {
+    #[error("The `Mesh` asset was not found")]
+    MissingMeshAsset,
+    #[error("The `SkinnedMeshInverseBindposes` asset was not found")]
+    MissingInverseBindposesAsset,
+    #[error("A joint entity referenced by `SkinnedMesh::joints` was not found")]
+    MissingJointEntity,
+    #[error("A vertex's `Mesh::ATTRIBUTE_JOINT_INDEX` had an out of range joint index, or the `SkinnedMesh::joints` array was the wrong length")]
+    InvalidJointIndex,
+    #[error("`SkinnedMesh::joints` and `SkinnedMeshInverseBindposes` were different lengths")]
+    MismatchedJointAndInverseBindposesLengths,
+    #[error("Mesh attributes were not all the same length")]
+    MismatchedMeshAttributeLengths,
+    #[error(transparent)]
+    MeshAttributeError(#[from] MeshAttributeError),
+}
+
+impl From<MeshAccessError> for SkinMeshError {
+    fn from(value: MeshAccessError) -> Self {
+        Self::MeshAttributeError(MeshAttributeError::MeshAccessError(value))
+    }
+}
+
+// Skin the given mesh attributes in-place.
+fn skin_vertices(
+    mut positions: Option<&mut [[f32; 3]]>,
+    mut normals: Option<&mut [[f32; 3]]>,
+    mut tangents: Option<&mut [[f32; 4]]>,
+    joint_indices: &[[u16; INFLUENCE_COUNT]],
+    joint_weights: &[[f32; INFLUENCE_COUNT]],
+    mesh_from_mesh_bindpose_array: &[Affine3A],
+) -> Result<(), SkinMeshError> {
+    let vertex_count = joint_indices.len();
+
+    check_attribute_length(vertex_count, Some(joint_weights))?;
+    check_attribute_length(vertex_count, positions.as_deref())?;
+    check_attribute_length(vertex_count, normals.as_deref())?;
+    check_attribute_length(vertex_count, tangents.as_deref())?;
+
+    for vertex_index in 0..vertex_count {
+        let vertex_joint_indices = joint_indices[vertex_index];
+        let vertex_joint_weights = joint_weights[vertex_index];
+
+        // The weighted transform of each joint influence.
+        let mut transforms = [Affine3A::ZERO; INFLUENCE_COUNT];
+
+        for influence in 0..INFLUENCE_COUNT {
+            let joint_index = vertex_joint_indices[influence] as usize;
+            let joint_weight = vertex_joint_weights[influence];
+            let mesh_from_mesh_bindpose = *mesh_from_mesh_bindpose_array
+                .get(joint_index)
+                .ok_or(SkinMeshError::InvalidJointIndex)?;
+
+            transforms[influence] = weight_affine3(mesh_from_mesh_bindpose, joint_weight);
+        }
+
+        // The final transform is the sum of the weighted joint transforms.
+        // Matches the `skin_model` function in `bevy_pbr/skinning.wgsl`.
+        let transform = sum_affine3(&transforms);
+
+        if let Some(positions) = positions.as_deref_mut() {
+            let unskinned = Vec3A::from_slice(&positions[vertex_index]);
+            let skinned = transform.transform_point3a(unskinned);
+            (*positions)[vertex_index] = <[f32; 3]>::from(skinned);
+        }
+
+        if let Some(normals) = normals.as_deref_mut() {
+            let unskinned = Vec3A::from_slice(&normals[vertex_index]);
+            let skinned = skin_normal(&transform, unskinned);
+            (*normals)[vertex_index] = <[f32; 3]>::from(skinned);
+        }
+
+        if let Some(tangents) = tangents.as_deref_mut() {
+            let unskinned = Vec4::from_slice(&tangents[vertex_index]);
+            let skinned = skin_tangent(&transform, unskinned);
+            (*tangents)[vertex_index] = <[f32; 4]>::from(skinned);
+        }
+    }
+
+    Ok(())
+}
+
+/// Given a skinned mesh and joint transforms, return a copy of the mesh with
+/// skinning applied to the vertex positions, normals and tangents.
+///
+/// The given joint transforms map from the joint's bind-pose transform in
+/// mesh-space to the joint's target transform in mesh-space. This is typically
+/// calculated from the mesh's world position, the joint's world position, and
+/// the joint's inverse bind-pose:
+/// `mesh_from_mesh_bindpose = mesh_from_world * world_from_joint * inverse_bindpose`.
+///
+/// The returned mesh preserves the input mesh's settings (like
+/// `primitive_topology`) and attributes unrelated to skinning (like UVs). It
+/// will not contain joint index or weight attributes, morph targets, or data
+/// derived from attributes (like the AABB).
+pub fn skin_mesh(
+    input_mesh: &Mesh,
+    mesh_from_mesh_bindpose_array: &[Affine3A],
+) -> Result<Mesh, SkinMeshError> {
+    let joint_indices = expect_attribute_uint16x4(input_mesh, Mesh::ATTRIBUTE_JOINT_INDEX)?;
+    let joint_weights = expect_attribute_float32x4(input_mesh, Mesh::ATTRIBUTE_JOINT_WEIGHT)?;
+
+    let mut positions = match input_mesh
+        .try_attribute_option(Mesh::ATTRIBUTE_POSITION.id)?
+        .cloned()
+    {
+        Some(VertexAttributeValues::Float32x3(values)) => Some(values),
+        Some(_) => Err(MeshAttributeError::UnexpectedFormat(
+            Mesh::ATTRIBUTE_POSITION.name,
+            Mesh::ATTRIBUTE_POSITION.format,
+        ))?,
+        None => None,
+    };
+
+    let mut normals = match input_mesh
+        .try_attribute_option(Mesh::ATTRIBUTE_NORMAL.id)?
+        .cloned()
+    {
+        Some(VertexAttributeValues::Float32x3(values)) => Some(values),
+        Some(_) => Err(MeshAttributeError::UnexpectedFormat(
+            Mesh::ATTRIBUTE_NORMAL.name,
+            Mesh::ATTRIBUTE_NORMAL.format,
+        ))?,
+        None => None,
+    };
+
+    let mut tangents = match input_mesh
+        .try_attribute_option(Mesh::ATTRIBUTE_TANGENT.id)?
+        .cloned()
+    {
+        Some(VertexAttributeValues::Float32x4(values)) => Some(values),
+        Some(_) => Err(MeshAttributeError::UnexpectedFormat(
+            Mesh::ATTRIBUTE_TANGENT.name,
+            Mesh::ATTRIBUTE_TANGENT.format,
+        ))?,
+        None => None,
+    };
+
+    skin_vertices(
+        positions.as_deref_mut(),
+        normals.as_deref_mut(),
+        tangents.as_deref_mut(),
+        joint_indices,
+        joint_weights,
+        mesh_from_mesh_bindpose_array,
+    )?;
+
+    // Start with an empty copy of the input mesh.
+    let mut output_mesh = input_mesh.as_empty();
+
+    if let Some(indices) = input_mesh.indices() {
+        output_mesh.insert_indices(indices.clone());
+    }
+
+    // Copy attributes from the input mesh. This excludes the position/normal/tangent
+    // attributes that will be replaced with our skinned versions, and the joint
+    // index/weight attributes that are now redundant.
+    for (&attribute, values) in input_mesh.attributes() {
+        if (attribute != Mesh::ATTRIBUTE_POSITION)
+            && (attribute != Mesh::ATTRIBUTE_NORMAL)
+            && (attribute != Mesh::ATTRIBUTE_TANGENT)
+            && (attribute != Mesh::ATTRIBUTE_JOINT_WEIGHT)
+            && (attribute != Mesh::ATTRIBUTE_JOINT_INDEX)
+        {
+            output_mesh.insert_attribute(attribute, values.clone());
+        }
+    }
+
+    if let Some(positions) = positions {
+        output_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    }
+
+    if let Some(normals) = normals {
+        output_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    if let Some(tangents) = tangents {
+        output_mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+    }
+
+    Ok(output_mesh)
+}
+
+/// Given the components of a skinned mesh entity, return a copy of the mesh
+/// asset with skinning applied to the vertex positions, normals and tangents.
+///
+/// The returned mesh preserves the input mesh's settings (like
+/// `primitive_topology`) and attributes unrelated to skinning (like UVs). It
+/// will not contain joint index or weight attributes, morph targets, or data
+/// derived from attributes (like the AABB).
+pub fn skin_mesh_entity(
+    mesh_component: &Mesh3d,
+    skinned_mesh_component: &SkinnedMesh,
+    world_from_mesh: &GlobalTransform,
+    mesh_assets: &Assets<Mesh>,
+    inverse_bindposes_assets: &Assets<SkinnedMeshInverseBindposes>,
+    world_from_joint_query: &Query<&GlobalTransform>,
+) -> Result<Mesh, SkinMeshError> {
+    let input_mesh = mesh_assets
+        .get(&mesh_component.0)
+        .ok_or(SkinMeshError::MissingMeshAsset)?;
+
+    let inverse_bindposes = inverse_bindposes_assets
+        .get(&skinned_mesh_component.inverse_bindposes)
+        .ok_or(SkinMeshError::MissingInverseBindposesAsset)?;
+
+    if skinned_mesh_component.joints.len() != inverse_bindposes.len() {
+        return Err(SkinMeshError::MismatchedJointAndInverseBindposesLengths);
+    }
+
+    let mesh_from_world = world_from_mesh.affine().inverse();
+
+    let mesh_from_joint_array = skinned_mesh_component
+        .joints
+        .iter()
+        .map(|&joint| {
+            let world_from_joint = world_from_joint_query.get(joint).ok()?.affine();
+            Some(mesh_from_world * world_from_joint)
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or(SkinMeshError::MissingJointEntity)?;
+
+    let mesh_from_mesh_bindpose_array = mesh_from_joint_array
+        .into_iter()
+        .zip(inverse_bindposes.iter())
+        .map(|(mesh_from_joint, &joint_from_mesh_bindpose)| {
+            mesh_from_joint * Affine3A::from_mat4(joint_from_mesh_bindpose)
+        })
+        .collect::<Vec<_>>();
+
+    skin_mesh(input_mesh, &mesh_from_mesh_bindpose_array)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Indices;
     use approx::assert_abs_diff_eq;
     use bevy_asset::RenderAssetUsages;
     use bevy_math::{bounding::BoundingVolume, vec3, vec3a};
+    use wgpu_types::PrimitiveTopology;
 
     #[test]
     fn aabb_accumulator() {
@@ -527,7 +832,7 @@ mod tests {
     #[test]
     fn influence_iterator() {
         let mesh = Mesh::new(
-            wgpu_types::PrimitiveTopology::TriangleList,
+            PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         );
 
@@ -719,6 +1024,145 @@ mod tests {
                     naive_transform_aabb(aabb, transform),
                 );
             }
+        }
+    }
+
+    #[test]
+    fn skin_mesh() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.5, 0.0]],
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 3])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, vec![[0.0, 1.0, 0.0, 0.0]; 3])
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            vec![[0.0, 0.00], [0.5, 0.00], [0.0, 0.25]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(vec![[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 0, 0]]),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            vec![
+                [1.00, 0.00, 0.0, 0.0],
+                [1.00, 0.00, 0.0, 0.0],
+                [0.75, 0.25, 0.0, 0.0],
+            ],
+        )
+        .with_inserted_indices(Indices::U16(vec![0, 1, 2]));
+
+        let transforms = [Affine3A::IDENTITY; 2];
+
+        {
+            let skinned = super::skin_mesh(&mesh, &transforms).unwrap();
+
+            assert_eq!(skinned.indices(), Some(&Indices::U16(vec![0, 1, 2])));
+
+            let attributes = super::skin_mesh(&mesh, &transforms)
+                .unwrap()
+                .attributes()
+                .map(|(&attribute, _)| attribute)
+                .collect::<Vec<_>>();
+
+            assert_eq!(attributes.len(), 4);
+            assert!(attributes.contains(&Mesh::ATTRIBUTE_POSITION));
+            assert!(attributes.contains(&Mesh::ATTRIBUTE_NORMAL));
+            assert!(attributes.contains(&Mesh::ATTRIBUTE_TANGENT));
+            assert!(attributes.contains(&Mesh::ATTRIBUTE_UV_0));
+        }
+
+        assert!(super::skin_mesh(
+            &mesh
+                .clone()
+                .with_removed_attribute(Mesh::ATTRIBUTE_POSITION),
+            &transforms
+        )
+        .is_ok());
+
+        assert!(super::skin_mesh(
+            &mesh.clone().with_removed_attribute(Mesh::ATTRIBUTE_NORMAL),
+            &transforms
+        )
+        .is_ok());
+
+        assert!(super::skin_mesh(
+            &mesh.clone().with_removed_attribute(Mesh::ATTRIBUTE_TANGENT),
+            &transforms
+        )
+        .is_ok());
+
+        assert!(super::skin_mesh(
+            &mesh
+                .clone()
+                .with_removed_attribute(Mesh::ATTRIBUTE_POSITION)
+                .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
+                .with_removed_attribute(Mesh::ATTRIBUTE_TANGENT),
+            &transforms
+        )
+        .is_ok());
+
+        assert_eq!(
+            super::skin_mesh(
+                &mesh
+                    .clone()
+                    .with_removed_attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
+                &transforms
+            ),
+            Err(SkinMeshError::MeshAttributeError(
+                MeshAttributeError::MissingAttribute(Mesh::ATTRIBUTE_JOINT_INDEX.name)
+            ))
+        );
+
+        assert_eq!(
+            super::skin_mesh(
+                &mesh
+                    .clone()
+                    .with_removed_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
+                &transforms
+            ),
+            Err(SkinMeshError::MeshAttributeError(
+                MeshAttributeError::MissingAttribute(Mesh::ATTRIBUTE_JOINT_WEIGHT.name)
+            ))
+        );
+
+        assert_eq!(
+            super::skin_mesh(
+                &mesh.clone().with_inserted_attribute(
+                    Mesh::ATTRIBUTE_JOINT_INDEX,
+                    VertexAttributeValues::Uint16x4(vec![[13, 13, 13, 13]; 3]),
+                ),
+                &transforms
+            ),
+            Err(SkinMeshError::InvalidJointIndex)
+        );
+
+        assert_eq!(
+            super::skin_mesh(
+                &mesh
+                    .clone()
+                    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0, 0.0, 0.0]]),
+                &transforms
+            ),
+            Err(SkinMeshError::MismatchedMeshAttributeLengths)
+        );
+
+        {
+            let mut mesh = mesh.clone();
+            mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
+            drop(mesh.take_gpu_data().unwrap());
+
+            assert_eq!(
+                super::skin_mesh(&mesh, &transforms),
+                Err(SkinMeshError::MeshAttributeError(
+                    MeshAttributeError::MeshAccessError(MeshAccessError::ExtractedToRenderWorld)
+                ))
+            );
         }
     }
 }

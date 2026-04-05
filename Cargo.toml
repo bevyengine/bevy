@@ -5037,6 +5037,15 @@ doc-scrape-examples = true
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
 
+[[example]]
+name = "test_skinned_mesh_picking"
+path = "tests/3d/test_skinned_mesh_picking.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.test_skinned_mesh_picking]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
