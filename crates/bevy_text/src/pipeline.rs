@@ -476,6 +476,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
+        self.selection_range = 0..0;
     }
 }
 
