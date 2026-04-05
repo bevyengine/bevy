@@ -12,7 +12,10 @@ keywords = ["bevy"]
 saver = ["basisu_c_sys/encoder"]
 
 [dependencies]
-basisu_c_sys = { version = "0.6.0", default-features = false, features = ["extra", "serde"] }
+basisu_c_sys = { version = "0.6.0", default-features = false, features = [
+  "extra",
+  "serde",
+] }
 bevy_app = { version = "0.19.0-dev", path = "../bevy_app", default-features = false }
 bevy_asset = { version = "0.19.0-dev", path = "../bevy_asset", default-features = false }
 bevy_ecs = { version = "0.19.0-dev", path = "../bevy_ecs", default-features = false }
