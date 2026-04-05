@@ -94,7 +94,7 @@ pub struct Clipboard(pub String);
 /// which manages both the text content and the cursor position,
 /// and provides methods for applying text edits and cursor movements correctly
 /// according to Unicode rules.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[require(TextLayout, TextFont, TextColor, LineHeight, FontHinting)]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -232,6 +232,6 @@ pub fn apply_text_edits(
 ///
 /// As [`TextEdit`] includes cursor motions, this will be emitted even if [`EditableText::value`] is unchanged.
 #[derive(EntityEvent)]
-struct TextEditChange {
+pub struct TextEditChange {
     entity: Entity,
 }
