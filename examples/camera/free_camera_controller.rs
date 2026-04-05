@@ -41,7 +41,7 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    camera_controller::{free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState}, snap_to_view::{SnapToViewCamera, SnapToViewPlugin}},
     color::palettes::tailwind,
     prelude::*,
 };
@@ -51,6 +51,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Plugin that enables FreeCamera functionality
         .add_plugins(FreeCameraPlugin)
+        // Plugin that enables snapping camera orientation to axes by pressing hotkeys.
+        .add_plugins(SnapToViewPlugin)
         // Example code plugins
         .add_plugins((CameraPlugin, CameraSettingsPlugin, ScenePlugin))
         .run();
@@ -78,6 +80,9 @@ fn spawn_camera(mut commands: Commands) {
             run_speed: 9.0,
             ..default()
         },
+        // This component stores all setting related to camera axis snapping and used by SnapToViewPlugin to control camera.
+        // Properties can be changed on runtime.
+        SnapToViewCamera::default(),
     ));
 }
 
