@@ -39,5 +39,8 @@
 #[cfg(feature = "free_camera")]
 pub mod free_camera;
 
+#[cfg(feature = "free_camera")]
+pub mod snap_to_view;
+
 #[cfg(feature = "pan_camera")]
 pub mod pan_camera;

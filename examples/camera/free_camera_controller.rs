@@ -23,6 +23,16 @@
 //!
 //! The movement speed, sensitivity and friction can also be changed by the [`FreeCamera`] component.
 //!
+//! ## Snap To View controls
+//!
+//! This example also includes `SnapToView` controller that imitates blender-like axis snap.
+//!
+//! | Default Key Binding | Action                 |
+//! |:--------------------|:-----------------------|
+//! | [`LCtrl` +] Numpad1   | Snap to front/back     |
+//! | [`LCtrl` +] Numpad3   | Snap to right/left     |
+//! | [`LCtrl` +] Numpad7   | Snap to top/bottom     |
+//!
 //! ## Example controls
 //!
 //! This example also provides a few extra keybinds to change the camera sensitivity, friction (how fast the camera
@@ -41,7 +51,10 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    camera_controller::{
+        free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+        snap_to_view::{SnapToViewCamera, SnapToViewCameraState, SnapToViewPlugin},
+    },
     color::palettes::tailwind,
     prelude::*,
 };
@@ -51,6 +64,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Plugin that enables FreeCamera functionality
         .add_plugins(FreeCameraPlugin)
+        // Plugin that enables snapping camera orientation to axes by pressing hotkeys.
+        .add_plugins(SnapToViewPlugin)
         // Example code plugins
         .add_plugins((CameraPlugin, CameraSettingsPlugin, ScenePlugin))
         .run();
@@ -78,6 +93,9 @@ fn spawn_camera(mut commands: Commands) {
             run_speed: 9.0,
             ..default()
         },
+        // This component stores all setting related to camera axis snapping and used by SnapToViewPlugin to control camera.
+        // Properties can be changed on runtime.
+        SnapToViewCamera::default(),
     ));
 }
 
@@ -93,7 +111,7 @@ impl Plugin for CameraSettingsPlugin {
 #[derive(Component)]
 struct InfoText;
 
-fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
+fn spawn_text(mut commands: Commands, free_camera_query: Query<(&FreeCamera, &SnapToViewCamera)>) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -102,8 +120,9 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
             ..default()
         },
         children![Text::new(format!(
-            "{}",
-            free_camera_query.single().unwrap()
+            "{}\n{}",
+            free_camera_query.single().unwrap().0,
+            free_camera_query.single().unwrap().1
         ))],
     ));
     commands.spawn((
@@ -117,7 +136,7 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
             "Z/X: decrease/increase sensitivity\n",
             "C/V: decrease/increase friction\n",
             "F/G: decrease/increase scroll factor\n",
-            "B: enable/disable controller",
+            "B: enable/disable controllers",
         ]),],
     ));
 
@@ -134,10 +153,15 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
 }
 
 fn update_camera_settings(
-    mut camera_query: Query<(&mut FreeCamera, &mut FreeCameraState)>,
+    mut camera_query: Query<(
+        &mut FreeCamera,
+        &mut FreeCameraState,
+        &mut SnapToViewCameraState,
+    )>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    let (mut free_camera, mut free_camera_state) = camera_query.single_mut().unwrap();
+    let (mut free_camera, mut free_camera_state, mut snap_to_view_camera_state) =
+        camera_query.single_mut().unwrap();
 
     if input.pressed(KeyCode::KeyZ) {
         free_camera.sensitivity = (free_camera.sensitivity - 0.005).max(0.005);
@@ -159,6 +183,7 @@ fn update_camera_settings(
     }
     if input.just_pressed(KeyCode::KeyB) {
         free_camera_state.enabled = !free_camera_state.enabled;
+        snap_to_view_camera_state.enabled = !snap_to_view_camera_state.enabled;
     }
 }
 
