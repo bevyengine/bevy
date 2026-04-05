@@ -157,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~170s on CI")]
     fn query_filtered_exactsizeiterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
