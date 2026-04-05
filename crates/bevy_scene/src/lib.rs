@@ -506,8 +506,9 @@
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::{
-        bsn, bsn_list, on, CommandsSceneExt, EntityCommandsSceneExt, EntityWorldMutSceneExt,
-        PatchFromTemplate, PatchTemplate, Scene, SceneList, ScenePatchInstance, WorldSceneExt,
+        bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
+        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
+        ScenePatchInstance, WorldSceneExt,
     };
 }
 
