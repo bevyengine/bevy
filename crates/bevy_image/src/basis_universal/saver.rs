@@ -11,15 +11,15 @@ use bevy_reflect::TypePath;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Provides basis universal saver and asset processor
-pub struct BasisUniversalSaverPlugin {
+/// Provides basis universal asset processor
+pub struct BasisUniversalProcessorPlugin {
     /// The file extensions handled by the basisu asset processor.
     ///
     /// Default is [`ImageLoader::SUPPORTED_FILE_EXTENSIONS`] except ktx2 and .dds.
     pub processor_extensions: Vec<String>,
 }
 
-impl Default for BasisUniversalSaverPlugin {
+impl Default for BasisUniversalProcessorPlugin {
     fn default() -> Self {
         Self {
             processor_extensions: ImageLoader::SUPPORTED_FILE_EXTENSIONS
@@ -31,7 +31,7 @@ impl Default for BasisUniversalSaverPlugin {
     }
 }
 
-impl Plugin for BasisUniversalSaverPlugin {
+impl Plugin for BasisUniversalProcessorPlugin {
     fn build(&self, app: &mut App) {
         if let Some(asset_processor) = app
             .world()
