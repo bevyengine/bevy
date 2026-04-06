@@ -61,6 +61,14 @@ pub fn ktx2_buffer_to_image(
 
     // Handle supercompression
     let mut levels: Vec<Vec<u8>>;
+
+    #[cfg_attr(
+        not(any(feature = "flate2", feature = "zstd_rust", feature = "zstd_c")),
+        expect(
+            clippy::redundant_else,
+            reason = "else block is redundant when flate2, zstd_rust and zstd_c are all disabled"
+        )
+    )]
     if let Some(supercompression_scheme) = supercompression_scheme {
         match supercompression_scheme {
             #[cfg(feature = "flate2")]

@@ -1,5 +1,8 @@
 //! Asset saver and processor for Basis Universal KTX2 textures.
 use crate::{Image, ImageLoader, ImageLoaderSettings};
+use basisu_c_sys::extra::BasisuEncoder;
+pub use basisu_c_sys::extra::{BasisuEncodeError, BasisuEncoderParams};
+use bevy_app::{App, Plugin};
 use bevy_asset::{
     processor::LoadTransformAndSave, saver::AssetSaver, transformer::IdentityAssetTransformer,
     AsyncWriteExt,
@@ -8,7 +11,39 @@ use bevy_reflect::TypePath;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use basisu_c_sys::extra::{BasisuEncodeError, BasisuEncoder, BasisuEncoderParams};
+/// Provides basis universal saver and asset processor
+pub struct BasisUniversalSaverPlugin {
+    /// The file extensions handled by the basisu asset processor.
+    ///
+    /// Default is [`ImageLoader::SUPPORTED_FILE_EXTENSIONS`] except ktx2 and .dds.
+    pub processor_extensions: Vec<String>,
+}
+
+impl Default for BasisUniversalSaverPlugin {
+    fn default() -> Self {
+        Self {
+            processor_extensions: ImageLoader::SUPPORTED_FILE_EXTENSIONS
+                .iter()
+                .filter(|s| !["ktx2", "dds"].contains(s))
+                .map(ToString::to_string)
+                .collect(),
+        }
+    }
+}
+
+impl Plugin for BasisUniversalSaverPlugin {
+    fn build(&self, app: &mut App) {
+        if let Some(asset_processor) = app
+            .world()
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            asset_processor.register_processor::<BasisuProcessor>(BasisuSaver.into());
+            for ext in &self.processor_extensions {
+                asset_processor.set_default_processor::<BasisuProcessor>(ext.as_str());
+            }
+        }
+    }
+}
 
 /// Basis universal asset processor.
 pub type BasisuProcessor =

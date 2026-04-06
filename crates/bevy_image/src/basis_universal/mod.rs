@@ -3,7 +3,7 @@ mod saver;
 #[cfg(feature = "basis_universal_saver")]
 pub use saver::*;
 
-use crate::{CompressedImageFormats, Image, ImageLoader, TextureError};
+use crate::{CompressedImageFormats, Image, TextureError};
 use basisu_c_sys::extra::{BasisuTranscoder, SupportedTextureCompression};
 use bevy_app::{App, Plugin};
 #[cfg(all(
@@ -92,41 +92,6 @@ pub fn ktx2_basisu_buffer_to_image(
 /// Provides the necessary basis universal initialization.
 /// Any bassiu encoding or transcoding will fail before this plugin is initialized.
 pub struct BasisUniversalPlugin;
-
-/// Provides basis universal saver and asset processor
-#[cfg(feature = "basis_universal_saver")]
-pub struct BasisUniversalSaverPlugin {
-    /// The file extensions handled by the basisu asset processor.
-    ///
-    /// Default is [`ImageLoader::SUPPORTED_FILE_EXTENSIONS`] except ktx2 and .dds.
-    pub processor_extensions: Vec<String>,
-}
-
-impl Default for BasisUniversalSaverPlugin {
-    fn default() -> Self {
-        Self {
-            processor_extensions: ImageLoader::SUPPORTED_FILE_EXTENSIONS
-                .iter()
-                .filter(|s| !["ktx2", "dds"].contains(s))
-                .map(ToString::to_string)
-                .collect(),
-        }
-    }
-}
-
-impl Plugin for BasisUniversalSaverPlugin {
-    fn build(&self, app: &mut App) {
-        if let Some(asset_processor) = app
-            .world()
-            .get_resource::<bevy_asset::processor::AssetProcessor>()
-        {
-            asset_processor.register_processor::<BasisuProcessor>(BasisuSaver.into());
-            for ext in &self.processor_extensions {
-                asset_processor.set_default_processor::<BasisuProcessor>(ext.as_str());
-            }
-        }
-    }
-}
 
 #[cfg(all(
     target_arch = "wasm32",

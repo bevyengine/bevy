@@ -7,7 +7,7 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 #[cfg(feature = "basis_universal")]
-use basisu_c_sys::extra::BasisuTranscodeError;
+pub use basisu_c_sys::extra::BasisuTranscodeError;
 use bevy_app::{App, Plugin};
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
