@@ -14,6 +14,7 @@ use bevy_input_focus::{FocusedInput, InputFocus};
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, TextEdit};
+use bevy_ui::widget::TextScroll;
 use bevy_ui::{
     widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
     UiGlobalTransform, UiScale,
@@ -53,6 +54,8 @@ fn on_focused_keyboard_input(
     let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
+
+    let allow_newlines = editable_text.allow_newlines;
 
     // Bitflags representing states of modifier keys.
     // On macOS Option is mapped to `Key::Alt` by `bevy_input`.
@@ -120,9 +123,12 @@ fn on_focused_keyboard_input(
                 queue_edit(TextEdit::Insert(text.clone()));
             }
         }
+        (NONE, Key::Enter) => {
+            if allow_newlines {
+                queue_edit(TextEdit::Insert("\n".into()));
+            }
+        }
         _ => {
-            // Enter and Tab ignored for now.
-            // Enter needs extra logic for handling special cases and Parley doesn't support tabs yet.
             // Ignore and propagate to allow for tab navigation and submit actions.
         }
     }
@@ -141,6 +147,7 @@ fn on_pointer_press(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
+        &TextScroll,
     )>,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
@@ -150,7 +157,8 @@ fn on_pointer_press(
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(press.entity)
+    let Ok((mut editable_text, node, target, transform, text_scroll)) =
+        text_input_query.get_mut(press.entity)
     else {
         return;
     };
@@ -159,6 +167,7 @@ fn on_pointer_press(
         inverse
             .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
             - node.content_box().min
+            + text_scroll.0
     }) else {
         return;
     };
@@ -187,6 +196,7 @@ fn on_pointer_drag(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
+        &TextScroll,
     )>,
     ui_scale: Res<UiScale>,
 ) {
@@ -194,7 +204,8 @@ fn on_pointer_drag(
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(drag.entity)
+    let Ok((mut editable_text, node, target, transform, text_scroll)) =
+        text_input_query.get_mut(drag.entity)
     else {
         return;
     };
@@ -203,6 +214,7 @@ fn on_pointer_drag(
         inverse
             .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
             - node.content_box().min
+            + text_scroll.0
     }) else {
         return;
     };
@@ -234,6 +246,7 @@ impl Plugin for EditableTextInputPlugin {
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
         app.register_required_components::<EditableText, Node>()
             .register_required_components::<EditableText, TextNodeFlags>()
-            .register_required_components::<EditableText, ContentSize>();
+            .register_required_components::<EditableText, ContentSize>()
+            .register_required_components::<EditableText, TextScroll>();
     }
 }

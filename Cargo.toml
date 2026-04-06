@@ -1010,6 +1010,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multiline_text_input"
+path = "examples/ui/text/multiline_text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiline_text_input]
+name = "Multiline Text Input"
+description = "Demonstrates a single multiline EditableText widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "multiple_text_inputs"
 path = "examples/ui/text/multiple_text_inputs.rs"
 doc-scrape-examples = true
@@ -4821,6 +4832,30 @@ required-features = ["bevy_remote"]
 [package.metadata.example.server]
 name = "server"
 description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "app_under_test"
+path = "examples/remote/app_under_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.app_under_test]
+name = "App Under Test"
+description = "A Bevy app that you can connect to with the BRP and control"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "integration_test"
+path = "examples/remote/integration_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.integration_test]
+name = "Integration Test"
+description = "Connects to a running Bevy app via BRP, finds a button, and clicks it"
 category = "Remote Protocol"
 wasm = false
 

@@ -462,6 +462,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Integration Test](../examples/remote/integration_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
@@ -607,6 +609,7 @@ Example | Description
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
