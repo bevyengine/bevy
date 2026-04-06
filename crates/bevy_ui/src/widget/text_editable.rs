@@ -1,5 +1,4 @@
 use core::hash::BuildHasher;
-use core::ops::Range;
 use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
@@ -23,7 +22,7 @@ use bevy_text::{
     TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
-use parley::{BoundingBox, GlyphRun, PositionedLayoutItem, StyleProperty};
+use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 use taffy::MaybeMath;
 
@@ -206,11 +205,11 @@ pub fn editable_text_system(
         info.run_geometry.clear();
         info.selection_rects.clear();
 
-        for line in layout.lines() {
+        for (line_index, line) in layout.lines().enumerate() {
             let mut run_index = usize::MAX;
             let mut run_glyphs_consumed = 0;
 
-            for (line_index, item) in line.items().enumerate() {
+            for item in line.items() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let brush = glyph_run.style().brush;
@@ -234,8 +233,20 @@ pub fn editable_text_system(
                             font_smoothing: brush.font_smoothing,
                         };
 
-                        let glyph_text_ranges =
-                            glyph_text_ranges(&glyph_run, &mut run_glyphs_consumed);
+                        let glyph_count = glyph_run.glyphs().count();
+                        let glyph_start = run_glyphs_consumed;
+                        run_glyphs_consumed += glyph_count;
+
+                        let glyph_text_ranges = glyph_run
+                            .run()
+                            .visual_clusters()
+                            .flat_map(|cluster| {
+                                let cluster_text_range = cluster.text_range();
+                                core::iter::repeat(cluster_text_range)
+                                    .take(cluster.glyphs().count())
+                            })
+                            .skip(glyph_start)
+                            .take(glyph_count);
 
                         for (glyph, glyph_text_range) in
                             glyph_run.positioned_glyphs().zip(glyph_text_ranges)
@@ -349,25 +360,6 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             y: geom.y1 as f32,
         },
     }
-}
-
-fn glyph_text_ranges<'a>(
-    glyph_run: &'a GlyphRun<'a, TextBrush>,
-    run_glyphs_consumed: &mut usize,
-) -> impl Iterator<Item = Range<usize>> + Clone + 'a {
-    let glyph_count = glyph_run.glyphs().count();
-    let glyph_start = *run_glyphs_consumed;
-    *run_glyphs_consumed += glyph_count;
-
-    glyph_run
-        .run()
-        .visual_clusters()
-        .flat_map(|cluster| {
-            let cluster_text_range = cluster.text_range();
-            core::iter::repeat(cluster_text_range).take(cluster.glyphs().count())
-        })
-        .skip(glyph_start)
-        .take(glyph_count)
 }
 
 /// Scroll editable text to keep cursor in view after edits.
