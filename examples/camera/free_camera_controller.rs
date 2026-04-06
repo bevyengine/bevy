@@ -20,9 +20,12 @@
 //! | QE                  | Vertical movement      |
 //! | Left shift          | Run                    |
 //! | Scroll wheel        | Change movement speed  |
-//! | [`LCtrl` +] Numpad1   | Snap to front/back     |
-//! | [`LCtrl` +] Numpad3   | Snap to right/left     |
-//! | [`LCtrl` +] Numpad7   | Snap to top/bottom     |
+//! | Numpad1             | Snap to front          |
+//! | `LCtrl` + Numpad1   | Snap to back           |
+//! | Numpad3             | Snap to right          |
+//! | `LCtrl` + Numpad3   | Snap to left           |
+//! | Numpad7             | Snap to top            |
+//! | `LCtrl` + Numpad7   | Snap to bottom         |
 //!
 //! The movement speed, sensitivity and friction can also be changed by the [`FreeCamera`] component.
 //!
