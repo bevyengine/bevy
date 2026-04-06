@@ -75,6 +75,7 @@ impl BevyError {
             let f = _f;
             let backtrace = &self.inner.backtrace;
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
+                // TODO: Cache
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
                 let backtrace_str = alloc::string::ToString::to_string(backtrace);
@@ -289,11 +290,11 @@ mod tests {
             Ok(())
         }
 
-        // SAFETY: this is not safe ...  this test could run in parallel with another test
-        // that writes the environment variable. We either accept that so we can write this test,
-        // or we don't.
+        let capture_backtrace = std::env::var_os("RUST_BACKTRACE");
 
-        unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
+        if capture_backtrace.is_none() || capture_backtrace.clone().is_some_and(|s| s == "0") {
+            panic!("This test only works if rust bactraces are enabled. Was {capture_backtrace:?}. Please set RUST_BACKTRACE to any value other than 0 and run again.")
+        }
 
         let error = i_fail().err().unwrap();
         let debug_message = alloc::format!("{error:?}");
