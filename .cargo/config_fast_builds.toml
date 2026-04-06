@@ -68,7 +68,7 @@
 # ## `no-embed-metadata`
 #
 # This options avoids unnecessary metadata duplication and can reduce the size of the `target` directory by
-# 9% to 36%, depending on build configuration.
+# around 5% on dev builds, potentially more on release builds.
 #
 # Note: Unlike other flags in this file, `no-embed-metadata` is a Cargo flag, not a rustc flag, and is at the
 # bottom of this file.
