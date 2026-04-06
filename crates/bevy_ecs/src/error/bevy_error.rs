@@ -63,7 +63,10 @@ impl BevyError {
     /// The easiest way to use this is to simply pass in a quoted bit of text.
     /// This works because any type that can be converted into a `Box<dyn Error + Send + Sync>` can be used,
     /// and [`str`] is one such type.
-    pub fn new<E: Error + Sync + Send + 'static>(severity: Severity, error: E) -> Self {
+    pub fn new<E>(severity: Severity, error: E) -> Self
+    where
+        Box<dyn Error + Sync + Send>: From<E>,
+    {
         Self::from(error).with_severity(severity)
     }
 
