@@ -641,6 +641,20 @@ fn apply_pbr_lighting(
 #endif
     }
 
+    // Rect lights
+    let n_rect_lights = view_bindings::lights.n_rect_lights;
+    for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
+        let enable_diffuse = true;
+        let light_contrib = lighting::rect_light(i, &lighting_input, enable_diffuse);
+        direct_light += light_contrib;
+
+    #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+        let transmitted_light_contrib =
+            lighting::rect_light(i, &transmissive_lighting_input, enable_diffuse);
+        transmitted_light += transmitted_light_contrib;
+    #endif
+    }
+
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
     // world position, inverted normal and view vectors, and the following simplified
