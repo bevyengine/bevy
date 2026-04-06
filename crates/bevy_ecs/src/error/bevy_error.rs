@@ -59,6 +59,11 @@ impl BevyError {
         Self::from(error).with_severity(severity)
     }
 
+    /// Checks if we're holding the internal error.
+    pub fn is<E: Error + 'static>(&self) -> bool {
+        self.inner.error.is::<E>()
+    }
+
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
@@ -273,6 +278,7 @@ pub fn bevy_error_panic_hook(
 
 #[cfg(test)]
 mod tests {
+    use crate::error::BevyError;
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
@@ -353,5 +359,23 @@ mod tests {
         }
         assert_eq!(super::FILTER_MESSAGE, lines.next().unwrap());
         assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn downcasting() {
+        #[derive(Debug, PartialEq)]
+        struct Fun(i32);
+
+        impl core::fmt::Display for Fun {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                core::fmt::Debug::fmt(&self, f)
+            }
+        }
+        impl core::error::Error for Fun {}
+
+        let new_error = BevyError::new(crate::error::Severity::Debug, Fun(1));
+
+        assert!(new_error.is::<Fun>());
+        assert_eq!(new_error.downcast_ref::<Fun>(), Some(&Fun(1)));
     }
 }
