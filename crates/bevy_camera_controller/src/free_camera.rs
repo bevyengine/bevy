@@ -45,7 +45,7 @@ impl Plugin for FreeCameraPlugin {
         // This ordering is required so that both fixed update and update systems can see the results correctly
         app.add_systems(
             RunFixedMainLoop,
-            (run_freecamera_controller, rotate_camera_to)
+            (run_freecamera_controller, rotate_freecam_to)
                 .chain()
                 .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
@@ -429,7 +429,7 @@ pub fn run_freecamera_controller(
         if let Ok(interval) = Interval::new(0.0, rotation_time) {
             let curve = SampleAutoCurve::new(interval, [start, target])
                 .expect("Interval should be in bounds as start and end are finite numbers");
-            state.rotation_curve = Some((0.0, curve))
+            state.rotation_curve = Some((0.0, curve));
         }
     }
 }
@@ -440,7 +440,7 @@ pub fn run_freecamera_controller(
 /// - [`FreeCameraState`] stores the dynamic runtime state, including direction for camera rotation and enable flags.
 ///
 /// This system is typically added via the [`FreeCameraPlugin`].
-pub fn rotate_camera_to(
+pub fn rotate_freecam_to(
     mut query: Query<(&mut Transform, &mut FreeCameraState), With<Camera>>,
     time: Res<Time<Real>>,
 ) {
