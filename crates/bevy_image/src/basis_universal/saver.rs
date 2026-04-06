@@ -17,6 +17,10 @@ pub struct BasisUniversalProcessorPlugin {
     ///
     /// Default is [`ImageLoader::SUPPORTED_FILE_EXTENSIONS`] except ktx2 and .dds.
     pub processor_extensions: Vec<String>,
+    /// Default basisu encoder params.
+    /// See the documents and `BU_COMP_FLAGS_*` in [`basisu_c_sys`] if you want more controls,
+    /// like mipmap generation.
+    pub default_encoder_params: BasisuEncoderParams,
 }
 
 impl Default for BasisUniversalProcessorPlugin {
@@ -27,6 +31,9 @@ impl Default for BasisUniversalProcessorPlugin {
                 .filter(|s| !["ktx2", "dds"].contains(s))
                 .map(ToString::to_string)
                 .collect(),
+            default_encoder_params: BasisuEncoderParams::new_with_srgb_defaults(
+                basisu_c_sys::BasisTextureFormat::XuastcLdr4x4,
+            ),
         }
     }
 }
@@ -37,7 +44,12 @@ impl Plugin for BasisUniversalProcessorPlugin {
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            asset_processor.register_processor::<BasisuProcessor>(BasisuSaver.into());
+            asset_processor.register_processor::<BasisuProcessor>(
+                BasisuSaver {
+                    default_encoder_params: self.default_encoder_params,
+                }
+                .into(),
+            );
             for ext in &self.processor_extensions {
                 asset_processor.set_default_processor::<BasisuProcessor>(ext.as_str());
             }
@@ -51,25 +63,18 @@ pub type BasisuProcessor =
 
 /// Basis universal texture saver.
 #[derive(TypePath)]
-pub struct BasisuSaver;
-
-/// Basis universal texture saver settings.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct BasisuSaverSettings {
-    /// Basisu encoder params.
-    /// See the `BU_COMP_FLAGS_*` in [`basisu_c_sys`] if you want more controls,
+pub struct BasisuSaver {
+    /// Default basisu encoder params.
+    /// See the documents and `BU_COMP_FLAGS_*` in [`basisu_c_sys`] if you want more controls,
     /// like mipmap generation.
-    pub params: BasisuEncoderParams,
+    pub default_encoder_params: BasisuEncoderParams,
 }
 
-impl Default for BasisuSaverSettings {
-    fn default() -> Self {
-        Self {
-            params: BasisuEncoderParams::new_with_srgb_defaults(
-                basisu_c_sys::BasisTextureFormat::XuastcLdr4x4,
-            ),
-        }
-    }
+/// Basis universal texture saver settings.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct BasisuSaverSettings {
+    /// Basisu encoder params. If it's None the [`BasisuSaver::default_encoder_params`] will be used.
+    pub encoder_params: Option<BasisuEncoderParams>,
 }
 
 /// An error when encoding an image using [`BasisuSaver`].
@@ -95,7 +100,7 @@ impl AssetSaver for BasisuSaver {
         writer: &mut bevy_asset::io::Writer,
         asset: bevy_asset::saver::SavedAsset<'_, '_, Self::Asset>,
         settings: &Self::Settings,
-        _asset_path: bevy_asset::AssetPath<'_>,
+        asset_path: bevy_asset::AssetPath<'_>,
     ) -> Result<<Self::OutputLoader as bevy_asset::AssetLoader>::Settings, Self::Error> {
         let _span = bevy_log::info_span!("Encoding basisu texture").entered();
         let time = bevy_platform::time::Instant::now();
@@ -106,10 +111,15 @@ impl AssetSaver for BasisuSaver {
             texture_descriptor: &asset.texture_descriptor,
             texture_view_descriptor: &asset.texture_view_descriptor,
         })?;
-        let result = encoder.compress(settings.params)?;
+        let result = encoder.compress(
+            settings
+                .encoder_params
+                .unwrap_or(self.default_encoder_params),
+        )?;
 
         bevy_log::debug!(
-            "Encoded basisu texture, {}kb -> {}kb in {:?}",
+            "Encoded basisu texture \"{}\", {}kb -> {}kb in {:?}",
+            asset_path,
             asset.data.as_deref().unwrap_or(&[]).len() as f32 / 1000.0,
             result.len() as f32 / 1000.0,
             time.elapsed(),
