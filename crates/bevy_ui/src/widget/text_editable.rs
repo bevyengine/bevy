@@ -206,8 +206,8 @@ pub fn editable_text_system(
         info.selection_rects.clear();
 
         for (line_index, line) in layout.lines().enumerate() {
-            let mut run_index = usize::MAX;
-            let mut run_glyphs_consumed = 0;
+            let mut current_run_index = usize::MAX;
+            let mut run_count = 0;
 
             for item in line.items() {
                 match item {
@@ -215,9 +215,9 @@ pub fn editable_text_system(
                         let brush = glyph_run.style().brush;
 
                         let run = glyph_run.run();
-                        if run.index() != run_index {
-                            run_index = run.index();
-                            run_glyphs_consumed = 0;
+                        if run.index() != current_run_index {
+                            current_run_index = run.index();
+                            run_count = 0;
                         }
 
                         let font_data = run.font();
@@ -233,24 +233,18 @@ pub fn editable_text_system(
                             font_smoothing: brush.font_smoothing,
                         };
 
-                        let glyph_count = glyph_run.glyphs().count();
-                        let glyph_start = run_glyphs_consumed;
-                        run_glyphs_consumed += glyph_count;
-
-                        let glyph_text_ranges = glyph_run
-                            .run()
-                            .visual_clusters()
-                            .flat_map(|cluster| {
-                                let cluster_text_range = cluster.text_range();
-                                core::iter::repeat(cluster_text_range)
-                                    .take(cluster.glyphs().count())
-                            })
-                            .skip(glyph_start)
-                            .take(glyph_count);
-
-                        for (glyph, glyph_text_range) in
-                            glyph_run.positioned_glyphs().zip(glyph_text_ranges)
-                        {
+                        let glyph_run_count = glyph_run.glyphs().count();
+                        for (glyph, cluster_text_range) in glyph_run.positioned_glyphs().zip(
+                            glyph_run
+                                .run()
+                                .visual_clusters()
+                                .flat_map(|cluster| {
+                                    core::iter::repeat(cluster.text_range())
+                                        .take(cluster.glyphs().count())
+                                })
+                                .skip(run_count)
+                                .take(glyph_run_count),
+                        ) {
                             let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
                             let Ok(atlas_info) = get_glyph_atlas_info(
                                 font_atlases,
@@ -289,10 +283,12 @@ pub fn editable_text_system(
                                 atlas_info,
                                 section_index: brush.section_index as usize,
                                 line_index,
-                                byte_index: glyph_text_range.start,
-                                byte_length: glyph_text_range.len(),
+                                byte_index: cluster_text_range.start,
+                                byte_length: cluster_text_range.len(),
                             });
                         }
+
+                        run_count += glyph_run_count;
 
                         info.run_geometry.push(RunGeometry {
                             section_index: brush.section_index as usize,
