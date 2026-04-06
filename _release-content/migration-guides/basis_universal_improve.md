@@ -10,7 +10,7 @@ Now bevy uses [`basisu_c_sys`](https://docs.rs/basisu_c_sys/latest/basisu_c_sys)
 
 `ImageFormat::Basis` is removed. `CompressedImageSaver` is replaced by `BasisuSaver`/`BasisuProcessor` which is not added by `ImagePlugin` automatically. Also the `basis-universal` cargo feature is renamed to `basis_universal`, `compressed_image_saver` is replaced by `basis_universal_saver`.
 
-If you are using `.basis` files, it's recommanded to re-compress your textures to `.ktx2` format with basisu tool. Basis universal textures will be handled as `ImageFormat::Ktx2` if `basis_universal` feature is enabled.
+If you are using `.basis` files, it's recommended to re-compress your textures to `.ktx2` format with basisu tool. Basis universal textures will be handled as `ImageFormat::Ktx2` if `basis_universal` feature is enabled.
 
 To use the `BasisuProcessor`, enable `basis_universal_saver` feature and add `BasisUniversalProcessorPlugin`:
 
