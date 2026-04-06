@@ -54,6 +54,11 @@ pub struct BevyError {
 }
 
 impl BevyError {
+    /// Creates a new [`BevyError`] with the given [severity](Severity).
+    pub fn new<E: Error + Sync + Send + 'static>(severity: Severity, error: E) -> Self {
+        Self::from(error).with_severity(severity)
+    }
+
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
