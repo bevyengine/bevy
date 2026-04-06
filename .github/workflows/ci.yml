@@ -625,6 +625,8 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
-      - name: Run fuzz target ${{ matrix.target }}
+      - name: Run fuzz target
         working-directory: crates/bevy_ecs/fuzz
-        run: cargo +nightly fuzz run ${{ matrix.target }} -- -runs=200000
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=200000
