@@ -627,4 +627,4 @@ jobs:
         run: cargo install cargo-fuzz
       - name: Run fuzz target ${{ matrix.target }}
         working-directory: crates/bevy_ecs/fuzz
-        run: cargo +nightly fuzz run ${{ matrix.target }} -- -runs=10000
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -runs=200000
