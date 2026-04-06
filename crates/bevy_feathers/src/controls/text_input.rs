@@ -167,14 +167,14 @@ fn update_text_input_focus(
 }
 
 fn set_text_input_styles(
-    button_ent: Entity,
+    input_ent: Entity,
     disabled: bool,
     font_color: &ThemeFontColor,
     commands: &mut Commands,
 ) {
     let font_color_token = match disabled {
-        true => tokens::TEXT_INPUT_TEXT,
-        false => tokens::TEXT_INPUT_TEXT_DISABLED,
+        true => tokens::TEXT_INPUT_TEXT_DISABLED,
+        false => tokens::TEXT_INPUT_TEXT,
     };
 
     let cursor_shape = match disabled {
@@ -185,13 +185,13 @@ fn set_text_input_styles(
     // Change font color
     if font_color.0 != font_color_token {
         commands
-            .entity(button_ent)
+            .entity(input_ent)
             .insert(ThemeFontColor(font_color_token));
     }
 
     // Change cursor shape
     commands
-        .entity(button_ent)
+        .entity(input_ent)
         .insert(EntityCursor::System(cursor_shape));
 }
 

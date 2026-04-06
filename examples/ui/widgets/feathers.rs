@@ -295,7 +295,7 @@ fn demo_root() -> impl Scene {
                             Children [
                                 (
                                     text_input(TextInputProps {
-                                        max_characters: None,
+                                        max_characters: Some(9),
                                     })
                                     HexColorInput
                                     on(handle_hex_color_change)
