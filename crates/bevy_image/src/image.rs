@@ -1,9 +1,13 @@
+#[cfg(feature = "basis_universal")]
+use crate::basis_universal::BasisUniversalPlugin;
 use crate::ImageLoader;
 
 #[cfg(feature = "dds")]
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(feature = "basis_universal")]
+use basisu_c_sys::extra::BasisuTranscodeError;
 use bevy_app::{App, Plugin};
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
@@ -198,6 +202,9 @@ impl ImagePlugin {
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "basis_universal")]
+        app.add_plugins(BasisUniversalPlugin);
+
         #[cfg(feature = "exr")]
         app.init_asset_loader::<crate::ExrTextureLoader>();
 
@@ -218,6 +225,25 @@ impl Plugin for ImagePlugin {
             .unwrap();
 
         app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
+    }
+
+    fn finish(&self, app: &mut App) {
+        if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
+            let supported_compressed_formats = if let Some(resource) =
+                app.world().get_resource::<CompressedImageFormatSupport>()
+            {
+                resource.0
+            } else {
+                bevy_log::warn!(
+                    "CompressedImageFormatSupport resource not found. \
+                   It should either be initialized in finish() of \
+                   RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend."
+                );
+                CompressedImageFormats::NONE
+            };
+
+            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
+        }
     }
 }
 
@@ -2066,6 +2092,10 @@ pub enum TextureError {
     /// Only cubemaps with six faces are supported.
     #[error("only cubemaps with six faces are supported")]
     IncompleteCubemap,
+    /// Basis universal transcode error.
+    #[cfg(feature = "basis_universal")]
+    #[error(transparent)]
+    BasisuTranscodeError(#[from] BasisuTranscodeError),
 }
 
 /// The type of a raw image buffer.

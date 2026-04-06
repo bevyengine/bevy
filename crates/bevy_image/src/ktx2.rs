@@ -30,6 +30,21 @@ pub fn ktx2_buffer_to_image(
 ) -> Result<Image, TextureError> {
     let ktx2 = ktx2::Reader::new(buffer)
         .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
+
+    #[cfg(feature = "basis_universal")]
+    for (key, value) in ktx2.key_value_data() {
+        // Recognize if the ktx2 file is basis universal format.
+        // We can't use `ColorModel` because basis universal can also be standard ASTC.
+        const BASISU_VERSION: &[u8] = b"Basis Universal 2.";
+        if key == "KTXwriter" && &value[..BASISU_VERSION.len()] == BASISU_VERSION {
+            return crate::ktx2_basisu_buffer_to_image(
+                buffer,
+                supported_compressed_formats,
+                is_srgb,
+            );
+        }
+    }
+
     let Header {
         pixel_width: width,
         pixel_height: height,

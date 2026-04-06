@@ -22,6 +22,8 @@ pub use self::image::*;
 mod serialized_image;
 #[cfg(feature = "serialize")]
 pub use self::serialized_image::*;
+#[cfg(feature = "basis_universal")]
+mod basis_universal;
 #[cfg(feature = "dds")]
 mod dds;
 mod dynamic_texture_atlas_builder;
@@ -36,6 +38,8 @@ mod saver;
 mod texture_atlas;
 mod texture_atlas_builder;
 
+#[cfg(feature = "basis_universal")]
+pub use basis_universal::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
 pub use dynamic_texture_atlas_builder::*;

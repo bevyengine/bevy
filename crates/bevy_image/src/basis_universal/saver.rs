@@ -1,17 +1,14 @@
 //! Asset saver and processor for Basis Universal KTX2 textures.
-
+use crate::{Image, ImageLoader, ImageLoaderSettings};
 use bevy_asset::{
     processor::LoadTransformAndSave, saver::AssetSaver, transformer::IdentityAssetTransformer,
     AsyncWriteExt,
 };
-use bevy_image::{Image, ImageLoader};
 use bevy_reflect::TypePath;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use basisu_c_sys::extra::{BasisuEncodeError, BasisuEncoder, BasisuEncoderParams};
-
-use crate::loader::{BasisuLoader, BasisuLoaderSettings};
 
 /// Basis universal asset processor.
 pub type BasisuProcessor =
@@ -55,7 +52,7 @@ pub enum BasisuSaverError {
 impl AssetSaver for BasisuSaver {
     type Asset = Image;
     type Settings = BasisuSaverSettings;
-    type OutputLoader = BasisuLoader;
+    type OutputLoader = ImageLoader;
     type Error = BasisuSaverError;
 
     async fn save(
@@ -65,6 +62,9 @@ impl AssetSaver for BasisuSaver {
         settings: &Self::Settings,
         _asset_path: bevy_asset::AssetPath<'_>,
     ) -> Result<<Self::OutputLoader as bevy_asset::AssetLoader>::Settings, Self::Error> {
+        let _span = bevy_log::info_span!("Encoding basisu texture").entered();
+        let time = bevy_platform::time::Instant::now();
+
         let mut encoder = BasisuEncoder::new();
         encoder.set_image(basisu_c_sys::extra::SourceImage {
             data: asset.data.as_deref().unwrap_or(&[]),
@@ -72,13 +72,24 @@ impl AssetSaver for BasisuSaver {
             texture_view_descriptor: &asset.texture_view_descriptor,
         })?;
         let result = encoder.compress(settings.params)?;
+
+        bevy_log::debug!(
+            "Encoded basisu texture, {}kb -> {}kb in {:?}",
+            asset.data.as_deref().unwrap_or(&[]).len() as f32 / 1000.0,
+            result.len() as f32 / 1000.0,
+            time.elapsed(),
+        );
+        drop(_span);
+
         writer.write_all(&result).await?;
 
-        Ok(BasisuLoaderSettings {
+        Ok(ImageLoaderSettings {
             asset_usage: asset.asset_usage,
             sampler: asset.sampler.clone(),
-            is_srgb: None,
-            force_transcode_target: None,
+            array_layout: None,
+            is_srgb: true,
+            texture_format: None,
+            format: crate::ImageFormatSetting::Format(crate::ImageFormat::Ktx2),
         })
     }
 }

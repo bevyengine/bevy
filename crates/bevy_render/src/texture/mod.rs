@@ -5,7 +5,7 @@ mod texture_attachment;
 mod texture_cache;
 
 pub use crate::render_resource::DefaultImageSampler;
-use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageLoader, ImagePlugin};
+use bevy_image::ImagePlugin;
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use manual_texture_view::*;
@@ -18,9 +18,7 @@ use crate::{
     RenderStartup, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
-use bevy_log::warn;
 
 #[derive(Default)]
 pub struct TexturePlugin;
@@ -44,19 +42,6 @@ impl Plugin for TexturePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
-            let supported_compressed_formats = if let Some(resource) =
-                app.world().get_resource::<CompressedImageFormatSupport>()
-            {
-                resource.0
-            } else {
-                warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
-                       RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
-                CompressedImageFormats::NONE
-            };
-
-            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
-        }
         let default_sampler = app.get_added_plugins::<ImagePlugin>()[0]
             .default_sampler
             .clone();
