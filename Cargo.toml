@@ -4622,7 +4622,7 @@ required-features = ["debug", "schedule_data"]
 name = "Extract Schedule Data"
 description = "Extracts the schedule data from a default app and writes it to a file"
 category = "Dev tools"
-wasm = true
+wasm = false
 
 [[example]]
 name = "infinite_grid"

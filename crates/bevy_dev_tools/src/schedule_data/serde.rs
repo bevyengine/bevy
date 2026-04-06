@@ -698,8 +698,8 @@ pub mod tests {
             Update,
             (
                 (
-                    (a0, a1), //
-                    (b0, b1), //
+                    (a0, a1),
+                    (b0, b1),
                 )
                     .chain(),
                 (c0, c1).chain(),

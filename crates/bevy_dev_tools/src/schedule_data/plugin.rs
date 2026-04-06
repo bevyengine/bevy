@@ -119,7 +119,7 @@ fn collect_system_data_inner(world: &mut World) -> Result<AppData, BevyError> {
     )?)
 }
 
-/// A system the collects all the schedule data, and writes it to [`SerializeSchedulesFilePath`].
+/// A system that collects all the schedule data and writes it to [`SerializeSchedulesFilePath`].
 fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
     let app_data = collect_system_data_inner(world).with_severity(Severity::Warning)?;
     let file_path = world

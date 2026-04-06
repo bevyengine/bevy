@@ -76,7 +76,7 @@ impl FlattenedDependencies<'_> {
     /// behavior. However, this function can be used to remove dependencies that are made redundant
     /// by added edges.
     ///
-    /// Note: this edges are **not** reported like the added edges are.
+    /// Note: these edges are **not** reported like the added edges are.
     pub fn remove_edge(&mut self, system_1: SystemKey, system_2: SystemKey) {
         self.dag.remove_edge(system_1, system_2);
         // We intentionally don't record edges (like `self.added_edges`) because it's unlikely that
