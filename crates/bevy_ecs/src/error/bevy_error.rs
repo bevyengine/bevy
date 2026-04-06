@@ -54,7 +54,15 @@ pub struct BevyError {
 }
 
 impl BevyError {
-    /// Creates a new [`BevyError`] with the given [severity](Severity).
+    /// Constructs a new [`BevyError`] with the given [`Severity`].
+    ///
+    /// The stored error will be stored as a `Box<dyn Error + Send + Sync>`.
+    ///
+    /// # Examples
+    ///
+    /// The easiest way to use this is to simply pass in a quoted bit of text.
+    /// This works because any type that can be converted into a `Box<dyn Error + Send + Sync>` can be used,
+    /// and [`str`] is one such type.
     pub fn new<E: Error + Sync + Send + 'static>(severity: Severity, error: E) -> Self {
         Self::from(error).with_severity(severity)
     }
@@ -293,7 +301,7 @@ mod tests {
         let capture_backtrace = std::env::var_os("RUST_BACKTRACE");
 
         if capture_backtrace.is_none() || capture_backtrace.clone().is_some_and(|s| s == "0") {
-            panic!("This test only works if rust bactraces are enabled. Was {capture_backtrace:?}. Please set RUST_BACKTRACE to any value other than 0 and run again.")
+            panic!("This test only works if rust backtraces are enabled. Value set was {capture_backtrace:?}. Please set RUST_BACKTRACE to any value other than 0 and run again.")
         }
 
         let error = i_fail().err().unwrap();
