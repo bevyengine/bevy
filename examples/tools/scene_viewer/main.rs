@@ -12,10 +12,7 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
-    camera_controller::{
-        free_camera::{FreeCamera, FreeCameraPlugin},
-        snap_to_view::{SnapToViewCamera, SnapToViewPlugin},
-    },
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
@@ -109,7 +106,6 @@ fn main() {
                 ..default()
             }),
         FreeCameraPlugin,
-        SnapToViewPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
         InfiniteGridPlugin,
@@ -199,8 +195,6 @@ fn setup_scene_after_load(
             run_speed: 3.0 * walk_speed,
             ..default()
         };
-        let camera_snap = SnapToViewCamera::default();
-
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
         info!("{}", *scene_handle);
@@ -226,7 +220,6 @@ fn setup_scene_after_load(
                 ..default()
             },
             camera_controller,
-            camera_snap,
         ));
 
         // If occlusion culling was requested, include the relevant components.

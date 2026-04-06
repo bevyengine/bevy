@@ -13,6 +13,7 @@
 //! The required [`FreeCameraState`] component will be added automatically.
 //!
 //! To configure the settings of this controller, modify the fields of the [`FreeCamera`] component.
+//! TODO: Discuss switching camera to orthographic mode.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
@@ -24,6 +25,7 @@ use bevy_input::mouse::{
 use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
 use bevy_log::info;
+use bevy_math::Dir3;
 use bevy_math::{ops::exp, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
@@ -42,7 +44,9 @@ impl Plugin for FreeCameraPlugin {
         // This ordering is required so that both fixed update and update systems can see the results correctly
         app.add_systems(
             RunFixedMainLoop,
-            run_freecamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            (run_freecamera_controller, rotate_camera_to)
+                .chain()
+                .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
     }
 }
@@ -91,6 +95,14 @@ pub struct FreeCamera {
     pub mouse_key_cursor_grab: MouseButton,
     /// [`KeyCode`] for grabbing the keyboard focus.
     pub keyboard_key_toggle_cursor_grab: KeyCode,
+    /// Modifier [`KeyCode`] for making pressed axis alignment buttons go in opposite direction
+    pub mod_key: KeyCode,
+    /// [`KeyCode`] for snapping camera to top/bottom (+Y/-Y).
+    pub axis_top: KeyCode,
+    /// [`KeyCode`] for snapping camera to right/left (+X/-X).
+    pub axis_right: KeyCode,
+    /// [`KeyCode`] for snapping camera to front/back (-Z/+Z).
+    pub axis_front: KeyCode,
     /// Base multiplier for unmodified translation speed.
     pub walk_speed: f32,
     /// Base multiplier for running translation speed.
@@ -117,6 +129,8 @@ pub struct FreeCamera {
     pub scroll_factor: f32,
     /// Friction factor used to exponentially decay [`velocity`](FreeCameraState::velocity) over time.
     pub friction: f32,
+    /// Speed of camera rotation to snapped axis in radians/frame.
+    pub rotation_speed: f32,
 }
 
 impl Default for FreeCamera {
@@ -132,11 +146,16 @@ impl Default for FreeCamera {
             key_run: KeyCode::ShiftLeft,
             mouse_key_cursor_grab: MouseButton::Right,
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
+            mod_key: KeyCode::ControlLeft,
+            axis_top: KeyCode::Numpad7,
+            axis_right: KeyCode::Numpad3,
+            axis_front: KeyCode::Numpad1,
             walk_speed: 5.0,
             run_speed: 15.0,
             // Approximation of ln(1.05)
             scroll_factor: 0.04879016,
             friction: 40.0,
+            rotation_speed: PI / 16.0,
         }
     }
 }
@@ -154,7 +173,10 @@ Freecamera Controls:
     {:?} & {:?}\t- Fly forward & backwards
     {:?} & {:?}\t- Fly sideways left & right
     {:?} & {:?}\t- Fly up & down
-    {:?}\t- Fly faster while held",
+    {:?}\t- Fly faster while held
+    [{:?} + ]{:?}\t- Snap to Up (+Y)/Down (-Y)
+    [{:?} + ]{:?}\t- Snap to Right (+X)/Left (-X)
+    [{:?} + ]{:?}\t- Snap to Front (-Z)/Back (+Z)",
             self.mouse_key_cursor_grab,
             self.keyboard_key_toggle_cursor_grab,
             self.key_forward,
@@ -164,6 +186,12 @@ Freecamera Controls:
             self.key_up,
             self.key_down,
             self.key_run,
+            self.mod_key,
+            self.axis_top,
+            self.mod_key,
+            self.axis_right,
+            self.mod_key,
+            self.axis_front,
         )
     }
 }
@@ -189,6 +217,9 @@ pub struct FreeCameraState {
     pub speed_multiplier: f32,
     /// This [`FreeCamera`]'s translation velocity.
     pub velocity: Vec3,
+    /// Direction to which camera will snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
+    /// Consist of forward direction vector and up vector.
+    pub rotate_to: Option<(Dir3, Dir3)>,
 }
 
 impl Default for FreeCameraState {
@@ -200,6 +231,7 @@ impl Default for FreeCameraState {
             yaw: 0.0,
             speed_multiplier: 1.0,
             velocity: Vec3::ZERO,
+            rotate_to: None,
         }
     }
 }
@@ -360,5 +392,55 @@ pub fn run_freecamera_controller(
             state.yaw -= touch.delta().x * RADIANS_PER_DOT * config.sensitivity;
             transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
         }
+    }
+    // Axis snapping
+    let mod_key_pressed = key_input.pressed(config.mod_key);
+    if key_input.pressed(config.axis_front) {
+        if mod_key_pressed {
+            state.rotate_to = Some((Dir3::Z, Dir3::Y));
+        } else {
+            state.rotate_to = Some((Dir3::NEG_Z, Dir3::Y));
+        }
+    }
+    if key_input.pressed(config.axis_right) {
+        if mod_key_pressed {
+            state.rotate_to = Some((Dir3::NEG_X, Dir3::Y));
+        } else {
+            state.rotate_to = Some((Dir3::X, Dir3::Y));
+        }
+    }
+    if key_input.pressed(config.axis_top) {
+        if mod_key_pressed {
+            state.rotate_to = Some((Dir3::NEG_Y, Dir3::NEG_Z));
+        } else {
+            state.rotate_to = Some((Dir3::Y, Dir3::Z));
+        }
+    }
+}
+
+/// Smoothly changes orientation of camera according to target orientation in [`FreeCameraState`].
+///
+/// - [`FreeCamera`] contains static configuration such as key bindings and rotation speed.
+/// - [`FreeCameraState`] stores the dynamic runtime state, including direction for camera rotation and enable flags.
+///
+/// This system is typically added via the [`FreeCameraPlugin`].
+pub fn rotate_camera_to(
+    mut query: Query<(&mut Transform, &mut FreeCameraState, &FreeCamera), With<Camera>>,
+) {
+    let Ok((mut transform, mut state, config)) = query.single_mut() else {
+        return;
+    };
+    let Some((to, up)) = state.rotate_to else {
+        return;
+    };
+    let target = Quat::look_to_rh(*to, *up);
+    transform.rotation = transform
+        .rotation
+        .rotate_towards(target, config.rotation_speed);
+    let (_z, yaw, pitch) = transform.rotation.to_euler(EulerRot::ZYX);
+    state.pitch = pitch;
+    state.yaw = yaw;
+    if transform.rotation == target {
+        state.rotate_to = None;
     }
 }
