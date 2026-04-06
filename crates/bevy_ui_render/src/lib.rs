@@ -63,7 +63,7 @@ use gradient::GradientPlugin;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextLayoutInfo, Underline, UnderlineColor,
+    TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -109,10 +109,10 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SELECTION: f32 = 0.055;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const TEXT_SELECTION: f32 = 0.08;
-    pub const TEXT_CURSOR: f32 = 0.085;
+    pub const TEXT_CURSOR: f32 = 0.08;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -906,6 +906,7 @@ pub fn extract_text_sections(
             &TextColor,
             &TextLayoutInfo,
             Option<&TextScroll>,
+            Option<&TextCursorStyle>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -926,6 +927,7 @@ pub fn extract_text_sections(
         text_color,
         text_layout_info,
         text_scroll,
+        cursor_style,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -955,6 +957,11 @@ pub fn extract_text_sections(
 
         let mut color = text_color.0.to_linear();
 
+        let selected_text_color = cursor_style
+            .and_then(|cursor_style| cursor_style.selected_text_color)
+            .map(|selected_text_color| selected_text_color.to_linear())
+            .unwrap_or(color);
+
         let mut current_section_index = 0;
 
         for (
@@ -963,6 +970,7 @@ pub fn extract_text_sections(
                 position,
                 atlas_info,
                 section_index,
+                byte_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -981,7 +989,11 @@ pub fn extract_text_sections(
             }
 
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                color,
+                color: if text_layout_info.selection_text_range.contains(byte_index) {
+                    selected_text_color
+                } else {
+                    color
+                },
                 translation: *position,
                 rect: atlas_info.rect,
             });

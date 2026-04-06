@@ -1,7 +1,5 @@
 use alloc::borrow::Cow;
 
-use core::hash::BuildHasher;
-
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -13,6 +11,8 @@ use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::hash::BuildHasher;
+use core::ops::Range;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{
     Alignment, AlignmentOptions, FontFamily, Layout, PositionedLayoutItem, StyleProperty,
@@ -463,6 +463,8 @@ pub struct TextLayoutInfo {
     pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
+    /// Range of the current selection within the text buffer. A collapsed selection is represented by an empty range.
+    pub selection_text_range: Range<usize>,
 }
 
 impl TextLayoutInfo {
@@ -474,6 +476,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
+        self.selection_text_range = 0..0;
     }
 }
 
