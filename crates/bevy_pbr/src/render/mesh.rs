@@ -833,11 +833,7 @@ pub struct RenderMeshInstanceSharedFlat {
     asset_id: MeshAssetIdFlat,
     material_bindings_index: MaterialBindingId,
     lightmap_slab_index: LightmapSlabIndexFlat,
-    // FIXME: Remove this. This should be a field on `Mesh`.
-    model_space_center: Vec3,
     tag: u32,
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
     flags: RenderMeshInstanceFlags,
 }
@@ -856,7 +852,6 @@ impl_atomic_pod!(
         lightmap_slab_index_flat,
         set_lightmap_slab_index_flat
     ),
-    field(model_space_center: Vec3, model_space_center, set_model_space_center),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),
 );
@@ -894,15 +889,12 @@ impl RenderMeshInstanceSharedFlatBlob {
 #[derive(Clone, Copy, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct RenderMeshInstanceGpuFlat {
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
 }
 
 impl_atomic_pod!(
     RenderMeshInstanceGpuFlat,
     RenderMeshInstanceGpuFlatBlob,
-    field(world_space_center: Vec3, world_space_center, set_world_space_center),
     field(current_uniform_index: u32, current_uniform_index, set_current_uniform_index),
 );
 
@@ -1103,7 +1095,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1113,7 +1104,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             no_cpu_culling,
-            aabb,
         )
     }
 
@@ -1125,7 +1115,6 @@ impl RenderMeshInstanceSharedFlat {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1135,7 +1124,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             false,
-            aabb,
         )
     }
 
@@ -1147,7 +1135,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -1164,13 +1151,10 @@ impl RenderMeshInstanceSharedFlat {
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
             material_bindings_index,
-            model_space_center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
             tag: tag.map_or(0, |i| **i),
             flags: mesh_instance_flags,
             // Filled in later.
             lightmap_slab_index: LightmapSlabIndexFlat::default(),
-            // Filled in later.
-            world_space_center: Vec3::ZERO,
             // Filled in later.
             current_uniform_index: 0,
         }
@@ -1252,20 +1236,12 @@ impl RenderMeshInstancesCpu {
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
-        self.get(&entity).map(|render_mesh_instance| {
-            let world_from_local = &render_mesh_instance.transforms.world_from_local;
-            let center = world_from_local
-                .matrix3
-                .mul_vec3(render_mesh_instance.shared.model_space_center())
-                + world_from_local.translation;
-
-            RenderMeshQueueData {
+        self.get(&entity)
+            .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center,
                 current_uniform_index: InputUniformIndex::default(),
-            }
-        })
+            })
     }
 
     /// Inserts the given flags into the render mesh instance data for the given
@@ -1288,7 +1264,6 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center: render_mesh_instance.gpu_specific.world_space_center(),
                 current_uniform_index: InputUniformIndex(
                     render_mesh_instance.gpu_specific.current_uniform_index(),
                 ),
@@ -1526,16 +1501,9 @@ impl RenderMeshInstanceGpuBuilder {
             morph_descriptor_index,
         };
 
-        let world_from_local = &self.world_from_local;
-        let center = world_from_local
-            .matrix3
-            .mul_vec3(self.shared.model_space_center)
-            + world_from_local.translation;
-
         Some(RenderMeshInstanceGpuPrepared {
             shared: self.shared,
             mesh_input_uniform,
-            center,
             render_layers: self.render_layers,
         })
     }
@@ -1547,8 +1515,6 @@ pub struct RenderMeshInstanceGpuPrepared {
     shared: RenderMeshInstanceSharedFlat,
     /// The data that will be uploaded to the GPU as a [`MeshInputUniform`].
     mesh_input_uniform: MeshInputUniform,
-    /// The world-space center of the mesh instance, used for culling and sorting.
-    center: Vec3,
     /// The render layers that this mesh instance belongs to.
     render_layers: Option<RenderLayers>,
 }
@@ -1590,9 +1556,6 @@ impl RenderMeshInstanceGpuPrepared {
                 self.shared.write_to_blob(&existing_instance.shared);
                 existing_instance
                     .gpu_specific
-                    .set_world_space_center(self.center);
-                existing_instance
-                    .gpu_specific
                     .set_current_uniform_index(current_uniform_index);
                 existing_instance.render_layers = self.render_layers.clone();
             }
@@ -1608,7 +1571,6 @@ impl RenderMeshInstanceGpuPrepared {
                 });
                 self.shared.write_to_blob(&new_instance.shared);
                 RenderMeshInstanceGpuFlat {
-                    world_space_center: self.center,
                     current_uniform_index,
                 }
                 .write_to_blob(&new_instance.gpu_specific);
@@ -1688,11 +1650,6 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceSharedFlatBlob,
     /// The render layers that this mesh instance belongs to.
     pub render_layers: Option<RenderLayers>,
-    /// The representative position of the mesh instance in world-space.
-    ///
-    /// This world-space center is used as a spatial proxy for view-dependent
-    /// operations such as distance computation and render-order sorting.
-    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
     /// instance.
     pub current_uniform_index: InputUniformIndex,
@@ -1813,7 +1770,6 @@ pub fn extract_meshes_for_cpu_building(
             Has<NoAutomaticBatching>,
             Option<&VisibilityRange>,
             Option<&RenderLayers>,
-            Option<&Aabb>,
         )>,
     >,
 ) {
@@ -1834,7 +1790,6 @@ pub fn extract_meshes_for_cpu_building(
             no_automatic_batching,
             visibility_range,
             render_layers,
-            aabb,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1868,19 +1823,19 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
-                aabb,
             );
 
             let world_from_local = transform.affine();
+            let previous_world_from_local = previous_transform
+                .map(|previous_transform| previous_transform.0)
+                .unwrap_or(world_from_local);
+
             queue.push((
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
                         world_from_local: world_from_local.into(),
-                        previous_world_from_local: (previous_transform
-                            .map(|t| t.0)
-                            .unwrap_or(world_from_local))
-                        .into(),
+                        previous_world_from_local: previous_world_from_local.into(),
                         flags: mesh_flags.bits(),
                     },
                     shared: (&shared).into(),
@@ -2176,7 +2131,6 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         no_cpu_culling,
-        aabb,
     );
 
     // Calculate the lightmap UV rect, if applicable.
@@ -2624,9 +2578,6 @@ pub fn collect_meshes_for_gpu_building(
                                 // only fields that changed are POD fields.
 
                                 prepared.shared.write_to_blob(&render_mesh_instance.shared);
-                                render_mesh_instance
-                                    .gpu_specific
-                                    .set_world_space_center(prepared.center);
 
                                 let current_uniform_index =
                                     render_mesh_instance.gpu_specific.current_uniform_index();

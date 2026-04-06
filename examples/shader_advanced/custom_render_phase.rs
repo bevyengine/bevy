@@ -15,7 +15,7 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
-use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::pbr::{self, MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -60,6 +60,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
+use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
@@ -532,6 +533,9 @@ fn queue_custom_meshes(
     custom_draw_pipeline: Res<StencilPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
@@ -613,7 +617,18 @@ fn queue_custom_meshes(
             // phase
             custom_phase.add(Stencil3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
-                    mesh_center: mesh_instance.center,
+                    mesh_center: pbr::get_mesh_instance_world_from_local(
+                        *visible_entity,
+                        mesh_instance.current_uniform_index,
+                        &render_mesh_instances,
+                        maybe_batched_instance_buffers.as_deref(),
+                    )
+                    .transform_point3(
+                        render_meshes
+                            .get(mesh_instance.mesh_asset_id())
+                            .unwrap()
+                            .aabb_center,
+                    ),
                     depth_bias: 0.0,
                 },
                 distance: FloatOrd(0.0),

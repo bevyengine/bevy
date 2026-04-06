@@ -29,6 +29,7 @@ use bevy_material::{
     labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel},
     MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
+use bevy_math::{Affine3, Affine3Ext as _};
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
 };
@@ -37,6 +38,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
@@ -1110,8 +1112,12 @@ pub fn queue_material_meshes(
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
+    mesh_assets: Res<RenderAssets<RenderMesh>>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -1223,7 +1229,18 @@ pub fn queue_material_meshes(
                     };
                     transmissive_phase.add(Transmissive3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
-                            mesh_center: mesh_instance.center,
+                            mesh_center: get_mesh_instance_world_from_local(
+                                *visible_entity,
+                                mesh_instance.current_uniform_index,
+                                &render_mesh_instances,
+                                maybe_batched_instance_buffers.as_deref(),
+                            )
+                            .transform_point3(
+                                mesh_assets
+                                    .get(mesh_instance.mesh_asset_id())
+                                    .unwrap()
+                                    .aabb_center,
+                            ),
                             depth_bias: material.properties.depth_bias,
                         },
                         entity: (Entity::PLACEHOLDER, *visible_entity),
@@ -1312,7 +1329,18 @@ pub fn queue_material_meshes(
                     };
                     transparent_phase.add(Transparent3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
-                            mesh_center: mesh_instance.center,
+                            mesh_center: get_mesh_instance_world_from_local(
+                                *visible_entity,
+                                mesh_instance.current_uniform_index,
+                                &render_mesh_instances,
+                                maybe_batched_instance_buffers.as_deref(),
+                            )
+                            .transform_point3(
+                                mesh_assets
+                                    .get(mesh_instance.mesh_asset_id())
+                                    .unwrap()
+                                    .aabb_center,
+                            ),
                             depth_bias: material.properties.depth_bias,
                         },
                         entity: (Entity::PLACEHOLDER, *visible_entity),
@@ -1778,5 +1806,39 @@ pub fn write_material_bind_group_buffers(
 ) {
     for (_, allocator) in allocators.iter_mut() {
         allocator.write_buffers(&render_device, &render_queue);
+    }
+}
+
+/// Returns the world-from-local transform for the given mesh instance.
+pub fn get_mesh_instance_world_from_local(
+    entity: MainEntity,
+    current_uniform_index: InputUniformIndex,
+    render_mesh_instances: &RenderMeshInstances,
+    maybe_batched_instance_buffers: Option<&BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+) -> Affine3 {
+    // The way we fetch the world-from-local transform depends on whether we're
+    // doing CPU or GPU preprocessing. If we're doing CPU preprocessing, we have
+    // the world-from-local transform handy in `RenderMeshInstancesCpu`.
+    // Otherwise, if we're doing GPU preprocessing, we need to pull the
+    // transform out of the `MeshInputUniform` GPU buffer.
+    match *render_mesh_instances {
+        RenderMeshInstances::CpuBuilding(ref render_mesh_instances_cpu) => {
+            let Some(render_mesh_instance) = render_mesh_instances_cpu.get(&entity) else {
+                return Affine3::IDENTITY;
+            };
+            render_mesh_instance.transforms.world_from_local
+        }
+        RenderMeshInstances::GpuBuilding(_) => {
+            let Some(batched_instance_buffers) = maybe_batched_instance_buffers else {
+                return Affine3::IDENTITY;
+            };
+            let Some(mesh_input_uniform) = batched_instance_buffers
+                .current_input_buffer
+                .get(current_uniform_index.0)
+            else {
+                return Affine3::IDENTITY;
+            };
+            Affine3::from_transpose(mesh_input_uniform.world_from_local)
+        }
     }
 }
