@@ -694,17 +694,7 @@ pub mod tests {
         fn c0() {}
         fn c1() {}
 
-        app.add_systems(
-            Update,
-            (
-                (
-                    (a0, a1),
-                    (b0, b1),
-                )
-                    .chain(),
-                (c0, c1).chain(),
-            ),
-        );
+        app.add_systems(Update, (((a0, a1), (b0, b1)).chain(), (c0, c1).chain()));
 
         let data = app_data_from_app(&mut app).unwrap();
         assert_eq!(data.schedules.len(), 1);
