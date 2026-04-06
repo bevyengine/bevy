@@ -313,8 +313,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => {
                 changed_image_handles.contains(&image_target.handle.id())
             }
-            NormalizedRenderTarget::TextureView(_) => true,
-            NormalizedRenderTarget::None { .. } => false,
+            NormalizedRenderTarget::TextureView(_) | NormalizedRenderTarget::None { .. } => true,
         }
     }
 }
