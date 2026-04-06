@@ -120,7 +120,7 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
             "Z/X: decrease/increase sensitivity\n",
             "C/V: decrease/increase friction\n",
             "F/G: decrease/increase scroll factor\n",
-            "B: enable/disable controllers",
+            "B: enable/disable controller",
         ]),],
     ));
 
