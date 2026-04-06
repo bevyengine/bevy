@@ -32,6 +32,7 @@ fn iter_frag_empty(c: &mut Criterion) {
                 res += e.to_bits();
                 black_box(t);
             });
+            black_box(res);
         });
     });
     group.bench_function("foreach_sparse", |b| {
@@ -46,6 +47,7 @@ fn iter_frag_empty(c: &mut Criterion) {
                 res += e.to_bits();
                 black_box(t);
             });
+            black_box(res);
         });
     });
     group.finish();
