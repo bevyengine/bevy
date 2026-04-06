@@ -34,7 +34,7 @@
 //!
 //! ```
 //! # use bevy_app::App;
-//! # use bevy_scene2::{prelude::*, ScenePlugin};
+//! # use bevy_scene::{prelude::*, ScenePlugin};
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::AssetPlugin;
 //! # use bevy_app::TaskPoolPlugin;
@@ -234,7 +234,7 @@
 //!
 //! ```
 //! # use bevy_app::App;
-//! # use bevy_scene2::{prelude::*, ScenePlugin};
+//! # use bevy_scene::{prelude::*, ScenePlugin};
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::AssetPlugin;
 //! # use bevy_app::TaskPoolPlugin;
@@ -522,7 +522,7 @@ mod scene_list;
 mod scene_patch;
 mod spawn;
 
-pub use bevy_scene2_macros::*;
+pub use bevy_scene_macros::*;
 pub use resolved_scene::*;
 pub use scene::*;
 pub use scene_list::*;
@@ -546,8 +546,8 @@ impl Plugin for ScenePlugin {
                 SpawnScene,
                 (resolve_scene_patches, spawn_queued)
                     .chain()
-                    .in_set(SceneSpawnerSystems::Scene2Spawn)
-                    .after(SceneSpawnerSystems::SceneSpawn),
+                    .in_set(SceneSpawnerSystems::SceneSpawn)
+                    .after(SceneSpawnerSystems::WorldInstanceSpawn),
             )
             .add_observer(on_add_scene_patch_instance);
     }
@@ -556,7 +556,7 @@ impl Plugin for ScenePlugin {
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
-    use crate::{self as bevy_scene2, ScenePlugin};
+    use crate::{self as bevy_scene, ScenePlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle};
     use bevy_ecs::prelude::*;

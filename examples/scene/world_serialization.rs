@@ -1,21 +1,21 @@
-//! This example demonstrates how to load scene data from files and then dynamically
+//! This example demonstrates how to load world data from files and then dynamically
 //! apply that data to entities in your Bevy `World`. This includes spawning new
-//! entities and applying updates to existing ones. Scenes in Bevy encapsulate
-//! serialized and deserialized `Components` or `Resources` so that you can easily
+//! entities and applying updates to existing ones. World serialization in Bevy
+//! serializes and deserializes `Components` and `Resources` so that you can easily
 //! store, load, and manipulate data outside of a purely code-driven context.
 //!
 //! This example also shows how to do the following:
 //! * Register your custom types for reflection, which allows them to be serialized,
 //!   deserialized, and manipulated dynamically.
-//! * Skip serialization of fields you don't want stored in your scene files (like
+//! * Skip serialization of fields you don't want stored in your world files (like
 //!   runtime values that should always be computed dynamically).
-//! * Save a new scene to disk to show how it can be updated compared to the original
-//!   scene file (and how that updated scene file might then be used later on).
+//! * Save a new world to disk to show how it can be updated compared to the original
+//!   world file (and how that updated world file might then be used later on).
 //!
 //! The example proceeds by creating components and resources, registering their types,
-//! loading a scene from a file, logging when changes are detected, and finally saving
-//! a new scene file to disk. This is useful for anyone wanting to see how to integrate
-//! file-based scene workflows into their Bevy projects.
+//! loading a world from a file, logging when changes are detected, and finally saving
+//! a new world file to disk. This is useful for anyone wanting to see how to integrate
+//! file-based ECS workflows into their Bevy projects.
 //!
 //! # Note on working with files
 //!
@@ -38,7 +38,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(
             Startup,
-            (save_scene_system, load_scene_system, infotext_system),
+            (save_world_system, load_world_system, infotext_system),
         )
         .add_systems(Update, (log_system, panic_on_fail))
         .run();
@@ -56,7 +56,7 @@ fn main() {
 /// A sample component that is fully serializable.
 ///
 /// This component has public `x` and `y` fields that will be included in
-/// the scene files. Notice how it derives `Default`, `Reflect`, and declares
+/// the world files. Notice how it derives `Default`, `Reflect`, and declares
 /// itself as a reflected component with `#[reflect(Component)]`.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
@@ -70,13 +70,13 @@ struct ComponentA {
 /// A sample component that includes both serializable and non-serializable fields.
 ///
 /// This is useful for skipping serialization of runtime data or fields you
-/// don't want written to scene files.
+/// don't want written to world files.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     /// A string field that will be serialized.
     pub value: String,
-    /// A `Duration` field that should never be serialized to the scene file, so we skip it.
+    /// A `Duration` field that should never be serialized to the world file, so we skip it.
     #[reflect(skip_serializing)]
     pub _time_since_startup: Duration,
 }
@@ -94,7 +94,7 @@ impl FromWorld for ComponentB {
     }
 }
 
-/// A simple resource that also derives `Reflect`, allowing it to be stored in scenes.
+/// A simple resource that also derives `Reflect`, allowing it to be stored in world files.
 ///
 /// Just like a component, you can skip serializing fields or implement `FromWorld` if needed.
 #[derive(Resource, Reflect, Default)]
@@ -104,26 +104,26 @@ struct ResourceA {
     pub score: u32,
 }
 
-/// # Scene File Paths
+/// # World File Paths
 ///
-/// `SCENE_FILE_PATH` points to the original scene file that we'll be loading.
-/// `NEW_SCENE_FILE_PATH` points to the new scene file that we'll be creating
+/// `WORLD_FILE_PATH` points to the original world file that we'll be loading.
+/// `NEW_WORLD_FILE_PATH` points to the new world file that we'll be creating
 /// (and demonstrating how to serialize to disk).
 ///
-/// The initial scene file will be loaded below and not change when the scene is saved.
-const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+/// The initial world file will be loaded below and not change when the world is saved.
+const WORLD_FILE_PATH: &str = "serialized_worlds/load_scene_example.scn.ron";
 
-/// The new, updated scene data will be saved here so that you can see the changes.
-const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
+/// The new, updated world data will be saved here so that you can see the changes.
+const NEW_WORLD_FILE_PATH: &str = "serialized_worlds/load_scene_example-new.scn.ron";
 
-/// Loads a scene from an asset file and spawns it in the current world.
+/// Loads a world from an asset file and spawns it in the current world.
 ///
-/// Spawning a `DynamicSceneRoot` creates a new parent entity, which then spawns new
-/// instances of the scene's entities as its children. If you modify the
-/// `SCENE_FILE_PATH` scene file, or if you enable file watching, you can see
+/// Spawning a `DynamicWorldRoot` creates a new parent entity, which then spawns new
+/// instances of the world's entities as its children. If you modify the
+/// `WORLD_FILE_PATH` file, or if you enable file watching, you can see
 /// changes reflected immediately.
-fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(DynamicSceneRoot(asset_server.load(SCENE_FILE_PATH)));
+fn load_world_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(DynamicWorldRoot(asset_server.load(WORLD_FILE_PATH)));
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.25, 0.0), Vec3::Y),
@@ -138,7 +138,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// has been recently added.
 ///
 /// Any time a `ComponentA` is modified, that change will appear here. This system
-/// demonstrates how you might detect and handle scene updates at runtime.
+/// demonstrates how you might detect and handle world updates at runtime.
 fn log_system(
     query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
     res: Option<Res<ResourceA>>,
@@ -157,21 +157,20 @@ fn log_system(
     }
 }
 
-/// Demonstrates how to create a new scene from scratch, populate it with data,
-/// and then serialize it to a file. The new file is written to `NEW_SCENE_FILE_PATH`.
+/// Demonstrates how to create a new world from scratch, populate it with data,
+/// and then serialize it to a file. The new file is written to `NEW_WORLD_FILE_PATH`.
 ///
 /// This system creates a fresh world, duplicates the type registry so that our
 /// custom component types are recognized, spawns some sample entities and resources,
-/// and then serializes the resulting dynamic scene.
-fn save_scene_system(world: &mut World) {
+/// and then serializes the resulting dynamic world.
+fn save_world_system(world: &mut World) {
     let asset_server = world.resource::<AssetServer>().clone();
     // The `TypeRegistry` resource contains information about all registered types (including components).
-    // This is used to construct scenes, so we'll want to ensure that we use the registry from the
+    // This is used to construct worlds, so we'll want to ensure that we use the registry from the
     // main world. To do this, we can simply clone the `AppTypeRegistry` resource.
     let type_registry = world.resource::<AppTypeRegistry>().clone();
 
-    // Scenes can be created from any ECS World.
-    // You can either create a new one for the scene or use the current World.
+    // Any ECS World can be serialized.
     // For demonstration purposes, we'll create a new one.
     let mut scene_world = World::new();
 
@@ -182,40 +181,41 @@ fn save_scene_system(world: &mut World) {
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
         Name::new("joe"),
-        SceneRoot(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0")),
+        WorldAssetRoot(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0")),
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
-    // For simplicity, we will create our scene using DynamicScene:
-    let scene = DynamicScene::from_world_with(&scene_world, &type_registry.read());
+    // With our sample world ready to go, we can now create a DynamicWorld from it.
+    // For simplicity, we will create our scene using DynamicWorld directly, but if
+    // you need more control, you can use DynamicWorldBuilder.
+    let dynamic_world = DynamicWorld::from_world_with(&scene_world, &type_registry.read());
 
-    // Scenes can be serialized like this:
+    // Dynamic Worlds can be serialized like this:
     let type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = type_registry.read();
-    let serialized_scene = scene.serialize(&type_registry).unwrap();
+    let serialized_world = dynamic_world.serialize(&type_registry).unwrap();
 
-    // Showing the scene in the console
-    info!("{}", serialized_scene);
+    // Shows the serialized world in the console
+    info!("{}", serialized_world);
 
-    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
+    // Writing the world to a new file. Using a task to avoid calling the filesystem APIs in a system
     // as they are blocking.
     //
     // This can't work in Wasm as there is no filesystem access.
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
         .spawn(async move {
-            // Write the scene RON data to file
-            File::create(format!("assets/{NEW_SCENE_FILE_PATH}"))
-                .and_then(|mut file| file.write(serialized_scene.as_bytes()))
-                .expect("Error while writing scene to file");
+            // Write the world RON data to file
+            File::create(format!("assets/{NEW_WORLD_FILE_PATH}"))
+                .and_then(|mut file| file.write(serialized_world.as_bytes()))
+                .expect("Error while writing world to file");
         })
         .detach();
 }
 
 /// Spawns a simple 2D camera and some text indicating that the user should
-/// check the console output for scene loading/saving messages.
+/// check the console output for world loading/saving messages.
 ///
 /// This system is only necessary for the info message in the UI.
 fn infotext_system(mut commands: Commands) {
@@ -233,11 +233,11 @@ fn infotext_system(mut commands: Commands) {
 }
 
 /// To help with Bevy's automated testing, we want the example to close with an appropriate if the
-/// scene fails to load. This is most likely not something you want in your own app.
-fn panic_on_fail(scenes: Query<&DynamicSceneRoot>, asset_server: Res<AssetServer>) {
-    for scene in &scenes {
-        if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&scene.0) {
-            panic!("Failed to load scene. {err}");
+/// world asset fails to load. This is most likely not something you want in your own app.
+fn panic_on_fail(world_roots: Query<&DynamicWorldRoot>, asset_server: Res<AssetServer>) {
+    for world_root in &world_roots {
+        if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&world_root.0) {
+            panic!("Failed to load world. {err}");
         }
     }
 }

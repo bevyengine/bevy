@@ -1,17 +1,17 @@
 use bevy_platform::collections::{hash_set::IntoIter, HashSet};
 use core::any::{Any, TypeId};
 
-/// A filter used to control which types can be added to a [`DynamicScene`].
+/// A filter used to control which types can be added to a [`DynamicWorld`].
 ///
-/// This scene filter _can_ be used more generically to represent a filter for any given type;
-/// however, note that its intended usage with `DynamicScene` only considers [components] and [resources].
-/// Adding types that are not a component or resource will have no effect when used with `DynamicScene`.
+/// This world filter _can_ be used more generically to represent a filter for any given type;
+/// however, note that its intended usage with `DynamicWorld` only considers [components] and [resources].
+/// Adding types that are not a component or resource will have no effect when used with `DynamicWorld`.
 ///
-/// [`DynamicScene`]: crate::DynamicScene
+/// [`DynamicWorld`]: crate::DynamicWorld
 /// [components]: bevy_ecs::prelude::Component
 /// [resources]: bevy_ecs::prelude::Resource
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub enum SceneFilter {
+pub enum WorldFilter {
     /// Represents an unset filter.
     ///
     /// This is the equivalent of an empty [`Denylist`] or an [`Allowlist`] containing every type—
@@ -20,32 +20,32 @@ pub enum SceneFilter {
     /// [Allowing] a type will convert this filter to an `Allowlist`.
     /// Similarly, [denying] a type will convert this filter to a `Denylist`.
     ///
-    /// [`Denylist`]: SceneFilter::Denylist
-    /// [`Allowlist`]: SceneFilter::Allowlist
-    /// [Allowing]: SceneFilter::allow
-    /// [denying]: SceneFilter::deny
+    /// [`Denylist`]: WorldFilter::Denylist
+    /// [`Allowlist`]: WorldFilter::Allowlist
+    /// [Allowing]: WorldFilter::allow
+    /// [denying]: WorldFilter::deny
     #[default]
     Unset,
     /// Contains the set of permitted types by their [`TypeId`].
     ///
-    /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicWorld`].
     ///
-    /// [`DynamicScene`]: crate::DynamicScene
+    /// [`DynamicWorld`]: crate::DynamicWorld
     Allowlist(HashSet<TypeId>),
     /// Contains the set of prohibited types by their [`TypeId`].
     ///
-    /// Types contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    /// Types contained within this set should not be allowed to be saved to an associated [`DynamicWorld`].
     ///
-    /// [`DynamicScene`]: crate::DynamicScene
+    /// [`DynamicWorld`]: crate::DynamicWorld
     Denylist(HashSet<TypeId>),
 }
 
-impl SceneFilter {
+impl WorldFilter {
     /// Creates a filter where all types are allowed.
     ///
     /// This is the equivalent of creating an empty [`Denylist`].
     ///
-    /// [`Denylist`]: SceneFilter::Denylist
+    /// [`Denylist`]: WorldFilter::Denylist
     pub fn allow_all() -> Self {
         Self::Denylist(HashSet::default())
     }
@@ -54,7 +54,7 @@ impl SceneFilter {
     ///
     /// This is the equivalent of creating an empty [`Allowlist`].
     ///
-    /// [`Allowlist`]: SceneFilter::Allowlist
+    /// [`Allowlist`]: WorldFilter::Allowlist
     pub fn deny_all() -> Self {
         Self::Allowlist(HashSet::default())
     }
@@ -66,9 +66,9 @@ impl SceneFilter {
     ///
     /// If this filter is [`Unset`], then it will be completely replaced by a new [`Allowlist`].
     ///
-    /// [`Denylist`]: SceneFilter::Denylist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Allowlist`]: SceneFilter::Allowlist
+    /// [`Denylist`]: WorldFilter::Denylist
+    /// [`Unset`]: WorldFilter::Unset
+    /// [`Allowlist`]: WorldFilter::Allowlist
     #[must_use]
     pub fn allow<T: Any>(self) -> Self {
         self.allow_by_id(TypeId::of::<T>())
@@ -81,9 +81,9 @@ impl SceneFilter {
     ///
     /// If this filter is [`Unset`], then it will be completely replaced by a new [`Allowlist`].
     ///
-    /// [`Denylist`]: SceneFilter::Denylist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Allowlist`]: SceneFilter::Allowlist
+    /// [`Denylist`]: WorldFilter::Denylist
+    /// [`Unset`]: WorldFilter::Unset
+    /// [`Allowlist`]: WorldFilter::Allowlist
     #[must_use]
     pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
@@ -107,9 +107,9 @@ impl SceneFilter {
     ///
     /// If this filter is [`Unset`], then it will be completely replaced by a new [`Denylist`].
     ///
-    /// [`Allowlist`]: SceneFilter::Allowlist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Denylist`]: SceneFilter::Denylist
+    /// [`Allowlist`]: WorldFilter::Allowlist
+    /// [`Unset`]: WorldFilter::Unset
+    /// [`Denylist`]: WorldFilter::Denylist
     #[must_use]
     pub fn deny<T: Any>(self) -> Self {
         self.deny_by_id(TypeId::of::<T>())
@@ -122,9 +122,9 @@ impl SceneFilter {
     ///
     /// If this filter is [`Unset`], then it will be completely replaced by a new [`Denylist`].
     ///
-    /// [`Allowlist`]: SceneFilter::Allowlist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Denylist`]: SceneFilter::Denylist
+    /// [`Allowlist`]: WorldFilter::Allowlist
+    /// [`Unset`]: WorldFilter::Unset
+    /// [`Denylist`]: WorldFilter::Denylist
     #[must_use]
     pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
@@ -143,7 +143,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return `true`.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn is_allowed<T: Any>(&self) -> bool {
         self.is_allowed_by_id(TypeId::of::<T>())
     }
@@ -152,7 +152,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return `true`.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
         match self {
             Self::Unset => true,
@@ -165,7 +165,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return `false`.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn is_denied<T: Any>(&self) -> bool {
         self.is_denied_by_id(TypeId::of::<T>())
     }
@@ -174,7 +174,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return `false`.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn is_denied_by_id(&self, type_id: TypeId) -> bool {
         !self.is_allowed_by_id(type_id)
     }
@@ -183,7 +183,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will return an empty iterator.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &TypeId> + '_> {
         match self {
             Self::Unset => Box::new(core::iter::empty()),
@@ -195,7 +195,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return a length of zero.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn len(&self) -> usize {
         match self {
             Self::Unset => 0,
@@ -207,7 +207,7 @@ impl SceneFilter {
     ///
     /// If the filter is [`Unset`], this will always return `true`.
     ///
-    /// [`Unset`]: SceneFilter::Unset
+    /// [`Unset`]: WorldFilter::Unset
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Unset => true,
@@ -216,7 +216,7 @@ impl SceneFilter {
     }
 }
 
-impl IntoIterator for SceneFilter {
+impl IntoIterator for WorldFilter {
     type Item = TypeId;
     type IntoIter = IntoIter<TypeId>;
 
@@ -234,21 +234,21 @@ mod tests {
 
     #[test]
     fn should_set_list_type_if_none() {
-        let filter = SceneFilter::Unset.allow::<i32>();
-        assert!(matches!(filter, SceneFilter::Allowlist(_)));
+        let filter = WorldFilter::Unset.allow::<i32>();
+        assert!(matches!(filter, WorldFilter::Allowlist(_)));
 
-        let filter = SceneFilter::Unset.deny::<i32>();
-        assert!(matches!(filter, SceneFilter::Denylist(_)));
+        let filter = WorldFilter::Unset.deny::<i32>();
+        assert!(matches!(filter, WorldFilter::Denylist(_)));
     }
 
     #[test]
     fn should_add_to_list() {
-        let filter = SceneFilter::default().allow::<i16>().allow::<i32>();
+        let filter = WorldFilter::default().allow::<i16>().allow::<i32>();
         assert_eq!(2, filter.len());
         assert!(filter.is_allowed::<i16>());
         assert!(filter.is_allowed::<i32>());
 
-        let filter = SceneFilter::default().deny::<i16>().deny::<i32>();
+        let filter = WorldFilter::default().deny::<i16>().deny::<i32>();
         assert_eq!(2, filter.len());
         assert!(filter.is_denied::<i16>());
         assert!(filter.is_denied::<i32>());
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn should_remove_from_list() {
-        let filter = SceneFilter::default()
+        let filter = WorldFilter::default()
             .allow::<i16>()
             .allow::<i32>()
             .deny::<i32>();
@@ -264,7 +264,7 @@ mod tests {
         assert!(filter.is_allowed::<i16>());
         assert!(!filter.is_allowed::<i32>());
 
-        let filter = SceneFilter::default()
+        let filter = WorldFilter::default()
             .deny::<i16>()
             .deny::<i32>()
             .allow::<i32>();

@@ -11,11 +11,11 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
-    scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
+    world_serialization::WorldInstanceReady,
 };
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
@@ -84,7 +84,7 @@ fn setup_pica_pica(
 ) {
     commands
         .spawn((
-            SceneRoot(
+            WorldAssetRoot(
                 asset_server.load(
                     GltfAssetLabel::Scene(0)
                         .from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/mini_diorama_01.glb")
@@ -96,7 +96,7 @@ fn setup_pica_pica(
 
     commands
         .spawn((
-            SceneRoot(asset_server.load(
+            WorldAssetRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/robot_01.glb")
             )),
             Transform::from_scale(Vec3::splat(2.0))
@@ -370,7 +370,7 @@ fn setup_many_lights(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<(
         &Mesh3d,

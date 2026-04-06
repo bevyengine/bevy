@@ -16,8 +16,9 @@ use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -339,6 +340,8 @@ impl<A: Asset> AssetContainer for A {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
     #[error("Failed to load dependency {dependency:?} {error}")]
@@ -566,6 +569,11 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Err(ReadAssetBytesError::EmptyPath(path.into_owned()));
+        }
+
         let source = self.asset_server.get_source(path.source())?;
         let asset_reader = match self.asset_server.mode() {
             AssetServerMode::Unprocessed => source.reader(),
@@ -679,6 +687,8 @@ impl<'a> LoadContext<'a> {
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
 #[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error(transparent)]
     DeserializeMetaError(#[from] DeserializeMetaError),
     #[error(transparent)]

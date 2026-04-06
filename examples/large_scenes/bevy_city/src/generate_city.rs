@@ -88,7 +88,7 @@ fn spawn_roads_and_cars<R: RngExt>(
     let z = offset.z;
 
     commands.spawn((
-        SceneRoot(assets.crossroad.clone()),
+        WorldAssetRoot(assets.crossroad.clone()),
         Transform::from_xyz(x, 0.0, z),
     ));
 
@@ -112,7 +112,7 @@ fn spawn_roads_and_cars<R: RngExt>(
         ))
         .with_children(|commands| {
             commands.spawn((
-                SceneRoot(assets.road_straight.clone()),
+                WorldAssetRoot(assets.road_straight.clone()),
                 Transform::from_translation(Vec3::new(2.75, 0.0, 0.0))
                     .with_scale(Vec3::new(4.5, 1.0, 1.0)),
             ));
@@ -122,7 +122,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        SceneRoot(assets.get_random_car(rng)),
+                        WorldAssetRoot(assets.get_random_car(rng)),
                         Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, -0.15))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(
@@ -139,7 +139,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        SceneRoot(assets.get_random_car(rng)),
+                        WorldAssetRoot(assets.get_random_car(rng)),
                         Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, 0.15))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(
@@ -169,7 +169,7 @@ fn spawn_roads_and_cars<R: RngExt>(
         ))
         .with_children(|commands| {
             commands.spawn((
-                SceneRoot(assets.road_straight.clone()),
+                WorldAssetRoot(assets.road_straight.clone()),
                 Transform::from_translation(Vec3::new(0.0, 0.0, 2.0))
                     .with_scale(Vec3::new(3.0, 1.0, 1.0))
                     .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
@@ -180,7 +180,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        SceneRoot(assets.get_random_car(rng)),
+                        WorldAssetRoot(assets.get_random_car(rng)),
                         Transform::from_translation(car_pos + Vec3::new(0.15, 0.0, 0.0))
                             .with_scale(Vec3::splat(0.15)),
                         Car {
@@ -193,7 +193,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        SceneRoot(assets.get_random_car(rng)),
+                        WorldAssetRoot(assets.get_random_car(rng)),
                         Transform::from_translation(car_pos + Vec3::new(-0.15, 0.0, 0.0))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
@@ -228,18 +228,18 @@ fn spawn_low_density<R: RngExt>(
     }
     for i in 0..=6 {
         commands.spawn((
-            SceneRoot(assets.fence.clone()),
+            WorldAssetRoot(assets.fence.clone()),
             Transform::from_translation(Vec3::new(2.75, 0.0, 0.75 + i as f32 * 0.4) + offset)
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
         ));
     }
     for z in 0..=8 {
         commands.spawn((
-            SceneRoot(assets.tree_small.clone()),
+            WorldAssetRoot(assets.tree_small.clone()),
             Transform::from_translation(Vec3::new(0.75, 0.0, 0.75 + z as f32 * 0.3) + offset),
         ));
         commands.spawn((
-            SceneRoot(assets.tree_small.clone()),
+            WorldAssetRoot(assets.tree_small.clone()),
             Transform::from_translation(Vec3::new(4.75, 0.0, 0.75 + z as f32 * 0.3) + offset),
         ));
     }
@@ -264,13 +264,13 @@ fn spawn_medium_density<R: RngExt>(
                 break;
             }
             commands.spawn((
-                SceneRoot(assets.tree_large.clone()),
+                WorldAssetRoot(assets.tree_large.clone()),
                 Transform::from_translation(
                     Vec3::new(tree_x + x as f32 * x_factor, 0.0, 1.75) + offset,
                 ),
             ));
             commands.spawn((
-                SceneRoot(assets.tree_large.clone()),
+                WorldAssetRoot(assets.tree_large.clone()),
                 Transform::from_translation(
                     Vec3::new(tree_x + x as f32 * x_factor, 0.0, 2.25) + offset,
                 ),
@@ -286,17 +286,17 @@ fn spawn_medium_density<R: RngExt>(
 
     for x in 0..=10 {
         commands.spawn((
-            SceneRoot(assets.path_stones_long.clone()),
+            WorldAssetRoot(assets.path_stones_long.clone()),
             Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 2.0) + offset)
                 .with_scale(Vec3::new(1.0, 2.0, 1.0))
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
         ));
         commands.spawn((
-            SceneRoot(assets.fence.clone()),
+            WorldAssetRoot(assets.fence.clone()),
             Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 1.85) + offset),
         ));
         commands.spawn((
-            SceneRoot(assets.fence.clone()),
+            WorldAssetRoot(assets.fence.clone()),
             Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 2.15) + offset),
         ));
     }
@@ -339,10 +339,10 @@ fn spawn_forest<R: RngExt>(
             match rng.random_range(0..3) {
                 0 => {}
                 1 => {
-                    commands.spawn((SceneRoot(assets.tree_small.clone()), transform));
+                    commands.spawn((WorldAssetRoot(assets.tree_small.clone()), transform));
                 }
                 2 => {
-                    commands.spawn((SceneRoot(assets.tree_large.clone()), transform));
+                    commands.spawn((WorldAssetRoot(assets.tree_large.clone()), transform));
                 }
                 _ => {}
             }

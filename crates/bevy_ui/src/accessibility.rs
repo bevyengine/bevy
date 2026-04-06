@@ -3,7 +3,7 @@ use crate::{
     prelude::{Button, Label},
     ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
-    ComputedNode,
+    ComputedNode, UiSystems,
 };
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
@@ -153,7 +153,8 @@ impl Plugin for AccessibilityPlugin {
                     .after(bevy_transform::TransformSystems::Propagate)
                     .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
-                    .ambiguous_with(crate::ui_stack_system),
+                    .ambiguous_with(crate::ui_stack_system)
+                    .before(UiSystems::PostLayout),
                 button_changed,
                 image_changed,
                 label_changed,

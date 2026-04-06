@@ -1,4 +1,4 @@
-use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicWorldBuilder, WorldAsset, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
@@ -12,26 +12,26 @@ use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
-use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
+use {crate::serde::DynamicWorldSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
 
 /// A collection of serializable resources and dynamic entities.
 ///
 /// Each dynamic entity in the collection contains its own run-time defined set of components.
-/// To spawn a dynamic scene, you can use either:
-/// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
-/// * adding the [`DynamicSceneRoot`](crate::components::DynamicSceneRoot) component to an entity.
-/// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
+/// To spawn a dynamic world, you can use either:
+/// * [`WorldInstanceSpawner::spawn_dynamic`](crate::WorldInstanceSpawner::spawn_dynamic)
+/// * adding the [`DynamicWorldRoot`](crate::components::DynamicWorldRoot) component to an entity.
+/// * using the [`DynamicWorldBuilder`] to construct a `DynamicWorld` from `World`.
 #[derive(Asset, TypePath, Default)]
-pub struct DynamicScene {
-    /// Resources stored in the dynamic scene.
+pub struct DynamicWorld {
+    /// Resources stored in the dynamic world.
     pub resources: Vec<Box<dyn PartialReflect>>,
-    /// Entities contained in the dynamic scene.
+    /// Entities contained in the dynamic world.
     pub entities: Vec<DynamicEntity>,
 }
 
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
-    /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
+    /// The identifier of the entity, unique within a [`DynamicWorld`] (and the world it may have been generated from).
     ///
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
@@ -40,19 +40,19 @@ pub struct DynamicEntity {
     pub components: Vec<Box<dyn PartialReflect>>,
 }
 
-impl DynamicScene {
-    /// Create a new dynamic scene from a given scene.
+impl DynamicWorld {
+    /// Create a new dynamic world from a given world.
     ///
     /// The `type_registry` provides type information for extracting components and resources
     /// through reflection. You can get this registry from the **main** world, using
     /// `main_world.resource::<AppTypeRegistry>().read()` or `app_type_registry_res.read()`
-    /// (for `Res<AppTypeRegistry>`). Note: the scene world is unlikely to have a type registry
+    /// (for `Res<AppTypeRegistry>`). Note: the `world` is unlikely to have a type registry
     /// internally.
-    pub fn from_scene(scene: &Scene, type_registry: &TypeRegistry) -> Self {
-        Self::from_world_with(&scene.world, type_registry)
+    pub fn from_world_asset(world: &WorldAsset, type_registry: &TypeRegistry) -> Self {
+        Self::from_world_with(&world.world, type_registry)
     }
 
-    /// Create a new dynamic scene from a given world.
+    /// Create a new dynamic world from a given world.
     ///
     /// Panics if `world` does not contain [`AppTypeRegistry`]. Use [`Self::from_world_with`] to
     /// handle this case.
@@ -61,16 +61,16 @@ impl DynamicScene {
         Self::from_world_with(world, &type_registry)
     }
 
-    /// Create a new dynamic scene from a given world.
+    /// Create a new dynamic world from a given world.
     ///
     /// The `type_registry` provides type information for extracting components and resources
-    /// through reflection. If the `world` is the "real" world (e.g., not a world in a [`Scene`]),
+    /// through reflection. If the `world` is the "real" world (e.g., not a world in a [`WorldAsset`]),
     /// the `world` will contain the registry, which can be acquired using
     /// `world.resource::<AppTypeRegistry>().read()`. For extracting from "scene worlds", you
     /// will need to get the type registry from the main world (you can clone the `AppTypeRegistry`
     /// out of the world to avoid borrowing the world itself).
     pub fn from_world_with(world: &World, type_registry: &TypeRegistry) -> Self {
-        DynamicSceneBuilder::from_world(world, type_registry)
+        DynamicWorldBuilder::from_world(world, type_registry)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
                 // while we could use `Allow<_>`, this wouldn't account for custom disabled components
@@ -86,7 +86,7 @@ impl DynamicScene {
 
     /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
-    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// This method will return a [`WorldInstanceSpawnError`] if a type either is not registered
     /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
     /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource) trait.
     pub fn write_to_world_with(
@@ -94,39 +94,39 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity>,
         type_registry: &TypeRegistry,
-    ) -> Result<(), SceneSpawnError> {
-        // First ensure that every entity in the scene has a corresponding world
+    ) -> Result<(), WorldInstanceSpawnError> {
+        // First ensure that every entity in the dynamic world has a corresponding world
         // entity in the entity map.
-        for scene_entity in &self.entities {
+        for dynamic_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
             entity_map
-                .entry(scene_entity.entity)
+                .entry(dynamic_entity.entity)
                 .or_insert_with(|| world.spawn_empty().id());
         }
 
-        for scene_entity in &self.entities {
+        for dynamic_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`.
             let entity = *entity_map
-                .get(&scene_entity.entity)
+                .get(&dynamic_entity.entity)
                 .expect("should have previously spawned an empty entity");
 
             // Apply/ add each component to the given entity.
-            for component in &scene_entity.components {
+            for component in &dynamic_entity.components {
                 let type_info = component.get_represented_type_info().ok_or_else(|| {
-                    SceneSpawnError::NoRepresentedType {
+                    WorldInstanceSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
                     }
                 })?;
                 let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                    SceneSpawnError::UnregisteredButReflectedType {
+                    WorldInstanceSpawnError::UnregisteredButReflectedType {
                         type_path: type_info.type_path().to_string(),
                     }
                 })?;
                 let reflect_component =
                     registration.data::<ReflectComponent>().ok_or_else(|| {
-                        SceneSpawnError::UnregisteredComponent {
+                        WorldInstanceSpawnError::UnregisteredComponent {
                             type_path: type_info.type_path().to_string(),
                         }
                     })?;
@@ -161,17 +161,17 @@ impl DynamicScene {
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
             let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                SceneSpawnError::NoRepresentedType {
+                WorldInstanceSpawnError::NoRepresentedType {
                     type_path: resource.reflect_type_path().to_string(),
                 }
             })?;
             let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredButReflectedType {
+                WorldInstanceSpawnError::UnregisteredButReflectedType {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
             registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
+                WorldInstanceSpawnError::UnregisteredResource {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
@@ -205,29 +205,29 @@ impl DynamicScene {
 
     /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
-    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// This method will return a [`WorldInstanceSpawnError`] if a type either is not registered
     /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
     /// [`Component`](bevy_ecs::component::Component) trait.
     pub fn write_to_world(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity>,
-    ) -> Result<(), SceneSpawnError> {
+    ) -> Result<(), WorldInstanceSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry.read())
     }
 
     // TODO: move to AssetSaver when it is implemented
-    /// Serialize this dynamic scene into the official Bevy scene format (`.scn` / `.scn.ron`).
+    /// Serialize this dynamic world into the serialized Bevy world format (`.scn` / `.scn.ron`).
     ///
-    /// The Bevy scene format is based on [Rusty Object Notation (RON)]. It describes the scene
-    /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
+    /// The serialized Bevy world format is based on [Rusty Object Notation (RON)]. It describes the world
+    /// in a human-friendly format. To deserialize the format, use the [`WorldAssetLoader`].
     ///
-    /// [`SceneLoader`]: crate::SceneLoader
+    /// [`WorldAssetLoader`]: crate::WorldAssetLoader
     /// [Rusty Object Notation (RON)]: https://crates.io/crates/ron
     #[cfg(feature = "serialize")]
     pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
-        serialize_ron(SceneSerializer::new(self, registry))
+        serialize_ron(DynamicWorldSerializer::new(self, registry))
     }
 }
 
@@ -256,8 +256,8 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::dynamic_scene::DynamicScene;
-    use crate::dynamic_scene_builder::DynamicSceneBuilder;
+    use crate::dynamic_world::DynamicWorld;
+    use crate::dynamic_world_builder::DynamicWorldBuilder;
 
     #[derive(Resource, Reflect, MapEntities, Debug)]
     #[reflect(Resource, MapEntities)]
@@ -283,10 +283,10 @@ mod tests {
             entity_b: original_entity_b,
         });
 
-        // Write the scene.
-        let scene = {
+        // Write the dynamic world.
+        let dynamic_world = {
             let type_registry = app_type_registry.read();
-            DynamicSceneBuilder::from_world(&source_world, &type_registry)
+            DynamicWorldBuilder::from_world(&source_world, &type_registry)
                 .extract_resources()
                 .extract_entity(original_entity_a)
                 .extract_entity(original_entity_b)
@@ -297,7 +297,7 @@ mod tests {
         let mut destination_world = World::new();
         destination_world.insert_resource(app_type_registry);
 
-        scene
+        dynamic_world
             .write_to_world(&mut destination_world, &mut entity_map)
             .unwrap();
 
@@ -310,8 +310,8 @@ mod tests {
     }
 
     #[test]
-    fn components_not_defined_in_scene_should_not_be_affected_by_scene_entity_map() {
-        // Testing that scene reloading applies EntityMap correctly to MapEntities components.
+    fn components_not_defined_in_dynamic_world_should_not_be_affected_by_scene_entity_map() {
+        // Testing that dynamic world reloading applies EntityMap correctly to MapEntities components.
 
         // First, we create a simple world with a parent and a child relationship
         let mut world = World::new();
@@ -326,32 +326,36 @@ mod tests {
             .entity_mut(original_parent_entity)
             .add_child(original_child_entity);
 
-        // We then write this relationship to a new scene, and then write that scene back to the
+        // We then write this relationship to a new dynamic world, and then write that dynamic world back to the
         // world to create another parent and child relationship
-        let scene = {
+        let dynamic_world = {
             let type_registry = world.resource::<AppTypeRegistry>().read();
-            DynamicSceneBuilder::from_world(&world, &type_registry)
+            DynamicWorldBuilder::from_world(&world, &type_registry)
                 .extract_entity(original_parent_entity)
                 .extract_entity(original_child_entity)
                 .build()
         };
         let mut entity_map = EntityHashMap::default();
-        scene.write_to_world(&mut world, &mut entity_map).unwrap();
+        dynamic_world
+            .write_to_world(&mut world, &mut entity_map)
+            .unwrap();
 
-        let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();
-        let &from_scene_child_entity = entity_map.get(&original_child_entity).unwrap();
+        let &from_dynamic_parent_entity = entity_map.get(&original_parent_entity).unwrap();
+        let &from_dynamic_child_entity = entity_map.get(&original_child_entity).unwrap();
 
-        // We then add the parent from the scene as a child of the original child
+        // We then add the parent from the dynamic world as a child of the original child
         // Hierarchy should look like:
-        // Original Parent <- Original Child <- Scene Parent <- Scene Child
+        // Original Parent <- Original Child <- Dynamic World Parent <- Dynamic World Child
         world
             .entity_mut(original_child_entity)
-            .add_child(from_scene_parent_entity);
+            .add_child(from_dynamic_parent_entity);
 
-        // We then reload the scene to make sure that from_scene_parent_entity's parent component
-        // isn't updated with the entity map, since this component isn't defined in the scene.
+        // We then reload the dynamic world to make sure that from_dynamic_world_parent_entity's parent component
+        // isn't updated with the entity map, since this component isn't defined in the dynamic world.
         // With [`bevy_ecs::hierarchy`], this can cause serious errors and malformed hierarchies.
-        scene.write_to_world(&mut world, &mut entity_map).unwrap();
+        dynamic_world
+            .write_to_world(&mut world, &mut entity_map)
+            .unwrap();
 
         assert_eq!(
             original_parent_entity,
@@ -361,27 +365,27 @@ mod tests {
                 .get::<ChildOf>()
                 .unwrap()
                 .parent(),
-            "something about reloading the scene is touching entities with the same scene Ids"
+            "something about reloading the dynamic world is touching entities with the same dynamic world Ids"
         );
         assert_eq!(
             original_child_entity,
             world
-                .get_entity(from_scene_parent_entity)
+                .get_entity(from_dynamic_parent_entity)
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
                 .parent(),
-            "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
+            "something about reloading the dynamic world is touching components not defined in the dynamic world but on entities defined in the dynamic world"
         );
         assert_eq!(
-            from_scene_parent_entity,
+            from_dynamic_parent_entity,
             world
-                .get_entity(from_scene_child_entity)
+                .get_entity(from_dynamic_child_entity)
                 .unwrap()
                 .get::<ChildOf>()
-                .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
+                .expect("something is wrong with this test, and the dynamic world components don't have a parent/child relationship")
                 .parent(),
-            "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
+            "something is wrong with this test or the code reloading dynamic worlds since the relationship between dynamic world entities is broken"
         );
     }
 
@@ -410,10 +414,10 @@ mod tests {
             reg_write.register::<B>();
         }
 
-        let mut scene_world = World::new();
-        scene_world.insert_resource(reg.clone());
-        scene_world.spawn((B(Entity::PLACEHOLDER), A));
-        let scene = DynamicScene::from_world(&scene_world);
+        let mut world = World::new();
+        world.insert_resource(reg.clone());
+        world.spawn((B(Entity::PLACEHOLDER), A));
+        let dynamic_world = DynamicWorld::from_world(&world);
 
         let mut dst_world = World::new();
         dst_world
@@ -427,7 +431,7 @@ mod tests {
         // Prior to fix, the `Entities::alloc` call in
         // `EntityMapper::map_entity` would panic due to pending entities from the observer
         // not having been flushed.
-        scene
+        dynamic_world
             .write_to_world(&mut dst_world, &mut Default::default())
             .unwrap();
     }
