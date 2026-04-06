@@ -54,6 +54,46 @@ pub struct BevyError {
 }
 
 impl BevyError {
+    /// Constructs a new [`BevyError`] with the provided severity.
+    ///
+    /// The stored error will be stored as a `Box<dyn Error + Send + Sync>`.
+    ///
+    /// # Examples
+    ///
+    /// The easiest way to use this is to simply pass in a quoted bit of text.
+    /// This works because any type that can be converted into a `Box<dyn Error + Send + Sync>` can be used,
+    /// and [`str`] is one such type.
+    ///
+    /// ```rust
+    /// # use bevy_ecs::error::bevy_error::{BevyError, Severity};
+    ///
+    /// // The default severity used by the From impl is Severity::Panic
+    /// // This will be used if you implicitly convert an error value into a BevyError using ?
+    /// let panic_severity_error = BevyError::from("Aaaaah!!!");
+    ///
+    /// let warn_severity_error = BevyError::new("Something went wrong, but we're chillin'", Severity::Warning);
+    ///
+    /// let demo_value = 5;
+    /// let formatted_error = BevyError::new(format!("Something went wrong with value: {demo_value}"), Severity::Error);
+    /// ```
+    ///
+    /// If you have an existing error value, and just want to assign a severity to it, use [`with_severity`].
+    ///
+    /// [`with_severity`]: ResultSeverityExt::with_severity
+    pub fn new<E>(error: E, severity: Severity) -> Self
+    where
+        Box<dyn Error + Send + Sync + 'static>: From<E>,
+    {
+        Self {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                severity,
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            }),
+        }
+    }
+
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
