@@ -8,6 +8,7 @@ use syn::{
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
 const TEMPLATE_ATTRIBUTE: &str = "template";
+const BUILT_IN_ATTRIBUTE: &str = "built_in";
 
 pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -332,6 +333,12 @@ struct StructImpl {
     template_field_clones: Vec<proc_macro2::TokenStream>,
 }
 
+enum TemplateType {
+    FromTemplate,
+    BuiltIn,
+    Manual(Path),
+}
+
 fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<StructImpl> {
     let mut template_fields = Vec::with_capacity(fields.len());
     let mut template_field_builds = Vec::with_capacity(fields.len());
@@ -344,22 +351,36 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
         let ident = &field.ident;
         let ty = &field.ty;
         let index = Index::from(index);
-        let mut template_type = None;
+        let mut template_type = TemplateType::FromTemplate;
         for attr in &field.attrs {
             if attr.path().is_ident(TEMPLATE_ATTRIBUTE) {
-                let Ok(path) = attr.parse_args::<Path>() else {
-                    return Err(syn::Error::new(
-                        attr.span(),
-                        "Expected a Template type path",
-                    ));
-                };
-                template_type = Some(quote!(#path));
+                attr.parse_nested_meta(|nested| {
+                    if nested.path.is_ident(BUILT_IN_ATTRIBUTE) {
+                        template_type = TemplateType::BuiltIn;
+                    } else {
+                        if let Ok(path) = attr.parse_args::<Path>() {
+                            template_type = TemplateType::Manual(path);
+                        } else {
+                            return Err(syn::Error::new(
+                                attr.span(),
+                                "Expected a Template type path",
+                            ));
+                        }
+                    }
+                    Ok(())
+                })?;
             }
         }
 
-        if template_type.is_none() {
-            template_type = Some(quote!(<#ty as #bevy_ecs::template::FromTemplate>::Template));
-        }
+        let template_type = match template_type {
+            TemplateType::FromTemplate => {
+                quote!(<#ty as #bevy_ecs::template::FromTemplate>::Template)
+            }
+            TemplateType::BuiltIn => {
+                quote!(<#ty as #bevy_ecs::template::BuiltInTemplate>::Template)
+            }
+            TemplateType::Manual(path) => quote! {#path},
+        };
 
         if is_named {
             template_fields.push(quote! {

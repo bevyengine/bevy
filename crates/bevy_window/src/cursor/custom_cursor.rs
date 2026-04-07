@@ -20,7 +20,7 @@ pub struct CustomCursorImage {
     /// or 32 bit float rgba. PNG images work well for this.
     pub handle: Handle<Image>,
     /// An optional texture atlas used to render the image.
-    #[template(OptionTemplate<TextureAtlasTemplate>)]
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     ///

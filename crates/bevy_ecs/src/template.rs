@@ -431,12 +431,49 @@ pub fn template<F: Fn(&mut TemplateContext) -> Result<O>, O>(func: F) -> FnTempl
     FnTemplate(func)
 }
 
-/// A [`Template`] for Option.
-pub struct OptionTemplate<T>(Option<T>);
+/// Roughly equivalent to [`FromTemplate`], but does not have a blanket implementation for [`Default`] + [`Clone`] types.
+/// This is generally used for common generic collection types like [`Option`] and [`Vec`], which have [`Default`] + [`Clone`] impls and
+/// therefore also pick up the [`FromTemplate`] behavior. This is fine when the `T` in [`Option<T>`] is not "templated"
+/// (ex: does not have an explicit [`FromTemplate`] derive). But if `T` is "templated", such as [`Option<Handle<T>>`], then it would require
+/// a manual `#[template(OptionTemplate<HandleTemplate<T>>)]` field annotation. This isn't fun to type out.
+///
+/// [`BuiltInTemplate`] enables equivalent "template type inference", by annotating a field with a type that implements [`BuiltInTemplate`] with
+/// `#[template(built_in)]`.
+pub trait BuiltInTemplate: Sized {
+    /// The template to consider the "built in" template for this type.
+    type Template: Template;
+}
 
-impl<T> Default for OptionTemplate<T> {
-    fn default() -> Self {
-        Self(None)
+impl<T: FromTemplate> BuiltInTemplate for Option<T> {
+    type Template = OptionTemplate<T::Template>;
+}
+
+impl<T: FromTemplate> BuiltInTemplate for Vec<T> {
+    type Template = VecTemplate<T::Template>;
+}
+
+/// A [`Template`] for [`Option`].
+#[derive(Default)]
+pub enum OptionTemplate<T> {
+    /// Template of [`Option::Some`].
+    Some(T),
+    /// Template of [`Option::None`].
+    #[default]
+    None,
+}
+
+impl<T> From<Option<T>> for OptionTemplate<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(value) => OptionTemplate::Some(value),
+            None => OptionTemplate::None,
+        }
+    }
+}
+
+impl<T> From<T> for OptionTemplate<T> {
+    fn from(value: T) -> Self {
+        OptionTemplate::Some(value)
     }
 }
 
@@ -444,13 +481,66 @@ impl<T: Template> Template for OptionTemplate<T> {
     type Output = Option<T::Output>;
 
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
-        Ok(match &self.0 {
-            Some(template) => Some(template.build_template(context)?),
-            None => None,
+        Ok(match &self {
+            OptionTemplate::Some(template) => Some(template.build_template(context)?),
+            OptionTemplate::None => None,
         })
     }
 
     fn clone_template(&self) -> Self {
-        OptionTemplate(self.0.as_ref().map(Template::clone_template))
+        match self {
+            OptionTemplate::Some(value) => OptionTemplate::Some(value.clone_template()),
+            OptionTemplate::None => OptionTemplate::None,
+        }
+    }
+}
+
+/// A [`Template`] for [`Vec`].
+pub struct VecTemplate<T>(pub Vec<T>);
+
+impl<T> Default for VecTemplate<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<T: Template> Template for VecTemplate<T> {
+    type Output = Vec<T::Output>;
+
+    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+        let mut output = Vec::with_capacity(self.0.len());
+        for value in &self.0 {
+            output.push(value.build_template(context)?);
+        }
+        Ok(output)
+    }
+
+    fn clone_template(&self) -> Self {
+        VecTemplate(self.0.iter().map(Template::clone_template).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    use alloc::string::{String, ToString};
+
+    #[test]
+    fn option_template() {
+        #[derive(FromTemplate)]
+        struct Handle(String);
+
+        #[derive(FromTemplate)]
+        struct Foo {
+            #[template(built_in)]
+            handle: Option<Handle>,
+        }
+
+        let mut world = World::new();
+        let foo_template = FooTemplate {
+            handle: Some(HandleTemplate("handle_path".to_string())).into(),
+        };
+        let foo = world.spawn_empty().build_template(&foo_template).unwrap();
+        assert_eq!(foo.handle.unwrap().0, "handle_path".to_string());
     }
 }
