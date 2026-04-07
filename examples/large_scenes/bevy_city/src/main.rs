@@ -238,10 +238,10 @@ fn loading_screen(
 fn process_assets(
     mut commands: Commands,
     mut city_assets: ResMut<CityAssets>,
-    mut scenes: ResMut<Assets<Scene>>,
+    mut world_assets: ResMut<Assets<WorldAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    merge_car_meshes(&mut city_assets, &mut scenes, &mut meshes);
+    merge_car_meshes(&mut city_assets, &mut world_assets, &mut meshes);
 
     // Use a Message instead of an Event so spawning the city happens in the next frame
     commands.write_message(CityAssetsReady);

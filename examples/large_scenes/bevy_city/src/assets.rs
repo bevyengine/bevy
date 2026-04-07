@@ -259,11 +259,11 @@ pub fn load_assets(
 /// commands for each of those meshes.
 pub fn merge_car_meshes(
     city_assets: &mut CityAssets,
-    scenes: &mut Assets<Scene>,
+    world_assets: &mut Assets<WorldAsset>,
     meshes: &mut Assets<Mesh>,
 ) {
     for car_scene in &city_assets.cars {
-        let Some(merged) = merge_scene(scenes, meshes, car_scene) else {
+        let Some(merged) = merge_world_asset(world_assets, meshes, car_scene) else {
             continue;
         };
         city_assets.car_meshes.push(meshes.add(merged));
@@ -271,12 +271,12 @@ pub fn merge_car_meshes(
 }
 
 /// Merge an entire scene into a single mesh
-fn merge_scene(
-    scenes: &mut Assets<Scene>,
+fn merge_world_asset(
+    world_assets: &mut Assets<WorldAsset>,
     meshes: &mut Assets<Mesh>,
-    scene_handle: &Handle<Scene>,
+    scene_handle: &Handle<WorldAsset>,
 ) -> Option<Mesh> {
-    let mut scene = scenes.get_mut(scene_handle)?;
+    let mut scene = world_assets.get_mut(scene_handle)?;
     let mut merged: Option<Mesh> = None;
 
     let mut system_state = SystemState::<TransformHelper>::new(&mut scene.world);
