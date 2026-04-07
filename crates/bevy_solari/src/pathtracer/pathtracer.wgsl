@@ -71,7 +71,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
 
             // Sample new ray direction from the material BRDF for next bounce and apply BRDF
-            let next_bounce = evaluate_and_sample_brdf(wo, ray_hit.world_normal, ray_hit.world_tangent, ray_hit.material, &rng);
+            let next_bounce = evaluate_and_sample_brdf(wo, ray_hit.world_normal, ray_hit.material, &rng);
             if next_bounce.pdf == 0.0 { break; }
             ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position + (ray_hit.geometric_world_normal * RAY_T_MIN);
