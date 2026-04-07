@@ -56,12 +56,13 @@ use crate::{
 pub struct NoBackgroundMotionVectors;
 
 impl SyncComponent for NoBackgroundMotionVectors {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for NoBackgroundMotionVectors {
     type QueryData = Read<NoBackgroundMotionVectors>;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(_item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(NoBackgroundMotionVectors)
@@ -155,8 +156,8 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),

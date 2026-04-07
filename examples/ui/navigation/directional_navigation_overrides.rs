@@ -25,7 +25,7 @@ use bevy::{
         directional_navigation::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
         },
-        InputDispatchPlugin, InputFocus, InputFocusVisible,
+        InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
     picking::{
@@ -41,11 +41,7 @@ fn main() {
     App::new()
         // Input focus is not enabled by default, so we need to add the corresponding plugins
         // The navigation system's resources are initialized by the DirectionalNavigationPlugin.
-        .add_plugins((
-            DefaultPlugins,
-            InputDispatchPlugin,
-            DirectionalNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, DirectionalNavigationPlugin))
         // This resource is canonically used to track whether or not to render a focus indicator
         // It starts as false, but we set it to true here as we would like to see the focus indicator
         .insert_resource(InputFocusVisible(true))

@@ -1,6 +1,6 @@
 use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSystems, Res,
+    RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::RenderAssetUsages;
@@ -128,6 +128,10 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
                 .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
+                    RenderStartup,
+                    collect_erased_render_assets_to_reextract::<A>,
+                )
+                .add_systems(
                     ExtractSchedule,
                     extract_erased_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
@@ -240,12 +244,49 @@ impl<A: ErasedRenderAsset> FromWorld for CachedExtractErasedRenderAssetSystemSta
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
-/// into the "render world".
+/// Resource inserted during [`RenderStartup`] containing asset IDs that need
+/// re-extraction from the main world after device recovery.
+#[derive(Resource)]
+pub(crate) struct ErasedRenderAssetsToReExtract<A: ErasedRenderAsset> {
+    ids: Vec<AssetId<A::SourceAsset>>,
+}
+
+/// Drains all asset IDs from [`ErasedRenderAssets<A>`] to mark for re-extraction.
+fn collect_erased_render_assets_to_reextract<A: ErasedRenderAsset>(
+    mut commands: Commands,
+    mut render_assets: ResMut<ErasedRenderAssets<A::ErasedAsset>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
+) {
+    let source_type_id = core::any::TypeId::of::<A::SourceAsset>();
+    // ErasedRenderAssets is shared across all material types that produce
+    // the same ErasedAsset type. Drain only the entries matching our SourceAsset.
+    let mut ids = Vec::new();
+    render_assets.0.retain(|untyped_id, _| {
+        if untyped_id.type_id() == source_type_id {
+            ids.push(untyped_id.typed());
+            false
+        } else {
+            true
+        }
+    });
+    prepare_next_frame.assets.clear();
+    if !ids.is_empty() {
+        commands.insert_resource(ErasedRenderAssetsToReExtract::<A> { ids });
+    }
+}
+
+/// Extracts all created or modified assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
+/// into the "render world", including any assets invalidated by device recovery.
 pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
     mut commands: Commands,
+    mut to_reextract: Option<ResMut<ErasedRenderAssetsToReExtract<A>>>,
     mut main_world: ResMut<MainWorld>,
 ) {
+    let reextract_ids = to_reextract
+        .as_mut()
+        .map(|r| core::mem::take(&mut r.ids))
+        .filter(|ids| !ids.is_empty());
+
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
@@ -253,6 +294,10 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
             let mut modified = <HashSet<_>>::default();
+
+            if let Some(reextract_ids) = reextract_ids {
+                needs_extracting.extend(reextract_ids);
+            }
 
             for event in events.read() {
                 #[expect(

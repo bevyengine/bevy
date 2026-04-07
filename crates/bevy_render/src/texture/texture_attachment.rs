@@ -4,7 +4,8 @@ use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
-    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    Color as WgpuColor, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, StoreOp,
 };
 
 /// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
@@ -13,7 +14,7 @@ pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
     pub previous_frame_texture: Option<CachedTexture>,
-    clear_color: Option<LinearRgba>,
+    clear_color: Option<WgpuColor>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -22,7 +23,7 @@ impl ColorAttachment {
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
         previous_frame_texture: Option<CachedTexture>,
-        clear_color: Option<LinearRgba>,
+        clear_color: Option<WgpuColor>,
     ) -> Self {
         Self {
             texture,
@@ -47,7 +48,7 @@ impl ColorAttachment {
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
-                        (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                        (Some(clear_color), true) => LoadOp::Clear(clear_color),
                         (None, _) | (Some(_), false) => LoadOp::Load,
                     },
                     store: StoreOp::Store,
@@ -71,7 +72,7 @@ impl ColorAttachment {
             resolve_target: None,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
-                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color),
                     (None, _) | (Some(_), false) => LoadOp::Load,
                 },
                 store: StoreOp::Store,

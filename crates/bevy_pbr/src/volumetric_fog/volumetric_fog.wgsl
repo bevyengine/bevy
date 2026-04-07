@@ -21,7 +21,7 @@
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
-    atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
@@ -311,16 +311,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 #ifdef ATMOSPHERE
                 // attenuate by atmospheric scattering
                 let P = P_world + depth_offset;
-                let P_scaled = P * vec3(atmosphere_data.settings.scene_units_to_m);
-                let O = vec3(0.0, atmosphere_data.atmosphere.bottom_radius, 0.0);
-                let P_as = P_scaled + O;
-                let P_clamped = clamp_to_surface(atmosphere_data.atmosphere, P_as);
+                let P_as = (atmosphere.world_to_atmosphere * vec4(P, 1.0)).xyz;
+                let P_clamped = clamp_to_surface(atmosphere, P_as);
                 let r = length(P_clamped);
                 let local_up = normalize(P_clamped);
                 let mu_light = dot(L, local_up);
 
                 let transmittance = sample_transmittance_lut(r, mu_light);
-                let sun_visibility = calculate_visible_sun_ratio(atmosphere_data.atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+                let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
                 light_factors_per_step *= transmittance * sun_visibility;
 #endif
 
@@ -388,7 +386,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 }
                 let light_to_frag = (*light).position_radius.xyz - P_world;
 
-                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
                 // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
                 let cd = dot(-spot_dir, normalize(light_to_frag));
@@ -518,7 +516,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
 
 #ifdef ATMOSPHERE
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(atmosphere_data.atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,
         atmosphere_transmittance_sampler, uv, 0.0).rgb;

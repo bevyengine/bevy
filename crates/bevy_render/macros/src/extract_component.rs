@@ -38,15 +38,34 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         }
     };
 
+    let sync_target = if let Some(attr) = ast
+        .attrs
+        .iter()
+        .find(|a| a.path().is_ident("extract_component_sync_target"))
+    {
+        let sync_target = match attr.parse_args::<syn::Type>() {
+            Ok(sync_target) => sync_target,
+            Err(e) => return e.to_compile_error().into(),
+        };
+
+        quote! {
+            #sync_target
+        }
+    } else {
+        quote! {
+            Self
+        }
+    };
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_render_path::sync_component::SyncComponent for #struct_name #type_generics #where_clause {
-            type Out = Self;
+            type Target = #sync_target;
         }
 
         impl #impl_generics #bevy_render_path::extract_component::ExtractComponent for #struct_name #type_generics #where_clause {
             type QueryData = &'static Self;
-
             type QueryFilter = #filter;
+            type Out = Self;
 
             fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
                 Some(item.clone())

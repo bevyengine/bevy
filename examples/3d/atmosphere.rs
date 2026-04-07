@@ -70,36 +70,38 @@ fn print_controls() {
 
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut atmosphere_settings: Query<&mut AtmosphereSettings>,
-    mut atmosphere_query: Query<&mut Atmosphere>,
+    mut planet_atmosphere: Query<(&mut Atmosphere, &mut Transform)>,
+    mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Digit3) {
-        for mut atmosphere in &mut atmosphere_query {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
             println!("Switched to Earth atmosphere");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit4) {
-        for mut atmosphere in &mut atmosphere_query {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
             println!("Switched to Mars atmosphere");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit1) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
             println!("Switched to lookup texture rendering method");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit2) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::Raymarched;
             println!("Switched to raymarched rendering method");
         }
@@ -136,12 +138,13 @@ fn setup_camera_fog(
         mars: mars_medium.clone(),
     });
 
+    // Spawn earth atmosphere
+    commands.spawn(Atmosphere::earth(earth_medium));
+
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Earth atmosphere
-        Atmosphere::earth(earth_medium),
-        // Can be adjusted to change the scene scale and rendering quality
+        // Can be adjusted to change the rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
@@ -237,7 +240,7 @@ fn setup_terrain_scene(
     // Terrain
     commands.spawn((
         Terrain,
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
         Transform::from_xyz(-1.0, 0.0, -0.5)

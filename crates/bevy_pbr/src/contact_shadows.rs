@@ -81,12 +81,13 @@ impl From<ContactShadows> for ContactShadowsUniform {
 }
 
 impl SyncComponent for ContactShadows {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(*settings)

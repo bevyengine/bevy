@@ -126,7 +126,7 @@ fn star(
 pub struct ColoredMesh2d;
 
 impl SyncComponent for ColoredMesh2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 /// Custom pipeline for 2d meshes with vertex colors
@@ -200,12 +200,13 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -416,7 +417,10 @@ pub fn queue_colored_mesh2d(
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
                     continue;
                 };
-                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
+                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                );
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);

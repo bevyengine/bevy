@@ -103,12 +103,13 @@ impl Default for Vignette {
 }
 
 impl SyncComponent for Vignette {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for Vignette {
     type QueryData = Read<Vignette>;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(vignette: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.

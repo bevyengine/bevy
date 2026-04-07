@@ -1082,7 +1082,7 @@ impl Image {
     ) -> Self {
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert_eq!(
-                size.volume() * pixel_size,
+                pixel_count(size) * pixel_size,
                 data.len(),
                 "Pixel data, size and format have to match",
             );
@@ -1167,7 +1167,7 @@ impl Image {
         if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
-            let byte_len = pixel_size * size.volume();
+            let byte_len = pixel_size * pixel_count(size);
             debug_assert_eq!(
                 pixel.len() % pixel_size,
                 0,
@@ -1223,7 +1223,7 @@ impl Image {
             0;
             format.pixel_size().expect(
                 "Failed to create Image: can't get pixel size for this TextureFormat"
-            ) * size.volume()
+            ) * pixel_count(size)
         ];
 
         Image {
@@ -1293,7 +1293,7 @@ impl Image {
         if let Some(ref mut data) = self.data
             && let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
         {
-            data.resize(size.volume() * pixel_size, 0);
+            data.resize(pixel_count(size) * pixel_size, 0);
         }
     }
 
@@ -1303,7 +1303,7 @@ impl Image {
         &mut self,
         new_size: Extent3d,
     ) -> Result<(), TextureReinterpretationError> {
-        if new_size.volume() != self.texture_descriptor.size.volume() {
+        if pixel_count(new_size) != pixel_count(self.texture_descriptor.size) {
             return Err(TextureReinterpretationError::IncompatibleSizes {
                 old: self.texture_descriptor.size,
                 new: new_size,
@@ -1321,7 +1321,7 @@ impl Image {
     pub fn resize_in_place(&mut self, new_size: Extent3d) {
         if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size() {
             let old_size = self.texture_descriptor.size;
-            let byte_len = pixel_size * new_size.volume();
+            let byte_len = pixel_size * pixel_count(new_size);
             self.texture_descriptor.size = new_size;
 
             let Some(ref mut data) = self.data else {
@@ -1561,7 +1561,7 @@ impl Image {
         if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
-            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            let byte_len = pixel_size * pixel_count(self.texture_descriptor.size);
             debug_assert_eq!(
                 pixel.len() % pixel_size,
                 0,
@@ -2149,17 +2149,9 @@ impl<'a> ImageType<'a> {
     }
 }
 
-/// Used to calculate the total number of pixels for an image size.
-pub trait Volume {
-    /// Calculates the total number of pixels in the item.
-    fn volume(&self) -> usize;
-}
-
-impl Volume for Extent3d {
-    /// Calculates the total number of pixels in the [`Extent3d`].
-    fn volume(&self) -> usize {
-        (self.width * self.height * self.depth_or_array_layers) as usize
-    }
+/// Calculates the total number of pixels in the item.
+fn pixel_count(item: Extent3d) -> usize {
+    (item.width * item.height * item.depth_or_array_layers) as usize
 }
 
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.

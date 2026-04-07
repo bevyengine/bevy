@@ -277,7 +277,7 @@ fn spawn_cube(
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),

@@ -50,7 +50,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
@@ -2852,12 +2852,14 @@ impl World {
                 // ran during self.flush(), interact with the correct ticks on the resource component.
                 {
                     let location = entity_mut.location();
-                    let mut bundle_inserter = BundleInserter::new::<R>(
-                        // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                        unsafe { entity_mut.world_mut() },
-                        location.archetype_id,
-                        self.ticks.changed,
-                    );
+                    // SAFETY:
+                    // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
+                    let world = unsafe { entity_mut.world_mut() };
+                    // SAFETY:
+                    // - `location.archetype_id` is part of a valid `EntityLocation`.
+                    let mut bundle_inserter = unsafe {
+                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
+                    };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -3372,11 +3374,11 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Convenience method for accessing the world's default error handler,
-    /// which can be overwritten with [`DefaultErrorHandler`].
+    /// Convenience method for accessing the world's fallback error handler,
+    /// which can be overwritten with [`FallbackErrorHandler`].
     #[inline]
-    pub fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+    pub fn fallback_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<FallbackErrorHandler>()
             .copied()
             .unwrap_or_default()
             .0
@@ -3751,14 +3753,14 @@ impl World {
         let label = label.intern();
         let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
-            .and_then(|mut s| s.remove(label))
+            .and_then(|mut s| s.remove_temporarily(label))
         else {
             return Err(TryRunScheduleError(label));
         };
 
         let value = f(self, &mut schedule);
 
-        let old = self.resource_mut::<Schedules>().insert(schedule);
+        let old = self.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }

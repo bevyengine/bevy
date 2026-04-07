@@ -2,8 +2,8 @@ use taffy::style_helpers;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
+    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
+    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
     RepeatedGridTrack, UiRect, Val,
 };
 
@@ -61,7 +61,7 @@ impl UiRect {
     }
 }
 
-pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
+pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
     taffy::style::Style {
         display: node.display.into(),
         box_sizing: node.box_sizing.into(),
@@ -81,6 +81,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         justify_self: node.justify_self.into(),
         align_content: node.align_content.into(),
         justify_content: node.justify_content.into(),
+        direction: node.direction.into(),
         inset: taffy::Rect {
             left: node.left.into_length_percentage_auto(context),
             right: node.right.into_length_percentage_auto(context),
@@ -93,14 +94,9 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         padding: node
             .padding
             .map_to_taffy_rect(|m| m.into_length_percentage(context)),
-        // Ignore border for leaf nodes as it isn't implemented in the rendering engine.
-        // TODO: Implement rendering of border for leaf nodes
-        border: if ignore_border {
-            taffy::Rect::zero()
-        } else {
-            node.border
-                .map_to_taffy_rect(|m| m.into_length_percentage(context))
-        },
+        border: node
+            .border
+            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         flex_grow: node.flex_grow,
         flex_shrink: node.flex_shrink,
         flex_basis: node.flex_basis.into_dimension(context),
@@ -234,6 +230,15 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
+        }
+    }
+}
+
+impl From<InlineDirection> for taffy::style::Direction {
+    fn from(direction: InlineDirection) -> Self {
+        match direction {
+            InlineDirection::Ltr => taffy::style::Direction::Ltr,
+            InlineDirection::Rtl => taffy::style::Direction::Rtl,
         }
     }
 }
@@ -473,6 +478,7 @@ mod tests {
             justify_items: JustifyItems::Default,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
+            direction: InlineDirection::Ltr,
             margin: UiRect {
                 left: Val::ZERO,
                 right: Val::Px(10.),
@@ -528,10 +534,11 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
-        let taffy_style = from_node(&node, &viewport_values, false);
+        let taffy_style = from_node(&node, &viewport_values);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
+        assert_eq!(taffy_style.direction, taffy::style::Direction::Ltr);
         assert_eq!(
             taffy_style.inset.left,
             taffy::style::LengthPercentageAuto::ZERO

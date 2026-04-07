@@ -41,8 +41,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::Remove,
-    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
@@ -85,6 +83,13 @@ pub struct SmaaPlugin;
 /// for a [`bevy_camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
+#[extract_component_sync_target((
+	Self,
+	SmaaTextures,
+    SmaaPipelines,
+    SmaaBindGroups,
+    ViewSmaaPipelines,
+))]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -331,17 +336,6 @@ impl Plugin for SmaaPlugin {
             return;
         };
 
-        // TODO: remove this manual cleanup when ExtractComponent gets support
-        // for cleanup of derived components
-        render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
-            commands.entity(event.entity).remove::<(
-                SmaaTextures,
-                SmaaPipelines,
-                SmaaBindGroups,
-                ViewSmaaPipelines,
-            )>();
-        });
-
         render_app
             .insert_resource(smaa_luts)
             .init_resource::<SmaaSpecializedRenderPipelines>()
@@ -477,8 +471,8 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,
@@ -534,8 +528,8 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,

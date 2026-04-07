@@ -1,6 +1,6 @@
 use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSystems, Res,
+    RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
@@ -140,6 +140,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<RenderAssets<A>>()
                 .allow_ambiguous_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
+                .add_systems(RenderStartup, collect_render_assets_to_reextract::<A>)
                 .add_systems(
                     ExtractSchedule,
                     extract_render_asset::<A>.in_set(AssetExtractionSystems),
@@ -254,12 +255,38 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
-/// into the "render world".
+/// Resource inserted during [`RenderStartup`] containing asset IDs that need
+/// re-extraction from the main world after device recovery.
+#[derive(Resource)]
+pub(crate) struct RenderAssetsToReExtract<A: RenderAsset> {
+    ids: Vec<AssetId<A::SourceAsset>>,
+}
+
+/// Drains all asset IDs from [`RenderAssets<A>`] to mark for re-extraction.
+fn collect_render_assets_to_reextract<A: RenderAsset>(
+    mut commands: Commands,
+    mut render_assets: ResMut<RenderAssets<A>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
+) {
+    let ids: Vec<_> = render_assets.0.drain().map(|(id, _)| id).collect();
+    prepare_next_frame.assets.clear();
+    if !ids.is_empty() {
+        commands.insert_resource(RenderAssetsToReExtract::<A> { ids });
+    }
+}
+
+/// Extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
+/// into the "render world", including any assets invalidated by device recovery.
 pub(crate) fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
+    mut to_reextract: Option<ResMut<RenderAssetsToReExtract<A>>>,
     mut main_world: ResMut<MainWorld>,
 ) {
+    let reextract_ids = to_reextract
+        .as_mut()
+        .map(|r| core::mem::take(&mut r.ids))
+        .filter(|ids| !ids.is_empty());
+
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
@@ -267,6 +294,10 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
             let mut modified = <HashSet<_>>::default();
+
+            if let Some(reextract_ids) = reextract_ids {
+                needs_extracting.extend(reextract_ids);
+            }
 
             for event in events.read() {
                 #[expect(

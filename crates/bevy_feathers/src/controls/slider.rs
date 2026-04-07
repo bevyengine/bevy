@@ -17,6 +17,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene::prelude::*;
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
@@ -30,8 +31,8 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
     tokens,
@@ -73,6 +74,68 @@ struct SliderValueText;
 /// # Arguments
 ///
 /// * `props` - construction properties for the slider.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+pub fn slider(props: SliderProps) -> impl Scene {
+    bsn! {
+        Node {
+            height: size::ROW_HEIGHT,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            flex_grow: 1.0,
+            border_radius: {RoundedCorners::All.to_border_radius(6.0)},
+        }
+        Slider {
+            track_click: TrackClick::Drag,
+            orientation: SliderOrientation::Horizontal,
+        }
+        SliderStyle
+        SliderValue({props.value})
+        SliderRange::new(props.min, props.max)
+        EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
+        TabIndex(0)
+        FocusIndicator
+        // Use a gradient to draw the moving bar
+        BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+            angle: PI * 0.5,
+            stops: vec![
+                ColorStop::new(Color::NONE, Val::Percent(0.)),
+                ColorStop::new(Color::NONE, Val::Percent(50.)),
+                ColorStop::new(Color::NONE, Val::Percent(50.)),
+                ColorStop::new(Color::NONE, Val::Percent(100.)),
+            ],
+            color_space: InterpolationColorSpace::Srgba,
+        })]})
+        Children [(
+            // Text container
+            Node {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+            }
+            ThemeFontColor(tokens::SLIDER_TEXT)
+            InheritableFont {
+                font: fonts::MONO,
+                font_size: FontSize::Px(12.0),
+                weight: FontWeight::NORMAL,
+            }
+            Children [(Text("10.0") ThemedText SliderValueText)]
+        )]
+    }
+}
+
+/// Spawn a new slider widget.
+///
+/// # Arguments
+///
+/// * `props` - construction properties for the slider.
 /// * `overrides` - a bundle of components that are merged in with the normal slider components.
 ///
 /// # Emitted events
@@ -80,7 +143,8 @@ struct SliderValueText;
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the slider() BSN function")]
+pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {
             height: size::ROW_HEIGHT,
@@ -100,6 +164,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
+        FocusIndicator,
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -124,9 +189,9 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             },
             ThemeFontColor(tokens::SLIDER_TEXT),
             InheritableFont {
-                font: HandleOrPath::Path(fonts::MONO.to_owned()),
                 font_size: FontSize::Px(12.0),
                 weight: FontWeight::NORMAL,
+                ..Default::default()
             },
             children![(Text::new("10.0"), ThemedText, SliderValueText,)],
         )],

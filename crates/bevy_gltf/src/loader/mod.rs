@@ -36,10 +36,10 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -634,9 +634,11 @@ impl GltfLoader {
                 }
             }
         } else {
+            // This cfg is redundant, but if we don't explicitly cfg it out, Wasm will compile it
+            // and fail.
             #[cfg(not(target_arch = "wasm32"))]
-            IoTaskPool::get()
-                .scope(|scope| {
+            {
+                let textures = IoTaskPool::get().scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
@@ -654,22 +656,16 @@ impl GltfLoader {
                             .await
                         });
                     });
-                })
-                .into_iter()
-                // order is preserved if the futures are only spawned from the root scope
-                .zip(gltf.textures())
-                .for_each(|(result, texture)| match result {
-                    Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut texture_handles);
-                        // let extensions handle texture data
-                        for extension in extensions.iter_mut() {
-                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                        }
-                    }
-                    Err(err) => {
-                        warn!("Error loading glTF texture: {}", err);
-                    }
                 });
+                // order is preserved if the futures are only spawned from the root scope
+                for (result, texture) in textures.into_iter().zip(gltf.textures()) {
+                    result?.process_loaded_texture(load_context, &mut texture_handles);
+                    // let extensions handle texture data
+                    for extension in extensions.iter_mut() {
+                        extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                    }
+                }
+            }
         }
 
         let mut materials = vec![];
@@ -1121,7 +1117,7 @@ impl GltfLoader {
                 );
             }
 
-            let loaded_scene = scene_load_context.finish(Scene::new(world));
+            let loaded_scene = scene_load_context.finish(WorldAsset::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
                 loaded_scene,
@@ -2121,7 +2117,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_reflect::TypePath;
-    use bevy_scene::ScenePlugin;
+    use bevy_world_serialization::WorldSerializationPlugin;
 
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
@@ -2134,7 +2130,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2561,7 +2557,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2690,6 +2686,73 @@ mod test {
             asset_server
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
+        });
+    }
+
+    #[test]
+    fn image_error_is_an_error() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
+        {
+            "source": 0,
+            "sampler": 0
+        }
+    ],
+    "images": [
+        {
+            "bufferView": 0,
+            "mimeType": "image/png"
+        }
+    ],
+    "samplers": [
+        {
+            "magFilter": 9729,
+            "minFilter": 9729
+        }
+    ],
+    "buffers": [
+        {
+          "byteLength": 1,
+          "uri": "data:application/gltf-buffer;base64,AAAA"
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 1
+        }
+    ]
+}
+"#,
+        );
+
+        app.init_asset::<Image>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+            LoadState::Failed(err) => {
+                let err = err.to_string();
+                assert!(
+                    // Depending on the `image` crate's feature flags, we may get different errors.
+                    // Specifically, either the `image/png` mime type is warned about, or the buffer
+                    // is not big enough to be valid PNG data.
+                    err.contains("failed to load an image: unexpected end of file")
+                        || err.contains("invalid image mime type: image/png"),
+                    "incorrect error message: {err}"
+                );
+                Some(())
+            }
+            LoadState::Loading => None,
+            state => panic!("Unexpected load state: {state:?}"),
         });
     }
 }
