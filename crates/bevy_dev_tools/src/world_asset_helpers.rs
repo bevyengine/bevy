@@ -7,7 +7,7 @@ use bevy_transform::helper::TransformHelper;
 use bevy_world_serialization::WorldAsset;
 
 /// Merge all the [`Mesh3d`] of a [`WorldAsset`] into a single [`Mesh`]
-pub fn merge_world_asset_mesh_3d(
+pub fn merge_all_mesh_3d(
     world_assets: &mut Assets<WorldAsset>,
     meshes: &mut Assets<Mesh>,
     scene_handle: &Handle<WorldAsset>,
