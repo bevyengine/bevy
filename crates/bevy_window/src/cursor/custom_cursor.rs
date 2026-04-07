@@ -1,8 +1,8 @@
 use crate::cursor::CursorIcon;
 use alloc::string::String;
 use bevy_asset::Handle;
-use bevy_ecs::template::{FromTemplate, OptionTemplate};
-use bevy_image::{Image, TextureAtlas, TextureAtlasTemplate};
+use bevy_ecs::template::FromTemplate;
+use bevy_image::{Image, TextureAtlas};
 use bevy_math::URect;
 
 #[cfg(feature = "bevy_reflect")]
