@@ -143,6 +143,8 @@ fn update_text_input_focus(
     focus_visible: Res<InputFocusVisible>,
     theme: Res<UiTheme>,
 ) {
+    // We're not using FocusIndicator here because (a) the focus ring is inset rather than
+    // an outline, and (b) we want to detect focus on a descendant rather than an ancestor.
     if focus.is_changed() {
         let focus_parent = focus.0.and_then(|focus_ent| {
             if focus_visible.0 && q_inputs.contains(focus_ent) {
