@@ -220,8 +220,8 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
-    let traffic_lights: Handle<WorldAsset> = load_asset!(GltfAssetLabel::Scene(0)
-        .from_asset(format!("traffic_light.glb")));
+    let traffic_lights: Handle<WorldAsset> =
+        load_asset!(GltfAssetLabel::Scene(0).from_asset("traffic_light.glb".to_string()));
 
     commands.insert_resource(CityAssets {
         untyped_assets,
