@@ -179,11 +179,9 @@ impl Plugin for UiPlugin {
                 widget::viewport_picking.in_set(PickingSystems::PostInput),
             );
 
-        let ui_layout_system_config = ui_layout_system
+        ui_layout_system
             .in_set(UiSystems::Layout)
-            .before(TransformSystems::Propagate);
-
-        let ui_layout_system_config = ui_layout_system_config
+            .before(TransformSystems::Propagate)
             // Text and Text2D operate on disjoint sets of entities
             .ambiguous_with(bevy_sprite::update_text2d_layout);
 
@@ -191,16 +189,18 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 propagate_ui_target_cameras.in_set(UiSystems::Prepare),
-                ui_layout_system_config,
+                ui_layout_system
+                    .in_set(UiSystems::Layout)
+                    .ambiguous_with(bevy_sprite::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
                     .ambiguous_with(widget::measure_text_system)
-                    .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
-                    .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::Propagate),
+                    .in_set(AmbiguousWithText)
+                    .before(UiSystems::PostLayout),
+                update_clipping_system.in_set(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -251,7 +251,8 @@ fn build_text_interop(app: &mut App) {
                 .in_set(UiSystems::Content)
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system),
-            widget::editable_text_system
+            (widget::editable_text_system, widget::scroll_editable_text)
+                .chain()
                 .in_set(UiSystems::PostLayout)
                 .ambiguous_with(ui_stack_system)
                 .ambiguous_with(widget::text_system)

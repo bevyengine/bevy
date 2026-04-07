@@ -15,9 +15,9 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 use crate::{
@@ -98,12 +98,15 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
+    commands.spawn(Atmosphere::earth(
+        scattering_mediums.add(ScatteringMedium::default()),
+    ));
+
     commands.spawn((
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
-        Atmosphere::earth(scattering_mediums.add(ScatteringMedium::default())),
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
@@ -334,7 +337,7 @@ fn add_no_cpu_culling(
 /// This is required because a few assets are spawned using a [`SceneRoot`] instead of directly
 /// spawning a [`Mesh`]
 fn add_no_cpu_culling_on_scene_ready(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     meshes: Query<(), (With<Mesh3d>, Without<NoCpuCulling>)>,

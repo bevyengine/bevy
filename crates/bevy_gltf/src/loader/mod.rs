@@ -21,7 +21,6 @@ use bevy_ecs::{
     name::Name,
     world::World,
 };
-use bevy_ecs_serialization::Scene;
 use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
     ImageType, TextureError,
@@ -40,6 +39,7 @@ use bevy_reflect::TypePath;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -1117,7 +1117,7 @@ impl GltfLoader {
                 );
             }
 
-            let loaded_scene = scene_load_context.finish(Scene::new(world));
+            let loaded_scene = scene_load_context.finish(WorldAsset::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
                 loaded_scene,
@@ -2112,12 +2112,12 @@ mod test {
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
-    use bevy_ecs_serialization::ScenePlugin;
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_reflect::TypePath;
+    use bevy_world_serialization::WorldSerializationPlugin;
 
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
@@ -2130,7 +2130,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2557,7 +2557,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));

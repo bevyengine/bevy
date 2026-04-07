@@ -183,6 +183,7 @@ Example | Description
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+[Rectangular Area Light](../examples/3d/rect_light.rs) | Simple 3D scene demonstrating rectangular area lights.
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -310,6 +311,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
@@ -461,6 +463,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Integration Test](../examples/remote/integration_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
@@ -469,7 +473,7 @@ Example | Description
 Example | Description
 --- | ---
 [BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
-[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+[World Serialization](../examples/scene/world_serialization.rs) | Demonstrates loading from and saving world to files
 
 ### Shaders
 
@@ -606,6 +610,7 @@ Example | Description
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property

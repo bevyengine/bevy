@@ -439,7 +439,9 @@ pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh2dWireframe(pub Handle<Wireframe2dMaterial>);
 

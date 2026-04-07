@@ -17,13 +17,14 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene2::prelude::*;
+use bevy_scene::prelude::*;
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
 use bevy_ui_widgets::Checkbox;
 
 use crate::{
     constants::size,
     cursor::EntityCursor,
+    focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -60,6 +61,7 @@ pub fn toggle_switch() -> impl Scene {
         Hovered
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
+        FocusIndicator
         Children [(
             Node {
                 position_type: PositionType::Absolute,
@@ -103,6 +105,7 @@ pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![(
             Node {

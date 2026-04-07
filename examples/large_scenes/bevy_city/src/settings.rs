@@ -8,7 +8,6 @@ use bevy::{
     },
     pbr::wireframe::WireframeConfig,
     prelude::*,
-    scene2::prelude::{Scene, *},
     ui::Checked,
     ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
