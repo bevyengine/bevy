@@ -177,6 +177,33 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
+impl Scene for Box<dyn Scene> {
+    fn resolve(
+        &self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        (**self).resolve(context, scene)
+    }
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        (**self).register_dependencies(dependencies);
+    }
+}
+
+impl SceneList for Box<dyn SceneList> {
+    fn resolve_list(
+        &self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        (**self).resolve_list(context, scenes)
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        (**self).register_dependencies(dependencies);
+    }
+}
+
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
 /// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched
