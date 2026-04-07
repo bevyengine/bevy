@@ -249,7 +249,7 @@ struct Car {
     distance_traveled: f32,
     dir: f32,
     car_state: CarState,
-    car_at_stop_state: CarAtStopState,
+    at_stop_state: CarAtStopState,
     next_lane: Option<Entity>,
 }
 
@@ -275,6 +275,7 @@ pub enum CarAtStopState {
 fn simulate_cars(
     settings: Res<Settings>,
     roads: Query<(&Road, &Children), Without<Car>>,
+    car_positions: Query<&Car, Without<Road>>,
     mut cars: Query<(&mut Car, &mut Transform), Without<Road>>,
     time: Res<Time>,
 ) {
@@ -288,13 +289,14 @@ fn simulate_cars(
         let road_len = (road.end - road.start).length();
         let direction = (road.end - road.start).normalize();
 
-        // Snapshot distances before moving anything this frame
+        // Snapshot distances from a read-only query before mutating anything
         let distances: Vec<(Entity, f32, f32)> = children
             .iter()
             .filter_map(|e| {
-                cars.get(e)
+                car_positions
+                    .get(e)
                     .ok()
-                    .map(|(car, _)| (e, car.distance_traveled, car.dir))
+                    .map(|car| (e, car.distance_traveled, car.dir))
             })
             .collect();
 
@@ -308,13 +310,25 @@ fn simulate_cars(
             }
 
             let blocked = distances.iter().any(|&(e, other_d, other_dir)| {
-                e != child
-                    && other_dir == car.dir
-                    && {
-                        let gap = (other_d - car.distance_traveled) * car.dir;
-                        gap > 0.0 && gap < minimum_gap
-                    }
+                e != child && other_dir == car.dir && {
+                    let gap = (other_d - car.distance_traveled) * car.dir;
+                    gap > 0.0 && gap < minimum_gap
+                }
             });
+
+            if matches!(car.car_state, CarState::Breaking | CarState::Stopped)
+                && car.at_stop_state == CarAtStopState::Default
+            {
+                car.at_stop_state = CarAtStopState::WaitForIntersection;
+            }
+            let protected_turn =
+                car.next_lane.is_some() && car.next_lane != Some(road.intersection);
+            if matches!(car.at_stop_state, CarAtStopState::WaitForIntersection)
+                && !protected_turn
+                && !blocked
+            {
+                car.at_stop_state = CarAtStopState::MoveOnIntersection;
+            }
 
             if !blocked {
                 car.distance_traveled += speed * time.delta_secs();

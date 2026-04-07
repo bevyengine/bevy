@@ -150,7 +150,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                             dir: -1.0,
                             offset: Vec3::new(4.25, 0.0, -0.15),
                             car_state: CarState::Driving,
-                            car_at_stop_state: CarAtStopState::Default,
+                            at_stop_state: CarAtStopState::Default,
                             next_lane: None,
                         },
                     ));
@@ -170,7 +170,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                             dir: 1.0,
                             offset: Vec3::new(-0.25, 0.0, 0.15),
                             car_state: CarState::Driving,
-                            car_at_stop_state: CarAtStopState::Default,
+                            at_stop_state: CarAtStopState::Default,
                             next_lane: None,
                         },
                     ));
@@ -211,7 +211,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                             dir: 1.0,
                             offset: Vec3::new(-0.15, 0.0, -0.25),
                             car_state: CarState::Driving,
-                            car_at_stop_state: CarAtStopState::Default,
+                            at_stop_state: CarAtStopState::Default,
                             next_lane: None,
                         },
                     ));
@@ -228,7 +228,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                             dir: -1.0,
                             offset: Vec3::new(0.15, 0.0, 2.75),
                             car_state: CarState::Driving,
-                            car_at_stop_state: CarAtStopState::Default,
+                            at_stop_state: CarAtStopState::Default,
                             next_lane: None,
                         },
                     ));
