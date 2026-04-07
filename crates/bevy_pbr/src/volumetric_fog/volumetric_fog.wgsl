@@ -141,7 +141,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // faces of the AABB, this is the current fragment's depth.
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
-    // Calculate the ray direction in view space (needed for AABB intersection)
+    // Calculate the ray direction in view space (needed for back-face intersection).
     let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
     let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
 
@@ -153,17 +153,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
         let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
 
-        // Calculate the intersection of the ray and the plane using proper ray-plane intersection.
-        // Ray: P = view_start_pos + Rd_view * t
-        // Plane: dot(plane.xyz, P) + plane.w = 0
+        // Calculate the intersection of the ray and the plane using the
+        // standard ray equation P(t) = Ro + Rd * t. Skip near-parallel rays.
         let denom = dot(plane.xyz, Rd_view);
         if (abs(denom) < 0.0001) {
-            // Ray is parallel to plane
             continue;
         }
         let t = -(dot(plane.xyz, view_start_pos.xyz) + plane.w) / denom;
         if (t < 0.0) {
-            // Intersection is behind the ray start
             continue;
         }
         let hit_pos = view_start_pos.xyz + Rd_view * t;
@@ -187,19 +184,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
-
-    let ray_length_view = max(0.0, end_depth_view - start_depth_view);
-    // If the end is behind the start of the first opaque pixel, then we know it
-    // is occluded, and we don't need to render it
-    if (ray_length_view == 0.0) {
-        return vec4(0.0, 0.0, 0.0, 0.0);
-    }
+    let ray_length_view = abs(end_depth_view - start_depth_view);
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
 
     let directional_light_count = lights.n_directional_lights;
 
-    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world coordinates.
+    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world
+    // coordinates. (`Rd_ndc` and `Rd_view` were already computed above.)
     var Ro_world = position_view_to_world(view_start_pos.xyz);
     let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
 
@@ -394,7 +386,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                     spot_dir.y = -spot_dir.y;
                 }
 
-                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
                 // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
                 let cd = dot(-spot_dir, normalize(light_to_frag));
