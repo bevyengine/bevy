@@ -56,9 +56,9 @@ pub struct BevyError {
 impl BevyError {
     /// Constructs a new [`BevyError`] with the given [`Severity`].
     ///
-    /// The stored error will be stored as a `Box<dyn Error + Send + Sync>`.
+    /// The error will be stored as a `Box<dyn Error + Send + Sync>`.
     ///
-    /// The easiest way to use this is to simply pass in a quoted bit of text.
+    /// The easiest way to use this is to pass in a string.
     /// This works because any type that can be converted into a `Box<dyn Error + Send + Sync>` can be used,
     /// and [`str`] is one such type.
     ///
@@ -85,9 +85,9 @@ impl BevyError {
         Self::from(error).with_severity(severity)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Ignore`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Ignore`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Ignore, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Ignore, error)](BevyError::new)</code>.
     pub fn ignore<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -95,9 +95,9 @@ impl BevyError {
         Self::new(Severity::Ignore, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Trace`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Trace`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Trace, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Trace, error)](BevyError::new)</code>.
     pub fn trace<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -105,9 +105,9 @@ impl BevyError {
         Self::new(Severity::Trace, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Debug`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Debug`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Debug, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Debug, error)](BevyError::new)</code>.
     pub fn debug<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -115,9 +115,9 @@ impl BevyError {
         Self::new(Severity::Debug, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Info`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Info`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Info, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Info, error)](BevyError::new)</code>.
     pub fn info<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -125,9 +125,9 @@ impl BevyError {
         Self::new(Severity::Info, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Warning`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Warning`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Warning, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Warning, error)](BevyError::new)</code>.
     pub fn warning<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -135,9 +135,9 @@ impl BevyError {
         Self::new(Severity::Warning, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Error`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Error`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Error, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Error, error)](BevyError::new)</code>.
     pub fn error<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -145,9 +145,9 @@ impl BevyError {
         Self::new(Severity::Error, error)
     }
 
-    /// Create a new [`BevyError`] with the [`Severity::Panic`] severity
+    /// Creates a new [`BevyError`] with the [`Severity::Panic`] severity.
     ///
-    /// This is a shorthand for <code>[BevyError::new(Severity::Panic, error)](BevyError::new)</code>
+    /// This is a shorthand for <code>[BevyError::new(Severity::Panic, error)](BevyError::new)</code>.
     pub fn panic<E>(error: E) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
@@ -155,7 +155,7 @@ impl BevyError {
         Self::new(Severity::Panic, error)
     }
 
-    /// Checks if we're holding the internal error.
+    /// Checks if the internal error is of the given type.
     pub fn is<E: Error + 'static>(&self) -> bool {
         self.inner.error.is::<E>()
     }
