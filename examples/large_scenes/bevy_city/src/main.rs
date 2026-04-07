@@ -334,7 +334,7 @@ fn add_no_cpu_culling(
 
 /// Adds [`NoCpuCulling`] to all meshes in all scenes after the city is done spawning
 ///
-/// This is required because a few assets are spawned using a [`SceneRoot`] instead of directly
+/// This is required because a few assets are spawned using a [`WorldAssetRoot`] instead of directly
 /// spawning a [`Mesh`]
 fn add_no_cpu_culling_on_scene_ready(
     scene_ready: On<WorldInstanceReady>,
