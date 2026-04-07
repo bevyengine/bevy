@@ -30,7 +30,7 @@ use crate::{
 #[derive(Component, Default, Clone)]
 struct FeathersTextInputContainer;
 
-/// Marker to indicate a the inner part of the text input widget.
+/// Marker to indicate the inner part of the text input widget.
 #[derive(Component, Default, Clone)]
 struct FeathersTextInput;
 
