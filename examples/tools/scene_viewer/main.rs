@@ -195,7 +195,6 @@ fn setup_scene_after_load(
             run_speed: 3.0 * walk_speed,
             ..default()
         };
-
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
         info!("{}", *scene_handle);
