@@ -560,15 +560,56 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-/// Implement the `SettingsGroup` trait.
+/// Cheat sheet for derive syntax,
+///
+/// ## Group Override
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(group = "my_group")]
+/// struct MySettings {
+///     test: true
+/// }
+/// ```
+/// results in:
+/// ```ignore
+/// [my_group]
+/// test = true
+/// ```
+///
+/// ## File Override
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(file = "my_file")]
+/// struct MySettings {
+///     test: true
+/// }
+/// ```
+/// results in a different file being used as the source of the settings.
+///
+/// ## Key Override
+/// Only valid for enums, as struct keys are always derived from the struct name.
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(key = "my_key")]
+/// enum MySettingsEnum {
+///     Variant1,
+///     Variant2
+/// };
+/// ```
+/// results in:
+/// ```ignore
+/// [my_settings_enum]
+/// my_key = "variant1"
+/// ```
 #[proc_macro_derive(SettingsGroup, attributes(settings_group))]
 pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
 
-    let (override_name, override_file) = {
-        let mut override_name: Option<String> = None;
+    let (override_group_name, override_key_name, override_file) = {
+        let mut override_group_name: Option<String> = None;
+        let mut override_key_name: Option<String> = None;
         let mut override_file: Option<String> = None;
 
         input
@@ -580,7 +621,12 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
                     if meta.path.is_ident("group") {
                         let value = meta.value()?;
                         let s: syn::LitStr = value.parse()?;
-                        override_name = Some(s.value());
+                        override_group_name = Some(s.value());
+                        Ok(())
+                    } else if meta.path.is_ident("key") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_key_name = Some(s.value());
                         Ok(())
                     } else if meta.path.is_ident("file") {
                         let value = meta.value()?;
@@ -594,10 +640,42 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
                 .ok()
             });
 
-        (override_name, override_file)
+        (override_group_name, override_key_name, override_file)
     };
 
-    let group_name = override_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+    let (group_name, key_name) = match &input.data {
+        Data::Struct(_) => {
+            if override_key_name.is_some() {
+                return syn::Error::new(
+                    Span::call_site(),
+                    "The `key` attribute is not supported for structs",
+                )
+                .into_compile_error()
+                .into();
+            }
+            let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+
+            (group_name, override_key_name)
+        }
+        Data::Enum(_) => {
+            let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+            let key_name = override_key_name.or(Some(pascal_to_snake_case(&name.to_string())));
+
+            (group_name, key_name)
+        }
+        _ => {
+            return syn::Error::new(
+                Span::call_site(),
+                "SettingsGroup can only be derived for structs and enums",
+            )
+            .into_compile_error()
+            .into();
+        }
+    };
+
+    let key_name = key_name
+        .map(|f| quote! { ::core::option::Option::Some(#f) })
+        .unwrap_or(quote! { ::core::option::Option::None });
     let file_name = override_file
         .map(|f| quote! { ::core::option::Option::Some(#f) })
         .unwrap_or(quote! { ::core::option::Option::None });
@@ -607,6 +685,11 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
             fn settings_group_name() -> &'static str {
                 #group_name
             }
+
+            fn settings_key_name() -> ::core::option::Option<&'static str> {
+                #key_name
+            }
+
             fn settings_source() -> ::core::option::Option<&'static str> {
                 #file_name
             }
