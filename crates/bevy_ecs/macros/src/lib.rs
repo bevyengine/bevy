@@ -586,7 +586,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// results in a different file being used as the source of the settings.
 ///
 /// ## Key Override
-/// Only valid for enums, as struct keys are always derived from the struct name.
+/// Only valid for enums, as struct keys are always derived from the field name.
 /// ```ignore
 /// #[derive(SettingsGroup)]
 /// #[settings_group(key = "my_key")]
