@@ -623,7 +623,6 @@ mod tests {
 
     #[test]
     fn test_build_registry_single_struct_resource() {
-        // CounterSettings is a struct
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
 
@@ -639,7 +638,6 @@ mod tests {
     
     #[test]
     fn test_build_registry_single_enum_resource() {
-        // CounterVariation is an enum
         let mut types = TypeRegistry::default();
         types.register::<CounterRefreshRateSettings>();
 
