@@ -101,6 +101,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let bevy_scene = ctx.bevy_scene;
         let entries: Vec<_> = self
             .entries
             .iter()
@@ -110,8 +111,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     .unwrap_or_else(|e| e.to_compile_error())
             })
             .collect();
-
-        Ok(quote! { (#(#entries,)*) })
+        Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#entries),*) })
     }
 
     pub fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
