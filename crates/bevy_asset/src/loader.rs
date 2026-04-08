@@ -629,7 +629,7 @@ impl<'a> LoadContext<'a> {
 
     /// Returns the labeled asset given its asset ID if it exists.
     ///
-    /// This can be used to get the asset from its handle since `&Handle` implemented
+    /// This can be used to get the asset from its handle since `&Handle` implements
     /// [`Into<UntypedAssetId>`].
     pub fn get_labeled_by_id(&self, id: impl Into<UntypedAssetId>) -> Option<&ErasedLoadedAsset> {
         let index = self.asset_id_to_asset_index.get(&id.into())?;
