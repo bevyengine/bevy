@@ -11,7 +11,8 @@
 //! This crate provides a system for managing input focus in Bevy applications, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
-//! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
+//! * Events for when entities gain or lose focus: [`FocusGained`] and [`FocusLost`].
+//! * A generic [`FocusedInput`] event to send input events which bubble up from the focused entity.
 //! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
@@ -26,10 +27,13 @@ pub mod directional_navigation;
 pub mod navigator;
 pub mod tab_navigation;
 
-// This module is too small / specific to be exported by the crate,
-// but it's nice to have it separate for code organization.
+// These modules are too small / specific to be exported by the crate,
+// but it's nice to have them separate for code organization.
 mod autofocus;
 pub use autofocus::*;
+
+mod gained_and_lost;
+pub use gained_and_lost::*;
 
 #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
 use bevy_app::PreUpdate;
@@ -54,6 +58,8 @@ use bevy_reflect::{prelude::*, Reflect};
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
 ///
 /// Changing the input focus is as easy as modifying this resource.
+///
+/// To detect when an entity gains or loses focus, listen for the [`FocusGained`] and [`FocusLost`] events.
 ///
 /// # Examples
 ///
@@ -163,7 +169,7 @@ pub struct FocusedInput<M: Message + Clone> {
 
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
-#[derive(Clone, EntityEvent)]
+#[derive(EntityEvent, Debug, Clone)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The entity that has acquired focus.
