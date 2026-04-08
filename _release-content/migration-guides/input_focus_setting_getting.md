@@ -21,3 +21,7 @@ let focused_entity = input_focus.get();
 input_focus.set(entity);
 input_focus.clear();
 ```
+
+Additionally, the core setup of `InputFocus` and related resources now occurs in `InputFocusPlugin`,
+rather than `InputDispatchPlugin`.
+This is part of `DefaultPlugins`, so most users will not need to make any changes.

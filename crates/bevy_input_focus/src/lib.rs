@@ -35,9 +35,11 @@ pub use autofocus::*;
 mod gained_and_lost;
 pub use gained_and_lost::*;
 
+use alloc::vec;
+use alloc::vec::Vec;
 #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
 use bevy_app::PreUpdate;
-use bevy_app::{App, Plugin, PostStartup};
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{
     entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
 };
@@ -100,22 +102,39 @@ use bevy_reflect::{prelude::*, Reflect};
     reflect(Debug, Default, Resource, Clone)
 )]
 pub struct InputFocus {
+    /// The entity that currently has input focus, if any.
     current_focus: Option<Entity>,
+    /// The set of input focus changes that have been recorded since the last time [`FocusGained`] and [`FocusLost`] events were sent.
+    ///
+    /// These are stored in a first-in-first-out manner, so the most recent change is at the end of the vector.
+    recorded_changes: Vec<Option<Entity>>,
+    /// The entity that had input focus at the time of the last sent [`FocusGained`] or [`FocusLost`] event, if any.
+    ///
+    /// This is used to determine which events to send when processing recorded focus changes.
+    original_focus: Option<Entity>,
 }
 
 impl InputFocus {
     /// Create a new [`InputFocus`] resource with the given entity.
     ///
     /// This is mostly useful for tests.
-    pub const fn from_entity(entity: Entity) -> Self {
+    ///
+    /// WARNING: this will clear any buffered focus changes,
+    /// so it may cause missed [`FocusGained`] and [`FocusLost`] events.
+    ///
+    /// Prefer the [`set`] method for normal use, which will preserve buffered changes.
+    pub fn from_entity(entity: Entity) -> Self {
         Self {
             current_focus: Some(entity),
+            recorded_changes: vec![Some(entity)],
+            original_focus: None,
         }
     }
 
     /// Set the entity with input focus.
-    pub const fn set(&mut self, entity: Entity) {
+    pub fn set(&mut self, entity: Entity) {
         self.current_focus = Some(entity);
+        self.recorded_changes.push(Some(entity));
     }
 
     /// Returns the entity with input focus, if any.
@@ -124,8 +143,9 @@ impl InputFocus {
     }
 
     /// Clears input focus.
-    pub const fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.current_focus = None;
+        self.recorded_changes.push(None);
     }
 }
 
@@ -226,6 +246,26 @@ impl Traversal<AcquireFocus> for WindowTraversal {
     }
 }
 
+/// Plugin which sets up the core input focus system.
+///
+/// This includes the[`InputFocus`] and [`InputFocusVisible`] resources,
+/// [`set_initial_focus`] system to initialize the focus to the primary window, if any, at startup,
+/// and [`process_recorded_focus_changes`] to send [`FocusGained`] and [`FocusLost`] events when the focused entity changes.
+#[derive(Default)]
+pub struct InputFocusPlugin;
+
+impl Plugin for InputFocusPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostStartup, set_initial_focus)
+            .init_resource::<InputFocus>()
+            .init_resource::<InputFocusVisible>()
+            .add_systems(
+                PostUpdate,
+                process_recorded_focus_changes.in_set(InputFocusSystems::FocusChangeEvents),
+            );
+    }
+}
+
 /// Plugin which sets up systems for dispatching bubbling keyboard and gamepad button events to the focused entity.
 ///
 /// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
@@ -235,10 +275,6 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, set_initial_focus)
-            .init_resource::<InputFocus>()
-            .init_resource::<InputFocusVisible>();
-
         #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
         app.add_systems(
             PreUpdate,
@@ -263,7 +299,13 @@ impl Plugin for InputDispatchPlugin {
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
+    ///
+    /// Occurs in the [PreUpdate] schedule, after [InputSystems].
     Dispatch,
+    /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
+    ///
+    /// Occurs in the [`PostUpdate`] schedule.
+    FocusChangeEvents,
 }
 
 /// If no entity is focused, sets the focus to the primary window, if any.
@@ -494,7 +536,7 @@ mod tests {
     #[test]
     fn initial_focus_unset_if_no_primary_window() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         app.update();
 
@@ -504,7 +546,7 @@ mod tests {
     #[test]
     fn initial_focus_set_to_primary_window() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         let entity_window = app
             .world_mut()
@@ -521,7 +563,7 @@ mod tests {
     #[test]
     fn initial_focus_not_overridden() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
 
@@ -556,7 +598,7 @@ mod tests {
 
         let mut app = App::new();
 
-        app.add_plugins((InputPlugin, InputDispatchPlugin))
+        app.add_plugins((InputPlugin, InputFocusPlugin))
             .add_observer(gather_keyboard_events);
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
@@ -673,7 +715,7 @@ mod tests {
     #[test]
     fn dispatch_clears_focus_when_focused_entity_despawned() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         app.update();
