@@ -132,6 +132,11 @@ impl InputFocus {
     }
 
     /// Set the entity with input focus.
+    ///
+    /// When spawning entities, you may want to use the [`AutoFocus`] component instead,
+    /// which will automatically set focus to the entity when it is spawned.
+    ///
+    /// This is particularly useful when working with bsn! scenes, where spawning may be delayed.
     pub fn set(&mut self, entity: Entity) {
         self.current_focus = Some(entity);
         self.recorded_changes.push(Some(entity));
