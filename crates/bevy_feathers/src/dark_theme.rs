@@ -10,6 +10,7 @@ pub fn create_dark_theme() -> ThemeProps {
     ThemeProps {
         color: HashMap::from([
             (tokens::WINDOW_BG, palette::GRAY_0),
+            (tokens::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
             // Button
             (tokens::BUTTON_BG, palette::GRAY_3),
             (tokens::BUTTON_BG_HOVER, palette::GRAY_3.lighter(0.05)),
@@ -96,6 +97,15 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::LIGHT_GRAY_2.with_alpha(0.3),
             ),
             (tokens::COLOR_PLANE_BG, palette::GRAY_1),
+            // Text Input
+            (tokens::TEXT_INPUT_BG, palette::GRAY_1),
+            (tokens::TEXT_INPUT_TEXT, palette::LIGHT_GRAY_1),
+            (
+                tokens::TEXT_INPUT_TEXT_DISABLED,
+                palette::WHITE.with_alpha(0.5),
+            ),
+            (tokens::TEXT_INPUT_CURSOR, palette::ACCENT),
+            (tokens::TEXT_INPUT_SELECTION, palette::GRAY_2),
         ]),
     }
 }

@@ -11,7 +11,7 @@
 //!
 //! This Bevy example is inspired by the corresponding three.js example [3].
 //!
-//! [1]: https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel
+//! [1]: https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 //!
 //! [2]: https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
 //!
@@ -20,12 +20,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
+    light::Skybox,
     math::vec3,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// The size of each sphere.
@@ -146,7 +147,7 @@ fn spawn_coated_glass_bubble_sphere(
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
         ),
         Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),

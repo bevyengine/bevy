@@ -73,6 +73,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let mut non_bindless_binding_layouts = Vec::new();
     let mut bindless_resource_types = Vec::new();
     let mut bindless_buffer_descriptors = Vec::new();
+    // Whether this material needs buffer binding arrays (BUFFER_BINDING_ARRAY feature).
+    // False when only #[data(...)], textures, and samplers are used.
+    // NOTE: When wgpu adds support for buffer binding arrays on Metal
+    // (see https://github.com/gfx-rs/wgpu/pull/9081), this conditional
+    // can be removed and BUFFER_BINDING_ARRAY required unconditionally.
+    let mut has_buffer_binding_arrays = false;
     let mut attr_prepared_data_ident = None;
     // After the first attribute pass, this will be `None` if the object isn't
     // bindless and `Some` if it is.
@@ -225,6 +231,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         binding_index,
                         quote! { #render_path::render_resource::BindlessResourceType::Buffer },
                     );
+                    has_buffer_binding_arrays = true;
                 }
 
                 UniformBindingAttrType::Data => {
@@ -466,7 +473,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Buffer({
-                                let handle: &#asset_path::Handle<#render_path::storage::ShaderStorageBuffer> = (&self.#field_name);
+                                let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
                                 storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
                         )
@@ -500,6 +507,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             binding_index,
                             bindless_resource_type,
                         );
+
+                        has_buffer_binding_arrays = true;
 
                         // Push the buffer descriptor.
                         bindless_buffer_descriptors.push(quote! {
@@ -722,7 +731,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 if let Some(handle) = handle {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
-                                    let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
+                                    let Some(sample_type) = image.texture_descriptor.format.sample_type(None, Some(render_device.features())) else {
                                         return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
                                             #binding_index,
                                             "None".to_string(),
@@ -953,16 +962,29 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let (bindless_slot_count, actual_bindless_slot_count_declaration, bindless_descriptor_syntax) =
         match attr_bindless_count {
             Some(ref bindless_count) => {
+                // Only require BUFFER_BINDING_ARRAY when the material actually uses
+                // buffer binding arrays. Materials using only textures, samplers, and
+                // data buffers can use bindless without it (e.g. on Metal).
+                let required_features = if has_buffer_binding_arrays {
+                    quote! {
+                        #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
+                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                    }
+                } else {
+                    quote! {
+                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                    }
+                };
+
                 let bindless_supported_syntax = quote! {
                         fn bindless_supported(
                             render_device: &#render_path::renderer::RenderDevice
                         ) -> bool {
                             render_device.features().contains(
-                                #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
-                                #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                                #required_features
                             ) &&
                             render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
-                                render_device.limits().max_samplers_per_shader_stage >=
+                                render_device.limits().max_binding_array_sampler_elements_per_shader_stage >=
                                     (#sampler_binding_count * #bindless_count_syntax)
                         }
                 };
@@ -1049,7 +1071,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             type Param = (
                 #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
                 #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
-                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderStorageBuffer>>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderBuffer>>,
             );
 
             #bindless_slot_count
@@ -1090,12 +1112,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 match #actual_bindless_slot_count {
                     Some(bindless_slot_count) => {
                         let bindless_index_table_range = #bindless_index_table_range;
+                        let used_resource_types = &[
+                            #(#bindless_resource_types),*
+                        ];
                         #bind_group_layout_entries.extend(
                             #render_path::render_resource::create_bindless_bind_group_layout_entries(
                                 bindless_index_table_range.end.0 -
                                     bindless_index_table_range.start.0,
                                 bindless_slot_count.into(),
                                 #bindless_index_table_binding_number,
+                                used_resource_types,
                             ).into_iter()
                         );
                         #(#bindless_binding_layouts)*;

@@ -56,7 +56,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<M: Message> WinitAppRunnerState<M> {
+impl WinitAppRunnerState {
     pub(crate) fn update_cursors(
         &mut self,
         #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop,
@@ -67,13 +67,13 @@ impl<M: Message> WinitAppRunnerState<M> {
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(feature = "custom_cursor")]
-        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut());
+        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut()).unwrap();
         #[cfg(not(feature = "custom_cursor"))]
         let mut windows_state: SystemState<(
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
-        let (mut windows,) = windows_state.get_mut(self.world_mut());
+        let (mut windows,) = windows_state.get_mut(self.world_mut()).unwrap();
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             for (entity, mut pending_cursor) in windows.iter_mut() {

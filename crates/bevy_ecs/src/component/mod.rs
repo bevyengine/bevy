@@ -1,11 +1,13 @@
 //! Types for declaring and storing [`Component`]s.
 
 mod clone;
+mod constants;
 mod info;
 mod register;
 mod required;
 
 pub use clone::*;
+pub use constants::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
@@ -354,7 +356,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
-/// - `#[component(on_replace = on_replace_function)]`
+/// - `#[component(on_discard = on_discard_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
@@ -371,8 +373,8 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// // Another possible way of configuring hooks:
 /// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
-/// // We don't have a replace or remove hook, so we can leave them out:
-/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
+/// // We don't have a discard or remove hook, so we can leave them out:
+/// // #[component(on_discard = my_on_discard_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
 /// fn my_on_add_hook(world: DeferredWorld, context: HookContext) {
@@ -433,7 +435,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// You can specify how the [`Component`] is cloned when deriving it.
 ///
 /// Your options are the functions and variants of [`ComponentCloneBehavior`]
-/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
@@ -528,8 +530,8 @@ pub trait Component: Send + Sync + 'static {
         None
     }
 
-    /// Gets the `on_replace` [`ComponentHook`] for this [`Component`] if one is defined.
-    fn on_replace() -> Option<ComponentHook> {
+    /// Gets the `on_discard` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_discard() -> Option<ComponentHook> {
         None
     }
 
@@ -556,7 +558,7 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
     #[inline]
     fn clone_behavior() -> ComponentCloneBehavior {
         ComponentCloneBehavior::Default
@@ -671,7 +673,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `Insert` and `Replace` hooks into a
+/// component, effectively turning the `Insert` and `Discard` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.

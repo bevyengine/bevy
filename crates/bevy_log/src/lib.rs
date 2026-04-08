@@ -47,7 +47,7 @@ pub mod prelude {
 
 pub use bevy_utils::once;
 pub use tracing::{
-    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    self, debug, debug_span, error, error_span, event, info, info_span, trace, trace_span, warn,
     warn_span, Level,
 };
 pub use tracing_subscriber;
@@ -406,6 +406,9 @@ impl Plugin for LogPlugin {
         let logger_already_set = LogTracer::init().is_err();
         let subscriber_already_set =
             tracing::subscriber::set_global_default(finished_subscriber).is_err();
+
+        #[cfg(feature = "tracing-tracy")]
+        warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(

@@ -1,7 +1,4 @@
-#[cfg(any(feature = "http", feature = "https"))]
-use crate::io::AssetSourceBuilder;
-use crate::io::PathStream;
-use crate::io::{AssetReader, AssetReaderError, Reader};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
@@ -23,12 +20,12 @@ use tracing::warn;
 /// Example usage:
 ///
 /// ```rust
-/// # use bevy_app::{App, Startup};
-/// # use bevy_ecs::prelude::{Commands, Res};
-/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
+/// # use bevy_app::{App, Startup, TaskPoolPlugin};
+/// # use bevy_ecs::prelude::{Commands, Component, Res};
+/// # use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle, io::web::WebAssetPlugin};
+/// # use bevy_reflect::TypePath;
 /// # struct DefaultPlugins;
-/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
-/// # use bevy_asset::web::AssetServer;
+/// # impl DefaultPlugins { fn set(&self, plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Image;
 /// # #[derive(Component)]
@@ -39,6 +36,8 @@ use tracing::warn;
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
 ///         silence_startup_warning: true,
 ///     }))
+/// #   .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+/// #   .init_asset::<Image>()
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -133,6 +132,9 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             io::Error::other(std::format!("non-utf8 path: {}", path.display())).into(),
         )
     })?;
+
+    #[cfg(target_os = "windows")]
+    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
@@ -258,6 +260,7 @@ mod web_asset_cache {
 
         let mut cache_file = async_fs::File::create(&cache_path).await?;
         cache_file.write_all(data).await?;
+        cache_file.close().await?;
 
         Ok(())
     }

@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Types for handling [`Bundle`]s.
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
@@ -282,6 +287,8 @@ pub trait DynamicBundle: Sized {
     ///  - If any part of `ptr` is to be accessed in this function, it must *not* be dropped at any point in
     ///    `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically
     ///    ensures this is the case.
+    ///  - Note that `entity` may already have been despawned by hooks or observers at this point,
+    ///    so check [`EntityWorldMut::is_spawned`] before trusting it.
     ///
     /// [`World`]: crate::world::World
     // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle

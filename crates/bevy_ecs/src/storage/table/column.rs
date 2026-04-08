@@ -66,19 +66,29 @@ impl Column {
         });
     }
 
-    /// Swap-remove and drop the removed element.
+    /// Swap-remove the provided row.
+    ///
+    /// If `DROP` is `true`, the removed element will be dropped as needed.
+    ///
+    /// If `DROP` is `false`, the removed element will be forgotten.
     ///
     /// # Safety
-    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
-    /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update their saved length to reflect the change (decrement it by 1).
-    pub(crate) unsafe fn swap_remove_and_drop_unchecked(
+    /// - `last_element_index` must be the index of the last element.
+    /// - `row.index()` <= `last_element_index`
+    /// - The caller should update their saved length to reflect the change (decrement it by 1).
+    pub(crate) unsafe fn swap_remove_unchecked<const DROP: bool>(
         &mut self,
         last_element_index: usize,
         row: TableRow,
     ) {
-        self.data
-            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
+        if DROP {
+            self.data
+                .swap_remove_and_drop_unchecked(row.index(), last_element_index);
+        } else {
+            _ = self
+                .data
+                .swap_remove_unchecked(row.index(), last_element_index);
+        }
         self.added_ticks
             .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_ticks
@@ -110,30 +120,6 @@ impl Column {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         });
-        data
-    }
-
-    /// Swap-remove and forget the removed element.
-    ///
-    /// # Safety
-    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
-    /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update their saved length to reflect the change (decrement it by 1).
-    pub(crate) unsafe fn swap_remove_and_forget_unchecked(
-        &mut self,
-        last_element_index: usize,
-        row: TableRow,
-    ) -> OwningPtr<'_> {
-        let data = self
-            .data
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.added_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_by
-            .as_mut()
-            .map(|changed_by| changed_by.swap_remove_unchecked(row.index(), last_element_index));
         data
     }
 
@@ -336,7 +322,8 @@ impl Column {
     /// - `T` must match the type of data that's stored in this [`Column`]
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_data_slice<T>(&self, len: usize) -> &[UnsafeCell<T>] {
-        self.data.get_sub_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.data.get_sub_slice(len) }
     }
 
     /// Get a slice to the added [`ticks`](Tick) in this [`Column`].
@@ -344,7 +331,8 @@ impl Column {
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_added_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
-        self.added_ticks.as_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.added_ticks.as_slice(len) }
     }
 
     /// Get a slice to the changed [`ticks`](Tick) in this [`Column`].
@@ -352,7 +340,8 @@ impl Column {
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_changed_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
-        self.changed_ticks.as_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.changed_ticks.as_slice(len) }
     }
 
     /// Get a slice to the calling locations that last changed each value in this [`Column`]
@@ -402,7 +391,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        self.added_ticks.get_unchecked(row.index())
+        // SAFETY: Upheld by caller
+        unsafe { self.added_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the "changed" change detection tick for the value at `row`
@@ -412,7 +402,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        self.changed_ticks.get_unchecked(row.index())
+        // SAFETY: Upheld by caller
+        unsafe { self.changed_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the change detection ticks for the value at `row`.

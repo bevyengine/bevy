@@ -48,6 +48,10 @@ fn into(c: &mut Criterion) {
         .bench_function("closure_mut", |b| {
             let mut _capture = 25;
             // `move` is required here because `into_function_mut()` takes ownership of `self`.
+            #[expect(
+                unused_assignments,
+                reason = "rustc bug https://github.com/rust-lang/rust/issues/149889"
+            )]
             let closure = move |a: i32| _capture += a;
             b.iter(|| closure.into_function_mut());
         });

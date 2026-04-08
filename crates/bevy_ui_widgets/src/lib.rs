@@ -20,6 +20,7 @@
 
 mod button;
 mod checkbox;
+mod editable_text;
 mod menu;
 mod observe;
 pub mod popover;
@@ -29,6 +30,7 @@ mod slider;
 
 pub use button::*;
 pub use checkbox::*;
+pub use editable_text::*;
 pub use menu::*;
 pub use observe::*;
 pub use radio::*;
@@ -42,6 +44,7 @@ use crate::popover::PopoverPlugin;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
+#[derive(Default)]
 pub struct UiWidgetsPlugins;
 
 impl PluginGroup for UiWidgetsPlugins {
@@ -54,6 +57,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(RadioGroupPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(EditableTextInputPlugin)
     }
 }
 

@@ -42,7 +42,10 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
-            let data = bevy_ptr::dangling_with_align(align);
+
+            // Create a dangling pointer with the given alignment.
+            let data = NonNull::without_provenance(align);
+
             Self {
                 item_layout,
                 drop: drop_fn,
@@ -51,7 +54,8 @@ impl BlobArray {
                 capacity,
             }
         } else {
-            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
+            // SAFETY: Upheld by caller
+            let mut arr = unsafe { Self::with_capacity(item_layout, drop_fn, 0) };
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
@@ -379,7 +383,6 @@ impl BlobArray {
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
@@ -440,7 +443,6 @@ impl BlobArray {
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.

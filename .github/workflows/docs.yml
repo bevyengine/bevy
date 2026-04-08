@@ -3,7 +3,7 @@ name: Deploy Docs
 on:
   push:
     branches:
-      - 'main'
+      - "main"
   # Allows running the action manually.
   workflow_dispatch:
 
@@ -35,9 +35,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
@@ -46,6 +48,8 @@ jobs:
         with:
           wayland: true
           xkb: true
+          x264: true
+          fontconfig: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
@@ -59,7 +63,7 @@ jobs:
         env:
           # needs to be in sync with [package.metadata.docs.rs]
           RUSTFLAGS: --cfg docsrs_dep
-          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition --html-after-content docs-rs/trait-tags.html
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition --generate-macro-expansion --html-after-content docs-rs/trait-tags.html
         run: |
           cargo doc \
             -Zunstable-options \
@@ -87,10 +91,10 @@ jobs:
           rm target/doc/.lock
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: target/doc
 
       - name: Deploy to Github Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -1,7 +1,7 @@
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
@@ -112,6 +112,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
+    fn stack_z_offset() -> f32 {
+        crate::stack_z_offsets::MATERIAL
+    }
+
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
@@ -159,7 +163,17 @@ where
 }
 
 #[derive(
-    Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
+    Component,
+    FromTemplate,
+    Clone,
+    Debug,
+    Deref,
+    DerefMut,
+    Reflect,
+    PartialEq,
+    Eq,
+    ExtractComponent,
+    From,
 )]
 #[reflect(Component, Default)]
 #[require(Node)]

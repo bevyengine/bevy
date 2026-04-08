@@ -3,7 +3,7 @@
 //! Note that this uses [`Text2d`] to display text alongside your other entities in a 2D scene.
 //!
 //! For an example on how to render text as part of a user interface, independent from the world
-//! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
+//! viewport, you may want to look at `showcase/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
     color::palettes::css::*,
@@ -36,8 +36,8 @@ struct AnimateScale;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_font = TextFont {
-        font: font.clone(),
-        font_size: 50.0,
+        font: font.clone().into(),
+        font_size: FontSize::Px(50.0),
         ..default()
     };
     let text_justification = Justify::Center;
@@ -72,8 +72,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_font = TextFont {
-        font,
-        font_size: 35.0,
+        font: font.into(),
+        font_size: FontSize::Px(35.0),
         ..default()
     };
     let box_size = Vec2::new(300.0, 200.0);

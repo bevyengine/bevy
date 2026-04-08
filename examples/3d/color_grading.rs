@@ -6,9 +6,10 @@ use std::{
 };
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
 use std::fmt::Display;
 
@@ -292,7 +293,7 @@ fn add_help_text(
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
         TextFont {
-            font: font.clone(),
+            font: FontSource::from(font),
             ..default()
         },
         Node {
@@ -310,8 +311,8 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {
-            font: font.clone(),
-            font_size: 15.0,
+            font: font.into(),
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(color),
@@ -343,13 +344,13 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
     )));
 
     // Spawn the flight helmet.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -360,7 +361,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),

@@ -55,6 +55,30 @@ pub trait SystemInput: Sized {
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
 pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 
+/// A type that may be constructed from the input of a [`System`].
+/// This is used to allow systems whose first parameter is a `StaticSystemInput<In>`
+/// to take an `In` as input, and can be implemented for user types to allow
+/// similar conversions.
+pub trait FromInput<In: SystemInput>: SystemInput {
+    /// Converts the system input's inner representation into this type's
+    /// inner representation.
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i>;
+}
+
+impl<In: SystemInput> FromInput<In> for In {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
+}
+
+impl<'a, In: SystemInput> FromInput<In> for StaticSystemInput<'a, In> {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
+}
+
 /// A [`SystemInput`] type which denotes that a [`System`] receives
 /// an input value of type `T` from its caller.
 ///
@@ -294,7 +318,7 @@ all_tuples!(
 #[cfg(test)]
 mod tests {
     use crate::{
-        system::{In, InMut, InRef, IntoSystem, System},
+        system::{assert_is_system, In, InMut, InRef, IntoSystem, StaticSystemInput, System},
         world::World,
     };
 
@@ -326,5 +350,20 @@ mod tests {
         assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
         by_mut.run((&mut a, b), &mut world).unwrap();
         assert_eq!(a, 36);
+    }
+
+    #[test]
+    fn compatible_input() {
+        fn takes_usize(In(a): In<usize>) -> usize {
+            a
+        }
+
+        fn takes_static_usize(StaticSystemInput(b): StaticSystemInput<In<usize>>) -> usize {
+            b
+        }
+
+        assert_is_system::<In<usize>, usize, _>(takes_usize);
+        // test if StaticSystemInput is compatible with its inner type
+        assert_is_system::<In<usize>, usize, _>(takes_static_usize);
     }
 }

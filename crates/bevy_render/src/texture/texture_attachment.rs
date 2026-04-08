@@ -4,7 +4,8 @@ use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
-    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    Color as WgpuColor, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, StoreOp,
 };
 
 /// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
@@ -12,7 +13,8 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
-    clear_color: Option<LinearRgba>,
+    pub previous_frame_texture: Option<CachedTexture>,
+    clear_color: Option<WgpuColor>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -20,11 +22,13 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
-        clear_color: Option<LinearRgba>,
+        previous_frame_texture: Option<CachedTexture>,
+        clear_color: Option<WgpuColor>,
     ) -> Self {
         Self {
             texture,
             resolve_target,
+            previous_frame_texture,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
@@ -44,7 +48,7 @@ impl ColorAttachment {
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
-                        (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                        (Some(clear_color), true) => LoadOp::Clear(clear_color),
                         (None, _) | (Some(_), false) => LoadOp::Load,
                     },
                     store: StoreOp::Store,
@@ -68,7 +72,7 @@ impl ColorAttachment {
             resolve_target: None,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
-                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color),
                     (None, _) | (Some(_), false) => LoadOp::Load,
                 },
                 store: StoreOp::Store,
@@ -127,15 +131,15 @@ impl DepthAttachment {
 #[derive(Clone)]
 pub struct OutputColorAttachment {
     pub view: TextureView,
-    pub format: TextureFormat,
+    pub view_format: TextureFormat,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+    pub fn new(view: TextureView, view_format: TextureFormat) -> Self {
         Self {
             view,
-            format,
+            view_format,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }

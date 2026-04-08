@@ -196,7 +196,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
@@ -241,7 +241,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
+            commands.spawn((WorldAssetRoot(scene), Transform::from_translation(position)));
         }
     }
 }
