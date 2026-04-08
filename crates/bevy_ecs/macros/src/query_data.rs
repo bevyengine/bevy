@@ -1,4 +1,8 @@
-use bevy_macro_utils::{ensure_no_collision, get_struct_fields};
+use bevy_macro_utils::{
+    ensure_no_collision,
+    fq_std::{FQIterator, FQOption},
+    get_struct_fields,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
@@ -456,15 +460,15 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
-                        ::core::option::Option::Some(Self::Item {
+                    ) -> #FQOption<Self::Item<'__w, '__s>> {
+                        #FQOption::Some(Self::Item {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
 
                     fn iter_access(
                         _state: &Self::State,
-                    ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                    ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
                         ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                     }
                 }
@@ -538,15 +542,15 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
-                    ::core::option::Option::Some(Self::Item {
+                ) -> #FQOption<Self::Item<'__w, '__s>> {
+                    #FQOption::Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
                 }
 
                 fn iter_access(
                     _state: &Self::State,
-                ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
                     ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                 }
             }

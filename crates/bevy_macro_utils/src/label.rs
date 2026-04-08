@@ -1,3 +1,4 @@
+use crate::fq_std::{FQClone, FQSend, FQSync};
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use std::collections::HashSet;
@@ -75,7 +76,7 @@ pub fn derive_label(
     });
     where_clause.predicates.push(
         syn::parse2(quote! {
-            Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash
+            Self: 'static + #FQSend + #FQSync + #FQClone + ::core::cmp::Eq + ::core::fmt::Debug + ::core::hash::Hash
         })
         .unwrap(),
     );
@@ -86,7 +87,7 @@ pub fn derive_label(
 
             impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
                 fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
-                    alloc::boxed::Box::new(::core::clone::Clone::clone(self))
+                    alloc::boxed::Box::new(#FQClone::clone(self))
                 }
             }
         };

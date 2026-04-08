@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQSend, FQSync};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
@@ -66,7 +67,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+        .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -74,7 +75,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut register_required = Vec::with_capacity(1);
     // We add the component_id existence check here to avoid recursive init during required components initialization.
     register_required.push(quote! {
-        let resource_component_id = if let ::core::option::Option::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
+        let resource_component_id = if let #FQOption::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
             id
         } else {
             required_components.components_registrator().register_component::<#struct_name #type_generics>()
@@ -107,8 +108,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
             #map_entities
 
-            fn relationship_accessor() -> ::core::option::Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
-                ::core::option::Option::None
+            fn relationship_accessor() -> #FQOption<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                #FQOption::None
             }
         }
     });
@@ -243,7 +244,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+        .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
 
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
@@ -252,7 +253,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             let ident = &require.path;
             let constructor = match &require.func {
                 Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
-                None => quote! { <#ident as ::core::default::Default>::default },
+                None => quote! { <#ident as #FQDefault>::default },
             };
             register_required.push(quote! {
                 required_components.register_required::<#ident>(#constructor);
@@ -306,7 +307,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
         if relationship.is_some() {
             quote! {
-                ::core::option::Option::Some(
+                #FQOption::Some(
                     // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
                     unsafe {
                         #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
@@ -317,11 +318,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
         } else {
             quote! {
-                ::core::option::Option::Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+                #FQOption::Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
             }
         }
     } else {
-        quote! {::core::option::Option::None}
+        quote! {#FQOption::None}
     };
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
@@ -350,7 +351,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
             #map_entities
 
-            fn relationship_accessor() -> ::core::option::Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+            fn relationship_accessor() -> #FQOption<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
                 #relationship_accessor
             }
         }
@@ -804,8 +805,8 @@ fn hook_register_function_call(
 ) -> Option<TokenStream2> {
     function.map(|meta| {
         quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+            fn #hook() -> #FQOption<#bevy_ecs_path::lifecycle::ComponentHook> {
+                #FQOption::Some(#meta)
             }
         }
     })
@@ -910,6 +911,8 @@ fn derive_relationship(
     let relationship_target = &relationship.relationship_target;
     let allow_self_referential = relationship.allow_self_referential;
 
+    let fqdefault = FQDefault.into_token_stream();
+
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {
             type RelationshipTarget = #relationship_target;
@@ -923,7 +926,7 @@ fn derive_relationship(
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
-                    #(#members: ::core::default::Default::default(),)*
+                    #(#members: #fqdefault::default(),)*
                     #relationship_member: entity
                 }
             }
@@ -972,6 +975,7 @@ fn derive_relationship_target(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let linked_spawn = relationship_target.linked_spawn;
+    let fqdefault = FQDefault.into_token_stream();
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
             const LINKED_SPAWN: bool = #linked_spawn;
@@ -991,7 +995,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: ::core::default::Default::default(),)*
+                    #(#members: #fqdefault::default(),)*
                     #relationship_member: collection
                 }
             }

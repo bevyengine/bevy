@@ -1,4 +1,4 @@
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -45,7 +45,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident #type_generics;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident {
+                                #bevy_ecs::error::Result::Ok(#type_ident {
                                     #(#template_field_builds,)*
                                 })
                             }
@@ -57,7 +57,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self {
                                     #(#template_field_defaults,)*
@@ -76,7 +76,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident #type_generics;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident (
+                                #bevy_ecs::error::Result::Ok(#type_ident (
                                     #(#template_field_builds,)*
                                 ))
                             }
@@ -88,7 +88,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self (
                                     #(#template_field_defaults,)*
@@ -105,7 +105,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident)
+                                #bevy_ecs::error::Result::Ok(#type_ident)
                             }
 
                             fn clone_template(&self) -> Self {
@@ -113,7 +113,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self
                             }
@@ -283,7 +283,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                     type Output = #type_ident #type_generics;
                     fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                        Ok(match self {
+                        #bevy_ecs::error::Result::Ok(match self {
                             #(#variant_builds,)*
                         })
                     }
@@ -295,7 +295,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                     fn default() -> Self {
                         #variant_default_ident
                     }
@@ -319,7 +319,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
             type Template = #template_ident #type_generics;
         }
 
-        impl #impl_generics Unpin for #type_ident #type_generics #unpin_where_clause {}
+        impl #impl_generics ::core::marker::Unpin for #type_ident #type_generics #unpin_where_clause {}
 
         #template
     })
@@ -382,7 +382,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
             }
 
             template_field_defaults.push(quote! {
-                #ident: Default::default()
+                #ident: #FQDefault::default()
             });
         } else {
             template_fields.push(quote! {
@@ -405,7 +405,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
                 });
             }
             template_field_defaults.push(quote! {
-                Default::default()
+                #FQDefault::default()
             });
         }
     }
