@@ -11,6 +11,14 @@
 //! Consider copying this code into your own project,
 //! and refining the styles and abstractions provided to meet your needs.
 //!
+//! ## Best practices for event propagation
+//!
+//! Generally, when a widget handles an event,
+//! propagation of that event to parent entities should be stopped.
+//! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
+//!
+//! For more guidance on this, see the documentation for [`EntityEvent`](bevy_ecs::event::EntityEvent).
+//!
 //! ## Warning: Experimental!
 //! All that said, this crate is still experimental and unfinished!
 //! It will change in breaking ways, and there will be both bugs and limitations.
