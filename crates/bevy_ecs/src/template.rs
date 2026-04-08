@@ -307,7 +307,7 @@ impl ScopedEntities {
 /// custom implementations for types like [`Option`] and [`Vec`].
 ///
 /// If you deriving [`FromTemplate`] and you have a "built in" type like [`Option<Handle<T>>`] which has custom template logic,
-/// annotate it with the `template(built_in)` attribute to use [`BuiltInTemplate`] instad of [`FromTemplate`]:
+/// annotate it with the `template(built_in)` attribute to use [`BuiltInTemplate`] instead of [`FromTemplate`]:
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, template::TemplateContext};
