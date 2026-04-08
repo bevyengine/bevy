@@ -159,7 +159,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_path::)*$plugin_name>();
                         };
 
@@ -171,7 +171,7 @@ macro_rules! plugin_group {
                     $(#[$plugin_group_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($plugin_group_path::)*$plugin_group_name>();
                         };
 
@@ -183,7 +183,7 @@ macro_rules! plugin_group {
                     $(#[$hidden_plugin_meta])*
                     {
                         const _: () = {
-                            const fn check_default<T: Default>() {}
+                            const fn check_default<T: ::core::default::Default>() {}
                             check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
                         };
 

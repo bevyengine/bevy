@@ -785,9 +785,10 @@ where
 #[macro_export]
 macro_rules! animated_field {
     ($component:ident::$field:tt) => {
-        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
-            &mut component.$field
-        })
+        $crate::animation_curves::AnimatedField::new_unchecked(
+            ::core::stringify!($field),
+            |component: &mut $component| &mut component.$field,
+        )
     };
 }
 

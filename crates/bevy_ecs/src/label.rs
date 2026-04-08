@@ -106,7 +106,7 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        pub trait $label_trait_name: Send + Sync + ::core::fmt::Debug + $crate::label::DynEq + $crate::label::DynHash {
+        pub trait $label_trait_name: ::core::marker::Send + ::core::marker::Sync + ::core::fmt::Debug + $crate::label::DynEq + $crate::label::DynHash {
 
             $($trait_extra_methods)*
 
@@ -117,7 +117,7 @@ macro_rules! define_label {
 
             /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
-            where Self: Sized {
+            where Self: ::core::marker::Sized {
                 $interner_name.intern(self)
             }
         }
@@ -136,13 +136,13 @@ macro_rules! define_label {
             }
         }
 
-        impl PartialEq for dyn $label_trait_name {
+        impl ::core::cmp::PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
                 self.dyn_eq(other)
             }
         }
 
-        impl Eq for dyn $label_trait_name {}
+        impl ::core::cmp::Eq for dyn $label_trait_name {}
 
         impl ::core::hash::Hash for dyn $label_trait_name {
             fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {

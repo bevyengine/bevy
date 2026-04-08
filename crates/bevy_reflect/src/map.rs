@@ -205,9 +205,9 @@ macro_rules! hash_error {
         } else {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
-                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                ::core::option::Option::None => format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
-                Some(s) => format!(
+                ::core::option::Option::Some(s) => format!(
                     "the dynamic type `{}` (representing `{}`) does not support hashing",
                     type_path,
                     s.type_path()

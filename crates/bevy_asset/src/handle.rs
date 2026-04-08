@@ -572,7 +572,7 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 #[macro_export]
 macro_rules! uuid_handle {
     ($uuid:expr) => {{
-        $crate::Handle::Uuid($crate::uuid::uuid!($uuid), core::marker::PhantomData)
+        $crate::Handle::Uuid($crate::uuid::uuid!($uuid), ::core::marker::PhantomData)
     }};
 }
 
