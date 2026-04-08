@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::picking::PickingSystems;
 use bevy::{
-    asset::{uuid::Uuid, RenderAssetUsages},
+    asset::uuid::Uuid,
     camera::RenderTarget,
     color::palettes::css::{BLUE, GRAY, RED},
     input::ButtonState,
@@ -13,7 +13,7 @@ use bevy::{
         pointer::{Location, PointerAction, PointerId, PointerInput},
     },
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
+    render::render_resource::TextureFormat,
     window::{PrimaryWindow, WindowEvent},
 };
 
@@ -39,7 +39,7 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     // This is the texture that will be rendered to.
-    let mut image = Image::new_target_texture(512, 512, TextureFormat::Bgra8UnormSrgb, None);
+    let image = Image::new_target_texture(512, 512, TextureFormat::Bgra8UnormSrgb, None);
 
     let image_handle = images.add(image);
 

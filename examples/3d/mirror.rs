@@ -5,15 +5,12 @@ use std::f32::consts::FRAC_PI_2;
 use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
 use bevy::camera::RenderTarget;
 use bevy::{
-    asset::RenderAssetUsages,
     color::palettes::css::GREEN,
     input::mouse::AccumulatedMouseMotion,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{
-        AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render::render_resource::{AsBindGroup, TextureFormat},
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };

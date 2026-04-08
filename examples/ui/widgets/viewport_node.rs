@@ -2,12 +2,8 @@
 //! pick entities visible in the widget's view.
 
 use bevy::{
-    asset::RenderAssetUsages,
-    camera::RenderTarget,
-    picking::pointer::PointerInteraction,
-    prelude::*,
-    render::render_resource::{TextureDimension, TextureFormat, TextureUsages},
-    ui::widget::ViewportNode,
+    camera::RenderTarget, picking::pointer::PointerInteraction, prelude::*,
+    render::render_resource::TextureFormat, ui::widget::ViewportNode,
 };
 
 fn main() {

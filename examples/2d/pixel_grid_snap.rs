@@ -1,14 +1,8 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    camera::visibility::RenderLayers,
-    camera::RenderTarget,
-    color::palettes::css::GRAY,
-    prelude::*,
-    render::render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
-    window::WindowResized,
+    camera::visibility::RenderLayers, camera::RenderTarget, color::palettes::css::GRAY, prelude::*,
+    render::render_resource::TextureFormat, window::WindowResized,
 };
 
 /// In-game resolution width.
