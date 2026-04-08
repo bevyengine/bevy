@@ -99,29 +99,33 @@ use bevy_reflect::{prelude::*, Reflect};
     derive(Reflect),
     reflect(Debug, Default, Resource, Clone)
 )]
-pub struct InputFocus(pub Option<Entity>);
+pub struct InputFocus {
+    current_focus: Option<Entity>,
+}
 
 impl InputFocus {
     /// Create a new [`InputFocus`] resource with the given entity.
     ///
     /// This is mostly useful for tests.
     pub const fn from_entity(entity: Entity) -> Self {
-        Self(Some(entity))
+        Self {
+            current_focus: Some(entity),
+        }
     }
 
     /// Set the entity with input focus.
     pub const fn set(&mut self, entity: Entity) {
-        self.0 = Some(entity);
+        self.current_focus = Some(entity);
     }
 
     /// Returns the entity with input focus, if any.
     pub const fn get(&self) -> Option<Entity> {
-        self.0
+        self.current_focus
     }
 
     /// Clears input focus.
     pub const fn clear(&mut self) {
-        self.0 = None;
+        self.current_focus = None;
     }
 }
 
@@ -267,8 +271,8 @@ pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
-    if input_focus.0.is_none() {
-        input_focus.0 = Some(*window);
+    if input_focus.get().is_none() {
+        input_focus.set(*window);
     }
 }
 
@@ -286,7 +290,7 @@ pub fn dispatch_focused_input<M: Message + Clone>(
 ) {
     if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
-        if let Some(focused_entity) = focus.0 {
+        if let Some(focused_entity) = focus.get() {
             // Check if the focused entity is still alive
             if entities.contains(focused_entity) {
                 for ev in input_reader.read() {
@@ -298,7 +302,7 @@ pub fn dispatch_focused_input<M: Message + Clone>(
                 }
             } else {
                 // If the focused entity no longer exists, clear focus and dispatch to window
-                focus.0 = None;
+                focus.clear();
                 for ev in input_reader.read() {
                     commands.trigger(FocusedInput {
                         focused_entity: window,
@@ -362,12 +366,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
     fn is_focused(&self, entity: Entity) -> bool {
         self.input_focus
             .as_deref()
-            .and_then(|f| f.0)
+            .and_then(|f| f.get())
             .is_some_and(|e| e == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.input_focus.as_deref().and_then(|f| f.0) else {
+        let Some(focus) = self.input_focus.as_deref().and_then(|f| f.get()) else {
             return false;
         };
         if focus == entity {
@@ -388,12 +392,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
 impl IsFocused for World {
     fn is_focused(&self, entity: Entity) -> bool {
         self.get_resource::<InputFocus>()
-            .and_then(|f| f.0)
+            .and_then(|f| f.get())
             .is_some_and(|f| f == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.get_resource::<InputFocus>().and_then(|f| f.0) else {
+        let Some(focus) = self.get_resource::<InputFocus>().and_then(|f| f.get()) else {
             return false;
         };
         let mut e = focus;
@@ -494,7 +498,7 @@ mod tests {
 
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, None);
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 
     #[test]
@@ -508,7 +512,10 @@ mod tests {
             .id();
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity_window));
+        assert_eq!(
+            app.world().resource::<InputFocus>().get(),
+            Some(entity_window)
+        );
     }
 
     #[test]
@@ -531,7 +538,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            app.world().resource::<InputFocus>().0,
+            app.world().resource::<InputFocus>().get(),
             Some(autofocus_entity)
         );
     }
@@ -588,7 +595,7 @@ mod tests {
         assert_eq!(get_gathered(&app, entity_b), "");
         assert_eq!(get_gathered(&app, child_of_b), "");
 
-        app.world_mut().insert_resource(InputFocus(None));
+        app.world_mut().insert_resource(InputFocus::default());
 
         assert!(!app.world().is_focused(entity_a));
         assert!(!app.world().is_focus_visible(entity_a));
@@ -676,12 +683,12 @@ mod tests {
             .insert_resource(InputFocus::from_entity(entity));
         app.world_mut().entity_mut(entity).despawn();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity));
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(entity));
 
         // Send input event - this should clear focus instead of panicking
         app.world_mut().write_message(key_a_message());
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, None);
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 }

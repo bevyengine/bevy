@@ -215,7 +215,7 @@ fn update_accessibility_nodes(
         if focus.is_changed() || !nodes.is_empty() {
             // Don't panic if the focused entity does not currently exist
             // It's probably waiting to be spawned
-            if let Some(focused_entity) = focus.0
+            if let Some(focused_entity) = focus.get()
                 && !node_entities.contains(focused_entity)
             {
                 return;
@@ -268,7 +268,7 @@ fn update_adapter(
         nodes: to_update,
         tree: None,
         tree_id: TreeId::ROOT,
-        focus: NodeId(focus.0.unwrap_or(primary_window_id).to_bits()),
+        focus: NodeId(focus.get().unwrap_or(primary_window_id).to_bits()),
     }
 }
 
