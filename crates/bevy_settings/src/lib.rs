@@ -633,7 +633,7 @@ mod tests {
         let manifest = registry.files.get("settings").unwrap();
         assert_eq!(manifest.resource_types.len(), 1);
     }
-    
+
     #[test]
     fn test_build_registry_single_enum_resource() {
         let mut types = TypeRegistry::default();
@@ -725,7 +725,11 @@ mod tests {
         );
         assert!(counter_section.get("enabled").unwrap().as_bool().unwrap());
         assert_eq!(
-            counter_section.get("refresh_rate").unwrap().as_str().unwrap(),
+            counter_section
+                .get("refresh_rate")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "Fast"
         );
     }
@@ -804,9 +808,7 @@ mod tests {
 
         let counter = world.get_resource::<CounterSettings>().unwrap();
         assert_eq!(counter.count, 100);
-        let refresh_rate = world
-            .get_resource::<CounterRefreshRateSettings>()
-            .unwrap();
+        let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
         assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
     }
 
@@ -854,9 +856,7 @@ mod tests {
         assert!(extra.enabled);
 
         // Verify refresh_rate was preserved
-        let refresh_rate = world
-            .get_resource::<CounterRefreshRateSettings>()
-            .unwrap();
+        let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
         assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
     }
 }

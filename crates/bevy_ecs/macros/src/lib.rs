@@ -24,7 +24,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    ConstParam, Data, DeriveInput, Fields, GenericParam, TypeParam, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
+    DeriveInput, Fields, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
