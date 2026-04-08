@@ -2,8 +2,8 @@ use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
-    Fields, FieldsUnnamed, Index, Path, Result, Token, WhereClause,
+    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
+    Data, DeriveInput, Fields, FieldsUnnamed, Ident, Index, Path, Result, Token, WhereClause,
 };
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
@@ -354,11 +354,14 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
         let mut template_type = TemplateType::FromTemplate;
         for attr in &field.attrs {
             if attr.path().is_ident(TEMPLATE_ATTRIBUTE) {
-                attr.parse_nested_meta(|nested| {
-                    if nested.path.is_ident(BUILT_IN_ATTRIBUTE) {
+                attr.parse_args_with(|stream: ParseStream| {
+                    let forked = stream.fork();
+                    let ident = forked.parse::<Ident>()?;
+                    if ident == BUILT_IN_ATTRIBUTE {
+                        stream.parse::<Ident>()?;
                         template_type = TemplateType::BuiltIn;
                     } else {
-                        if let Ok(path) = attr.parse_args::<Path>() {
+                        if let Ok(path) = stream.parse::<Path>() {
                             template_type = TemplateType::Manual(path);
                         } else {
                             return Err(syn::Error::new(

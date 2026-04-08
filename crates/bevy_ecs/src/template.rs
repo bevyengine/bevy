@@ -267,6 +267,72 @@ impl ScopedEntities {
 ///     }
 /// }
 /// ```
+///
+/// [`FromTemplate`] is automatically implemented for anything that is [`Default`] and [`Clone`]. "Built in" collection types like
+/// [`Option`] and [`Vec`] pick up this "blanket" implementation, which is generally a good thing because it means these collection
+/// types work with [`FromTemplate`] derives by default. However if the items in the collection have a custom [`FromTemplate`] impl
+/// (ex: a manual implementation like `Handle<T>` for assets or an explicit [`FromTemplate`] derive), then relying on a [`Default`] /
+/// [`Clone`] implementation doesn't work, as that won't run the template logic!
+///
+/// Therefore, cases like [`Option<Handle<T>>`] need something other than [`FromTemplate`] to determine the type. One option is to specify
+/// the template manually:
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, template::{TemplateContext, OptionTemplate}};
+/// # use core::marker::PhantomData;
+/// # struct Handle<T>(PhantomData<T>);
+/// # struct HandleTemplate<T>(PhantomData<T>);
+/// # struct Image;
+/// # impl<T> FromTemplate for Handle<T> {
+/// #     type Template = HandleTemplate<T>;
+/// # }
+/// # impl<T> Template for HandleTemplate<T> {
+/// #    type Output = Handle<T>;
+/// #    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+/// #        unimplemented!()
+/// #    }
+/// #    fn clone_template(&self) -> Self {
+/// #        unimplemented!()
+/// #    }
+/// # }
+/// #[derive(FromTemplate)]
+/// struct Widget {
+///     #[template(OptionTemplate<HandleTemplate<Image>>)]
+///     image: Option<Handle<Image>>
+/// }
+/// ```
+///
+/// However that is a bit of a mouthfull! This is where [`BuiltInTemplate`] comes in. It fills the same role
+/// as [`FromTemplate`], but has no blanket implementation for [`Default`] and [`Clone`], meaning we can have
+/// custom implementations for types like [`Option`] and [`Vec`].
+///
+/// If you deriving [`FromTemplate`] and you have a "built in" type like [`Option<Handle<T>>`] which has custom template logic,
+/// annotate it with the `template(built_in)` attribute to use [`BuiltInTemplate`] instad of [`FromTemplate`]:
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, template::TemplateContext};
+/// # use core::marker::PhantomData;
+/// # struct Handle<T>(PhantomData<T>);
+/// # struct HandleTemplate<T>(PhantomData<T>);
+/// # struct Image;
+/// # impl<T> FromTemplate for Handle<T> {
+/// #     type Template = HandleTemplate<T>;
+/// # }
+/// # impl<T> Template for HandleTemplate<T> {
+/// #    type Output = Handle<T>;
+/// #    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+/// #        unimplemented!()
+/// #    }
+/// #    fn clone_template(&self) -> Self {
+/// #        unimplemented!()
+/// #    }
+/// # }
+/// #[derive(FromTemplate)]
+/// struct Widget {
+///     #[template(built_in)]
+///     image: Option<Handle<Image>>
+/// }
+/// ```
 pub trait FromTemplate: Sized {
     /// The [`Template`] for this type.
     type Template: Template;
