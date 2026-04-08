@@ -1,6 +1,6 @@
 ---
 title: "`InputFocus` fields are no longer public"
-pull_requests: [TODO]
+pull_requests: [23723]
 ---
 
 The `.0` field on `InputFocus` is no longer public.
