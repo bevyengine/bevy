@@ -207,10 +207,13 @@ fn spawn_roads_and_cars<R: RngExt>(
             }
         });
     let corners = [
-        (Vec3::new(-0.4, 0.0, -0.4), 0.0_f32),
-        (Vec3::new(0.4, 0.0, -0.4), std::f32::consts::FRAC_PI_2),
-        (Vec3::new(0.4, 0.0, 0.4), std::f32::consts::PI),
-        (Vec3::new(-0.4, 0.0, 0.4), 3.0 * std::f32::consts::FRAC_PI_2),
+        (
+            Vec3::new(-0.4, 0.0, -0.4),
+            5.0 * std::f32::consts::FRAC_PI_4,
+        ),
+        (Vec3::new(0.4, 0.0, -0.4), 3.0 * std::f32::consts::FRAC_PI_4),
+        (Vec3::new(0.4, 0.0, 0.4), std::f32::consts::FRAC_PI_4),
+        (Vec3::new(-0.4, 0.0, 0.4), 7.0 * std::f32::consts::FRAC_PI_4),
     ];
     for (pos, rot) in corners {
         commands.spawn((
