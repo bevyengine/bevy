@@ -450,8 +450,6 @@ fn apply_settings_to_world(
     manifest: &PreferenceFileManifest,
     types: &TypeRegistry,
 ) {
-    dbg!(&toml);
-
     for tid in manifest.resource_types.iter() {
         let ty = types.get(*tid).unwrap();
         let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {

@@ -24,8 +24,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
-    DeriveInput, GenericParam, TypeParam,
+    ConstParam, Data, DeriveInput, Fields, GenericParam, TypeParam, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma
 };
 
 enum BundleFieldKind {
@@ -657,7 +656,16 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 
             (group_name, override_key_name)
         }
-        Data::Enum(_) => {
+        Data::Enum(data) => {
+            if data.variants.iter().any(|v| v.fields != Fields::Unit) {
+                return syn::Error::new(
+                    Span::call_site(),
+                    "SettingsGroup can only be derived for enums with unit variants",
+                )
+                .into_compile_error()
+                .into();
+            }
+
             let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
             let key_name = override_key_name.or(Some(pascal_to_snake_case(&name.to_string())));
 
