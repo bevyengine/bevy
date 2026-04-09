@@ -1,4 +1,6 @@
-use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use crate::{
+    convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed,
+};
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -351,6 +353,39 @@ impl TypeRegistry {
             )
         });
         data.insert(D::from_type());
+    }
+
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<i32>();
+    /// type_registry.register::<String>();
+    /// type_registry.register_type_conversion::<i32, String>(|n| Ok(n.into()));
+    /// ```
+    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        if !data.contains::<ReflectConvert>() {
+            data.insert(ReflectConvert::new());
+        }
+        data.data_mut::<ReflectConvert>()
+            .unwrap()
+            .register_type_conversion(function);
     }
 
     /// Whether the type with given [`TypeId`] has been registered in this registry.

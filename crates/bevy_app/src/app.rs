@@ -694,6 +694,32 @@ impl App {
         self
     }
 
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// App::new()
+    ///     .register_type::<i32>()
+    ///     .register_type::<String>()
+    ///     .register_type_conversion::<i32, String>(|n| Ok(n.into()));
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+    {
+        self.main_mut().register_type_conversion(function);
+        self
+    }
+
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
     /// The given function will internally be stored as a [`DynamicFunction`]

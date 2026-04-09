@@ -485,6 +485,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_type_conversion::<T, U>(function);
+        self
+    }
+
     /// See [`App::register_function`].
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
