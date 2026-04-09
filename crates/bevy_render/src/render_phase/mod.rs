@@ -206,8 +206,7 @@ impl RenderMultidrawableBin {
 
 /// The index of a mesh instance in the
 /// [`RenderMultidrawableBatchSetGpuBuffers::render_binned_mesh_instance_buffer`]
-/// and [`RenderMultidrawableBatchSet::render_binned_mesh_instances_cpu`]
-/// arrays.
+/// array.
 ///
 /// These two arrays are parallel and always have the same length.
 ///

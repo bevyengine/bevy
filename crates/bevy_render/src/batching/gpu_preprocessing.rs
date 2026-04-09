@@ -1270,8 +1270,8 @@ pub struct UniformAllocationMetadataIndex(pub NonMaxU32);
 
 impl UniformAllocationMetadataIndex {
     /// Returns the byte offset within the
-    /// [`SceneUnpackingBuffers::uniform_allocation`] buffer corresponding to
-    /// this index.
+    /// [`SceneUnpackingBuffers::uniform_allocation_metadata`] buffer
+    /// corresponding to this index.
     pub fn uniform_offset(&self) -> u32 {
         self.get() * size_of::<GpuUniformAllocationMetadata>() as u32
     }
@@ -1371,8 +1371,8 @@ where
 
     /// Reserves space for `count` new batches.
     ///
-    /// This allocates in the [`Self::cpu_metadata`], [`Self::gpu_metadata`],
-    /// and [`Self::indirect_draw_parameters`] buffers.
+    /// This allocates in the [`Self::metadata`] and
+    /// [`Self::indirect_draw_parameters`] buffers.
     fn allocate(&mut self, count: u32) -> u32 {
         let length = self.indirect_draw_parameters.len();
         self.metadata.push_multiple_init(count as usize);
