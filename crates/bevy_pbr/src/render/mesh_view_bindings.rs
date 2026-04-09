@@ -1,4 +1,4 @@
-use crate::LtcLuts;
+use crate::{FabLut, LtcLuts};
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
@@ -450,6 +450,14 @@ pub fn layout_entries(
         ),
         (39, sampler(SamplerBindingType::Filtering)),
     ));
+    // F_AB
+    entries = entries.extend_with_indices((
+        (
+            40,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (41, sampler(SamplerBindingType::Filtering)),
+    ));
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
         (0, environment_map_entries[0]),
@@ -648,13 +656,22 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
     ),
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler, blue_noise, ltc_luts): (
+    (
+        decals_buffer,
+        render_decals,
+        atmosphere_buffer,
+        atmosphere_sampler,
+        blue_noise,
+        ltc_luts,
+        fab_lut,
+    ): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
         Res<LtcLuts>,
+        Res<FabLut>,
     ),
 ) {
     if let (
@@ -841,6 +858,13 @@ pub fn prepare_mesh_view_bind_groups(
                 (38, ltc2_view),
                 (39, ltc2_sampler),
             ));
+
+            // F_AB
+            let (fab_view, fab_sampler) = images
+                .get(&fab_lut.texture)
+                .map(|img| (&img.texture_view, &img.sampler))
+                .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+            entries = entries.extend_with_indices(((40, fab_view), (41, fab_sampler)));
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
 

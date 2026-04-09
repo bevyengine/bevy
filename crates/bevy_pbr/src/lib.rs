@@ -176,6 +176,12 @@ pub struct LtcLuts {
     pub ltc_2: Handle<Image>,
 }
 
+/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+#[derive(Resource, Clone)]
+pub struct FabLut {
+    pub texture: Handle<Image>,
+}
+
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/pbr_types.wgsl");
@@ -327,6 +333,29 @@ impl Plugin for PbrPlugin {
 
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
                 render_app.world_mut().insert_resource(ltc_luts);
+            }
+        }
+
+        let has_fab_lut = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<FabLut>());
+
+        if !has_fab_lut {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            let texture = images.add(
+                Image::from_buffer(
+                    include_bytes!("environment_map/f_ab.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded F_AB LUT"),
+            );
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(FabLut { texture });
             }
         }
 
