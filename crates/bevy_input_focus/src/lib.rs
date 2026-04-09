@@ -305,7 +305,7 @@ impl Plugin for InputDispatchPlugin {
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     ///
-    /// Occurs in the [PreUpdate] schedule, after [InputSystems].
+    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`].
     Dispatch,
     /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
     ///
@@ -413,12 +413,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
     fn is_focused(&self, entity: Entity) -> bool {
         self.input_focus
             .as_deref()
-            .and_then(|f| f.get())
+            .and_then(InputFocus::get)
             .is_some_and(|e| e == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.input_focus.as_deref().and_then(|f| f.get()) else {
+        let Some(focus) = self.input_focus.as_deref().and_then(InputFocus::get) else {
             return false;
         };
         if focus == entity {
@@ -439,12 +439,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
 impl IsFocused for World {
     fn is_focused(&self, entity: Entity) -> bool {
         self.get_resource::<InputFocus>()
-            .and_then(|f| f.get())
+            .and_then(InputFocus::get)
             .is_some_and(|f| f == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.get_resource::<InputFocus>().and_then(|f| f.get()) else {
+        let Some(focus) = self.get_resource::<InputFocus>().and_then(InputFocus::get) else {
             return false;
         };
         let mut e = focus;
