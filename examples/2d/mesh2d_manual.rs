@@ -37,6 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
+use bevy_render::camera::ExtractedCamera;
 use std::f32::consts::PI;
 
 fn main() {
@@ -387,13 +388,18 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(
+        &RenderVisibleEntities,
+        &ExtractedCamera,
+        &ExtractedView,
+        &Msaa,
+    )>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, view, msaa) in &views {
+    for (visible_entities, camera, view, msaa) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
@@ -402,7 +408,7 @@ pub fn queue_colored_mesh2d(
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_hdr(camera.hdr);
 
         // Queue all entities visible to that view
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
