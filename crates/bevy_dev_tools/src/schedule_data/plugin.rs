@@ -97,18 +97,17 @@ fn collect_system_data_inner(world: &mut World) -> Result<AppData, BevyError> {
     let mut label_to_build_metadata = HashMap::new();
 
     for label in labels {
-        let mut schedules = world.resource_mut::<Schedules>();
-        let mut schedule = schedules.remove(label).unwrap();
-        let Some(build_metadata) = schedule.initialize(world)? else {
+        // Hokey pokey the schedule out of the world so we can initialize it. Note: we can't just
+        // remove the whole `Schedule` resource since `Schedule::initialize` accesses `Schedules`
+        // internally.
+        let result = world.schedule_scope(label, |world, schedule| schedule.initialize(world));
+        let Some(build_metadata) = result? else {
             return Err(
                 "The schedule has already been built, so we can't collect its system data".into(),
             );
         };
 
         label_to_build_metadata.insert(label, build_metadata);
-
-        let mut schedules = world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
     }
 
     let schedules = world.resource::<Schedules>();
