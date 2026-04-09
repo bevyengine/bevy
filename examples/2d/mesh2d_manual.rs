@@ -13,6 +13,7 @@ use bevy::{
     mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
+        camera::ExtractedCamera,
         mesh::RenderMesh,
         render_asset::RenderAssets,
         render_phase::{
@@ -37,7 +38,6 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy_render::camera::ExtractedCamera;
 use std::f32::consts::PI;
 
 fn main() {
