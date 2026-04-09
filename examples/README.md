@@ -77,7 +77,6 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
-    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
     - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
@@ -184,6 +183,7 @@ Example | Description
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+[Rectangular Area Light](../examples/3d/rect_light.rs) | Simple 3D scene demonstrating rectangular area lights.
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -288,6 +288,7 @@ Example | Description
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
+[Play Sound Effect](../examples/audio/play_sound_effect.rs) | Shows how to play a sound effect in response to an event
 [Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
@@ -310,6 +311,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 
@@ -390,6 +392,7 @@ Example | Description
 [Text Gizmos 2d](../examples/gizmos/2d_text_gizmos.rs) | A scene showcasing 2d text gizmos
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
+[Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
 
 ### Helpers
 
@@ -460,6 +463,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Integration Test](../examples/remote/integration_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
@@ -467,7 +472,8 @@ Example | Description
 
 Example | Description
 --- | ---
-[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+[BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
+[World Serialization](../examples/scene/world_serialization.rs) | Demonstrates loading from and saving world to files
 
 ### Shaders
 
@@ -604,6 +610,8 @@ Example | Description
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
+[Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
@@ -727,14 +735,6 @@ After this you can build it with `gradlew`:
 Or build it with Android Studio.
 
 Then you can test it in your Android project.
-
-##### About `libc++_shared.so`
-
-Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
-
-To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
-
-Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 #### Debugging
 

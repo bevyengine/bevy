@@ -8,6 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
+use parley::setting::Tag;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -898,14 +899,14 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
                 })
                 .collect(),

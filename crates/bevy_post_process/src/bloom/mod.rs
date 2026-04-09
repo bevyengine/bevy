@@ -112,7 +112,7 @@ pub fn bloom(
         downsampling_pipeline_ids,
     ) = view.into_inner();
 
-    if bloom_settings.intensity == 0.0 {
+    if bloom_settings.intensity == 0.0 || !view_target.is_hdr() {
         return;
     }
 

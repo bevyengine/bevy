@@ -158,7 +158,7 @@ impl Plugin for WireframePlugin {
                 Core3d,
                 wireframe_3d
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             )
             .add_systems(
                 ExtractSchedule,
@@ -928,7 +928,9 @@ pub struct RenderWireframeMaterial {
     pub topology: WireframeTopology,
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
 

@@ -1,4 +1,5 @@
 use bevy::{
+    camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
@@ -8,7 +9,7 @@ use bevy::{
     pbr::wireframe::WireframeConfig,
     prelude::*,
     ui::Checked,
-    ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
+    ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
 use rand::RngExt;
 
@@ -21,6 +22,7 @@ pub struct Settings {
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
+    pub cpu_culling: bool,
 }
 
 impl Default for Settings {
@@ -30,57 +32,54 @@ impl Default for Settings {
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
             wireframe_enabled: false,
+            cpu_culling: true,
         }
     }
 }
 
 pub fn setup_settings_ui(mut commands: Commands) {
-    commands.spawn((
+    commands.spawn_scene(settings_ui());
+}
+
+pub fn settings_ui() -> impl Scene {
+    bsn! {
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             right: Val::Px(10.0),
             padding: UiRect::all(Val::Px(8.0)),
-            ..default()
-        },
-        ThemeBackgroundColor(feathers::tokens::WINDOW_BG),
-        observe(
-            |_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = false;
-            },
-        ),
-        observe(
-            |_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = true;
-            },
-        ),
-        children![(
+        }
+        ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
+        on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+            free_camera_state.enabled = false;
+        })
+        on(|_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+            free_camera_state.enabled = true;
+        })
+        Children [(
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
                 row_gap: px(8),
-                ..default()
-            },
-            children![
-                (Text("Settings".to_owned())),
+            }
+            Children [
+                Text("Settings"),
                 (
-                    checkbox(Checked, Spawn((Text::new("Simulate Cars"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
-                        |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
-                            settings.simulate_cars = change.value;
-                        }
-                    )
+                    checkbox()
+                    Checked
+                    on(checkbox_self_update)
+                    on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                        settings.simulate_cars = change.value;
+                    })
+                    Children [ (Text("Simulate Cars") ThemedText) ]
                 ),
                 (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Shadow maps enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
+                    checkbox()
+                    Checked
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -91,14 +90,13 @@ pub fn setup_settings_ui(mut commands: Commands) {
                             }
                         }
                     )
+                    Children [ (Text("Shadow maps enabled") ThemedText) ]
                 ),
                 (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Contact shadows enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
+                    checkbox()
+                    Checked
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -109,11 +107,12 @@ pub fn setup_settings_ui(mut commands: Commands) {
                             }
                         }
                     )
+                    Children [ (Text("Contact shadows enabled") ThemedText) ]
                 ),
                 (
-                    checkbox((), Spawn((Text::new("Wireframe Enabled"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
+                    checkbox()
+                    on(checkbox_self_update)
+                    on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut wireframe_config: ResMut<WireframeConfig>| {
@@ -121,14 +120,33 @@ pub fn setup_settings_ui(mut commands: Commands) {
                             wireframe_config.global = change.value;
                         }
                     )
+                    Children [ (Text("Wireframe Enabled") ThemedText) ]
                 ),
                 (
-                    button(
-                        ButtonProps::default(),
-                        (),
-                        Spawn((Text::new("Regenerate City"), ThemedText))
-                    ),
-                    observe(
+                    checkbox()
+                    Checked
+                    on(checkbox_self_update)
+                    on(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut commands: Commands,
+                         meshes: Query<Entity, With<Mesh3d>>| {
+                            settings.cpu_culling = change.value;
+
+                            for entity in meshes.iter() {
+                                if settings.cpu_culling {
+                                    commands.entity(entity).remove::<NoCpuCulling>();
+                                } else {
+                                    commands.entity(entity).insert(NoCpuCulling);
+                                }
+                            }
+                        }
+                    )
+                    Children [ (Text("CPU culling") ThemedText) ]
+                ),
+                (
+                    button(ButtonProps::default())
+                    on(
                         |_activate: On<Activate>,
                          mut commands: Commands,
                          city_root: Single<Entity, With<CityRoot>>,
@@ -141,8 +159,9 @@ pub fn setup_settings_ui(mut commands: Commands) {
                             spawn_city(&mut commands, &assets, seed, 32);
                         }
                     )
+                    Children [ (Text("Regenerate City") ThemedText) ]
                 ),
             ]
-        )],
-    ));
+        )]
+    }
 }

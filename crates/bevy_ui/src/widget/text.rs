@@ -23,7 +23,7 @@ use bevy_text::{
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
     TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
-use taffy::style::AvailableSpace;
+use taffy::{style::AvailableSpace, MaybeMath};
 use tracing::error;
 
 /// UI text system flags.
@@ -180,48 +180,54 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+        let width = measure_args.resolve_width();
+        let height = measure_args.resolve_height();
+
         let MeasureArgs {
-            width,
-            height,
             available_width,
             buffer,
             font_system,
             ..
         } = measure_args;
-        let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => {
-                // It is possible for the "min content width" to be larger than
-                // the "max content width" when soft-wrapping right-aligned text
-                // and possibly other situations.
 
-                x.max(self.info.min.x).min(self.info.max.x)
-            }
-            AvailableSpace::MinContent => self.info.min.x,
-            AvailableSpace::MaxContent => self.info.max.x,
-        });
+        let x = width
+            .effective
+            .unwrap_or_else(|| match available_width {
+                AvailableSpace::Definite(x) => {
+                    // It is possible for the "min content width" to be larger than
+                    // the "max content width" when soft-wrapping right-aligned text
+                    // and possibly other situations.
 
-        height
-            .map_or_else(
-                || match available_width {
-                    AvailableSpace::Definite(_) => {
-                        if let Some(buffer) = buffer {
-                            self.info.compute_size(
-                                TextBounds::new_horizontal(x),
-                                buffer,
-                                font_system,
-                            )
-                        } else {
-                            error!("text measure failed, buffer is missing");
-                            Vec2::default()
-                        }
+                    x.max(self.info.min.x).min(self.info.max.x)
+                }
+                AvailableSpace::MinContent => self.info.min.x,
+                AvailableSpace::MaxContent => self.info.max.x,
+            })
+            .maybe_clamp(width.min, width.max);
+
+        let size = height.effective.map_or_else(
+            || match available_width {
+                AvailableSpace::Definite(_) => {
+                    if let Some(buffer) = buffer {
+                        self.info
+                            .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
+                    } else {
+                        error!("text measure failed, buffer is missing");
+                        Vec2::default()
                     }
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-                },
-                |y| Vec2::new(x, y),
-            )
-            .ceil()
+                }
+                AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+            },
+            |y| Vec2::new(x, y),
+        );
+
+        Vec2::new(
+            size.x.maybe_clamp(width.min, width.max),
+            size.y.maybe_clamp(height.min, height.max),
+        )
+        .ceil()
     }
 }
 

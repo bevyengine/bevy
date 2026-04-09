@@ -16,9 +16,9 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
 
 # other
-wgpu-types = { version = "29", default-features = false }
-naga = { version = "29", features = ["wgsl-in"] }
-wgpu-naga-bridge = { version = "29", default-features = false }
+wgpu-types = { version = "29.0.1", default-features = false }
+naga = { version = "29.0.1", features = ["wgsl-in"] }
+wgpu-naga-bridge = { version = "29.0.1", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 wesl = { version = "0.3.1", optional = true }

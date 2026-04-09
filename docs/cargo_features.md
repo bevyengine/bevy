@@ -39,7 +39,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
 |audio-all-formats|Enables audio features and all supported formats. **Feature set:** `bevy_audio`, `aac`, `flac`, `mp3`, `mp4`, `vorbis`, `wav`.|
-|scene|Features used to compose Bevy scenes. **Feature set:** `bevy_scene`.|
+|scene|Features used to compose Bevy scenes. **Feature set:** `bevy_world_serialization`, `bevy_scene`.|
 |picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_input_focus`, `bevy_log`, `bevy_state`, `bevy_window`, `custom_cursor`, `reflect_auto_register`.|
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `bevy_gilrs`, `bevy_winit`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
@@ -107,6 +107,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
+|bevy_world_serialization|Provides ECS serialization functionality|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
@@ -167,6 +168,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
 |reflect_functions|Enable function reflection|
+|schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|

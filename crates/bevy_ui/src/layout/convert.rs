@@ -2,8 +2,8 @@ use taffy::style_helpers;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
+    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
+    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
     RepeatedGridTrack, UiRect, Val,
 };
 
@@ -81,6 +81,7 @@ pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
         justify_self: node.justify_self.into(),
         align_content: node.align_content.into(),
         justify_content: node.justify_content.into(),
+        direction: node.direction.into(),
         inset: taffy::Rect {
             left: node.left.into_length_percentage_auto(context),
             right: node.right.into_length_percentage_auto(context),
@@ -229,6 +230,15 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround.into(),
             JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly.into(),
+        }
+    }
+}
+
+impl From<InlineDirection> for taffy::style::Direction {
+    fn from(direction: InlineDirection) -> Self {
+        match direction {
+            InlineDirection::Ltr => taffy::style::Direction::Ltr,
+            InlineDirection::Rtl => taffy::style::Direction::Rtl,
         }
     }
 }
@@ -468,6 +478,7 @@ mod tests {
             justify_items: JustifyItems::Default,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
+            direction: InlineDirection::Ltr,
             margin: UiRect {
                 left: Val::ZERO,
                 right: Val::Px(10.),
@@ -527,6 +538,7 @@ mod tests {
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
+        assert_eq!(taffy_style.direction, taffy::style::Direction::Ltr);
         assert_eq!(
             taffy_style.inset.left,
             taffy::style::LengthPercentageAuto::ZERO

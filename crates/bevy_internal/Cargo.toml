@@ -120,7 +120,7 @@ serialize = [
   "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
-  "bevy_scene?/serialize",
+  "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
@@ -235,7 +235,7 @@ bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
-bevy_scene = ["dep:bevy_scene", "bevy_asset"]
+bevy_world_serialization = ["dep:bevy_world_serialization", "bevy_asset"]
 bevy_material = ["dep:bevy_material", "bevy_image", "bevy_shader"]
 bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
@@ -266,7 +266,7 @@ bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr?/bevy_gltf"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_world_serialization", "bevy_pbr?/bevy_gltf"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -358,6 +358,7 @@ reflect_functions = [
   "bevy_reflect/functions",
   "bevy_app/reflect_functions",
   "bevy_ecs/reflect_functions",
+  "bevy_render?/reflect_functions",
 ]
 
 # Enable automatic reflect registration using inventory.
@@ -365,6 +366,7 @@ reflect_auto_register = [
   "bevy_reflect/auto_register_inventory",
   "bevy_app/reflect_auto_register",
   "bevy_ecs/reflect_auto_register",
+  "bevy_render?/reflect_auto_register",
 ]
 
 # Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
@@ -372,13 +374,18 @@ reflect_auto_register_static = [
   "bevy_reflect/auto_register_static",
   "bevy_app/reflect_auto_register",
   "bevy_ecs/reflect_auto_register",
+  "bevy_render?/reflect_auto_register",
 ]
 
 # Enables bevy_reflect to access documentation comments of rust code at runtime
 reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
-custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
+custom_cursor = [
+  "bevy_window/custom_cursor",
+  "bevy_winit/custom_cursor",
+  "bevy_feathers?/custom_cursor",
+]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
@@ -450,9 +457,10 @@ gestures = ["bevy_input/gestures"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
+schedule_data = ["bevy_dev_tools/schedule_data"]
 
 [dependencies]
 # bevy (no_std)
@@ -525,8 +533,12 @@ bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.19.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.19.0-dev" }
 bevy_settings = { path = "../bevy_settings", optional = true, version = "0.19.0-dev" }
-bevy_remote = { path = "../bevy_remote", optional = true, version = "0.19.0-dev" }
+bevy_remote = { path = "../bevy_remote", optional = true, version = "0.19.0-dev", default-features = false, features = [
+  "bevy_asset",
+  "bevy_render",
+] }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.19.0-dev" }
+bevy_world_serialization = { path = "../bevy_world_serialization", optional = true, version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.19.0-dev" }
 bevy_solari = { path = "../bevy_solari", optional = true, version = "0.19.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.19.0-dev" }
@@ -545,6 +557,10 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.19.0-dev", 
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.19.0-dev", default-features = false }
+
+# Only enable bevy_remote/http (default features) on non-WASM targets.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_remote = { path = "../bevy_remote", version = "0.19.0-dev", default-features = true, optional = true }
 
 [lints]
 workspace = true

@@ -52,6 +52,9 @@ debug = ["type_label_buffers", "bevy_utils/debug"]
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
 
+reflect_auto_register = ["bevy_app/reflect_auto_register"]
+reflect_functions = ["bevy_app/reflect_functions"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
@@ -92,7 +95,7 @@ image = { version = "0.25.2", default-features = false }
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "29", default-features = false, features = [
+wgpu = { version = "29.0.1", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -100,8 +103,8 @@ wgpu = { version = "29", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-wgpu-types = { version = "29", default-features = false }
-naga = { version = "29", features = ["wgsl-in"] }
+wgpu-types = { version = "29.0.1", default-features = false }
+naga = { version = "29.0.1", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
@@ -125,6 +128,10 @@ indexmap = { version = "2" }
 bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
+
+[dev-dependencies]
+proptest = "1"
+proptest-derive = "0.2"
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }

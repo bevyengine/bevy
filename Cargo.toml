@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_scene"]
+scene = ["bevy_world_serialization", "bevy_scene"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -316,6 +316,9 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
+
+# Provides ECS serialization functionality
+bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
@@ -640,6 +643,9 @@ bevy_debug_stepping = [
   "bevy_internal/debug",
 ]
 
+# Enable collecting schedule data from the app.
+schedule_data = ["bevy_internal/schedule_data"]
+
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
@@ -731,6 +737,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-featu
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
+bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -1006,6 +1013,28 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "multiline_text_input"
+path = "examples/ui/text/multiline_text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiline_text_input]
+name = "Multiline Text Input"
+description = "Demonstrates a single multiline EditableText widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "multiple_text_inputs"
+path = "examples/ui/text/multiple_text_inputs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiple_text_inputs]
+name = "Multiple Text Inputs"
+description = "Demonstrates multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -1116,6 +1145,18 @@ doc-scrape-examples = true
 [package.metadata.example.3d_scene]
 name = "3D Scene"
 description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "rect_light"
+path = "examples/3d/rect_light.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.rect_light]
+name = "Rectangular Area Light"
+description = "Simple 3D scene demonstrating rectangular area lights."
 category = "3D Rendering"
 wasm = true
 
@@ -2229,6 +2270,17 @@ description = "Shows how to directly play a simple pitch"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "play_sound_effect"
+path = "examples/audio/play_sound_effect.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.play_sound_effect]
+name = "Play Sound Effect"
+description = "Shows how to play a sound effect in response to an event"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -2996,15 +3048,26 @@ wasm = false
 
 # Scene
 [[example]]
-name = "scene"
-path = "examples/scene/scene.rs"
+name = "world_serialization"
+path = "examples/scene/world_serialization.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.scene]
-name = "Scene"
-description = "Demonstrates loading from and saving scenes to files"
+[package.metadata.example.world_serialization]
+name = "World Serialization"
+description = "Demonstrates loading from and saving world to files"
 category = "Scene"
 wasm = false
+
+[[example]]
+name = "bsn"
+path = "examples/scene/bsn.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bsn]
+name = "BSN example"
+description = "Demonstrates how to use BSN to compose scenes"
+category = "Scene"
+wasm = true
 
 # Shaders
 [[package.metadata.example_category]]
@@ -3519,7 +3582,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4371,6 +4434,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "transform_gizmo"
+path = "examples/gizmos/transform_gizmo.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.transform_gizmo]
+name = "Transform Gizmo"
+description = "Interactive transform gizmo for translating, rotating, and scaling entities"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "axes"
 path = "examples/gizmos/axes.rs"
 doc-scrape-examples = true
@@ -4559,6 +4634,18 @@ name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["debug", "schedule_data"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "infinite_grid"
@@ -4761,6 +4848,30 @@ required-features = ["bevy_remote"]
 [package.metadata.example.server]
 name = "server"
 description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "app_under_test"
+path = "examples/remote/app_under_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.app_under_test]
+name = "App Under Test"
+description = "A Bevy app that you can connect to with the BRP and control"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "integration_test"
+path = "examples/remote/integration_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.integration_test]
+name = "Integration Test"
+description = "Connects to a running Bevy app via BRP, finds a button, and clicks it"
 category = "Remote Protocol"
 wasm = false
 

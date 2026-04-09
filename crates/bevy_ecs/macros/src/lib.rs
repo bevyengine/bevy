@@ -9,6 +9,8 @@ mod event;
 mod message;
 mod query_data;
 mod query_filter;
+mod template;
+mod variant_defaults;
 mod world_query;
 
 use crate::{
@@ -138,13 +140,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
-            ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+            ) -> impl ::core::iter::Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
-            ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {
+            ) -> impl ::core::iter::Iterator<Item = ::core::option::Option<#ecs_path::component::ComponentId>> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
@@ -457,14 +459,14 @@ fn derive_system_param_impl(
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                ) -> ::core::result::Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
                     let (#(#tuple_patterns,)*) = &mut state.state;
                     #(
                         let #field_locals = unsafe {
                             <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
                         }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
                     )*
-                    Result::Ok(#struct_name {
+                    ::core::result::Result::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
                     })
                 }
@@ -597,15 +599,15 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 
     let group_name = override_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
     let file_name = override_file
-        .map(|f| quote! { Some(#f) })
-        .unwrap_or(quote! { None });
+        .map(|f| quote! { ::core::option::Option::Some(#f) })
+        .unwrap_or(quote! { ::core::option::Option::None });
 
     let expanded = quote! {
         impl SettingsGroup for #name {
             fn settings_group_name() -> &'static str {
                 #group_name
             }
-            fn settings_source() -> Option<&'static str> {
+            fn settings_source() -> ::core::option::Option<&'static str> {
                 #file_name
             }
         }
@@ -774,4 +776,16 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 }
             }
     })
+}
+
+/// Derives `FromTemplate`.
+#[proc_macro_derive(FromTemplate, attributes(template, default))]
+pub fn derive_from_template(input: TokenStream) -> TokenStream {
+    template::derive_from_template(input)
+}
+
+/// Derives `VariantDefaults`.
+#[proc_macro_derive(VariantDefaults)]
+pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
+    variant_defaults::derive_variant_defaults(input)
 }

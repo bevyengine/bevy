@@ -13,10 +13,9 @@ use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use parley::style::{OverflowWrap, TextWrapMode};
+use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{
-    Alignment, AlignmentOptions, FontFamily, FontStack, Layout, PositionedLayoutItem,
-    StyleProperty, WordBreakStrength,
+    Alignment, AlignmentOptions, FontFamily, Layout, PositionedLayoutItem, StyleProperty,
 };
 use swash::FontRef;
 
@@ -169,7 +168,7 @@ impl TextPipeline {
 
             match linebreak {
                 LineBreak::AnyCharacter => {
-                    builder.push_default(StyleProperty::WordBreak(WordBreakStrength::BreakAll));
+                    builder.push_default(StyleProperty::WordBreak(WordBreak::BreakAll));
                 }
                 LineBreak::WordOrCharacter => {
                     builder.push_default(StyleProperty::OverflowWrap(OverflowWrap::Anywhere));
@@ -178,7 +177,7 @@ impl TextPipeline {
                     builder.push_default(StyleProperty::TextWrapMode(TextWrapMode::NoWrap));
                 }
                 LineBreak::WordBoundary => {
-                    builder.push_default(StyleProperty::WordBreak(WordBreakStrength::Normal));
+                    builder.push_default(StyleProperty::WordBreak(WordBreak::Normal));
                 }
             }
 
@@ -194,10 +193,7 @@ impl TextPipeline {
 
                 let family = resolve_font_source(&section.text_font.font, fonts)?;
 
-                builder.push(
-                    StyleProperty::FontStack(FontStack::Single(family)),
-                    range.clone(),
-                );
+                builder.push(StyleProperty::FontFamily(family), range.clone());
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
                         section.index as u32,
@@ -328,7 +324,6 @@ impl TextPipeline {
                     let font = run.font();
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
-                    let text_range = run.text_range();
                     let variations_hash = FixedHasher.hash_one(coords);
                     let font_atlas_key = FontAtlasKey {
                         id: font.data.id() as u32,
@@ -386,8 +381,6 @@ impl TextPipeline {
                                 + atlas_info.offset,
                             atlas_info,
                             section_index,
-                            byte_index: text_range.start,
-                            byte_length: text_range.len(),
                             line_index,
                         });
                     }
@@ -423,22 +416,24 @@ pub fn resolve_font_source<'a>(
     Ok(match font {
         FontSource::Handle(handle) => {
             let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Named(Cow::Owned(font.family_name.as_str().to_owned()))
+            FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
+                font.family_name.as_str().to_owned(),
+            )))
         }
-        FontSource::Family(family) => FontFamily::Named(Cow::Borrowed(family.as_str())),
-        FontSource::Serif => FontFamily::Generic(parley::GenericFamily::Serif),
-        FontSource::SansSerif => FontFamily::Generic(parley::GenericFamily::SansSerif),
-        FontSource::Cursive => FontFamily::Generic(parley::GenericFamily::Cursive),
-        FontSource::Fantasy => FontFamily::Generic(parley::GenericFamily::Fantasy),
-        FontSource::Monospace => FontFamily::Generic(parley::GenericFamily::Monospace),
-        FontSource::SystemUi => FontFamily::Generic(parley::GenericFamily::SystemUi),
-        FontSource::UiSerif => FontFamily::Generic(parley::GenericFamily::UiSerif),
-        FontSource::UiSansSerif => FontFamily::Generic(parley::GenericFamily::UiSansSerif),
-        FontSource::UiMonospace => FontFamily::Generic(parley::GenericFamily::UiMonospace),
-        FontSource::UiRounded => FontFamily::Generic(parley::GenericFamily::UiRounded),
-        FontSource::Emoji => FontFamily::Generic(parley::GenericFamily::Emoji),
-        FontSource::Math => FontFamily::Generic(parley::GenericFamily::Math),
-        FontSource::FangSong => FontFamily::Generic(parley::GenericFamily::FangSong),
+        FontSource::Family(family) => FontFamily::named(family.as_str()),
+        FontSource::Serif => parley::GenericFamily::Serif.into(),
+        FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+        FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+        FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+        FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+        FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+        FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+        FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+        FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+        FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+        FontSource::Math => parley::GenericFamily::Math.into(),
+        FontSource::FangSong => parley::GenericFamily::FangSong.into(),
     })
 }
 

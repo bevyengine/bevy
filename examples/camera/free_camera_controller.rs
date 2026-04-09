@@ -20,6 +20,12 @@
 //! | QE                  | Vertical movement      |
 //! | Left shift          | Run                    |
 //! | Scroll wheel        | Change movement speed  |
+//! | Numpad1             | Snap to front          |
+//! | `LCtrl` + Numpad1   | Snap to back           |
+//! | Numpad3             | Snap to right          |
+//! | `LCtrl` + Numpad3   | Snap to left           |
+//! | Numpad7             | Snap to top            |
+//! | `LCtrl` + Numpad7   | Snap to bottom         |
 //!
 //! The movement speed, sensitivity and friction can also be changed by the [`FreeCamera`] component.
 //!
@@ -103,7 +109,7 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
         },
         children![Text::new(format!(
             "{}",
-            free_camera_query.single().unwrap()
+            free_camera_query.single().unwrap(),
         ))],
     ));
     commands.spawn((

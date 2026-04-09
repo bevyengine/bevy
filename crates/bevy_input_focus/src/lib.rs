@@ -43,6 +43,7 @@ use bevy_input::gamepad::GamepadButtonChangedEvent;
 use bevy_input::keyboard::KeyboardInput;
 #[cfg(feature = "mouse")]
 use bevy_input::mouse::MouseWheel;
+use bevy_input::InputSystems;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -219,6 +220,7 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 ///
 /// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// as described in the docs for [`FocusedInput`].
+#[derive(Default)]
 pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
@@ -238,7 +240,9 @@ impl Plugin for InputDispatchPlugin {
                 #[cfg(feature = "mouse")]
                 dispatch_focused_input::<MouseWheel>,
             )
-                .in_set(InputFocusSystems::Dispatch),
+                .chain()
+                .in_set(InputFocusSystems::Dispatch)
+                .after(InputSystems),
         );
     }
 }
