@@ -603,7 +603,7 @@ mod tests {
 
         let mut app = App::new();
 
-        app.add_plugins((InputPlugin, InputFocusPlugin))
+        app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
@@ -720,7 +720,7 @@ mod tests {
     #[test]
     fn dispatch_clears_focus_when_focused_entity_despawned() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputFocusPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         app.update();
