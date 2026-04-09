@@ -3730,6 +3730,36 @@ impl World {
     }
 
     /// Get [`ScheduleHooks`], otherwise initialize and get.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::{ScheduleHookPlan, ScheduleLabel};
+    ///
+    /// #[derive(Debug, ScheduleLabel, Hash, Clone, PartialEq, Eq)]
+    /// pub struct HookLabel;
+    ///
+    /// #[derive(Debug, Resource, Default)]
+    /// struct Count(i32);
+    ///
+    /// let mut world = World::new();
+    ///
+    /// world.init_resource::<Count>();
+    ///
+    /// let enter_hook = world.register_system(|mut res: ResMut<Count>| {
+    ///     res.0 += 1;
+    ///     ScheduleHookPlan::Clear
+    /// });
+    ///
+    /// world.add_schedule(Schedule::new(HookLabel));
+    ///
+    /// world.schedule_hooks().add_enter_hook(HookLabel, enter_hook);
+    ///
+    /// world.run_schedule(HookLabel);
+    ///
+    /// let count = world.resource::<Count>();
+    /// assert_eq!(1, count.0);
+    /// ```
     pub fn schedule_hooks(&mut self) -> Mut<'_, ScheduleHooks> {
         self.get_resource_or_init::<ScheduleHooks>()
     }
@@ -3826,15 +3856,17 @@ impl World {
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label.intern(), |world, sched| {
-            world.try_resource_scope::<ScheduleHooks, ()>(|world, mut hooks| {
+            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
                 hooks.run_enter(world, label.intern());
-            });
+                world.schedule_hooks().reinsert(hooks);
+            };
 
             sched.run(world);
 
-            world.try_resource_scope::<ScheduleHooks, ()>(|world, mut hooks| {
-                hooks.run_exit(world, label);
-            });
+            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
+                hooks.run_exit(world, label.intern());
+                world.schedule_hooks().reinsert(hooks);
+            };
         })
     }
 
@@ -3851,15 +3883,17 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label.intern(), |world, sched| {
-            world.try_resource_scope::<ScheduleHooks, ()>(|world, mut hooks| {
+            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
                 hooks.run_enter(world, label.intern());
-            });
+                world.schedule_hooks().reinsert(hooks);
+            };
 
             sched.run(world);
 
-            world.try_resource_scope::<ScheduleHooks, ()>(|world, mut hooks| {
-                hooks.run_exit(world, label);
-            });
+            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
+                hooks.run_exit(world, label.intern());
+                world.schedule_hooks().reinsert(hooks);
+            };
         });
     }
 
@@ -3954,12 +3988,12 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::{Entity, EntityHashSet},
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{Event, Mut, On, Res, Schedule},
+        prelude::{Event, Mut, On, Res, Schedule, Schedules},
         ptr::OwningPtr,
         query::{Changed, With},
         resource::Resource,
         schedule::ScheduleHookPlan,
-        system::{Commands, Query},
+        system::{Commands, Local, Query, ResMut},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4663,7 +4697,7 @@ mod tests {
     }
 
     #[test]
-    fn schedules_hook() {
+    fn schedules_hook_add_and_work() {
         #[derive(Component, PartialEq, Debug)]
         struct Foo;
 
@@ -4716,5 +4750,65 @@ mod tests {
         let mut bar_query = world.query::<&Bar>();
 
         assert_eq!(SPAWN_COUNT, bar_query.iter(&world).count());
+    }
+
+    #[test]
+    fn schedules_hook_selfrun_add_hooks() {
+        #[derive(Resource, PartialEq, Debug, Default)]
+        struct Foo(i32);
+
+        #[derive(ScheduleLabel, PartialEq, Debug, Eq, Clone, Hash)]
+        struct HookLabel;
+
+        let mut world = World::new();
+        world.init_resource::<Foo>();
+
+        let mut schedule = Schedule::new(HookLabel);
+
+        schedule.add_systems(|res: Res<Foo>, mut once: Local<bool>| {
+            if *once {
+                assert_eq!(1, res.0);
+                *once = true;
+            }
+        });
+
+        world.add_schedule(schedule);
+
+        let count_add_hook = world.register_system(|mut res: ResMut<Foo>| {
+            res.0 += 1;
+            ScheduleHookPlan::Clear
+        });
+
+        let enter_hook = world.register_system(move |world: &mut World| {
+            let mut hooks = world.schedule_hooks();
+
+            assert_eq!(0, hooks.enter.len());
+
+            hooks
+                .add_enter_hook(HookLabel, count_add_hook)
+                .add_exit_hook(HookLabel, count_add_hook);
+
+            ScheduleHookPlan::Clear
+        });
+
+        world
+            .schedule_hooks()
+            .add_enter_hook(HookLabel, count_add_hook)
+            .add_enter_hook(HookLabel, enter_hook);
+
+        world.run_schedule(HookLabel);
+
+        let foo = world.resource::<Foo>();
+
+        assert_eq!(2, foo.0);
+
+        let enter_hooks = world.schedule_hooks().enter.len();
+
+        assert_eq!(1, enter_hooks);
+
+        world.run_schedule(HookLabel);
+
+        let foo = world.resource::<Foo>();
+        assert_eq!(3, foo.0);
     }
 }
