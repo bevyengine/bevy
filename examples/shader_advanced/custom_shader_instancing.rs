@@ -25,6 +25,7 @@ use bevy::{
     },
     prelude::*,
     render::{
+        batching::gpu_preprocessing::BatchedInstanceBuffers,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
@@ -40,7 +41,6 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use bytemuck::{Pod, Zeroable};
 
 /// This example uses a shader source file from the assets subdirectory

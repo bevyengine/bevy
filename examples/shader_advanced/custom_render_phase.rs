@@ -34,8 +34,8 @@ use bevy::{
     render::{
         batching::{
             gpu_preprocessing::{
-                batch_and_prepare_sorted_render_phase, IndirectParametersCpuMetadata,
-                UntypedPhaseIndirectParametersBuffers,
+                batch_and_prepare_sorted_render_phase, BatchedInstanceBuffers,
+                IndirectParametersCpuMetadata, UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -60,7 +60,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
