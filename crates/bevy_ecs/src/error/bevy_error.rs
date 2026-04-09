@@ -54,6 +54,112 @@ pub struct BevyError {
 }
 
 impl BevyError {
+    /// Constructs a new [`BevyError`] with the given [`Severity`].
+    ///
+    /// The error will be stored as a `Box<dyn Error + Send + Sync>`.
+    ///
+    /// The easiest way to use this is to pass in a string.
+    /// This works because any type that can be converted into a `Box<dyn Error + Send + Sync>` can be used,
+    /// and [`str`] is one such type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, Severity};
+    ///
+    /// fn some_function(val: i64) -> Result<(), BevyError> {
+    ///     if val < 0 {
+    ///         let error =
+    ///             BevyError::new(Severity::Panic, format!("Value can't be negative {val}"));
+    ///         return Err(error);
+    ///     }
+    ///
+    ///     // ...
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn new<E>(severity: Severity, error: E) -> Self
+    where
+        Box<dyn Error + Sync + Send>: From<E>,
+    {
+        Self::from(error).with_severity(severity)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Ignore`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Ignore, error)](BevyError::new)</code>.
+    pub fn ignore<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Ignore, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Trace`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Trace, error)](BevyError::new)</code>.
+    pub fn trace<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Trace, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Debug`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Debug, error)](BevyError::new)</code>.
+    pub fn debug<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Debug, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Info`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Info, error)](BevyError::new)</code>.
+    pub fn info<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Info, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Warning`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Warning, error)](BevyError::new)</code>.
+    pub fn warning<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Warning, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Error`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Error, error)](BevyError::new)</code>.
+    pub fn error<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Error, error)
+    }
+
+    /// Creates a new [`BevyError`] with the [`Severity::Panic`] severity.
+    ///
+    /// This is a shorthand for <code>[BevyError::new(Severity::Panic, error)](BevyError::new)</code>.
+    pub fn panic<E>(error: E) -> Self
+    where
+        Box<dyn Error + Send + Sync>: From<E>,
+    {
+        Self::new(Severity::Panic, error)
+    }
+
+    /// Checks if the internal error is of the given type.
+    pub fn is<E: Error + 'static>(&self) -> bool {
+        self.inner.error.is::<E>()
+    }
+
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
@@ -65,6 +171,7 @@ impl BevyError {
             let f = _f;
             let backtrace = &self.inner.backtrace;
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
+                // TODO: Cache
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
                 let backtrace_str = alloc::string::ToString::to_string(backtrace);
@@ -268,6 +375,7 @@ pub fn bevy_error_panic_hook(
 
 #[cfg(test)]
 mod tests {
+    use crate::error::BevyError;
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
@@ -278,11 +386,11 @@ mod tests {
             Ok(())
         }
 
-        // SAFETY: this is not safe ...  this test could run in parallel with another test
-        // that writes the environment variable. We either accept that so we can write this test,
-        // or we don't.
+        let capture_backtrace = std::env::var_os("RUST_BACKTRACE");
 
-        unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
+        if capture_backtrace.is_none() || capture_backtrace.clone().is_some_and(|s| s == "0") {
+            panic!("This test only works if rust backtraces are enabled. Value set was {capture_backtrace:?}. Please set RUST_BACKTRACE to any value other than 0 and run again.")
+        }
 
         let error = i_fail().err().unwrap();
         let debug_message = alloc::format!("{error:?}");
@@ -348,5 +456,23 @@ mod tests {
         }
         assert_eq!(super::FILTER_MESSAGE, lines.next().unwrap());
         assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn downcasting() {
+        #[derive(Debug, PartialEq)]
+        struct Fun(i32);
+
+        impl core::fmt::Display for Fun {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                core::fmt::Debug::fmt(&self, f)
+            }
+        }
+        impl core::error::Error for Fun {}
+
+        let new_error = BevyError::new(crate::error::Severity::Debug, Fun(1));
+
+        assert!(new_error.is::<Fun>());
+        assert_eq!(new_error.downcast_ref::<Fun>(), Some(&Fun(1)));
     }
 }
