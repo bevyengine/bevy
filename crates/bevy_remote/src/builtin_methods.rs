@@ -2167,7 +2167,7 @@ mod tests {
     }
 
     #[test]
-    fn test_schedule_graph() {
+    fn schedule_graph_for_uninitialized_schedule() {
         #[derive(Resource)]
         struct Resource1;
 
@@ -2225,5 +2225,47 @@ mod tests {
         // Components are only currently recorded for conflicts - this may change in the future.
         assert_eq!(res3.schedule_data.components.len(), 0);
         assert_eq!(res3.schedule_data.conflicts.len(), 0);
+    }
+
+    #[test]
+    fn schedule_graph_for_initialized_schedule() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+
+        let mut world = World::default();
+        world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
+
+        // Initialize the schedule early. Now `schedule_graph` should still report the metadata.
+        world
+            .schedule_scope(MySchedule, |world, schedule| schedule.initialize(world))
+            .unwrap();
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .unwrap();
+
+        let response = schedule_graph(In(Some(params)), &mut world).unwrap();
+        let response = serde_json::from_value::<BrpScheduleGraphResponse>(response).unwrap();
+
+        // We expect 3 edges thanks to the cached metadata: f1 -> f2, f1 -> apply_deferred -> f2
+        assert_eq!(response.schedule_data.dependency.len(), 3);
     }
 }
