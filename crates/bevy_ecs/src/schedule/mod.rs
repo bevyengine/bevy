@@ -5,6 +5,7 @@ mod condition;
 mod config;
 mod error;
 mod executor;
+mod hook;
 mod node;
 mod pass;
 mod schedule;
@@ -12,7 +13,9 @@ mod set;
 mod stepping;
 
 pub use self::graph::GraphInfo;
-pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
+pub use self::{
+    condition::*, config::*, error::*, executor::*, hook::*, node::*, schedule::*, set::*,
+};
 pub use pass::{FlattenedDependencies, ScheduleBuildPass};
 
 /// An implementation of a graph data structure.
