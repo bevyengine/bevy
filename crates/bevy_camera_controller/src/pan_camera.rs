@@ -7,7 +7,6 @@
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::{Camera, RenderTarget};
-use bevy_ecs::observer::ObservedBy;
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{AccumulatedMouseScroll, MouseButton, MouseScrollUnit};
@@ -255,6 +254,12 @@ fn run_pancamera_controller(
     transform.scale = Vec3::splat(controller.zoom_factor);
 }
 
+/// A component attached to window entities that holds the id of an
+/// active handle_mouse_pan observer. It is None if there is no
+/// such observer.
+#[derive(Component)]
+struct HandleMousePanObserver(Option<Entity>);
+
 fn add_window_observer(
     drag_start: On<Pointer<DragStart>>,
     mut commands: Commands,
@@ -268,7 +273,12 @@ fn add_window_observer(
                 WindowRef::Entity(entity) => *entity,
             };
             if entity == drag_start.entity {
-                commands.entity(entity).observe(handle_mouse_pan);
+                let observer_id = commands
+                    .spawn(Observer::new(handle_mouse_pan).with_entity(entity))
+                    .id();
+                commands
+                    .entity(entity)
+                    .insert(HandleMousePanObserver(Some(observer_id)));
             }
         }
     }
@@ -278,6 +288,7 @@ fn remove_window_observer(
     drag_end: On<Pointer<DragEnd>>,
     mut commands: Commands,
     render_targets: Query<&RenderTarget, With<PanCamera>>,
+    mut handle_mouse_pan_observer: Query<&mut HandleMousePanObserver>,
     primary_window: Single<Entity, With<PrimaryWindow>>,
 ) {
     for render_target in render_targets.iter() {
@@ -286,8 +297,11 @@ fn remove_window_observer(
                 WindowRef::Primary => primary_window.entity(),
                 WindowRef::Entity(entity) => *entity,
             };
-            if entity == drag_end.entity {
-                commands.entity(entity).remove::<ObservedBy>();
+            if entity == drag_end.entity
+                && let Ok(mut observer) = handle_mouse_pan_observer.get_mut(entity)
+                && let Some(observer_entity) = observer.0.take()
+            {
+                commands.entity(observer_entity).despawn();
             }
         }
     }
