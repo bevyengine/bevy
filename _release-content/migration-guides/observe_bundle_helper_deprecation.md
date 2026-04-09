@@ -1,6 +1,6 @@
 ---
 title: "`bevy_ui_widgets::observe` has been deprecated in favor of `bsn!`"
-pull_requests: [TODO]
+pull_requests: [23730]
 ---
 
 The `observe` function and `AddObserver` struct in `bevy_ui_widgets` have been deprecated.
