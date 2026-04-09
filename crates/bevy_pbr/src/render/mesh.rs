@@ -401,8 +401,10 @@ pub fn check_views_need_specialization(
         has_ssr,
     ) in views.iter_mut()
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        // HACK: we should be specializing by texture format, not bool hdr, but mesh pipeline keys have limited space.
+        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
+        let mut view_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples()) | MeshPipelineKey::from_hdr(is_hdr);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -468,7 +470,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !view.hdr {
+        if !is_hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);

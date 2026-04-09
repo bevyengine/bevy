@@ -10,6 +10,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -17,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -216,8 +217,8 @@ fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut sharpening_pipeline: ResMut<CasPipeline>,
-    views: Query<
-        (Entity, &ExtractedView, &DenoiseCas),
+    cameras: Query<
+        (Entity, &ExtractedCamera, &DenoiseCas),
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
     mut removals: RemovedComponents<CasUniform>,
@@ -226,12 +227,12 @@ fn prepare_cas_pipelines(
         commands.entity(entity).remove::<ViewCasPipeline>();
     }
 
-    for (entity, view, denoise_cas) in &views {
+    for (entity, camera, denoise_cas) in &cameras {
         let pipeline_id = sharpening_pipeline.variants.specialize(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr {
+                texture_format: if camera.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()

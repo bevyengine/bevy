@@ -21,7 +21,10 @@ use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
-use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
+use bevy_render::{
+    camera::ExtractedCamera,
+    view::{RenderVisibleEntities, RetainedViewEntity},
+};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -489,8 +492,9 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(
+    mut cameras: Query<(
         &RenderVisibleEntities,
+        &ExtractedCamera,
         &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
@@ -499,29 +503,29 @@ pub fn queue_sprites(
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, msaa, tonemapping, dither) in &mut views {
+    for (visible_entities, camera, view, msaa, tonemapping, dither) in &mut cameras {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let mut view_key = SpritePipelineKey::from_hdr(camera.hdr) | msaa_key;
 
-        if view
+        if camera
             .compositing_space
             .is_some_and(|s| s == bevy_camera::CompositingSpace::Srgb)
         {
             view_key |= SpritePipelineKey::SRGB_COMPOSITING;
         }
-        if view
+        if camera
             .compositing_space
             .is_some_and(|s| s == bevy_camera::CompositingSpace::Oklab)
         {
             view_key |= SpritePipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

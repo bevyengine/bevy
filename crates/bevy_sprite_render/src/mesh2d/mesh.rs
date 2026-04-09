@@ -1,7 +1,10 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
-use bevy_render::{camera::DirtySpecializations, RenderStartup};
+use bevy_render::{
+    camera::{DirtySpecializations, ExtractedCamera},
+    RenderStartup,
+};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{
@@ -121,32 +124,33 @@ pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
-    views: Query<(
+    cameras: Query<(
         &MainEntity,
         &ExtractedView,
+        &ExtractedCamera,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
-    for (view_entity, view, msaa, tonemapping, dither) in &views {
+    for (view_entity, view, camera, msaa, tonemapping, dither) in &cameras {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_hdr(camera.hdr);
 
-        if view
+        if camera
             .compositing_space
             .is_some_and(|s| s == CompositingSpace::Srgb)
         {
             view_key |= Mesh2dPipelineKey::SRGB_COMPOSITING;
         }
-        if view
+        if camera
             .compositing_space
             .is_some_and(|s| s == CompositingSpace::Oklab)
         {
             view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);

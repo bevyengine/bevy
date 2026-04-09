@@ -583,9 +583,9 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
+    cameras: Query<(Entity, &ExtractedCamera, &Smaa)>,
 ) {
-    for (entity, view, smaa) in &view_targets {
+    for (entity, camera, smaa) in &cameras {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
@@ -606,7 +606,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
+                    texture_format: if camera.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()

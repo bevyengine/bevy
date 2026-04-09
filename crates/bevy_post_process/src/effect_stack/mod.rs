@@ -31,6 +31,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_render::{
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
@@ -45,7 +46,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::GpuImage,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
@@ -348,14 +349,14 @@ pub fn prepare_post_processing_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedView), Or<(With<ChromaticAberration>, With<Vignette>)>>,
+    cameras: Query<(Entity, &ExtractedCamera), Or<(With<ChromaticAberration>, With<Vignette>)>>,
 ) {
-    for (entity, view) in views.iter() {
+    for (entity, camera) in cameras.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                texture_format: if view.hdr {
+                texture_format: if camera.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()

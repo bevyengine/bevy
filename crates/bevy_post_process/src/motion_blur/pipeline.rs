@@ -9,6 +9,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_render::{
+    camera::ExtractedCamera,
     globals::GlobalsUniform,
     render_resource::{
         binding_types::{
@@ -21,7 +22,7 @@ use bevy_render::{
         SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{Msaa, ViewTarget},
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -166,14 +167,14 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
+    cameras: Query<(Entity, &ExtractedCamera, &Msaa), With<MotionBlurUniform>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, camera, msaa) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                hdr: view.hdr,
+                hdr: camera.hdr,
                 samples: msaa.samples(),
             },
         );

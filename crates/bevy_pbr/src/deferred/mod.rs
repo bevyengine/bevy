@@ -21,6 +21,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -418,8 +419,9 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<(
+    cameras: Query<(
         Entity,
+        &ExtractedCamera,
         &ExtractedView,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -443,6 +445,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ) {
     for (
         entity,
+        camera,
         view,
         tonemapping,
         dither,
@@ -453,7 +456,7 @@ pub fn prepare_deferred_lighting_pipelines(
         has_irradiance_volumes,
         skip_deferred_lighting,
         has_atmosphere,
-    ) in &views
+    ) in &cameras
     {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
         // remove the old pipeline if there was one. This handles the case in which a
@@ -463,7 +466,7 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_hdr(camera.hdr);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -488,7 +491,7 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

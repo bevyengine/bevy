@@ -42,7 +42,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
-use bevy_image::Image;
+use bevy_image::{BevyDefault, Image};
 use bevy_log::warn;
 use bevy_log::warn_once;
 use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
@@ -455,6 +455,9 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
+    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
+    /// and shaders output sRGB-encoded values for gamma-encoded blending.
+    pub compositing_space: Option<CompositingSpace>,
 }
 
 pub fn extract_cameras(
@@ -483,6 +486,9 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    extracted_windows: Res<ExtractedWindows>,
+    manual_texture_views: Res<ManualTextureViews>,
+    images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
         &mut RenderExtractedVisibleEntities,
         With<RenderVisibleEntities>,
@@ -583,10 +589,22 @@ pub fn extract_cameras(
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
 
+            let target = render_target.normalize(primary_window);
+            let texture_format = target
+                .as_ref()
+                .and_then(|target| {
+                    target.get_texture_view_format(
+                        &extracted_windows,
+                        &images,
+                        &manual_texture_views,
+                    )
+                })
+                .unwrap_or(TextureFormat::bevy_default());
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
-                    target: render_target.normalize(primary_window),
+                    target,
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
@@ -601,14 +619,14 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
+                    compositing_space: compositing_space.copied(),
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr,
-                    compositing_space: compositing_space.copied(),
+                    texture_format,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

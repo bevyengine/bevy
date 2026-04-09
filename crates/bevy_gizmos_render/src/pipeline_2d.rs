@@ -316,8 +316,11 @@ fn queue_line_and_joint_gizmos_2d(
             continue;
         };
 
+        // HACK: we should be specializing by texture format, not bool hdr, but mesh pipeline keys have limited space.
+        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
+
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_hdr(is_hdr);
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, config) in &line_gizmos {

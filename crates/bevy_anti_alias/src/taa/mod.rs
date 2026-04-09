@@ -34,7 +34,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -395,9 +395,9 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
+    cameras: Query<(Entity, &ExtractedCamera), With<TemporalAntiAliasing>>,
 ) {
-    for (entity, camera, view) in &views {
+    for (entity, camera) in &cameras {
         if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -405,7 +405,7 @@ fn prepare_taa_history_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: if view.hdr {
+                format: if camera.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()
@@ -444,11 +444,11 @@ fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<TaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
+    cameras: Query<(Entity, &ExtractedCamera, &TemporalAntiAliasing)>,
 ) -> Result<(), BevyError> {
-    for (entity, view, taa_settings) in &views {
+    for (entity, camera, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
-            hdr: view.hdr,
+            hdr: camera.hdr,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline

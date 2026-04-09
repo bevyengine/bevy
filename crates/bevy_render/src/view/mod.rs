@@ -29,7 +29,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::{BevyDefault as _, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -291,10 +291,7 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
-    pub hdr: bool,
-    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
-    /// and shaders output sRGB-encoded values for gamma-encoded blending.
-    pub compositing_space: Option<CompositingSpace>,
+    pub texture_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -1084,17 +1081,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let main_texture_format = if view.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else if view
-            .compositing_space
-            .is_some_and(|s| s == CompositingSpace::Srgb)
-        {
-            // Linear storage; shaders output sRGB for gamma-encoded blending
-            TextureFormat::Rgba8Unorm
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let main_texture_format = view.texture_format;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
@@ -1105,7 +1092,7 @@ pub fn prepare_view_targets(
         // Convert clear color to the format expected by the main texture
         let converted_clear_color: Option<WgpuColor> = clear_color.map(|color| {
             let linear: LinearRgba = color.into();
-            if view
+            if camera
                 .compositing_space
                 .is_some_and(|s| s == CompositingSpace::Oklab)
             {
@@ -1186,7 +1173,7 @@ pub fn prepare_view_targets(
             main_textures,
             main_texture_format,
             out_texture: out_attachment.clone(),
-            compositing_space: view.compositing_space,
+            compositing_space: camera.compositing_space,
         });
     }
 }

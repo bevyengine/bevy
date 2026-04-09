@@ -31,6 +31,7 @@ use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -48,8 +49,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, Msaa, ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset,
+        ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -512,7 +513,7 @@ pub fn prepare_depth_of_field_pipelines(
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
     view_targets: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedCamera,
         &DepthOfField,
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,
@@ -520,7 +521,7 @@ pub fn prepare_depth_of_field_pipelines(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
+    for (entity, camera, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
@@ -529,7 +530,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (hdr, multisample) = (camera.hdr, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {

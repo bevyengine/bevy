@@ -20,9 +20,12 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::camera::NormalizedRenderTargetExt;
+use bevy_render::texture::ManualTextureViews;
+use bevy_render::view::ExtractedWindows;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
@@ -55,6 +58,7 @@ use bevy_render::{
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
+use bevy_window::PrimaryWindow;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
@@ -743,18 +747,24 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
-                Has<Hdr>,
+                &RenderTarget,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
+    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    extracted_windows: Res<ExtractedWindows>,
+    manual_texture_views: Res<ManualTextureViews>,
+    images: Res<RenderAssets<GpuImage>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
+    let primary_window = primary_window.iter().next();
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, render_target, ui_anti_alias, shadow_samples) in &query
+    {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -778,6 +788,19 @@ pub fn extract_ui_camera_view(
             // main 3D or 2D camera, which will have subview index 0.
             let retained_view_entity =
                 RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
+
+            let target = render_target.normalize(primary_window);
+            let texture_format = target
+                .as_ref()
+                .and_then(|target| {
+                    target.get_texture_view_format(
+                        &extracted_windows,
+                        &images,
+                        &manual_texture_views,
+                    )
+                })
+                .unwrap_or(TextureFormat::bevy_default());
+
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
@@ -790,8 +813,7 @@ pub fn extract_ui_camera_view(
                             UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                         ),
                         clip_from_world: None,
-                        hdr,
-                        compositing_space: None,
+                        texture_format,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
@@ -1478,7 +1500,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                hdr: view.hdr,
+                texture_format: view.texture_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );
