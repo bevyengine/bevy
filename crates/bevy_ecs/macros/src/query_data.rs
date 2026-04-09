@@ -456,8 +456,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Option<Self::Item<'__w, '__s>> {
-                        Some(Self::Item {
+                    ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
+                        ::core::option::Option::Some(Self::Item {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
@@ -538,8 +538,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Option<Self::Item<'__w, '__s>> {
-                    Some(Self::Item {
+                ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
+                    ::core::option::Option::Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
                 }

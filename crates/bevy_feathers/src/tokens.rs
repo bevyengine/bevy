@@ -142,3 +142,17 @@ pub const SWITCH_SLIDE_DISABLED: ThemeToken =
 
 /// Color plane frame background
 pub const COLOR_PLANE_BG: ThemeToken = ThemeToken::new_static("feathers.colorplane.bg");
+
+// Text Input
+
+/// Background for text input
+pub const TEXT_INPUT_BG: ThemeToken = ThemeToken::new_static("feathers.textinput.bg");
+/// Text color for text input
+pub const TEXT_INPUT_TEXT: ThemeToken = ThemeToken::new_static("feathers.textinput.text");
+/// Text color for text input (disabled)
+pub const TEXT_INPUT_TEXT_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.textinput.text.disabled");
+/// Cursor color for text input
+pub const TEXT_INPUT_CURSOR: ThemeToken = ThemeToken::new_static("feathers.textinput.cursor");
+/// Selection color for text input
+pub const TEXT_INPUT_SELECTION: ThemeToken = ThemeToken::new_static("feathers.textinput.selection");

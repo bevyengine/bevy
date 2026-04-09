@@ -326,7 +326,7 @@ fn resources_to_toml(
         let Some(res_entity) = world.resource_entities().get(component_id) else {
             continue;
         };
-        let res_entity_ref = world.entity(*res_entity);
+        let res_entity_ref = world.entity(res_entity);
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
         };
@@ -441,7 +441,7 @@ fn apply_settings_to_world(
 
         if let Some(res_entity) = res_entity {
             // Resource already exists, so apply toml properties to it.
-            let res_entity_mut = world.entity_mut(*res_entity);
+            let res_entity_mut = world.entity_mut(res_entity);
             let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
                 continue;
             };

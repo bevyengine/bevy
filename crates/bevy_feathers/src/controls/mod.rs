@@ -8,6 +8,7 @@ mod color_slider;
 mod color_swatch;
 mod radio;
 mod slider;
+mod text_input;
 mod toggle_switch;
 mod virtual_keyboard;
 
@@ -23,6 +24,7 @@ pub use color_swatch::{
 };
 pub use radio::{radio, radio_bundle, RadioPlugin};
 pub use slider::{slider, slider_bundle, SliderPlugin, SliderProps};
+pub use text_input::{text_input, text_input_container, TextInputPlugin, TextInputProps};
 pub use toggle_switch::{toggle_switch, toggle_switch_bundle, ToggleSwitchPlugin};
 pub use virtual_keyboard::{virtual_keyboard, virtual_keyboard_bundle, VirtualKeyPressed};
 
@@ -46,6 +48,7 @@ impl Plugin for ControlsPlugin {
             ColorSwatchPlugin,
             RadioPlugin,
             SliderPlugin,
+            TextInputPlugin,
             ToggleSwitchPlugin,
         ));
     }

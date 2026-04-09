@@ -18,7 +18,7 @@ pub trait WorldSceneExt {
     ///
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::{prelude::*, ScenePlugin};
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;
@@ -58,7 +58,7 @@ pub trait WorldSceneExt {
     ///
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::{prelude::*, ScenePlugin};
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;
@@ -103,7 +103,7 @@ pub trait WorldSceneExt {
     ///
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::{prelude::*, ScenePlugin};
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;
@@ -142,7 +142,7 @@ pub trait WorldSceneExt {
     /// If the dependencies are already loaded (or there are no dependencies), then the scene list will be spawned this frame.
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::{prelude::*, ScenePlugin};
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;
@@ -224,7 +224,7 @@ pub trait CommandsSceneExt {
     /// If your scene has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene`].
     ///
     /// ```
-    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let mut commands = world.commands();
@@ -256,7 +256,7 @@ pub trait CommandsSceneExt {
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
     /// ```
-    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let mut commands = world.commands();
@@ -293,7 +293,7 @@ pub trait CommandsSceneExt {
     /// If your scene list has a dependency that might not be loaded yet (for example, it inherits from a `.bsn` asset file), consider using [`Commands::queue_spawn_scene_list`].
     ///
     /// ```
-    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let mut commands = world.commands();
@@ -325,7 +325,7 @@ pub trait CommandsSceneExt {
     /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
     ///
     /// ```
-    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let mut commands = world.commands();
@@ -405,7 +405,7 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::{prelude::*, ScenePlugin};
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;
@@ -506,7 +506,7 @@ pub trait EntityCommandsSceneExt {
     ///
     /// ```
     /// # use bevy_app::App;
-    /// # use bevy_scene2::prelude::*;
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::AssetPlugin;
     /// # use bevy_app::TaskPoolPlugin;

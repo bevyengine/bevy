@@ -18,7 +18,7 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::AsBindGroup;
-use bevy_scene2::{prelude::*, template_value};
+use bevy_scene::{prelude::*, template_value};
 use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
     px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, Display,

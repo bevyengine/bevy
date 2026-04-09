@@ -31,8 +31,8 @@ plugin_group! {
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_world_serialization")]
         bevy_world_serialization:::WorldSerializationPlugin,
-        #[cfg(feature = "bevy_scene2")]
-        bevy_scene2:::ScenePlugin,
+        #[cfg(feature = "bevy_scene")]
+        bevy_scene:::ScenePlugin,
         // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
