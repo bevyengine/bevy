@@ -32,7 +32,7 @@ use crate::{
         json_schema::{export_type, JsonSchemaBevyType},
         open_rpc::OpenRpcDocument,
     },
-    BrpError, BrpResult,
+    BrpError, BrpResult, PreviousScheduleBuildMetadata,
 };
 
 #[cfg(all(feature = "http", not(target_family = "wasm")))]
@@ -1613,7 +1613,7 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
 
     let schedules = world.resource::<Schedules>();
 
-    let Some((label, schedule)) = schedules
+    let Some((_, mut schedule)) = schedules
         .iter()
         .find(|(label, _schedule)| format!("{:?}", label) == schedule_label)
     else {
@@ -1622,10 +1622,33 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
             schedule_label
         )));
     };
+    // Get the interned label.
+    let label = schedule.label();
+
+    if schedule.is_changed() {
+        match world.schedule_scope(label, |world, schedule| schedule.initialize(world)) {
+            Ok(build_metadata) => {
+                assert!(build_metadata.is_some());
+            }
+            Err(err) => {
+                return Err(BrpError::internal(format!(
+                    "Failed to initialize schedule with label={label:?}: {err}"
+                )))
+            }
+        }
+        // Note: we don't need to insert into the `PreviousScheduleBuildMetadata`, since the
+        // metadata caching observer already does that for us.
+
+        schedule = world.resource::<Schedules>().get(label).unwrap();
+    }
+
+    let metadata = world
+        .get_resource::<PreviousScheduleBuildMetadata>()
+        .and_then(|res| res.0.get(&label));
 
     // TODO: We should consider saving all the `ScheduleBuilt` events when BRP is enabled, and
     // looking it up here (or even building the schedule here to get the metadata to fill it in).
-    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), None) {
+    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), metadata) {
         Ok(schedule_data) => schedule_data,
         Err(err) => {
             return Err(BrpError::internal(format!(
@@ -1883,7 +1906,10 @@ mod tests {
     }
 
     use super::*;
-    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
+    use crate::{
+        cache_schedule_build_metadata,
+        schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
+    };
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -2168,9 +2194,12 @@ mod tests {
         schedule.add_systems(f4.in_set(S2).after(S1));
 
         let mut world = World::default();
-
-        let _ = schedule.initialize(&mut world);
         world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
 
         let params = serde_json::to_value(&BrpScheduleGraphParams {
             schedule_label: "MySchedule".to_string(),
@@ -2183,16 +2212,16 @@ mod tests {
         // - 5 systems (f1, f2, f3, f4, apply_deferred)
         // - 6 system sets (F1, F2, F3, F4, S1, S2)
         // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
-        // - 2 dependency edges: f1 -> f2, S1 -> f4
+        // - 4 dependency edges: f1 -> f2, S1 -> f4, f1 -> apply_deferred, apply_deferred -> f2
 
         let res = schedule_graph(In(Some(params)), &mut world);
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
 
-        assert_eq!(res3.schedule_data.systems.len(), 5,);
+        assert_eq!(res3.schedule_data.systems.len(), 5);
         assert_eq!(res3.schedule_data.system_sets.len(), 6);
         assert_eq!(res3.schedule_data.hierarchy.len(), 6);
-        assert_eq!(res3.schedule_data.dependency.len(), 2);
+        assert_eq!(res3.schedule_data.dependency.len(), 4);
         // Components are only currently recorded for conflicts - this may change in the future.
         assert_eq!(res3.schedule_data.components.len(), 0);
         assert_eq!(res3.schedule_data.conflicts.len(), 0);
