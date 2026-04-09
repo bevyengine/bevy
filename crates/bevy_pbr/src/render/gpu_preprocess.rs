@@ -463,7 +463,7 @@ pub struct ViewPhaseUniformAllocationBindGroups {
 #[derive(Clone)]
 pub struct ViewPhaseUniformAllocationBindGroup {
     /// The index of the metadata in the
-    /// [`SceneUnpackingBuffers::uniform_unpacking_metadata`] buffer.
+    /// [`SceneUnpackingBuffers::uniform_allocation_metadata`] buffer.
     pub metadata_index: UniformAllocationMetadataIndex,
     /// The actual shader bind group.
     pub bind_group: BindGroup,
