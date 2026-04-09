@@ -26,6 +26,7 @@ use bevy_image::BevyDefault;
 use bevy_math::{Mat3, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     prelude::*,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -366,7 +367,12 @@ fn queue_infinite_grids(
     mut pipelines: ResMut<SpecializedRenderPipelines<InfiniteGridPipeline>>,
     infinite_grids: Query<&GlobalTransform, With<InfiniteGridSettings>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(
+        &ExtractedView,
+        &ExtractedCamera,
+        &RenderVisibleEntities,
+        &Msaa,
+    )>,
 ) {
     let Some(draw_function_id) = transparent_draw_functions
         .read()
@@ -376,7 +382,7 @@ fn queue_infinite_grids(
         return;
     };
 
-    for (view, entities, msaa) in views.iter_mut() {
+    for (view, camera, entities, msaa) in views.iter_mut() {
         let Some(phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -385,7 +391,7 @@ fn queue_infinite_grids(
             &pipeline_cache,
             &pipeline,
             GridPipelineKey {
-                hdr: view.hdr,
+                hdr: camera.hdr,
                 sample_count: msaa.samples(),
             },
         );
