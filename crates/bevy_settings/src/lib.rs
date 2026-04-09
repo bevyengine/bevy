@@ -583,6 +583,7 @@ fn handle_delayed_save(
 
 #[cfg(test)]
 mod tests {
+    extern crate self as bevy_settings;
     use super::*;
     use bevy_ecs::change_detection::Tick;
     use bevy_reflect::Reflect;

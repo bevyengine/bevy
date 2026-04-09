@@ -524,6 +524,10 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
+pub(crate) fn bevy_settings_path() -> syn::Path {
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_settings"))
+}
+
 /// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -606,6 +610,8 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
+
+    let path = bevy_settings_path();
 
     let (override_group_name, override_key_name, override_file) = {
         let mut override_group_name: Option<String> = None;
@@ -690,7 +696,7 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
         .unwrap_or(quote! { ::core::option::Option::None });
 
     let expanded = quote! {
-        impl SettingsGroup for #name {
+        impl #path::SettingsGroup for #name {
             fn settings_group_name() -> &'static str {
                 #group_name
             }
