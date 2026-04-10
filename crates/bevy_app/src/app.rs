@@ -703,10 +703,12 @@ impl App {
     ///
     /// # Example
     /// ```
+    /// use bevy_app::App;
+    ///
     /// App::new()
     ///     .register_type::<i32>()
     ///     .register_type::<String>()
-    ///     .register_type_conversion::<i32, String>(|n| Ok(n.into()));
+    ///     .register_type_conversion::<i32, String>(|n| Ok(n.to_string()));
     /// ```
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
