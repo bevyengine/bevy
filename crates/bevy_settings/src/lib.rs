@@ -9,6 +9,10 @@
 //!   different application, such as a text editor or external settings app.
 //!
 //! Refer to [`PreferencesPlugin`] for detailed usage information.
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_settings;
+
 use core::any::TypeId;
 use core::time::Duration;
 use std::collections::HashMap;
@@ -583,7 +587,6 @@ fn handle_delayed_save(
 
 #[cfg(test)]
 mod tests {
-    extern crate self as bevy_settings;
     use super::*;
     use bevy_ecs::change_detection::Tick;
     use bevy_reflect::Reflect;
