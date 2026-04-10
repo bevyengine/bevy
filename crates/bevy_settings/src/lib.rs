@@ -704,7 +704,7 @@ mod tests {
         assert!(table.contains_key("counter_settings"));
         let counter_section = table.get("counter_settings").unwrap().as_table().unwrap();
 
-        // Check that both fields are present in the merged section
+        // Check that fields are present in the merged section
         assert!(counter_section.contains_key("count"));
         assert!(counter_section.contains_key("enabled"));
         assert!(counter_section.contains_key("refresh_rate"));
