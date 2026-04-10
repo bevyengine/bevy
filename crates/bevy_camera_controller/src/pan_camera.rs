@@ -255,7 +255,7 @@ fn run_pancamera_controller(
 }
 
 /// A component attached to window entities that holds the id of an
-/// active handle_mouse_pan observer. It is None if there is no
+/// active `handle_mouse_pan` observer. It is None if there is no
 /// such observer.
 #[derive(Component)]
 struct HandleMousePanObserver(Option<Entity>);
