@@ -3988,7 +3988,7 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::{Entity, EntityHashSet},
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{Event, Mut, On, Res, Schedule, Schedules},
+        prelude::{Event, Mut, On, Res, Schedule},
         ptr::OwningPtr,
         query::{Changed, With},
         resource::Resource,

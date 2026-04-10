@@ -20,10 +20,10 @@ pub enum ScheduleHookPlan {
 pub type ScheduleHook = SystemId<(), ScheduleHookPlan>;
 
 /// The hub for managing [`ScheduleHook`], used to control when hooks are triggered.
-/// 
+///
 /// When the world runs this, it first briefly removes itself from the World before executing the hooks.
 /// Therefore, adding or removing hooks during hook execution will not take effect in the current phase.
-/// 
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::{ScheduleHookPlan, ScheduleLabel};
@@ -60,9 +60,15 @@ pub struct ScheduleHooks {
 
 impl ScheduleHooks {
     /// Used to merge the current [`ScheduleHooks`] with another.
-    pub fn reinsert(&mut self, other: Self) -> &mut Self {
-        self.enter.extend(other.enter);
-        self.exit.extend(other.exit);
+    pub fn reinsert(&mut self, mut other: Self) -> &mut Self {
+        other.enter.drain().for_each(|(label, other_hooks)| {
+            self.enter.entry(label).or_default().extend(other_hooks);
+        });
+
+        other.exit.drain().for_each(|(label, other_hooks)| {
+            self.exit.entry(label).or_default().extend(other_hooks);
+        });
+
         self
     }
 
@@ -128,6 +134,7 @@ impl ScheduleHooks {
 #[cfg(test)]
 mod tests {
     use crate::{
+        entity::Entity,
         prelude::Component,
         system::{Commands, Local},
     };
@@ -210,5 +217,25 @@ mod tests {
                 .get(&HookLabel.intern())
                 .map(|hooks| hooks.len())
         );
+    }
+
+    #[test]
+    fn hooks_reinsert() {
+        let mut hooks = ScheduleHooks::default();
+
+        let hook: SystemId<(), ScheduleHookPlan> = SystemId::from_entity(Entity::PLACEHOLDER);
+
+        hooks.add_enter_hook(HookLabel, hook);
+        hooks.add_exit_hook(HookLabel, hook);
+
+        let other = hooks.clone();
+
+        let both = hooks.reinsert(other);
+
+        assert_eq!(1, both.enter.len());
+        assert_eq!(2, both.enter.get(&HookLabel.intern()).unwrap().len());
+
+        assert_eq!(1, both.exit.len());
+        assert_eq!(2, both.exit.get(&HookLabel.intern()).unwrap().len());
     }
 }
