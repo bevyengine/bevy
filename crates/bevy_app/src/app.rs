@@ -722,6 +722,30 @@ impl App {
         self
     }
 
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<u8>()
+    ///     .register_type::<u32>()
+    ///     .register_type_conversion::<u8, u32>(|n| Ok(n.into()));
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        self.main_mut().register_into_type_conversion::<T, U>();
+        self
+    }
+
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
     /// The given function will internally be stored as a [`DynamicFunction`]

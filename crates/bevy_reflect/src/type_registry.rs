@@ -390,6 +390,37 @@ impl TypeRegistry {
             .register_type_conversion(function);
     }
 
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<u8>();
+    /// type_registry.register::<u32>();
+    /// type_registry.register_type_conversion::<u8, u32>(|n| Ok(n.into()));
+    /// ```
+    pub fn register_into_type_conversion<T, U>(&mut self)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        if !data.contains::<ReflectConvert>() {
+            data.insert(ReflectConvert::new());
+        }
+        data.data_mut::<ReflectConvert>()
+            .unwrap()
+            .register_type_conversion::<T, U>(|input| Ok(input.into()));
+    }
+
     /// Whether the type with given [`TypeId`] has been registered in this registry.
     pub fn contains(&self, type_id: TypeId) -> bool {
         self.registrations.contains_key(&type_id)
