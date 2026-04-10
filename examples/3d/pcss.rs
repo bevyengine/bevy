@@ -177,7 +177,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(MotionVectorPrepass)
         // Add a nice skybox.
         .insert(Skybox {
-            image: asset_server.load("environment_maps/sky_skybox.ktx2"),
+            image: Some(asset_server.load("environment_maps/sky_skybox.ktx2")),
             brightness: 500.0,
             rotation: Quat::IDENTITY,
         });

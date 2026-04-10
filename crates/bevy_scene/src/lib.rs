@@ -1197,4 +1197,24 @@ mod tests {
         }
         world.spawn_scene(yappy()).unwrap();
     }
+
+    #[test]
+    fn bsn_entry_can_surpass_tuple_limit() {
+        let _ = bsn! {
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+        };
+    }
 }

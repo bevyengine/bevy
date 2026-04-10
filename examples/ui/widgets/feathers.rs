@@ -464,7 +464,7 @@ fn update_colors(
         // Only update the hex input field when it's not focused, otherwise it interferes
         // with typing.
         let (input_ent, mut editable_text) = q_text_input.into_inner();
-        if Some(input_ent) != focus.0 {
+        if Some(input_ent) != focus.get() {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
         }

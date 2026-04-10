@@ -227,17 +227,18 @@ fn prepare_skybox_bind_groups(
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
-        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
-            images.get(&skybox.image),
+        if let (Some(image_handle), Some(view_uniforms), Some(skybox_uniforms)) = (
+            &skybox.image,
             view_uniforms.uniforms.binding(),
             skybox_uniforms.binding(),
-        ) {
+        ) && let Some(image) = images.get(image_handle)
+        {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
                 &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
-                    &skybox.texture_view,
-                    &skybox.sampler,
+                    &image.texture_view,
+                    &image.sampler,
                     view_uniforms,
                     skybox_uniforms,
                 )),
@@ -246,6 +247,8 @@ fn prepare_skybox_bind_groups(
             commands
                 .entity(entity)
                 .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
+        } else {
+            commands.entity(entity).remove::<SkyboxBindGroup>();
         }
     }
 }
