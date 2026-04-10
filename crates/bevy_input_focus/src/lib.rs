@@ -122,7 +122,7 @@ impl InputFocus {
     /// WARNING: this will clear any buffered focus changes,
     /// so it may cause missed [`FocusGained`] and [`FocusLost`] events.
     ///
-    /// Prefer the [`set`] method for normal use, which will preserve buffered changes.
+    /// Prefer the [`set`](InputFocus::set) method for normal use, which will preserve buffered changes.
     pub fn from_entity(entity: Entity) -> Self {
         Self {
             current_focus: Some(entity),
