@@ -682,6 +682,7 @@ impl AssetApp for App {
 
             type_registry.register::<A>();
             type_registry.register::<Handle<A>>();
+            type_registry.register::<HandleTemplate<A>>();
             type_registry.register_type_data::<A, ReflectAsset>();
             type_registry.register_type_data::<Handle<A>, ReflectHandle>();
             type_registry.register_type_conversion::<String, HandleTemplate<A>>(|s| Ok(s.into()));
