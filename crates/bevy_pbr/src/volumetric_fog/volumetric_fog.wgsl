@@ -148,6 +148,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Calculate the end position of the ray. This requires us to raytrace the
     // three back faces of the AABB to find the one that our ray intersects.
     var end_depth_view = 0.0;
+    var best_t = 1e30;
+    var found_backface_hit = false;
     for (var plane_index = 0; plane_index < 3; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
         let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
@@ -171,27 +173,37 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0
         );
 
-        // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        // Pick the nearest valid positive back-face hit.
+        if (all(other_sides) && t < best_t) {
+            best_t = t;
             end_depth_view = -hit_pos.z;
-            break;
+            found_backface_hit = true;
         }
     }
 
     // Starting at the end depth, which we got above, figure out how long the
     // ray we want to trace is and the length of each increment.
-    end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
+    if (found_backface_hit) {
+        end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
+    } else {
+        // Fallback for edge cases where numerical issues prevent selecting a
+        // back face: march until opaque scene depth.
+        end_depth_view = view_end_depth_from_buffer;
+    }
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
-    let ray_length_view = abs(end_depth_view - start_depth_view);
+    let ray_length_view = max(0.0, end_depth_view - start_depth_view);
+    if (ray_length_view == 0.0) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
 
     let directional_light_count = lights.n_directional_lights;
 
     // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world
-    // coordinates. (`Rd_ndc` and `Rd_view` were already computed above.)
+    // coordinates.
     var Ro_world = position_view_to_world(view_start_pos.xyz);
     let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
 

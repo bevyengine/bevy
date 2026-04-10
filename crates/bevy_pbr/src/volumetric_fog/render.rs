@@ -45,7 +45,6 @@ use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
-use std::collections::HashMap;
 
 use crate::{
     ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
@@ -691,7 +690,6 @@ pub fn prepare_volumetric_fog_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Affine3A>>,
-    mut fog_interior_state: Local<HashMap<(Entity, Entity), bool>>,
 ) {
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
@@ -711,7 +709,7 @@ pub fn prepare_volumetric_fog_uniforms(
         let world_from_view = extracted_view.world_from_view.affine();
         let mut view_fog_volumes = vec![];
 
-        for ((fog_entity, fog_volume, _), local_from_world) in
+        for ((_, fog_volume, _), local_from_world) in
             fog_volumes.iter().zip(local_from_world_matrices.iter())
         {
             // Calculate the transforms to and from 1×1×1 local space.
@@ -720,10 +718,8 @@ pub fn prepare_volumetric_fog_uniforms(
 
             // Determine whether the camera is inside or outside the volume, and
             // calculate the clip space transform.
-            let state_key = (view_entity, fog_entity);
-            let was_inside = fog_interior_state.get(&state_key).copied().unwrap_or(false);
-            let interior = camera_is_inside_fog_volume_hysteresis(&local_from_view, was_inside);
-            fog_interior_state.insert(state_key, interior);
+            let z_near = extracted_view.clip_from_view.w_axis[2];
+            let interior = camera_is_inside_fog_volume(&local_from_view, z_near);
             let hull_clip_from_local = calculate_fog_volume_clip_from_local_transforms(
                 interior,
                 &extracted_view.clip_from_view,
@@ -790,9 +786,7 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
 
     // Iterate the three axis-aligned face pairs of the unit cube.
     // For each pair, always pick exactly one face — the one whose view-space
-    // normal is more front-facing (larger z component). This guarantees that
-    // all three slots are filled regardless of the camera orientation, fixing
-    // glitchy shadow artifacts that occurred when edge-on faces were dropped.
+    // normal is more front-facing (larger z component).
     for (i, &(pos_normal, neg_normal)) in [
         (Vec3A::X, Vec3A::NEG_X),
         (Vec3A::Y, Vec3A::NEG_Y),
@@ -809,8 +803,7 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
             .normalize_or_zero();
 
         // Pick the face whose view-space normal has the larger z (more
-        // front-facing). In the degenerate edge-on case both are 0 and either
-        // choice is acceptable.
+        // front-facing).
         let (local_normal, view_normal) = if pos_view.z >= neg_view.z {
             (pos_normal, pos_view)
         } else {
@@ -851,36 +844,18 @@ impl VolumetricFogBindGroupLayoutKey {
 }
 
 /// Given the transform from the view to the 1×1×1 cube in local fog volume
-/// space, returns true if the camera is inside the volume.
-fn camera_is_inside_fog_volume(local_from_view: &Affine3A) -> bool {
+/// space, returns true if the camera is inside (or within near-clip distance
+/// of) the volume. Expanding by `z_near` ensures we switch to interior
+/// rendering just before the near plane clips the front-face geometry, making
+/// the depth continuous across the mode switch.
+fn camera_is_inside_fog_volume(local_from_view: &Affine3A, z_near: f32) -> bool {
+    // Use the full near-clip distance in local space as a uniform expansion.
+    let near_clip_extent = (local_from_view.matrix3 * Vec3A::Z).length() * z_near;
     local_from_view
         .translation
         .abs()
-        .cmple(Vec3A::splat(0.5))
+        .cmple(Vec3A::splat(0.5 + near_clip_extent))
         .all()
-}
-
-/// Same as [`camera_is_inside_fog_volume`], but with hysteresis to reduce
-/// boundary flicker when the camera hovers near the box limits.
-fn camera_is_inside_fog_volume_hysteresis(local_from_view: &Affine3A, was_inside: bool) -> bool {
-    // Entering interior requires being slightly deeper than the boundary,
-    // while leaving interior requires being slightly further outside.
-    const ENTER_THRESHOLD: f32 = 0.495;
-    const EXIT_THRESHOLD: f32 = 0.525;
-
-    let abs_translation = local_from_view.translation.abs();
-    let inside_raw = camera_is_inside_fog_volume(local_from_view);
-    if was_inside {
-        if inside_raw {
-            return true;
-        }
-        abs_translation.cmple(Vec3A::splat(EXIT_THRESHOLD)).all()
-    } else {
-        if !inside_raw {
-            return false;
-        }
-        abs_translation.cmple(Vec3A::splat(ENTER_THRESHOLD)).all()
-    }
 }
 
 /// Given the local transforms, returns the matrix that transforms model space
@@ -905,4 +880,40 @@ fn calculate_fog_volume_clip_from_local_transforms(
         vec4(0.0, 0.0, 0.0, 0.0),
         vec4(0.0, 0.0, z_near, z_near),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn camera_inside_without_near_clip_expansion_matches_box_test() {
+        let mut local_from_view = Affine3A::IDENTITY;
+        local_from_view.translation = Vec3A::new(0.5, 0.5, 0.5);
+        assert!(camera_is_inside_fog_volume(&local_from_view, 0.0));
+
+        local_from_view.translation = Vec3A::new(0.5001, 0.0, 0.0);
+        assert!(!camera_is_inside_fog_volume(&local_from_view, 0.0));
+    }
+
+    #[test]
+    fn camera_inside_with_near_clip_expansion_includes_boundary_margin() {
+        let mut local_from_view = Affine3A::IDENTITY;
+
+        // For identity transform, near_clip_extent == z_near.
+        local_from_view.translation = Vec3A::new(0.55, 0.0, 0.0);
+        assert!(camera_is_inside_fog_volume(&local_from_view, 0.05));
+
+        local_from_view.translation = Vec3A::new(0.56, 0.0, 0.0);
+        assert!(!camera_is_inside_fog_volume(&local_from_view, 0.05));
+    }
+
+    #[test]
+    fn get_far_planes_identity_selects_three_axis_planes() {
+        let far_planes = get_far_planes(&Affine3A::IDENTITY);
+
+        assert_eq!(far_planes[0], Vec4::new(1.0, 0.0, 0.0, -0.5));
+        assert_eq!(far_planes[1], Vec4::new(0.0, 1.0, 0.0, -0.5));
+        assert_eq!(far_planes[2], Vec4::new(0.0, 0.0, 1.0, -0.5));
+    }
 }
