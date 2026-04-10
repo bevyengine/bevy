@@ -149,7 +149,10 @@ pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
-    /// The key name within the settings file. This is typically the same as the group name, but
+    /// The key name within the settings file.
+    /// For structs, this should be set to `None`; The struct’s field names will be used as keys.
+    /// For enums, the `SettingsGroup` will use this key name within the settings file for its sole key-value pair.
+    /// This is typically the same as the group name, but can be customized.
     fn settings_key_name() -> Option<&'static str>;
 
     /// The name of the configuration file that contains this settings group.
