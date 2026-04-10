@@ -120,7 +120,7 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
             type SourceStates = #source_state_type;
 
             fn should_exist(sources: #source_state_type) -> #FQOption<Self> {
-                matches!(sources, #source_state_value).then_some(Self::default())
+                ::core::matches!(sources, #source_state_value).then_some(Self::default())
             }
         }
 

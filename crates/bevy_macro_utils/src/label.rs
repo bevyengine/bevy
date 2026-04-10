@@ -63,7 +63,7 @@ pub fn derive_label(
     if let syn::Data::Union(_) = &input.data {
         let message = format!("Cannot derive {trait_name} for unions.");
         return quote_spanned! {
-            input.span() => compile_error!(#message);
+            input.span() => ::core::compile_error!(#message);
         }
         .into();
     }

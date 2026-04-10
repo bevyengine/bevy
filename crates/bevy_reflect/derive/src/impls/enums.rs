@@ -157,7 +157,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_name(&self) -> &str {
                  match #match_this {
                     #(#enum_variant_name,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 
@@ -165,7 +165,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_index(&self) -> usize {
                  match #match_this {
                     #(#enum_variant_index,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 
@@ -173,7 +173,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_type(&self) -> #bevy_reflect_path::enums::VariantType {
                  match #match_this {
                     #(#enum_variant_type,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 

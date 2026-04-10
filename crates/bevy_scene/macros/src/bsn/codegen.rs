@@ -316,7 +316,7 @@ impl BsnType {
         assignments.push(quote! {
             {
                 let _node = #maybe_borrow_mut #(#field_path).*;
-                if !matches!(_node, #template_path::#check_pattern) {
+                if !::core::matches!(_node, #template_path::#check_pattern) {
                     #maybe_deref _node = #template_path::#variant_default();
                 }
                 if let #template_path::#binding_pattern = _node {
