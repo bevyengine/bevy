@@ -78,6 +78,9 @@ pub fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size:
         });
 }
 
+#[derive(Component)]
+pub struct TrafficLight;
+
 fn spawn_roads_and_cars<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
@@ -220,6 +223,7 @@ fn spawn_roads_and_cars<R: RngExt>(
             WorldAssetRoot(assets.traffic_lights.clone()),
             Transform::from_translation(pos + offset)
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, rot)),
+            TrafficLight,
         ));
     }
 }
