@@ -12,7 +12,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        RetainedViewEntity, ViewTarget, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -53,6 +53,10 @@ use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowSca
 use itertools::Either;
 use wgpu::TextureFormat;
 
+/// Main-pass color [`TextureFormat`] keyed by camera render entity.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct CameraMainPassTextureFormats(pub HashMap<Entity, TextureFormat>);
+
 #[derive(Default)]
 pub struct CameraPlugin;
 
@@ -80,6 +84,7 @@ impl Plugin for CameraPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<CameraMainPassTextureFormats>()
                 .init_resource::<SortedCameras>()
                 .init_resource::<DirtySpecializations>()
                 .init_resource::<DirtyWireframeSpecializations>()
@@ -462,6 +467,7 @@ pub struct ExtractedCamera {
 
 pub fn extract_cameras(
     mut commands: Commands,
+    mut main_pass_formats: ResMut<CameraMainPassTextureFormats>,
     query: Extract<
         Query<(
             Entity,
@@ -496,6 +502,7 @@ pub fn extract_cameras(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
 ) {
+    main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
         ExtractedCamera,
@@ -590,7 +597,7 @@ pub fn extract_cameras(
             // removed from it.
 
             let target = render_target.normalize(primary_window);
-            let texture_format = target
+            let output_texture_format = target
                 .as_ref()
                 .and_then(|target| {
                     target.get_texture_view_format(
@@ -600,6 +607,14 @@ pub fn extract_cameras(
                     )
                 })
                 .unwrap_or(TextureFormat::bevy_default());
+            let texture_format = if hdr {
+                ViewTarget::TEXTURE_FORMAT_HDR
+            } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
+                TextureFormat::Rgba8Unorm
+            } else {
+                output_texture_format
+            };
+            main_pass_formats.insert(render_entity, texture_format);
 
             let mut commands = commands.entity(render_entity);
             commands.insert((

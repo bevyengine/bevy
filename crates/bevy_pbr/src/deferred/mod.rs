@@ -18,7 +18,6 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -350,11 +349,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.main_pass_color_attachment_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -445,7 +440,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ) {
     for (
         entity,
-        camera,
+        _camera,
         view,
         tonemapping,
         dither,
@@ -466,7 +461,11 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_hdr(camera.hdr);
+        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
+        let mut view_key = MeshPipelineKey::from_hdr(is_hdr);
+        if !is_hdr {
+            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
+        }
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -491,7 +490,7 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !camera.hdr {
+        if !is_hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

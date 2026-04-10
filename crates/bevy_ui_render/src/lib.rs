@@ -23,9 +23,7 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::NormalizedRenderTargetExt;
-use bevy_render::texture::ManualTextureViews;
-use bevy_render::view::ExtractedWindows;
+use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
@@ -58,7 +56,6 @@ use bevy_render::{
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
-use bevy_window::PrimaryWindow;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
@@ -238,7 +235,9 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
+                    extract_ui_camera_view
+                        .after(extract_cameras)
+                        .in_set(RenderUiSystems::ExtractCameraViews),
                     extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
                     extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
                     extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
@@ -747,24 +746,18 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
-                &RenderTarget,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    extracted_windows: Res<ExtractedWindows>,
-    manual_texture_views: Res<ManualTextureViews>,
-    images: Res<RenderAssets<GpuImage>>,
+    main_pass_formats: Res<CameraMainPassTextureFormats>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
-    let primary_window = primary_window.iter().next();
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, render_target, ui_anti_alias, shadow_samples) in &query
-    {
+    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -774,7 +767,21 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
-        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
+        if let (Some(physical_viewport_rect), Some(_viewport_size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) && target_size.x != 0
+            && target_size.y != 0
+        {
+            let Some(texture_format) = main_pass_formats.get(&render_entity).copied() else {
+                commands
+                    .get_entity(render_entity)
+                    .expect("Camera entity wasn't synced.")
+                    .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
+                continue;
+            };
+
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -788,18 +795,6 @@ pub fn extract_ui_camera_view(
             // main 3D or 2D camera, which will have subview index 0.
             let retained_view_entity =
                 RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
-
-            let target = render_target.normalize(primary_window);
-            let texture_format = target
-                .as_ref()
-                .and_then(|target| {
-                    target.get_texture_view_format(
-                        &extracted_windows,
-                        &images,
-                        &manual_texture_views,
-                    )
-                })
-                .unwrap_or(TextureFormat::bevy_default());
 
             // Creates the UI view.
             let ui_camera_view = commands
