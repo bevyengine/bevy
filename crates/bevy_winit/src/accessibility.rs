@@ -316,7 +316,14 @@ impl Plugin for AccessKitPlugin {
                 PostUpdate,
                 (
                     poll_receivers,
-                    update_accessibility_nodes.run_if(should_update_accessibility_nodes),
+                    update_accessibility_nodes
+                        .run_if(should_update_accessibility_nodes)
+                        // This is unlikely to result in real conflicts,
+                        // as FocusChangeEvents only mutates internal state of InputFocus,
+                        // and update_accessibility_nodes only reads from it.
+                        // However, in case this changes in the future, this is a safer choice,
+                        // as accessibility updates could conceivably want to read focus change events.
+                        .after(bevy_input_focus::InputFocusSystems::FocusChangeEvents),
                     window_closed
                         .before(poll_receivers)
                         .before(update_accessibility_nodes),
