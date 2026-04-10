@@ -1,4 +1,32 @@
 //! Standard widget components for popup menus.
+//!
+//! Generally menus are structured as follows: there's a "menu" entity which is a container for a
+//! "menu button" and a "menu popup". The popup may be pre-rendered and hidden while closed, or
+//! it can be dynamically spawned on open and despawned on close - it's up to the widget implementer
+//! to decide how they want to manage the popup.
+//!
+//! The popup should have a [`MenuPopup`] component. The menu button should have a [`MenuButton`]
+//! component. The top level menu entity does not have any special component, but should have an
+//! observer for menu events. The menu entity receives these events which bubble upward from both
+//! the button and the popup. These events control the state of the menu (open and close) as well
+//! as help manage focus.
+//!
+//! There's a tight coupling between menus and input focus: in order to detect clicks outside
+//! the popup box (which cause the menu to close), we look for focus changes. This means that menu
+//! popups only remain open as long as some child of the popup has focus. This also means that
+//! when the popup first opens, focus must be set to a child (usually the first or last menu item
+//! depending on what action caused the menu to open). Because opening the popup may not be instant,
+//! especially if it's a queued BSN spawn, we can't set focus directly via the focus API. Instead,
+//! you can insert a [`MenuFocusState`] component on the popup which will automatically focus
+//! the appropriate child item when spawning is complete.
+//!
+//! Pressing the ESC key also closes the menu, but in that case focus reverts back to the menu
+//! button.
+//!
+//! Finally, there's no rule against the menu entity having additional children besides the button
+//! and the popup; for example, for something like a combo box widget, you might have a text input
+//! widget that is a sibling of the menu button, both of which are contained inside a decorative
+//! frame.
 
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
