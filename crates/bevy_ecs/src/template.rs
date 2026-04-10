@@ -3,14 +3,12 @@
 pub use bevy_ecs_macros::FromTemplate;
 
 use crate::{
-    bundle::Bundle,
     entity::Entity,
-    error::{BevyError, Result},
+    error::Result,
     resource::Resource,
     world::{EntityWorldMut, Mut, World},
 };
-use alloc::{boxed::Box, vec, vec::Vec};
-use downcast_rs::{impl_downcast, Downcast};
+use alloc::{vec, vec::Vec};
 use variadics_please::all_tuples;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
@@ -451,29 +449,6 @@ impl Template for EntityReference {
 
 impl FromTemplate for Entity {
     type Template = EntityReference;
-}
-
-/// A type-erased, object-safe, downcastable version of [`Template`].
-pub trait ErasedTemplate: Downcast + Send + Sync {
-    /// Applies this template to the given `entity`.
-    fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError>;
-
-    /// Clones this template. See [`Clone`].
-    fn clone_template(&self) -> Box<dyn ErasedTemplate>;
-}
-
-impl_downcast!(ErasedTemplate);
-
-impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedTemplate for T {
-    fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError> {
-        let bundle = self.build_template(context)?;
-        context.entity.insert(bundle);
-        Ok(())
-    }
-
-    fn clone_template(&self) -> Box<dyn ErasedTemplate> {
-        Box::new(Template::clone_template(self))
-    }
 }
 
 /// A [`Template`] driven by a function that returns an output. This is used to create "free floating" templates without

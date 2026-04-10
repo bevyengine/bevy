@@ -2,6 +2,7 @@ use crate::{InheritSceneError, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     error::Result,
     event::EntityEvent,
     name::Name,
@@ -280,7 +281,7 @@ impl<T: Template> PatchTemplate for T {
 
 impl<
         F: Fn(&mut T, &mut ResolveContext) + Send + Sync + 'static,
-        T: Template<Output: Bundle> + Send + Sync + Default + 'static,
+        T: Template<Output: Component> + Send + Sync + Default + 'static,
     > Scene for TemplatePatch<F, T>
 {
     fn resolve(
@@ -371,7 +372,7 @@ impl Scene for InheritSceneAsset {
     }
 }
 
-impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static, O: Bundle> Scene
+impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static, O: Component> Scene
     for FnTemplate<F, O>
 {
     fn resolve(
@@ -491,7 +492,7 @@ impl<
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_template(OnTemplate(self.0.clone(), PhantomData));
+        scene.push_bundle_template(OnTemplate(self.0.clone(), PhantomData));
         Ok(())
     }
 }

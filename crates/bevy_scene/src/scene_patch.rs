@@ -6,6 +6,7 @@ use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    bundle::BundleWriter,
     component::Component,
     entity::Entity,
     template::{EntityScopes, FromTemplate},
@@ -104,9 +105,12 @@ impl ScenePatch {
             .resolved
             .as_deref()
             .ok_or(SpawnSceneError::UnresolvedSceneError)?;
-        resolved
-            .apply(entity)
-            .map_err(SpawnSceneError::ApplySceneError)
+        // SAFETY: `bundle_writer` is empty
+        unsafe {
+            resolved
+                .apply(entity, &mut BundleWriter::default())
+                .map_err(SpawnSceneError::ApplySceneError)
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use bevy_reflect::TypePath;
 use criterion::{criterion_group, Criterion};
+use glam::Mat4;
 use std::{path::Path, time::Duration};
 
 use bevy_app::App;
@@ -56,6 +57,16 @@ fn ui_loaded_asset() -> impl Scene {
 #[derive(Component, Default, Clone)]
 struct Marker;
 
+#[derive(Component, Default, Clone)]
+#[expect(unused, reason = "this exists to take up space")]
+struct Marker1(Mat4);
+#[derive(Component, Default, Clone)]
+#[expect(unused, reason = "this exists to take up space")]
+struct Marker2(Mat4);
+#[derive(Component, Default, Clone)]
+#[expect(unused, reason = "this exists to take up space")]
+struct Marker3(Mat4);
+
 fn button() -> impl Scene {
     bsn! {
         Button
@@ -67,16 +78,16 @@ fn button() -> impl Scene {
             align_items: AlignItems::Center,
         }
         Children [
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
-            (Text("Text") Marker),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
+            (Text("Text") Marker Marker1 Marker2 Marker3),
         ]
     }
 }
@@ -93,16 +104,76 @@ fn raw_button() -> impl Bundle {
             ..Default::default()
         },
         children![
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
-            (Text("Text".into()), Marker),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
+            (
+                Text("Text".into()),
+                Marker,
+                Marker1::default(),
+                Marker2::default(),
+                Marker3::default()
+            ),
         ],
     )
 }
