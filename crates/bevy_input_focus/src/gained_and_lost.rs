@@ -61,7 +61,7 @@ mod tests {
     use bevy_ecs::observer::On;
     use bevy_input::InputPlugin;
 
-    /// Tracks the sequence of FocusGained and FocusLost events for assertions.
+    /// Tracks the sequence of [`FocusGained`] and [`FocusLost`] events for assertions.
     #[derive(Debug, Clone, PartialEq)]
     enum FocusEvent {
         Gained(Entity),
