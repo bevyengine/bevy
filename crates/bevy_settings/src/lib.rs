@@ -556,25 +556,6 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
         }
         _ => {}
     }
-
-    if let TypeInfo::Struct(stinfo) = tinfo
-        && let Some(table) = value.as_table()
-        && let ReflectMut::Struct(st_reflect) = resource.reflect_mut()
-    {
-        // Deserialize matching field names, ignore ones that don't match.
-        for (idx, field) in stinfo.field_names().iter().enumerate() {
-            if let Some(toml_field_value) = table.get(*field)
-                && let Some(field_info) = stinfo.field_at(idx)
-                && let Some(field_type) = types.get(field_info.type_id())
-            {
-                let deserializer = TypedReflectDeserializer::new(field_type, types);
-                if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone()) {
-                    // Should be safe to unwrap here since we know the field exists (above).
-                    st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
-                }
-            }
-        }
-    }
 }
 
 fn handle_delayed_save(
