@@ -58,7 +58,7 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
-    schedule::{Schedule, ScheduleHooks, ScheduleLabel, Schedules},
+    schedule::{Schedule, ScheduleEnter, ScheduleExit, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
     system::Commands,
     world::{
@@ -3729,41 +3729,6 @@ impl World {
         schedules.insert(schedule);
     }
 
-    /// Get [`ScheduleHooks`], otherwise initialize and get.
-    ///
-    /// # Examples
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::schedule::{ScheduleHookPlan, ScheduleLabel};
-    ///
-    /// #[derive(Debug, ScheduleLabel, Hash, Clone, PartialEq, Eq)]
-    /// pub struct HookLabel;
-    ///
-    /// #[derive(Debug, Resource, Default)]
-    /// struct Count(i32);
-    ///
-    /// let mut world = World::new();
-    ///
-    /// world.init_resource::<Count>();
-    ///
-    /// let enter_hook = world.register_system(|mut res: ResMut<Count>| {
-    ///     res.0 += 1;
-    ///     ScheduleHookPlan::Clear
-    /// });
-    ///
-    /// world.add_schedule(Schedule::new(HookLabel));
-    ///
-    /// world.schedule_hooks().add_enter_hook(HookLabel, enter_hook);
-    ///
-    /// world.run_schedule(HookLabel);
-    ///
-    /// let count = world.resource::<Count>();
-    /// assert_eq!(1, count.0);
-    /// ```
-    pub fn schedule_hooks(&mut self) -> Mut<'_, ScheduleHooks> {
-        self.get_resource_or_init::<ScheduleHooks>()
-    }
-
     /// Temporarily removes the schedule associated with `label` from the world,
     /// runs user code, and finally re-adds the schedule.
     /// This returns a [`TryRunScheduleError`] if there is no schedule
@@ -3856,17 +3821,13 @@ impl World {
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label.intern(), |world, sched| {
-            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
-                hooks.run_enter(world, label.intern());
-                world.schedule_hooks().reinsert(hooks);
-            };
+            world.trigger(ScheduleEnter(label.intern()));
+            world.flush();
 
             sched.run(world);
 
-            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
-                hooks.run_exit(world, label.intern());
-                world.schedule_hooks().reinsert(hooks);
-            };
+            world.trigger(ScheduleExit(label.intern()));
+            world.flush();
         })
     }
 
@@ -3883,17 +3844,13 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label.intern(), |world, sched| {
-            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
-                hooks.run_enter(world, label.intern());
-                world.schedule_hooks().reinsert(hooks);
-            };
+            world.trigger(ScheduleEnter(label.intern()));
+            world.flush();
 
             sched.run(world);
 
-            if let Some(mut hooks) = world.remove_resource::<ScheduleHooks>() {
-                hooks.run_exit(world, label.intern());
-                world.schedule_hooks().reinsert(hooks);
-            };
+            world.trigger(ScheduleExit(label.intern()));
+            world.flush();
         });
     }
 
@@ -3988,12 +3945,12 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::{Entity, EntityHashSet},
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{Event, Mut, On, Res, Schedule},
+        prelude::{Event, Mut, Observer, On, Res, Schedule},
         ptr::OwningPtr,
         query::{Changed, With},
         resource::Resource,
-        schedule::ScheduleHookPlan,
-        system::{Commands, Local, Query, ResMut},
+        schedule::{ScheduleEnter, ScheduleExit, ScheduleLabel},
+        system::{Commands, Query},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4003,7 +3960,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_ecs_macros::{Component, ScheduleLabel};
+    use bevy_ecs_macros::Component;
     use bevy_platform::collections::{HashMap, HashSet};
     use bevy_utils::prelude::DebugName;
     use core::{
@@ -4697,7 +4654,7 @@ mod tests {
     }
 
     #[test]
-    fn schedules_hook_add_and_work() {
+    fn schedules_hook_add_and_remove() {
         #[derive(Component, PartialEq, Debug)]
         struct Foo;
 
@@ -4719,96 +4676,46 @@ mod tests {
 
         world.add_schedule(schedule);
 
-        let enter_hook =
-            world.register_system(|mut commands: Commands, query: Query<(), Changed<Foo>>| {
+        let entity_enter_hook = world.spawn_empty().id();
+        let entity_exit_hook = world.spawn_empty().id();
+
+        world.entity_mut(entity_enter_hook).insert(Observer::new(
+            |trigger: On<ScheduleEnter>, mut commands: Commands, query: Query<(), Changed<Foo>>| {
+                assert!(trigger.0.eq(&HookLabel.intern()));
                 let count = query.count();
                 commands.spawn_batch((0..count).map(|_| Bar));
-                ScheduleHookPlan::Clear
-            });
+            },
+        ));
 
-        let exit_hook =
-            world.register_system(|mut commands: Commands, query: Query<Entity, With<Foo>>| {
+        world.entity_mut(entity_exit_hook).insert(Observer::new(
+            move |trigger: On<ScheduleExit>,
+                  mut commands: Commands,
+                  query: Query<Entity, With<Foo>>| {
+                assert!(trigger.0.eq(&HookLabel.intern()));
                 for foo in query {
                     commands.entity(foo).despawn();
                 }
-                ScheduleHookPlan::Clear
-            });
-
-        world
-            .schedule_hooks()
-            .add_enter_hook(HookLabel, enter_hook)
-            .add_exit_hook(HookLabel, exit_hook);
+                commands.entity(entity_enter_hook).despawn();
+                commands.entity(entity_exit_hook).despawn();
+            },
+        ));
 
         world.spawn_batch((0..SPAWN_COUNT).map(|_| Foo));
-
         world.run_schedule(HookLabel);
 
         let mut foo_query = world.query::<&Foo>();
-
         assert_eq!(0, foo_query.iter(&world).count());
 
         let mut bar_query = world.query::<&Bar>();
-
         assert_eq!(SPAWN_COUNT, bar_query.iter(&world).count());
-    }
 
-    #[test]
-    fn schedules_hook_selfrun_add_hooks() {
-        #[derive(Resource, PartialEq, Debug, Default)]
-        struct Foo(i32);
-
-        #[derive(ScheduleLabel, PartialEq, Debug, Eq, Clone, Hash)]
-        struct HookLabel;
-
-        let mut world = World::new();
-        world.init_resource::<Foo>();
-
-        let mut schedule = Schedule::new(HookLabel);
-
-        schedule.add_systems(|res: Res<Foo>, mut once: Local<bool>| {
-            if *once {
-                assert_eq!(1, res.0);
-                *once = true;
-            }
-        });
-
-        world.add_schedule(schedule);
-
-        let count_add_hook = world.register_system(|mut res: ResMut<Foo>| {
-            res.0 += 1;
-            ScheduleHookPlan::Clear
-        });
-
-        let enter_hook = world.register_system(move |world: &mut World| {
-            let mut hooks = world.schedule_hooks();
-
-            assert_eq!(0, hooks.enter.len());
-
-            hooks
-                .add_enter_hook(HookLabel, count_add_hook)
-                .add_exit_hook(HookLabel, count_add_hook);
-
-            ScheduleHookPlan::Clear
-        });
-
-        world
-            .schedule_hooks()
-            .add_enter_hook(HookLabel, count_add_hook)
-            .add_enter_hook(HookLabel, enter_hook);
-
+        world.spawn_batch((0..SPAWN_COUNT).map(|_| Foo));
         world.run_schedule(HookLabel);
 
-        let foo = world.resource::<Foo>();
+        let mut foo_query = world.query::<&Foo>();
+        assert_eq!(3, foo_query.iter(&world).count());
 
-        assert_eq!(2, foo.0);
-
-        let enter_hooks = world.schedule_hooks().enter.len();
-
-        assert_eq!(1, enter_hooks);
-
-        world.run_schedule(HookLabel);
-
-        let foo = world.resource::<Foo>();
-        assert_eq!(3, foo.0);
+        let mut bar_query = world.query::<&Bar>();
+        assert_eq!(SPAWN_COUNT, bar_query.iter(&world).count());
     }
 }
