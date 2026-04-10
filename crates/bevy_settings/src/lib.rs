@@ -162,7 +162,7 @@ pub trait SettingsGroup: Resource {
 pub struct ReflectSettingsGroup {
     /// The name of the logical section within the settings file.
     settings_group_name: &'static str,
-    /// The key name within the settings file.
+    /// The key name within the settings file. Should only be `Some` for enums.
     settings_key_name: Option<&'static str>,
     /// The name of the settings file, defaults to "settings".
     settings_source: Option<&'static str>,
