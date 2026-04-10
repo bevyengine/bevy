@@ -137,6 +137,7 @@ impl Plugin for PreferencesPlugin {
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
+/// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
 /// If there is a collision between names (multiple resources have the same name) then
 /// the resulting properties will be merged into a single section.
