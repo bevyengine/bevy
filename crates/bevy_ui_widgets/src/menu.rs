@@ -124,7 +124,7 @@ fn menu_acquire_focus(
             match tab_navigation.initialize(menu, nav) {
                 Ok(next) => {
                     *menu_focus = MenuFocusState::Open;
-                    focus.0 = Some(next);
+                    focus.set(next);
                 }
                 Err(e) => {
                     warn!(
@@ -149,7 +149,7 @@ fn menu_on_lose_focus(
             MenuFocusState::Opening(_) | MenuFocusState::Open => {
                 // TODO: Change this logic when we support submenus. Don't want to send multiple close
                 // events. Perhaps what we can do is add `MenuLostFocus` to the whole stack.
-                let contains_focus = match focus.0 {
+                let contains_focus = match focus.get() {
                     Some(focus_ent) => {
                         focus_ent == menu
                             || q_parent.iter_ancestors(focus_ent).any(|ent| ent == menu)

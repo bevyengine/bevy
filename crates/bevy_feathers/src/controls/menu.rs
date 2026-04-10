@@ -151,7 +151,7 @@ fn on_menu_event(
             for child in children.iter() {
                 if q_buttons.contains(*child) {
                     ev.propagate(false);
-                    focus.0 = Some(*child);
+                    focus.set(*child);
                     break;
                 }
             }
@@ -303,7 +303,7 @@ fn update_menuitem_styles(
             disabled,
             pressed,
             hovered.0,
-            Some(item_ent) == focus.0,
+            Some(item_ent) == focus.get(),
             bg_color,
             font_color,
             &mut commands,
@@ -340,7 +340,7 @@ fn update_menuitem_styles_remove(
                     disabled,
                     pressed,
                     hovered.0,
-                    Some(item_ent) == focus.0,
+                    Some(item_ent) == focus.get(),
                     bg_color,
                     font_color,
                     &mut commands,
@@ -371,7 +371,7 @@ fn update_menuitem_styles_focus_changed(
                 disabled,
                 pressed,
                 hovered.0,
-                Some(item_ent) == focus.0,
+                Some(item_ent) == focus.get(),
                 bg_color,
                 font_color,
                 &mut commands,
