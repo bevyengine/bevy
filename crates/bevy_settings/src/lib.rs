@@ -347,7 +347,7 @@ fn resources_to_toml(
         let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
         let toml_value = toml::Value::try_from(serializer).unwrap();
 
-        // convert toml value into a key value pair if settings_key is set. settings_key is only be set for enums
+        // convert toml value into a key value pair if settings_key is set. settings_key is only set for enums
         let toml_value = if let Some(settings_key) = settings_key {
             toml::Value::Table(toml::Table::from_iter([(
                 settings_key.to_string(),
