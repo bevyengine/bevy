@@ -230,6 +230,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
@@ -238,6 +240,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
@@ -246,6 +250,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
@@ -254,6 +260,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
@@ -262,6 +270,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::First) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
@@ -270,6 +280,8 @@ fn menu_on_key_event(
                     ev.propagate(false);
                     if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Last) {
                         focus.set(next);
+                    } else {
+                        focus.clear();
                     }
                 }
 
