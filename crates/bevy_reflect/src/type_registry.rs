@@ -364,10 +364,12 @@ impl TypeRegistry {
     ///
     /// # Example
     /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
     /// let mut type_registry = TypeRegistry::default();
     /// type_registry.register::<i32>();
     /// type_registry.register::<String>();
-    /// type_registry.register_type_conversion::<i32, String>(|n| Ok(n.into()));
+    /// type_registry.register_type_conversion::<i32, String>(|n| Ok(n.to_string()));
     /// ```
     pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>)
     where

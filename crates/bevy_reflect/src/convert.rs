@@ -15,6 +15,9 @@ use crate::{Reflect, TypePath};
 /// use code like the following:
 ///
 /// ```rust
+/// # use bevy_reflect::{convert::ReflectConvert, GetTypeRegistration, TypeRegistry};
+/// # use std::any::TypeId;
+/// #
 /// # let mut registry = TypeRegistry::default();
 /// # registry.add_registration(i32::get_type_registration());
 /// # registry.add_registration(String::get_type_registration());
@@ -23,7 +26,7 @@ use crate::{Reflect, TypePath};
 /// let reflect_convert = registry
 ///     .get_type_data::<ReflectConvert>(TypeId::of::<String>())
 ///     .unwrap();
-/// let converted: String = reflect_convert
+/// let converted: String = *reflect_convert
 ///     .try_convert_from(Box::new(12345i32))
 ///     .unwrap()
 ///     .downcast::<String>()
