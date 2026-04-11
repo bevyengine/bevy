@@ -5374,7 +5374,7 @@ path = "examples/ui/widgets/feathers_counter.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
-[package.metadata.example.feathers]
+[package.metadata.example.feathers_counter]
 name = "Feathers Counter"
 description = "Simple counter using feathers"
 category = "UI (User Interface)"
