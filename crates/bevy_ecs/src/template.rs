@@ -302,11 +302,11 @@ impl ScopedEntities {
 /// }
 /// ```
 ///
-/// However that is a bit of a mouthfull! This is where [`BuiltInTemplate`] comes in. It fills the same role
+/// However that is a bit of a mouthful! This is where [`BuiltInTemplate`] comes in. It fills the same role
 /// as [`FromTemplate`], but has no blanket implementation for [`Default`] and [`Clone`], meaning we can have
 /// custom implementations for types like [`Option`] and [`Vec`].
 ///
-/// If you deriving [`FromTemplate`] and you have a "built in" type like [`Option<Handle<T>>`] which has custom template logic,
+/// If you are deriving [`FromTemplate`] and you have a "built in" type like [`Option<Handle<T>>`] which has custom template logic,
 /// annotate it with the `template(built_in)` attribute to use [`BuiltInTemplate`] instead of [`FromTemplate`]:
 ///
 /// ```
