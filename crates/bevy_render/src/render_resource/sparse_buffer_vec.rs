@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_log::{error, warn};
+use bevy_log::{error, info};
 use bevy_material::{
     bind_group_layout_entries::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
