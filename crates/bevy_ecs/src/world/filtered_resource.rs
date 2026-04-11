@@ -495,7 +495,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             value: unsafe { value.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe {
-                ComponentTicksMut::from_tick_cells(ticks, None, self.last_run, self.this_run)
+                ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
             },
         })
     }

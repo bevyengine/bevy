@@ -359,6 +359,7 @@ mod render_entities_world_query_impls {
     unsafe impl QueryData for RenderEntity {
         const IS_READ_ONLY: bool = true;
         const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
+        const MUTATES_INDEXED_COLUMNS: bool = false;
         type ReadOnly = RenderEntity;
         type Item<'w, 's> = Entity;
 
@@ -480,6 +481,7 @@ mod render_entities_world_query_impls {
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
         const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
+        const MUTATES_INDEXED_COLUMNS: bool = false;
         type ReadOnly = MainEntity;
         type Item<'w, 's> = Entity;
 

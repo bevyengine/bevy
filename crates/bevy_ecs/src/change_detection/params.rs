@@ -1,9 +1,7 @@
 use crate::{
     change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
-    component::ChangeIndex,
     ptr::PtrMut,
     resource::Resource,
-    storage::TableRow,
 };
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
@@ -205,7 +203,6 @@ pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) added: &'w mut Tick,
     pub(crate) changed: &'w mut Tick,
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
-    pub(crate) change_index: Option<(&'w ChangeIndex, TableRow)>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
 }
@@ -216,7 +213,6 @@ impl<'w> ComponentTicksMut<'w> {
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
         cells: ComponentTickCells<'w>,
-        change_index: Option<(&'w ChangeIndex, TableRow)>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -229,7 +225,6 @@ impl<'w> ComponentTicksMut<'w> {
             changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
             last_run,
             this_run,
-            change_index,
         }
     }
 }
@@ -937,7 +932,6 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut &'static Location<'static>>,
-        change_index: Option<(&'w ChangeIndex, TableRow)>,
     ) -> Self {
         Self {
             value,
@@ -945,7 +939,6 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 added,
                 changed: last_changed,
                 changed_by: caller,
-                change_index,
                 last_run,
                 this_run,
             },
@@ -1259,7 +1252,6 @@ impl<'w> MutUntyped<'w> {
                 changed_by: self.ticks.changed_by.as_deref_mut(),
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
-                change_index: self.ticks.change_index,
             },
         }
     }

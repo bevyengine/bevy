@@ -16,7 +16,9 @@ use crate::{
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData},
+    query::{
+        self, DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData,
+    },
     resource::{Resource, ResourceEntities},
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -659,7 +661,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
             unsafe { ComponentTicksMut::from_tick_cells(ticks,
-                None, self.last_change_tick(), change_tick) };
+                self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1042,12 +1044,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 Mut {
                     // SAFETY: returned component is of type T
                     value: value.assert_unique().deref_mut::<T>(),
-                    ticks: ComponentTicksMut::from_tick_cells(
-                        cells,
-                        change_index.map(|change_index| (change_index, self.location.table_row)),
-                        last_change_tick,
-                        change_tick,
-                    ),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
                 }
             })
         }
@@ -1092,6 +1089,7 @@ impl<'w> UnsafeEntityCell<'w> {
             // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
             // Table corresponds to archetype. State is the same state used to init fetch above.
             unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
+            query::maybe_update_change_index::<Q>(table, self.world.change_tick());
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
             let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
             item.map(Q::release_state)
@@ -1170,12 +1168,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 MutUntyped {
                     // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                     value: value.assert_unique(),
-                    ticks: ComponentTicksMut::from_tick_cells(
-                        cells,
-                        change_index.map(|change_index| (change_index, self.location.table_row)),
-                        self.last_run,
-                        self.this_run,
-                    ),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
                 }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
@@ -1220,13 +1213,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 MutUntyped {
                     // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                     value: value.assert_unique(),
-                    // TODO: Fetch the change index!
-                    ticks: ComponentTicksMut::from_tick_cells(
-                        cells,
-                        change_index.map(|change_index| (change_index, self.location.table_row)),
-                        self.last_run,
-                        self.this_run,
-                    ),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
                 }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)

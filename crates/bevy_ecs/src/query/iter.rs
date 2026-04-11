@@ -7,7 +7,7 @@ use crate::{
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
         ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap,
-        IterQueryData, QueryState, SingleEntityQueryData, StorageId, WorldQuery,
+        IterQueryData, QueryState, SingleEntityQueryData, StorageId,
     },
     storage::{Table, TableRow, Tables},
     world::{
@@ -264,7 +264,8 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         if !F::USES_INDEX
             || table.change_index().is_none_or(|change_index| {
                 change_index.is_dirty(self.cursor.last_run, self.cursor.this_run)
-            }) {
+            })
+        {
             loop {
                 let row = rows.start;
                 if row == rows.end {
@@ -343,6 +344,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
+        maybe_update_change_index::<D>(table, self.world.change_tick());
 
         let entities = archetype.entities();
         for index in indices {
@@ -422,6 +424,8 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
+        maybe_update_change_index::<D>(table, self.world.change_tick());
+
         let entities = table.entities();
         if !F::USES_INDEX
             || table.change_index().is_none_or(|change_index| {
@@ -1384,6 +1388,7 @@ where
                 table,
             );
         }
+        maybe_update_change_index::<D>(table, self.query_state.this_run);
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
@@ -1567,6 +1572,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
             unsafe {
                 F::set_archetype(filter, &query_state.filter_state, archetype, table);
             }
+            maybe_update_change_index::<D>(table, query_state.this_run);
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
@@ -2392,6 +2398,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
                 table,
             );
         }
+        maybe_update_change_index::<D>(table, self.query_state.this_run);
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
@@ -3007,6 +3014,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             table,
                         );
                     }
+                    maybe_update_change_index::<D>(table, query_state.this_run);
+
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
@@ -3077,6 +3086,18 @@ impl<T> PartialOrd for NeutralOrd<T> {
 impl<T> Ord for NeutralOrd<T> {
     fn cmp(&self, _other: &Self) -> Ordering {
         Ordering::Equal
+    }
+}
+
+// TODO: `since`
+pub(crate) fn maybe_update_change_index<D>(table: &Table, now: Tick)
+where
+    D: QueryData,
+{
+    if D::MUTATES_INDEXED_COLUMNS
+        && let Some(change_index) = table.change_index()
+    {
+        change_index.note_changed(now);
     }
 }
 

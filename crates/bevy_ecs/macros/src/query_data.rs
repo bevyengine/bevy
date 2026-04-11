@@ -428,6 +428,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
                     const IS_ARCHETYPAL: bool = true #(&& <#read_only_field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
+                    const MUTATES_INDEXED_COLUMNS: bool = false;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -510,6 +511,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
                 const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
+                const MUTATES_INDEXED_COLUMNS: bool = false #(|| <#field_types as #path::query::QueryData>::MUTATES_INDEXED_COLUMNS)*;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world_and_state;
 

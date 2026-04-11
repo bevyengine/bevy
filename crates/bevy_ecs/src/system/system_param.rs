@@ -775,8 +775,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 changed_by: value.ticks.changed_by,
                 last_run: system_meta.last_run,
                 this_run: change_tick,
-                // TODO: Fetch this!
-                change_index: None,
             },
         })
     }
@@ -1407,12 +1405,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         })?;
         Ok(NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: ComponentTicksMut::from_tick_cells(
-                ticks,
-                None,
-                system_meta.last_run,
-                change_tick,
-            ),
+            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         })
     }
 }

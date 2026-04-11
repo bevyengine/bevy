@@ -2917,8 +2917,6 @@ impl World {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
                 changed_by: changed_by.as_mut(),
-                // TODO: Fetch the change index!
-                change_index: None,
                 last_run: last_change_tick,
                 this_run: change_tick,
             },

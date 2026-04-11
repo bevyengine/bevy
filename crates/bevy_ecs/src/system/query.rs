@@ -5,9 +5,9 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
-        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
+        self, ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData,
+        NopWorldQuery, QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError,
+        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
         SingleEntityQueryData,
     },
@@ -1760,6 +1760,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .debug_checked_unwrap();
             D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
             F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
+
+            query::maybe_update_change_index::<D>(table, self.world.change_tick());
 
             if F::filter_fetch(
                 &self.state.filter_state,

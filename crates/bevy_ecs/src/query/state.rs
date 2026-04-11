@@ -96,6 +96,8 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
+    // FIXME: `last_run`
+    pub(crate) this_run: Tick,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
 }
@@ -293,6 +295,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            this_run: world.read_change_tick(),
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -336,6 +339,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            this_run: builder.world().read_change_tick(),
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -756,6 +760,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self_access,
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
+            this_run: world.change_tick(),
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -904,6 +909,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: joined_component_access,
             matched_tables,
             matched_archetypes,
+            this_run: world.change_tick(),
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",

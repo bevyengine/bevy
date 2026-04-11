@@ -336,6 +336,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// If this is `true`, then [`QueryData::fetch`] must always return `Some`.
     const IS_ARCHETYPAL: bool;
 
+    const MUTATES_INDEXED_COLUMNS: bool;
+
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
@@ -554,6 +556,7 @@ unsafe impl WorldQuery for Entity {
 unsafe impl QueryData for Entity {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
 
     type Item<'w, 's> = Entity;
@@ -669,6 +672,7 @@ unsafe impl WorldQuery for EntityLocation {
 unsafe impl QueryData for EntityLocation {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityLocation;
 
@@ -852,6 +856,7 @@ unsafe impl WorldQuery for SpawnDetails {
 unsafe impl QueryData for SpawnDetails {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = Self;
 
@@ -984,6 +989,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 unsafe impl<'a> QueryData for EntityRef<'a> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRef<'w>;
 
@@ -1100,6 +1106,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = true;
     type ReadOnly = EntityRef<'a>;
     type Item<'w, 's> = EntityMut<'w>;
 
@@ -1215,6 +1222,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
 unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = FilteredEntityRef<'w, 's>;
 
@@ -1346,6 +1354,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = true;
     type ReadOnly = FilteredEntityRef<'a, 'b>;
     type Item<'w, 's> = FilteredEntityMut<'w, 's>;
 
@@ -1488,6 +1497,7 @@ where
 {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRefExcept<'w, 's, B>;
 
@@ -1612,6 +1622,7 @@ where
 {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = true;
     type ReadOnly = EntityRefExcept<'a, 'b, B>;
     type Item<'w, 's> = EntityMutExcept<'w, 's, B>;
 
@@ -1708,6 +1719,7 @@ unsafe impl WorldQuery for &Archetype {
 unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w Archetype;
 
@@ -1873,6 +1885,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w T;
 
@@ -2097,6 +2110,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = Ref<'w, T>;
 
@@ -2371,6 +2385,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = matches!(T::CHANGE_MODE, ChangeMode::Indexed);
     type ReadOnly = &'__w T;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2411,9 +2426,6 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         changed_by: caller.map(|caller| caller.deref_mut()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
-                        change_index: fetch
-                            .change_index
-                            .map(|change_index| (change_index, table_row)),
                     },
                 }
             },
@@ -2430,7 +2442,6 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     value: component.assert_unique().deref_mut(),
                     ticks: ComponentTicksMut::from_tick_cells(
                         ticks,
-                        None,
                         fetch.last_run,
                         fetch.this_run,
                     ),
@@ -2585,6 +2596,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = matches!(T::CHANGE_MODE, ChangeMode::Indexed);
     type ReadOnly = Ref<'__w, T>;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2815,6 +2827,7 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData
     // then the nested query may filter out some entities that *it* matches,
     // but it will not filter the outer query.
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = D::MUTATES_INDEXED_COLUMNS;
     type ReadOnly = NestedQuery<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
@@ -2993,6 +3006,7 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     // `Option` matches all entities, even if `T` does not,
     // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = T::MUTATES_INDEXED_COLUMNS;
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w, 's> = Option<T::Item<'w, 's>>;
 
@@ -3200,6 +3214,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 unsafe impl<T: Component> QueryData for Has<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = bool;
 
@@ -3283,6 +3298,7 @@ macro_rules! impl_tuple_query_data {
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+            const MUTATES_INDEXED_COLUMNS: bool = false $(|| $name::MUTATES_INDEXED_COLUMNS)*;
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w, 's> = ($($name::Item<'w, 's>,)*);
 
@@ -3535,6 +3551,7 @@ macro_rules! impl_anytuple_fetch {
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+            const MUTATES_INDEXED_COLUMNS: bool = false $(|| $name::MUTATES_INDEXED_COLUMNS)*;
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w, 's> = ($(Option<$name::Item<'w, 's>>,)*);
 
@@ -3728,6 +3745,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -3824,6 +3842,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
+    const MUTATES_INDEXED_COLUMNS: bool = false;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -4042,6 +4061,7 @@ mod tests {
             type ReadOnly = Self;
             const IS_READ_ONLY: bool = true;
             const IS_ARCHETYPAL: bool = true;
+            const MUTATES_INDEXED_COLUMNS: bool = false;
 
             type Item<'w, 's> = ();
 
