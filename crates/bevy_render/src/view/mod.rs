@@ -288,13 +288,14 @@ impl RetainedViewEntity {
     }
 }
 
-/// Describes a camera in the render world.
+/// Describes a view in the render world.
 ///
-/// Each entity in the main world can potentially extract to multiple subviews,
-/// each of which has a [`RetainedViewEntity::subview_index`]. For instance, 3D
-/// cameras extract to both a 3D camera subview with index 0 and a special UI
-/// subview with index 1. Likewise, point lights with shadows extract to 6
-/// subviews, one for each side of the shadow cubemap.
+/// Each entity in the main world can potentially extract to multiple views,
+/// each of which have a [`RetainedViewEntity::subview_index`].
+/// For instance, point lights with shadows extract to 6 subviews,
+/// one for each side of the shadow cubemap.
+/// [`Camera3d`](bevy_camera::Camera3d) extracts into a [`ExtractedView`]
+/// and [`ExtractedCamera`] component.
 #[derive(Component)]
 pub struct ExtractedView {
     /// The entity in the main world corresponding to this render world view.
@@ -336,6 +337,10 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
+    /// The [`TextureFormat`] this view will render to. Note that this may diverge from
+    /// the [`RenderTarget`](bevy_camera::RenderTarget)'s texture format. Among other
+    /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
+    /// override to ensure sufficient precision is present for lighting calculations.
     pub texture_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,

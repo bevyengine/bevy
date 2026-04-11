@@ -445,6 +445,11 @@ pub fn camera_system(
     Ok(())
 }
 
+/// Describes a [`Camera`](bevy_camera::Camera) in the render world.
+///
+/// Every `ExtractedCamera` also has an [`ExtractedView`], but not every
+/// view comes from a camera. For example, views can come from lights,
+/// for drawing shadow maps.
 #[derive(Component, Debug)]
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
