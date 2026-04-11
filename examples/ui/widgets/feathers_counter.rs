@@ -9,7 +9,6 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
-    input_focus::tab_navigation::TabGroup,
     prelude::*,
     scene::prelude::Scene,
     ui_widgets::Activate,
@@ -53,7 +52,6 @@ fn demo_root() -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
         }
-        TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[(
             Node {
