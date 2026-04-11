@@ -445,7 +445,7 @@ pub fn camera_system(
     Ok(())
 }
 
-/// Describes a [`Camera`](bevy_camera::Camera) in the render world.
+/// Describes a [`Camera`] in the render world.
 ///
 /// Every `ExtractedCamera` also has an [`ExtractedView`], but not every
 /// view comes from a camera. For example, views can come from lights,

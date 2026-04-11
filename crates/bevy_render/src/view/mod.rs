@@ -99,12 +99,12 @@ static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 /// Covers all color-renderable formats likely to appear as a main-pass color target.
 /// Unknown formats map to `Rgba8UnormSrgb` (code 1).
 #[inline]
-pub fn color_target_format_to_code(format: TextureFormat) -> u8 {
-    match format {
-        TextureFormat::Rgba8Unorm => 0,
-        TextureFormat::Rgba8UnormSrgb => 1,
-        TextureFormat::Bgra8Unorm => 2,
-        TextureFormat::Bgra8UnormSrgb => 3,
+pub fn color_target_format_to_code(format: TextureFormat) -> Option<u8> {
+    Some(match format {
+        TextureFormat::Rgba8UnormSrgb => 0,
+        TextureFormat::Rgba8Unorm => 1,
+        TextureFormat::Bgra8UnormSrgb => 2,
+        TextureFormat::Bgra8Unorm => 3,
         TextureFormat::Rgba16Float => 4,
         TextureFormat::Rg11b10Ufloat => 5,
         TextureFormat::Rgb10a2Unorm => 6,
@@ -113,20 +113,20 @@ pub fn color_target_format_to_code(format: TextureFormat) -> u8 {
         TextureFormat::R8Unorm => 9,
         TextureFormat::Rg8Unorm => 10,
         TextureFormat::Rgba32Float => 11,
-        _ => 1,
-    }
+        _ => return None,
+    })
 }
 
 /// Decode a 4-bit code back into a [`TextureFormat`].
 ///
 /// Inverse of [`color_target_format_to_code`].
 #[inline]
-pub fn color_target_format_from_code(code: u8) -> TextureFormat {
-    match code {
-        0 => TextureFormat::Rgba8Unorm,
-        1 => TextureFormat::Rgba8UnormSrgb,
-        2 => TextureFormat::Bgra8Unorm,
-        3 => TextureFormat::Bgra8UnormSrgb,
+pub fn color_target_format_from_code(code: u8) -> Option<TextureFormat> {
+    Some(match code {
+        0 => TextureFormat::Rgba8UnormSrgb,
+        1 => TextureFormat::Rgba8Unorm,
+        2 => TextureFormat::Bgra8UnormSrgb,
+        3 => TextureFormat::Bgra8Unorm,
         4 => TextureFormat::Rgba16Float,
         5 => TextureFormat::Rg11b10Ufloat,
         6 => TextureFormat::Rgb10a2Unorm,
@@ -135,8 +135,8 @@ pub fn color_target_format_from_code(code: u8) -> TextureFormat {
         9 => TextureFormat::R8Unorm,
         10 => TextureFormat::Rg8Unorm,
         11 => TextureFormat::Rgba32Float,
-        _ => TextureFormat::Rgba8UnormSrgb,
-    }
+        _ => return None,
+    })
 }
 
 pub struct ViewPlugin;
