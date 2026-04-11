@@ -304,7 +304,7 @@ impl BundleInfo {
         });
 
         if any_indexed && let Some(change_index) = table.change_index_mut() {
-            change_index.note_added(table_row, change_tick);
+            change_index.note_added(change_tick);
         }
 
         for required_component in required_components {
@@ -366,7 +366,7 @@ impl BundleInfo {
         if matches!(component_change_mode, ChangeMode::Indexed)
             && let Some(change_index) = table.change_index_mut()
         {
-            change_index.note_added(table_row, change_tick);
+            change_index.note_added(change_tick);
         }
     }
 }

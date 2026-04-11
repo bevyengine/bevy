@@ -123,7 +123,7 @@ impl<'w> BundleSpawner<'w> {
             entities.set_location(entity.index(), Some(location));
             entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
             if let Some(change_index) = table.change_index_mut() {
-                change_index.note_added(table_row, self.change_tick);
+                change_index.note_added(self.change_tick);
             }
             location
         };

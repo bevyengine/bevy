@@ -333,7 +333,7 @@ impl<'w> BundleInserter<'w> {
         // FIXME: Only do this if the archetype changed or if one or more of the
         // components to be inserted is indexed.
         if let Some(change_index) = insert_result.3.change_index_mut() {
-            change_index.note_added(insert_result.1.table_row, world.change_tick());
+            change_index.note_added(world.change_tick());
         }
 
         insert_result

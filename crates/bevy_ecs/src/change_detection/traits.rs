@@ -431,7 +431,7 @@ macro_rules! change_detection_mut_impl {
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
                 if let Some((change_index, table_row)) = self.ticks.change_index {
-                    change_index.note_changed(table_row, self.ticks.this_run);
+                    change_index.note_changed(self.ticks.this_run);
                 }
                 self.ticks.changed_by.assign(MaybeLocation::caller());
             }
@@ -444,7 +444,7 @@ macro_rules! change_detection_mut_impl {
                 // TODO: Speed this up. We need to put a `Component` bound on
                 // `T` for this.
                 if let Some((change_index, entity)) = self.ticks.change_index {
-                    change_index.note_changed(entity, self.ticks.this_run);
+                    change_index.note_changed(self.ticks.this_run);
                 }
                 self.ticks.changed_by.assign(MaybeLocation::caller());
             }

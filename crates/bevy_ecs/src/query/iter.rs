@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
     change_detection::Tick,
-    component::{ChangeIndex, PAGE_SIZE},
+    component::ChangeIndex,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
         ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap,
@@ -261,49 +261,49 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         );
 
         let entities = table.entities();
-        loop {
-            let row = advance_row::<F>(
-                table.change_index(),
-                rows.clone(),
-                self.cursor.last_run,
-                self.cursor.this_run,
-            );
-            if row == rows.end {
-                break;
-            }
-            rows.start = row + 1;
+        if !F::USES_INDEX
+            || table.change_index().is_none_or(|change_index| {
+                change_index.is_dirty(self.cursor.last_run, self.cursor.this_run)
+            }) {
+            loop {
+                let row = rows.start;
+                if row == rows.end {
+                    break;
+                }
+                rows.start = row + 1;
 
-            // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { entities.get_unchecked(row as usize) };
-            // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
+                // SAFETY: Caller assures `row` in range of the current archetype.
+                let entity = unsafe { entities.get_unchecked(row as usize) };
+                // SAFETY: This is from an exclusive range, so it can't be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            let fetched = unsafe {
-                !F::filter_fetch(
-                    &self.query_state.filter_state,
-                    &mut self.cursor.filter,
+                // SAFETY: set_table was called prior.
+                // Caller assures `row` in range of the current archetype.
+                let fetched = unsafe {
+                    !F::filter_fetch(
+                        &self.query_state.filter_state,
+                        &mut self.cursor.filter,
+                        *entity,
+                        row,
+                    )
+                };
+                if fetched {
+                    continue;
+                }
+
+                // SAFETY:
+                // - set_table was called prior.
+                // - Caller assures `row` in range of the current archetype.
+                // - Each row is unique, so each entity is only alive once
+                // - `D: IterQueryData`
+                if let Some(item) = D::fetch(
+                    &self.query_state.fetch_state,
+                    &mut self.cursor.fetch,
                     *entity,
                     row,
-                )
-            };
-            if fetched {
-                continue;
-            }
-
-            // SAFETY:
-            // - set_table was called prior.
-            // - Caller assures `row` in range of the current archetype.
-            // - Each row is unique, so each entity is only alive once
-            // - `D: IterQueryData`
-            if let Some(item) = D::fetch(
-                &self.query_state.fetch_state,
-                &mut self.cursor.fetch,
-                *entity,
-                row,
-            ) {
-                accum = func(accum, item);
+                ) {
+                    accum = func(accum, item);
+                }
             }
         }
         accum
@@ -423,49 +423,50 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             table,
         );
         let entities = table.entities();
-        loop {
-            let row = advance_row::<F>(
-                table.change_index(),
-                0..self.cursor.current_len,
-                self.cursor.last_run,
-                self.cursor.this_run,
-            );
-            if row == rows.end {
-                break;
-            }
-            rows.start = row + 1;
+        if !F::USES_INDEX
+            || table.change_index().is_none_or(|change_index| {
+                change_index.is_dirty(self.cursor.last_run, self.cursor.this_run)
+            })
+        {
+            loop {
+                let row = rows.start;
+                if row == rows.end {
+                    break;
+                }
+                rows.start = row + 1;
 
-            // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { *entities.get_unchecked(row as usize) };
-            // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
+                // SAFETY: Caller assures `row` in range of the current archetype.
+                let entity = unsafe { *entities.get_unchecked(row as usize) };
+                // SAFETY: This is from an exclusive range, so it can't be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            let filter_matched = unsafe {
-                F::filter_fetch(
-                    &self.query_state.filter_state,
-                    &mut self.cursor.filter,
+                // SAFETY: set_table was called prior.
+                // Caller assures `row` in range of the current archetype.
+                let filter_matched = unsafe {
+                    F::filter_fetch(
+                        &self.query_state.filter_state,
+                        &mut self.cursor.filter,
+                        entity,
+                        row,
+                    )
+                };
+                if !filter_matched {
+                    continue;
+                }
+
+                // SAFETY:
+                // - set_table was called prior.
+                // - Caller assures `row` in range of the current archetype.
+                // - Each row is unique, so each entity is only alive once
+                // - `D: IterQueryData`
+                if let Some(item) = D::fetch(
+                    &self.query_state.fetch_state,
+                    &mut self.cursor.fetch,
                     entity,
                     row,
-                )
-            };
-            if !filter_matched {
-                continue;
-            }
-
-            // SAFETY:
-            // - set_table was called prior.
-            // - Caller assures `row` in range of the current archetype.
-            // - Each row is unique, so each entity is only alive once
-            // - `D: IterQueryData`
-            if let Some(item) = D::fetch(
-                &self.query_state.fetch_state,
-                &mut self.cursor.fetch,
-                entity,
-                row,
-            ) {
-                accum = func(accum, item);
+                ) {
+                    accum = func(accum, item);
+                }
             }
         }
         accum
@@ -2946,12 +2947,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.table_entities = table.entities();
                     self.current_change_index = table.change_index();
                     self.current_len = table.entity_count();
-                    self.current_row = advance_row::<F>(
-                        self.current_change_index,
-                        0..self.current_len,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.current_row = if F::USES_INDEX
+                        && self.current_change_index.is_some_and(|change_index| {
+                            !change_index.is_dirty(self.last_run, self.this_run)
+                        }) {
+                        self.current_len
+                    } else {
+                        0
+                    };
                 }
 
                 // SAFETY: set_table was called prior.
@@ -2961,12 +2964,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: The row is less than the u32 len, so it must not be max.
                 let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
 
-                self.current_row = advance_row::<F>(
-                    self.current_change_index,
-                    (self.current_row + 1)..self.current_len,
-                    self.last_run,
-                    self.this_run,
-                );
+                self.current_row += 1;
 
                 if !F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row) {
                     continue;
@@ -3051,26 +3049,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 }
             }
         }
-    }
-}
-
-#[inline]
-unsafe fn advance_row<F>(
-    maybe_change_index: Option<&ChangeIndex>,
-    range: Range<u32>,
-    since: Tick,
-    now: Tick,
-) -> u32
-where
-    F: QueryFilter + WorldQuery,
-{
-    if F::USES_INDEX
-        && range.start.is_multiple_of(PAGE_SIZE)
-        && let Some(change_index) = maybe_change_index
-    {
-        change_index.advance_row(range.clone(), since, now)
-    } else {
-        range.start
     }
 }
 

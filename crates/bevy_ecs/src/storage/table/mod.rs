@@ -14,6 +14,7 @@ use core::{
     num::NonZeroUsize,
     ops::{Index, IndexMut},
     panic::Location,
+    sync::atomic::AtomicU32,
 };
 use nonmax::NonMaxU32;
 mod column;
@@ -181,7 +182,9 @@ impl TableBuilder {
         assert!(self.columns.indices().is_sorted());
         Table {
             change_index: if self.needs_change_index {
-                Some(ChangeIndex { page_table: vec![] })
+                Some(ChangeIndex {
+                    page_table: AtomicU32::new(0),
+                })
             } else {
                 None
             },
@@ -833,7 +836,7 @@ impl Tables {
         drop(dst_iter);
 
         if let Some(change_index) = dst_table.change_index_mut() {
-            change_index.note_added(dst_row, change_tick);
+            change_index.note_added(change_tick);
         }
 
         TableMoveResult {
