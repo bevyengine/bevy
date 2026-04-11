@@ -14,13 +14,13 @@ use rand::{prelude::SliceRandom, SeedableRng};
 use seq_macro::seq;
 
 #[derive(Component, Default)]
-#[component(storage = "Table")]
+#[component(storage = "Table", change = "indexed")]
 struct Table(f32);
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 struct Sparse(f32);
 #[derive(Component, Default)]
-#[component(storage = "Table")]
+#[component(storage = "Table", change = "indexed")]
 struct WideTable<const X: usize>(f32);
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
