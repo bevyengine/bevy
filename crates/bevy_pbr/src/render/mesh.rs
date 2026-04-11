@@ -28,11 +28,12 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
+use bevy_log::warn_once;
 use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
@@ -401,10 +402,12 @@ pub fn check_views_need_specialization(
         has_ssr,
     ) in views.iter_mut()
     {
-        // HACK: we should be specializing by texture format, not bool hdr, but mesh pipeline keys have limited space.
         let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples()) | MeshPipelineKey::from_hdr(is_hdr);
+        if !is_hdr {
+            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
+        }
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -3108,13 +3111,16 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SDR_COLOR_ATTACHMENT_FORMAT_RESERVED_BITS = Self::SDR_COLOR_ATTACHMENT_FORMAT_MASK_BITS
+            << Self::SDR_COLOR_ATTACHMENT_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
+            Self::SDR_COLOR_ATTACHMENT_FORMAT_RESERVED_BITS.bits();
     }
 }
 
@@ -3142,6 +3148,11 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const SDR_COLOR_ATTACHMENT_FORMAT_MASK_BITS: u64 = 0b11;
+    const SDR_COLOR_ATTACHMENT_FORMAT_SHIFT_BITS: u64 =
+        Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones() as u64
+            + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
@@ -3153,6 +3164,42 @@ impl MeshPipelineKey {
             MeshPipelineKey::HDR
         } else {
             MeshPipelineKey::NONE
+        }
+    }
+
+    /// Returns the bits for [`ExtractedView::texture_format`] for non-HDR views
+    pub fn sdr_color_attachment_format_bits(format: TextureFormat) -> Self {
+        let code: u64 = match format {
+            TextureFormat::Rgba8UnormSrgb => 0,
+            TextureFormat::Bgra8UnormSrgb => 1,
+            TextureFormat::Rgba8Unorm => 2,
+            _ => {
+                warn_once!(
+                    "Unknown main pass format {:?}, mesh pipeline uses Rgba8UnormSrgb",
+                    format
+                );
+                0
+            }
+        };
+        Self::from_bits_retain(
+            (code & Self::SDR_COLOR_ATTACHMENT_FORMAT_MASK_BITS)
+                << Self::SDR_COLOR_ATTACHMENT_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color format of the main pass color attachment for this pipeline key.
+    pub fn main_pass_color_attachment_format(&self) -> TextureFormat {
+        if self.contains(MeshPipelineKey::HDR) {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            let code = (self.bits() >> Self::SDR_COLOR_ATTACHMENT_FORMAT_SHIFT_BITS)
+                & Self::SDR_COLOR_ATTACHMENT_FORMAT_MASK_BITS;
+            match code {
+                0 => TextureFormat::Rgba8UnormSrgb,
+                1 => TextureFormat::Bgra8UnormSrgb,
+                2 => TextureFormat::Rgba8Unorm,
+                _ => TextureFormat::Rgba8UnormSrgb,
+            }
         }
     }
 
@@ -3611,11 +3658,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.main_pass_color_attachment_format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this

@@ -18,7 +18,11 @@ use bevy_mesh::VertexBufferLayout;
 use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
+use bevy_render::{
+    camera::TemporalJitter,
+    render_resource::*,
+    view::{ExtractedView, ViewTarget},
+};
 use bevy_utils::default;
 use core::any::{Any, TypeId};
 
@@ -78,8 +82,12 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         has_irradiance_volumes,
     ) in &mut views
     {
+        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(is_hdr);
+        if !is_hdr {
+            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
+        }
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -126,7 +134,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !view.hdr {
+        if !is_hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -294,8 +302,12 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
+        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(is_hdr);
+        if !is_hdr {
+            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
+        }
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
