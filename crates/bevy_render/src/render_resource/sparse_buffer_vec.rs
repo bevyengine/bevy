@@ -280,7 +280,7 @@ impl FromWorld for SparseBufferUpdatePipelines {
         let limit = render_device.limits().max_storage_buffers_per_shader_stage;
 
         if limit < 3 {
-            warn!(
+            info!(
                 "Sparse buffer updates disabled. RenderDevice lacks support: max_storage_buffers_per_shader_stage ({}) < 3.",
                 limit
             );
