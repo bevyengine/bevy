@@ -3147,9 +3147,9 @@ impl MeshPipelineKey {
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
     const COLOR_TARGET_FORMAT_MASK_BITS: u64 = 0b1111;
-    const COLOR_TARGET_FORMAT_SHIFT_BITS: u64 =
-        Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones() as u64
-            + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -3162,8 +3162,7 @@ impl MeshPipelineKey {
     pub fn from_color_target_format(format: TextureFormat) -> Self {
         let code = color_target_format_to_code(format) as u64;
         Self::from_bits_retain(
-            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS)
-                << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
     }
 

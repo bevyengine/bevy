@@ -511,8 +511,7 @@ impl Mesh2dPipelineKey {
     pub fn from_color_target_format(format: TextureFormat) -> Self {
         let code = color_target_format_to_code(format) as u32;
         Self::from_bits_retain(
-            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS)
-                << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
     }
 
