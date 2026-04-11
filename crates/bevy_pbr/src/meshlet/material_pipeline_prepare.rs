@@ -83,11 +83,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     ) in &mut views
     {
         let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(is_hdr);
-        if !is_hdr {
-            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
-        }
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_color_target_format(view.texture_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -303,11 +300,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
     ) in &mut views
     {
         let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(is_hdr);
-        if !is_hdr {
-            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
-        }
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_color_target_format(view.texture_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

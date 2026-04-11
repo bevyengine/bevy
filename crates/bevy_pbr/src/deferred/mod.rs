@@ -349,7 +349,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.main_pass_color_attachment_format(),
+                    format: key.color_target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -462,10 +462,7 @@ pub fn prepare_deferred_lighting_pipelines(
         }
 
         let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
-        let mut view_key = MeshPipelineKey::from_hdr(is_hdr);
-        if !is_hdr {
-            view_key |= MeshPipelineKey::sdr_color_attachment_format_bits(view.texture_format);
-        }
+        let mut view_key = MeshPipelineKey::from_color_target_format(view.texture_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

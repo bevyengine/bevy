@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -38,7 +38,10 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{
+        color_target_format_from_code, color_target_format_to_code, ExtractedView, Msaa,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
+    },
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -94,9 +97,9 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = 1 << 0;
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -113,6 +116,8 @@ bitflags::bitflags! {
 }
 
 impl SpritePipelineKey {
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 5;
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
@@ -131,13 +136,21 @@ impl SpritePipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
+    /// Create a pipeline key from the view's color target format.
     #[inline]
-    pub const fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            SpritePipelineKey::HDR
-        } else {
-            SpritePipelineKey::NONE
-        }
+    pub fn from_color_target_format(format: TextureFormat) -> Self {
+        let code = color_target_format_to_code(format) as u32;
+        Self::from_bits_retain(
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color target format of the main pass for this pipeline key.
+    #[inline]
+    pub fn color_target_format(&self) -> TextureFormat {
+        let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
+            & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
+        color_target_format_from_code(code)
     }
 }
 
@@ -191,14 +204,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             shader_defs.push("OKLAB_OUTPUT".into());
         }
 
-        let format = match (
-            key.contains(SpritePipelineKey::HDR),
-            key.contains(SpritePipelineKey::SRGB_COMPOSITING),
-        ) {
-            (true, _) => ViewTarget::TEXTURE_FORMAT_HDR,
-            (_, true) => TextureFormat::Rgba8Unorm,
-            _ => TextureFormat::bevy_default(),
-        };
+        let format = key.color_target_format();
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -510,7 +516,8 @@ pub fn queue_sprites(
         };
 
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(camera.hdr) | msaa_key;
+        let mut view_key =
+            SpritePipelineKey::from_color_target_format(view.texture_format) | msaa_key;
 
         if camera
             .compositing_space

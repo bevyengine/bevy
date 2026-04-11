@@ -29,7 +29,7 @@ use bevy::{
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
@@ -168,10 +168,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.color_target_format();
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -408,7 +405,7 @@ pub fn queue_colored_mesh2d(
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(camera.hdr);
+            | Mesh2dPipelineKey::from_color_target_format(view.texture_format);
 
         // Queue all entities visible to that view
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
