@@ -43,7 +43,7 @@ use bevy_input_focus::{
 /// Parameters for the menu button template, passed to [`menu_button`] function.
 pub struct MenuButtonProps {
     /// Label for this menu button
-    pub label: Box<dyn SceneList>,
+    pub caption: Box<dyn SceneList>,
     /// Rounded corners options
     pub corners: RoundedCorners,
     /// Include the standard downward-pointing chevron (default true).
@@ -53,7 +53,7 @@ pub struct MenuButtonProps {
 impl Default for MenuButtonProps {
     fn default() -> Self {
         Self {
-            label: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list!()),
             corners: Default::default(),
             arrow: true,
         }
@@ -173,7 +173,7 @@ pub fn menu_button(props: MenuButtonProps) -> impl Scene {
         MenuButton
         FeathersMenuButton
         Children [
-            {props.label},
+            {props.caption},
             {
                 if props.arrow {
                     Box::new(bsn_list!(
@@ -240,13 +240,13 @@ pub fn menu_popup() -> impl Scene {
 /// Parameters for the menu button template, passed to [`menu_button`] function.
 pub struct MenuItemProps {
     /// Label for this menu item
-    pub label: Box<dyn SceneList>,
+    pub caption: Box<dyn SceneList>,
 }
 
 impl Default for MenuItemProps {
     fn default() -> Self {
         Self {
-            label: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list!()),
         }
     }
 }
@@ -274,7 +274,7 @@ pub fn menu_item(props: MenuItemProps) -> impl Scene {
             weight: FontWeight::NORMAL,
         }
         Children [
-            {props.label}
+            {props.caption}
         ]
     }
 }

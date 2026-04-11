@@ -132,7 +132,7 @@ fn demo_root() -> impl Scene {
                             Children [
                                 (
                                     :menu_button(MenuButtonProps {
-                                        label: Box::new(bsn_list!(
+                                        caption: Box::new(bsn_list!(
                                             (Text("Menu") ThemedText),
                                         )),
                                         ..default()
@@ -143,7 +143,7 @@ fn demo_root() -> impl Scene {
                                     Children [
                                         (
                                             menu_item(MenuItemProps {
-                                                label: Box::new(bsn_list!(
+                                                caption: Box::new(bsn_list!(
                                                     (Text("MenuItem 1") ThemedText)))
                                             })
                                             on(|_: On<Activate>| {
@@ -152,7 +152,7 @@ fn demo_root() -> impl Scene {
                                         ),
                                         (
                                             menu_item(MenuItemProps {
-                                                label: Box::new(bsn_list!(
+                                                caption: Box::new(bsn_list!(
                                                     (Text("MenuItem 2") ThemedText)))
                                             })
                                             on(|_: On<Activate>| {
@@ -161,7 +161,7 @@ fn demo_root() -> impl Scene {
                                         ),
                                         (
                                             menu_item(MenuItemProps {
-                                                label: Box::new(bsn_list!(
+                                                caption: Box::new(bsn_list!(
                                                     (Text("MenuItem 3") ThemedText)))
                                             })
                                             on(|_: On<Activate>| {
