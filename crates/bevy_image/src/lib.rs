@@ -25,8 +25,8 @@ pub use self::serialized_image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
 #[cfg(any(
-    feature = "compressed_image_saver_desktop",
-    feature = "compressed_image_saver_web"
+    feature = "compressed_image_saver",
+    feature = "compressed_image_saver_universal"
 ))]
 mod compressed_image_saver;
 #[cfg(feature = "dds")]
@@ -44,8 +44,8 @@ mod texture_atlas;
 mod texture_atlas_builder;
 
 #[cfg(any(
-    feature = "compressed_image_saver_desktop",
-    feature = "compressed_image_saver_web"
+    feature = "compressed_image_saver",
+    feature = "compressed_image_saver_universal"
 ))]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]

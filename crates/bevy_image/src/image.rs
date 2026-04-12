@@ -220,8 +220,8 @@ impl Plugin for ImagePlugin {
             .unwrap();
 
         #[cfg(any(
-            feature = "compressed_image_saver_desktop",
-            feature = "compressed_image_saver_web"
+            feature = "compressed_image_saver",
+            feature = "compressed_image_saver_universal"
         ))]
         if let Some(processor) = app
             .world()

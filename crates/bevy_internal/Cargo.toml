@@ -29,11 +29,13 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Texture compression asset processor (for web)
-compressed_image_saver_web = ["bevy_image/compressed_image_saver_web"]
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_image/compressed_image_saver_universal",
+]
 
-# Texture compression asset processor (for desktop)
-compressed_image_saver_desktop = ["bevy_image/compressed_image_saver_desktop"]
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
+compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]

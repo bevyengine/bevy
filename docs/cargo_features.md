@@ -110,8 +110,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_world_serialization|Provides ECS serialization functionality|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
-|compressed_image_saver_desktop|Texture compression asset processor (for desktop)|
-|compressed_image_saver_web|Texture compression asset processor (for web)|
+|compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
+|compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|

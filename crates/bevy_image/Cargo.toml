@@ -45,11 +45,11 @@ zstd_rust = ["zstd", "dep:ruzstd"]
 # Binding to zstd C implementation (faster)
 zstd_c = ["zstd", "dep:zstd"]
 
-# Texture compression asset processor (for web)
-compressed_image_saver_web = ["basis-universal"]
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = ["basis-universal"]
 
-# Texture compression asset processor (for desktop)
-compressed_image_saver_desktop = ["dep:ctt", "ktx2"]
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
+compressed_image_saver = ["dep:ctt", "ktx2"]
 
 [dependencies]
 # bevy

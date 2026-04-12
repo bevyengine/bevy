@@ -431,13 +431,13 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
-# Texture compression asset processor (for web)
-compressed_image_saver_web = ["bevy_internal/compressed_image_saver_web"]
-
-# Texture compression asset processor (for desktop)
-compressed_image_saver_desktop = [
-  "bevy_internal/compressed_image_saver_desktop",
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_internal/compressed_image_saver_universal",
 ]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
+compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]

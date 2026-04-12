@@ -21,12 +21,13 @@ use wgpu_types::TextureFormat;
 ///
 /// Two mutually exclusive feature flags control which compression backend is used:
 ///
-/// - **`compressed_image_saver_desktop`** — Uses the [`ctt`](https://github.com/cwfitzgerald/ctt)
-///   library to compress textures into BCn formats, output as KTX2. Requires a C++ compiler;
-///   see the [ctt readme](https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prebuilt-binaries).
-///   Best for desktop (Windows, macOS, Linux) where BCn hardware support is universal.
+/// - **`compressed_image_saver`** — Uses the [`ctt`](https://github.com/cwfitzgerald/ctt)
+///   library to compress textures into BCn or ASTC formats, output as KTX2. Requires a C++
+///   compiler; see the [ctt readme](https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prebuilt-binaries).
+///   Outputs BCn by default (for desktop targets). Set
+///   `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` to output ASTC instead (for mobile targets).
 ///
-/// - **`compressed_image_saver_web`** — Uses `basis-universal` to compress textures into UASTC
+/// - **`compressed_image_saver_universal`** — Uses `basis-universal` to compress textures into UASTC
 ///   (Basis Universal) format. This is a GPU-agnostic supercompressed format that can be
 ///   transcoded at load time to whatever format the target GPU supports, making it suitable for
 ///   WebGPU and cross-platform distribution.
@@ -35,10 +36,10 @@ use wgpu_types::TextureFormat;
 ///
 /// The compressed output must also be loadable at runtime. Enable the corresponding feature:
 ///
-/// - **`ktx2`** — Required to load KTX2 files produced by the desktop backend.
-/// - **`basis-universal`** — Required to load Basis Universal files produced by the web backend.
+/// - **`ktx2`** — Required to load KTX2 files produced by `compressed_image_saver`.
+/// - **`basis-universal`** — Required to load Basis Universal files produced by `compressed_image_saver_universal`.
 ///
-/// # Compression format selection (desktop)
+/// # Compression format selection
 ///
 /// The output format is chosen automatically based on the input texture's channel count and type:
 ///
@@ -56,9 +57,28 @@ use wgpu_types::TextureFormat;
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
 /// [`CompressedImageSaverError::UnsupportedFormat`].
 ///
+/// # ASTC override
+///
+/// Set the `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` environment variable to compress into ASTC
+/// instead of BCn. ASTC is natively supported on mobile GPUs (Android, iOS) and some
+/// desktop GPUs, while BCn is typically only supported on desktop GPUs.
+///
+/// The value specifies the block size. Larger blocks compress more aggressively (smaller
+/// files, less VRAM) at the cost of quality. If set to an empty string or `1`, defaults
+/// to `4x4`.
+///
+/// | Block size | Bits per pixel | Notes |
+/// |---|---|---|
+/// | `4x4` | 8.00 | Highest quality, same bit rate as BC7 |
+/// | `6x6` | 3.56 | Good balance of quality and size |
+/// | `8x8` | 2.00 | Aggressive, suitable for base_color_texture |
+///
+/// All 14 ASTC block sizes are supported: `4x4`, `5x4`, `5x5`, `6x5`, `6x6`, `8x5`,
+/// `8x6`, `8x8`, `10x5`, `10x6`, `10x8`, `10x10`, `12x10`, `12x12`.
+///
 /// # Mipmap generation
 ///
-/// Mipmaps are generated automatically during compression. The desktop backend requires
+/// Mipmaps are generated automatically during compression. The `compressed_image_saver` feature requires
 /// input images to have a `mip_level_count` of 1 (i.e., no pre-existing mip chain);
 /// the compressor will produce a full mip chain in the output.
 #[derive(TypePath)]
@@ -89,7 +109,7 @@ impl AssetSaver for CompressedImageSaver {
     type OutputLoader = ImageLoader;
     type Error = CompressedImageSaverError;
 
-    #[cfg(feature = "compressed_image_saver_desktop")]
+    #[cfg(feature = "compressed_image_saver")]
     async fn save(
         &self,
         writer: &mut Writer,
@@ -184,7 +204,7 @@ impl AssetSaver for CompressedImageSaver {
         })
     }
 
-    #[cfg(feature = "compressed_image_saver_web")]
+    #[cfg(feature = "compressed_image_saver_universal")]
     async fn save(
         &self,
         writer: &mut Writer,
@@ -242,18 +262,121 @@ impl AssetSaver for CompressedImageSaver {
     }
 }
 
-#[cfg(feature = "compressed_image_saver_desktop")]
+/// Returns `Some((unorm, srgb, hdr))` ASTC format triple if the env var is set, `None` otherwise.
+#[cfg(feature = "compressed_image_saver")]
+fn parse_astc_env_var(
+) -> Result<Option<(ktx2::Format, ktx2::Format, ktx2::Format)>, CompressedImageSaverError> {
+    use ktx2::Format;
+
+    let val = match std::env::var("BEVY_COMPRESSED_IMAGE_SAVER_ASTC") {
+        Ok(v) => v,
+        Err(std::env::VarError::NotPresent) => return Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => return Ok(None),
+    };
+
+    let val = val.trim();
+    let (unorm, srgb, hdr) = match val {
+        "" | "1" | "4x4" => (
+            Format::ASTC_4x4_UNORM_BLOCK,
+            Format::ASTC_4x4_SRGB_BLOCK,
+            Format::ASTC_4x4_SFLOAT_BLOCK,
+        ),
+        "5x4" => (
+            Format::ASTC_5x4_UNORM_BLOCK,
+            Format::ASTC_5x4_SRGB_BLOCK,
+            Format::ASTC_5x4_SFLOAT_BLOCK,
+        ),
+        "5x5" => (
+            Format::ASTC_5x5_UNORM_BLOCK,
+            Format::ASTC_5x5_SRGB_BLOCK,
+            Format::ASTC_5x5_SFLOAT_BLOCK,
+        ),
+        "6x5" => (
+            Format::ASTC_6x5_UNORM_BLOCK,
+            Format::ASTC_6x5_SRGB_BLOCK,
+            Format::ASTC_6x5_SFLOAT_BLOCK,
+        ),
+        "6x6" => (
+            Format::ASTC_6x6_UNORM_BLOCK,
+            Format::ASTC_6x6_SRGB_BLOCK,
+            Format::ASTC_6x6_SFLOAT_BLOCK,
+        ),
+        "8x5" => (
+            Format::ASTC_8x5_UNORM_BLOCK,
+            Format::ASTC_8x5_SRGB_BLOCK,
+            Format::ASTC_8x5_SFLOAT_BLOCK,
+        ),
+        "8x6" => (
+            Format::ASTC_8x6_UNORM_BLOCK,
+            Format::ASTC_8x6_SRGB_BLOCK,
+            Format::ASTC_8x6_SFLOAT_BLOCK,
+        ),
+        "8x8" => (
+            Format::ASTC_8x8_UNORM_BLOCK,
+            Format::ASTC_8x8_SRGB_BLOCK,
+            Format::ASTC_8x8_SFLOAT_BLOCK,
+        ),
+        "10x5" => (
+            Format::ASTC_10x5_UNORM_BLOCK,
+            Format::ASTC_10x5_SRGB_BLOCK,
+            Format::ASTC_10x5_SFLOAT_BLOCK,
+        ),
+        "10x6" => (
+            Format::ASTC_10x6_UNORM_BLOCK,
+            Format::ASTC_10x6_SRGB_BLOCK,
+            Format::ASTC_10x6_SFLOAT_BLOCK,
+        ),
+        "10x8" => (
+            Format::ASTC_10x8_UNORM_BLOCK,
+            Format::ASTC_10x8_SRGB_BLOCK,
+            Format::ASTC_10x8_SFLOAT_BLOCK,
+        ),
+        "10x10" => (
+            Format::ASTC_10x10_UNORM_BLOCK,
+            Format::ASTC_10x10_SRGB_BLOCK,
+            Format::ASTC_10x10_SFLOAT_BLOCK,
+        ),
+        "12x10" => (
+            Format::ASTC_12x10_UNORM_BLOCK,
+            Format::ASTC_12x10_SRGB_BLOCK,
+            Format::ASTC_12x10_SFLOAT_BLOCK,
+        ),
+        "12x12" => (
+            Format::ASTC_12x12_UNORM_BLOCK,
+            Format::ASTC_12x12_SRGB_BLOCK,
+            Format::ASTC_12x12_SFLOAT_BLOCK,
+        ),
+        other => {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                format!("Invalid BEVY_COMPRESSED_IMAGE_SAVER_ASTC block size: {other:?}. \
+                    Expected one of: 4x4, 5x4, 5x5, 6x5, 6x6, 8x5, 8x6, 8x8, 10x5, 10x6, 10x8, 10x10, 12x10, 12x12")
+                    .into(),
+            ));
+        }
+    };
+
+    Ok(Some((unorm, srgb, hdr)))
+}
+
+#[cfg(feature = "compressed_image_saver")]
 fn choose_ctt_compressed_format(
     input: TextureFormat,
 ) -> Result<ctt::TargetFormat, CompressedImageSaverError> {
     use ktx2::Format;
 
-    // TODO: ASTC support
-    let format = match input {
-        // 1-channel snorm -> BC4 snorm
-        TextureFormat::R8Snorm | TextureFormat::R16Snorm => Format::BC4_SNORM_BLOCK,
+    let astc_block = parse_astc_env_var()?;
 
-        // 1-channel -> BC4
+    let format = match input {
+        // 1-channel snorm
+        TextureFormat::R8Snorm | TextureFormat::R16Snorm => {
+            if let Some((unorm, _, _)) = astc_block {
+                unorm
+            } else {
+                Format::BC4_SNORM_BLOCK
+            }
+        }
+
+        // 1-channel
         TextureFormat::R8Unorm
         | TextureFormat::R8Uint
         | TextureFormat::R8Sint
@@ -264,12 +387,24 @@ fn choose_ctt_compressed_format(
         | TextureFormat::R32Uint
         | TextureFormat::R32Sint
         | TextureFormat::R32Float
-        | TextureFormat::R64Uint => Format::BC4_UNORM_BLOCK,
+        | TextureFormat::R64Uint => {
+            if let Some((unorm, _, _)) = astc_block {
+                unorm
+            } else {
+                Format::BC4_UNORM_BLOCK
+            }
+        }
 
-        // 2-channel snorm -> BC5 snorm
-        TextureFormat::Rg8Snorm | TextureFormat::Rg16Snorm => Format::BC5_SNORM_BLOCK,
+        // 2-channel snorm
+        TextureFormat::Rg8Snorm | TextureFormat::Rg16Snorm => {
+            if let Some((unorm, _, _)) = astc_block {
+                unorm
+            } else {
+                Format::BC5_SNORM_BLOCK
+            }
+        }
 
-        // 2-channel -> BC5
+        // 2-channel
         TextureFormat::Rg8Unorm
         | TextureFormat::Rg8Uint
         | TextureFormat::Rg8Sint
@@ -279,15 +414,27 @@ fn choose_ctt_compressed_format(
         | TextureFormat::Rg16Float
         | TextureFormat::Rg32Uint
         | TextureFormat::Rg32Sint
-        | TextureFormat::Rg32Float => Format::BC5_UNORM_BLOCK,
+        | TextureFormat::Rg32Float => {
+            if let Some((unorm, _, _)) = astc_block {
+                unorm
+            } else {
+                Format::BC5_UNORM_BLOCK
+            }
+        }
 
-        // HDR / float RGB formats -> BC6H
+        // HDR / float RGB formats
         TextureFormat::Rgb9e5Ufloat
         | TextureFormat::Rg11b10Ufloat
         | TextureFormat::Rgba16Float
-        | TextureFormat::Rgba32Float => Format::BC6H_UFLOAT_BLOCK,
+        | TextureFormat::Rgba32Float => {
+            if let Some((_, _, hdr)) = astc_block {
+                hdr
+            } else {
+                Format::BC6H_UFLOAT_BLOCK
+            }
+        }
 
-        // 4-channel LDR -> BC7
+        // 4-channel LDR
         TextureFormat::Rgba8Unorm
         | TextureFormat::Rgba8Uint
         | TextureFormat::Rgba8Sint
@@ -300,8 +447,20 @@ fn choose_ctt_compressed_format(
         | TextureFormat::Rgba32Sint
         | TextureFormat::Bgra8Unorm
         | TextureFormat::Rgb10a2Uint
-        | TextureFormat::Rgb10a2Unorm => Format::BC7_UNORM_BLOCK,
-        TextureFormat::Rgba8UnormSrgb | TextureFormat::Bgra8UnormSrgb => Format::BC7_SRGB_BLOCK,
+        | TextureFormat::Rgb10a2Unorm => {
+            if let Some((unorm, _, _)) = astc_block {
+                unorm
+            } else {
+                Format::BC7_UNORM_BLOCK
+            }
+        }
+        TextureFormat::Rgba8UnormSrgb | TextureFormat::Bgra8UnormSrgb => {
+            if let Some((_, srgb, _)) = astc_block {
+                srgb
+            } else {
+                Format::BC7_SRGB_BLOCK
+            }
+        }
 
         // Already compressed -> pass through
         TextureFormat::Bc1RgbaUnorm
@@ -349,7 +508,7 @@ fn choose_ctt_compressed_format(
     })
 }
 
-#[cfg(feature = "compressed_image_saver_desktop")]
+#[cfg(feature = "compressed_image_saver")]
 fn map_to_ctt_texture_format(
     input: TextureFormat,
 ) -> Result<ctt::Format, CompressedImageSaverError> {
