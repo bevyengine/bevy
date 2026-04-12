@@ -367,12 +367,7 @@ fn queue_infinite_grids(
     mut pipelines: ResMut<SpecializedRenderPipelines<InfiniteGridPipeline>>,
     infinite_grids: Query<&GlobalTransform, With<InfiniteGridSettings>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        &ExtractedView,
-        &ExtractedCamera,
-        &RenderVisibleEntities,
-        &Msaa,
-    )>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa), With<ExtractedCamera>>,
 ) {
     let Some(draw_function_id) = transparent_draw_functions
         .read()
@@ -382,7 +377,7 @@ fn queue_infinite_grids(
         return;
     };
 
-    for (view, camera, entities, msaa) in views.iter_mut() {
+    for (view, entities, msaa) in views.iter_mut() {
         let Some(phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -391,7 +386,7 @@ fn queue_infinite_grids(
             &pipeline_cache,
             &pipeline,
             GridPipelineKey {
-                hdr: camera.hdr,
+                texture_format: view.texture_format,
                 sample_count: msaa.samples(),
             },
         );
@@ -470,7 +465,7 @@ impl FromWorld for InfiniteGridPipeline {
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 struct GridPipelineKey {
-    hdr: bool,
+    texture_format: TextureFormat,
     sample_count: u32,
 }
 
@@ -478,12 +473,6 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
     type Key = GridPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
         RenderPipelineDescriptor {
             label: Some("infinite_grid_render_pipeline".into()),
             layout: vec![self.view_layout.clone(), self.infinite_grid_layout.clone()],
@@ -506,7 +495,7 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.texture_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

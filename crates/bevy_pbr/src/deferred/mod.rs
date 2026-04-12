@@ -440,7 +440,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ) {
     for (
         entity,
-        _camera,
+        camera,
         view,
         tonemapping,
         dither,
@@ -461,7 +461,6 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key = MeshPipelineKey::from_color_target_format(view.texture_format);
 
         if normal_prepass {
@@ -487,7 +486,7 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !is_hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

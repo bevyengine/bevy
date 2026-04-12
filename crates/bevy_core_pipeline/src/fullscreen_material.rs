@@ -17,8 +17,8 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Query, Res},
 };
-use bevy_image::BevyDefault;
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -155,7 +155,7 @@ fn init_pipeline<T: FullscreenMaterial>(
         fragment: Some(FragmentState {
             shader,
             targets: vec![Some(ColorTargetState {
-                format: TextureFormat::bevy_default(),
+                format: TextureFormat::Rgba8UnormSrgb,
                 blend: None,
                 write_mask: ColorWrites::ALL,
             })],
@@ -167,7 +167,7 @@ fn init_pipeline<T: FullscreenMaterial>(
     desc.fragment.as_mut().unwrap().targets[0]
         .as_mut()
         .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
+        .format = TextureFormat::Rgba16Float;
     let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
 
     commands.insert_resource(FullscreenMaterialPipeline::<T> {
@@ -249,6 +249,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
 
 fn fullscreen_material_system<T: FullscreenMaterial>(
     view: ViewQuery<(
+        &ExtractedCamera,
         &ViewTarget,
         &DynamicUniformIndex<T>,
         &FullscreenMaterialBindGroup<T>,
@@ -261,9 +262,10 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
         return;
     };
 
-    let (view_target, settings_index, bind_groups) = view.into_inner();
+    let (camera, view_target, settings_index, bind_groups) = view.into_inner();
 
-    let pipeline_id = if view_target.is_hdr() {
+    // TODO: this needs to be migrated to use specialization instead of whatever this nonsense is
+    let pipeline_id = if camera.hdr {
         fullscreen_pipeline.pipeline_id_hdr
     } else {
         fullscreen_pipeline.pipeline_id

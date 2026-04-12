@@ -1,3 +1,4 @@
+use crate::camera::extract_cameras;
 use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
@@ -34,7 +35,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_gpu_resource::<ExtractedWindows>()
                 .init_gpu_resource::<WindowSurfaces>()
-                .add_systems(ExtractSchedule, extract_windows)
+                .add_systems(ExtractSchedule, extract_windows.before(extract_cameras))
                 .add_systems(
                     Render,
                     create_surfaces

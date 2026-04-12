@@ -12,7 +12,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewTarget, ViewUniformOffset, VisibilityExtractionSystemParam,
+        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -42,7 +42,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
 use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
@@ -611,9 +611,9 @@ pub fn extract_cameras(
                         &manual_texture_views,
                     )
                 })
-                .unwrap_or(TextureFormat::bevy_default());
+                .unwrap_or(TextureFormat::Rgba8UnormSrgb);
             let texture_format = if hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
+                TextureFormat::Rgba16Float
             } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
                 TextureFormat::Rgba8Unorm
             } else {

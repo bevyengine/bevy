@@ -9,7 +9,6 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_image::BevyDefault as _;
 use bevy_log::warn;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -23,7 +22,7 @@ use bevy_render::{
         TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -143,7 +142,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
-    hdr: bool,
+    texture_format: TextureFormat,
     sorted_fragment_max_count: u32,
     depth_prepass: bool,
 }
@@ -155,11 +154,14 @@ pub fn queue_oit_resolve_pipeline(
     cameras: Query<
         (
             Entity,
-            &ExtractedCamera,
+            &ExtractedView,
             &OrderIndependentTransparencySettings,
             Has<DepthPrepass>,
         ),
-        With<OrderIndependentTransparencySettings>,
+        (
+            With<OrderIndependentTransparencySettings>,
+            With<ExtractedCamera>,
+        ),
     >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
@@ -168,10 +170,10 @@ pub fn queue_oit_resolve_pipeline(
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, camera, oit_settings, depth_prepass) in &cameras {
+    for (e, view, oit_settings, depth_prepass) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            hdr: camera.hdr,
+            texture_format: view.texture_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
         };
@@ -209,11 +211,6 @@ fn specialize_oit_resolve_pipeline(
     fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
-    let format = if key.hdr {
-        ViewTarget::TEXTURE_FORMAT_HDR
-    } else {
-        TextureFormat::bevy_default()
-    };
     let mut layout = vec![resolve_pipeline.view_bind_group_layout.clone()];
     let mut shader_defs = vec![ShaderDefVal::UInt(
         "SORTED_FRAGMENT_MAX_COUNT".into(),
@@ -232,7 +229,7 @@ fn specialize_oit_resolve_pipeline(
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs,
             targets: vec![Some(ColorTargetState {
-                format,
+                format: key.texture_format,
                 blend: Some(BlendState {
                     color: BlendComponent::OVER,
                     alpha: BlendComponent::OVER,
