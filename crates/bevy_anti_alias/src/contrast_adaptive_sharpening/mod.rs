@@ -9,7 +9,6 @@ use bevy_core_pipeline::{
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
