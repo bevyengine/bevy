@@ -36,7 +36,7 @@ pub fn process_recorded_focus_changes(mut focus: ResMut<InputFocus>, mut command
 
     // We need to track the previous focus as we go,
     // so we can send the correct FocusLost events when focus changes.
-    let mut previous_focus = focus.bypass_change_detection().original_focus;
+    let mut previous_focus = focus.original_focus;
     for change in focus.bypass_change_detection().recorded_changes.drain(..) {
         match change {
             Some(new_focus) => {
