@@ -708,15 +708,16 @@ impl App {
     /// App::new()
     ///     .register_type::<i32>()
     ///     .register_type::<String>()
-    ///     .register_type_conversion::<i32, String>(|n| Ok(n.to_string()));
+    ///     .register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
     /// ```
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>) -> &mut Self
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
     where
         T: Reflect + TypePath,
         U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
     {
         self.main_mut().register_type_conversion(function);
         self

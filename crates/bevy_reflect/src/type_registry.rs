@@ -369,12 +369,13 @@ impl TypeRegistry {
     /// let mut type_registry = TypeRegistry::default();
     /// type_registry.register::<i32>();
     /// type_registry.register::<String>();
-    /// type_registry.register_type_conversion::<i32, String>(|n| Ok(n.to_string()));
+    /// type_registry.register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
     /// ```
-    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>)
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F)
     where
         T: Reflect + TypePath,
         U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
     {
         let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
             panic!(
@@ -400,7 +401,7 @@ impl TypeRegistry {
     /// let mut type_registry = TypeRegistry::default();
     /// type_registry.register::<u8>();
     /// type_registry.register::<u32>();
-    /// type_registry.register_type_conversion::<u8, u32>(|n| Ok(n.into()));
+    /// type_registry.register_type_conversion::<u8, u32, _>(|n| Ok(n.into()));
     /// ```
     pub fn register_into_type_conversion<T, U>(&mut self)
     where
@@ -418,7 +419,7 @@ impl TypeRegistry {
         }
         data.data_mut::<ReflectConvert>()
             .unwrap()
-            .register_type_conversion::<T, U>(|input| Ok(input.into()));
+            .register_type_conversion::<T, U, _>(|input| Ok(input.into()));
     }
 
     /// Whether the type with given [`TypeId`] has been registered in this registry.

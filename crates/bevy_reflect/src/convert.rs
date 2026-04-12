@@ -2,7 +2,7 @@
 //! and from one another.
 
 use alloc::boxed::Box;
-use core::any::TypeId;
+use core::{any::TypeId, marker::PhantomData};
 
 use bevy_utils::TypeIdMap;
 
@@ -52,10 +52,15 @@ trait Converter: Send + Sync {
 }
 
 /// A wrapper that contains a conversion function and implements [`Converter`].
-struct TypedConverter<T, U>(fn(T) -> Result<U, T>)
+struct TypedConverter<T, U, F>
 where
     T: Reflect + TypePath,
-    U: Reflect + TypePath;
+    U: Reflect + TypePath,
+    F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+{
+    function: F,
+    phantom: PhantomData<(T, U)>,
+}
 
 impl ReflectConvert {
     /// Creates a new, empty [`ReflectConvert`] with no conversions registered.
@@ -85,13 +90,19 @@ impl ReflectConvert {
     /// If the conversion succeeds, the function should return the converted
     /// value. If the conversion fails, the function should return the original
     /// input value.
-    pub fn register_type_conversion<T, U>(&mut self, function: fn(T) -> Result<U, T>)
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F)
     where
         T: Reflect + TypePath,
         U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
     {
-        self.conversions
-            .insert(TypeId::of::<T>(), Box::new(TypedConverter(function)));
+        self.conversions.insert(
+            TypeId::of::<T>(),
+            Box::new(TypedConverter {
+                function,
+                phantom: PhantomData,
+            }),
+        );
     }
 }
 
@@ -107,23 +118,28 @@ impl Clone for ReflectConvert {
     }
 }
 
-impl<T, U> Clone for TypedConverter<T, U>
+impl<T, U, F> Clone for TypedConverter<T, U, F>
 where
     T: Reflect + TypePath,
     U: Reflect + TypePath,
+    F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
-        TypedConverter(self.0)
+        TypedConverter {
+            function: self.function.clone(),
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<T, U> Converter for TypedConverter<T, U>
+impl<T, U, F> Converter for TypedConverter<T, U, F>
 where
     T: Reflect + TypePath,
     U: Reflect + TypePath,
+    F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
 {
     fn convert(&self, input: Box<dyn Reflect>) -> Result<Box<dyn Reflect>, Box<dyn Reflect>> {
-        match (self.0)(input.take()?) {
+        match (self.function)(input.take()?) {
             Ok(value) => Ok(Box::new(value)),
             Err(value) => Err(Box::new(value)),
         }
@@ -213,8 +229,8 @@ mod tests {
         registry.add_registration(i32::get_type_registration());
         registry.add_registration(f32::get_type_registration());
         registry.add_registration(u32::get_type_registration());
-        registry.register_type_conversion::<u32, i32>(|n: u32| n.try_into().map_err(|_| n));
-        registry.register_type_conversion::<f32, i32>(|n: f32| Ok(n as i32));
+        registry.register_type_conversion::<u32, i32, _>(|n: u32| n.try_into().map_err(|_| n));
+        registry.register_type_conversion::<f32, i32, _>(|n: f32| Ok(n as i32));
 
         let reflect_convert = registry
             .get_type_data::<ReflectConvert>(TypeId::of::<i32>())
