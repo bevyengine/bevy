@@ -38,18 +38,9 @@ use bevy_render::{
 use bevy_shader::ShaderRef;
 use bevy_utils::default;
 
+#[derive(Default)]
 pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
-    pub texture_format: TextureFormat,
     _marker: PhantomData<T>,
-}
-
-impl<T: FullscreenMaterial> FullscreenMaterialPlugin<T> {
-    pub fn new(texture_format: TextureFormat) -> Self {
-        Self {
-            texture_format,
-            _marker: Default::default(),
-        }
-    }
 }
 
 impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
@@ -64,7 +55,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
         };
 
         render_app
-            .add_systems(RenderStartup, init_pipeline::<T>(self.texture_format))
+            .add_systems(RenderStartup, init_pipeline::<T>)
             .add_systems(
                 Render,
                 prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
@@ -85,6 +76,9 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 pub trait FullscreenMaterial:
     Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
 {
+    /// The texture format this material renders to.
+    fn texture_format() -> TextureFormat;
+
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;
 
@@ -126,66 +120,58 @@ struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
 }
 
 fn init_pipeline<T: FullscreenMaterial>(
-    texture_format: TextureFormat,
-) -> impl Fn(
-    Commands<'_, '_>,
-    Res<'_, RenderDevice>,
-    Res<'_, AssetServer>,
-    Res<'_, FullscreenShader>,
-    Res<'_, PipelineCache>,
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    fullscreen_shader: Res<FullscreenShader>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
-    move |mut commands: Commands,
-          render_device: Res<RenderDevice>,
-          asset_server: Res<AssetServer>,
-          fullscreen_shader: Res<FullscreenShader>,
-          pipeline_cache: Res<PipelineCache>| {
-        let layout = BindGroupLayoutDescriptor::new(
-            "fullscreen_material_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    uniform_buffer::<T>(true),
-                ),
+    let layout = BindGroupLayoutDescriptor::new(
+        "fullscreen_material_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<T>(true),
             ),
-        );
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-        let shader = match T::fragment_shader() {
-            ShaderRef::Default => {
-                unimplemented!(
-                    "FullscreenMaterial::fragment_shader() must not return ShaderRef::Default"
-                )
-            }
-            ShaderRef::Handle(handle) => handle,
-            ShaderRef::Path(path) => asset_server.load(path),
-        };
+        ),
+    );
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let shader = match T::fragment_shader() {
+        ShaderRef::Default => {
+            unimplemented!(
+                "FullscreenMaterial::fragment_shader() must not return ShaderRef::Default"
+            )
+        }
+        ShaderRef::Handle(handle) => handle,
+        ShaderRef::Path(path) => asset_server.load(path),
+    };
 
-        let vertex_state = fullscreen_shader.to_vertex_state();
-        let desc = RenderPipelineDescriptor {
-            label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
-            layout: vec![layout.clone()],
-            vertex: vertex_state,
-            fragment: Some(FragmentState {
-                shader,
-                targets: vec![Some(ColorTargetState {
-                    format: texture_format,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-                ..default()
-            }),
+    let vertex_state = fullscreen_shader.to_vertex_state();
+    let desc = RenderPipelineDescriptor {
+        label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
+        layout: vec![layout.clone()],
+        vertex: vertex_state,
+        fragment: Some(FragmentState {
+            shader,
+            targets: vec![Some(ColorTargetState {
+                format: T::texture_format(),
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            })],
             ..default()
-        };
-        let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
+        }),
+        ..default()
+    };
+    let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
 
-        commands.insert_resource(FullscreenMaterialPipeline::<T> {
-            layout,
-            sampler,
-            pipeline_id,
-            _marker: PhantomData,
-        });
-    }
+    commands.insert_resource(FullscreenMaterialPipeline::<T> {
+        layout,
+        sampler,
+        pipeline_id,
+        _marker: PhantomData,
+    });
 }
 
 /// Holds the bind groups for both main textures
