@@ -15,6 +15,6 @@ bevy = { version = "0.18", features = ["compressed_image_saver"] }
 bevy = { version = "0.19", features = ["compressed_image_saver_universal"] }
 ```
 
-Alternatively, keep using `compressed_image_saver` to get the new BCn/ASTC compression backend. This produces higher-quality output and supports a wider range of input formats, but does not support all platforms in a single file like UASTC does. We reccomend sticking to `compressed_image_saver_universal` when targeting the web.
+Alternatively, keep using `compressed_image_saver` to get the new BCn/ASTC compression backend. This produces higher-quality output and supports a wider range of input formats, but does not support all platforms in a single file like UASTC does. We recommend sticking to `compressed_image_saver_universal` when targeting the web.
 
 `CompressedImageSaverError` has a new variant `CompressionFailed`. If you were matching exhaustively on this enum, add a branch for it.
