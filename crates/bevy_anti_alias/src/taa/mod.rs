@@ -448,7 +448,7 @@ fn prepare_taa_pipelines(
     for (entity, camera, view, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             texture_format: view.texture_format,
-            tonemap: !camera.hdr,
+            tonemap: camera.hdr,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline
