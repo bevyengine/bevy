@@ -12,7 +12,7 @@ use wgpu_types::TextureFormat;
 
 /// An [`AssetSaver`] for [`Image`] that compresses texture files.
 ///
-/// Compressed textures use less GPU VRAM.
+/// Compressed textures use less GPU VRAM and are faster to sample.
 ///
 /// # Platform support
 ///
@@ -27,7 +27,7 @@ use wgpu_types::TextureFormat;
 /// - **`compressed_image_saver_universal`** — Uses `basis-universal` to compress textures into UASTC
 ///   (Basis Universal) format. This is a GPU-agnostic supercompressed format that can be
 ///   transcoded at load time to whatever format the target GPU supports, making it suitable for
-///   WebGPU and cross-platform distribution.
+///   WebGPU and cross-platform distribution in a single file.
 ///
 /// # Runtime feature flags
 ///
