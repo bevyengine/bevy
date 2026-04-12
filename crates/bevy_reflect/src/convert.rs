@@ -205,6 +205,36 @@ mod tests {
         assert_eq!(&**error, "qqqqq");
     }
 
+    /// Tests that we can register multiple conversions into the same type and
+    /// that they all work.
+    #[test]
+    fn convert_from_f32_and_u32_to_i32() {
+        let mut registry = TypeRegistry::default();
+        registry.add_registration(i32::get_type_registration());
+        registry.add_registration(f32::get_type_registration());
+        registry.add_registration(u32::get_type_registration());
+        registry.register_type_conversion::<u32, i32>(|n: u32| n.try_into().map_err(|_| n));
+        registry.register_type_conversion::<f32, i32>(|n: f32| Ok(n as i32));
+
+        let reflect_convert = registry
+            .get_type_data::<ReflectConvert>(TypeId::of::<i32>())
+            .unwrap();
+
+        // Test that we can convert `u32` and `f32` into `i32`.
+        let a = reflect_convert
+            .try_convert_from(Box::new(99u32))
+            .unwrap()
+            .downcast::<i32>()
+            .unwrap();
+        assert_eq!(*a, 99i32);
+        let b = reflect_convert
+            .try_convert_from(Box::new(99.0f32))
+            .unwrap()
+            .downcast::<i32>()
+            .unwrap();
+        assert_eq!(*b, 99i32);
+    }
+
     /// Tests that the error-handling behavior is correct when attempting a
     /// conversion that hasn't been registered.
     #[test]
