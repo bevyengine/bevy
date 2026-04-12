@@ -94,47 +94,72 @@ static D65_XY: Vec2 = vec2(0.31272, 0.32903);
 /// [D65 white point]: https://en.wikipedia.org/wiki/Standard_illuminant#D65_values
 static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 
-/// Encode a [`TextureFormat`] as a 4-bit code for use in pipeline key bitfields.
+/// Mask bits (5-bit) for use in pipeline key bitfields.
+pub const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b11111;
+
+/// Encode a [`TextureFormat`] as a 5-bit code for use in pipeline key bitfields.
 ///
-/// Covers all color-renderable formats likely to appear as a main-pass color target.
-/// Unknown formats map to `Rgba8UnormSrgb` (code 1).
+/// Covers all WebGPU renderable and blenderable texture formats. Some of them needs optional features.
+/// See <https://gpuweb.github.io/gpuweb/#plain-color-formats>.
 #[inline]
 pub fn color_target_format_to_code(format: TextureFormat) -> Option<u8> {
     Some(match format {
-        TextureFormat::Rgba8UnormSrgb => 0,
-        TextureFormat::Rgba8Unorm => 1,
-        TextureFormat::Bgra8UnormSrgb => 2,
-        TextureFormat::Bgra8Unorm => 3,
-        TextureFormat::Rgba16Float => 4,
-        TextureFormat::Rg11b10Ufloat => 5,
-        TextureFormat::Rgb10a2Unorm => 6,
-        TextureFormat::R16Float => 7,
-        TextureFormat::Rg16Float => 8,
-        TextureFormat::R8Unorm => 9,
-        TextureFormat::Rg8Unorm => 10,
-        TextureFormat::Rgba32Float => 11,
+        TextureFormat::R8Unorm => 0,
+        TextureFormat::R8Snorm => 1,
+        TextureFormat::Rg8Unorm => 2,
+        TextureFormat::Rg8Snorm => 3,
+        TextureFormat::Rgba8Unorm => 4,
+        TextureFormat::Rgba8UnormSrgb => 5,
+        TextureFormat::Rgba8Snorm => 6,
+        TextureFormat::Bgra8Unorm => 7,
+        TextureFormat::Bgra8UnormSrgb => 8,
+        TextureFormat::R16Float => 11,
+        TextureFormat::R16Unorm => 9,
+        TextureFormat::R16Snorm => 10,
+        TextureFormat::Rg16Float => 12,
+        TextureFormat::Rg16Unorm => 13,
+        TextureFormat::Rg16Snorm => 14,
+        TextureFormat::Rgba16Float => 15,
+        TextureFormat::Rgba16Unorm => 16,
+        TextureFormat::Rgba16Snorm => 17,
+        TextureFormat::R32Float => 18,
+        TextureFormat::Rg32Float => 19,
+        TextureFormat::Rgba32Float => 20,
+        TextureFormat::Rgb10a2Unorm => 21,
+        TextureFormat::Rg11b10Ufloat => 22,
         _ => return None,
     })
 }
 
-/// Decode a 4-bit code back into a [`TextureFormat`].
+/// Decode a 5-bit code back into a [`TextureFormat`].
 ///
 /// Inverse of [`color_target_format_to_code`].
 #[inline]
 pub fn color_target_format_from_code(code: u8) -> Option<TextureFormat> {
     Some(match code {
-        0 => TextureFormat::Rgba8UnormSrgb,
-        1 => TextureFormat::Rgba8Unorm,
-        2 => TextureFormat::Bgra8UnormSrgb,
-        3 => TextureFormat::Bgra8Unorm,
-        4 => TextureFormat::Rgba16Float,
-        5 => TextureFormat::Rg11b10Ufloat,
-        6 => TextureFormat::Rgb10a2Unorm,
-        7 => TextureFormat::R16Float,
-        8 => TextureFormat::Rg16Float,
-        9 => TextureFormat::R8Unorm,
-        10 => TextureFormat::Rg8Unorm,
-        11 => TextureFormat::Rgba32Float,
+        0 => TextureFormat::R8Unorm,
+        1 => TextureFormat::R8Snorm,
+        2 => TextureFormat::Rg8Unorm,
+        3 => TextureFormat::Rg8Snorm,
+        4 => TextureFormat::Rgba8Unorm,
+        5 => TextureFormat::Rgba8UnormSrgb,
+        6 => TextureFormat::Rgba8Snorm,
+        7 => TextureFormat::Bgra8Unorm,
+        8 => TextureFormat::Bgra8UnormSrgb,
+        11 => TextureFormat::R16Float,
+        9 => TextureFormat::R16Unorm,
+        10 => TextureFormat::R16Snorm,
+        12 => TextureFormat::Rg16Float,
+        13 => TextureFormat::Rg16Unorm,
+        14 => TextureFormat::Rg16Snorm,
+        15 => TextureFormat::Rgba16Float,
+        16 => TextureFormat::Rgba16Unorm,
+        17 => TextureFormat::Rgba16Snorm,
+        18 => TextureFormat::R32Float,
+        19 => TextureFormat::Rg32Float,
+        20 => TextureFormat::Rgba32Float,
+        21 => TextureFormat::Rgb10a2Unorm,
+        22 => TextureFormat::Rg11b10Ufloat,
         _ => return None,
     })
 }

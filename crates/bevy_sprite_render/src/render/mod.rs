@@ -97,8 +97,10 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const SRGB_COMPOSITING                  = 1 << 2;
+        const OKLAB_COMPOSITING                 = 1 << 3;
         const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -110,14 +112,12 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const SRGB_COMPOSITING                 = 1 << 3;
-        const OKLAB_COMPOSITING                = 1 << 4;
     }
 }
 
 impl SpritePipelineKey {
-    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
-    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 5;
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 4;
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
@@ -139,7 +139,8 @@ impl SpritePipelineKey {
     /// Create a pipeline key from the view's color target format.
     #[inline]
     pub fn from_color_target_format(format: TextureFormat) -> Self {
-        let code = color_target_format_to_code(format).unwrap_or_default() as u32;
+        let code = color_target_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u32;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
@@ -150,7 +151,8 @@ impl SpritePipelineKey {
     pub fn color_target_format(&self) -> TextureFormat {
         let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
-        color_target_format_from_code(code).unwrap_or(TextureFormat::Rgba8UnormSrgb)
+        color_target_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 }
 
