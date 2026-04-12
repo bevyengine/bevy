@@ -9,4 +9,3 @@ of HDR, that is a camera-specific property.
 please source your texture format from `ExtractedView::texture_format` instead, and
 plumb it through your specialization keys.
 Similarly, `ViewTarget::is_hdr` was removed. Use `ExtractedCamera::hdr` to check this, as it is a property of a camera not a view target.
-
