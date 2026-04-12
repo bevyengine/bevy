@@ -763,7 +763,7 @@ fn update_focus_display(
     mut display_query: Query<&mut Text, With<FocusDisplay>>,
 ) {
     if let Ok(mut text) = display_query.single_mut() {
-        if let Some(focused_entity) = input_focus.0 {
+        if let Some(focused_entity) = input_focus.get() {
             if let Ok(name) = button_query.get(focused_entity) {
                 **text = format!("Focused: {}", name);
             } else {
@@ -821,7 +821,7 @@ fn highlight_focused_element(
     mut query: Query<(Entity, &mut BorderColor, &Page)>,
 ) {
     for (entity, mut border_color, page) in query.iter_mut() {
-        if input_focus.0 == Some(entity) && input_focus_visible.0 {
+        if input_focus.get() == Some(entity) && input_focus_visible.0 {
             *border_color = BorderColor::all(FOCUSED_BORDER_COLORS[page.0]);
         } else {
             *border_color = BorderColor::DEFAULT;
@@ -837,7 +837,7 @@ fn interact_with_focused_button(
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
-        && let Some(focused_entity) = input_focus.0
+        && let Some(focused_entity) = input_focus.get()
     {
         commands.trigger(Pointer::new(
             PointerId::Mouse,

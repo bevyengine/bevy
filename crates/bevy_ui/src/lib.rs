@@ -254,6 +254,13 @@ fn build_text_interop(app: &mut App) {
             (widget::editable_text_system, widget::scroll_editable_text)
                 .chain()
                 .in_set(UiSystems::PostLayout)
+                // This is unlikely to result in real conflicts,
+                // as FocusChangeEvents only mutates internal state of InputFocus,
+                // and editable_text_system only reads from it.
+                // However, in case this changes in the future, this is a safer choice,
+                // as editable_text_system or related systems could generate focus changes
+                // which should be processed ASAP.
+                .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
                 .ambiguous_with(ui_stack_system)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),

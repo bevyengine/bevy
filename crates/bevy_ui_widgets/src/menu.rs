@@ -125,7 +125,7 @@ fn menu_acquire_focus(
         match tab_navigation.initialize(menu, NavAction::First) {
             Ok(next) => {
                 commands.entity(menu).remove::<MenuAcquireFocus>();
-                focus.0 = Some(next);
+                focus.set(next);
             }
             Err(e) => {
                 warn!(
@@ -154,7 +154,7 @@ fn menu_on_lose_focus(
     for menu in q_menus.iter() {
         // TODO: Change this logic when we support submenus. Don't want to send multiple close
         // events. Perhaps what we can do is add `MenuLostFocus` to the whole stack.
-        let contains_focus = match focus.0 {
+        let contains_focus = match focus.get() {
             Some(focus_ent) => {
                 focus_ent == menu || q_parent.iter_ancestors(focus_ent).any(|ent| ent == menu)
             }
@@ -228,37 +228,61 @@ fn menu_on_key_event(
                 // Focus the adjacent item in the up direction
                 KeyCode::ArrowUp if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the down direction
                 KeyCode::ArrowDown if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the left direction
                 KeyCode::ArrowLeft if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the right direction
                 KeyCode::ArrowRight if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the first item
                 KeyCode::Home => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::First).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::First) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the last item
                 KeyCode::End => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Last).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Last) {
+                        focus.set(next);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 _ => (),
