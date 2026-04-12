@@ -1910,6 +1910,7 @@ mod tests {
         cache_schedule_build_metadata,
         schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
     };
+    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -2266,6 +2267,34 @@ mod tests {
         let response = serde_json::from_value::<BrpScheduleGraphResponse>(response).unwrap();
 
         // We expect 3 edges thanks to the cached metadata: f1 -> f2, f1 -> apply_deferred -> f2
+        fn system_index(
+            response: &BrpScheduleGraphResponse,
+            name_suffix: &str,
+        ) -> Option<ScheduleIndex> {
+            response
+                .schedule_data
+                .systems
+                .iter()
+                .enumerate()
+                .find(|(_, system)| system.name.ends_with(name_suffix))
+                .map(|(index, _)| index as _)
+                .map(ScheduleIndex::System)
+        }
+        let f1_index = system_index(&response, "f1").unwrap();
+        let f2_index = system_index(&response, "f2").unwrap();
+        let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
         assert_eq!(response.schedule_data.dependency.len(), 3);
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, f2_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, apply_deferred_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(apply_deferred_index, f2_index)));
     }
 }
