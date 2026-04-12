@@ -46,10 +46,10 @@ use wgpu_types::TextureFormat;
 /// | 1-channel snorm (`R8Snorm`) | BC4 snorm |
 /// | 2-channel (`Rg8Unorm`) | BC5 |
 /// | 2-channel snorm (`Rg8Snorm`) | BC5 snorm |
-/// | HDR / packed float (e.g. `Rgb9e5Ufloat`) | BC6H |
+/// | HDR / float (e.g. `Rgba16Float`) | BC6H |
 /// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
 /// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
-/// | Integer or high-precision (16-bit+) formats | Uncompressed KTX2 (passthrough) |
+/// | Integer or high-precision (>16-bit) formats | Uncompressed KTX2 (passthrough) |
 /// | Already compressed (BCn, ASTC, ETC2, EAC) | Re-encoded to the same format |
 ///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
@@ -405,8 +405,12 @@ fn choose_ctt_compressed_format(
             }
         }
 
-        // HDR / float RGB formats
-        TextureFormat::Rgb9e5Ufloat | TextureFormat::Rg11b10Ufloat => {
+        // HDR / float formats
+        TextureFormat::Rgb9e5Ufloat
+        | TextureFormat::Rg11b10Ufloat
+        | TextureFormat::R16Float
+        | TextureFormat::Rg16Float
+        | TextureFormat::Rgba16Float => {
             if let Some((_, _, hdr)) = astc_block {
                 hdr
             } else {
@@ -464,7 +468,6 @@ fn choose_ctt_compressed_format(
         | TextureFormat::R16Sint
         | TextureFormat::R16Unorm
         | TextureFormat::R16Snorm
-        | TextureFormat::R16Float
         | TextureFormat::R32Uint
         | TextureFormat::R32Sint
         | TextureFormat::R32Float
@@ -475,7 +478,6 @@ fn choose_ctt_compressed_format(
         | TextureFormat::Rg16Sint
         | TextureFormat::Rg16Unorm
         | TextureFormat::Rg16Snorm
-        | TextureFormat::Rg16Float
         | TextureFormat::Rg32Uint
         | TextureFormat::Rg32Sint
         | TextureFormat::Rg32Float
@@ -486,7 +488,6 @@ fn choose_ctt_compressed_format(
         | TextureFormat::Rgba16Sint
         | TextureFormat::Rgba16Unorm
         | TextureFormat::Rgba16Snorm
-        | TextureFormat::Rgba16Float
         | TextureFormat::Rgba32Uint
         | TextureFormat::Rgba32Sint
         | TextureFormat::Rgba32Float
