@@ -3,11 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
+    light::Skybox,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// Entry point.
@@ -106,7 +107,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ))
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {

@@ -104,6 +104,8 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SRGB_COMPOSITING                 = 1 << 3;
+        const OKLAB_COMPOSITING                = 1 << 4;
     }
 }
 
@@ -179,9 +181,20 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        if key.contains(SpritePipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(SpritePipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
+
+        let format = match (
+            key.contains(SpritePipelineKey::HDR),
+            key.contains(SpritePipelineKey::SRGB_COMPOSITING),
+        ) {
+            (true, _) => ViewTarget::TEXTURE_FORMAT_HDR,
+            (_, true) => TextureFormat::Rgba8Unorm,
+            _ => TextureFormat::bevy_default(),
         };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
@@ -244,8 +257,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             // that wrote to depth is present.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -495,6 +508,19 @@ pub fn queue_sprites(
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
+        if view
+            .compositing_space
+            .is_some_and(|s| s == bevy_camera::CompositingSpace::Srgb)
+        {
+            view_key |= SpritePipelineKey::SRGB_COMPOSITING;
+        }
+        if view
+            .compositing_space
+            .is_some_and(|s| s == bevy_camera::CompositingSpace::Oklab)
+        {
+            view_key |= SpritePipelineKey::OKLAB_COMPOSITING;
+        }
+
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
@@ -521,11 +547,13 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
-        view_entities.extend(
-            visible_entities
-                .iter::<Sprite>()
-                .map(|(_, e)| e.index_u32() as usize),
-        );
+        if let Some(visible_entities) = visible_entities.get::<Sprite>() {
+            view_entities.extend(
+                visible_entities
+                    .iter_visible()
+                    .map(|(_, e)| e.index_u32() as usize),
+            );
+        }
 
         transparent_phase
             .items
@@ -542,7 +570,7 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            transparent_phase.add(Transparent2d {
+            transparent_phase.add_transient(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
                 entity: (
@@ -630,7 +658,7 @@ pub fn prepare_sprite_image_bind_groups(
         let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
-        let mut batch_image_handle = AssetId::invalid();
+        let mut batch_image_handle = None;
 
         // Iterate through the phase items and detect when successive sprites that can be batched.
         // Spawn an entity with a `SpriteBatch` component for each possible batch.
@@ -646,20 +674,21 @@ pub fn prepare_sprite_image_bind_groups(
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
-                batch_image_handle = AssetId::invalid();
+                batch_image_handle = None;
                 continue;
             };
 
-            if batch_image_handle != extracted_sprite.image_handle_id {
+            if batch_image_handle != Some(extracted_sprite.image_handle_id) {
                 let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                     continue;
                 };
 
                 batch_image_size = gpu_image.size_2d().as_vec2();
-                batch_image_handle = extracted_sprite.image_handle_id;
+                let image_handle = extracted_sprite.image_handle_id;
+                batch_image_handle = Some(image_handle);
                 image_bind_groups
                     .values
-                    .entry(batch_image_handle)
+                    .entry(image_handle)
                     .or_insert_with(|| {
                         render_device.create_bind_group(
                             "sprite_material_bind_group",
@@ -674,7 +703,7 @@ pub fn prepare_sprite_image_bind_groups(
                 batch_item_index = item_index;
                 current_batch = Some(batches.entry((*retained_view, item.entity())).insert(
                     SpriteBatch {
-                        image_handle_id: batch_image_handle,
+                        image_handle_id: image_handle,
                         range: index..index,
                     },
                 ));

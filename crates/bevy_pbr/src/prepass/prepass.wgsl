@@ -5,6 +5,7 @@
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
     morph,
+    morph::{morph_position, morph_normal, morph_tangent},
     mesh_view_bindings::view,
     view_transformations::position_world_to_clip,
 }
@@ -14,23 +15,25 @@
 #endif
 
 #ifdef MORPH_TARGETS
-fn morph_vertex(vertex_in: Vertex) -> Vertex {
+// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+// See https://github.com/gfx-rs/naga/issues/2416
+fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
     var vertex = vertex_in;
-    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
 
-    let weight_count = morph::layer_count();
+    let weight_count = morph::layer_count(instance_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = morph::weight_at(i);
+        let weight = morph::weight_at(i, instance_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
+        vertex.position += weight * morph_position(vertex_index, i, instance_index);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
+        vertex.normal += weight * morph_normal(vertex_index, i, instance_index);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, instance_index), 0.0);
 #endif
     }
     return vertex;
@@ -40,15 +43,20 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 //
 // This function is used for motion vector calculation, and, as such, it doesn't
 // bother morphing the normals and tangents.
-fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
+//
+// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+// See https://github.com/gfx-rs/naga/issues/2416
+fn morph_prev_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
     var vertex = vertex_in;
-    let weight_count = morph::layer_count();
+    let first_vertex = mesh[instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+    let weight_count = morph::layer_count(instance_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = morph::prev_weight_at(i);
+        let weight = morph::prev_weight_at(i, instance_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph_position(vertex_index, i, instance_index);
         // Don't bother morphing normals and tangents; we don't need them for
         // motion vector calculation.
     }
@@ -61,7 +69,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph);
+    var vertex = morph_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #else
     var vertex = vertex_no_morph;
 #endif
@@ -69,14 +77,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
 
 #ifdef SKINNED
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
     var world_from_local = skinning::skin_model(
         vertex.joint_indices,
         vertex.joint_weights,
         vertex_no_morph.instance_index
     );
 #else // SKINNED
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
     var world_from_local = mesh_world_from_local;
 #endif // SKINNED
 
@@ -151,11 +159,15 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex_no_morph.instance_index
     );
 #else   // HAS_PREVIOUS_SKIN
-    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
+    // Use vertex_no_morph.instance_index instead of prev_vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    let prev_model = mesh_functions::get_previous_world_from_local(vertex_no_morph.instance_index);
 #endif  // HAS_PREVIOUS_SKIN
 
 #else   // SKINNED
-    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
+    // Use vertex_no_morph.instance_index instead of prev_vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    let prev_model = mesh_functions::get_previous_world_from_local(vertex_no_morph.instance_index);
 #endif  // SKINNED
 
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(

@@ -101,7 +101,7 @@ impl TabGroup {
 /// A navigation action that users might take to navigate your user interface in a cyclic fashion.
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///
@@ -187,7 +187,7 @@ impl TabNavigation<'_, '_> {
 
         // Start by identifying which tab group we are in. Mainly what we want to know is if
         // we're in a modal group.
-        let tabgroup = focus.0.and_then(|focus_ent| {
+        let tabgroup = focus.get().and_then(|focus_ent| {
             self.parent_query
                 .iter_ancestors(focus_ent)
                 .find_map(|entity| {
@@ -198,7 +198,7 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
-        self.navigate_internal(focus.0, action, tabgroup)
+        self.navigate_internal(focus.get(), action, tabgroup)
     }
 
     /// Initialize focus to a focusable child of a container, either the first or last
@@ -358,14 +358,14 @@ pub(crate) fn acquire_focus(
         // Stop and focus it
         acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(acquire_focus.focused_entity) {
-            focus.0 = Some(acquire_focus.focused_entity);
+        if focus.get() != Some(acquire_focus.focused_entity) {
+            focus.set(acquire_focus.focused_entity);
         }
     } else if windows.contains(acquire_focus.focused_entity) {
         // Stop and clear focus
         acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0.is_some() {
+        if focus.get().is_some() {
             focus.clear();
         }
     }
@@ -478,7 +478,7 @@ mod tests {
         let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert!(tab_navigation.tabindex_query.iter().count() >= 2);
 
@@ -511,7 +511,7 @@ mod tests {
         let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
+        let tab_navigation = system_state.get(world).unwrap();
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
         assert!(tab_navigation.tabindex_query.iter().count() >= 4);
 

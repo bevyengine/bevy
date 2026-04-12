@@ -40,9 +40,9 @@ pub(crate) fn item_struct(
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
-            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state(
+            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::QueryData>::Item<'__w, '__s>, )*
-            );
+            ) #user_where_clauses_with_world_and_state;
         },
         Fields::Unit => quote! {
             #item_attrs
@@ -82,7 +82,7 @@ pub(crate) fn world_query_impl(
             #marker_name: &'__w(),
         }
 
-        impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+        impl #user_impl_generics_with_world ::core::clone::Clone for #fetch_struct_name #user_ty_generics_with_world
             #user_where_clauses_with_world {
                 fn clone(&self) -> Self {
                     Self {
@@ -156,20 +156,33 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#field_aliases, _access); )*
             }
 
+            fn init_nested_access(
+                state: &Self::State,
+                _system_name: ::core::option::Option<&str>,
+                _component_access_set: &mut #path::query::FilteredAccessSet,
+                _world: #path::world::unsafe_world_cell::UnsafeWorldCell,
+            ) {
+                #( <#field_types>::init_nested_access(&state.#field_aliases, _system_name, _component_access_set, _world); )*
+            }
+
             fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
                     #(#field_aliases: <#field_types>::init_state(world),)*
                 }
             }
 
-            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
-                Some(#state_struct_name {
+            fn get_state(components: &#path::component::Components) -> ::core::option::Option<#state_struct_name #user_ty_generics> {
+                ::core::option::Option::Some(#state_struct_name {
                     #(#field_aliases: <#field_types>::get_state(components)?,)*
                 })
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
+            }
+
+            fn update_archetypes(_state: &mut Self::State, _world: #path::world::unsafe_world_cell::UnsafeWorldCell) {
+                #(<#field_types>::update_archetypes(&mut _state.#field_aliases, _world);)*
             }
         }
     }

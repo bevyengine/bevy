@@ -13,6 +13,7 @@
 //! The required [`FreeCameraState`] component will be added automatically.
 //!
 //! To configure the settings of this controller, modify the fields of the [`FreeCamera`] component.
+// TODO: Discuss switching camera to orthographic mode.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
@@ -21,9 +22,12 @@ use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollUnit,
 };
+use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
 use bevy_log::info;
-use bevy_math::{EulerRot, Quat, StableInterpolate, Vec2, Vec3};
+use bevy_math::curve::{Interval, SampleAutoCurve};
+use bevy_math::Curve;
+use bevy_math::{ops::exp, Dir3, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
@@ -41,7 +45,9 @@ impl Plugin for FreeCameraPlugin {
         // This ordering is required so that both fixed update and update systems can see the results correctly
         app.add_systems(
             RunFixedMainLoop,
-            run_freecamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            (run_freecamera_controller, rotate_freecam_to)
+                .chain()
+                .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
     }
 }
@@ -90,15 +96,42 @@ pub struct FreeCamera {
     pub mouse_key_cursor_grab: MouseButton,
     /// [`KeyCode`] for grabbing the keyboard focus.
     pub keyboard_key_toggle_cursor_grab: KeyCode,
+    /// Modifier [`KeyCode`] for making pressed axis alignment buttons go in opposite direction
+    pub key_snap_reverse: KeyCode,
+    /// [`KeyCode`] for snapping camera to top/bottom (+Y/-Y).
+    pub axis_top: KeyCode,
+    /// [`KeyCode`] for snapping camera to right/left (+X/-X).
+    pub axis_right: KeyCode,
+    /// [`KeyCode`] for snapping camera to front/back (-Z/+Z).
+    pub axis_front: KeyCode,
     /// Base multiplier for unmodified translation speed.
     pub walk_speed: f32,
     /// Base multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCamera::walk_speed)
+    /// Multiplier for how much the mouse scroll wheel affects [`walk_speed`](FreeCamera::walk_speed)
     /// and [`run_speed`](FreeCamera::run_speed).
+    ///
+    /// Mouse scroll affects speed exponentially. This is to ensure that scrolling the same
+    /// amount always has the same effect on speed, regardless of how the scroll amount
+    /// is reported by the hardware (i.e. as one big event vs many smaller events). This
+    /// also allows the free camera to navigate very large scenes easier.
+    ///
+    /// For every unit of scroll, the speed of the camera is multiplied by a factor of
+    /// `e^(scroll_factor)`.
+    ///
+    /// A reasonable value to start with is a `scroll_factor` between 0.04879016 (~ln(1.05))
+    /// and 0.0953102 (~ln(1.1)). They represent an increase by a factor between 1.05 and 1.1 per
+    /// positive unit scroll and a reduction between ~0.952 (~e^-0.04879016) and ~0.909
+    /// (~e^-0.0953102) times its value per negative unit scroll
+    ///
+    /// A `scroll_factor` closer to 0.0 means that speed will be less sensitive to scroll.
+    /// A `scroll_factor` equal to 0.0 means that speed is unaffected by scroll
+    /// (it will be multiplied by a factor of 1.0 per positive and negative unit scroll).
     pub scroll_factor: f32,
     /// Friction factor used to exponentially decay [`velocity`](FreeCameraState::velocity) over time.
     pub friction: f32,
+    /// Speed of camera rotation to snapped axis in radians/second
+    pub rotation_speed: f32,
 }
 
 impl Default for FreeCamera {
@@ -112,12 +145,18 @@ impl Default for FreeCamera {
             key_up: KeyCode::KeyE,
             key_down: KeyCode::KeyQ,
             key_run: KeyCode::ShiftLeft,
-            mouse_key_cursor_grab: MouseButton::Left,
+            mouse_key_cursor_grab: MouseButton::Right,
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
+            key_snap_reverse: KeyCode::ControlLeft,
+            axis_top: KeyCode::Numpad7,
+            axis_right: KeyCode::Numpad3,
+            axis_front: KeyCode::Numpad1,
             walk_speed: 5.0,
             run_speed: 15.0,
-            scroll_factor: 0.5,
+            // Approximation of ln(1.05)
+            scroll_factor: 0.04879016,
             friction: 40.0,
+            rotation_speed: PI / 16.0 * 60.0,
         }
     }
 }
@@ -135,7 +174,10 @@ Freecamera Controls:
     {:?} & {:?}\t- Fly forward & backwards
     {:?} & {:?}\t- Fly sideways left & right
     {:?} & {:?}\t- Fly up & down
-    {:?}\t- Fly faster while held",
+    {:?}\t- Fly faster while held
+    [{:?} + ]{:?}\t- Snap to Up (+Y)/Down (-Y)
+    [{:?} + ]{:?}\t- Snap to Right (+X)/Left (-X)
+    [{:?} + ]{:?}\t- Snap to Front (-Z)/Back (+Z)",
             self.mouse_key_cursor_grab,
             self.keyboard_key_toggle_cursor_grab,
             self.key_forward,
@@ -145,6 +187,12 @@ Freecamera Controls:
             self.key_up,
             self.key_down,
             self.key_run,
+            self.key_snap_reverse,
+            self.axis_top,
+            self.key_snap_reverse,
+            self.axis_right,
+            self.key_snap_reverse,
+            self.axis_front,
         )
     }
 }
@@ -170,6 +218,9 @@ pub struct FreeCameraState {
     pub speed_multiplier: f32,
     /// This [`FreeCamera`]'s translation velocity.
     pub velocity: Vec3,
+    /// Dictates camera movement during camera snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
+    /// Consist of counter of seconds from pressing curve snap hotkeys and curve that used to interpolate between old and new rotation
+    pub rotation_curve: Option<(f32, SampleAutoCurve<Quat>)>,
 }
 
 impl Default for FreeCameraState {
@@ -181,6 +232,7 @@ impl Default for FreeCameraState {
             yaw: 0.0,
             speed_multiplier: 1.0,
             velocity: Vec3::ZERO,
+            rotation_curve: None,
         }
     }
 }
@@ -191,11 +243,14 @@ impl Default for FreeCameraState {
 /// - [`FreeCameraState`] stores the dynamic runtime state, including pitch, yaw, velocity, and enable flags.
 ///
 /// This system is typically added via the [`FreeCameraPlugin`].
+///
+/// Axis snapping takes priority over mouse movement.
 pub fn run_freecamera_controller(
     time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    touch_input: Res<Touches>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
@@ -230,18 +285,17 @@ pub fn run_freecamera_controller(
         return;
     }
 
-    let mut scroll = 0.0;
-
-    let amount = match accumulated_mouse_scroll.unit {
+    let scroll = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
         MouseScrollUnit::Pixel => {
             accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
         }
     };
-    scroll += amount;
-    state.speed_multiplier += scroll * config.scroll_factor;
-    // Clamp the speed multiplier for safety
-    state.speed_multiplier = state.speed_multiplier.clamp(0.0, f32::MAX);
+    // By using exponentiation we ensure that this scales up and down smoothly
+    // regardless of the amount of scrolling processed per frame
+    state.speed_multiplier *= exp(config.scroll_factor * scroll);
+    // Clamp the speed multiplier for safety.
+    state.speed_multiplier = state.speed_multiplier.clamp(f32::EPSILON, f32::MAX);
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;
@@ -332,4 +386,79 @@ pub fn run_freecamera_controller(
         state.yaw -= accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * config.sensitivity;
         transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
     }
+
+    // Handle touch input
+    for touch in touch_input.iter() {
+        if touch.delta() != Vec2::ZERO {
+            state.pitch = (state.pitch - touch.delta().y * RADIANS_PER_DOT * config.sensitivity)
+                .clamp(-PI / 2., PI / 2.);
+            state.yaw -= touch.delta().x * RADIANS_PER_DOT * config.sensitivity;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
+        }
+    }
+    // Axis snapping
+    let mod_key_pressed = key_input.pressed(config.key_snap_reverse);
+    let mut rotate_to = None;
+    if key_input.just_pressed(config.axis_front) {
+        if mod_key_pressed {
+            rotate_to = Some((Dir3::Z, Dir3::Y));
+        } else {
+            rotate_to = Some((Dir3::NEG_Z, Dir3::Y));
+        }
+    }
+    if key_input.just_pressed(config.axis_right) {
+        if mod_key_pressed {
+            rotate_to = Some((Dir3::NEG_X, Dir3::Y));
+        } else {
+            rotate_to = Some((Dir3::X, Dir3::Y));
+        }
+    }
+    if key_input.just_pressed(config.axis_top) {
+        if mod_key_pressed {
+            rotate_to = Some((Dir3::NEG_Y, Dir3::NEG_Z));
+        } else {
+            rotate_to = Some((Dir3::Y, Dir3::Z));
+        }
+    }
+    if let Some((dir, up)) = rotate_to {
+        let start = transform.rotation;
+        let target = Transform::default().looking_to(dir, up).rotation; // I don't understand why Quat::look_to_rh produce different result.
+        let angle = target.angle_between(start);
+        let rotation_time = angle / config.rotation_speed;
+
+        if let Ok(interval) = Interval::new(0.0, rotation_time) {
+            let curve = SampleAutoCurve::new(interval, [start, target])
+                .expect("Interval should be in bounds as start and end are finite numbers");
+            state.rotation_curve = Some((0.0, curve));
+        }
+    }
+}
+
+/// Smoothly changes orientation([`Transform`]) of [`FreeCamera`] camera according to target orientation in [`FreeCameraState`].
+///
+/// - [`FreeCamera`] contains static configuration such as key bindings and rotation speed.
+/// - [`FreeCameraState`] stores the dynamic runtime state, including direction for camera rotation and enable flags.
+///
+/// This system is typically added via the [`FreeCameraPlugin`].
+pub fn rotate_freecam_to(
+    mut query: Query<(&mut Transform, &mut FreeCameraState), With<Camera>>,
+    time: Res<Time<Real>>,
+) {
+    let Ok((mut transform, mut state)) = query.single_mut() else {
+        return;
+    };
+    if !state.enabled {
+        return;
+    }
+    let Some((progress, curve)) = state.rotation_curve.as_mut() else {
+        return;
+    };
+    *progress += time.delta_secs();
+    transform.rotation = curve.sample_clamped(*progress);
+    if !curve.domain().contains(*progress) {
+        state.rotation_curve = None;
+    }
+    let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    state.pitch = pitch;
+    state.yaw = yaw;
 }

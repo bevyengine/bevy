@@ -33,6 +33,10 @@ pub use crate::camera::prelude::*;
 #[cfg(feature = "bevy_shader")]
 pub use crate::shader::prelude::*;
 
+#[doc(hidden)]
+#[cfg(feature = "bevy_material")]
+pub use crate::material::prelude::*;
+
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
@@ -62,6 +66,10 @@ pub use crate::render::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_scene")]
 pub use crate::scene::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_world_serialization")]
+pub use crate::world_serialization::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_sprite")]

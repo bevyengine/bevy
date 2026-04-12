@@ -57,7 +57,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new(""),
         TextFont {
             font: font.clone().into(),
-            font_size: 100.0,
+            font_size: FontSize::Px(100.0),
             ..default()
         },
     ));

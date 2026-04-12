@@ -123,7 +123,7 @@ fn alter_handle(
 
 fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(&left_bird.image) else {
+    let Some(mut image) = images.get_mut(&left_bird.image) else {
         return;
     };
 

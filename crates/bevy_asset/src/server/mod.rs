@@ -282,9 +282,9 @@ impl AssetServer {
                 };
             };
 
-            let mut extensions = vec![full_extension.clone()];
+            let mut extensions = vec![full_extension.to_string()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
+                AssetPath::iter_secondary_extensions(full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
@@ -368,6 +368,16 @@ impl AssetServer {
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None, (), true)
+    }
+
+    /// Same as [`load`](Self::load), but the type of the asset to load is specified by the runtime
+    /// `type_id`.
+    pub fn load_erased<'a>(
+        &self,
+        type_id: TypeId,
+        path: impl Into<AssetPath<'a>>,
+    ) -> UntypedHandle {
+        self.load_erased_with_meta_transform(path, type_id, None, ())
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -498,6 +508,10 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> Handle<A> {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
 
         if path.is_unapproved() {
             match (&self.data.unapproved_path_mode, override_unapproved) {
@@ -531,6 +545,11 @@ impl AssetServer {
         guard: G,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return UntypedHandle::default_for_type(type_id);
+        }
+
         let mut infos = self.write_infos();
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
@@ -595,6 +614,10 @@ impl AssetServer {
         self.write_infos().stats.started_load_tasks += 1;
 
         let path: AssetPath = path.into();
+        if path.path() == Path::new("") {
+            return Err(AssetLoadError::EmptyPath(path.clone_owned()));
+        }
+
         self.load_internal(None, path, false, None)
             .await
             .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
@@ -606,6 +629,11 @@ impl AssetServer {
         meta_transform: Option<MetaTransform>,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
+
         let untyped_source = AssetSourceId::Name(match path.source() {
             AssetSourceId::Default => CowArc::Static(UNTYPED_SOURCE_SUFFIX),
             AssetSourceId::Name(source) => {
@@ -838,20 +866,49 @@ impl AssetServer {
         {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
-                    match loaded_asset.labeled_assets.get(&label) {
-                        Some(labeled_asset) => Some(labeled_asset.handle.clone()),
+                    match loaded_asset.label_to_asset_index.get(&label) {
+                        Some(labeled_asset) => {
+                            let labeled_asset = &loaded_asset.labeled_assets[*labeled_asset];
+                            // If we know the requested type then check it
+                            // matches the labeled asset.
+                            if let Some(asset_id) = asset_id
+                                && asset_id.type_id != labeled_asset.handle.type_id()
+                            {
+                                let error = AssetLoadError::RequestedHandleTypeMismatch {
+                                    path: path.clone(),
+                                    requested: asset_id.type_id,
+                                    actual_asset_name: labeled_asset.asset.value.asset_type_name(),
+                                    loader_name: loader.type_path(),
+                                };
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                                return Err(error);
+                            }
+                            Some(labeled_asset.handle.clone())
+                        }
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
-                                .labeled_assets
+                                .label_to_asset_index
                                 .keys()
                                 .map(|s| (**s).to_owned())
                                 .collect();
                             all_labels.sort_unstable();
-                            return Err(AssetLoadError::MissingLabel {
+                            let error = AssetLoadError::MissingLabel {
                                 base_path,
                                 label: label.to_string(),
                                 all_labels,
-                            });
+                            };
+                            if let Some(asset_id) = asset_id {
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                            }
+                            return Err(error);
                         }
                     }
                 } else {
@@ -865,11 +922,13 @@ impl AssetServer {
                 Ok(final_handle)
             }
             Err(err) => {
-                self.send_asset_event(InternalAssetEvent::Failed {
-                    index: base_asset_id,
-                    error: err.clone(),
-                    path: path.into_owned(),
-                });
+                if let Some(asset_id) = asset_id {
+                    self.send_asset_event(InternalAssetEvent::Failed {
+                        index: asset_id,
+                        error: err.clone(),
+                        path: path.into_owned(),
+                    });
+                }
                 Err(err)
             }
         }
@@ -2042,6 +2101,8 @@ impl RecursiveDependencyLoadState {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
         path: AssetPath<'static>,

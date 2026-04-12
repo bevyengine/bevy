@@ -23,7 +23,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
@@ -42,9 +42,9 @@ impl Plugin for UiTextureSlicerPlugin {
             render_app
                 .add_render_command::<TransparentUi, DrawUiTextureSlices>()
                 .init_resource::<ExtractedUiTextureSlices>()
-                .init_resource::<UiTextureSliceMeta>()
-                .init_resource::<UiTextureSliceImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
+                .init_gpu_resource::<UiTextureSliceMeta>()
+                .init_gpu_resource::<UiTextureSliceImageBindGroups>()
+                .init_gpu_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(RenderStartup, init_ui_texture_slice_pipeline)
                 .add_systems(
                     ExtractSchedule,
@@ -235,10 +235,13 @@ pub fn extract_ui_texture_slices(
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+        let content_box = uinode.content_box();
+
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || content_box.size().cmple(Vec2::ZERO).any()
         {
             continue;
         }
@@ -283,11 +286,11 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.into(),
+            transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: content_box.size(),
             },
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
@@ -339,7 +342,7 @@ pub fn queue_ui_slices(
             UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
@@ -397,7 +400,7 @@ pub fn prepare_ui_slices(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_image_handle = AssetId::invalid();
+            let mut batch_image_handle = None;
             let mut batch_image_size = Vec2::ZERO;
 
             for item_index in 0..ui_phase.items.len() {
@@ -409,15 +412,15 @@ pub fn prepare_ui_slices(
                 {
                     let mut existing_batch = batches.last_mut();
 
-                    if batch_image_handle == AssetId::invalid()
+                    if batch_image_handle.is_none()
                         || existing_batch.is_none()
-                        || (batch_image_handle != AssetId::default()
+                        || (batch_image_handle != Some(AssetId::default())
                             && texture_slices.image != AssetId::default()
-                            && batch_image_handle != texture_slices.image)
+                            && batch_image_handle != Some(texture_slices.image))
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
-                            batch_image_handle = texture_slices.image;
+                            batch_image_handle = Some(texture_slices.image);
                             batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
@@ -429,7 +432,7 @@ pub fn prepare_ui_slices(
 
                             image_bind_groups
                                 .values
-                                .entry(batch_image_handle)
+                                .entry(texture_slices.image)
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
@@ -448,17 +451,17 @@ pub fn prepare_ui_slices(
                             continue;
                         }
                     } else if let Some(ref mut existing_batch) = existing_batch
-                        && batch_image_handle == AssetId::default()
+                        && batch_image_handle == Some(AssetId::default())
                         && texture_slices.image != AssetId::default()
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
-                            batch_image_handle = texture_slices.image;
+                            batch_image_handle = Some(texture_slices.image);
                             batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.1.image = texture_slices.image;
 
                             image_bind_groups
                                 .values
-                                .entry(batch_image_handle)
+                                .entry(texture_slices.image)
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
@@ -518,7 +521,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector2(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -617,7 +620,7 @@ pub fn prepare_ui_slices(
                     existing_batch.unwrap().1.range.end = vertices_index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
-                    batch_image_handle = AssetId::invalid();
+                    batch_image_handle = None;
                 }
             }
         }

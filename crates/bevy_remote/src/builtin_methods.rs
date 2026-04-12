@@ -3,6 +3,7 @@
 use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
+use bevy_dev_tools::schedule_data::serde::ScheduleData;
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
@@ -10,7 +11,8 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    schedule::Schedules,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
@@ -18,7 +20,8 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    DynamicStruct, GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    structs::DynamicStruct,
+    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -86,8 +89,17 @@ pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
 /// The method path for a `world.trigger_event` request.
 pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
 
+/// The method path for a `world.write_message` request.
+pub const BRP_WRITE_MESSAGE_METHOD: &str = "world.write_message";
+
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
+
+/// The method path for a `schedule.list` request.
+pub const BRP_SCHEDULE_LIST: &str = "schedule.list";
+
+/// The method path for a `schedule.graph` request.
+pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -306,13 +318,38 @@ pub struct BrpMutateResourcesParams {
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-struct BrpTriggerEventParams {
+pub struct BrpTriggerEventParams {
     /// The [full path] of the event to trigger.
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     pub event: String,
     /// The serialized value of the event to be triggered, if any.
     pub value: Option<Value>,
+}
+
+/// `world.write_message`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpWriteMessageParams {
+    /// The [full path] of the message to write.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub message: String,
+    /// The serialized value of the message to be written, if any.
+    pub value: Option<Value>,
+}
+
+/// `schedule.graph`:
+///
+/// The server responds with [`BrpScheduleGraphResponse`] if the schedule is found,
+/// or a `resource_error` if not found.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpScheduleGraphParams {
+    /// The schedule to describe.
+    ///
+    /// A list of describable schedules can be fetched from the `schedule.list` endpoint.
+    pub schedule_label: String,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -464,6 +501,38 @@ pub struct BrpListComponentsWatchingResponse {
 /// The response to a `world.query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
+/// The response to a `schedule.list` request.
+///
+/// Returns [`ScheduleLabel`](bevy_ecs::schedule::ScheduleLabel)s as [`String`]s.
+/// - `schedule_labels` are available for further inspect.
+/// - `unavailable_schedule_labels` are unavailable for further inspect.
+/// - `empty_schedule_labels` are labels that don't have schedules.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpScheduleListResponse {
+    schedule_labels: Vec<String>,
+    unavailable_schedule_labels: Vec<String>,
+    empty_schedule_labels: Vec<String>,
+}
+
+/// The response to a `schedule.graph` request.
+///
+/// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
+/// A system can be placed inside a systemset in order to organize them.
+/// Relative ordering can be defined between systems and/or systemsets.
+/// The graph can be thought of as two Directed Acylic Graph's (DAG's) overlaid.
+///
+/// Each system (f1) creates a corresponding system set (F1).
+/// Both these "system derived" system sets and developer-created systemsets are in `systemsets`.
+/// There is a hierarchy edge between the system set and the system (F1 -> f1).
+/// If a system (f2) is placed in a developer-created set (S1), then there is a hierarchy edge (S1 -> f2).
+///
+/// If a schedule adds a condition f1.after(S1) , then a dependency edge is added (S1 -> f1)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BrpScheduleGraphResponse {
+    /// The extracted data for the requested schedule.
+    pub schedule_data: ScheduleData,
+}
+
 /// One query match result: a single entity paired with the requested components.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpQueryRow {
@@ -530,10 +599,15 @@ pub fn process_remote_get_resources_request(
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
+    let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
 
-    let Ok(reflected) = reflect_resource.reflect(world) else {
+    let Some(reflected) = reflect_component.reflect(entity_ref) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -681,7 +755,7 @@ fn reflect_components_to_response(
                 | BrpGetComponentsResponse::Lenient {
                     ref mut components, ..
                 } => {
-                    components.extend(serialized_object.into_iter());
+                    components.extend(serialized_object);
                 }
             },
             Err(err) => match response {
@@ -1048,9 +1122,15 @@ pub fn process_remote_insert_resources_request(
     let reflected_resource = deserialize_resource(&type_registry, &resource_path, value)
         .map_err(BrpError::resource_error)?;
 
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    reflect_resource.insert(world, &*reflected_resource, &type_registry);
+    let resource_registration = get_resource_type_registration(&type_registry, &resource_path)
+        .map_err(BrpError::resource_error)?;
+    let type_id = resource_registration.type_id();
+    let resource_id = world
+        .components()
+        .get_id(type_id)
+        .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
+        .map_err(BrpError::resource_error)?;
+    world.insert_reflect_resource(resource_id, reflected_resource);
 
     Ok(Value::Null)
 }
@@ -1134,18 +1214,22 @@ pub fn process_remote_mutate_resources_request(
     let type_registry = app_type_registry.read();
 
     // Get the `ReflectResource` for the given resource path.
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
 
     // Get the actual resource value from the world as a `dyn Reflect`.
-    let mut reflected_resource = reflect_resource
-        .reflect_mut(world)
-        .map_err(|_| BrpError::resource_not_present(&resource_path))?;
+    let mut reflected_component = reflect_component
+        .reflect_mut(world.entity_mut(entity))
+        .ok_or(BrpError::resource_not_present(&resource_path))?;
 
     // Get the type registration for the field with the given path.
     let value_registration = type_registry
         .get_with_type_path(
-            reflected_resource
+            reflected_component
                 .reflect_path(field_path.as_str())
                 .map_err(BrpError::resource_error)?
                 .reflect_type_path(),
@@ -1161,7 +1245,7 @@ pub fn process_remote_mutate_resources_request(
             .map_err(BrpError::resource_error)?;
 
     // Apply the value to the resource.
-    reflected_resource
+    reflected_component
         .reflect_path_mut(field_path.as_str())
         .map_err(BrpError::resource_error)?
         .try_apply(&*deserialized_value)
@@ -1211,9 +1295,12 @@ pub fn process_remote_remove_resources_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    reflect_resource.remove(world);
+    let (entity, component_id) = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?;
+    world
+        .get_entity_mut(entity)
+        .expect("Resource exists in the world")
+        .remove_by_id(component_id);
 
     Ok(Value::Null)
 }
@@ -1402,6 +1489,44 @@ pub fn process_remote_trigger_event_request(
     })
 }
 
+/// Handles a `world.write_message` request coming from a client.
+pub fn process_remote_write_message_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpWriteMessageParams { message, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&message) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown message type: `{message}`"
+            )));
+        };
+        let Some(reflect_message) = registration.data::<ReflectMessage>() else {
+            return Err(BrpError::resource_error(format!(
+                "Message `{message}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{message} is invalid: {err}"))
+                    })?;
+            reflect_message.write_message(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_message.write_message(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1411,6 +1536,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 
     let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
+    let components = world.components();
     let types = types.read();
     let schemas = types
         .iter()
@@ -1428,7 +1554,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let (id, schema) = export_type(type_reg, extra_info, components);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1453,6 +1579,63 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
+}
+
+/// Handles a `schedule.list` request coming from a client.
+pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
+    let schedules = world.resource::<Schedules>();
+
+    let response = BrpScheduleListResponse {
+        schedule_labels: schedules
+            .iter()
+            .map(|(label, _schedule)| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        unavailable_schedule_labels: schedules
+            .get_temporarily_removed()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+        empty_schedule_labels: schedules
+            .get_empty_labels()
+            .iter()
+            .map(|label| format!("{:?}", label))
+            .collect::<Vec<_>>(),
+    };
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Handles a `schedule.graph` request coming from a client.
+///
+/// Bevy removes a schedule from the world before running it, meaning that not all Schedules are available.
+pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpScheduleGraphParams { schedule_label } = parse_some(params)?;
+
+    let schedules = world.resource::<Schedules>();
+
+    let Some((label, schedule)) = schedules
+        .iter()
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label)
+    else {
+        return Err(BrpError::resource_error(format!(
+            "Schedule with label={:} not found. This may be because this schedule is currently running",
+            schedule_label
+        )));
+    };
+
+    // TODO: We should consider saving all the `ScheduleBuilt` events when BRP is enabled, and
+    // looking it up here (or even building the schedule here to get the metadata to fill it in).
+    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), None) {
+        Ok(schedule_data) => schedule_data,
+        Err(err) => {
+            return Err(BrpError::internal(format!(
+                "Failed to collect the schedule data for {:?}: {err}",
+                label
+            )));
+        }
+    };
+
+    serde_json::to_value(BrpScheduleGraphResponse { schedule_data }).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
@@ -1660,6 +1843,24 @@ fn get_resource_type_registration<'r>(
         .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
 }
 
+fn get_resource_entity_pair(
+    type_registry: &TypeRegistry,
+    resource_path: &str,
+    world: &World,
+) -> AnyhowResult<(Entity, ComponentId)> {
+    let resource_registration = get_resource_type_registration(type_registry, resource_path)?;
+    let type_id = resource_registration.type_id();
+    let component_id = world
+        .components()
+        .get_id(type_id)
+        .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
+    let entity = world
+        .resource_entities()
+        .get(component_id)
+        .ok_or(anyhow!("Resource entity does not exist."))?;
+    Ok((entity, component_id))
+}
+
 #[cfg(test)]
 mod tests {
     /// A generic function that tests serialization and deserialization of any type
@@ -1682,8 +1883,15 @@ mod tests {
     }
 
     use super::*;
+    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
-        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+        component::Component,
+        event::Event,
+        message::{Message, Messages},
+        observer::On,
+        resource::Resource,
+        schedule::{IntoScheduleConfigs as _, Schedule, ScheduleLabel, SystemSet},
+        system::{Commands, Res, ResMut},
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1748,6 +1956,99 @@ mod tests {
     }
 
     #[test]
+    fn write_reflect_only_message() {
+        #[derive(Message, Reflect)]
+        #[reflect(Message)]
+        struct Pass;
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+        world.init_resource::<Messages<Pass>>();
+
+        let params = serde_json::to_value(&BrpWriteMessageParams {
+            message: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_write_message_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(!world.get_resource::<Messages<Pass>>().unwrap().is_empty());
+    }
+
+    #[test]
+    fn export_registry_types_with_reliationship() {
+        #[derive(Component, Debug, Reflect)]
+        #[reflect(Component, Debug)]
+        #[require(bevy_ecs::name::Name)]
+        #[relationship(relationship_target = FollowedBy)]
+        struct Following(Entity);
+
+        #[derive(Component, Debug, Reflect)]
+        #[component(storage = "SparseSet")]
+        #[reflect(Component, Debug)]
+        #[relationship_target(relationship = Following)]
+        struct FollowedBy(Vec<Entity>);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Following>();
+            register.register::<FollowedBy>();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+        world.insert_resource(atr);
+        world.register_component::<Following>();
+        world.register_component::<FollowedBy>();
+
+        let params = BrpJsonSchemaQueryFilter::default();
+
+        let params_value = In(Some(
+            serde_json::to_value(params).expect("Failed to serialize"),
+        ));
+        let result_value =
+            export_registry_types(params_value, &world).expect("Failed to export registry types");
+
+        let result: HashMap<String, JsonSchemaBevyType> =
+            parse(result_value).expect("Failed to parse exported registry types");
+
+        let actual_following = result
+            .get("bevy_remote::builtin_methods::tests::Following")
+            .expect("Missing Following type in result")
+            .component_info
+            .clone();
+        let expected_following = Some(ComponentMetadata {
+            mutable: false,
+            storage_type: StorageKind::Table,
+            is_send_and_sync: true,
+            required_component_types: vec!["bevy_ecs::name::Name".to_owned()],
+            relationship_kind: Some(RelationshipKind::Relationship),
+        });
+        let actual_followed_by = result
+            .get("bevy_remote::builtin_methods::tests::FollowedBy")
+            .expect("Missing FollowedBy type in result")
+            .component_info
+            .clone();
+        let expected_followed_by = Some(ComponentMetadata {
+            mutable: true,
+            storage_type: StorageKind::SparseSet,
+            is_send_and_sync: true,
+            required_component_types: Vec::new(),
+            relationship_kind: Some(RelationshipKind::RelationshipTarget),
+        });
+        assert_eq!(actual_following, expected_following);
+        assert_eq!(actual_followed_by, expected_followed_by);
+    }
+
+    #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
@@ -1767,5 +2068,133 @@ mod tests {
         test_serialize_deserialize(BrpListComponentsParams {
             entity: Entity::from_raw_u32(0).unwrap(),
         });
+    }
+
+    #[test]
+    fn test_schedule_list() {
+        let mut world = World::default();
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct ScheduleOuter;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule1;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule2;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct Schedule3;
+
+        // ScheduleOuter runs each schedule sequentially
+
+        fn run_schedules(world: &mut World) {
+            let _ = world.try_run_schedule(Schedule1);
+            let _ = world.try_run_schedule(Schedule2);
+            let _ = world.try_run_schedule(Schedule3);
+        }
+
+        let mut schedule_outer = Schedule::new(ScheduleOuter);
+        schedule_outer.add_systems(run_schedules);
+
+        let _ = schedule_outer.initialize(&mut world);
+        world.add_schedule(schedule_outer);
+
+        // Schedule1 is a "regular schedule"
+
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+
+        let mut schedule1 = Schedule::new(Schedule1);
+        schedule1.add_systems(f1);
+
+        let _ = schedule1.initialize(&mut world);
+        world.add_schedule(schedule1);
+
+        // Purposely skip Schedule2
+
+        // Schedule3 is the "BRP schedule"
+
+        fn f3(world: &World) {
+            let res = schedule_list(In(None), world);
+            let res2 = res.expect("expect to work");
+            let res3 = serde_json::from_value::<BrpScheduleListResponse>(res2).unwrap();
+
+            assert_eq!(res3.schedule_labels.len(), 1); // Schedule1
+            assert_eq!(res3.unavailable_schedule_labels.len(), 2); // ScheduleOuter, Schedule3
+            assert_eq!(res3.empty_schedule_labels.len(), 1); // Schedule2
+        }
+
+        let mut schedule3 = Schedule::new(Schedule3);
+        schedule3.add_systems(f3);
+
+        let _ = schedule3.initialize(&mut world);
+        world.add_schedule(schedule3);
+
+        // Run the outer
+
+        world.run_schedule(ScheduleOuter);
+    }
+
+    #[test]
+    fn test_schedule_graph() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+        fn f3(_s: Res<Resource1>) {}
+        fn f4(_t: Res<Resource1>) {}
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S1;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct S2;
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+        schedule.add_systems(f3.in_set(S1));
+        schedule.add_systems(f4.in_set(S2).after(S1));
+
+        let mut world = World::default();
+
+        let _ = schedule.initialize(&mut world);
+        world.add_schedule(schedule);
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .expect("FAIL");
+
+        // Each system creates a corresponding system set.
+        // In the below notation we use f1 for the system, and F1 for the corresponding system set.
+        // Above schedule should have the following layout:
+        // - 5 systems (f1, f2, f3, f4, apply_deferred)
+        // - 6 system sets (F1, F2, F3, F4, S1, S2)
+        // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
+        // - 2 dependency edges: f1 -> f2, S1 -> f4
+
+        let res = schedule_graph(In(Some(params)), &mut world);
+        let res2 = res.expect("expect to work");
+        let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
+
+        assert_eq!(res3.schedule_data.systems.len(), 5,);
+        assert_eq!(res3.schedule_data.system_sets.len(), 6);
+        assert_eq!(res3.schedule_data.hierarchy.len(), 6);
+        assert_eq!(res3.schedule_data.dependency.len(), 2);
+        // Components are only currently recorded for conflicts - this may change in the future.
+        assert_eq!(res3.schedule_data.components.len(), 0);
+        assert_eq!(res3.schedule_data.conflicts.len(), 0);
     }
 }
