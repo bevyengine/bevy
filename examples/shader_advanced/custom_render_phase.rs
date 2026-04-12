@@ -52,7 +52,7 @@ use bevy::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
             PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            VertexState,
         },
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,

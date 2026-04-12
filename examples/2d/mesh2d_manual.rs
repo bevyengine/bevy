@@ -13,7 +13,6 @@ use bevy::{
     mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
-        camera::ExtractedCamera,
         mesh::RenderMesh,
         render_asset::RenderAssets,
         render_phase::{
@@ -24,8 +23,8 @@ use bevy::{
             BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
             DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
             PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-            VertexFormat, VertexState, VertexStepMode,
+            SpecializedRenderPipelines, StencilFaceState, StencilState, VertexFormat, VertexState,
+            VertexStepMode,
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
@@ -385,18 +384,13 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(
-        &RenderVisibleEntities,
-        &ExtractedCamera,
-        &ExtractedView,
-        &Msaa,
-    )>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, camera, view, msaa) in &views {
+    for (visible_entities, view, msaa) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
