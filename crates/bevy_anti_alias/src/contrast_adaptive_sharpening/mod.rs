@@ -217,7 +217,7 @@ fn prepare_cas_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut sharpening_pipeline: ResMut<CasPipeline>,
     cameras: Query<
-        (Entity, &ExtractedCamera, &ExtractedView, &DenoiseCas),
+        (Entity, &ExtractedView, &DenoiseCas),
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
     mut removals: RemovedComponents<CasUniform>,
@@ -226,7 +226,7 @@ fn prepare_cas_pipelines(
         commands.entity(entity).remove::<ViewCasPipeline>();
     }
 
-    for (entity, _camera, view, denoise_cas) in &cameras {
+    for (entity, view, denoise_cas) in &cameras {
         let pipeline_id = sharpening_pipeline.variants.specialize(
             &pipeline_cache,
             CasPipelineKey {

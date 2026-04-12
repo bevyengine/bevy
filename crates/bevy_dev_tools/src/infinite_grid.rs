@@ -22,7 +22,6 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_image::BevyDefault;
 use bevy_math::{Mat3, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
