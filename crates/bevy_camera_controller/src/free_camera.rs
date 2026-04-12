@@ -218,9 +218,8 @@ pub struct FreeCameraState {
     pub speed_multiplier: f32,
     /// This [`FreeCamera`]'s translation velocity.
     pub velocity: Vec3,
-    /// Dictates camera movement during camera snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
-    /// Consist of counter of seconds from pressing curve snap hotkeys and curve that used to interpolate between old and new rotation
-    pub rotation_curve: Option<(f32, SampleAutoCurve<Quat>)>,
+    /// The current motion state of the free camera, used to determine how to update the camera's perspective projection and orientation.
+    pub motion_state: FreeCamMotion,
 }
 
 impl Default for FreeCameraState {
@@ -232,9 +231,26 @@ impl Default for FreeCameraState {
             yaw: 0.0,
             speed_multiplier: 1.0,
             velocity: Vec3::ZERO,
-            rotation_curve: None,
+            motion_state: FreeCamMotion::Free,
         }
     }
+}
+
+/// A state machine that represents the current motion state of the free camera,
+/// used to determine how to update the camera's perspective projection and orientation.
+///
+/// Stored in [`FreeCameraState`] and updated by the [`FreeCameraPlugin`] systems in response to user input.
+pub enum FreeCamMotion {
+    /// The camera is moving freely based on user input.
+    Free,
+    /// The camera is snapping to a predefined orientation.
+    Snapping {
+        /// Dictates camera movement during camera snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
+        /// Consist of counter of seconds from pressing curve snap hotkeys and curve that used to interpolate between old and new rotation
+        rotation_curve: (f32, SampleAutoCurve<Quat>),
+    },
+    /// The camera's orientation is at rest, locked to a predefined orientation.
+    Snapped,
 }
 
 /// Updates the camera's position and orientation based on user input.
@@ -379,6 +395,9 @@ pub fn run_freecamera_controller(
 
     // Handle mouse input
     if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
+        // Update our state machine
+        state.motion_state = FreeCamMotion::Free;
+
         // Apply look update
         state.pitch = (state.pitch
             - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * config.sensitivity)
@@ -420,6 +439,7 @@ pub fn run_freecamera_controller(
             rotate_to = Some((Dir3::Y, Dir3::Z));
         }
     }
+
     if let Some((dir, up)) = rotate_to {
         let start = transform.rotation;
         let target = Transform::default().looking_to(dir, up).rotation; // I don't understand why Quat::look_to_rh produce different result.
@@ -429,7 +449,9 @@ pub fn run_freecamera_controller(
         if let Ok(interval) = Interval::new(0.0, rotation_time) {
             let curve = SampleAutoCurve::new(interval, [start, target])
                 .expect("Interval should be in bounds as start and end are finite numbers");
-            state.rotation_curve = Some((0.0, curve));
+            state.motion_state = FreeCamMotion::Snapping {
+                rotation_curve: (0.0, curve),
+            };
         }
     }
 }
@@ -450,13 +472,18 @@ pub fn rotate_freecam_to(
     if !state.enabled {
         return;
     }
-    let Some((progress, curve)) = state.rotation_curve.as_mut() else {
+
+    let FreeCamMotion::Snapping {
+        rotation_curve: (progress, curve),
+    } = &mut state.motion_state
+    else {
         return;
     };
+
     *progress += time.delta_secs();
     transform.rotation = curve.sample_clamped(*progress);
     if !curve.domain().contains(*progress) {
-        state.rotation_curve = None;
+        state.motion_state = FreeCamMotion::Snapped;
     }
     let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
     state.pitch = pitch;
