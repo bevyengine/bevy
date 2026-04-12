@@ -204,6 +204,7 @@ fn choose_ctt_compressed_format(
 ) -> Result<ctt::TargetFormat, CompressedImageSaverError> {
     use ktx2::Format;
 
+    // TODO: ASTC support
     let format = match input {
         // 1-channel snorm -> BC4 snorm
         TextureFormat::R8Snorm | TextureFormat::R16Snorm => Format::BC4_SNORM_BLOCK,
