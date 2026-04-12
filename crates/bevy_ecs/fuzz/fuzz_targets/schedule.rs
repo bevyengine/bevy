@@ -255,7 +255,7 @@ fuzz_target!(|input: ScheduleFuzzInput| {
 
             ScheduleOp::BuildAndRun => {
                 match schedule.initialize(&mut world) {
-                    Ok(()) => {
+                    Ok(_) => {
                         log.order.lock().unwrap().clear();
                         schedule.run(&mut world);
 
