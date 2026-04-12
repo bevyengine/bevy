@@ -56,9 +56,9 @@ pub mod theme;
 pub mod tokens;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
-pub struct FeathersPlugin;
+pub struct FeathersCorePlugin;
 
-impl Plugin for FeathersPlugin {
+impl Plugin for FeathersCorePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
@@ -110,6 +110,6 @@ impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(TabNavigationPlugin)
-            .add(FeathersPlugin)
+            .add(FeathersCorePlugin)
     }
 }
