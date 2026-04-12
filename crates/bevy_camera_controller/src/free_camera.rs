@@ -47,11 +47,10 @@ impl Plugin for FreeCameraPlugin {
             RunFixedMainLoop,
             (
                 run_freecamera_controller,
-                // These systems do not have a dependency on each other,
-                // so we should not use .chain() to order them
-                rotate_freecam_to.after(run_freecamera_controller),
-                snap_freecam_projection.after(run_freecamera_controller),
+                rotate_freecam_to,
+                snap_freecam_projection,
             )
+                .chain()
                 .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
     }
@@ -252,7 +251,7 @@ pub enum FreeCamMotion {
     Snapping {
         /// Dictates camera movement during camera snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
         ///
-        /// The first argument tracks the seconds since this state was enterered.
+        /// The first argument tracks the seconds since this state was entered.
         /// The second argument is the curve that used to interpolate between old and new rotation.
         rotation_curve: (f32, SampleAutoCurve<Quat>),
         /// The previous projection before snapping, used to restore the original projection when returning to free camera mode.
@@ -269,6 +268,7 @@ pub enum FreeCamMotion {
         previous_projection: Projection,
     },
 }
+
 /// Updates the camera's position and orientation based on user input.
 ///
 /// - [`FreeCamera`] contains static configuration such as key bindings, movement speed, and sensitivity.
@@ -437,6 +437,16 @@ pub fn run_freecamera_controller(
     // Handle touch input
     for touch in touch_input.iter() {
         if touch.delta() != Vec2::ZERO {
+            // Update our state machine
+            if let FreeCamMotion::Snapped {
+                previous_projection,
+            } = &state.motion_state
+            {
+                state.motion_state = FreeCamMotion::Returning {
+                    previous_projection: previous_projection.clone(),
+                };
+            }
+
             state.pitch = (state.pitch - touch.delta().y * RADIANS_PER_DOT * config.sensitivity)
                 .clamp(-PI / 2., PI / 2.);
             state.yaw -= touch.delta().x * RADIANS_PER_DOT * config.sensitivity;
@@ -475,12 +485,31 @@ pub fn run_freecamera_controller(
         let rotation_time = angle / config.rotation_speed;
 
         if let Ok(interval) = Interval::new(0.0, rotation_time) {
+            // Do not overwrite a stored projection
+            // We only want to log the projection if we are using the user-defined projection,
+            // not if have already snapped / are snapping
+            let previous_projection = match &state.motion_state {
+                FreeCamMotion::Free => projection,
+                FreeCamMotion::Snapping {
+                    previous_projection,
+                    ..
+                }
+                | FreeCamMotion::Returning {
+                    previous_projection,
+                    ..
+                }
+                | FreeCamMotion::Snapped {
+                    previous_projection,
+                    ..
+                } => previous_projection,
+            };
+
             let rotation_curve =
                 SampleAutoCurve::new(interval, [rotation_start, rotation_target]).unwrap();
 
             state.motion_state = FreeCamMotion::Snapping {
                 rotation_curve: (0.0, rotation_curve),
-                previous_projection: projection.clone(),
+                previous_projection: previous_projection.clone(),
             };
         }
     }
@@ -531,6 +560,14 @@ pub fn snap_freecam_projection(
 
     match &mut state.motion_state {
         FreeCamMotion::Snapped { .. } => {
+            // Avoid constantly mutating the projection if it is already in the desired state
+            if matches!(
+                // Ensure that this check itself does not trigger change detection!
+                projection.bypass_change_detection(),
+                Projection::Orthographic(..)
+            ) {
+                return;
+            }
             *projection = Projection::Orthographic(OrthographicProjection::default_3d());
         }
         FreeCamMotion::Returning {
