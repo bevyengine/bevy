@@ -107,11 +107,11 @@ pub struct InputFocus {
     /// The set of input focus changes that have been recorded since the last time [`FocusGained`] and [`FocusLost`] events were sent.
     ///
     /// These are stored in a first-in-first-out manner, so the most recent change is at the end of the vector.
-    pub(crate) recorded_changes: Vec<Option<Entity>>,
+    recorded_changes: Vec<Option<Entity>>,
     /// The entity that had input focus at the time of the last sent [`FocusGained`] or [`FocusLost`] event, if any.
     ///
     /// This is used to determine which events to send when processing recorded focus changes.
-    pub(crate) original_focus: Option<Entity>,
+    original_focus: Option<Entity>,
 }
 
 impl InputFocus {
