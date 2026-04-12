@@ -78,6 +78,7 @@ pub trait FullscreenMaterial:
     Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
 {
     /// The texture formats this material allows to render to. Each format creates a render pipeline.
+    /// The formats should contain [`ViewTarget::main_texture_format`].
     fn texture_formats() -> &'static [TextureFormat];
 
     /// The shader that will run on the entire screen using a fullscreen triangle.

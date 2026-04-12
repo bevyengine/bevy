@@ -82,7 +82,7 @@ impl FullscreenEffect {
 
 impl FullscreenMaterial for FullscreenEffect {
     fn texture_formats() -> &'static [TextureFormat] {
-        // These are formats that currently bevy may use in camera.
+        // Formats that currently bevy may use in camera when rendering to screen.
         &[
             TextureFormat::Rgba16Float,
             TextureFormat::Rgba8Unorm,
