@@ -42,13 +42,14 @@ use wgpu_types::TextureFormat;
 ///
 /// | Input channels | Output format |
 /// |---|---|
-/// | 1-channel (R) | BC4 |
-/// | 1-channel snorm | BC4 snorm |
-/// | 2-channel (RG) | BC5 |
-/// | 2-channel snorm | BC5 snorm |
-/// | HDR / float (e.g. `Rgba16Float`) | BC6H |
+/// | 1-channel (`R8Unorm`) | BC4 |
+/// | 1-channel snorm (`R8Snorm`) | BC4 snorm |
+/// | 2-channel (`Rg8Unorm`) | BC5 |
+/// | 2-channel snorm (`Rg8Snorm`) | BC5 snorm |
+/// | HDR / packed float (e.g. `Rgb9e5Ufloat`) | BC6H |
 /// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
 /// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
+/// | Integer or high-precision (16-bit+) formats | Uncompressed KTX2 (passthrough) |
 /// | Already compressed (BCn, ASTC, ETC2, EAC) | Re-encoded to the same format |
 ///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
@@ -161,7 +162,7 @@ impl AssetSaver for CompressedImageSaver {
                     stride: image.width() * bytes_per_pixel,
                     format: input_format,
                     color_space,
-                    alpha: ctt::AlphaMode::Straight, // TODO: User-configurable?
+                    alpha: ctt::AlphaMode::Straight, // TODO: User-configurable
                 }]
             })
             .collect();
@@ -175,12 +176,12 @@ impl AssetSaver for CompressedImageSaver {
             container: ctt::Container::Ktx2,
             quality: ctt::Quality::default(),
             output_color_space: None,
-            output_alpha: None,
+            output_alpha: Some(ctt::AlphaMode::Premultiplied), // TODO: User-configurable
             swizzle: None,
             mipmap: true,
             mipmap_count: None,
             mipmap_filter: ctt::MipmapFilter::default(),
-            allow_lossy: true,
+            allow_lossy: false,
             encoder_settings: None,
             registry: None,
         };
@@ -369,7 +370,7 @@ fn choose_ctt_compressed_format(
 
     let format = match input {
         // 1-channel snorm
-        TextureFormat::R8Snorm | TextureFormat::R16Snorm => {
+        TextureFormat::R8Snorm => {
             if let Some((unorm, _, _)) = astc_block {
                 unorm
             } else {
@@ -378,17 +379,7 @@ fn choose_ctt_compressed_format(
         }
 
         // 1-channel
-        TextureFormat::R8Unorm
-        | TextureFormat::R8Uint
-        | TextureFormat::R8Sint
-        | TextureFormat::R16Uint
-        | TextureFormat::R16Sint
-        | TextureFormat::R16Unorm
-        | TextureFormat::R16Float
-        | TextureFormat::R32Uint
-        | TextureFormat::R32Sint
-        | TextureFormat::R32Float
-        | TextureFormat::R64Uint => {
+        TextureFormat::R8Unorm => {
             if let Some((unorm, _, _)) = astc_block {
                 unorm
             } else {
@@ -397,7 +388,7 @@ fn choose_ctt_compressed_format(
         }
 
         // 2-channel snorm
-        TextureFormat::Rg8Snorm | TextureFormat::Rg16Snorm => {
+        TextureFormat::Rg8Snorm => {
             if let Some((unorm, _, _)) = astc_block {
                 unorm
             } else {
@@ -406,16 +397,7 @@ fn choose_ctt_compressed_format(
         }
 
         // 2-channel
-        TextureFormat::Rg8Unorm
-        | TextureFormat::Rg8Uint
-        | TextureFormat::Rg8Sint
-        | TextureFormat::Rg16Uint
-        | TextureFormat::Rg16Sint
-        | TextureFormat::Rg16Unorm
-        | TextureFormat::Rg16Float
-        | TextureFormat::Rg32Uint
-        | TextureFormat::Rg32Sint
-        | TextureFormat::Rg32Float => {
+        TextureFormat::Rg8Unorm => {
             if let Some((unorm, _, _)) = astc_block {
                 unorm
             } else {
@@ -424,10 +406,7 @@ fn choose_ctt_compressed_format(
         }
 
         // HDR / float RGB formats
-        TextureFormat::Rgb9e5Ufloat
-        | TextureFormat::Rg11b10Ufloat
-        | TextureFormat::Rgba16Float
-        | TextureFormat::Rgba32Float => {
+        TextureFormat::Rgb9e5Ufloat | TextureFormat::Rg11b10Ufloat => {
             if let Some((_, _, hdr)) = astc_block {
                 hdr
             } else {
@@ -436,19 +415,7 @@ fn choose_ctt_compressed_format(
         }
 
         // 4-channel LDR
-        TextureFormat::Rgba8Unorm
-        | TextureFormat::Rgba8Uint
-        | TextureFormat::Rgba8Sint
-        | TextureFormat::Rgba8Snorm
-        | TextureFormat::Rgba16Uint
-        | TextureFormat::Rgba16Sint
-        | TextureFormat::Rgba16Unorm
-        | TextureFormat::Rgba16Snorm
-        | TextureFormat::Rgba32Uint
-        | TextureFormat::Rgba32Sint
-        | TextureFormat::Bgra8Unorm
-        | TextureFormat::Rgb10a2Uint
-        | TextureFormat::Rgb10a2Unorm => {
+        TextureFormat::Rgba8Unorm | TextureFormat::Bgra8Unorm | TextureFormat::Rgb10a2Unorm => {
             if let Some((unorm, _, _)) = astc_block {
                 unorm
             } else {
@@ -463,7 +430,7 @@ fn choose_ctt_compressed_format(
             }
         }
 
-        // Already compressed -> pass through
+        // Already compressed -> pass through as compressed
         TextureFormat::Bc1RgbaUnorm
         | TextureFormat::Bc1RgbaUnormSrgb
         | TextureFormat::Bc2RgbaUnorm
@@ -489,6 +456,45 @@ fn choose_ctt_compressed_format(
         | TextureFormat::EacRg11Unorm
         | TextureFormat::EacRg11Snorm
         | TextureFormat::Astc { .. } => map_to_ctt_texture_format(input)?,
+
+        // Integer, high-precision, and float formats -> pass through uncompressed
+        TextureFormat::R8Uint
+        | TextureFormat::R8Sint
+        | TextureFormat::R16Uint
+        | TextureFormat::R16Sint
+        | TextureFormat::R16Unorm
+        | TextureFormat::R16Snorm
+        | TextureFormat::R16Float
+        | TextureFormat::R32Uint
+        | TextureFormat::R32Sint
+        | TextureFormat::R32Float
+        | TextureFormat::R64Uint
+        | TextureFormat::Rg8Uint
+        | TextureFormat::Rg8Sint
+        | TextureFormat::Rg16Uint
+        | TextureFormat::Rg16Sint
+        | TextureFormat::Rg16Unorm
+        | TextureFormat::Rg16Snorm
+        | TextureFormat::Rg16Float
+        | TextureFormat::Rg32Uint
+        | TextureFormat::Rg32Sint
+        | TextureFormat::Rg32Float
+        | TextureFormat::Rgba8Uint
+        | TextureFormat::Rgba8Sint
+        | TextureFormat::Rgba8Snorm
+        | TextureFormat::Rgba16Uint
+        | TextureFormat::Rgba16Sint
+        | TextureFormat::Rgba16Unorm
+        | TextureFormat::Rgba16Snorm
+        | TextureFormat::Rgba16Float
+        | TextureFormat::Rgba32Uint
+        | TextureFormat::Rgba32Sint
+        | TextureFormat::Rgba32Float
+        | TextureFormat::Rgb10a2Uint => {
+            return Ok(ctt::TargetFormat::Uncompressed(map_to_ctt_texture_format(
+                input,
+            )?));
+        }
 
         // Depth/stencil and video formats cannot be compressed
         TextureFormat::Stencil8
