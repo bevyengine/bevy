@@ -68,9 +68,9 @@ fn demo_root() -> impl Scene {
                 ),
                 (
                     Node {
-                        margin: { px(10).left().with_right(px(10)) }
+                        margin: UiRect::horizontal(px(10.0)),
                     }
-                    Children [ (Text::new("0") ThemedText CounterText) ]
+                    Text::new("0") ThemedText CounterText
                 ),
                 (
                     button(ButtonProps::default())
