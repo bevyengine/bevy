@@ -1,6 +1,6 @@
 ---
 title: Rename `Font::try_from_bytes` to `Font::from_bytes`
-pull_requests: [23777]
+pull_requests: [22879, 23777]
 ---
 
 `Font::try_from_bytes` has been renamed to `Font::from_bytes` to reflect that it no longer returns `Result`.
