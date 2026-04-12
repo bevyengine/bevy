@@ -40,10 +40,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, SyncToRenderWorld},
-    view::{
-        ExtractedView, RenderVisibleEntities, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms,
-    },
+    view::{ExtractedView, RenderVisibleEntities, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
