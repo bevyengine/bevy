@@ -310,7 +310,7 @@ fn map_to_ctt_texture_format(
     input: TextureFormat,
 ) -> Result<ctt::Format, CompressedImageSaverError> {
     use ctt::Format;
-    use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
+    use wgpu_types::{AstcBlock, AstcChannel};
 
     Ok(match input {
         TextureFormat::R8Unorm => Format::R8_UNORM,
