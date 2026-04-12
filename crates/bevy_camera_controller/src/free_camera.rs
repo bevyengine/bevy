@@ -271,14 +271,11 @@ pub fn run_freecamera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut FreeCameraState, &FreeCamera), With<Camera>>,
+    free_cam: Single<(&mut Transform, &mut FreeCameraState, &FreeCamera), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut state, config)) = query.single_mut() else {
-        return;
-    };
-
+    let (mut transform, mut state, config) = free_cam.into_inner();
     if !state.initialized {
         let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
         state.yaw = yaw;
@@ -463,12 +460,10 @@ pub fn run_freecamera_controller(
 ///
 /// This system is typically added via the [`FreeCameraPlugin`].
 pub fn rotate_freecam_to(
-    mut query: Query<(&mut Transform, &mut FreeCameraState), With<Camera>>,
+    free_cam: Single<(&mut Transform, &mut FreeCameraState), With<Camera>>,
     time: Res<Time<Real>>,
 ) {
-    let Ok((mut transform, mut state)) = query.single_mut() else {
-        return;
-    };
+    let (mut transform, mut state) = free_cam.into_inner();
     if !state.enabled {
         return;
     }
