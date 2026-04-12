@@ -12,11 +12,55 @@ use wgpu_types::TextureFormat;
 
 /// An [`AssetSaver`] for [`Image`] that compresses texture files.
 ///
-/// Compressed textures both take up less space on disk, and use less VRAM.
+/// Compressed textures both take up less space on disk, and use less GPU VRAM.
 ///
-/// TODO: Document what platforms are supported, how feature flags work,
-/// required native dependencies (https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prerequisites),
-/// what compression types exist, and mipmap generation?
+/// Mipmaps are also generated, which prevents aliasing when textures are viewed at a distance,
+/// and increases GPU cache hits, improving rendering performance.
+///
+/// # Platform support
+///
+/// Two mutually exclusive feature flags control which compression backend is used:
+///
+/// - **`compressed_image_saver_desktop`** — Uses the [`ctt`](https://github.com/cwfitzgerald/ctt)
+///   library to compress textures into BCn formats, output as KTX2. Requires a C++ compiler;
+///   see the [ctt readme](https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prebuilt-binaries).
+///   Best for desktop (Windows, macOS, Linux) where BCn hardware support is universal.
+///
+/// - **`compressed_image_saver_web`** — Uses [`basis-universal`] to compress textures into UASTC
+///   (Basis Universal) format. This is a GPU-agnostic supercompressed format that can be
+///   transcoded at load time to whatever format the target GPU supports, making it suitable for
+///   WebGPU and cross-platform distribution.
+///
+/// # Runtime feature flags
+///
+/// The compressed output must also be loadable at runtime. Enable the corresponding feature:
+///
+/// - **`ktx2`** — Required to load KTX2 files produced by the desktop backend.
+/// - **`basis-universal`** — Required to load Basis Universal files produced by the web backend.
+///
+/// # Compression format selection (desktop)
+///
+/// The output format is chosen automatically based on the input texture's channel count and type:
+///
+/// | Input channels | Output format |
+/// |---|---|
+/// | 1-channel (R) | BC4 |
+/// | 1-channel snorm | BC4 snorm |
+/// | 2-channel (RG) | BC5 |
+/// | 2-channel snorm | BC5 snorm |
+/// | HDR / float (e.g. `Rgba16Float`) | BC6H |
+/// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
+/// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
+/// | Already compressed (BCn, ETC2, EAC, ASTC) | Re-encoded to the same format |
+///
+/// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
+/// [`CompressedImageSaverError::UnsupportedFormat`].
+///
+/// # Mipmap generation
+///
+/// Mipmaps are generated automatically during compression. The desktop backend requires
+/// input images to have a `mip_level_count` of 1 (i.e., no pre-existing mip chain);
+/// the compressor will produce a full mip chain in the output.
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
@@ -181,7 +225,7 @@ impl AssetSaver for CompressedImageSaver {
                 compressor.init(&compressor_params);
                 compressor
                     .process()
-                    .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
+                    .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
             }
             compressor.basis_file().to_vec()
         };
