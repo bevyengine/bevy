@@ -66,7 +66,12 @@ fn demo_root() -> impl Scene {
                     })
                     Children [ (Text::new("-1") ThemedText) ]
                 ),
-                (Text::new("0") ThemedText CounterText),
+                (
+                    Node {
+                        margin: { px(10).left().with_right(px(10)) }
+                    }
+                    Children [ (Text::new("0") ThemedText CounterText) ]
+                ),
                 (
                     button(ButtonProps::default())
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
