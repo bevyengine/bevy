@@ -733,7 +733,7 @@ impl App {
     /// App::new()
     ///     .register_type::<u8>()
     ///     .register_type::<u32>()
-    ///     .register_type_conversion::<u8, u32>(|n| Ok(n.into()));
+    ///     .register_into_type_conversion::<u8, u32>();
     /// ```
     ///
     /// See [`bevy_reflect::TypeRegistry::register_into_type_conversion`].
