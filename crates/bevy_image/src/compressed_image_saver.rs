@@ -12,7 +12,7 @@ use wgpu_types::TextureFormat;
 
 /// An [`AssetSaver`] for [`Image`] that compresses texture files.
 ///
-/// Compressed textures both take up less space on disk, and use less GPU VRAM.
+/// Compressed textures use less GPU VRAM.
 ///
 /// Mipmaps are also generated, which prevents aliasing when textures are viewed at a distance,
 /// and increases GPU cache hits, improving rendering performance.
@@ -26,7 +26,7 @@ use wgpu_types::TextureFormat;
 ///   see the [ctt readme](https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prebuilt-binaries).
 ///   Best for desktop (Windows, macOS, Linux) where BCn hardware support is universal.
 ///
-/// - **`compressed_image_saver_web`** — Uses [`basis-universal`] to compress textures into UASTC
+/// - **`compressed_image_saver_web`** — Uses `basis-universal` to compress textures into UASTC
 ///   (Basis Universal) format. This is a GPU-agnostic supercompressed format that can be
 ///   transcoded at load time to whatever format the target GPU supports, making it suitable for
 ///   WebGPU and cross-platform distribution.
@@ -51,7 +51,7 @@ use wgpu_types::TextureFormat;
 /// | HDR / float (e.g. `Rgba16Float`) | BC6H |
 /// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
 /// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
-/// | Already compressed (BCn, ETC2, EAC, ASTC) | Re-encoded to the same format |
+/// | Already compressed (BCn, ASTC, ETC2, EAC) | Re-encoded to the same format |
 ///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
 /// [`CompressedImageSaverError::UnsupportedFormat`].
