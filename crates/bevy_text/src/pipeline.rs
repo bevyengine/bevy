@@ -324,7 +324,6 @@ impl TextPipeline {
                     let font = run.font();
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
-                    let text_range = run.text_range();
                     let variations_hash = FixedHasher.hash_one(coords);
                     let font_atlas_key = FontAtlasKey {
                         id: font.data.id() as u32,
@@ -382,8 +381,6 @@ impl TextPipeline {
                                 + atlas_info.offset,
                             atlas_info,
                             section_index,
-                            byte_index: text_range.start,
-                            byte_length: text_range.len(),
                             line_index,
                         });
                     }

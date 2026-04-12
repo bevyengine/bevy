@@ -61,6 +61,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
+    template::FromTemplate,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -224,7 +225,9 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
 }
 
 /// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<MeshletMesh3d>)]

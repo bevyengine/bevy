@@ -21,10 +21,6 @@ pub struct PositionedGlyph {
     pub section_index: usize,
     /// The index of the glyph's line.
     pub line_index: usize,
-    /// The byte index of the glyph in its line.
-    pub byte_index: usize,
-    /// The byte length of the glyph.
-    pub byte_length: usize,
 }
 
 /// Information about a glyph in an atlas.

@@ -76,9 +76,9 @@ fn setup(
     let helmet_scene = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneRoot(helmet_scene.clone()));
+    commands.spawn(WorldAssetRoot(helmet_scene.clone()));
     commands.spawn((
-        SceneRoot(helmet_scene),
+        WorldAssetRoot(helmet_scene),
         Transform::from_xyz(-4.0, 0.0, -3.0),
     ));
 

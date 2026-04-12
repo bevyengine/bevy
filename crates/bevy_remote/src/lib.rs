@@ -1126,8 +1126,8 @@ impl<'de> Deserialize<'de> for BrpRequest {
                     return Err(de::Error::missing_field("jsonrpc"));
                 }
                 let method = method.ok_or_else(|| de::Error::missing_field("method"))?;
-                let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
-                let params = params.ok_or_else(|| de::Error::missing_field("params"))?;
+                let id = id.flatten();
+                let params = params.flatten();
                 Ok(BrpRequest { method, id, params })
             }
         }
@@ -1447,5 +1447,43 @@ fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>)
         if message.sender.is_closed() {
             requests.0.swap_remove(i);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::BrpRequest;
+    use serde_json::json;
+
+    #[test]
+    fn deserialize_brp_request_params_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "id": 1
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, Some(json!(1)));
+        assert_eq!(request.params, None);
+    }
+
+    #[test]
+    fn deserialize_brp_request_id_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "params": {
+                "number": 5
+            }
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, None);
+        assert_eq!(request.params, Some(json!({ "number": 5 })));
     }
 }

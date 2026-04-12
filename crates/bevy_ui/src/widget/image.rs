@@ -1,15 +1,15 @@
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
+use bevy_ecs::{prelude::*, template::OptionTemplate};
+use bevy_image::{prelude::*, TextureAtlasTemplate, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
 use taffy::MaybeMath;
 
 /// A UI Node that renders an image.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Node, ImageNodeSize)]
 pub struct ImageNode {
@@ -23,6 +23,7 @@ pub struct ImageNode {
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the image.
+    #[template(OptionTemplate<TextureAtlasTemplate>)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,

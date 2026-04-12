@@ -117,7 +117,12 @@ impl Plugin for TextPlugin {
                     .chain(),
             )
             .add_systems(Last, trim_source_cache)
-            .add_systems(PostUpdate, apply_text_edits.in_set(EditableTextSystems));
+            .add_systems(
+                PostUpdate,
+                apply_text_edits
+                    .after(load_font_assets_into_font_collection)
+                    .in_set(EditableTextSystems),
+            );
 
         #[cfg(feature = "default_font")]
         {

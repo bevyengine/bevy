@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
-use bevy_scene2::{prelude::*, template_value};
+use bevy_scene::{prelude::*, template_value};
 use bevy_ui::{
     AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
     FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
@@ -30,6 +30,7 @@ use bevy_ui_widgets::{
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     cursor::EntityCursor,
+    focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
 };
@@ -206,6 +207,7 @@ pub fn color_slider(props: ColorSliderProps) -> impl Scene {
         template_value(props.channel.range())
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
+        FocusIndicator
         Children [
             // track
             (
@@ -316,6 +318,7 @@ pub fn color_slider_bundle<B: Bundle>(props: ColorSliderProps, overrides: B) -> 
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![
             // track
