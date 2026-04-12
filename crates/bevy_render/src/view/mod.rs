@@ -884,6 +884,11 @@ impl ViewTarget {
             .map(|sampled| &sampled.default_view)
     }
 
+    /// Currently bevy's main texture format can be:
+    /// - If rendering to screen:
+    /// For HDR, it's `Rgba16Float`.
+    /// For LDR, it's `Rgba8Unorm` when [`CompositingSpace::Srgb`], otherwise `Rgba8UnormSrgb` or `Bgra8UnormSrgb` depends on surface preferred formmat.
+    /// - If rendering to texture: the format is the same as texture view's format.
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
