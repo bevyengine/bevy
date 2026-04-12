@@ -121,6 +121,7 @@ pub struct VolumetricFogPipelineKey {
     /// buffer layouts, so we only need one of them.
     vertex_buffer_layout: MeshVertexBufferLayoutRef,
 
+    /// Texture format of the view target
     texture_format: TextureFormat,
 
     /// The volumetric fog has a 3D voxel density texture.
