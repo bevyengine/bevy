@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault;
 use bevy_light::Skybox;
+use bevy_log::warn_once;
 use bevy_math::Mat4;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -232,6 +233,7 @@ fn prepare_skybox_bind_groups(
             view_uniforms.uniforms.binding(),
             skybox_uniforms.binding(),
         ) && let Some(image) = images.get(image_handle)
+            && sanity_check_skybox_image_and_warn(entity, skybox, image)
         {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
@@ -251,4 +253,26 @@ fn prepare_skybox_bind_groups(
             commands.entity(entity).remove::<SkyboxBindGroup>();
         }
     }
+}
+
+fn sanity_check_skybox_image_and_warn(entity: Entity, skybox: &Skybox, image: &GpuImage) -> bool {
+    let texture_view_dimension: Option<TextureViewDimension> = image
+        .texture_view_descriptor
+        .as_ref()
+        .and_then(|desc| desc.dimension);
+    let dimension_ok = texture_view_dimension == Some(TextureViewDimension::Cube);
+    if !dimension_ok {
+        // The texture view is not a cubemap and will fail validation if rendered.
+        // In this case, we ignore the skybox so as not to break rendering.
+        //
+        // There are other possible misconfigurations which will fail and which we do not
+        // catch here, but this is a common mistake (passing an unaltered 2D image to `Skybox`).
+        warn_once!(
+            "skybox {entity}'s image {image:?} has texture view dimension \
+                        {texture_view_dimension:?}, but it must be TextureViewDimension::Cube \
+                        to render a skybox",
+            image = skybox.image
+        );
+    }
+    dimension_ok
 }

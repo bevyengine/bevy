@@ -13,6 +13,8 @@ plugin_group! {
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
         #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputFocusPlugin,
+        #[cfg(feature = "bevy_input_focus")]
         bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,

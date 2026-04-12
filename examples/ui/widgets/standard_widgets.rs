@@ -815,7 +815,7 @@ fn on_menu_event(
             }
         }
         MenuAction::FocusRoot => {
-            focus.0 = Some(anchor);
+            focus.set(anchor);
         }
     }
 }
