@@ -7,7 +7,6 @@ use bevy_core_pipeline::{
     FullscreenShader,
 };
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -17,7 +16,6 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    view::ViewTarget,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -206,11 +204,7 @@ pub fn prepare_fxaa_pipelines(
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
-                texture_format: if camera.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: camera.texture_format,
             },
         );
 

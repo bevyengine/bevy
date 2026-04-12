@@ -461,12 +461,12 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const BLEND_ALPHA                       = 1 << 3;
-        const MAY_DISCARD                       = 1 << 4;
-        const SRGB_COMPOSITING                  = 1 << 5;
-        const OKLAB_COMPOSITING                 = 1 << 6;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const BLEND_ALPHA                       = 1 << 2;
+        const MAY_DISCARD                       = 1 << 3;
+        const SRGB_COMPOSITING                  = 1 << 4;
+        const OKLAB_COMPOSITING                 = 1 << 5;
         const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
@@ -487,8 +487,8 @@ bitflags::bitflags! {
 }
 
 impl Mesh2dPipelineKey {
-    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
-    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 7;
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 6;
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
@@ -509,7 +509,8 @@ impl Mesh2dPipelineKey {
     /// Create a pipeline key from the view's color target format.
     #[inline]
     pub fn from_color_target_format(format: TextureFormat) -> Self {
-        let code = color_target_format_to_code(format).unwrap_or_default() as u32;
+        let code = color_target_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u32;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
@@ -520,7 +521,8 @@ impl Mesh2dPipelineKey {
     pub fn color_target_format(&self) -> TextureFormat {
         let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
-        color_target_format_from_code(code).unwrap_or(TextureFormat::Rgba8UnormSrgb)
+        color_target_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
     pub fn msaa_samples(&self) -> u32 {

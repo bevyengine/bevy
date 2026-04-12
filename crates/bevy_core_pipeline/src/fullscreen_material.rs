@@ -17,7 +17,6 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Query, Res},
 };
-use bevy_image::BevyDefault;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
@@ -39,9 +38,18 @@ use bevy_render::{
 use bevy_shader::ShaderRef;
 use bevy_utils::default;
 
-#[derive(Default)]
 pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
+    pub texture_format: TextureFormat,
     _marker: PhantomData<T>,
+}
+
+impl<T: FullscreenMaterial> FullscreenMaterialPlugin<T> {
+    pub fn new(texture_format: TextureFormat) -> Self {
+        Self {
+            texture_format,
+            _marker: Default::default(),
+        }
+    }
 }
 
 impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
@@ -56,7 +64,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
         };
 
         render_app
-            .add_systems(RenderStartup, init_pipeline::<T>)
+            .add_systems(RenderStartup, init_pipeline::<T>(self.texture_format))
             .add_systems(
                 Render,
                 prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
@@ -114,69 +122,70 @@ struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
-    pipeline_id_hdr: CachedRenderPipelineId,
     _marker: PhantomData<T>,
 }
 
 fn init_pipeline<T: FullscreenMaterial>(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-    fullscreen_shader: Res<FullscreenShader>,
-    pipeline_cache: Res<PipelineCache>,
+    texture_format: TextureFormat,
+) -> impl Fn(
+    Commands<'_, '_>,
+    Res<'_, RenderDevice>,
+    Res<'_, AssetServer>,
+    Res<'_, FullscreenShader>,
+    Res<'_, PipelineCache>,
 ) {
-    let layout = BindGroupLayoutDescriptor::new(
-        "fullscreen_material_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::FRAGMENT,
-            (
-                texture_2d(TextureSampleType::Float { filterable: true }),
-                sampler(SamplerBindingType::Filtering),
-                uniform_buffer::<T>(true),
+    move |mut commands: Commands,
+          render_device: Res<RenderDevice>,
+          asset_server: Res<AssetServer>,
+          fullscreen_shader: Res<FullscreenShader>,
+          pipeline_cache: Res<PipelineCache>| {
+        let layout = BindGroupLayoutDescriptor::new(
+            "fullscreen_material_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                    uniform_buffer::<T>(true),
+                ),
             ),
-        ),
-    );
-    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-    let shader = match T::fragment_shader() {
-        ShaderRef::Default => {
-            unimplemented!(
-                "FullscreenMaterial::fragment_shader() must not return ShaderRef::Default"
-            )
-        }
-        ShaderRef::Handle(handle) => handle,
-        ShaderRef::Path(path) => asset_server.load(path),
-    };
+        );
+        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let shader = match T::fragment_shader() {
+            ShaderRef::Default => {
+                unimplemented!(
+                    "FullscreenMaterial::fragment_shader() must not return ShaderRef::Default"
+                )
+            }
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        };
 
-    let vertex_state = fullscreen_shader.to_vertex_state();
-    let mut desc = RenderPipelineDescriptor {
-        label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
-        layout: vec![layout.clone()],
-        vertex: vertex_state,
-        fragment: Some(FragmentState {
-            shader,
-            targets: vec![Some(ColorTargetState {
-                format: TextureFormat::bevy_default(),
-                blend: None,
-                write_mask: ColorWrites::ALL,
-            })],
+        let vertex_state = fullscreen_shader.to_vertex_state();
+        let desc = RenderPipelineDescriptor {
+            label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
+            layout: vec![layout.clone()],
+            vertex: vertex_state,
+            fragment: Some(FragmentState {
+                shader,
+                targets: vec![Some(ColorTargetState {
+                    format: texture_format,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+                ..default()
+            }),
             ..default()
-        }),
-        ..default()
-    };
-    let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
-    desc.fragment.as_mut().unwrap().targets[0]
-        .as_mut()
-        .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
-    let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
+        };
+        let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
 
-    commands.insert_resource(FullscreenMaterialPipeline::<T> {
-        layout,
-        sampler,
-        pipeline_id,
-        pipeline_id_hdr,
-        _marker: PhantomData,
-    });
+        commands.insert_resource(FullscreenMaterialPipeline::<T> {
+            layout,
+            sampler,
+            pipeline_id,
+            _marker: PhantomData,
+        });
+    }
 }
 
 /// Holds the bind groups for both main textures
@@ -263,13 +272,7 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
 
     let (view_target, settings_index, bind_groups) = view.into_inner();
 
-    let pipeline_id = if view_target.is_hdr() {
-        fullscreen_pipeline.pipeline_id_hdr
-    } else {
-        fullscreen_pipeline.pipeline_id
-    };
-
-    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) else {
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(fullscreen_pipeline.pipeline_id) else {
         return;
     };
 

@@ -7,7 +7,6 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::GlobalsUniform,
@@ -22,7 +21,7 @@ use bevy_render::{
         SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{Msaa, ViewTarget},
+    view::Msaa,
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -111,7 +110,7 @@ pub fn init_motion_blur_pipeline(
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MotionBlurPipelineKey {
-    hdr: bool,
+    texture_format: TextureFormat,
     samples: u32,
 }
 
@@ -144,11 +143,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -174,7 +169,7 @@ pub(crate) fn prepare_motion_blur_pipelines(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                hdr: camera.hdr,
+                texture_format: camera.texture_format,
                 samples: msaa.samples(),
             },
         );

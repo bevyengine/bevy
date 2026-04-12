@@ -11,12 +11,13 @@ use bevy::{
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
     shader::ShaderRef,
 };
+use bevy_render::render_resource::TextureFormat;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            FullscreenMaterialPlugin::<FullscreenEffect>::default(),
+            FullscreenMaterialPlugin::<FullscreenEffect>::new(TextureFormat::bevy_default()),
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, update_intensity)

@@ -9,7 +9,6 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_image::BevyDefault as _;
 use bevy_log::warn;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -23,7 +22,7 @@ use bevy_render::{
         TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ViewTarget, ViewUniform, ViewUniforms},
+    view::{ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -143,9 +142,9 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
-    hdr: bool,
     sorted_fragment_max_count: u32,
     depth_prepass: bool,
+    texture_format: TextureFormat,
 }
 
 pub fn queue_oit_resolve_pipeline(
@@ -171,9 +170,9 @@ pub fn queue_oit_resolve_pipeline(
     for (e, camera, oit_settings, depth_prepass) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            hdr: camera.hdr,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
+            texture_format: camera.texture_format,
         };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
@@ -209,11 +208,6 @@ fn specialize_oit_resolve_pipeline(
     fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
-    let format = if key.hdr {
-        ViewTarget::TEXTURE_FORMAT_HDR
-    } else {
-        TextureFormat::bevy_default()
-    };
     let mut layout = vec![resolve_pipeline.view_bind_group_layout.clone()];
     let mut shader_defs = vec![ShaderDefVal::UInt(
         "SORTED_FRAGMENT_MAX_COUNT".into(),
@@ -232,7 +226,7 @@ fn specialize_oit_resolve_pipeline(
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs,
             targets: vec![Some(ColorTargetState {
-                format,
+                format: key.texture_format,
                 blend: Some(BlendState {
                     color: BlendComponent::OVER,
                     alpha: BlendComponent::OVER,

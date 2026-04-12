@@ -17,12 +17,8 @@ use bevy_material::{
 use bevy_mesh::VertexBufferLayout;
 use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::{
-    camera::TemporalJitter,
-    render_resource::*,
-    view::{ExtractedView, ViewTarget},
-};
+use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
+use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
 use bevy_utils::default;
 use core::any::{Any, TypeId};
 
@@ -48,6 +44,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         (
             &mut MeshletViewMaterialsMainOpaquePass,
             &ExtractedView,
+            &ExtractedCamera,
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
@@ -71,6 +68,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     for (
         mut materials,
         view,
+        camera,
         tonemapping,
         dither,
         shadow_filter_method,
@@ -82,7 +80,6 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         has_irradiance_volumes,
     ) in &mut views
     {
-        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
             | MeshPipelineKey::from_color_target_format(view.texture_format);
 
@@ -131,7 +128,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !is_hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -299,7 +296,6 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let is_hdr = view.texture_format == ViewTarget::TEXTURE_FORMAT_HDR;
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
             | MeshPipelineKey::from_color_target_format(view.texture_format);
 
