@@ -264,7 +264,7 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
 
     let (camera, view_target, settings_index, bind_groups) = view.into_inner();
 
-    // TODO: this needs to be migrated to use specialization instead of whatever this nonsense is
+    // TODO: this needs to be migrated to use specialization
     let pipeline_id = if camera.hdr {
         fullscreen_pipeline.pipeline_id_hdr
     } else {
