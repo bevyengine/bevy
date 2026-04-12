@@ -802,6 +802,11 @@ impl From<ColorGrading> for ColorGradingUniform {
 pub struct NoIndirectDrawing;
 
 impl ViewTarget {
+    #[deprecated(
+        note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, the value used to be TextureFormat::Rgba16Float"
+    )]
+    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
+
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {

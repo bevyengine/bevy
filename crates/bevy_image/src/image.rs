@@ -25,6 +25,23 @@ use wgpu_types::{
     TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
+/// Trait used to provide default values for Bevy-external types that
+/// do not implement [`Default`].
+#[deprecated(
+    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, the value used to be TextureFormat::Rgba8UnormSrgb"
+)]
+pub trait BevyDefault {
+    /// Returns the default value for a type.
+    fn bevy_default() -> Self;
+}
+
+#[expect(deprecated, reason = "deprecated")]
+impl BevyDefault for TextureFormat {
+    fn bevy_default() -> Self {
+        TextureFormat::Rgba8UnormSrgb
+    }
+}
+
 /// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
     /// Returns the srgb view formats for a type.
