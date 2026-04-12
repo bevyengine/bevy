@@ -11,6 +11,7 @@ use bevy::{
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
     shader::ShaderRef,
 };
+use bevy_render::render_resource::TextureFormat;
 
 fn main() {
     App::new()
@@ -80,6 +81,16 @@ impl FullscreenEffect {
 }
 
 impl FullscreenMaterial for FullscreenEffect {
+    fn texture_formats() -> &'static [TextureFormat] {
+        // These are formats that currently bevy may use in camera.
+        &[
+            TextureFormat::Rgba16Float,
+            TextureFormat::Rgba8Unorm,
+            TextureFormat::Rgba8UnormSrgb,
+            TextureFormat::Bgra8UnormSrgb,
+        ]
+    }
+
     fn fragment_shader() -> ShaderRef {
         "shaders/fullscreen_effect.wgsl".into()
     }

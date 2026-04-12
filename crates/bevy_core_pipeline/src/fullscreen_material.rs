@@ -17,6 +17,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Query, Res},
 };
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
@@ -76,8 +77,8 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 pub trait FullscreenMaterial:
     Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
 {
-    /// The texture format this material renders to.
-    fn texture_format() -> TextureFormat;
+    /// The texture formats this material allows to render to. Each format creates a render pipeline.
+    fn texture_formats() -> &'static [TextureFormat];
 
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;
@@ -115,7 +116,7 @@ pub trait FullscreenMaterial:
 struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
+    pipeline_ids: HashMap<TextureFormat, CachedRenderPipelineId>,
     _marker: PhantomData<T>,
 }
 
@@ -149,27 +150,33 @@ fn init_pipeline<T: FullscreenMaterial>(
     };
 
     let vertex_state = fullscreen_shader.to_vertex_state();
-    let desc = RenderPipelineDescriptor {
-        label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
-        layout: vec![layout.clone()],
-        vertex: vertex_state,
-        fragment: Some(FragmentState {
-            shader,
-            targets: vec![Some(ColorTargetState {
-                format: T::texture_format(),
-                blend: None,
-                write_mask: ColorWrites::ALL,
-            })],
-            ..default()
-        }),
-        ..default()
-    };
-    let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
+
+    let pipeline_ids = T::texture_formats()
+        .iter()
+        .map(|&format| {
+            let desc = RenderPipelineDescriptor {
+                label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
+                layout: vec![layout.clone()],
+                vertex: vertex_state.clone(),
+                fragment: Some(FragmentState {
+                    shader: shader.clone(),
+                    targets: vec![Some(ColorTargetState {
+                        format,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                    ..default()
+                }),
+                ..default()
+            };
+            (format, pipeline_cache.queue_render_pipeline(desc.clone()))
+        })
+        .collect();
 
     commands.insert_resource(FullscreenMaterialPipeline::<T> {
         layout,
         sampler,
-        pipeline_id,
+        pipeline_ids,
         _marker: PhantomData,
     });
 }
@@ -258,7 +265,18 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
 
     let (view_target, settings_index, bind_groups) = view.into_inner();
 
-    let Some(pipeline) = pipeline_cache.get_render_pipeline(fullscreen_pipeline.pipeline_id) else {
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(
+        fullscreen_pipeline
+            .pipeline_ids
+            .get(&view_target.main_texture_format())
+            .cloned()
+            .expect(&format!(
+                "The fullscreen material's texture formats: {:?} \
+                doesn't contains the view target format: {:?}",
+                T::texture_formats(),
+                view_target.main_texture_format()
+            )),
+    ) else {
         return;
     };
 
