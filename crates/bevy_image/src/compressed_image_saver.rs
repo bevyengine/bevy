@@ -14,9 +14,6 @@ use wgpu_types::TextureFormat;
 ///
 /// Compressed textures use less GPU VRAM.
 ///
-/// Mipmaps are also generated, which prevents aliasing when textures are viewed at a distance,
-/// and increases GPU cache hits, improving rendering performance.
-///
 /// # Platform support
 ///
 /// Two mutually exclusive feature flags control which compression backend is used:
@@ -76,11 +73,15 @@ use wgpu_types::TextureFormat;
 /// All 14 ASTC block sizes are supported: `4x4`, `5x4`, `5x5`, `6x5`, `6x6`, `8x5`,
 /// `8x6`, `8x8`, `10x5`, `10x6`, `10x8`, `10x10`, `12x10`, `12x12`.
 ///
-/// # Mipmap generation
+/// # Mipmap generation (`compressed_image_saver` only)
 ///
-/// Mipmaps are generated automatically during compression. The `compressed_image_saver` feature requires
-/// input images to have a `mip_level_count` of 1 (i.e., no pre-existing mip chain);
-/// the compressor will produce a full mip chain in the output.
+/// When using the `compressed_image_saver` backend, mipmaps are generated automatically
+/// during compression. This prevents aliasing when textures are viewed at a distance and
+/// increases GPU cache hits, improving rendering performance. Input images must have a
+/// `mip_level_count` of 1 (i.e., no pre-existing mip chain); the compressor will produce
+/// a full mip chain in the output.
+///
+/// The `compressed_image_saver_universal` backend does not generate mipmaps.
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 

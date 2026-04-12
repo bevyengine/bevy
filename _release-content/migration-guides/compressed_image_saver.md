@@ -1,14 +1,20 @@
 ---
-title: Feature that broke
-pull_requests: [14791, 15458, 15269]
+title: `CompressedImageSaver` improvements
+pull_requests: [23567]
 ---
 
-Copy the contents of this file into a new file in `./migration-guides`, update the metadata, and add migration guide content here.
+The `compressed_image_saver` Cargo feature has been reworked. The old behavior (Basis Universal UASTC compression) has been moved to a new feature called `compressed_image_saver_universal`, and the `compressed_image_saver` feature now uses the `ctt` library to compress textures into BCn (desktop) or ASTC (mobile) formats instead.
 
-Remember, your aim is to communicate:
+If you were using the `compressed_image_saver` feature and want to keep the previous Basis Universal behavior, rename the feature in your `Cargo.toml`:
 
-- What has changed since the last release?
-- Why did we make this breaking change?
-- How can users migrate their existing code?
+```toml
+# Before
+bevy = { version = "0.18", features = ["compressed_image_saver"] }
 
-For more specifics about style and content, see the [instructions](./migration_guides.md).
+# After (keeps old Basis Universal behavior)
+bevy = { version = "0.19", features = ["compressed_image_saver_universal"] }
+```
+
+Alternatively, keep using `compressed_image_saver` to get the new BCn/ASTC compression backend. This produces higher-quality output and supports a wider range of input formats, but does not support web.
+
+`CompressedImageSaverError` has a new variant `CompressionFailed`. If you were matching exhaustively on this enum, add a branch for it.
