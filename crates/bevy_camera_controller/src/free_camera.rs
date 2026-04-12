@@ -166,18 +166,18 @@ impl fmt::Display for FreeCamera {
         write!(
             f,
             "
-Freecamera Controls:
-    Mouse\t- Move camera orientation
-    Scroll\t- Adjust movement speed
-    {:?}\t- Hold to grab cursor
-    {:?}\t- Toggle cursor grab
-    {:?} & {:?}\t- Fly forward & backwards
-    {:?} & {:?}\t- Fly sideways left & right
-    {:?} & {:?}\t- Fly up & down
-    {:?}\t- Fly faster while held
-    [{:?} + ]{:?}\t- Snap to Up (+Y)/Down (-Y)
-    [{:?} + ]{:?}\t- Snap to Right (+X)/Left (-X)
-    [{:?} + ]{:?}\t- Snap to Front (-Z)/Back (+Z)",
+Freecam Controls:
+    Mouse - Move camera orientation
+    Scroll - Adjust movement speed
+    {:?} - Hold to grab cursor
+    {:?} - Toggle cursor grab
+    {:?} & {:?} - Fly forward & backwards
+    {:?} & {:?} - Fly sideways left & right
+    {:?} & {:?} - Fly up & down
+    {:?} - Fly faster while held
+    [{:?} +] {:?} - Snap to Up (+Y)/Down (-Y)
+    [{:?} +] {:?} - Snap to Right (+X)/Left (-X)
+    [{:?} +] {:?} - Snap to Front (-Z)/Back (+Z)",
             self.mouse_key_cursor_grab,
             self.keyboard_key_toggle_cursor_grab,
             self.key_forward,
