@@ -11,7 +11,8 @@
 //! This crate provides a system for managing input focus in Bevy applications, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
-//! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
+//! * Events for when entities gain or lose focus: [`FocusGained`] and [`FocusLost`].
+//! * A generic [`FocusedInput`] event to send input events which bubble up from the focused entity.
 //! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
@@ -26,14 +27,19 @@ pub mod directional_navigation;
 pub mod navigator;
 pub mod tab_navigation;
 
-// This module is too small / specific to be exported by the crate,
-// but it's nice to have it separate for code organization.
+// These modules are too small / specific to be exported by the crate,
+// but it's nice to have them separate for code organization.
 mod autofocus;
 pub use autofocus::*;
 
+mod gained_and_lost;
+pub use gained_and_lost::*;
+
+use alloc::vec;
+use alloc::vec::Vec;
 #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
 use bevy_app::PreUpdate;
-use bevy_app::{App, Plugin, PostStartup};
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{
     entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
 };
@@ -43,6 +49,7 @@ use bevy_input::gamepad::GamepadButtonChangedEvent;
 use bevy_input::keyboard::KeyboardInput;
 #[cfg(feature = "mouse")]
 use bevy_input::mouse::MouseWheel;
+use bevy_input::InputSystems;
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -53,6 +60,8 @@ use bevy_reflect::{prelude::*, Reflect};
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
 ///
 /// Changing the input focus is as easy as modifying this resource.
+///
+/// To detect when an entity gains or loses focus, listen for the [`FocusGained`] and [`FocusLost`] events.
 ///
 /// # Examples
 ///
@@ -92,29 +101,56 @@ use bevy_reflect::{prelude::*, Reflect};
     derive(Reflect),
     reflect(Debug, Default, Resource, Clone)
 )]
-pub struct InputFocus(pub Option<Entity>);
+pub struct InputFocus {
+    /// The entity that currently has input focus, if any.
+    current_focus: Option<Entity>,
+    /// The set of input focus changes that have been recorded since the last time [`FocusGained`] and [`FocusLost`] events were sent.
+    ///
+    /// These are stored in a first-in-first-out manner, so the most recent change is at the end of the vector.
+    recorded_changes: Vec<Option<Entity>>,
+    /// The entity that had input focus at the time of the last sent [`FocusGained`] or [`FocusLost`] event, if any.
+    ///
+    /// This is used to determine which events to send when processing recorded focus changes.
+    original_focus: Option<Entity>,
+}
 
 impl InputFocus {
     /// Create a new [`InputFocus`] resource with the given entity.
     ///
     /// This is mostly useful for tests.
-    pub const fn from_entity(entity: Entity) -> Self {
-        Self(Some(entity))
+    ///
+    /// WARNING: this will clear any buffered focus changes,
+    /// so it may cause missed [`FocusGained`] and [`FocusLost`] events.
+    ///
+    /// Prefer the [`set`](InputFocus::set) method for normal use, which will preserve buffered changes.
+    pub fn from_entity(entity: Entity) -> Self {
+        Self {
+            current_focus: Some(entity),
+            recorded_changes: vec![Some(entity)],
+            original_focus: None,
+        }
     }
 
     /// Set the entity with input focus.
-    pub const fn set(&mut self, entity: Entity) {
-        self.0 = Some(entity);
+    ///
+    /// When spawning entities, you may want to use the [`AutoFocus`] component instead,
+    /// which will automatically set focus to the entity when it is spawned.
+    ///
+    /// This is particularly useful when working with bsn! scenes, where spawning may be delayed.
+    pub fn set(&mut self, entity: Entity) {
+        self.current_focus = Some(entity);
+        self.recorded_changes.push(Some(entity));
     }
 
     /// Returns the entity with input focus, if any.
     pub const fn get(&self) -> Option<Entity> {
-        self.0
+        self.current_focus
     }
 
     /// Clears input focus.
-    pub const fn clear(&mut self) {
-        self.0 = None;
+    pub fn clear(&mut self) {
+        self.current_focus = None;
+        self.recorded_changes.push(None);
     }
 }
 
@@ -162,7 +198,7 @@ pub struct FocusedInput<M: Message + Clone> {
 
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
-#[derive(Clone, EntityEvent)]
+#[derive(EntityEvent, Debug, Clone)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The entity that has acquired focus.
@@ -215,18 +251,35 @@ impl Traversal<AcquireFocus> for WindowTraversal {
     }
 }
 
+/// Plugin which sets up the core input focus system.
+///
+/// This includes the[`InputFocus`] and [`InputFocusVisible`] resources,
+/// [`set_initial_focus`] system to initialize the focus to the primary window, if any, at startup,
+/// and [`process_recorded_focus_changes`] to send [`FocusGained`] and [`FocusLost`] events when the focused entity changes.
+#[derive(Default)]
+pub struct InputFocusPlugin;
+
+impl Plugin for InputFocusPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostStartup, set_initial_focus)
+            .init_resource::<InputFocus>()
+            .init_resource::<InputFocusVisible>()
+            .add_systems(
+                PostUpdate,
+                process_recorded_focus_changes.in_set(InputFocusSystems::FocusChangeEvents),
+            );
+    }
+}
+
 /// Plugin which sets up systems for dispatching bubbling keyboard and gamepad button events to the focused entity.
 ///
 /// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// as described in the docs for [`FocusedInput`].
+#[derive(Default)]
 pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, set_initial_focus)
-            .init_resource::<InputFocus>()
-            .init_resource::<InputFocusVisible>();
-
         #[cfg(any(feature = "keyboard", feature = "gamepad", feature = "mouse"))]
         app.add_systems(
             PreUpdate,
@@ -238,7 +291,9 @@ impl Plugin for InputDispatchPlugin {
                 #[cfg(feature = "mouse")]
                 dispatch_focused_input::<MouseWheel>,
             )
-                .in_set(InputFocusSystems::Dispatch),
+                .chain()
+                .in_set(InputFocusSystems::Dispatch)
+                .after(InputSystems),
         );
     }
 }
@@ -249,7 +304,13 @@ impl Plugin for InputDispatchPlugin {
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
+    ///
+    /// Occurs in the [`PreUpdate`] schedule, after [`InputSystems`].
     Dispatch,
+    /// System which processes recorded focus changes and sends the appropriate [`FocusGained`] and [`FocusLost`] events.
+    ///
+    /// Occurs in the [`PostUpdate`] schedule.
+    FocusChangeEvents,
 }
 
 /// If no entity is focused, sets the focus to the primary window, if any.
@@ -257,8 +318,8 @@ pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
-    if input_focus.0.is_none() {
-        input_focus.0 = Some(*window);
+    if input_focus.get().is_none() {
+        input_focus.set(*window);
     }
 }
 
@@ -276,7 +337,7 @@ pub fn dispatch_focused_input<M: Message + Clone>(
 ) {
     if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
-        if let Some(focused_entity) = focus.0 {
+        if let Some(focused_entity) = focus.get() {
             // Check if the focused entity is still alive
             if entities.contains(focused_entity) {
                 for ev in input_reader.read() {
@@ -288,7 +349,7 @@ pub fn dispatch_focused_input<M: Message + Clone>(
                 }
             } else {
                 // If the focused entity no longer exists, clear focus and dispatch to window
-                focus.0 = None;
+                focus.clear();
                 for ev in input_reader.read() {
                     commands.trigger(FocusedInput {
                         focused_entity: window,
@@ -352,12 +413,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
     fn is_focused(&self, entity: Entity) -> bool {
         self.input_focus
             .as_deref()
-            .and_then(|f| f.0)
+            .and_then(InputFocus::get)
             .is_some_and(|e| e == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.input_focus.as_deref().and_then(|f| f.0) else {
+        let Some(focus) = self.input_focus.as_deref().and_then(InputFocus::get) else {
             return false;
         };
         if focus == entity {
@@ -378,12 +439,12 @@ impl IsFocused for IsFocusedHelper<'_, '_> {
 impl IsFocused for World {
     fn is_focused(&self, entity: Entity) -> bool {
         self.get_resource::<InputFocus>()
-            .and_then(|f| f.0)
+            .and_then(InputFocus::get)
             .is_some_and(|f| f == entity)
     }
 
     fn is_focus_within(&self, entity: Entity) -> bool {
-        let Some(focus) = self.get_resource::<InputFocus>().and_then(|f| f.0) else {
+        let Some(focus) = self.get_resource::<InputFocus>().and_then(InputFocus::get) else {
             return false;
         };
         let mut e = focus;
@@ -480,17 +541,17 @@ mod tests {
     #[test]
     fn initial_focus_unset_if_no_primary_window() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, None);
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 
     #[test]
     fn initial_focus_set_to_primary_window() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         let entity_window = app
             .world_mut()
@@ -498,13 +559,16 @@ mod tests {
             .id();
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity_window));
+        assert_eq!(
+            app.world().resource::<InputFocus>().get(),
+            Some(entity_window)
+        );
     }
 
     #[test]
     fn initial_focus_not_overridden() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
 
@@ -521,7 +585,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            app.world().resource::<InputFocus>().0,
+            app.world().resource::<InputFocus>().get(),
             Some(autofocus_entity)
         );
     }
@@ -539,7 +603,7 @@ mod tests {
 
         let mut app = App::new();
 
-        app.add_plugins((InputPlugin, InputDispatchPlugin))
+        app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
@@ -578,7 +642,7 @@ mod tests {
         assert_eq!(get_gathered(&app, entity_b), "");
         assert_eq!(get_gathered(&app, child_of_b), "");
 
-        app.world_mut().insert_resource(InputFocus(None));
+        app.world_mut().insert_resource(InputFocus::default());
 
         assert!(!app.world().is_focused(entity_a));
         assert!(!app.world().is_focus_visible(entity_a));
@@ -656,7 +720,7 @@ mod tests {
     #[test]
     fn dispatch_clears_focus_when_focused_entity_despawned() {
         let mut app = App::new();
-        app.add_plugins((InputPlugin, InputDispatchPlugin));
+        app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         app.update();
@@ -666,12 +730,12 @@ mod tests {
             .insert_resource(InputFocus::from_entity(entity));
         app.world_mut().entity_mut(entity).despawn();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity));
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(entity));
 
         // Send input event - this should clear focus instead of panicking
         app.world_mut().write_message(key_a_message());
         app.update();
 
-        assert_eq!(app.world().resource::<InputFocus>().0, None);
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
     }
 }

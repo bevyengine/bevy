@@ -3,6 +3,7 @@
 use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
+use bevy_dev_tools::schedule_data::serde::ScheduleData;
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
@@ -526,25 +527,10 @@ pub struct BrpScheduleListResponse {
 /// If a system (f2) is placed in a developer-created set (S1), then there is a hierarchy edge (S1 -> f2).
 ///
 /// If a schedule adds a condition f1.after(S1) , then a dependency edge is added (S1 -> f1)
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpScheduleGraphResponse {
-    systemsets: Vec<BrpSystemSet>,
-
-    hierarchy_nodes: Vec<String>,
-    hierarchy_edges: Vec<(String, String)>,
-
-    dependency_nodes: Vec<String>,
-    dependency_edges: Vec<(String, String)>,
-}
-
-/// Details on a system set
-///
-/// The `key` is used in the nodes and edges in [`BrpScheduleGraphResponse`]
-/// The `method` is either the fully qualified system name, or the system set name
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpSystemSet {
-    key: String,
-    method: String,
+    /// The extracted data for the requested schedule.
+    pub schedule_data: ScheduleData,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -1627,50 +1613,29 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
 
     let schedules = world.resource::<Schedules>();
 
-    let matching_schedule = schedules
+    let Some((label, schedule)) = schedules
         .iter()
-        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label);
-
-    if matching_schedule.is_none() {
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label)
+    else {
         return Err(BrpError::resource_error(format!(
-            "Schedule with label={:} not found",
+            "Schedule with label={:} not found. This may be because this schedule is currently running",
             schedule_label
         )));
-    }
+    };
 
-    let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
+    // TODO: We should consider saving all the `ScheduleBuilt` events when BRP is enabled, and
+    // looking it up here (or even building the schedule here to get the metadata to fill it in).
+    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), None) {
+        Ok(schedule_data) => schedule_data,
+        Err(err) => {
+            return Err(BrpError::internal(format!(
+                "Failed to collect the schedule data for {:?}: {err}",
+                label
+            )));
+        }
+    };
 
-    let (_label, schedule) = matching_schedule.unwrap();
-
-    let g = schedule.graph();
-    for (systemsetkey, method, _b) in g.system_sets.iter() {
-        response.systemsets.push(BrpSystemSet {
-            key: format!("{:?}", systemsetkey),
-            method: format!("{:?}", method),
-        });
-    }
-
-    let hie = g.hierarchy();
-    for node in hie.nodes() {
-        response.hierarchy_nodes.push(format!("{:?}", node));
-    }
-    for (n1, n2) in hie.all_edges() {
-        response
-            .hierarchy_edges
-            .push((format!("{:?}", n1), format!("{:?}", n2)));
-    }
-
-    let dep = g.dependency();
-    for node in dep.nodes() {
-        response.dependency_nodes.push(format!("{:?}", node));
-    }
-    for (n1, n2) in dep.all_edges() {
-        response
-            .dependency_edges
-            .push((format!("{:?}", n1), format!("{:?}", n2)));
-    }
-
-    serde_json::to_value(response).map_err(BrpError::internal)
+    serde_json::to_value(BrpScheduleGraphResponse { schedule_data }).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
@@ -1893,7 +1858,7 @@ fn get_resource_entity_pair(
         .resource_entities()
         .get(component_id)
         .ok_or(anyhow!("Resource entity does not exist."))?;
-    Ok((*entity, component_id))
+    Ok((entity, component_id))
 }
 
 #[cfg(test)]
@@ -2215,9 +2180,8 @@ mod tests {
         // Each system creates a corresponding system set.
         // In the below notation we use f1 for the system, and F1 for the corresponding system set.
         // Above schedule should have the following layout:
-        // - 4 systems (f1, f2, f3, f4)
+        // - 5 systems (f1, f2, f3, f4, apply_deferred)
         // - 6 system sets (F1, F2, F3, F4, S1, S2)
-        // - 10 hierarchy nodes and 10 dependency nodes (4 + 6)
         // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
         // - 2 dependency edges: f1 -> f2, S1 -> f4
 
@@ -2225,10 +2189,12 @@ mod tests {
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
 
-        assert_eq!(res3.systemsets.len(), 6);
-        assert_eq!(res3.hierarchy_nodes.len(), 10);
-        assert_eq!(res3.dependency_nodes.len(), 10);
-        assert_eq!(res3.hierarchy_edges.len(), 6);
-        assert_eq!(res3.dependency_edges.len(), 2);
+        assert_eq!(res3.schedule_data.systems.len(), 5,);
+        assert_eq!(res3.schedule_data.system_sets.len(), 6);
+        assert_eq!(res3.schedule_data.hierarchy.len(), 6);
+        assert_eq!(res3.schedule_data.dependency.len(), 2);
+        // Components are only currently recorded for conflicts - this may change in the future.
+        assert_eq!(res3.schedule_data.components.len(), 0);
+        assert_eq!(res3.schedule_data.conflicts.len(), 0);
     }
 }

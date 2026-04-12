@@ -649,6 +649,11 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
 
+    /// Sets the inline axis direction (LTR or RTL) used for layout.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/direction>
+    pub direction: InlineDirection,
+
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -839,6 +844,7 @@ impl Node {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -872,6 +878,22 @@ impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Sets the inline axis direction (LTR or RTL) used for layout.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InlineDirection {
+    /// Left-to-right
+    #[default]
+    Ltr,
+    /// Right-to-left
+    Rtl,
 }
 
 /// Used to control how each individual item is aligned by default within the space they're given.

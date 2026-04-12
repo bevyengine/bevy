@@ -9,7 +9,6 @@ use bevy::{
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::observe,
 };
 
 fn main() {
@@ -24,10 +23,12 @@ fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str
     println!("key pressed: {}", virtual_key_pressed.key);
 }
 
-fn setup(mut commands: Commands) {
-    // ui camera
-    commands.spawn(Camera2d);
+fn setup(world: &mut World) -> Result {
+    world.spawn_scene_list(bsn_list![Camera2d, keyboard()])?;
+    Ok(())
+}
 
+fn keyboard() -> impl Scene {
     let layout = [
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", ","],
         vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -37,34 +38,32 @@ fn setup(mut commands: Commands) {
         vec!["left", "right", "up", "down", "home", "end"],
     ];
 
-    commands.spawn((
+    bsn! {
         Node {
             width: percent(100),
             height: percent(100),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
-            ..default()
-        },
-        children![(
+        }
+        Children [(
             Node {
                 flex_direction: FlexDirection::Column,
-                border: px(5).into(),
+                border: px(5),
                 row_gap: px(5),
-                padding: px(5).into(),
+                padding: px(5),
                 align_items: AlignItems::Center,
-                margin: px(25).into(),
+                margin: px(25),
                 border_radius: BorderRadius::all(px(10)),
-                ..Default::default()
-            },
-            BackgroundColor(NAVY.into()),
-            BorderColor::all(Color::WHITE),
-            children![
-                Text::new("virtual keyboard"),
+            }
+            BackgroundColor(NAVY)
+            BorderColor::all(Color::WHITE)
+            Children [
+                Text("virtual keyboard"),
                 (
-                    virtual_keyboard(layout.into_iter()),
-                    observe(on_virtual_key_pressed)
+                    virtual_keyboard(layout.into_iter())
+                    on(on_virtual_key_pressed)
                 )
             ]
-        )],
-    ));
+        )]
+    }
 }

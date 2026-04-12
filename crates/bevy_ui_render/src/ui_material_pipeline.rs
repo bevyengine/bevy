@@ -50,7 +50,7 @@ where
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>, GpuImage>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
