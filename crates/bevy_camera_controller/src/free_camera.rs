@@ -16,7 +16,7 @@
 // TODO: Discuss switching camera to orthographic mode.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
-use bevy_camera::Camera;
+use bevy_camera::{Camera, OrthographicProjection, Projection};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
@@ -45,8 +45,13 @@ impl Plugin for FreeCameraPlugin {
         // This ordering is required so that both fixed update and update systems can see the results correctly
         app.add_systems(
             RunFixedMainLoop,
-            (run_freecamera_controller, rotate_freecam_to)
-                .chain()
+            (
+                run_freecamera_controller,
+                // These systems do not have a dependency on each other,
+                // so we should not use .chain() to order them
+                rotate_freecam_to.after(run_freecamera_controller),
+                snap_freecam_projection.after(run_freecamera_controller),
+            )
                 .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
     }
@@ -236,7 +241,7 @@ impl Default for FreeCameraState {
     }
 }
 
-/// A state machine that represents the current motion state of the free camera,
+/// A state machine representing the current motion state of the free camera,
 /// used to determine how to update the camera's perspective projection and orientation.
 ///
 /// Stored in [`FreeCameraState`] and updated by the [`FreeCameraPlugin`] systems in response to user input.
@@ -246,13 +251,24 @@ pub enum FreeCamMotion {
     /// The camera is snapping to a predefined orientation.
     Snapping {
         /// Dictates camera movement during camera snap at speed, specified in [`FreeCamera`] by [`FreeCamera::rotation_speed`] field.
-        /// Consist of counter of seconds from pressing curve snap hotkeys and curve that used to interpolate between old and new rotation
+        ///
+        /// The first argument tracks the seconds since this state was enterered.
+        /// The second argument is the curve that used to interpolate between old and new rotation.
         rotation_curve: (f32, SampleAutoCurve<Quat>),
+        /// The previous projection before snapping, used to restore the original projection when returning to free camera mode.
+        previous_projection: Projection,
     },
     /// The camera's orientation is at rest, locked to a predefined orientation.
-    Snapped,
+    Snapped {
+        /// The previous projection before snapping, used to restore the original projection when returning to free camera mode.
+        previous_projection: Projection,
+    },
+    /// The camera is returning to free movement after being snapped to an axis.
+    Returning {
+        /// The previous projection before snapping, used to restore the original projection when returning to free camera mode.
+        previous_projection: Projection,
+    },
 }
-
 /// Updates the camera's position and orientation based on user input.
 ///
 /// - [`FreeCamera`] contains static configuration such as key bindings, movement speed, and sensitivity.
@@ -271,11 +287,19 @@ pub fn run_freecamera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    free_cam: Single<(&mut Transform, &mut FreeCameraState, &FreeCamera), With<Camera>>,
+    free_cam: Single<
+        (
+            &mut Transform,
+            &mut FreeCameraState,
+            &FreeCamera,
+            &Projection,
+        ),
+        With<Camera>,
+    >,
 ) {
     let dt = time.delta_secs();
 
-    let (mut transform, mut state, config) = free_cam.into_inner();
+    let (mut transform, mut state, config, projection) = free_cam.into_inner();
     if !state.initialized {
         let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
         state.yaw = yaw;
@@ -393,7 +417,14 @@ pub fn run_freecamera_controller(
     // Handle mouse input
     if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
         // Update our state machine
-        state.motion_state = FreeCamMotion::Free;
+        if let FreeCamMotion::Snapped {
+            previous_projection,
+        } = &state.motion_state
+        {
+            state.motion_state = FreeCamMotion::Returning {
+                previous_projection: previous_projection.clone(),
+            };
+        }
 
         // Apply look update
         state.pitch = (state.pitch
@@ -438,16 +469,18 @@ pub fn run_freecamera_controller(
     }
 
     if let Some((dir, up)) = rotate_to {
-        let start = transform.rotation;
-        let target = Transform::default().looking_to(dir, up).rotation; // I don't understand why Quat::look_to_rh produce different result.
-        let angle = target.angle_between(start);
+        let rotation_start = transform.rotation;
+        let rotation_target = Transform::default().looking_to(dir, up).rotation; // I don't understand why Quat::look_to_rh produce different result.
+        let angle = rotation_target.angle_between(rotation_start);
         let rotation_time = angle / config.rotation_speed;
 
         if let Ok(interval) = Interval::new(0.0, rotation_time) {
-            let curve = SampleAutoCurve::new(interval, [start, target])
-                .expect("Interval should be in bounds as start and end are finite numbers");
+            let rotation_curve =
+                SampleAutoCurve::new(interval, [rotation_start, rotation_target]).unwrap();
+
             state.motion_state = FreeCamMotion::Snapping {
-                rotation_curve: (0.0, curve),
+                rotation_curve: (0.0, rotation_curve),
+                previous_projection: projection.clone(),
             };
         }
     }
@@ -470,6 +503,8 @@ pub fn rotate_freecam_to(
 
     let FreeCamMotion::Snapping {
         rotation_curve: (progress, curve),
+        previous_projection,
+        ..
     } = &mut state.motion_state
     else {
         return;
@@ -478,9 +513,32 @@ pub fn rotate_freecam_to(
     *progress += time.delta_secs();
     transform.rotation = curve.sample_clamped(*progress);
     if !curve.domain().contains(*progress) {
-        state.motion_state = FreeCamMotion::Snapped;
+        state.motion_state = FreeCamMotion::Snapped {
+            previous_projection: previous_projection.clone(),
+        };
     }
     let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
     state.pitch = pitch;
     state.yaw = yaw;
+}
+
+/// Snaps the projection of the [`FreeCamera`] camera when transitioning between [`FreeCamMotion::Snapped`] and [`FreeCamMotion::Free`].
+// TODO: this should smoothly warp the projection instead of snapping it
+pub fn snap_freecam_projection(
+    free_cam: Single<(&mut FreeCameraState, &mut Projection), With<Camera>>,
+) {
+    let (mut state, mut projection) = free_cam.into_inner();
+
+    match &mut state.motion_state {
+        FreeCamMotion::Snapped { .. } => {
+            *projection = Projection::Orthographic(OrthographicProjection::default_3d());
+        }
+        FreeCamMotion::Returning {
+            previous_projection,
+        } => {
+            *projection = previous_projection.clone();
+            state.motion_state = FreeCamMotion::Free;
+        }
+        FreeCamMotion::Free | FreeCamMotion::Snapping { .. } => {}
+    }
 }
