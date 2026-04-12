@@ -1,12 +1,14 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
 use bevy_asset::{
+    io::Writer,
     saver::{AssetSaver, SavedAsset},
     AssetPath,
 };
 use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
+use wgpu_types::TextureFormat;
 
 /// An [`AssetSaver`] for [`Image`] that compresses texture files.
 ///
@@ -27,10 +29,13 @@ pub enum CompressedImageSaverError {
     Io(#[from] std::io::Error),
     /// The underlying compression library returned an error.
     #[error(transparent)]
-    CompressionFailed(Box<dyn std::error::Error>),
+    CompressionFailed(Box<dyn std::error::Error + Send + Sync>),
     /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
+    /// The texture format is not supported for compression.
+    #[error("Unsupported texture format for compression: {0:?}")]
+    UnsupportedFormat(TextureFormat),
 }
 
 impl AssetSaver for CompressedImageSaver {
@@ -43,7 +48,7 @@ impl AssetSaver for CompressedImageSaver {
     #[cfg(feature = "compressed_image_saver_desktop")]
     async fn save(
         &self,
-        writer: &mut bevy_asset::io::Writer,
+        writer: &mut Writer,
         image: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
         _asset_path: AssetPath<'_>,
@@ -58,11 +63,14 @@ impl AssetSaver for CompressedImageSaver {
             ));
         }
 
+        let input_format = map_to_ctt_texture_format(image.texture_descriptor.format)?;
+        let output_format = choose_ctt_compressed_format(image.texture_descriptor.format)?;
+
         let is_srgb = image.texture_descriptor.format.is_srgb();
         let color_space = if is_srgb {
-            ctt::format::ColorSpace::Srgb
+            ctt::ColorSpace::Srgb
         } else {
-            ctt::format::ColorSpace::Linear
+            ctt::ColorSpace::Linear
         };
 
         let is_cubemap = matches!(
@@ -73,43 +81,54 @@ impl AssetSaver for CompressedImageSaver {
             })
         );
 
-        let layers = (0..image.texture_descriptor.array_layer_count())
-            .into_iter()
-            .map(|layer| {
-                vec![ctt::image::RawImage {
-                    data: todo!(),
+        let bytes_per_pixel =
+            crate::TextureFormatPixelInfo::pixel_size(&image.texture_descriptor.format).map_err(
+                |_| CompressedImageSaverError::UnsupportedFormat(image.texture_descriptor.format),
+            )? as u32;
+
+        let surfaces = data
+            .chunks_exact((image.width() * image.height() * bytes_per_pixel) as usize)
+            .map(|layer_data| {
+                vec![ctt::Surface {
+                    data: layer_data.to_vec(),
                     width: image.width(),
                     height: image.height(),
-                    stride: todo!(),
-                    pixel_format: ctt::format::PixelFormat {
-                        components: match image.texture_descriptor.format.components() {
-                            1 => ctt::format::PixelComponents::R,
-                            2 => ctt::format::PixelComponents::Rg,
-                            3 => ctt::format::PixelComponents::Rgb,
-                            4 => ctt::format::PixelComponents::Rgba,
-                            _ => unreachable!(),
-                        },
-                        channel_type: todo!(),
-                        color_space,
-                    },
-                }];
+                    stride: image.width() * bytes_per_pixel,
+                    format: input_format,
+                    color_space,
+                    alpha: ctt::AlphaMode::Straight, // TODO: User-configurable?
+                }]
             })
             .collect();
-        let layout = ctt::image::ImageLayout { layers, is_cubemap };
-
-        let config = ctt::config::CompressConfig {
-            format: todo!(),
-            output_format: ctt::config::OutputFormat::Ktx2,
-            swizzle: None,
-            color_space,
-            encode_settings: None,
+        let ctt_image = ctt::Image {
+            surfaces,
+            is_cubemap,
         };
 
-        let compressed_bytes = ctt::pipeline::run(&config, layout)
-            .await
-            .map_err(|e| CompressedImageSaver::CompressionFailed(Box::new(e)))?;
+        let settings = ctt::ConvertSettings {
+            format: Some(output_format),
+            container: ctt::Container::Ktx2,
+            quality: ctt::Quality::default(),
+            output_color_space: None,
+            output_alpha: None,
+            swizzle: None,
+            mipmap: true,
+            mipmap_count: None,
+            mipmap_filter: ctt::MipmapFilter::default(),
+            allow_lossy: true,
+            encoder_settings: None,
+            registry: None,
+        };
 
-        writer.write_all(&compressed_bytes).await?;
+        let output = ctt::convert(ctt_image, settings)
+            .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
+        let ctt::ConvertOutput::Encoded(compressed_bytes) = &output else {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                "Expected encoded output from ctt".into(),
+            ));
+        };
+
+        writer.write_all(compressed_bytes).await?;
 
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(ImageFormat::Ktx2),
@@ -124,7 +143,7 @@ impl AssetSaver for CompressedImageSaver {
     #[cfg(feature = "compressed_image_saver_web")]
     async fn save(
         &self,
-        writer: &mut bevy_asset::io::Writer,
+        writer: &mut Writer,
         image: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
         _asset_path: AssetPath<'_>,
@@ -177,4 +196,242 @@ impl AssetSaver for CompressedImageSaver {
             array_layout: None,
         })
     }
+}
+
+#[cfg(feature = "compressed_image_saver_desktop")]
+fn choose_ctt_compressed_format(
+    input: TextureFormat,
+) -> Result<ctt::TargetFormat, CompressedImageSaverError> {
+    use ktx2::Format;
+
+    let format = match input {
+        // 1-channel snorm -> BC4 snorm
+        TextureFormat::R8Snorm | TextureFormat::R16Snorm => Format::BC4_SNORM_BLOCK,
+
+        // 1-channel -> BC4
+        TextureFormat::R8Unorm
+        | TextureFormat::R8Uint
+        | TextureFormat::R8Sint
+        | TextureFormat::R16Uint
+        | TextureFormat::R16Sint
+        | TextureFormat::R16Unorm
+        | TextureFormat::R16Float
+        | TextureFormat::R32Uint
+        | TextureFormat::R32Sint
+        | TextureFormat::R32Float
+        | TextureFormat::R64Uint => Format::BC4_UNORM_BLOCK,
+
+        // 2-channel snorm -> BC5 snorm
+        TextureFormat::Rg8Snorm | TextureFormat::Rg16Snorm => Format::BC5_SNORM_BLOCK,
+
+        // 2-channel -> BC5
+        TextureFormat::Rg8Unorm
+        | TextureFormat::Rg8Uint
+        | TextureFormat::Rg8Sint
+        | TextureFormat::Rg16Uint
+        | TextureFormat::Rg16Sint
+        | TextureFormat::Rg16Unorm
+        | TextureFormat::Rg16Float
+        | TextureFormat::Rg32Uint
+        | TextureFormat::Rg32Sint
+        | TextureFormat::Rg32Float => Format::BC5_UNORM_BLOCK,
+
+        // HDR / float RGB formats -> BC6H
+        TextureFormat::Rgb9e5Ufloat
+        | TextureFormat::Rg11b10Ufloat
+        | TextureFormat::Rgba16Float
+        | TextureFormat::Rgba32Float => Format::BC6H_UFLOAT_BLOCK,
+
+        // 4-channel LDR -> BC7
+        TextureFormat::Rgba8Unorm
+        | TextureFormat::Rgba8Uint
+        | TextureFormat::Rgba8Sint
+        | TextureFormat::Rgba8Snorm
+        | TextureFormat::Rgba16Uint
+        | TextureFormat::Rgba16Sint
+        | TextureFormat::Rgba16Unorm
+        | TextureFormat::Rgba16Snorm
+        | TextureFormat::Rgba32Uint
+        | TextureFormat::Rgba32Sint
+        | TextureFormat::Bgra8Unorm
+        | TextureFormat::Rgb10a2Uint
+        | TextureFormat::Rgb10a2Unorm => Format::BC7_UNORM_BLOCK,
+        TextureFormat::Rgba8UnormSrgb | TextureFormat::Bgra8UnormSrgb => Format::BC7_SRGB_BLOCK,
+
+        // Already compressed -> pass through
+        TextureFormat::Bc1RgbaUnorm
+        | TextureFormat::Bc1RgbaUnormSrgb
+        | TextureFormat::Bc2RgbaUnorm
+        | TextureFormat::Bc2RgbaUnormSrgb
+        | TextureFormat::Bc3RgbaUnorm
+        | TextureFormat::Bc3RgbaUnormSrgb
+        | TextureFormat::Bc4RUnorm
+        | TextureFormat::Bc4RSnorm
+        | TextureFormat::Bc5RgUnorm
+        | TextureFormat::Bc5RgSnorm
+        | TextureFormat::Bc6hRgbUfloat
+        | TextureFormat::Bc6hRgbFloat
+        | TextureFormat::Bc7RgbaUnorm
+        | TextureFormat::Bc7RgbaUnormSrgb
+        | TextureFormat::Etc2Rgb8Unorm
+        | TextureFormat::Etc2Rgb8UnormSrgb
+        | TextureFormat::Etc2Rgb8A1Unorm
+        | TextureFormat::Etc2Rgb8A1UnormSrgb
+        | TextureFormat::Etc2Rgba8Unorm
+        | TextureFormat::Etc2Rgba8UnormSrgb
+        | TextureFormat::EacR11Unorm
+        | TextureFormat::EacR11Snorm
+        | TextureFormat::EacRg11Unorm
+        | TextureFormat::EacRg11Snorm
+        | TextureFormat::Astc { .. } => map_to_ctt_texture_format(input)?,
+
+        // Depth/stencil and video formats cannot be compressed
+        TextureFormat::Stencil8
+        | TextureFormat::Depth16Unorm
+        | TextureFormat::Depth24Plus
+        | TextureFormat::Depth24PlusStencil8
+        | TextureFormat::Depth32Float
+        | TextureFormat::Depth32FloatStencil8
+        | TextureFormat::NV12
+        | TextureFormat::P010 => {
+            return Err(CompressedImageSaverError::UnsupportedFormat(input));
+        }
+    };
+
+    Ok(ctt::TargetFormat::Compressed {
+        encoder_name: None,
+        format,
+    })
+}
+
+#[cfg(feature = "compressed_image_saver_desktop")]
+fn map_to_ctt_texture_format(
+    input: TextureFormat,
+) -> Result<ctt::Format, CompressedImageSaverError> {
+    use ctt::Format;
+    use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
+
+    Ok(match input {
+        TextureFormat::R8Unorm => Format::R8_UNORM,
+        TextureFormat::R8Snorm => Format::R8_SNORM,
+        TextureFormat::R8Uint => Format::R8_UINT,
+        TextureFormat::R8Sint => Format::R8_SINT,
+        TextureFormat::R16Uint => Format::R16_UINT,
+        TextureFormat::R16Sint => Format::R16_SINT,
+        TextureFormat::R16Unorm => Format::R16_UNORM,
+        TextureFormat::R16Snorm => Format::R16_SNORM,
+        TextureFormat::R16Float => Format::R16_SFLOAT,
+        TextureFormat::Rg8Unorm => Format::R8G8_UNORM,
+        TextureFormat::Rg8Snorm => Format::R8G8_SNORM,
+        TextureFormat::Rg8Uint => Format::R8G8_UINT,
+        TextureFormat::Rg8Sint => Format::R8G8_SINT,
+        TextureFormat::R32Uint => Format::R32_UINT,
+        TextureFormat::R32Sint => Format::R32_SINT,
+        TextureFormat::R32Float => Format::R32_SFLOAT,
+        TextureFormat::Rg16Uint => Format::R16G16_UINT,
+        TextureFormat::Rg16Sint => Format::R16G16_SINT,
+        TextureFormat::Rg16Unorm => Format::R16G16_UNORM,
+        TextureFormat::Rg16Snorm => Format::R16G16_SNORM,
+        TextureFormat::Rg16Float => Format::R16G16_SFLOAT,
+        TextureFormat::Rgba8Unorm => Format::R8G8B8A8_UNORM,
+        TextureFormat::Rgba8UnormSrgb => Format::R8G8B8A8_SRGB,
+        TextureFormat::Rgba8Snorm => Format::R8G8B8A8_SNORM,
+        TextureFormat::Rgba8Uint => Format::R8G8B8A8_UINT,
+        TextureFormat::Rgba8Sint => Format::R8G8B8A8_SINT,
+        TextureFormat::Bgra8Unorm => Format::B8G8R8A8_UNORM,
+        TextureFormat::Bgra8UnormSrgb => Format::B8G8R8A8_SRGB,
+        TextureFormat::Rgb9e5Ufloat => Format::E5B9G9R9_UFLOAT_PACK32,
+        TextureFormat::Rgb10a2Uint => Format::A2B10G10R10_UINT_PACK32,
+        TextureFormat::Rgb10a2Unorm => Format::A2B10G10R10_UNORM_PACK32,
+        TextureFormat::Rg11b10Ufloat => Format::B10G11R11_UFLOAT_PACK32,
+        TextureFormat::R64Uint => Format::R64_UINT,
+        TextureFormat::Rg32Uint => Format::R32G32_UINT,
+        TextureFormat::Rg32Sint => Format::R32G32_SINT,
+        TextureFormat::Rg32Float => Format::R32G32_SFLOAT,
+        TextureFormat::Rgba16Uint => Format::R16G16B16A16_UINT,
+        TextureFormat::Rgba16Sint => Format::R16G16B16A16_SINT,
+        TextureFormat::Rgba16Unorm => Format::R16G16B16A16_UNORM,
+        TextureFormat::Rgba16Snorm => Format::R16G16B16A16_SNORM,
+        TextureFormat::Rgba16Float => Format::R16G16B16A16_SFLOAT,
+        TextureFormat::Rgba32Uint => Format::R32G32B32A32_UINT,
+        TextureFormat::Rgba32Sint => Format::R32G32B32A32_SINT,
+        TextureFormat::Rgba32Float => Format::R32G32B32A32_SFLOAT,
+        TextureFormat::Stencil8 => Format::S8_UINT,
+        TextureFormat::Depth16Unorm => Format::D16_UNORM,
+        TextureFormat::Depth24Plus => Format::X8_D24_UNORM_PACK32,
+        TextureFormat::Depth24PlusStencil8 => Format::D24_UNORM_S8_UINT,
+        TextureFormat::Depth32Float => Format::D32_SFLOAT,
+        TextureFormat::Depth32FloatStencil8 => Format::D32_SFLOAT_S8_UINT,
+        TextureFormat::NV12 | TextureFormat::P010 => {
+            return Err(CompressedImageSaverError::UnsupportedFormat(input));
+        }
+        TextureFormat::Bc1RgbaUnorm => Format::BC1_RGBA_UNORM_BLOCK,
+        TextureFormat::Bc1RgbaUnormSrgb => Format::BC1_RGBA_SRGB_BLOCK,
+        TextureFormat::Bc2RgbaUnorm => Format::BC2_UNORM_BLOCK,
+        TextureFormat::Bc2RgbaUnormSrgb => Format::BC2_SRGB_BLOCK,
+        TextureFormat::Bc3RgbaUnorm => Format::BC3_UNORM_BLOCK,
+        TextureFormat::Bc3RgbaUnormSrgb => Format::BC3_SRGB_BLOCK,
+        TextureFormat::Bc4RUnorm => Format::BC4_UNORM_BLOCK,
+        TextureFormat::Bc4RSnorm => Format::BC4_SNORM_BLOCK,
+        TextureFormat::Bc5RgUnorm => Format::BC5_UNORM_BLOCK,
+        TextureFormat::Bc5RgSnorm => Format::BC5_SNORM_BLOCK,
+        TextureFormat::Bc6hRgbUfloat => Format::BC6H_UFLOAT_BLOCK,
+        TextureFormat::Bc6hRgbFloat => Format::BC6H_SFLOAT_BLOCK,
+        TextureFormat::Bc7RgbaUnorm => Format::BC7_UNORM_BLOCK,
+        TextureFormat::Bc7RgbaUnormSrgb => Format::BC7_SRGB_BLOCK,
+        TextureFormat::Etc2Rgb8Unorm => Format::ETC2_R8G8B8_UNORM_BLOCK,
+        TextureFormat::Etc2Rgb8UnormSrgb => Format::ETC2_R8G8B8_SRGB_BLOCK,
+        TextureFormat::Etc2Rgb8A1Unorm => Format::ETC2_R8G8B8A1_UNORM_BLOCK,
+        TextureFormat::Etc2Rgb8A1UnormSrgb => Format::ETC2_R8G8B8A1_SRGB_BLOCK,
+        TextureFormat::Etc2Rgba8Unorm => Format::ETC2_R8G8B8A8_UNORM_BLOCK,
+        TextureFormat::Etc2Rgba8UnormSrgb => Format::ETC2_R8G8B8A8_SRGB_BLOCK,
+        TextureFormat::EacR11Unorm => Format::EAC_R11_UNORM_BLOCK,
+        TextureFormat::EacR11Snorm => Format::EAC_R11_SNORM_BLOCK,
+        TextureFormat::EacRg11Unorm => Format::EAC_R11G11_UNORM_BLOCK,
+        TextureFormat::EacRg11Snorm => Format::EAC_R11G11_SNORM_BLOCK,
+        TextureFormat::Astc { block, channel } => match (block, channel) {
+            (AstcBlock::B4x4, AstcChannel::Unorm) => Format::ASTC_4x4_UNORM_BLOCK,
+            (AstcBlock::B4x4, AstcChannel::UnormSrgb) => Format::ASTC_4x4_SRGB_BLOCK,
+            (AstcBlock::B4x4, AstcChannel::Hdr) => Format::ASTC_4x4_SFLOAT_BLOCK,
+            (AstcBlock::B5x4, AstcChannel::Unorm) => Format::ASTC_5x4_UNORM_BLOCK,
+            (AstcBlock::B5x4, AstcChannel::UnormSrgb) => Format::ASTC_5x4_SRGB_BLOCK,
+            (AstcBlock::B5x4, AstcChannel::Hdr) => Format::ASTC_5x4_SFLOAT_BLOCK,
+            (AstcBlock::B5x5, AstcChannel::Unorm) => Format::ASTC_5x5_UNORM_BLOCK,
+            (AstcBlock::B5x5, AstcChannel::UnormSrgb) => Format::ASTC_5x5_SRGB_BLOCK,
+            (AstcBlock::B5x5, AstcChannel::Hdr) => Format::ASTC_5x5_SFLOAT_BLOCK,
+            (AstcBlock::B6x5, AstcChannel::Unorm) => Format::ASTC_6x5_UNORM_BLOCK,
+            (AstcBlock::B6x5, AstcChannel::UnormSrgb) => Format::ASTC_6x5_SRGB_BLOCK,
+            (AstcBlock::B6x5, AstcChannel::Hdr) => Format::ASTC_6x5_SFLOAT_BLOCK,
+            (AstcBlock::B6x6, AstcChannel::Unorm) => Format::ASTC_6x6_UNORM_BLOCK,
+            (AstcBlock::B6x6, AstcChannel::UnormSrgb) => Format::ASTC_6x6_SRGB_BLOCK,
+            (AstcBlock::B6x6, AstcChannel::Hdr) => Format::ASTC_6x6_SFLOAT_BLOCK,
+            (AstcBlock::B8x5, AstcChannel::Unorm) => Format::ASTC_8x5_UNORM_BLOCK,
+            (AstcBlock::B8x5, AstcChannel::UnormSrgb) => Format::ASTC_8x5_SRGB_BLOCK,
+            (AstcBlock::B8x5, AstcChannel::Hdr) => Format::ASTC_8x5_SFLOAT_BLOCK,
+            (AstcBlock::B8x6, AstcChannel::Unorm) => Format::ASTC_8x6_UNORM_BLOCK,
+            (AstcBlock::B8x6, AstcChannel::UnormSrgb) => Format::ASTC_8x6_SRGB_BLOCK,
+            (AstcBlock::B8x6, AstcChannel::Hdr) => Format::ASTC_8x6_SFLOAT_BLOCK,
+            (AstcBlock::B8x8, AstcChannel::Unorm) => Format::ASTC_8x8_UNORM_BLOCK,
+            (AstcBlock::B8x8, AstcChannel::UnormSrgb) => Format::ASTC_8x8_SRGB_BLOCK,
+            (AstcBlock::B8x8, AstcChannel::Hdr) => Format::ASTC_8x8_SFLOAT_BLOCK,
+            (AstcBlock::B10x5, AstcChannel::Unorm) => Format::ASTC_10x5_UNORM_BLOCK,
+            (AstcBlock::B10x5, AstcChannel::UnormSrgb) => Format::ASTC_10x5_SRGB_BLOCK,
+            (AstcBlock::B10x5, AstcChannel::Hdr) => Format::ASTC_10x5_SFLOAT_BLOCK,
+            (AstcBlock::B10x6, AstcChannel::Unorm) => Format::ASTC_10x6_UNORM_BLOCK,
+            (AstcBlock::B10x6, AstcChannel::UnormSrgb) => Format::ASTC_10x6_SRGB_BLOCK,
+            (AstcBlock::B10x6, AstcChannel::Hdr) => Format::ASTC_10x6_SFLOAT_BLOCK,
+            (AstcBlock::B10x8, AstcChannel::Unorm) => Format::ASTC_10x8_UNORM_BLOCK,
+            (AstcBlock::B10x8, AstcChannel::UnormSrgb) => Format::ASTC_10x8_SRGB_BLOCK,
+            (AstcBlock::B10x8, AstcChannel::Hdr) => Format::ASTC_10x8_SFLOAT_BLOCK,
+            (AstcBlock::B10x10, AstcChannel::Unorm) => Format::ASTC_10x10_UNORM_BLOCK,
+            (AstcBlock::B10x10, AstcChannel::UnormSrgb) => Format::ASTC_10x10_SRGB_BLOCK,
+            (AstcBlock::B10x10, AstcChannel::Hdr) => Format::ASTC_10x10_SFLOAT_BLOCK,
+            (AstcBlock::B12x10, AstcChannel::Unorm) => Format::ASTC_12x10_UNORM_BLOCK,
+            (AstcBlock::B12x10, AstcChannel::UnormSrgb) => Format::ASTC_12x10_SRGB_BLOCK,
+            (AstcBlock::B12x10, AstcChannel::Hdr) => Format::ASTC_12x10_SFLOAT_BLOCK,
+            (AstcBlock::B12x12, AstcChannel::Unorm) => Format::ASTC_12x12_UNORM_BLOCK,
+            (AstcBlock::B12x12, AstcChannel::UnormSrgb) => Format::ASTC_12x12_SRGB_BLOCK,
+            (AstcBlock::B12x12, AstcChannel::Hdr) => Format::ASTC_12x12_SFLOAT_BLOCK,
+        },
+    })
 }
