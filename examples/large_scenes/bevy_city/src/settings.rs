@@ -15,6 +15,7 @@ use rand::RngExt;
 
 use crate::assets::CityAssets;
 use crate::generate_city::{spawn_city, CityRoot, TrafficLight};
+#[allow(unused_imports)]
 use crate::CitySpawned;
 
 #[derive(Resource)]
