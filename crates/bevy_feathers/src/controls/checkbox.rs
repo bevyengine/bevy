@@ -34,6 +34,21 @@ use crate::{
     tokens,
 };
 
+/// Parameters for the checkbox template, passed to [`checkbox`] function.
+pub struct CheckboxProps {
+    /// Label for this checkbox. This can contain multiple entities, which will be contained
+    /// in a flexbox.
+    pub caption: Box<dyn SceneList>,
+}
+
+impl Default for CheckboxProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+        }
+    }
+}
+
 /// Marker for the checkbox frame (contains both checkbox and label)
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
@@ -55,7 +70,7 @@ struct CheckboxMark;
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn checkbox() -> impl Scene {
+pub fn checkbox(props: CheckboxProps) -> impl Scene {
     bsn! {
         Node {
             display: Display::Flex,
@@ -102,22 +117,20 @@ pub fn checkbox() -> impl Scene {
                 UiTransform::from_rotation(Rot2::FRAC_PI_4)
                 CheckboxMark
                 ThemeBorderColor(tokens::CHECKBOX_MARK)
-            )]
-        )]
+            )]),
+            {props.caption}
+        ]
     }
 }
 
 /// Template function to spawn a checkbox.
 ///
-/// # Arguments
-/// * `props` - construction properties for the checkbox.
-/// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
-/// * `label` - the label of the checkbox.
+/// This version does not take any props. A caption can be set by appending a child entity.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the checkbox() BSN function")]
 pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,

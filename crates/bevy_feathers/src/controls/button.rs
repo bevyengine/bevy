@@ -43,12 +43,24 @@ pub enum ButtonVariant {
 }
 
 /// Parameters for the button template, passed to [`button`] function.
-#[derive(Default)]
 pub struct ButtonProps {
+    /// Label for this button. This can contain multiple entities, which will be contained
+    /// in a horizontal flexbox.
+    pub caption: Box<dyn SceneList>,
     /// Color variant for the button.
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
+}
+
+impl Default for ButtonProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+            variant: ButtonVariant::default(),
+            corners: Default::default(),
+        }
+    }
 }
 
 /// Scene function to spawn a button.
@@ -85,15 +97,25 @@ pub fn button(props: ButtonProps) -> impl Scene {
             font_size: FontSize::Px(14.0),
             weight: FontWeight::NORMAL,
         }
+        Children [
+            {props.caption}
+        ]
     }
+}
+
+/// Parameters for the [`button_bundle`] template.
+#[derive(Default)]
+pub struct ButtonBundleProps {
+    /// Color variant for the button.
+    pub variant: ButtonVariant,
+    /// Rounded corners options
+    pub corners: RoundedCorners,
 }
 
 /// Template function to spawn a button.
 ///
 /// # Arguments
 /// * `props` - construction properties for the button.
-/// * `overrides` - a bundle of components that are merged in with the normal button components.
-/// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::Activate`] when any of the following happens:
@@ -103,7 +125,7 @@ pub fn button(props: ButtonProps) -> impl Scene {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the button() BSN function")]
 pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonProps,
+    props: ButtonBundleProps,
     overrides: B,
     children: C,
 ) -> impl Bundle {

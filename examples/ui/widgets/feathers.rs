@@ -6,9 +6,9 @@ use bevy::{
         controls::{
             button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
             menu_item, menu_popup, radio, slider, text_input, text_input_container, toggle_switch,
-            ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
-            ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
-            SliderBaseColor, SliderProps, TextInputProps,
+            ButtonProps, ButtonVariant, CheckboxProps, ColorChannel, ColorPlane, ColorPlaneValue,
+            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps,
+            MenuItemProps, RadioProps, SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -101,31 +101,41 @@ fn demo_root() -> impl Scene {
                     }
                     Children [
                         (
-                            button(ButtonProps::default())
+                            button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Normal") ThemedText),
+                                )),
+                                ..default()
+                            })
                             on(|_activate: On<Activate>| {
                                 info!("Normal button clicked!");
                             })
                             AutoFocus
-                            Children [ (Text::new("Normal") ThemedText) ]
                         ),
                         (
-                            button(ButtonProps::default())
+                            button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                                ..default()
+                            })
                             InteractionDisabled
                             DemoDisabledButton
                             on(|_activate: On<Activate>| {
                                 info!("Disabled button clicked!");
                             })
-                            Children [ (Text::new("Disabled") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Primary") ThemedText),
+                                )),
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Disabled button clicked!");
                             })
-                            Children [ (Text::new("Primary") ThemedText) ]
                         ),
                         (
                             :menu
@@ -185,33 +195,39 @@ fn demo_root() -> impl Scene {
                     Children [
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Left") ThemedText),
+                                )),
                                 corners: RoundedCorners::Left,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Left button clicked!");
                             })
-                            Children [ (Text::new("Left") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Center") ThemedText),
+                                )),
                                 corners: RoundedCorners::None,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Center button clicked!");
                             })
-                            Children [ (Text::new("Center") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Right") ThemedText),
+                                )),
                                 variant: ButtonVariant::Primary,
                                 corners: RoundedCorners::Right,
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Right button clicked!");
                             })
-                            Children [ (Text::new("Right") ThemedText) ]
                         ),
                     ]
                 ),
@@ -228,7 +244,11 @@ fn demo_root() -> impl Scene {
                     Children [ (Text::new("Toggle override") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Checkbox") ThemedText),
+                        )),
+                    })
                     Checked
                     on(
                         |change: On<ValueChange<bool>>,
@@ -249,24 +269,29 @@ fn demo_root() -> impl Scene {
                             }
                         }
                     )
-                    Children [ (Text::new("Checkbox") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Disabled") ThemedText),
+                        )),
+                    })
                     InteractionDisabled
                     on(|_change: On<ValueChange<bool>>| {
                         warn!("Disabled checkbox clicked!");
                     })
-                    Children [ (Text::new("Disabled") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Disabled+Checked") ThemedText),
+                        )),
+                    })
                     InteractionDisabled
                     Checked
                     on(|_change: On<ValueChange<bool>>| {
                         warn!("Disabled checkbox clicked!");
                     })
-                    Children [ (Text::new("Disabled+Checked") ThemedText) ]
                 ),
                 (
                     Node {
@@ -289,10 +314,26 @@ fn demo_root() -> impl Scene {
                         }
                     )
                     Children [
-                        (radio() Checked Children [ (Text::new("One") ThemedText) ]),
-                        (radio() Children [ (Text::new("Two") ThemedText) ]),
-                        (radio() Children [ (Text::new("Three") ThemedText) ]),
-                        (radio() InteractionDisabled Children [ (Text::new("Disabled") ThemedText) ]),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("One") ThemedText),
+                            )),
+                        }) Checked),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Two") ThemedText),
+                            )),
+                        })),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Three") ThemedText),
+                            )),
+                        })),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Disabled") ThemedText),
+                            )),
+                        }) InteractionDisabled),
                     ]
                 ),
                 (

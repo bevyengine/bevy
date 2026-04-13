@@ -3,7 +3,7 @@ use bevy::{
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
-        controls::{button, checkbox, ButtonProps},
+        controls::{button, checkbox, ButtonProps, CheckboxProps},
         theme::{ThemeBackgroundColor, ThemedText},
     },
     pbr::wireframe::WireframeConfig,
@@ -67,16 +67,23 @@ pub fn settings_ui() -> impl Scene {
             Children [
                 Text("Settings"),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Simulate Cars") ThemedText),
+                        )),
+                    })
                     Checked
                     on(checkbox_self_update)
                     on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
                         settings.simulate_cars = change.value;
                     })
-                    Children [ (Text("Simulate Cars") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Shadow maps enabled") ThemedText),
+                        )),
+                    })
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -90,10 +97,13 @@ pub fn settings_ui() -> impl Scene {
                             }
                         }
                     )
-                    Children [ (Text("Shadow maps enabled") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Contact shadows enabled") ThemedText),
+                        )),
+                    })
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -107,10 +117,13 @@ pub fn settings_ui() -> impl Scene {
                             }
                         }
                     )
-                    Children [ (Text("Contact shadows enabled") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Wireframe Enabled") ThemedText),
+                        )),
+                    })
                     on(checkbox_self_update)
                     on(
                         |change: On<ValueChange<bool>>,
@@ -120,10 +133,13 @@ pub fn settings_ui() -> impl Scene {
                             wireframe_config.global = change.value;
                         }
                     )
-                    Children [ (Text("Wireframe Enabled") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("CPU culling") ThemedText),
+                        )),
+                    })
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -142,10 +158,14 @@ pub fn settings_ui() -> impl Scene {
                             }
                         }
                     )
-                    Children [ (Text("CPU culling") ThemedText) ]
                 ),
                 (
-                    button(ButtonProps::default())
+                    button(ButtonProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Regenerate City") ThemedText),
+                        )),
+                        ..Default::default()
+                    })
                     on(
                         |_activate: On<Activate>,
                          mut commands: Commands,
@@ -159,7 +179,6 @@ pub fn settings_ui() -> impl Scene {
                             spawn_city(&mut commands, &assets, seed, 32);
                         }
                     )
-                    Children [ (Text("Regenerate City") ThemedText) ]
                 ),
             ]
         )]
