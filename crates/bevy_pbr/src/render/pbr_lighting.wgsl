@@ -1046,8 +1046,8 @@ fn rect_light(
     let LUT_SCALE = 63.0 / 64.0;
     let LUT_BIAS  =  0.5 / 64.0;
     let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
-    let t1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, uv, 0.0);
-    let t2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, uv, 0.0);
+    let t1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut_sampler, uv, 0.0);
+    let t2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut_sampler, uv, 0.0);
 
     // Reconstruct the GGX inverse-LTC matrix
     let Minv = mat3x3<f32>(
@@ -1077,8 +1077,8 @@ fn rect_light(
 
     // Sample LUTs for clearcoat layer
     let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
-    let tc1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut1_sampler, cc_uv, 0.0);
-    let tc2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut2_sampler, cc_uv, 0.0);
+    let tc1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut_sampler, cc_uv, 0.0);
+    let tc2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut_sampler, cc_uv, 0.0);
     let Minv_cc = mat3x3<f32>(
         vec3<f32>(tc1.x, 0.0, tc1.y),
         vec3<f32>(0.0,   1.0, 0.0),
