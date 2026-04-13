@@ -171,6 +171,7 @@ pub struct VolumetricFogUniform {
     density_texture_offset: Vec3,
     scattering_asymmetry: f32,
     light_intensity: f32,
+    boundary_fade: f32,
     jitter_strength: f32,
 }
 
@@ -720,6 +721,7 @@ pub fn prepare_volumetric_fog_uniforms(
             // calculate the clip space transform.
             let z_near = extracted_view.clip_from_view.w_axis[2];
             let interior = camera_is_inside_fog_volume(&local_from_view, z_near);
+            let distance_to_border = fog_volume_boundary_distance(&local_from_view);
             let hull_clip_from_local = calculate_fog_volume_clip_from_local_transforms(
                 interior,
                 &extracted_view.clip_from_view,
@@ -748,6 +750,11 @@ pub fn prepare_volumetric_fog_uniforms(
                 density_texture_offset: fog_volume.density_texture_offset,
                 scattering_asymmetry: fog_volume.scattering_asymmetry,
                 light_intensity: fog_volume.light_intensity,
+                boundary_fade: calculate_fog_volume_boundary_fade(
+                    &local_from_view,
+                    interior,
+                    distance_to_border,
+                ),
                 jitter_strength: volumetric_fog.jitter,
             });
 
@@ -858,6 +865,80 @@ fn camera_is_inside_fog_volume(local_from_view: &Affine3A, z_near: f32) -> bool 
         .all()
 }
 
+fn fog_volume_boundary_distance(local_from_view: &Affine3A) -> f32 {
+    0.5 - local_from_view.translation.abs().max_element()
+}
+
+/// Computes the distance from the camera to the first exit point from the
+/// fog volume along the camera forward direction.
+fn fog_exit_distance_along_view(local_from_view: &Affine3A) -> f32 {
+    let camera_pos = local_from_view.translation;
+    let camera_forward_local = (local_from_view.matrix3 * Vec3A::NEG_Z).normalize_or_zero();
+
+    // Compute intersections with the six faces of the unit cube (±0.5).
+    let mut closest_t = 1e30_f32;
+
+    for &(axis, face) in &[
+        (0, 0.5),
+        (0, -0.5),
+        (1, 0.5),
+        (1, -0.5),
+        (2, 0.5),
+        (2, -0.5),
+    ] {
+        let denom = camera_forward_local[axis];
+        if denom.abs() < 1e-6 {
+            continue;
+        }
+        let t = (face - camera_pos[axis]) / denom;
+        if t > 0.0 {
+            let hit = camera_pos + camera_forward_local * t;
+            let other_axes = match axis {
+                0 => (1, 2),
+                1 => (0, 2),
+                _ => (0, 1),
+            };
+            if hit[other_axes.0].abs() <= 0.5 && hit[other_axes.1].abs() <= 0.5 {
+                closest_t = closest_t.min(t);
+            }
+        }
+    }
+
+    closest_t.max(0.1)
+}
+
+/// Returns a fade factor based on proximity to the volume boundary.
+fn calculate_fog_volume_boundary_fade(
+    local_from_view: &Affine3A,
+    interior: bool,
+    distance_to_border: f32,
+) -> f32 {
+    if !interior {
+        return 1.0;
+    }
+
+    let center_to_camera_dir_local = local_from_view.translation.normalize_or_zero();
+    let camera_forward_local = (local_from_view.matrix3 * Vec3A::NEG_Z).normalize_or_zero();
+    let outward_view_alignment = camera_forward_local.dot(center_to_camera_dir_local);
+    let is_looking_toward_volume_center = outward_view_alignment < 0.0;
+    if is_looking_toward_volume_center {
+        return 1.0;
+    }
+
+    // Use directional exit distance through the volume along view direction.
+    let fade_extent = fog_exit_distance_along_view(local_from_view);
+
+    if fade_extent <= 0.0 {
+        return 1.0;
+    }
+
+    let t = (distance_to_border / fade_extent).clamp(0.0, 1.0);
+    let base_fade = t * t * (3.0 - 2.0 * t);
+
+    let outward_weight = outward_view_alignment.clamp(0.0, 1.0);
+    1.0 - outward_weight * (1.0 - base_fade)
+}
+
 /// Given the local transforms, returns the matrix that transforms model space
 /// to clip space.
 fn calculate_fog_volume_clip_from_local_transforms(
@@ -906,6 +987,61 @@ mod tests {
 
         local_from_view.translation = Vec3A::new(0.56, 0.0, 0.0);
         assert!(!camera_is_inside_fog_volume(&local_from_view, 0.05));
+    }
+
+    #[test]
+    fn fog_volume_boundary_distance_is_signed_distance_to_surface() {
+        let mut local_from_view = Affine3A::IDENTITY;
+
+        local_from_view.translation = Vec3A::new(0.0, 0.0, 0.0);
+        assert_eq!(fog_volume_boundary_distance(&local_from_view), 0.5);
+
+        local_from_view.translation = Vec3A::new(0.5, 0.0, 0.0);
+        assert_eq!(fog_volume_boundary_distance(&local_from_view), 0.0);
+
+        local_from_view.translation = Vec3A::new(0.6, 0.0, 0.0);
+        assert!((fog_volume_boundary_distance(&local_from_view) + 0.1).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fog_exit_distance_along_view_hits_unit_cube_faces() {
+        let mut local_from_view = Affine3A::IDENTITY;
+
+        local_from_view.translation = Vec3A::ZERO;
+        assert_eq!(fog_exit_distance_along_view(&local_from_view), 0.5);
+
+        local_from_view.translation = Vec3A::new(0.0, 0.0, 0.25);
+        assert_eq!(fog_exit_distance_along_view(&local_from_view), 0.75);
+    }
+
+    #[test]
+    fn boundary_fade_is_full_outside_and_tapers_inside() {
+        let mut local_from_view = Affine3A::IDENTITY;
+
+        assert_eq!(
+            calculate_fog_volume_boundary_fade(&local_from_view, false, 0.5),
+            1.0
+        );
+
+        // Place camera on -Z axis so default forward (-Z) is outward.
+        local_from_view.translation = Vec3A::new(0.0, 0.0, -0.4);
+        assert_eq!(
+            calculate_fog_volume_boundary_fade(&local_from_view, true, 0.1),
+            1.0
+        );
+
+        local_from_view.translation = Vec3A::new(0.0, 0.0, -0.5);
+        assert_eq!(
+            calculate_fog_volume_boundary_fade(&local_from_view, true, 0.0),
+            0.0
+        );
+
+        // Looking back toward the center disables the fade.
+        local_from_view.translation = Vec3A::new(0.0, 0.0, 0.4);
+        assert_eq!(
+            calculate_fog_volume_boundary_fade(&local_from_view, true, 0.1),
+            1.0
+        );
     }
 
     #[test]

@@ -65,6 +65,7 @@ struct VolumetricFog {
     density_texture_offset: vec3<f32>,
     scattering_asymmetry: f32,
     light_intensity: f32,
+    boundary_fade: f32,
     jitter_strength: f32,
 }
 
@@ -121,6 +122,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let absorption = volumetric_fog.absorption;
     let scattering = volumetric_fog.scattering;
     let density_factor = volumetric_fog.density_factor;
+    let boundary_fade = volumetric_fog.boundary_fade;
     let density_texture_offset = volumetric_fog.density_texture_offset;
     let light_tint = volumetric_fog.light_tint;
     let light_intensity = volumetric_fog.light_intensity;
@@ -181,18 +183,24 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
+    // We assume world and view have the same scale here.
+    let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
+
     // Starting at the end depth, which we got above, figure out how long the
     // ray we want to trace is and the length of each increment.
     if (found_backface_hit) {
         end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
     } else {
         // Fallback for edge cases where numerical issues prevent selecting a
-        // back face: march until opaque scene depth.
-        end_depth_view = view_end_depth_from_buffer;
+        // back face. Clamp by a geometry-derived upper bound to avoid
+        // over-attenuating distant sky pixels.
+        let max_volume_thickness_view = 2.0 * bounding_radius;
+        end_depth_view = min(
+            view_end_depth_from_buffer,
+            start_depth_view + max_volume_thickness_view
+        );
     }
 
-    // We assume world and view have the same scale here.
-    let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
     let ray_length_view = max(0.0, end_depth_view - start_depth_view);
     if (ray_length_view == 0.0) {
         return vec4(0.0, 0.0, 0.0, 0.0);
@@ -268,7 +276,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
             let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-            var density = density_factor;
+            var density = density_factor * boundary_fade;
 #ifdef DENSITY_TEXTURE
             // Take the density texture into account, if there is one.
             //
@@ -362,7 +370,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-        var density = density_factor;
+        var density = density_factor * boundary_fade;
         var sample_color = vec3(0.0);
 
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
