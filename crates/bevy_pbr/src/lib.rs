@@ -30,7 +30,10 @@ pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::sync_component::SyncComponent;
+use bevy_render::{
+    sync_component::SyncComponent,
+    view::{RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities},
+};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -477,16 +480,31 @@ pub fn stbn_placeholder() -> Image {
 }
 
 impl SyncComponent<PbrPlugin> for DirectionalLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedDirectionalLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for PointLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for RectLight {
-    type Target = Self;
+    type Target = (Self, ExtractedRectLight);
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
     type Target = Self;
