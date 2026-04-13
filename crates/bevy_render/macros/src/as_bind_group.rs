@@ -1,5 +1,5 @@
 use bevy_macro_utils::{
-    fq_std::{FQOption, FQResult, FQVec},
+    fq_std::{FQOption, FQResult},
     get_lit_bool, get_lit_str, BevyManifest, Symbol,
 };
 use proc_macro::TokenStream;
@@ -179,7 +179,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 UniformBindingAttrType::Uniform => {
                     binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
-                            let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(#FQVec::new());
+                            let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                             let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                             buffer.write(&converted).unwrap();
                             (
@@ -241,7 +241,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
                             use #render_path::render_resource::encase::{ShaderType, internal::WriteInto};
-                            let mut buffer: #FQVec<u8> = #FQVec::new();
+                            let mut buffer: ::std::vec::Vec<u8> = ::std::vec::Vec::new();
                             let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                             converted.write_into(
                                 &mut #render_path::render_resource::encase::internal::Writer::new(
@@ -831,7 +831,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let field_name = field.ident.as_ref().unwrap();
                 let field_ty = &field.ty;
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(#FQVec::new());
+                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                     buffer.write(&self.#field_name).unwrap();
                     (
                         #binding_index,
@@ -877,7 +877,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                 let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(#FQVec::new());
+                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
@@ -1107,11 +1107,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             fn bind_group_layout_entries(
                 render_device: &#render_path::renderer::RenderDevice,
                 force_no_bindless: bool
-            ) -> #FQVec<#render_path::render_resource::BindGroupLayoutEntry> {
+            ) -> ::std::vec::Vec<#render_path::render_resource::BindGroupLayoutEntry> {
                 #actual_bindless_slot_count_declaration
                 #uniform_binding_type_declarations
 
-                let mut #bind_group_layout_entries = #FQVec::new();
+                let mut #bind_group_layout_entries = ::std::vec::Vec::new();
                 match #actual_bindless_slot_count {
                     #FQOption::Some(bindless_slot_count) => {
                         let bindless_index_table_range = #bindless_index_table_range;

@@ -43,8 +43,6 @@ use quote::{quote, ToTokens};
 pub struct FQAny;
 /// Fully Qualified (FQ) short name for [`Box`]
 pub struct FQBox;
-/// Fully Qualified (FQ) short name for [`Vec`]
-pub struct FQVec;
 /// Fully Qualified (FQ) short name for [`Clone`]
 pub struct FQClone;
 /// Fully Qualified (FQ) short name for [`Default`]
@@ -71,12 +69,6 @@ impl ToTokens for FQAny {
 impl ToTokens for FQBox {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         quote!(::std::boxed::Box).to_tokens(tokens);
-    }
-}
-
-impl ToTokens for FQVec {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        quote!(::std::vec::Vec).to_tokens(tokens);
     }
 }
 
