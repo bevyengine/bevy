@@ -32,7 +32,7 @@ use crate::{
         json_schema::{export_type, JsonSchemaBevyType},
         open_rpc::OpenRpcDocument,
     },
-    BrpError, BrpResult,
+    BrpError, BrpResult, PreviousScheduleBuildMetadata,
 };
 
 #[cfg(all(feature = "http", not(target_family = "wasm")))]
@@ -1613,7 +1613,7 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
 
     let schedules = world.resource::<Schedules>();
 
-    let Some((label, schedule)) = schedules
+    let Some((_, mut schedule)) = schedules
         .iter()
         .find(|(label, _schedule)| format!("{:?}", label) == schedule_label)
     else {
@@ -1622,10 +1622,33 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
             schedule_label
         )));
     };
+    // Get the interned label.
+    let label = schedule.label();
+
+    if schedule.is_changed() {
+        match world.schedule_scope(label, |world, schedule| schedule.initialize(world)) {
+            Ok(build_metadata) => {
+                assert!(build_metadata.is_some());
+            }
+            Err(err) => {
+                return Err(BrpError::internal(format!(
+                    "Failed to initialize schedule with label={label:?}: {err}"
+                )))
+            }
+        }
+        // Note: we don't need to insert into the `PreviousScheduleBuildMetadata`, since the
+        // metadata caching observer already does that for us.
+
+        schedule = world.resource::<Schedules>().get(label).unwrap();
+    }
+
+    let metadata = world
+        .get_resource::<PreviousScheduleBuildMetadata>()
+        .and_then(|res| res.0.get(&label));
 
     // TODO: We should consider saving all the `ScheduleBuilt` events when BRP is enabled, and
     // looking it up here (or even building the schedule here to get the metadata to fill it in).
-    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), None) {
+    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), metadata) {
         Ok(schedule_data) => schedule_data,
         Err(err) => {
             return Err(BrpError::internal(format!(
@@ -1883,7 +1906,11 @@ mod tests {
     }
 
     use super::*;
-    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
+    use crate::{
+        cache_schedule_build_metadata,
+        schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
+    };
+    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -2141,7 +2168,7 @@ mod tests {
     }
 
     #[test]
-    fn test_schedule_graph() {
+    fn schedule_graph_for_uninitialized_schedule() {
         #[derive(Resource)]
         struct Resource1;
 
@@ -2168,9 +2195,12 @@ mod tests {
         schedule.add_systems(f4.in_set(S2).after(S1));
 
         let mut world = World::default();
-
-        let _ = schedule.initialize(&mut world);
         world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
 
         let params = serde_json::to_value(&BrpScheduleGraphParams {
             schedule_label: "MySchedule".to_string(),
@@ -2183,18 +2213,88 @@ mod tests {
         // - 5 systems (f1, f2, f3, f4, apply_deferred)
         // - 6 system sets (F1, F2, F3, F4, S1, S2)
         // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
-        // - 2 dependency edges: f1 -> f2, S1 -> f4
+        // - 4 dependency edges: f1 -> f2, S1 -> f4, f1 -> apply_deferred, apply_deferred -> f2
 
         let res = schedule_graph(In(Some(params)), &mut world);
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
 
-        assert_eq!(res3.schedule_data.systems.len(), 5,);
+        assert_eq!(res3.schedule_data.systems.len(), 5);
         assert_eq!(res3.schedule_data.system_sets.len(), 6);
         assert_eq!(res3.schedule_data.hierarchy.len(), 6);
-        assert_eq!(res3.schedule_data.dependency.len(), 2);
+        assert_eq!(res3.schedule_data.dependency.len(), 4);
         // Components are only currently recorded for conflicts - this may change in the future.
         assert_eq!(res3.schedule_data.components.len(), 0);
         assert_eq!(res3.schedule_data.conflicts.len(), 0);
+    }
+
+    #[test]
+    fn schedule_graph_for_initialized_schedule() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+
+        let mut world = World::default();
+        world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
+
+        // Initialize the schedule early. Now `schedule_graph` should still report the metadata.
+        world
+            .schedule_scope(MySchedule, |world, schedule| schedule.initialize(world))
+            .unwrap();
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .unwrap();
+
+        let response = schedule_graph(In(Some(params)), &mut world).unwrap();
+        let response = serde_json::from_value::<BrpScheduleGraphResponse>(response).unwrap();
+
+        // We expect 3 edges thanks to the cached metadata: f1 -> f2, f1 -> apply_deferred -> f2
+        fn system_index(
+            response: &BrpScheduleGraphResponse,
+            name_suffix: &str,
+        ) -> Option<ScheduleIndex> {
+            response
+                .schedule_data
+                .systems
+                .iter()
+                .enumerate()
+                .find(|(_, system)| system.name.ends_with(name_suffix))
+                .map(|(index, _)| index as _)
+                .map(ScheduleIndex::System)
+        }
+        let f1_index = system_index(&response, "f1").unwrap();
+        let f2_index = system_index(&response, "f2").unwrap();
+        let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
+        assert_eq!(response.schedule_data.dependency.len(), 3);
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, f2_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, apply_deferred_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(apply_deferred_index, f2_index)));
     }
 }

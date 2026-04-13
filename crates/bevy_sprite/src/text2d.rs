@@ -435,9 +435,7 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| {
-                Font::try_from_bytes(bytes.to_vec(), "bevy default font")
-            }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec(), "bevy default font") }
         );
 
         let world = app.world_mut();

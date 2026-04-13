@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: px(4.).all(),
                         ..default()
                     },
-                    EditableText::default(),
+                    EditableText::new(format!("Initial text {row}")),
                     TextCursorStyle::default(),
                     font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
