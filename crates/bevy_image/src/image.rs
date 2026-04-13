@@ -27,11 +27,15 @@ use wgpu_types::{
 
 /// Trait used to provide default values for Bevy-external types that
 /// do not implement [`Default`].
+#[deprecated(
+    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
+)]
 pub trait BevyDefault {
     /// Returns the default value for a type.
     fn bevy_default() -> Self;
 }
 
+#[expect(deprecated, reason = "deprecated")]
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
@@ -1128,7 +1132,7 @@ impl Image {
         // We rely on the default texture format being RGBA8UnormSrgb
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
-        let format = TextureFormat::bevy_default();
+        let format = TextureFormat::Rgba8UnormSrgb;
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert!(pixel_size == 4);
         }
@@ -1146,7 +1150,7 @@ impl Image {
         Image::new_uninit(
             Extent3d::default(),
             TextureDimension::D2,
-            TextureFormat::bevy_default(),
+            TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
         )
     }

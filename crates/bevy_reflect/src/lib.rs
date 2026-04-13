@@ -645,6 +645,7 @@ mod impls {
 }
 
 pub mod attributes;
+pub mod convert;
 pub mod enums;
 mod generics;
 pub mod serde;
