@@ -7,15 +7,15 @@
 use core::any::type_name;
 use core::marker::PhantomData;
 
-use crate::{schedule::Core3d, Core3dSystems, FullscreenShader};
+use crate::{schedule::Core3d, tonemapping::tonemapping, Core3dSystems, FullscreenShader};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Query, Res},
+    schedule::{IntoScheduleConfigs, ScheduleConfigs, ScheduleLabel},
+    system::{BoxedSystem, Commands, Query, Res},
 };
 use bevy_image::BevyDefault;
 use bevy_render::{
@@ -62,13 +62,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
                 prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
             );
 
-        let mut system = fullscreen_material_system::<T>.in_set(T::run_in());
-        if let Some(run_after) = T::run_after() {
-            system = system.after(run_after);
-        }
-        if let Some(run_before) = T::run_before() {
-            system = system.before(run_before);
-        }
+        let system = T::schedule_configs(fullscreen_material_system::<T>.into_configs());
         render_app.add_systems(T::schedule(), system);
     }
 }
@@ -87,30 +81,18 @@ pub trait FullscreenMaterial:
         Core3d
     }
 
-    /// The system set this effect belongs to.
+    /// Configures this effect's system set and system order.
     ///
-    /// Defaults to [`Core3dSystems::PostProcess`].
-    fn run_in() -> impl SystemSet {
-        Core3dSystems::PostProcess
-    }
-
-    /// The system set this effect runs after.
-    ///
-    /// Defaults to `None`.
-    fn run_after() -> Option<Core3dSystems> {
-        None
-    }
-
-    /// The system set this effect runs before.
-    ///
-    /// Defaults to `None`.
-    fn run_before() -> Option<Core3dSystems> {
-        None
+    /// By default it's in [`Core3dSystems::PostProcess`] and before [`tonemapping`].
+    fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
+        system
+            .in_set(Core3dSystems::PostProcess)
+            .before(tonemapping)
     }
 }
 
 #[derive(Resource)]
-struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
+pub struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
@@ -184,7 +166,7 @@ fn init_pipeline<T: FullscreenMaterial>(
 /// We can't know ahead of time which one is the source or destination so we create a bind group
 /// for both
 #[derive(Component)]
-struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
+pub struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
     a: (TextureViewId, BindGroup),
     b: (TextureViewId, BindGroup),
     // This is in case someone wants multiple `FullscreenMaterial` per camera
@@ -247,7 +229,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
     }
 }
 
-fn fullscreen_material_system<T: FullscreenMaterial>(
+pub fn fullscreen_material_system<T: FullscreenMaterial>(
     view: ViewQuery<(
         &ViewTarget,
         &DynamicUniformIndex<T>,
