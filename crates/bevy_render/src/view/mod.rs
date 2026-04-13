@@ -803,7 +803,7 @@ pub struct NoIndirectDrawing;
 
 impl ViewTarget {
     #[deprecated(
-        note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, the value used to be TextureFormat::Rgba16Float"
+        note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, use TextureFormat::Rgba16Float"
     )]
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
