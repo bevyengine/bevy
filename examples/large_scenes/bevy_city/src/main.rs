@@ -1,4 +1,10 @@
-//! A procedurally generated city
+//! A procedurally generated city.
+//!
+//! This scene is intended to be an attractive, fairly realistic stress test of Bevy's capacity
+//! to model extremely large scenes.
+//! As a result, the complexity is higher than in most examples or benchmarks —
+//! we want to use a large number of features so that pathological paths
+//! are caught during development, rather than by end users.
 
 use argh::FromArgs;
 use assets::{load_assets, CityAssets};
@@ -117,7 +123,7 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
     let earth = Atmosphere::earth(scattering_mediums.add(earth_medium.clone()));
-    // 1 city block will be roughly 100 meters
+    // This scale means that 1 city block in this scene will be roughly 100 meters
     let scale = 1.0 / 20.0;
     commands.spawn((
         earth.clone(),
