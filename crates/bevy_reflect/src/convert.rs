@@ -63,11 +63,6 @@ where
 }
 
 impl ReflectConvert {
-    /// Creates a new, empty [`ReflectConvert`] with no conversions registered.
-    pub fn new() -> ReflectConvert {
-        Self::default()
-    }
-
     /// Attempts to construct an instance of this type from the provided
     /// `input`.
     ///

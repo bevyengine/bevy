@@ -383,11 +383,7 @@ impl TypeRegistry {
                 U = U::type_path(),
             )
         });
-        if !data.contains::<ReflectConvert>() {
-            data.insert(ReflectConvert::new());
-        }
-        data.data_mut::<ReflectConvert>()
-            .unwrap()
+        data.get_or_insert_data_with(ReflectConvert::default)
             .register_type_conversion(function);
     }
 
@@ -414,11 +410,7 @@ impl TypeRegistry {
                 U = U::type_path(),
             )
         });
-        if !data.contains::<ReflectConvert>() {
-            data.insert(ReflectConvert::new());
-        }
-        data.data_mut::<ReflectConvert>()
-            .unwrap()
+        data.get_or_insert_data_with(ReflectConvert::default)
             .register_type_conversion::<T, U, _>(|input| Ok(input.into()));
     }
 
@@ -655,6 +647,18 @@ impl TypeRegistration {
     /// [type data]: TypeData
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
+    }
+
+    /// Gets the instance of `T` into this registration's [type data], if it exists. If it does not
+    /// exist, it will insert a new instance using `get_data` and then return it.
+    ///
+    /// [type data]: TypeData
+    pub fn get_or_insert_data_with<T: TypeData>(&mut self, get_data: impl FnOnce() -> T) -> &mut T {
+        let boxed_data = self
+            .data
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(get_data()));
+        boxed_data.downcast_mut::<T>().unwrap()
     }
 
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
