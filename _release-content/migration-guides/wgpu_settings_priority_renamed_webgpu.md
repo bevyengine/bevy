@@ -4,4 +4,4 @@ pull_requests: []
 ---
 
  `WgpuSettingsPriority::Compatibility` has been renamed to `WgpuSettingsPriority::WebGPU`.
- And the `WGPU_SETTINGS_PRIO` environment variable needs to be `webgpu` instead of `compatibility`.
+To set this using an environment variable, update `WGPU_SETTINGS_PRIO` to `webgpu` from `compatibility`.
