@@ -605,11 +605,17 @@ pub fn extract_cameras(
             let output_texture_format = target
                 .as_ref()
                 .and_then(|target| {
-                    target.get_texture_view_format(
-                        &extracted_windows,
-                        &images,
-                        &manual_texture_views,
-                    )
+                    target
+                        .get_texture_view_format(&extracted_windows, &images, &manual_texture_views)
+                        .map(|format| {
+                            if matches!(target, NormalizedRenderTarget::Window(_))
+                                && format == TextureFormat::Bgra8UnormSrgb
+                            {
+                                TextureFormat::Rgba8UnormSrgb
+                            } else {
+                                format
+                            }
+                        })
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
             let target_format = if hdr {
