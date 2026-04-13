@@ -293,7 +293,7 @@ pub fn editable_text_system(
             .cursor_geometry(editable_text.cursor_width * font_size);
 
         if let Some(input_focus) = input_focus.as_ref()
-            && Some(entity) == input_focus.0
+            && Some(entity) == input_focus.get()
         {
             if input_focus.is_changed()
                 || editable_text.text_edited

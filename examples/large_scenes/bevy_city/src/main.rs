@@ -20,7 +20,10 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
-use crate::{assets::strip_base_url, settings::Settings};
+use crate::{
+    assets::{merge_car_meshes, strip_base_url},
+    settings::Settings,
+};
 use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
@@ -75,12 +78,22 @@ fn main() {
         // Like in many realistic large scenes, many of the objects don't move
         // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::Enabled)
+        .add_message::<CityAssetsLoaded>()
+        .add_message::<CityAssetsReady>()
+        .add_message::<CitySpawned>()
         .add_systems(Startup, (setup, load_assets))
-        .add_systems(Update, (simulate_cars, loading_screen))
-        .add_observer(add_no_cpu_culling)
+        .add_systems(
+            Update,
+            (
+                simulate_cars,
+                loading_screen,
+                process_assets.run_if(on_message::<CityAssetsLoaded>),
+                on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
+                (add_no_cpu_culling, on_city_spawned, setup_settings_ui)
+                    .run_if(on_message::<CitySpawned>),
+            ),
+        )
         .add_observer(add_no_cpu_culling_on_scene_ready)
-        .add_observer(on_city_assets_ready)
-        .add_observer(setup_settings_ui)
         .run();
 }
 
@@ -168,27 +181,28 @@ struct LoadingText;
 #[derive(Component)]
 struct LoadingPaths;
 
-#[derive(Event)]
+/// Triggers when all the assets managed in [`CityAssets`] are loaded
+#[derive(Message)]
+struct CityAssetsLoaded;
+/// Triggers when all the assets are done loading and have been processed
+#[derive(Message)]
 struct CityAssetsReady;
-
-#[derive(Event)]
+/// Triggers once all the city blocks have been spawned
+#[derive(Message)]
 struct CitySpawned;
 
+#[allow(clippy::type_complexity)]
 fn loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
     asset_server: Res<AssetServer>,
     mut loading_text: Query<&mut Text, With<LoadingText>>,
-    mut loading_paths: Query<&mut Text, (With<LoadingPaths>, Without<LoadingText>)>,
-    loading_screen: Query<Entity, With<LoadingScreen>>,
+    mut loading_paths: Query<(Entity, &mut Text), (With<LoadingPaths>, Without<LoadingText>)>,
 ) {
-    let Ok(loading_screen) = loading_screen.single() else {
-        return;
-    };
     let Ok(mut text) = loading_text.single_mut() else {
         return;
     };
-    let Ok(mut paths_text) = loading_paths.single_mut() else {
+    let Ok((paths_entity, mut paths_text)) = loading_paths.single_mut() else {
         return;
     };
     let mut paths = vec![];
@@ -201,8 +215,10 @@ fn loading_screen(
         }
     }
     if paths.is_empty() {
-        commands.entity(loading_screen).despawn();
-        commands.trigger(CityAssetsReady);
+        commands.entity(paths_entity).despawn();
+        text.0 = "Processing assets...".into();
+        // Use a Message instead of an Event so asset processing only starts on the next frame
+        commands.write_message(CityAssetsLoaded);
     } else {
         text.0 = format!(
             "Loading assets: {}/{}",
@@ -214,14 +230,46 @@ fn loading_screen(
     }
 }
 
-fn on_city_assets_ready(
-    _: On<CityAssetsReady>,
+/// Runs after the assets are loaded. For now, this will merge all the meshes for each car gltf into
+/// a single mesh. This is necessary because the tires are separate meshes and this increases the
+/// amount of meshes bevy has to process every frame for no benefits.
+///
+/// Eventually, this will also be used for things like generating LODs
+fn process_assets(
     mut commands: Commands,
-    assets: Res<CityAssets>,
-    args: Res<Args>,
+    mut city_assets: ResMut<CityAssets>,
+    mut world_assets: ResMut<Assets<WorldAsset>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    spawn_city(&mut commands, &assets, args.seed, args.size);
-    commands.trigger(CitySpawned);
+    merge_car_meshes(&mut city_assets, &mut world_assets, &mut meshes);
+
+    // Use a Message instead of an Event so spawning the city happens in the next frame
+    commands.write_message(CityAssetsReady);
+}
+
+fn on_city_assets_ready(
+    mut commands: Commands,
+    city_assets: Res<CityAssets>,
+    args: Res<Args>,
+    mut loading_text: Query<&mut Text, With<LoadingText>>,
+) {
+    let Ok(mut text) = loading_text.single_mut() else {
+        return;
+    };
+    text.0 = "Spawning city...".into();
+
+    spawn_city(&mut commands, &city_assets, args.seed, args.size);
+    commands.write_message(CitySpawned);
+}
+
+fn on_city_spawned(
+    mut commands: Commands,
+    loading_screen: Option<Single<Entity, With<LoadingScreen>>>,
+) {
+    let Some(loading_screen) = loading_screen else {
+        return;
+    };
+    commands.entity(*loading_screen).despawn();
 }
 
 #[derive(Component)]
@@ -237,6 +285,10 @@ struct Car {
     dir: f32,
 }
 
+/// Do a very naive traffic simulation. This will only move the car to the end of the road then
+/// spawn it back at the start.
+///
+/// Eventually this will be a more complex traffic simulation that should stress the ECS
 fn simulate_cars(
     settings: Res<Settings>,
     roads: Query<(&Road, &Transform, &Children), Without<Car>>,
@@ -267,8 +319,8 @@ fn simulate_cars(
     }
 }
 
+/// Adds [`NoCpuCulling`] to all meshes in the scene after the city is done spawning
 fn add_no_cpu_culling(
-    _: On<CitySpawned>,
     mut commands: Commands,
     meshes: Query<Entity, (With<Mesh3d>, Without<NoCpuCulling>)>,
     args: Res<Args>,
@@ -280,6 +332,10 @@ fn add_no_cpu_culling(
     }
 }
 
+/// Adds [`NoCpuCulling`] to all meshes in all scenes after the city is done spawning
+///
+/// This is required because a few assets are spawned using a [`WorldAssetRoot`] instead of directly
+/// spawning a [`Mesh`]
 fn add_no_cpu_culling_on_scene_ready(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,

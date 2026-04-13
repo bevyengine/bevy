@@ -378,14 +378,14 @@ impl<'w> DynamicWorldBuilder<'w> {
             .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
         for (component_id, entity) in self.original_world.resource_entities().iter() {
-            if Some(*component_id) == original_world_dqf_id {
+            if Some(component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(*component_id)?
+                    .get_info(component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -400,12 +400,12 @@ impl<'w> DynamicWorldBuilder<'w> {
                 type_registration.data::<ReflectResource>()?;
                 let component = type_registration
                     .data::<ReflectComponent>()?
-                    .reflect(self.original_world.entity(*entity))?;
+                    .reflect(self.original_world.entity(entity))?;
 
                 let component =
                     clone_reflect_value(component.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(*component_id, component);
+                self.extracted_resources.insert(component_id, component);
                 Some(())
             };
             extract_and_push();

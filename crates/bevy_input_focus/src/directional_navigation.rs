@@ -411,7 +411,7 @@ impl<'w> DirectionalNavigation<'w> {
         &mut self,
         direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
-        if let Some(current_focus) = self.focus.0 {
+        if let Some(current_focus) = self.focus.get() {
             // Respect manual edges first
             match self.map.get_neighbor(current_focus, direction) {
                 NavNeighbor::Auto => Err(DirectionalNavigationError::NoNeighborInDirection {

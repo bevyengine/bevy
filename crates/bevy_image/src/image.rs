@@ -1664,7 +1664,10 @@ impl Image {
     /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
     /// you used when writing it using this function.
     ///
-    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    /// For RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    ///
+    /// For R formats the linear RGB [`Color`] will be converted to grayscale
+    /// and the R channel will be the luminance.
     ///
     /// Other [`TextureFormat`]s are unsupported, such as:
     ///  - block-compressed formats

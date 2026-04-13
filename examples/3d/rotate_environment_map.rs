@@ -107,7 +107,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ))
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {

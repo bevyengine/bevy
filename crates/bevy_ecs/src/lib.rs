@@ -2064,6 +2064,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~460s on CI")]
     fn queue_register_component_toctou() {
         for _ in 0..1000 {
             let w = World::new();

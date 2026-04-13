@@ -41,6 +41,10 @@ impl Default for Settings {
     }
 }
 
+pub fn setup_settings_ui(mut commands: Commands) {
+    commands.spawn_scene(settings_ui());
+}
+
 pub fn settings_ui() -> impl Scene {
     bsn! {
         Node {
@@ -178,8 +182,4 @@ pub fn settings_ui() -> impl Scene {
             ]
         )]
     }
-}
-
-pub fn setup_settings_ui(_: On<CitySpawned>, mut commands: Commands) {
-    commands.spawn_scene(settings_ui());
 }

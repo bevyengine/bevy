@@ -16,6 +16,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
+    template::{EntityScopes, ScopedEntities, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -1592,6 +1593,22 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn_no_free(mut self) -> Entity {
         self.despawn_no_free_with_caller(MaybeLocation::caller());
         self.entity
+    }
+
+    /// Creates a new [`TemplateContext`] for this entity and passes it into the given `func`.
+    pub fn template_context<T>(
+        &mut self,
+        func: impl FnOnce(&mut TemplateContext) -> crate::error::Result<T>,
+    ) -> crate::error::Result<T> {
+        let mut scoped_entities = ScopedEntities::new(0);
+        let entity_scopes = EntityScopes::default();
+        let mut context = TemplateContext::new(self, &mut scoped_entities, &entity_scopes);
+        func(&mut context)
+    }
+
+    /// Builds the given template using a [`TemplateContext`] generated for this entity.
+    pub fn build_template<T: Template>(&mut self, template: &T) -> crate::error::Result<T::Output> {
+        self.template_context(|context| template.build_template(context))
     }
 
     /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
