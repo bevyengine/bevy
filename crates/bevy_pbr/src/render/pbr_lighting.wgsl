@@ -527,7 +527,7 @@ fn Fd_Burley(
 
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-    return textureSampleLevel(view_bindings::f_ab_lut, view_bindings::f_ab_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {

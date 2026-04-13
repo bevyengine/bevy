@@ -1,4 +1,4 @@
-use crate::{FabLut, LtcLuts};
+use crate::{DfgLut, LtcLuts};
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
@@ -663,7 +663,7 @@ pub fn prepare_mesh_view_bind_groups(
         atmosphere_sampler,
         blue_noise,
         ltc_luts,
-        fab_lut,
+        dfg_lut,
     ): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
@@ -671,7 +671,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
         Res<LtcLuts>,
-        Res<FabLut>,
+        Res<DfgLut>,
     ),
 ) {
     if let (
@@ -860,11 +860,11 @@ pub fn prepare_mesh_view_bind_groups(
             ));
 
             // F_AB
-            let (fab_view, fab_sampler) = images
-                .get(&fab_lut.texture)
+            let (dfg_view, dfg_sampler) = images
+                .get(&dfg_lut.texture)
                 .map(|img| (&img.texture_view, &img.sampler))
                 .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-            entries = entries.extend_with_indices(((40, fab_view), (41, fab_sampler)));
+            entries = entries.extend_with_indices(((40, dfg_view), (41, dfg_sampler)));
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
 
