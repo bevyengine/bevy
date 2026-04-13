@@ -139,9 +139,13 @@ where
     F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
 {
     fn convert(&self, input: Box<dyn Reflect>) -> Result<Box<dyn Reflect>, Box<dyn Reflect>> {
-        match (self.function)(input.take()?) {
+        let mut input = input.downcast::<T>()?;
+        match (self.function)(*input) {
             Ok(value) => Ok(Box::new(value)),
-            Err(value) => Err(Box::new(value)),
+            Err(value) => {
+                *input = value;
+                Err(input)
+            }
         }
     }
 
