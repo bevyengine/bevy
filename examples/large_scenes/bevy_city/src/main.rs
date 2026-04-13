@@ -202,19 +202,20 @@ fn spawn_atmosphere(
     const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
 
     // Distance at which contrast falls low enough to be indistinguishable from the sky.
-    // known as Meteorological Optical Range (MOR)
+    // known as Meteorological Optical Range
     const HAZE_VISIBILITY_KM: f32 = 12.0;
 
     // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
     let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
 
+    // Add the fog to the earth medium as an additional scattering term.
     earth_medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
         scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
         falloff: Falloff::Exponential {
             scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
         },
-        // Fog is approximated as a mie scatterers with this asymmetry factor
+        // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
     let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium.clone()));
