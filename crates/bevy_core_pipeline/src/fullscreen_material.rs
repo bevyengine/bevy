@@ -127,7 +127,7 @@ struct FullscreenMaterialPipelineSpecializer;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
 struct FullscreenMaterialPipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 impl Specializer<RenderPipeline> for FullscreenMaterialPipelineSpecializer {
@@ -140,7 +140,7 @@ impl Specializer<RenderPipeline> for FullscreenMaterialPipelineSpecializer {
     ) -> Result<Canonical<Self::Key>, BevyError> {
         let fragment = descriptor.fragment_mut()?;
         let color_target_state = ColorTargetState {
-            format: key.texture_format,
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         };
@@ -213,7 +213,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
 ) -> Result<(), BevyError> {
     for (entity, view) in &views {
         let pipeline_key = FullscreenMaterialPipelineKey {
-            texture_format: view.texture_format,
+            target_format: view.target_format,
         };
         let pipeline_id = pipeline
             .variants

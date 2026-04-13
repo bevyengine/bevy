@@ -607,15 +607,7 @@ pub fn extract_cameras(
                 .and_then(|target| {
                     target
                         .get_texture_view_format(&extracted_windows, &images, &manual_texture_views)
-                        .map(|format| {
-                            if matches!(target, NormalizedRenderTarget::Window(_))
-                                && format == TextureFormat::Bgra8UnormSrgb
-                            {
-                                TextureFormat::Rgba8UnormSrgb
-                            } else {
-                                format
-                            }
-                        })
+                        .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
             let target_format = if hdr {
@@ -702,6 +694,20 @@ pub fn extract_cameras(
             }
         };
     }
+}
+
+/// Bgra8 needs an optional feature to support storage binding, and only supports write-only.
+/// We force Rgba8 so that we can always use storage bindings, and rely on the final blit to
+/// convert at the end if needed. See <https://github.com/gpuweb/gpuweb/issues/2748>
+/// Checking just `Bgra8UnormSrgb` and not `Bgra8Unorm` is fine here, because this is the texture
+/// view we already guaranteed to be srgb space if possible. See `ExtractedWindow::set_swapchain_texture`
+fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> TextureFormat {
+    if matches!(target, NormalizedRenderTarget::Window(_))
+        && format == TextureFormat::Bgra8UnormSrgb
+    {
+        return TextureFormat::Rgba8UnormSrgb;
+    }
+    format
 }
 
 /// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.

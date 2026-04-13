@@ -61,6 +61,8 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
+    /// This is an srgb view of [`ExtractedWindow::swap_chain_texture_format`]
+    /// so that in shaders we are always in linear space.
     pub swap_chain_texture_view_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
