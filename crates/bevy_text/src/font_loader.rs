@@ -32,7 +32,7 @@ impl AssetLoader for FontLoader {
         let path = load_context.path();
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let font = Font::try_from_bytes(bytes, &path.to_string());
+        let font = Font::from_bytes(bytes, &path.to_string());
         Ok(font)
     }
 

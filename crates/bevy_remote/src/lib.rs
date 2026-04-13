@@ -539,8 +539,12 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    observer::On,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    schedule::{
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
+        ScheduleLabel, SystemSet,
+    },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
@@ -810,6 +814,14 @@ impl Plugin for RemotePlugin {
                     ),
                 },
             );
+        }
+
+        if remote_methods
+            .0
+            .contains_key(builtin_methods::BRP_SCHEDULE_GRAPH)
+        {
+            app.init_resource::<PreviousScheduleBuildMetadata>()
+                .add_observer(cache_schedule_build_metadata);
         }
 
         app.init_schedule(RemoteLast)
@@ -1448,6 +1460,25 @@ fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>)
             requests.0.swap_remove(i);
         }
     }
+}
+
+/// Resource tracking the last [`ScheduleBuildMetadata`] of each schedule as it is built.
+///
+/// This allows the `schedule.graph` endpoint to return better results for schedules.
+#[derive(Resource, Default)]
+struct PreviousScheduleBuildMetadata(HashMap<InternedScheduleLabel, ScheduleBuildMetadata>);
+
+fn cache_schedule_build_metadata(
+    event: On<ScheduleBuilt>,
+    mut metadata: ResMut<PreviousScheduleBuildMetadata>,
+) {
+    let new_metadata = ScheduleBuildMetadata {
+        // We intentionally don't bother cloning the warnings, since they aren't used by the
+        // `ScheduleData`.
+        warnings: vec![],
+        edges_added_by_build_passes: event.build_metadata.edges_added_by_build_passes.clone(),
+    };
+    metadata.0.insert(event.label, new_metadata);
 }
 
 #[cfg(test)]

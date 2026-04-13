@@ -1,5 +1,3 @@
-use crate::prefs_file::serialize_table;
-use crate::{prefs::PreferencesStore, PreferencesFile, PreferencesFileContent};
 use bevy_log::error;
 use bevy_tasks::IoTaskPool;
 use web_sys::window;
@@ -31,9 +29,9 @@ impl PreferencesStore {
     /// # Arguments
     /// * `filename` - the name of the file to be saved
     /// * `contents` - the contents of the file
-    pub(crate) fn save(&self, filename: &str, contents: &PreferencesFile) {
+    pub(crate) fn save(&self, filename: &str, contents: toml::Table) {
         if let Ok(Some(storage)) = window().unwrap().local_storage() {
-            let toml_str = serialize_table(&contents.table);
+            let toml_str = contents.to_string();
             storage
                 .set_item(&self.storage_key(filename).as_str(), &toml_str)
                 .unwrap();
@@ -45,11 +43,11 @@ impl PreferencesStore {
     /// # Arguments
     /// * `filename` - the name of the file to be saved
     /// * `contents` - the contents of the file
-    pub(crate) fn save_async(&self, filename: &str, contents: PreferencesFileContent) {
+    pub(crate) fn save_async(&self, filename: &str, contents: toml::Table) {
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async {
                 if let Ok(Some(storage)) = window().unwrap().local_storage() {
-                    let toml_str = serialize_table(&contents.0);
+                    let toml_str = contents.to_string();
                     storage
                         .set_item(&self.storage_key(filename).as_str(), &toml_str)
                         .unwrap();
@@ -63,7 +61,7 @@ impl PreferencesStore {
     ///
     /// # Arguments
     /// * `filename` - The name of the preferences file, without the file extension.
-    pub(crate) fn load(&mut self, filename: &str) -> Option<PreferencesFile> {
+    pub(crate) fn load(&self, filename: &str) -> Option<toml::Table> {
         if let Ok(Some(storage)) = window().unwrap().local_storage() {
             let storage_key = self.storage_key(filename);
             let Ok(Some(toml_str)) = storage.get_item(&storage_key) else {
@@ -79,7 +77,7 @@ impl PreferencesStore {
             };
 
             match table_value {
-                toml::Value::Table(table) => Some(PreferencesFile::from_table(table)),
+                toml::Value::Table(table) => Some(table),
                 _ => {
                     error!("Preferences file must be a table");
                     None

@@ -4,10 +4,11 @@ use bevy::{
     color::palettes,
     feathers::{
         controls::{
-            button, checkbox, color_plane, color_slider, color_swatch, radio, slider, text_input,
-            text_input_container, toggle_switch, ButtonProps, ButtonVariant, ColorChannel,
-            ColorPlane, ColorPlaneValue, ColorSlider, ColorSliderProps, ColorSwatch,
-            ColorSwatchValue, SliderBaseColor, SliderProps, TextInputProps,
+            button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
+            menu_item, menu_popup, radio, slider, text_input, text_input_container, toggle_switch,
+            ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
+            ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
+            SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -126,6 +127,51 @@ fn demo_root() -> impl Scene {
                             })
                             Children [ (Text::new("Primary") ThemedText) ]
                         ),
+                        (
+                            :menu
+                            Children [
+                                (
+                                    :menu_button(MenuButtonProps {
+                                        caption: Box::new(bsn_list!(
+                                            (Text("Menu") ThemedText),
+                                        )),
+                                        ..default()
+                                    })
+                                ),
+                                (
+                                    :menu_popup
+                                    Children [
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 1") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 1 clicked!");
+                                            })
+                                        ),
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 2") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 2 clicked!");
+                                            })
+                                        ),
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 3") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 3 clicked!");
+                                            })
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 ),
                 (
@@ -464,7 +510,7 @@ fn update_colors(
         // Only update the hex input field when it's not focused, otherwise it interferes
         // with typing.
         let (input_ent, mut editable_text) = q_text_input.into_inner();
-        if Some(input_ent) != focus.0 {
+        if Some(input_ent) != focus.get() {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
         }

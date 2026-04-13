@@ -106,13 +106,6 @@ impl ResourceEntities {
         self.deref().get(id).copied()
     }
 
-    /// Removes the entry for the given resource component.
-    /// Returns the entity that was removed, or `None` if there was no entity.
-    #[inline]
-    pub(crate) fn remove(&mut self, id: ComponentId) -> Option<Entity> {
-        self.0.get_mut().remove(id)
-    }
-
     #[inline]
     fn deref(&self) -> &SparseArray<ComponentId, Entity> {
         // SAFETY: There are no other mutable references to the map.
@@ -247,27 +240,38 @@ mod tests {
 
         let mut world = World::new();
         let start = world.entities().count_spawned();
-        world.init_resource::<TestResource1>();
+        let id1 = world.init_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 1);
         world.insert_resource(TestResource2(String::from("Foo")));
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id = world.register_resource::<TestResource3>();
+        let id3 = world.register_resource::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
             unsafe {
-                world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
+                world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
             }
         });
         assert_eq!(world.entities().count_spawned(), start + 3);
-        assert!(world.remove_resource_by_id(id));
+        let e3 = world.resource_entities().get(id3).unwrap();
+        assert!(world.remove_resource_by_id(id3));
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         assert_eq!(world.entities().count_spawned(), start + 3);
+        OwningPtr::make(20_u8, |ptr| {
+            // SAFETY: id was just initialized and corresponds to a resource.
+            unsafe {
+                world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
+            }
+        });
+        assert_eq!(e3, world.resource_entities().get(id3).unwrap());
         // again, the entity is stable: see previous explanation
+        let e1 = world.resource_entities().get(id1).unwrap();
         world.remove_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 3);
+        world.init_resource::<TestResource1>();
+        assert_eq!(e1, world.resource_entities().get(id1).unwrap());
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
         assert_eq!(world.entities().count_spawned(), start + 3);

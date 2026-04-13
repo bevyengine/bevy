@@ -101,6 +101,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
     pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let bevy_scene = ctx.bevy_scene;
         let entries: Vec<_> = self
             .entries
             .iter()
@@ -110,8 +111,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     .unwrap_or_else(|e| e.to_compile_error())
             })
             .collect();
-
-        Ok(quote! { (#(#entries,)*) })
+        Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#entries),*) })
     }
 
     pub fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
@@ -715,9 +715,8 @@ mod tests {
     #[test]
     fn bsn_root_preserves_inference_on_error() {
         // Arrange
-        let expected = "bevy_scene :: SceneScope ({ let _res = () ;".to_string()
-            + " :: core :: compile_error ! { \"Test Error\" }"
-            + " _res })";
+        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple \
+            ! () ; :: core :: compile_error ! { \"Test Error\" } _res })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();

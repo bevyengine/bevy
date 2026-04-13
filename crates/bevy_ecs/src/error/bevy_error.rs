@@ -18,10 +18,11 @@ use core::{
 /// You can change the behavior of the fallback handler by modifying the [`FallbackErrorHandler`] resource.
 ///
 /// By default, errors without an assigned severity use [`Severity::Panic`], and will cause your application to panic.
-/// You can change the severity of an error by using [`with_severity`] on any [`Result`] type.
+/// You can change the severity of an error by using [`with_severity`], or [`map_severity`] on any [`Result`] type.
 ///
 /// [`FallbackErrorHandler`]: crate::error::handler::FallbackErrorHandler
 /// [`with_severity`]: ResultSeverityExt::with_severity
+/// [`map_severity`]: ResultSeverityExt::map_severity
 ///
 /// # Backtraces
 ///
@@ -242,9 +243,10 @@ struct InnerBevyError {
 /// you can modify the [fallback error handler], and read the [`Severity`] stored inside of each [`BevyError`].
 ///
 /// You can change the severity of an error (including assigning an error severity) to an ordinary result
-/// by calling [`with_severity`].
+/// by calling [`with_severity`] or [`map_severity`].
 ///
 /// [`with_severity`]: ResultSeverityExt::with_severity
+/// [`map_severity`]: ResultSeverityExt::map_severity
 /// [fallback error handler]: crate::error::handler::FallbackErrorHandler
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Severity {
@@ -283,7 +285,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T> {
+pub trait ResultSeverityExt<T, E> {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -298,15 +300,57 @@ pub trait ResultSeverityExt<T> {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// For more fine grained control see [`Result::map_severity`]
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
+
+    /// Overrides the [`Severity`] of the error if this result is `Err`.
+    /// This does not change control flow; it only annotates the error.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ResultSeverityExt, Severity};
+    /// # use thiserror::Error;
+    /// # fn validate(_string: &str) -> Result<usize, ValidationError> {
+    /// #     Err(ValidationError::IncorrectVersion)
+    /// # }
+    ///
+    /// #[derive(Error, Debug)]
+    /// pub enum ValidationError {
+    ///     #[error("Incorrect version")]
+    ///     IncorrectVersion,
+    ///     #[error("Syntax error")]
+    ///     SyntaxError,
+    /// }
+    ///
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // This failure is expected in some contexts, so we downgrade its severity.
+    ///     let _parsed: usize = validate("I am not a number")
+    ///         .map_severity(|e| match e {
+    ///             ValidationError::IncorrectVersion => Severity::Debug,
+    ///             ValidationError::SyntaxError => Severity::Error,
+    ///         })?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
 }
 
-impl<T, E> ResultSeverityExt<T> for Result<T, E>
+impl<T, E> ResultSeverityExt<T, E> for Result<T, E>
 where
     E: Into<BevyError>,
 {
     fn with_severity(self, severity: Severity) -> Result<T, BevyError> {
         self.map_err(|e| e.into().with_severity(severity))
+    }
+
+    fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError> {
+        self.map_err(|e| {
+            let severity = f(&e);
+            e.into().with_severity(severity)
+        })
     }
 }
 

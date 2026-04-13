@@ -3653,7 +3653,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.remove(component_id)
+        if let Some(entity) = self.resource_entities.get(component_id)
             && let Ok(mut entity_mut) = self.get_entity_mut(entity)
             && entity_mut.contains_id(component_id)
         {
