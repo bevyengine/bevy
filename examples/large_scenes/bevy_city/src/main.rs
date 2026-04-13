@@ -122,7 +122,7 @@ fn setup(mut commands: Commands) {
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 12.0 },
+        Exposure::OVERCAST,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
@@ -218,7 +218,7 @@ fn spawn_atmosphere(
         // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
     });
-    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium.clone()));
+    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
 
     // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
     let scale = 1.0 / 20.0;
