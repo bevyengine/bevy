@@ -167,7 +167,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let format = key.color_target_format();
+        let format = key.target_format();
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -399,7 +399,7 @@ pub fn queue_colored_mesh2d(
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_color_target_format(view.texture_format);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         // Queue all entities visible to that view
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {

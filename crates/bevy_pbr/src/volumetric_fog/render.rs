@@ -122,7 +122,7 @@ pub struct VolumetricFogPipelineKey {
     vertex_buffer_layout: MeshVertexBufferLayoutRef,
 
     /// Texture format of the view target
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 
     /// The volumetric fog has a 3D voxel density texture.
     has_density_texture: bool,
@@ -553,7 +553,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     // Blend on top of what's already in the framebuffer. Doing
                     // the alpha blending with the hardware blender allows us to
                     // avoid having to use intermediate render targets.
@@ -637,7 +637,7 @@ pub fn prepare_volumetric_fog_pipelines(
         let textureless_pipeline_key = VolumetricFogPipelineKey {
             mesh_pipeline_view_key,
             vertex_buffer_layout: plane_mesh.layout.clone(),
-            texture_format: view.texture_format,
+            target_format: view.target_format,
             has_density_texture: false,
         };
         let textureless_pipeline_id = pipelines.specialize(

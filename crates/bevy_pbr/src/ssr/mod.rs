@@ -191,7 +191,7 @@ pub struct ViewScreenSpaceReflectionsUniformOffset(u32);
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     has_environment_maps: bool,
     has_atmosphere: bool,
 }
@@ -475,7 +475,7 @@ pub fn prepare_ssr_pipelines(
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key,
-                texture_format: extracted_view.texture_format,
+                target_format: extracted_view.target_format,
                 has_environment_maps,
                 has_atmosphere,
             },
@@ -586,7 +586,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

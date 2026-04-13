@@ -39,8 +39,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{
-        color_target_format_from_code, color_target_format_to_code, ExtractedView, Msaa,
-        ViewUniform, ViewUniformOffset, ViewUniforms,
+        texture_format_from_code, texture_format_to_code, ExtractedView, Msaa, ViewUniform,
+        ViewUniformOffset, ViewUniforms,
     },
     Extract,
 };
@@ -138,8 +138,8 @@ impl SpritePipelineKey {
 
     /// Create a pipeline key from the view's color target format.
     #[inline]
-    pub fn from_color_target_format(format: TextureFormat) -> Self {
-        let code = color_target_format_to_code(format)
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
             .expect("Texture format is not supported by the pipeline") as u32;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
@@ -148,10 +148,10 @@ impl SpritePipelineKey {
 
     /// Color target format of the main pass for this pipeline key.
     #[inline]
-    pub fn color_target_format(&self) -> TextureFormat {
+    pub fn target_format(&self) -> TextureFormat {
         let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
-        color_target_format_from_code(code)
+        texture_format_from_code(code)
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 }
@@ -206,7 +206,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             shader_defs.push("OKLAB_OUTPUT".into());
         }
 
-        let format = key.color_target_format();
+        let format = key.target_format();
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -518,8 +518,7 @@ pub fn queue_sprites(
         };
 
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key =
-            SpritePipelineKey::from_color_target_format(view.texture_format) | msaa_key;
+        let mut view_key = SpritePipelineKey::from_target_format(view.target_format) | msaa_key;
 
         if camera
             .compositing_space

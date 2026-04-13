@@ -48,7 +48,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{FallbackImage, GpuImage},
     view::{
-        color_target_format_from_code, color_target_format_to_code, ExtractedView, ViewUniform,
+        texture_format_from_code, texture_format_to_code, ExtractedView, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
@@ -137,7 +137,7 @@ pub fn check_views_need_specialization(
 ) {
     for (view_entity, view, camera, msaa, tonemapping, dither) in &cameras {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_color_target_format(view.texture_format);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         if camera
             .compositing_space
@@ -508,8 +508,8 @@ impl Mesh2dPipelineKey {
 
     /// Create a pipeline key from the view's color target format.
     #[inline]
-    pub fn from_color_target_format(format: TextureFormat) -> Self {
-        let code = color_target_format_to_code(format)
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
             .expect("Texture format is not supported by the pipeline") as u32;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
@@ -518,10 +518,10 @@ impl Mesh2dPipelineKey {
 
     /// Color target format of the main pass for this pipeline key.
     #[inline]
-    pub fn color_target_format(&self) -> TextureFormat {
+    pub fn target_format(&self) -> TextureFormat {
         let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
-        color_target_format_from_code(code)
+        texture_format_from_code(code)
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
@@ -672,7 +672,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = key.color_target_format();
+        let format = key.target_format();
 
         let (depth_write_enabled, label, blend);
         if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {

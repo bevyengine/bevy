@@ -90,7 +90,7 @@ pub struct PostProcessingPipeline {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PostProcessingPipelineKey {
     /// The format of the source and destination textures.
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 /// A component attached to cameras in the render world that stores the
@@ -232,7 +232,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -363,7 +363,7 @@ pub fn prepare_post_processing_pipelines(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                texture_format: view.texture_format,
+                target_format: view.target_format,
             },
         );
 

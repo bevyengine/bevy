@@ -159,7 +159,7 @@ pub struct CameraFxaaPipeline {
 pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for FxaaPipeline {
@@ -177,7 +177,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
                 ],
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -205,7 +205,7 @@ pub fn prepare_fxaa_pipelines(
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
-                texture_format: view.texture_format,
+                target_format: view.target_format,
             },
         );
 

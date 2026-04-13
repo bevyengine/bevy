@@ -292,7 +292,7 @@ struct TaaPipelineSpecializer;
 
 #[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct TaaPipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     tonemap: bool,
     reset: bool,
 }
@@ -315,7 +315,7 @@ impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
         }
 
         let color_target_state = ColorTargetState {
-            format: key.texture_format,
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         };
@@ -403,7 +403,7 @@ fn prepare_taa_history_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: view.texture_format,
+                format: view.target_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             };
@@ -447,7 +447,7 @@ fn prepare_taa_pipelines(
 ) -> Result<(), BevyError> {
     for (entity, camera, view, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
-            texture_format: view.texture_format,
+            target_format: view.target_format,
             tonemap: camera.hdr,
             reset: taa_settings.reset,
         };

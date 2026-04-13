@@ -177,7 +177,7 @@ struct SmaaNeighborhoodBlendingPipeline {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SmaaNeighborhoodBlendingPipelineKey {
     /// The format of the framebuffer.
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     /// The quality preset.
     preset: SmaaPreset,
 }
@@ -566,7 +566,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs,
                 entry_point: Some("neighborhood_blending_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -606,7 +606,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: view.texture_format,
+                    target_format: view.target_format,
                     preset: smaa.preset,
                 },
             );

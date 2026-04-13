@@ -137,7 +137,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 pub struct UiGradientPipelineKey {
     anti_alias: bool,
     color_space: InterpolationColorSpace,
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for GradientPipeline {
@@ -206,7 +206,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -607,7 +607,7 @@ pub fn queue_gradient(
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 color_space: gradient.color_space,
-                texture_format: view.texture_format,
+                target_format: view.target_format,
             },
         );
 

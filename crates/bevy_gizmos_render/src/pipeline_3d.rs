@@ -154,7 +154,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
             fragment.shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = key.view_key.color_target_format();
+        let format = key.view_key.target_format();
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -205,7 +205,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = key.view_key.color_target_format();
+        let format = key.view_key.target_format();
 
         let view_layout = self
             .mesh_pipeline

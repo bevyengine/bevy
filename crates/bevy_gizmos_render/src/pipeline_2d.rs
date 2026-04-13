@@ -110,7 +110,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = key.mesh_key.color_target_format();
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -191,7 +191,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = key.mesh_key.color_target_format();
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -308,7 +308,7 @@ fn queue_line_and_joint_gizmos_2d(
         };
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_color_target_format(view.texture_format);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, config) in &line_gizmos {

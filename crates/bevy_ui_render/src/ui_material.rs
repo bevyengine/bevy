@@ -125,7 +125,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     pub bind_group_data: M::Data,
 }
 
@@ -136,7 +136,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.texture_format == other.texture_format && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -146,7 +146,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            texture_format: self.texture_format,
+            target_format: self.target_format,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -157,7 +157,7 @@ where
     M::Data: core::hash::Hash,
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.texture_format.hash(state);
+        self.target_format.hash(state);
         self.bind_group_data.hash(state);
     }
 }

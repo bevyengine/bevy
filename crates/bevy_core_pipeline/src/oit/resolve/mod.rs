@@ -142,7 +142,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     sorted_fragment_max_count: u32,
     depth_prepass: bool,
 }
@@ -173,7 +173,7 @@ pub fn queue_oit_resolve_pipeline(
     for (e, view, oit_settings, depth_prepass) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            texture_format: view.texture_format,
+            target_format: view.target_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
         };
@@ -229,7 +229,7 @@ fn specialize_oit_resolve_pipeline(
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs,
             targets: vec![Some(ColorTargetState {
-                format: key.texture_format,
+                format: key.target_format,
                 blend: Some(BlendState {
                     color: BlendComponent::OVER,
                     alpha: BlendComponent::OVER,

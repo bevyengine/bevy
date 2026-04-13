@@ -382,7 +382,7 @@ fn queue_infinite_grids(
             &pipeline_cache,
             &pipeline,
             GridPipelineKey {
-                texture_format: view.texture_format,
+                target_format: view.target_format,
                 sample_count: msaa.samples(),
             },
         );
@@ -461,7 +461,7 @@ impl FromWorld for InfiniteGridPipeline {
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 struct GridPipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     sample_count: u32,
 }
 
@@ -491,7 +491,7 @@ impl SpecializedRenderPipeline for InfiniteGridPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

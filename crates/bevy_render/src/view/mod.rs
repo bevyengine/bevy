@@ -102,7 +102,7 @@ pub const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b11111;
 /// Covers all WebGPU renderable and blenderable texture formats. Some of them needs optional features.
 /// See <https://gpuweb.github.io/gpuweb/#plain-color-formats>.
 #[inline]
-pub fn color_target_format_to_code(format: TextureFormat) -> Option<u8> {
+pub fn texture_format_to_code(format: TextureFormat) -> Option<u8> {
     Some(match format {
         TextureFormat::R8Unorm => 0,
         TextureFormat::R8Snorm => 1,
@@ -133,9 +133,9 @@ pub fn color_target_format_to_code(format: TextureFormat) -> Option<u8> {
 
 /// Decode a 5-bit code back into a [`TextureFormat`].
 ///
-/// Inverse of [`color_target_format_to_code`].
+/// Inverse of [`texture_format_to_code`].
 #[inline]
-pub fn color_target_format_from_code(code: u8) -> Option<TextureFormat> {
+pub fn texture_format_from_code(code: u8) -> Option<TextureFormat> {
     Some(match code {
         0 => TextureFormat::R8Unorm,
         1 => TextureFormat::R8Snorm,
@@ -366,7 +366,7 @@ pub struct ExtractedView {
     /// the [`RenderTarget`](bevy_camera::RenderTarget)'s texture format. Among other
     /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
     /// override to ensure sufficient precision is present for lighting calculations.
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -803,7 +803,7 @@ pub struct NoIndirectDrawing;
 
 impl ViewTarget {
     #[deprecated(
-        note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, use TextureFormat::Rgba16Float"
+        note = "Use ExtractedView::target_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, use TextureFormat::Rgba16Float"
     )]
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
@@ -1158,7 +1158,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let main_texture_format = view.texture_format;
+        let main_texture_format = view.target_format;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),

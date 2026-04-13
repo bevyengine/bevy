@@ -774,7 +774,7 @@ pub fn extract_ui_camera_view(
         ) && target_size.x != 0
             && target_size.y != 0
         {
-            let Some(texture_format) = main_pass_formats.get(&render_entity).copied() else {
+            let Some(target_format) = main_pass_formats.get(&render_entity).copied() else {
                 commands
                     .get_entity(render_entity)
                     .expect("Camera entity wasn't synced.")
@@ -807,7 +807,7 @@ pub fn extract_ui_camera_view(
                             UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                         ),
                         clip_from_world: None,
-                        texture_format,
+                        target_format,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
@@ -1494,7 +1494,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                texture_format: view.texture_format,
+                target_format: view.target_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );

@@ -100,7 +100,7 @@ use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter}
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{
-    color_target_format_from_code, color_target_format_to_code, ExtractedView,
+    texture_format_from_code, texture_format_to_code, ExtractedView,
     RenderShadowMapVisibleEntities, RenderVisibleEntities,
 };
 use bevy_render::RenderSystems::PrepareAssets;
@@ -404,7 +404,7 @@ pub fn check_views_need_specialization(
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_color_target_format(view.texture_format);
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -3157,8 +3157,8 @@ impl MeshPipelineKey {
 
     /// Create a pipeline key from the view's color target format.
     #[inline]
-    pub fn from_color_target_format(format: TextureFormat) -> Self {
-        let code = color_target_format_to_code(format)
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
             .expect("Texture format is not supported by the pipeline") as u64;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
@@ -3167,10 +3167,10 @@ impl MeshPipelineKey {
 
     /// Color target format of the main pass for this pipeline key.
     #[inline]
-    pub fn color_target_format(&self) -> TextureFormat {
+    pub fn target_format(&self) -> TextureFormat {
         let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
-        color_target_format_from_code(code)
+        texture_format_from_code(code)
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
@@ -3629,7 +3629,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = key.color_target_format();
+        let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this

@@ -82,7 +82,7 @@ pub fn prepare_core_3d_transmission_textures(
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format: view.texture_format,
+                    format: view.target_format,
                     usage,
                     view_formats: &[],
                 };

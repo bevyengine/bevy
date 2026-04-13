@@ -130,7 +130,7 @@ fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    color_target_format: TextureFormat,
+    target_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -170,7 +170,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.color_target_format,
+                    format: key.target_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -197,7 +197,7 @@ fn prepare_skybox_pipelines(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                color_target_format: view.texture_format,
+                target_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },

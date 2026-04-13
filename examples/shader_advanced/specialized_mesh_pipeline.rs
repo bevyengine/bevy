@@ -229,7 +229,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports rendering different formats
                     // so it's generally recommended to specialize the pipeline for that
-                    format: mesh_key.color_target_format(),
+                    format: mesh_key.target_format(),
                     // For this example we only use opaque meshes,
                     // but if you wanted to use alpha blending you would need to set it here
                     blend: None,

@@ -125,7 +125,7 @@ pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetS
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BoxShadowPipelineKey {
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
 }
@@ -169,7 +169,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -328,7 +328,7 @@ pub fn queue_shadows(
             &pipeline_cache,
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
-                texture_format: view.texture_format,
+                target_format: view.target_format,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );

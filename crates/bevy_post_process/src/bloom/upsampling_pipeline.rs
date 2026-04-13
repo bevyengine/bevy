@@ -37,7 +37,7 @@ pub struct BloomUpsamplingPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 pub fn init_bloom_upscaling_pipeline(
@@ -111,7 +111,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 shader: self.fragment_shader.clone(),
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState {
                         color: color_blend,
                         alpha: BlendComponent {
@@ -142,7 +142,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                texture_format: BLOOM_TEXTURE_FORMAT,
+                target_format: BLOOM_TEXTURE_FORMAT,
             },
         );
 
@@ -151,7 +151,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                texture_format: view.texture_format,
+                target_format: view.target_format,
             },
         );
 
