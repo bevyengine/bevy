@@ -1,3 +1,4 @@
+use crate::camera::extract_cameras;
 use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
@@ -34,7 +35,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_gpu_resource::<ExtractedWindows>()
                 .init_gpu_resource::<WindowSurfaces>()
-                .add_systems(ExtractSchedule, extract_windows)
+                .add_systems(ExtractSchedule, extract_windows.before(extract_cameras))
                 .add_systems(
                     Render,
                     create_surfaces
@@ -60,6 +61,8 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
+    /// This is an srgb view of [`ExtractedWindow::swap_chain_texture_format`]
+    /// so that in shaders we are always in linear space.
     pub swap_chain_texture_view_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,

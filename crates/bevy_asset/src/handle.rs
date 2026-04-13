@@ -208,6 +208,7 @@ impl<T: Asset> FromTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
 }
 
+#[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     Path(AssetPath<'static>),
     Handle(Handle<T>),
