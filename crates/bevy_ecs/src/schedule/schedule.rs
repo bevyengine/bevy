@@ -415,6 +415,11 @@ impl Schedule {
         this
     }
 
+    /// Returns whether this schedule has been changed since the last time it was built.
+    pub fn is_changed(&self) -> bool {
+        self.graph.changed
+    }
+
     /// Returns the [`InternedScheduleLabel`] for this `Schedule`,
     /// corresponding to the [`ScheduleLabel`] this schedule was created with.
     pub fn label(&self) -> InternedScheduleLabel {
