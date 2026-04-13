@@ -90,7 +90,7 @@ fn main() {
         .add_message::<CityAssetsLoaded>()
         .add_message::<CityAssetsReady>()
         .add_message::<CitySpawned>()
-        .add_systems(Startup, (setup, load_assets))
+        .add_systems(Startup, (setup, spawn_atmosphere, load_assets))
         .add_systems(
             Update,
             (
@@ -106,37 +106,16 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
-    // Earth atmosphere plus an extra near-ground fog term.
-    let mut earth_medium = ScatteringMedium::default();
-    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
-    const HAZE_VISIBILITY_KM: f32 = 12.0;
-    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
-    const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
-    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
-    earth_medium.terms.push(ScatteringTerm {
-        absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
-        scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
-        falloff: Falloff::Exponential {
-            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
-        },
-        phase: PhaseFunction::Mie { asymmetry: 0.76 },
-    });
-    let earth = Atmosphere::earth(scattering_mediums.add(earth_medium.clone()));
-    // This scale means that 1 city block in this scene will be roughly 100 meters
-    let scale = 1.0 / 20.0;
-    commands.spawn((
-        earth.clone(),
-        Transform::from_scale(Vec3::splat(scale))
-            .with_translation(-Vec3::Y * earth.inner_radius * scale),
-    ));
-
+fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
         AtmosphereSettings {
+            // Reduce the default max distance in the aerial view LUT
+            // to 16km to approximately fit the size of the city. This way the aerial perspective
+            // gets more detail and has less banding artifacts compared to the 32km default.
             aerial_view_lut_max_distance: 1.6e4,
             ..default()
         },
@@ -203,6 +182,49 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
                 ),
             ]
         )],
+    ));
+}
+
+/// Spawns the earth atmosphere plus an extra near-ground fog term.
+fn spawn_atmosphere(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
+    let mut earth_medium = ScatteringMedium::default();
+
+    // Same 60 km atmosphere height as `ScatteringMedium::earth`
+    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+
+    // The scale height of haze is set to 100 meters providing a low-lying dense fog layer.
+    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+
+    // Fog has high albedo and very low absorption resulting in a white color.
+    const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
+
+    // Distance at which contrast falls low enough to be indistinguishable from the sky.
+    // known as Meteorological Optical Range (MOR)
+    const HAZE_VISIBILITY_KM: f32 = 12.0;
+
+    // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
+    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+
+    earth_medium.terms.push(ScatteringTerm {
+        absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
+        scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
+        falloff: Falloff::Exponential {
+            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+        },
+        // Fog is approximated as a mie scatterers with this asymmetry factor
+        phase: PhaseFunction::Mie { asymmetry: 0.76 },
+    });
+    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium.clone()));
+
+    // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
+    let scale = 1.0 / 20.0;
+    commands.spawn((
+        earth_atmosphere.clone(),
+        Transform::from_scale(Vec3::splat(scale))
+            .with_translation(-Vec3::Y * earth_atmosphere.inner_radius * scale),
     ));
 }
 
