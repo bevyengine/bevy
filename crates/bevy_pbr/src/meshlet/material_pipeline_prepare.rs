@@ -81,7 +81,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
-            | MeshPipelineKey::from_target_format(view.texture_format);
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -297,7 +297,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
-            | MeshPipelineKey::from_target_format(view.texture_format);
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
