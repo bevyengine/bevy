@@ -1,5 +1,5 @@
 //! This example demonstrates how to use BSN to compose scenes.
-use bevy::{ecs::template::template, prelude::*};
+use bevy::{prelude::*, text::FontSourceTemplate};
 
 fn main() {
     App::new()
@@ -51,16 +51,10 @@ fn button(label: &'static str) -> impl Scene {
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
         Children [(
             Text(label)
-            // The `template` wrapper can be used for types that can't implement or don't yet have a template
-            template(|context| {
-                Ok(TextFont {
-                    font: context
-                        .resource::<AssetServer>()
-                        .load("fonts/FiraSans-Bold.ttf").into(),
-                    font_size: FontSize::Px(33.0),
-                    ..default()
-                })
-            })
+            TextFont {
+                font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
+                font_size: FontSize::Px(33.0),
+            }
             TextColor(Color::srgb(0.9, 0.9, 0.9))
             TextShadow
         )]

@@ -1013,6 +1013,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "editable_text_filter"
+path = "examples/ui/text/editable_text_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text_filter]
+name = "Editable Text Filter"
+description = "Demonstrates an 8-character hex input using EditableTextFilter"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "multiline_text_input"
 path = "examples/ui/text/multiline_text_input.rs"
 doc-scrape-examples = true
