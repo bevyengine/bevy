@@ -164,7 +164,7 @@ audio = ["bevy_audio", "vorbis"]
 audio-all-formats = ["bevy_audio", "aac", "flac", "mp3", "mp4", "vorbis", "wav"]
 
 # COLLECTION: Features used to compose Bevy scenes.
-scene = ["bevy_ecs_serialization", "bevy_scene2"]
+scene = ["bevy_world_serialization", "bevy_scene"]
 
 # COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
@@ -318,10 +318,10 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides ECS serialization functionality
-bevy_ecs_serialization = ["bevy_internal/bevy_ecs_serialization"]
+bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 
 # Provides scene functionality
-bevy_scene2 = ["bevy_internal/bevy_scene2"]
+bevy_scene = ["bevy_internal/bevy_scene"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
@@ -643,6 +643,9 @@ bevy_debug_stepping = [
   "bevy_internal/debug",
 ]
 
+# Enable collecting schedule data from the app.
+schedule_data = ["bevy_internal/schedule_data"]
+
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
@@ -733,8 +736,9 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-fea
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
-bevy_scene2 = { path = "crates/bevy_scene2", version = "0.19.0-dev", default-features = false }
+bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -1010,6 +1014,28 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "editable_text_filter"
+path = "examples/ui/text/editable_text_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text_filter]
+name = "Editable Text Filter"
+description = "Demonstrates an 8-character hex input using EditableTextFilter"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "multiline_text_input"
+path = "examples/ui/text/multiline_text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiline_text_input]
+name = "Multiline Text Input"
+description = "Demonstrates a single multiline EditableText widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "multiple_text_inputs"
 path = "examples/ui/text/multiple_text_inputs.rs"
 doc-scrape-examples = true
@@ -1131,6 +1157,18 @@ doc-scrape-examples = true
 [package.metadata.example.3d_scene]
 name = "3D Scene"
 description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "rect_light"
+path = "examples/3d/rect_light.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.rect_light]
+name = "Rectangular Area Light"
+description = "Simple 3D scene demonstrating rectangular area lights."
 category = "3D Rendering"
 wasm = true
 
@@ -3022,13 +3060,13 @@ wasm = false
 
 # Scene
 [[example]]
-name = "scene"
-path = "examples/scene/scene.rs"
+name = "world_serialization"
+path = "examples/scene/world_serialization.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.scene]
-name = "Scene"
-description = "Demonstrates loading from and saving scenes to files"
+[package.metadata.example.world_serialization]
+name = "World Serialization"
+description = "Demonstrates loading from and saving world to files"
 category = "Scene"
 wasm = false
 
@@ -4610,6 +4648,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["debug", "schedule_data"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
+category = "Dev tools"
+wasm = false
+
+[[example]]
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
@@ -4810,6 +4860,30 @@ required-features = ["bevy_remote"]
 [package.metadata.example.server]
 name = "server"
 description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "app_under_test"
+path = "examples/remote/app_under_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.app_under_test]
+name = "App Under Test"
+description = "A Bevy app that you can connect to with the BRP and control"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "integration_test"
+path = "examples/remote/integration_test.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.integration_test]
+name = "Integration Test"
+description = "Connects to a running Bevy app via BRP, finds a button, and clicks it"
 category = "Remote Protocol"
 wasm = false
 

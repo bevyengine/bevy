@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
-use bevy_scene2::{prelude::*, template_value};
+use bevy_scene::{prelude::*, template_value};
 use bevy_ui::{
     AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
     FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,

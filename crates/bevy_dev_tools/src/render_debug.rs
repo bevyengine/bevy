@@ -6,7 +6,7 @@ use bevy_core_pipeline::{
     mip_generation::experimental::depth::ViewDepthPyramid,
     oit::OrderIndependentTransparencySettingsOffset,
     schedule::{Core3d, Core3dSystems},
-    tonemapping::tonemapping,
+    upscaling::upscaling,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -40,6 +40,7 @@ use bevy_render::{
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
+use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
     Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
@@ -94,8 +95,9 @@ impl Plugin for RenderDebugOverlayPlugin {
             .add_systems(
                 Core3d,
                 render_debug_overlay
-                    .after(tonemapping)
-                    .in_set(Core3dSystems::PostProcess),
+                    .after(Core3dSystems::PostProcess)
+                    .before(ui_pass)
+                    .before(upscaling),
             );
     }
 }

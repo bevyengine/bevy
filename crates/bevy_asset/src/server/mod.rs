@@ -508,6 +508,10 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> Handle<A> {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
 
         if path.is_unapproved() {
             match (&self.data.unapproved_path_mode, override_unapproved) {
@@ -541,6 +545,11 @@ impl AssetServer {
         guard: G,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return UntypedHandle::default_for_type(type_id);
+        }
+
         let mut infos = self.write_infos();
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
@@ -605,6 +614,10 @@ impl AssetServer {
         self.write_infos().stats.started_load_tasks += 1;
 
         let path: AssetPath = path.into();
+        if path.path() == Path::new("") {
+            return Err(AssetLoadError::EmptyPath(path.clone_owned()));
+        }
+
         self.load_internal(None, path, false, None)
             .await
             .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
@@ -616,6 +629,11 @@ impl AssetServer {
         meta_transform: Option<MetaTransform>,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Handle::default();
+        }
+
         let untyped_source = AssetSourceId::Name(match path.source() {
             AssetSourceId::Default => CowArc::Static(UNTYPED_SOURCE_SUFFIX),
             AssetSourceId::Name(source) => {
@@ -2083,6 +2101,8 @@ impl RecursiveDependencyLoadState {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
         path: AssetPath<'static>,

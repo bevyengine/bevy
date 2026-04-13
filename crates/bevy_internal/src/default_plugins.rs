@@ -13,6 +13,8 @@ plugin_group! {
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
         #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputFocusPlugin,
+        #[cfg(feature = "bevy_input_focus")]
         bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
@@ -29,10 +31,10 @@ plugin_group! {
         bevy_asset::io::web:::WebAssetPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
-        #[cfg(feature = "bevy_ecs_serialization")]
-        bevy_ecs_serialization:::ScenePlugin,
-        #[cfg(feature = "bevy_scene2")]
-        bevy_scene2:::ScenePlugin,
+        #[cfg(feature = "bevy_world_serialization")]
+        bevy_world_serialization:::WorldSerializationPlugin,
+        #[cfg(feature = "bevy_scene")]
+        bevy_scene:::ScenePlugin,
         // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
@@ -87,7 +89,7 @@ plugin_group! {
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
+        #[custom(cfg(all(feature = "bevy_dev_tools", feature = "bevy_pbr")))]
         bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,

@@ -277,7 +277,7 @@ fn spawn_cube(
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -432,7 +432,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
             ..default()
         },
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 5000.0,
             ..default()
         },
