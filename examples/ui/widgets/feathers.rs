@@ -5,10 +5,10 @@ use bevy::{
     feathers::{
         controls::{
             button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
-            menu_item, menu_popup, radio, slider, text_input, text_input_container, toggle_switch,
-            ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
-            ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
-            SliderBaseColor, SliderProps, TextInputProps,
+            menu_divider, menu_item, menu_popup, radio, slider, text_input, text_input_container,
+            toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
+            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps,
+            MenuItemProps, SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -159,6 +159,7 @@ fn demo_root() -> impl Scene {
                                                 info!("Menu item 2 clicked!");
                                             })
                                         ),
+                                        :menu_divider,
                                         (
                                             menu_item(MenuItemProps {
                                                 caption: Box::new(bsn_list!(
