@@ -1,6 +1,6 @@
 ---
 title: "`WgpuSettingsPriority::Compatibility` renamed to `WgpuSettingsPriority::WebGPU`"
-pull_requests: []
+pull_requests: [23783]
 ---
 
  `WgpuSettingsPriority::Compatibility` has been renamed to `WgpuSettingsPriority::WebGPU`.
