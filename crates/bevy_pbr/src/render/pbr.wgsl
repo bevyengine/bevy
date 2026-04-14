@@ -91,7 +91,17 @@ fn fragment(
 
 #ifdef OIT_ENABLED
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
+        // The fragments will only be drawn during the oit resolve pass.
+        oit_draw(in.position, vec4(out.color.rgb * out.color.a, out.color.a));
+        discard;
+    }
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED {
+        // The fragments will only be drawn during the oit resolve pass.
+        oit_draw(in.position, out.color);
+        discard;
+    }
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // The fragments will only be drawn during the oit resolve pass.
         oit_draw(in.position, out.color);
         discard;
