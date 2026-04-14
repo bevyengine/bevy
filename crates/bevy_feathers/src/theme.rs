@@ -105,7 +105,7 @@ pub struct ThemeBorderColor(pub ThemeToken);
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-#[require(ThemedText, PropagateOver::<TextColor>::default())]
+#[require(ThemedText, PropagateOver::<TextColor>)]
 pub struct ThemeFontColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using

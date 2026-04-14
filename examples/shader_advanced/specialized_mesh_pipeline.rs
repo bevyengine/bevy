@@ -33,9 +33,9 @@ use bevy::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
             FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            SpecializedMeshPipelines, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
@@ -227,13 +227,9 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
                 targets: vec![Some(ColorTargetState {
-                    // This isn't required, but bevy supports HDR and non-HDR rendering
+                    // This isn't required, but bevy supports rendering different formats
                     // so it's generally recommended to specialize the pipeline for that
-                    format: if mesh_key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: mesh_key.target_format(),
                     // For this example we only use opaque meshes,
                     // but if you wanted to use alpha blending you would need to set it here
                     blend: None,

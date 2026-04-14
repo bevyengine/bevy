@@ -122,7 +122,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        WorldAssetRoot(assets.get_random_car(rng)),
+                        assets.get_random_car(rng),
                         Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, -0.15))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(
@@ -139,7 +139,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        WorldAssetRoot(assets.get_random_car(rng)),
+                        assets.get_random_car(rng),
                         Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, 0.15))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(
@@ -180,7 +180,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        WorldAssetRoot(assets.get_random_car(rng)),
+                        assets.get_random_car(rng),
                         Transform::from_translation(car_pos + Vec3::new(0.15, 0.0, 0.0))
                             .with_scale(Vec3::splat(0.15)),
                         Car {
@@ -193,7 +193,7 @@ fn spawn_roads_and_cars<R: RngExt>(
 
                 if rng.random::<f32>() < max_car_density {
                     commands.spawn((
-                        WorldAssetRoot(assets.get_random_car(rng)),
+                        assets.get_random_car(rng),
                         Transform::from_translation(car_pos + Vec3::new(-0.15, 0.0, 0.0))
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),

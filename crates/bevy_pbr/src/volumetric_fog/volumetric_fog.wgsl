@@ -21,7 +21,7 @@
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
-    atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
@@ -254,7 +254,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             // Calculate where we are in the ray.
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = Rd_view * f32(step) * step_size_world;
+            let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
             var density = density_factor;
 #ifdef DENSITY_TEXTURE
@@ -311,16 +311,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 #ifdef ATMOSPHERE
                 // attenuate by atmospheric scattering
                 let P = P_world + depth_offset;
-                let P_scaled = P * vec3(atmosphere_data.settings.scene_units_to_m);
-                let O = vec3(0.0, atmosphere_data.atmosphere.bottom_radius, 0.0);
-                let P_as = P_scaled + O;
-                let P_clamped = clamp_to_surface(atmosphere_data.atmosphere, P_as);
+                let P_as = (atmosphere.world_to_atmosphere * vec4(P, 1.0)).xyz;
+                let P_clamped = clamp_to_surface(atmosphere, P_as);
                 let r = length(P_clamped);
                 let local_up = normalize(P_clamped);
                 let mu_light = dot(L, local_up);
 
                 let transmittance = sample_transmittance_lut(r, mu_light);
-                let sun_visibility = calculate_visible_sun_ratio(atmosphere_data.atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+                let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
                 light_factors_per_step *= transmittance * sun_visibility;
 #endif
 
@@ -336,35 +334,36 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     }
 
     // Point lights and Spot lights
-    let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
-    var clusterable_object_index_ranges =
-        clustering::unpack_clusterable_object_index_ranges(cluster_index);
-    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
-            i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
-        let light = &clustered_lights.data[light_id];
-        if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
-            continue;
+
+    // Reset `background_alpha` for a new raymarch.
+    background_alpha = 1.0;
+
+    // Start raymarching.
+    for (var step = 0u; step < step_count; step += 1u) {
+        // As an optimization, break if we've gotten too dark.
+        if (background_alpha < 0.001) {
+            break;
         }
 
-        // Reset `background_alpha` for a new raymarch.
-        background_alpha = 1.0;
+        // Calculate where we are in the ray.
+        let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
+        let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
-        // Start raymarching.
-        for (var step = 0u; step < step_count; step += 1u) {
-            // As an optimization, break if we've gotten too dark.
-            if (background_alpha < 0.001) {
-                break;
+        var density = density_factor;
+        var sample_color = vec3(0.0);
+
+        let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
+        var clusterable_object_index_ranges = clustering::unpack_clusterable_object_index_ranges(cluster_index);
+        for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u)
+        {
+            let light_id = clustering::get_clusterable_object_id(i);
+            let light = &clustered_lights.data[light_id];
+            if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
+                continue;
             }
-
-            // Calculate where we are in the ray.
-            let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = Rd_view * f32(step) * step_size_world;
-
-            var density = density_factor;
 
             let light_to_frag = (*light).position_radius.xyz - P_world;
             let V = Rd_world;
@@ -386,7 +385,6 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
                     spot_dir.y = -spot_dir.y;
                 }
-                let light_to_frag = (*light).position_radius.xyz - P_world;
 
                 // calculate attenuation based on filament formula https://google.github.io/filament/Filament.md.html#listing_glslpunctuallight
                 // spot_scale and spot_offset have been precomputed
@@ -402,13 +400,6 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 local_light_attenuation *= spot_attenuation * shadow;
             }
 
-            // Calculate absorption (amount of light absorbed by the fog) and
-            // out-scattering (amount of light the fog scattered away).
-            let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
-
-            // Process absorption and out-scattering.
-            background_alpha *= sample_attenuation;
-
             let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
             let light_factors_per_step = fog_color * light_tint * light_attenuation *
                 scattering * density * step_size_world * light_intensity * exposure;
@@ -418,9 +409,16 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let light_color_per_step = (*light).color_inverse_square_range.rgb * light_factors_per_step;
 
             // Accumulate the light.
-            accumulated_color += light_color_per_step * local_light_attenuation *
-                background_alpha;
+            sample_color += light_color_per_step * local_light_attenuation;
         }
+
+        // Calculate absorption (amount of light absorbed by the fog) and
+        // out-scattering (amount of light the fog scattered away).
+        let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
+
+        // Process absorption and out-scattering.
+        background_alpha *= sample_attenuation;
+        accumulated_color += sample_color * background_alpha;
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
@@ -444,7 +442,7 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fr
     let offset_position = frag_position.xyz + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = offset_position.xyz - (*light).position_radius.xyz ;
+    let frag_ls = offset_position.xyz - (*light).position_radius.xyz;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
@@ -518,7 +516,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
 
 #ifdef ATMOSPHERE
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(atmosphere_data.atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,
         atmosphere_transmittance_sampler, uv, 0.0).rgb;
