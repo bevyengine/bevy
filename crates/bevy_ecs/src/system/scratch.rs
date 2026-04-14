@@ -9,7 +9,15 @@ use core::{
 
 use bevy_platform::cell::SyncCell;
 
+use core::hash::{BuildHasher, Hash};
+
+#[cfg(feature = "std")]
+use std::collections::{HashMap as StdHashMap, HashSet as StdHashSet};
+
+use bevy_platform::collections::{HashMap, HashSet};
+
 use crate::{
+    entity::{EntityHashMap, EntityHashSet},
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemParam},
     world::FromWorld,
 };
@@ -236,6 +244,92 @@ impl<I> ClearableCollection for BinaryHeap<I> {
 
     fn clear(&mut self) {
         BinaryHeap::clear(self);
+    }
+}
+
+#[cfg(feature = "std")]
+impl<K: Hash + Eq, V, S: BuildHasher> ClearableCollection for StdHashMap<K, V, S> {
+    fn capacity(&self) -> usize {
+        StdHashMap::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        StdHashMap::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        StdHashMap::shrink_to(self, capacity);
+    }
+}
+
+#[cfg(feature = "std")]
+impl<K: Hash + Eq, S: BuildHasher> ClearableCollection for StdHashSet<K, S> {
+    fn capacity(&self) -> usize {
+        StdHashSet::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        StdHashSet::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        StdHashSet::shrink_to(self, capacity);
+    }
+}
+
+impl<V> ClearableCollection for EntityHashMap<V> {
+    fn capacity(&self) -> usize {
+        self.deref().capacity()
+    }
+
+    fn clear(&mut self) {
+        self.deref_mut().clear();
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        self.deref_mut().shrink_to(capacity);
+    }
+}
+
+impl ClearableCollection for EntityHashSet {
+    fn capacity(&self) -> usize {
+        self.deref().capacity()
+    }
+
+    fn clear(&mut self) {
+        self.deref_mut().clear();
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        self.deref_mut().shrink_to(capacity);
+    }
+}
+
+impl<K: Hash + Eq, V, S: BuildHasher> ClearableCollection for HashMap<K, V, S> {
+    fn capacity(&self) -> usize {
+        HashMap::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        HashMap::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        HashMap::shrink_to(self, capacity);
+    }
+}
+
+impl<K: Hash + Eq, S: BuildHasher> ClearableCollection for HashSet<K, S> {
+    fn capacity(&self) -> usize {
+        HashSet::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        HashSet::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        HashSet::shrink_to(self, capacity);
     }
 }
 
