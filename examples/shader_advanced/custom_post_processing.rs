@@ -211,9 +211,8 @@ fn init_post_process_pipeline(
                 shader,
                 // Make sure this matches the entry point of your shader.
                 // It can be anything as long as it matches here and in the shader.
-                // Use `format: ViewTarget::TEXTURE_FORMAT_HDR` for HDR cameras.
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

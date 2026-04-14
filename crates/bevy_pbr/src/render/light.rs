@@ -1610,8 +1610,7 @@ pub fn prepare_lights(
                         world_from_view: view_translation * *view_rotation,
                         clip_from_world: None,
                         clip_from_view: cube_face_projection,
-                        hdr: false,
-                        compositing_space: None,
+                        target_format: CORE_3D_DEPTH_FORMAT,
                         color_grading: Default::default(),
                         invert_culling: false,
                     },
@@ -1723,8 +1722,7 @@ pub fn prepare_lights(
                     world_from_view: spot_world_from_view,
                     clip_from_view: spot_projection,
                     clip_from_world: None,
-                    hdr: false,
-                    compositing_space: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
                     color_grading: Default::default(),
                     invert_culling: false,
                 },
@@ -2049,8 +2047,7 @@ pub fn prepare_lights(
                         world_from_view: GlobalTransform::from(cascade.world_from_cascade),
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
-                        hdr: false,
-                        compositing_space: None,
+                        target_format: CORE_3D_DEPTH_FORMAT,
                         color_grading: Default::default(),
                         invert_culling: false,
                     },
@@ -2111,6 +2108,29 @@ pub fn prepare_lights(
                 .insert(OcclusionCullingSubviewEntities(
                     view_occlusion_culling_lights,
                 ));
+        }
+
+        // Set up rect lights.
+        //
+        // FIXME: These are currently per-view because we have no mechanism for
+        // "non-clustered but non-view-specific" lights. We could introduce such
+        // a thing, but we want rect lights to be clustered anyways, so any
+        // effort spent on introducing that mechanism would be better spent on
+        // making rect lights clusterable.
+        gpu_lights.n_rect_lights = 0;
+        for (index, (_, _, rect_light)) in rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS) {
+            let right = rect_light.transform.right().into();
+            let up = rect_light.transform.up().into();
+            gpu_lights.rect_lights[index] = GpuRectLight {
+                color: Vec4::from_slice(&rect_light.color.to_f32_array()) * rect_light.intensity,
+                position: rect_light.transform.translation(),
+                right,
+                up,
+                width: rect_light.width,
+                height: rect_light.height,
+                range: rect_light.range,
+            };
+            gpu_lights.n_rect_lights += 1;
         }
     }
 

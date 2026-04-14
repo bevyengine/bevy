@@ -736,6 +736,7 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-fea
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -1009,6 +1010,17 @@ doc-scrape-examples = true
 [package.metadata.example.editable_text]
 name = "Editable Text"
 description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "editable_text_filter"
+path = "examples/ui/text/editable_text_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text_filter]
+name = "Editable Text Filter"
+description = "Demonstrates an 8-character hex input using EditableTextFilter"
 category = "UI (User Interface)"
 wasm = true
 
@@ -5369,12 +5381,24 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "feathers"
-path = "examples/ui/widgets/feathers.rs"
+name = "feathers_counter"
+path = "examples/ui/widgets/feathers_counter.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
-[package.metadata.example.feathers]
+[package.metadata.example.feathers_counter]
+name = "Feathers Counter"
+description = "Simple counter using feathers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers_gallery"
+path = "examples/ui/widgets/feathers_gallery.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.feathers_gallery]
 name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"

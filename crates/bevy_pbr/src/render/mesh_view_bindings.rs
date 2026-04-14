@@ -15,7 +15,6 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res},
 };
-use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_render::{
@@ -700,7 +699,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::bevy_default())
+                .image_for_samplecount(1, TextureFormat::Rgba8UnormSrgb)
                 .texture_view
                 .clone();
             let ssao_view = ssao_resources

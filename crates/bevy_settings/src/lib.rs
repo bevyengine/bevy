@@ -9,6 +9,10 @@
 //!   different application, such as a text editor or external settings app.
 //!
 //! Refer to [`PreferencesPlugin`] for detailed usage information.
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_settings;
+
 use core::any::TypeId;
 use core::time::Duration;
 use std::collections::HashMap;
@@ -133,6 +137,7 @@ impl Plugin for PreferencesPlugin {
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
+/// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
 /// If there is a collision between names (multiple resources have the same name) then
 /// the resulting properties will be merged into a single section.
@@ -145,6 +150,12 @@ pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
+    /// The key name within the settings file.
+    /// For structs, this should be set to `None`; The struct’s field names will be used as keys.
+    /// For enums, the `SettingsGroup` will use this key name within the settings file for its sole key-value pair.
+    /// This is typically the same as the group name, but can be customized.
+    fn settings_key_name() -> Option<&'static str>;
+
     /// The name of the configuration file that contains this settings group.
     // TODO: Eventually convert this into an enum which represents various configuration sources.
     fn settings_source() -> Option<&'static str>;
@@ -155,6 +166,8 @@ pub trait SettingsGroup: Resource {
 pub struct ReflectSettingsGroup {
     /// The name of the logical section within the settings file.
     settings_group_name: &'static str,
+    /// The key name within the settings file. Should only be `Some` for enums.
+    settings_key_name: Option<&'static str>,
     /// The name of the settings file, defaults to "settings".
     settings_source: Option<&'static str>,
 }
@@ -163,6 +176,7 @@ impl<T: SettingsGroup + FromReflect + TypePath> FromType<T> for ReflectSettingsG
     fn from_type() -> Self {
         ReflectSettingsGroup {
             settings_group_name: T::settings_group_name(),
+            settings_key_name: T::settings_key_name(),
             settings_source: T::settings_source(),
         }
     }
@@ -310,14 +324,17 @@ fn resources_to_toml(
     let mut table = toml::Table::new();
     for tid in manifest.resource_types.iter() {
         let ty = types.get(*tid).unwrap();
+
         let Some(cmp) = ty.data::<ReflectComponent>() else {
             continue;
         };
+
         let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
 
-        let group = reflect_settings_group.settings_group_name;
+        let settings_group = reflect_settings_group.settings_group_name;
+        let settings_key = reflect_settings_group.settings_key_name;
 
         let Some(component_id) = world.components().get_id(*tid) else {
             continue;
@@ -332,22 +349,36 @@ fn resources_to_toml(
         };
 
         let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
-        let toml_value = toml::Value::try_from(serializer).unwrap();
+
+        let toml_value = if let Some(settings_key) = settings_key {
+            // convert toml value into a key value pair if settings_key is set. settings_key is only set for enums
+            toml::Value::Table(toml::Table::from_iter([(
+                settings_key.to_string(),
+                toml::Value::try_from(serializer).unwrap(),
+            )]))
+        } else {
+            // Otherwise, the whole struct is serialized into toml
+            toml::Value::try_from(serializer).unwrap()
+        };
+
         match (
             toml_value.as_table(),
-            table.get_mut(group).and_then(|value| value.as_table_mut()),
+            table
+                .get_mut(settings_group)
+                .and_then(|value| value.as_table_mut()),
         ) {
             (Some(from), Some(to)) => {
                 // Merge the tables
                 for (key, value) in from.iter() {
-                    to.insert(key.to_string(), value.clone());
+                    to.insert(key.clone(), value.clone());
                 }
             }
             _ => {
-                table.insert(group.to_string(), toml_value);
+                table.insert(settings_group.to_string(), toml_value);
             }
         };
     }
+
     table
 }
 
@@ -433,7 +464,8 @@ fn apply_settings_to_world(
             continue;
         };
 
-        let group = reflect_settings_group.settings_group_name;
+        let settings_group = reflect_settings_group.settings_group_name;
+        let settings_key = reflect_settings_group.settings_key_name;
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
         let component_id = world.components().get_id(*tid);
@@ -447,8 +479,17 @@ fn apply_settings_to_world(
             };
 
             if let Some(toml) = toml
-                && let Some(value) = toml.get(group)
+                && let Some(value) = toml.get(settings_group)
             {
+                let value = if let Some(settings_key) = settings_key {
+                    // If there is a settings key, then we need to look one level deeper in the TOML
+                    // to find the actual properties to apply to the resource.
+                    value.get(settings_key).unwrap_or(value)
+                } else {
+                    // No settings key, so we can apply the whole section to the resource
+                    value
+                };
+
                 load_properties(value, &mut *reflect, types);
             }
         } else {
@@ -458,8 +499,16 @@ fn apply_settings_to_world(
             let mut res_entity = world.spawn_empty();
 
             if let Some(toml) = toml
-                && let Some(value) = toml.get(group)
+                && let Some(value) = toml.get(settings_group)
             {
+                let value = if let Some(settings_key) = settings_key {
+                    // If there is a settings key, then we need to look one level deeper in the TOML
+                    // to find the actual properties to apply to the resource.
+                    value.get(settings_key).unwrap_or(value)
+                } else {
+                    // No settings key, so we can apply the whole section to the resource
+                    value
+                };
                 load_properties(value, &mut *default_value, types);
             }
 
@@ -473,23 +522,40 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
     let Some(tinfo) = resource.get_represented_type_info() else {
         return;
     };
-    if let TypeInfo::Struct(stinfo) = tinfo
-        && let Some(table) = value.as_table()
-        && let ReflectMut::Struct(st_reflect) = resource.reflect_mut()
-    {
-        // Deserialize matching field names, ignore ones that don't match.
-        for (idx, field) in stinfo.field_names().iter().enumerate() {
-            if let Some(toml_field_value) = table.get(*field)
-                && let Some(field_info) = stinfo.field_at(idx)
-                && let Some(field_type) = types.get(field_info.type_id())
+
+    match tinfo {
+        TypeInfo::Struct(stinfo) => {
+            if let Some(table) = value.as_table()
+                && let ReflectMut::Struct(st_reflect) = resource.reflect_mut()
             {
-                let deserializer = TypedReflectDeserializer::new(field_type, types);
-                if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone()) {
-                    // Should be safe to unwrap here since we know the field exists (above).
-                    st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
+                // Deserialize matching field names, ignore ones that don't match.
+                for (idx, field) in stinfo.field_names().iter().enumerate() {
+                    if let Some(toml_field_value) = table.get(*field)
+                        && let Some(field_info) = stinfo.field_at(idx)
+                        && let Some(field_type) = types.get(field_info.type_id())
+                    {
+                        let deserializer = TypedReflectDeserializer::new(field_type, types);
+                        if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone())
+                        {
+                            // Should be safe to unwrap here since we know the field exists (above).
+                            st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
+                        }
+                    }
                 }
             }
         }
+        TypeInfo::Enum(einfo) => {
+            if let ReflectMut::Enum(en_reflect) = resource.reflect_mut()
+                && let Some(variant_type) = types.get(einfo.type_id())
+            {
+                let deserializer = TypedReflectDeserializer::new(variant_type, types);
+
+                if let Ok(variant_value) = deserializer.deserialize(value.clone()) {
+                    en_reflect.apply(&*variant_value);
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -525,6 +591,15 @@ mod tests {
         enabled: bool,
     }
 
+    #[derive(Resource, SettingsGroup, Reflect, Debug, Default, PartialEq)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    #[settings_group(group = "counter_settings", key = "refresh_rate")]
+    enum CounterRefreshRateSettings {
+        #[default]
+        Slow,
+        Fast,
+    }
+
     /// Test resource that uses a different settings file
     #[derive(Resource, SettingsGroup, Reflect, Default)]
     #[reflect(Resource, SettingsGroup, Default)]
@@ -534,9 +609,24 @@ mod tests {
     }
 
     #[test]
-    fn test_build_registry_single_resource() {
+    fn test_build_registry_single_struct_resource() {
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
+
+        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+
+        assert_eq!(registry.app_name, "test_app");
+        assert_eq!(registry.files.len(), 1);
+        assert!(registry.files.contains_key("settings"));
+
+        let manifest = registry.files.get("settings").unwrap();
+        assert_eq!(manifest.resource_types.len(), 1);
+    }
+
+    #[test]
+    fn test_build_registry_single_enum_resource() {
+        let mut types = TypeRegistry::default();
+        types.register::<CounterRefreshRateSettings>();
 
         let registry = build_preferences_registry("test_app", &types, Tick::new(0));
 
@@ -591,10 +681,12 @@ mod tests {
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
         types.register::<ExtraCounterSettings>();
+        types.register::<CounterRefreshRateSettings>();
 
         // Insert both resources
         world.insert_resource(CounterSettings { count: 42 });
         world.insert_resource(ExtraCounterSettings { enabled: true });
+        world.insert_resource(CounterRefreshRateSettings::Fast);
 
         // Build a manifest with both resource types
         let manifest = PreferenceFileManifest {
@@ -602,6 +694,7 @@ mod tests {
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
                 TypeId::of::<ExtraCounterSettings>(),
+                TypeId::of::<CounterRefreshRateSettings>(),
             ],
         };
 
@@ -611,14 +704,23 @@ mod tests {
         assert!(table.contains_key("counter_settings"));
         let counter_section = table.get("counter_settings").unwrap().as_table().unwrap();
 
-        // Check that both fields are present in the merged section
+        // Check that fields are present in the merged section
         assert!(counter_section.contains_key("count"));
         assert!(counter_section.contains_key("enabled"));
+        assert!(counter_section.contains_key("refresh_rate"));
         assert_eq!(
             counter_section.get("count").unwrap().as_integer().unwrap(),
             42
         );
         assert!(counter_section.get("enabled").unwrap().as_bool().unwrap());
+        assert_eq!(
+            counter_section
+                .get("refresh_rate")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "Fast"
+        );
     }
 
     #[test]
@@ -627,10 +729,12 @@ mod tests {
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
         types.register::<ExtraCounterSettings>();
+        types.register::<CounterRefreshRateSettings>();
 
         // Insert resources with specific values
         world.insert_resource(CounterSettings { count: 123 });
         world.insert_resource(ExtraCounterSettings { enabled: false });
+        world.insert_resource(CounterRefreshRateSettings::Fast);
 
         // Build a manifest with both resource types
         let manifest = PreferenceFileManifest {
@@ -638,6 +742,7 @@ mod tests {
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
                 TypeId::of::<ExtraCounterSettings>(),
+                TypeId::of::<CounterRefreshRateSettings>(),
             ],
         };
 
@@ -654,6 +759,11 @@ mod tests {
 
         let extra = new_world.get_resource::<ExtraCounterSettings>().unwrap();
         assert!(!extra.enabled);
+
+        let refresh_rate = new_world
+            .get_resource::<CounterRefreshRateSettings>()
+            .unwrap();
+        assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
     }
 
     #[test]
@@ -661,13 +771,18 @@ mod tests {
         let mut world = World::new();
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
+        types.register::<CounterRefreshRateSettings>();
 
         // Insert resource with initial values
         world.insert_resource(CounterSettings { count: 100 });
+        world.insert_resource(CounterRefreshRateSettings::Fast);
 
         let manifest = PreferenceFileManifest {
             last_save: Tick::new(0),
-            resource_types: vec![TypeId::of::<CounterSettings>()],
+            resource_types: vec![
+                TypeId::of::<CounterSettings>(),
+                TypeId::of::<CounterRefreshRateSettings>(),
+            ],
         };
 
         // Serialize
@@ -675,12 +790,15 @@ mod tests {
 
         // Modify the resource
         world.resource_mut::<CounterSettings>().count = 999;
+        *world.resource_mut::<CounterRefreshRateSettings>() = CounterRefreshRateSettings::Slow;
 
         // Apply TOML (should restore the original value)
         apply_settings_to_world(&mut world, Some(&table), &manifest, &types);
 
         let counter = world.get_resource::<CounterSettings>().unwrap();
         assert_eq!(counter.count, 100);
+        let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
+        assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
     }
 
     #[test]
@@ -689,10 +807,12 @@ mod tests {
         let mut types = TypeRegistry::default();
         types.register::<CounterSettings>();
         types.register::<ExtraCounterSettings>();
+        types.register::<CounterRefreshRateSettings>();
 
         // Insert resources with specific values
         world.insert_resource(CounterSettings { count: 50 });
         world.insert_resource(ExtraCounterSettings { enabled: true });
+        world.insert_resource(CounterRefreshRateSettings::Fast);
 
         // Create a TOML table that only contains one field from one resource
         let mut table = toml::Table::new();
@@ -709,6 +829,7 @@ mod tests {
             resource_types: vec![
                 TypeId::of::<CounterSettings>(),
                 TypeId::of::<ExtraCounterSettings>(),
+                TypeId::of::<CounterRefreshRateSettings>(),
             ],
         };
 
@@ -722,5 +843,9 @@ mod tests {
         // Verify enabled was preserved (not overwritten with default false)
         let extra = world.get_resource::<ExtraCounterSettings>().unwrap();
         assert!(extra.enabled);
+
+        // Verify refresh_rate was preserved
+        let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
+        assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
     }
 }

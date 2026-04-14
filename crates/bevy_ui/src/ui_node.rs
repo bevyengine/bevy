@@ -2412,7 +2412,7 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct OverrideClip;
 
 #[expect(

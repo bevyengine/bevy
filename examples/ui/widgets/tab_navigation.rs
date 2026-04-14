@@ -52,7 +52,7 @@ fn focus_system(
 ) {
     if focus.is_changed() {
         for button in query.iter_mut() {
-            if focus.0 == Some(button) {
+            if focus.get() == Some(button) {
                 commands.entity(button).insert(Outline {
                     color: Color::WHITE,
                     width: px(2),
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands) {
         })
         .observe(
             |mut event: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
-                focus.0 = None;
+                focus.clear();
                 event.propagate(false);
             },
         )
@@ -139,7 +139,7 @@ fn setup(mut commands: Commands) {
                                 .observe(
                                     |mut click: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(click.entity);
+                                        focus.set(click.entity);
                                         click.propagate(false);
                                     },
                                 );

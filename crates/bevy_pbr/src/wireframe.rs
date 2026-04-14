@@ -746,7 +746,10 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
 
         if key.wide {
             descriptor.label = Some("wireframe_3d_wide_pipeline".into());

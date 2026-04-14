@@ -37,7 +37,7 @@ fn manage_focus_indicators(
     }
 
     let mut visited = HashSet::<Entity>::with_capacity(q_indicators.count());
-    if let Some(focus) = input_focus.0
+    if let Some(focus) = input_focus.get()
         && input_focus_visible.0
     {
         for entity in q_children

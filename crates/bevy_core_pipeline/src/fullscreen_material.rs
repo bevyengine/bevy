@@ -13,12 +13,14 @@ use bevy_asset::AssetServer;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    error::BevyError,
+    query::With,
     resource::Resource,
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault;
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -27,13 +29,14 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         encase::internal::WriteInto,
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
-        TextureSampleType, TextureView, TextureViewId,
+        CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FragmentState,
+        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, Specializer, SpecializerKey, TextureFormat, TextureSampleType, TextureView,
+        TextureViewId, Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
@@ -59,7 +62,10 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
             .add_systems(RenderStartup, init_pipeline::<T>)
             .add_systems(
                 Render,
-                prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
+                (
+                    prepare_fullscreen_material_pipelines::<T>.in_set(RenderSystems::Prepare),
+                    prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
+                ),
             );
 
         let mut system = fullscreen_material_system::<T>.in_set(T::run_in());
@@ -113,9 +119,34 @@ pub trait FullscreenMaterial:
 struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
-    pipeline_id_hdr: CachedRenderPipelineId,
+    variants: Variants<RenderPipeline, FullscreenMaterialPipelineSpecializer>,
     _marker: PhantomData<T>,
+}
+
+struct FullscreenMaterialPipelineSpecializer;
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
+struct FullscreenMaterialPipelineKey {
+    target_format: TextureFormat,
+}
+
+impl Specializer<RenderPipeline> for FullscreenMaterialPipelineSpecializer {
+    type Key = FullscreenMaterialPipelineKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let fragment = descriptor.fragment_mut()?;
+        let color_target_state = ColorTargetState {
+            format: key.target_format,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        };
+        fragment.set_target(0, color_target_state);
+        Ok(key)
+    }
 }
 
 fn init_pipeline<T: FullscreenMaterial>(
@@ -123,7 +154,6 @@ fn init_pipeline<T: FullscreenMaterial>(
     render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
     fullscreen_shader: Res<FullscreenShader>,
-    pipeline_cache: Res<PipelineCache>,
 ) {
     let layout = BindGroupLayoutDescriptor::new(
         "fullscreen_material_bind_group_layout",
@@ -148,14 +178,14 @@ fn init_pipeline<T: FullscreenMaterial>(
     };
 
     let vertex_state = fullscreen_shader.to_vertex_state();
-    let mut desc = RenderPipelineDescriptor {
+    let desc = RenderPipelineDescriptor {
         label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
         layout: vec![layout.clone()],
         vertex: vertex_state,
         fragment: Some(FragmentState {
             shader,
             targets: vec![Some(ColorTargetState {
-                format: TextureFormat::bevy_default(),
+                format: TextureFormat::Rgba8UnormSrgb,
                 blend: None,
                 write_mask: ColorWrites::ALL,
             })],
@@ -163,20 +193,38 @@ fn init_pipeline<T: FullscreenMaterial>(
         }),
         ..default()
     };
-    let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
-    desc.fragment.as_mut().unwrap().targets[0]
-        .as_mut()
-        .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
-    let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
 
     commands.insert_resource(FullscreenMaterialPipeline::<T> {
         layout,
         sampler,
-        pipeline_id,
-        pipeline_id_hdr,
+        variants: Variants::new(FullscreenMaterialPipelineSpecializer, desc),
         _marker: PhantomData,
     });
+}
+
+#[derive(Component)]
+struct FullscreenMaterialPipelineId(CachedRenderPipelineId);
+
+fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
+    views: Query<(Entity, &ExtractedView), With<ExtractedCamera>>,
+) -> Result<(), BevyError> {
+    for (entity, view) in &views {
+        let pipeline_key = FullscreenMaterialPipelineKey {
+            target_format: view.target_format,
+        };
+        let pipeline_id = pipeline
+            .variants
+            .specialize(&pipeline_cache, pipeline_key)?;
+
+        commands
+            .entity(entity)
+            .insert(FullscreenMaterialPipelineId(pipeline_id));
+    }
+
+    Ok(())
 }
 
 /// Holds the bind groups for both main textures
@@ -252,24 +300,14 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
         &ViewTarget,
         &DynamicUniformIndex<T>,
         &FullscreenMaterialBindGroup<T>,
+        &FullscreenMaterialPipelineId,
     )>,
-    fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let Some(fullscreen_pipeline) = fullscreen_pipeline else {
-        return;
-    };
+    let (view_target, settings_index, bind_groups, pipeline_id) = view.into_inner();
 
-    let (view_target, settings_index, bind_groups) = view.into_inner();
-
-    let pipeline_id = if view_target.is_hdr() {
-        fullscreen_pipeline.pipeline_id_hdr
-    } else {
-        fullscreen_pipeline.pipeline_id
-    };
-
-    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) else {
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
         return;
     };
 
