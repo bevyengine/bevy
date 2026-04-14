@@ -410,7 +410,9 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>()
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
             .add_systems(
                 First,
                 clear_screenshots
