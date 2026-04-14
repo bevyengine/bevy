@@ -2,9 +2,6 @@ pub mod bsn {
     #[path = "../../mod.rs"]
     pub mod fmt;
 
-    #[path = "../../../traits.rs"]
-    pub mod traits;
-
     #[path = "../../../types.rs"]
     pub mod types;
 
