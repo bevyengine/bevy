@@ -1,6 +1,6 @@
 ---
 title: "Feathers widgets moving to BSN"
-pull_requests: []
+pull_requests: [23804]
 ---
 
 Going forward, BSN will be the primary means to create Feathers widgets. The old spawning

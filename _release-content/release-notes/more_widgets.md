@@ -1,7 +1,7 @@
 ---
 title: "Moar widgets!"
 authors: ["@viridia"]
-pull_requests: [23645, 23707]
+pull_requests: [23645, 23707, 23788, 23787, 23804]
 ---
 
 Bevy Feathers, the opinionated UI widget collection, has added several new widgets:
