@@ -33,7 +33,7 @@ use wgpu_types::TextureFormat;
 ///
 /// The compressed output must also be loadable at runtime. Enable the corresponding feature:
 ///
-/// - **`ktx2`** — Required to load KTX2 files produced by `compressed_image_saver`.
+/// - **`ktx2` and `zstd`** — Required to load KTX2 files produced by `compressed_image_saver`.
 /// - **`basis-universal`** — Required to load Basis Universal files produced by `compressed_image_saver_universal`.
 ///
 /// # Compression format selection
@@ -173,7 +173,7 @@ impl AssetSaver for CompressedImageSaver {
 
         let settings = ctt::ConvertSettings {
             format: Some(output_format),
-            container: ctt::Container::Ktx2,
+            container: ctt::Container::ktx2_zstd(0),
             quality: ctt::Quality::default(),
             output_color_space: None,
             output_alpha: Some(ctt::AlphaMode::Premultiplied), // TODO: User-configurable
@@ -188,7 +188,7 @@ impl AssetSaver for CompressedImageSaver {
 
         let output = ctt::convert(ctt_image, settings)
             .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
-        let ctt::ConvertOutput::Encoded(compressed_bytes) = &output else {
+        let ctt::PipelineOutput::Encoded(compressed_bytes) = &output else {
             return Err(CompressedImageSaverError::CompressionFailed(
                 "Expected encoded output from ctt".into(),
             ));
