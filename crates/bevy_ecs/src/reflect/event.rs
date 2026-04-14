@@ -72,7 +72,7 @@ impl ReflectEvent {
         (self.0.trigger)(world, event, registry);
     }
 
-    /// Registers a global [`Observer`](crate::observer::Observer) for this event type.
+    /// Registers a global [`Observer`] for this event type.
     pub fn observe(
         &self,
         world: &mut World,
@@ -81,7 +81,7 @@ impl ReflectEvent {
         (self.0.observe)(world, callback)
     }
 
-    /// Registers an entity-scoped [`Observer`](crate::observer::Observer) for this event type.
+    /// Registers an entity-scoped [`Observer`] for this event type.
     pub fn observe_entity(
         &self,
         world: &mut World,
