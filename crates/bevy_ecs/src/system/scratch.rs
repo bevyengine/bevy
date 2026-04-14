@@ -1,3 +1,7 @@
+use alloc::{
+    collections::{BinaryHeap, VecDeque},
+    vec::Vec,
+};
 use core::{
     num::Saturating,
     ops::{Deref, DerefMut},
@@ -191,4 +195,120 @@ unsafe impl<'a, T: ClearableCollection + FromWorld + Send + 'static> SystemParam
 unsafe impl<'a, T: ClearableCollection + FromWorld + Send + 'static> ReadOnlySystemParam
     for Scratch<'a, T>
 {
+}
+
+impl<T> ClearableCollection for Vec<T> {
+    fn capacity(&self) -> usize {
+        Vec::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        Vec::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        Vec::shrink_to(self, capacity);
+    }
+}
+
+impl<T> ClearableCollection for VecDeque<T> {
+    fn capacity(&self) -> usize {
+        VecDeque::capacity(self)
+    }
+
+    fn clear(&mut self) {
+        VecDeque::clear(self);
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        VecDeque::shrink_to(self, capacity);
+    }
+}
+
+impl<I> ClearableCollection for BinaryHeap<I> {
+    fn capacity(&self) -> usize {
+        BinaryHeap::capacity(self)
+    }
+
+    fn shrink_to(&mut self, capacity: usize) {
+        BinaryHeap::shrink_to(self, capacity);
+    }
+
+    fn clear(&mut self) {
+        BinaryHeap::clear(self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+    use core::sync::atomic::{AtomicU32, Ordering};
+
+    use crate::{
+        system::{
+            scratch::{Scratch, DEFAULT_SHRINK_DELAY},
+            Local,
+        },
+        world::World,
+    };
+
+    #[test]
+    fn scratch_shrinks() {
+        static UPDATE_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+        let mut world = World::new();
+        world.increment_change_tick();
+
+        fn check_system(
+            mut item_under_test: Scratch<Vec<u32>>,
+            mut expected_capacity: Local<usize>,
+        ) {
+            if UPDATE_COUNTER.load(Ordering::Relaxed) == 0 {
+                item_under_test.reserve(512);
+                // The vec may over-reserve space so we need to store the actual capacity.
+                *expected_capacity = item_under_test.capacity();
+            }
+
+            if UPDATE_COUNTER.load(Ordering::Relaxed) == (DEFAULT_SHRINK_DELAY.0 + 1) {
+                assert!(
+                    item_under_test.capacity() < *expected_capacity,
+                    "Scratch didn't shrink allocation, capacity was {}, expected {}, update was {}",
+                    item_under_test.capacity(),
+                    *expected_capacity,
+                    UPDATE_COUNTER.load(Ordering::Relaxed),
+                );
+            }
+        }
+
+        let test_system = world.register_system(check_system);
+
+        // The first tick breaks the time calculation logic. We wait it out. We also
+        // have to wait one for the deallocation to actually happen.
+        for _ in 0..=(DEFAULT_SHRINK_DELAY.0 + 2) {
+            let result = world.run_system(test_system);
+
+            assert!(result.is_ok(), "Test system failed to update {result:?}");
+            UPDATE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn scratch_clears() {
+        let mut world = World::new();
+        world.increment_change_tick();
+
+        fn check_system(mut items: Scratch<Vec<u32>>) {
+            assert!(items.is_empty());
+
+            items.push(1);
+        }
+
+        let test_system = world.register_system(check_system);
+
+        for _ in 0..=10 {
+            let result = world.run_system(test_system);
+
+            assert!(result.is_ok(), "Test system failed to update {result:?}");
+        }
+    }
 }
