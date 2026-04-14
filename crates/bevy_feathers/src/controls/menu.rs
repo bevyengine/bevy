@@ -166,14 +166,15 @@ fn on_menu_event(
 pub fn menu_button(props: MenuButtonProps) -> impl Scene {
     bsn! {
         :button(ButtonProps {
+            caption: props.caption,
             variant: ButtonVariant::Normal,
             corners: props.corners,
         })
         ActivateOnPress
         MenuButton
         FeathersMenuButton
+        // Additional children for menu chevron
         Children [
-            {props.caption},
             {
                 if props.arrow {
                     Box::new(bsn_list!(
