@@ -10,7 +10,7 @@ use crate::{
     tokens,
 };
 
-/// Sub-pane
+/// Group
 pub fn group() -> impl Scene {
     bsn! {
         Node {
@@ -51,7 +51,7 @@ pub fn group_header() -> impl Scene {
     }
 }
 
-/// Sub-pane body
+/// Group body
 pub fn group_body() -> impl Scene {
     bsn! {
         Node {
