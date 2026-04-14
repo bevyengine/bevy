@@ -42,16 +42,16 @@ impl BevyDefault for TextureFormat {
     }
 }
 
-/// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
+/// Trait used to provide texture's srgb formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
     /// Returns the srgb view formats for a type.
     fn srgb_view_formats(&self) -> &'static [TextureFormat];
 }
 
 impl TextureSrgbViewFormats for TextureFormat {
-    /// Returns the srgb view formats if the format has an srgb variant, otherwise returns an empty slice.
+    /// Returns the srgb formats if the format has an srgb variant, otherwise returns an empty slice.
     ///
-    /// The return result covers all the results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
+    /// Covers all the possible results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
     fn srgb_view_formats(&self) -> &'static [TextureFormat] {
         match self {
             TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],

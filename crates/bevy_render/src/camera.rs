@@ -610,13 +610,19 @@ pub fn extract_cameras(
                         .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+
             let target_format = if hdr {
                 TextureFormat::Rgba16Float
-            } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
-                TextureFormat::Rgba8Unorm
             } else {
                 output_texture_format
-            };
+            }
+            // Regardless of whether the target format is srgb,
+            // we use the non-srgb main texture, otherwise it cannot support storage binding.
+            //
+            // It doesn't matter what the format we use for the main texture
+            // as it's intermediate and independent from render target.
+            .remove_srgb_suffix();
+
             main_pass_formats.insert(render_entity, target_format);
 
             let mut commands = commands.entity(render_entity);

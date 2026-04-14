@@ -394,9 +394,10 @@ pub fn create_surfaces(
                 // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
                 let mut format = *formats.first().expect("No supported formats for surface");
                 for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    // Rgba8Unorm and Bgra8Unorm and the only formats that we can use for surfaces on WebGPU.
+                    // Our renderer is in linear space and store the result to the srgb texture view.
+                    if available_format == TextureFormat::Rgba8Unorm
+                        || available_format == TextureFormat::Bgra8Unorm
                     {
                         format = available_format;
                         break;

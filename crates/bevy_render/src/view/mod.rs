@@ -26,10 +26,10 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
-use bevy_color::{LinearRgba, Oklaba};
+use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::ToExtents;
+use bevy_image::{TextureSrgbViewFormats, ToExtents};
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -826,6 +826,8 @@ impl ViewTarget {
     }
 
     /// The "main" unsampled texture.
+    ///
+    /// This is always non-srgb format in order to support storage binding.
     pub fn main_texture(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a.texture.texture
@@ -840,6 +842,8 @@ impl ViewTarget {
     ///
     /// A use case for this is to be able to prepare a bind group for all main textures
     /// ahead of time.
+    ///
+    /// This is always non-srgb format in order to support storage binding.
     pub fn main_texture_other(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.b.texture.texture
@@ -848,7 +852,7 @@ impl ViewTarget {
         }
     }
 
-    /// The "main" unsampled texture.
+    /// The "main" unsampled texture view.
     pub fn main_texture_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a.texture.default_view
@@ -875,7 +879,7 @@ impl ViewTarget {
     pub fn sampled_main_texture(&self) -> Option<&Texture> {
         self.main_textures
             .a
-            .resolve_target
+            .multisampled
             .as_ref()
             .map(|sampled| &sampled.texture)
     }
@@ -884,16 +888,18 @@ impl ViewTarget {
     pub fn sampled_main_texture_view(&self) -> Option<&TextureView> {
         self.main_textures
             .a
-            .resolve_target
+            .multisampled
             .as_ref()
             .map(|sampled| &sampled.default_view)
     }
 
-    /// Currently bevy's main texture format can be:
+    /// Returns the format of [`Self::main_texture_view`].
+    ///
+    /// Currently bevy's main texture view's format can be:
     /// - If rendering to screen:
     ///   For HDR, it's `Rgba16Float`.
-    ///   For LDR, it's `Rgba8Unorm` when [`CompositingSpace::Srgb`], otherwise `Rgba8UnormSrgb`.
-    /// - If rendering to texture: the format is the same as texture view's format.
+    ///   For LDR, it's `Rgba8Unorm`.
+    /// - If rendering to texture: the format is the texture view's format but with srgb suffix removed.
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
@@ -1167,25 +1173,19 @@ pub fn prepare_view_targets(
         };
 
         // Convert clear color to the format expected by the main texture
-        let converted_clear_color: Option<WgpuColor> = clear_color.map(|color| {
-            let linear: LinearRgba = color.into();
-            if camera
-                .compositing_space
-                .is_some_and(|s| s == CompositingSpace::Oklab)
-            {
-                // Main texture stores Oklab; convert linear RGB to Oklab for correct clear
-                let oklab: Oklaba = linear.into();
-                oklab.into()
-            } else {
-                linear.into()
-            }
-        });
+        let converted_clear_color: Option<WgpuColor> =
+            clear_color.map(|color| match camera.compositing_space {
+                // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
+                Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
+                Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
+                _ => LinearRgba::from(color).into(),
+            });
 
         let (a, b, sampled, main_texture) = textures
             .entry((
                 camera.target.clone(),
                 texture_usage.0,
-                main_texture_format,
+                view.target_format,
                 msaa,
             ))
             .or_insert_with(|| {
@@ -1197,11 +1197,8 @@ pub fn prepare_view_targets(
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
                     usage: texture_usage.0,
-                    view_formats: match main_texture_format {
-                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                        _ => &[],
-                    },
+                    // `main_texture_format` is always non-srgb. We don't use srgb view but we allow it for users.
+                    view_formats: main_texture_format.srgb_view_formats(),
                 };
                 let a = texture_cache.get(
                     &render_device,
