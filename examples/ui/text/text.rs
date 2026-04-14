@@ -177,7 +177,7 @@ fn default_font() -> impl Scene {
     }
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "demonstration")]
 fn default_font_disabled() -> impl Scene {
     bsn! {
         Text::new("Default font disabled")
