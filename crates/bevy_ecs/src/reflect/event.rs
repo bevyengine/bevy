@@ -5,7 +5,15 @@
 //!
 //! Same as [`component`](`super::component`), but for events.
 
-use crate::{event::Event, reflect::from_reflect_with_fallback, world::World};
+use alloc::boxed::Box;
+
+use crate::{
+    entity::Entity,
+    event::Event,
+    observer::{Observer, On},
+    reflect::from_reflect_with_fallback,
+    world::World,
+};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
@@ -37,6 +45,11 @@ pub struct ReflectEvent(ReflectEventFns);
 pub struct ReflectEventFns {
     /// Function pointer implementing [`ReflectEvent::trigger`].
     pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectEvent::observe`].
+    pub observe: fn(&mut World, Box<dyn Fn(&dyn PartialReflect) + Send + Sync>) -> Entity,
+    /// Function pointer implementing [`ReflectEvent::observe_entity`].
+    pub observe_entity:
+        fn(&mut World, Entity, Box<dyn Fn(&dyn PartialReflect) + Send + Sync>) -> Entity,
 }
 
 impl ReflectEventFns {
@@ -57,6 +70,25 @@ impl ReflectEvent {
     /// Triggers a reflected [`Event`] like [`trigger()`](World::trigger).
     pub fn trigger(&self, world: &mut World, event: &dyn PartialReflect, registry: &TypeRegistry) {
         (self.0.trigger)(world, event, registry);
+    }
+
+    /// Registers a global [`Observer`](crate::observer::Observer) for this event type.
+    pub fn observe(
+        &self,
+        world: &mut World,
+        callback: Box<dyn Fn(&dyn PartialReflect) + Send + Sync>,
+    ) -> Entity {
+        (self.0.observe)(world, callback)
+    }
+
+    /// Registers an entity-scoped [`Observer`](crate::observer::Observer) for this event type.
+    pub fn observe_entity(
+        &self,
+        world: &mut World,
+        entity: Entity,
+        callback: Box<dyn Fn(&dyn PartialReflect) + Send + Sync>,
+    ) -> Entity {
+        (self.0.observe_entity)(world, entity, callback)
     }
 
     /// Create a custom implementation of [`ReflectEvent`].
@@ -104,6 +136,20 @@ where
             trigger: |world, reflected_event, registry| {
                 let event = from_reflect_with_fallback::<E>(reflected_event, world, registry);
                 world.trigger(event);
+            },
+            observe: |world, callback| {
+                world
+                    .add_observer(move |event: On<E>| {
+                        callback((*event).as_partial_reflect());
+                    })
+                    .id()
+            },
+            observe_entity: |world, entity, callback| {
+                let observer = Observer::new(move |event: On<E>| {
+                    callback((*event).as_partial_reflect());
+                })
+                .with_entity(entity);
+                world.spawn(observer).id()
             },
         })
     }
