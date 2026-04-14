@@ -1,4 +1,4 @@
-//! Meta-module containing all feathers patterns (passive widgets that hold other widgets).
+//! Meta-module containing all feathers containers: passive widgets that hold other widgets.
 mod flex_spacer;
 mod group;
 mod pane;
