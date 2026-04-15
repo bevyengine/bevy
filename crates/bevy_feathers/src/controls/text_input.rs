@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
 use bevy_picking::PickingSystems;
 use bevy_scene::prelude::*;
-use bevy_text::{EditableText, FontSize, FontWeight, LineBreak, TextCursorStyle, TextLayout};
+use bevy_text::{EditableText, FontWeight, LineBreak, TextCursorStyle, TextLayout};
 use bevy_ui::{
     px, AlignItems, BorderColor, BorderRadius, Display, InteractionDisabled, JustifyContent, Node,
     UiRect, Val,
@@ -61,7 +61,7 @@ pub fn text_input_container() -> impl Scene {
         ThemeFontColor(tokens::TEXT_INPUT_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(13.0),
+            font_size: size::COMPACT_FONT,
             weight: FontWeight::NORMAL,
         }
     }

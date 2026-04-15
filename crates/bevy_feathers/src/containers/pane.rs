@@ -1,6 +1,6 @@
 use bevy_ecs::hierarchy::Children;
 use bevy_scene::{bsn, Scene};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, AlignSelf, Display, FlexDirection, JustifyContent, Node, PositionType, UiRect,
     Val,
@@ -49,7 +49,7 @@ pub fn pane_header() -> impl Scene {
         ThemeFontColor(tokens::PANE_HEADER_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
     }

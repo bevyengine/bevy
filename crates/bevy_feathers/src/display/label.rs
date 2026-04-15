@@ -1,11 +1,11 @@
 //! BSN scene function for displaying a plain text string in the correct font.
 use bevy_ecs::hierarchy::Children;
 use bevy_scene::{bsn, template_value, Scene};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{widget::Text, Node};
 
 use crate::{
-    constants::fonts,
+    constants::{fonts, size},
     font_styles::InheritableFont,
     theme::{ThemeFontColor, ThemedText},
     tokens,
@@ -19,7 +19,7 @@ pub fn label(text: impl Into<String>) -> impl Scene {
         ThemeFontColor(tokens::TEXT_MAIN)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [
@@ -37,7 +37,7 @@ pub fn label_dim(text: impl Into<String>) -> impl Scene {
         ThemeFontColor(tokens::TEXT_DIM)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [
