@@ -23,7 +23,7 @@ use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
-    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    PointLightShadowMap, RectLight, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
@@ -91,6 +91,16 @@ pub struct ExtractedPointLight {
     pub soft_shadows_enabled: bool,
     /// whether this point light contributes diffuse light to lightmapped meshes
     pub affects_lightmapped_mesh_diffuse: bool,
+}
+
+#[derive(Component, Debug)]
+pub struct ExtractedRectLight {
+    pub color: LinearRgba,
+    pub intensity: f32,
+    pub range: f32,
+    pub width: f32,
+    pub height: f32,
+    pub transform: GlobalTransform,
 }
 
 #[derive(Component, Debug)]
@@ -169,6 +179,17 @@ bitflags::bitflags! {
     }
 }
 
+#[derive(Copy, Clone, ShaderType, Default, Debug)]
+pub struct GpuRectLight {
+    color: Vec4,
+    position: Vec3,
+    width: f32,
+    right: Vec3,
+    height: f32,
+    up: Vec3,
+    range: f32,
+}
+
 #[derive(Copy, Clone, Debug, ShaderType)]
 pub struct GpuLights {
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
@@ -183,6 +204,8 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     ambient_light_affects_lightmapped_meshes: u32,
+    n_rect_lights: u32,
+    rect_lights: [GpuRectLight; MAX_RECT_LIGHTS],
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -203,6 +226,8 @@ pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
+
+pub const MAX_RECT_LIGHTS: usize = 8;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
@@ -372,15 +397,37 @@ pub fn extract_lights(
             ),
         >,
     >,
+    rect_lights: Extract<
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &RectLight,
+                &GlobalTransform,
+                &ViewVisibility,
+            ),
+            Or<(
+                Changed<RectLight>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+            )>,
+        >,
+    >,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
     mut existing_render_shadow_map_visible_entities: Query<(
         &mut RenderExtractedShadowMapVisibleEntities,
         &mut RenderShadowMapVisibleEntities,
     )>,
-    (mut removed_point_lights, mut removed_spot_lights, mut removed_directional_lights): (
+    (
+        mut removed_point_lights,
+        mut removed_spot_lights,
+        mut removed_directional_lights,
+        mut removed_rect_lights,
+    ): (
         Extract<RemovedComponents<PointLight>>,
         Extract<RemovedComponents<SpotLight>>,
         Extract<RemovedComponents<DirectionalLight>>,
+        Extract<RemovedComponents<RectLight>>,
     ),
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
@@ -409,6 +456,7 @@ pub fn extract_lights(
     let mut seen_point_light_main_entities = MainEntityHashSet::default();
     let mut seen_spot_light_main_entities = MainEntityHashSet::default();
     let mut seen_directional_light_main_entities = MainEntityHashSet::default();
+    let mut seen_rect_light_main_entities = MainEntityHashSet::default();
 
     for (
         main_entity,
@@ -798,6 +846,36 @@ pub fn extract_lights(
         entity_commands.insert((extracted_directional_light, MainEntity::from(main_entity)));
     }
 
+    for (main_entity, render_entity, rect_light, transform, view_visibility) in &rect_lights {
+        seen_rect_light_main_entities.insert(main_entity.into());
+
+        if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedRectLight>();
+            }
+            continue;
+        }
+
+        let affine = transform.affine();
+        let effective_width = rect_light.width * affine.matrix3.x_axis.length();
+        let effective_height = rect_light.height * affine.matrix3.y_axis.length();
+        commands
+            .get_entity(render_entity)
+            .expect("RectLight entity wasn't synced.")
+            .insert((
+                ExtractedRectLight {
+                    color: rect_light.color.into(),
+                    intensity: rect_light.intensity
+                        / (effective_width * effective_height * core::f32::consts::PI),
+                    width: effective_width,
+                    height: effective_height,
+                    range: rect_light.range,
+                    transform: *transform,
+                },
+                MainEntity::from(main_entity),
+            ));
+    }
+
     // Remove extracted light components from entities that have had their
     // light components removed.
     remove_components::<PointLight, ExtractedPointLight>(
@@ -817,6 +895,12 @@ pub fn extract_lights(
         mapper,
         &mut removed_directional_lights,
         &seen_directional_light_main_entities,
+    );
+    remove_components::<RectLight, ExtractedRectLight>(
+        &mut commands,
+        mapper,
+        &mut removed_rect_lights,
+        &seen_rect_light_main_entities,
     );
 
     // A helper function that removes a render-world component `RWC` when a
@@ -982,17 +1066,26 @@ pub fn prepare_lights(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     (
         mut max_directional_lights_warning_emitted,
+        mut max_rect_lights_warning_emitted,
         mut max_cascades_per_light_warning_emitted,
         mut live_shadow_mapping_lights,
-    ): (Local<bool>, Local<bool>, Local<HashSet<RetainedViewEntity>>),
+    ): (
+        Local<bool>,
+        Local<bool>,
+        Local<bool>,
+        Local<HashSet<RetainedViewEntity>>,
+    ),
     point_lights: Query<(
         Entity,
         &MainEntity,
         &ExtractedPointLight,
         AnyOf<(&CubemapFrusta, &Frustum)>,
     )>,
-    directional_lights: Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
-    mut light_view_entities: Query<&mut LightViewEntities>,
+    (directional_lights, rect_lights, mut light_view_entities): (
+        Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
+        Query<(Entity, &MainEntity, &ExtractedRectLight)>,
+        Query<&mut LightViewEntities>,
+    ),
     sorted_cameras: Res<SortedCameras>,
     (gpu_preprocessing_support, decals): (
         Res<GpuPreprocessingSupport>,
@@ -1019,6 +1112,7 @@ pub fn prepare_lights(
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
+    let rect_lights: Vec<_> = rect_lights.iter().collect::<Vec<_>>();
 
     #[cfg(any(
         not(feature = "webgl"),
@@ -1045,6 +1139,15 @@ pub fn prepare_lights(
             MAX_DIRECTIONAL_LIGHTS
         );
         *max_directional_lights_warning_emitted = true;
+    }
+
+    if !*max_rect_lights_warning_emitted && rect_lights.len() > MAX_RECT_LIGHTS {
+        warn!(
+            "The amount of rectangle area lights of {} is exceeding the supported limit of {}.",
+            rect_lights.len(),
+            MAX_RECT_LIGHTS
+        );
+        *max_rect_lights_warning_emitted = true;
     }
 
     if !*max_cascades_per_light_warning_emitted
@@ -1516,7 +1619,24 @@ pub fn prepare_lights(
                 - point_light_count as i32,
             ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
                 as u32,
+            n_rect_lights: 0,
+            rect_lights: [GpuRectLight::default(); MAX_RECT_LIGHTS],
         };
+
+        for (index, (_, _, rect_light)) in rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS) {
+            let right = rect_light.transform.right().into();
+            let up = rect_light.transform.up().into();
+            gpu_lights.rect_lights[index] = GpuRectLight {
+                color: Vec4::from_slice(&rect_light.color.to_f32_array()) * rect_light.intensity,
+                position: rect_light.transform.translation(),
+                right,
+                up,
+                width: rect_light.width,
+                height: rect_light.height,
+                range: rect_light.range,
+            };
+        }
+        gpu_lights.n_rect_lights = rect_lights.len().min(MAX_RECT_LIGHTS) as u32;
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for &(light_entity, light_main_entity, light, (point_light_frusta, _)) in point_lights
@@ -1613,8 +1733,7 @@ pub fn prepare_lights(
                         world_from_view: view_translation * *view_rotation,
                         clip_from_world: None,
                         clip_from_view: cube_face_projection,
-                        hdr: false,
-                        compositing_space: None,
+                        target_format: CORE_3D_DEPTH_FORMAT,
                         color_grading: Default::default(),
                         invert_culling: false,
                     },
@@ -1718,8 +1837,7 @@ pub fn prepare_lights(
                     world_from_view: spot_world_from_view,
                     clip_from_view: spot_projection,
                     clip_from_world: None,
-                    hdr: false,
-                    compositing_space: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
                     color_grading: Default::default(),
                     invert_culling: false,
                 },
@@ -1868,8 +1986,7 @@ pub fn prepare_lights(
                         world_from_view: GlobalTransform::from(cascade.world_from_cascade),
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
-                        hdr: false,
-                        compositing_space: None,
+                        target_format: CORE_3D_DEPTH_FORMAT,
                         color_grading: Default::default(),
                         invert_culling: false,
                     },

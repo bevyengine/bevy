@@ -643,6 +643,9 @@ bevy_debug_stepping = [
   "bevy_internal/debug",
 ]
 
+# Enable collecting schedule data from the app.
+schedule_data = ["bevy_internal/schedule_data"]
+
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
@@ -733,6 +736,7 @@ bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-fea
 bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_settings = { path = "crates/bevy_settings", version = "0.19.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -1010,6 +1014,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "editable_text_filter"
+path = "examples/ui/text/editable_text_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text_filter]
+name = "Editable Text Filter"
+description = "Demonstrates an 8-character hex input using EditableTextFilter"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "multiline_text_input"
 path = "examples/ui/text/multiline_text_input.rs"
 doc-scrape-examples = true
@@ -1142,6 +1157,18 @@ doc-scrape-examples = true
 [package.metadata.example.3d_scene]
 name = "3D Scene"
 description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "rect_light"
+path = "examples/3d/rect_light.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.rect_light]
+name = "Rectangular Area Light"
+description = "Simple 3D scene demonstrating rectangular area lights."
 category = "3D Rendering"
 wasm = true
 
@@ -4632,6 +4659,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["debug", "schedule_data"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
+category = "Dev tools"
+wasm = false
+
+[[example]]
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
@@ -5353,12 +5392,24 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "feathers"
-path = "examples/ui/widgets/feathers.rs"
+name = "feathers_counter"
+path = "examples/ui/widgets/feathers_counter.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
-[package.metadata.example.feathers]
+[package.metadata.example.feathers_counter]
+name = "Feathers Counter"
+description = "Simple counter using feathers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers_gallery"
+path = "examples/ui/widgets/feathers_gallery.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.feathers_gallery]
 name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"

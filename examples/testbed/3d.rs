@@ -586,7 +586,7 @@ mod white_furnace_solid_color_light {
                 ..OrthographicProjection::default_3d()
             }),
             Skybox {
-                image: white_cubemap_handle,
+                image: Some(white_cubemap_handle),
                 // middle gray
                 brightness: 500.0,
                 ..default()
@@ -701,7 +701,7 @@ mod white_furnace_environment_map_light {
                 ..OrthographicProjection::default_3d()
             }),
             Skybox {
-                image: white_cubemap_handle,
+                image: Some(white_cubemap_handle),
                 // middle gray
                 brightness: 500.0,
                 ..default()

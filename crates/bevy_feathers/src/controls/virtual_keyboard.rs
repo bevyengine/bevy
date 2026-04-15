@@ -6,7 +6,7 @@ use bevy_ui::Val;
 use bevy_ui::{widget::Text, FlexDirection};
 use bevy_ui_widgets::{observe, Activate};
 
-use crate::controls::button::{button, ButtonProps};
+use crate::controls::button::{button, ButtonBundleProps, ButtonProps};
 use crate::controls::button_bundle;
 
 /// Fired whenever a virtual key is pressed.
@@ -104,7 +104,11 @@ where
                 },
                 Children::spawn(SpawnIter(row.into_iter().map(move |key| {
                     (
-                        button_bundle(ButtonProps::default(), (), Spawn(Text::new(key.as_ref()))),
+                        button_bundle(
+                            ButtonBundleProps::default(),
+                            (),
+                            Spawn(Text::new(key.as_ref())),
+                        ),
                         observe(
                             move |activate: On<Activate>,
                                   mut commands: Commands,

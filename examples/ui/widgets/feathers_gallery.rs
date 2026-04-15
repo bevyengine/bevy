@@ -4,10 +4,12 @@ use bevy::{
     color::palettes,
     feathers::{
         controls::{
-            button, checkbox, color_plane, color_slider, color_swatch, radio, slider,
-            toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorPlane, ColorPlaneValue,
-            ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
-            SliderProps,
+            button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
+            menu_divider, menu_item, menu_popup, radio, slider, text_input, text_input_container,
+            toggle_switch, ButtonProps, ButtonVariant, CheckboxProps, ColorChannel, ColorPlane,
+            ColorPlaneValue, ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue,
+            MenuButtonProps, MenuItemProps, RadioProps, SliderBaseColor, SliderProps,
+            TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -15,8 +17,10 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
-    input_focus::tab_navigation::TabGroup,
+    input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
+    scene::prelude::Scene,
+    text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
@@ -38,6 +42,9 @@ enum SwatchType {
     Rgb,
     Hsl,
 }
+
+#[derive(Component, Clone, Copy, Default)]
+struct HexColorInput;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoDisabledButton;
@@ -95,31 +102,88 @@ fn demo_root() -> impl Scene {
                     }
                     Children [
                         (
-                            button(ButtonProps::default())
+                            button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Normal") ThemedText),
+                                )),
+                                ..default()
+                            })
                             on(|_activate: On<Activate>| {
                                 info!("Normal button clicked!");
                             })
-                            Children [ (Text::new("Normal") ThemedText) ]
+                            AutoFocus
                         ),
                         (
-                            button(ButtonProps::default())
+                            button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                                ..default()
+                            })
                             InteractionDisabled
                             DemoDisabledButton
                             on(|_activate: On<Activate>| {
                                 info!("Disabled button clicked!");
                             })
-                            Children [ (Text::new("Disabled") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Primary") ThemedText),
+                                )),
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Disabled button clicked!");
                             })
-                            Children [ (Text::new("Primary") ThemedText) ]
                         ),
+                        (
+                            :menu
+                            Children [
+                                (
+                                    :menu_button(MenuButtonProps {
+                                        caption: Box::new(bsn_list!(
+                                            (Text("Menu") ThemedText),
+                                        )),
+                                        ..default()
+                                    })
+                                ),
+                                (
+                                    :menu_popup
+                                    Children [
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 1") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 1 clicked!");
+                                            })
+                                        ),
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 2") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 2 clicked!");
+                                            })
+                                        ),
+                                        :menu_divider,
+                                        (
+                                            menu_item(MenuItemProps {
+                                                caption: Box::new(bsn_list!(
+                                                    (Text("MenuItem 3") ThemedText)))
+                                            })
+                                            on(|_: On<Activate>| {
+                                                info!("Menu item 3 clicked!");
+                                            })
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 ),
                 (
@@ -133,33 +197,39 @@ fn demo_root() -> impl Scene {
                     Children [
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Left") ThemedText),
+                                )),
                                 corners: RoundedCorners::Left,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Left button clicked!");
                             })
-                            Children [ (Text::new("Left") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Center") ThemedText),
+                                )),
                                 corners: RoundedCorners::None,
                                 ..default()
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Center button clicked!");
                             })
-                            Children [ (Text::new("Center") ThemedText) ]
                         ),
                         (
                             button(ButtonProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Right") ThemedText),
+                                )),
                                 variant: ButtonVariant::Primary,
                                 corners: RoundedCorners::Right,
                             })
                             on(|_activate: On<Activate>| {
                                 info!("Right button clicked!");
                             })
-                            Children [ (Text::new("Right") ThemedText) ]
                         ),
                     ]
                 ),
@@ -176,7 +246,11 @@ fn demo_root() -> impl Scene {
                     Children [ (Text::new("Toggle override") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Checkbox") ThemedText),
+                        )),
+                    })
                     Checked
                     on(
                         |change: On<ValueChange<bool>>,
@@ -197,24 +271,29 @@ fn demo_root() -> impl Scene {
                             }
                         }
                     )
-                    Children [ (Text::new("Checkbox") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Disabled") ThemedText),
+                        )),
+                    })
                     InteractionDisabled
                     on(|_change: On<ValueChange<bool>>| {
                         warn!("Disabled checkbox clicked!");
                     })
-                    Children [ (Text::new("Disabled") ThemedText) ]
                 ),
                 (
-                    checkbox()
+                    checkbox(CheckboxProps {
+                        caption: Box::new(bsn_list!(
+                            (Text("Disabled+Checked") ThemedText),
+                        )),
+                    })
                     InteractionDisabled
                     Checked
                     on(|_change: On<ValueChange<bool>>| {
                         warn!("Disabled checkbox clicked!");
                     })
-                    Children [ (Text::new("Disabled+Checked") ThemedText) ]
                 ),
                 (
                     Node {
@@ -237,10 +316,26 @@ fn demo_root() -> impl Scene {
                         }
                     )
                     Children [
-                        (radio() Checked Children [ (Text::new("One") ThemedText) ]),
-                        (radio() Children [ (Text::new("Two") ThemedText) ]),
-                        (radio() Children [ (Text::new("Three") ThemedText) ]),
-                        (radio() InteractionDisabled Children [ (Text::new("Disabled") ThemedText) ]),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("One") ThemedText),
+                            )),
+                        }) Checked),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Two") ThemedText),
+                            )),
+                        })),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Three") ThemedText),
+                            )),
+                        })),
+                        (radio(RadioProps {
+                            caption: Box::new(bsn_list!(
+                                (Text("Disabled") ThemedText),
+                            )),
+                        }) InteractionDisabled),
                     ]
                 ),
                 (
@@ -272,9 +367,30 @@ fn demo_root() -> impl Scene {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
+                        column_gap: px(4.0),
                     }
                     Children [
                         Text("Srgba"),
+                        // Spacer
+                        Node {
+                            flex_grow: 1.0,
+                        },
+                        // Text input
+                        (
+                            :text_input_container
+                            Node {
+                                flex_grow: 1.0,
+                            }
+                            Children [
+                                (
+                                    text_input(TextInputProps {
+                                        max_characters: Some(9),
+                                    })
+                                    HexColorInput
+                                    on(handle_hex_color_change)
+                                )
+                            ]
+                        )
                         (color_swatch() SwatchType::Rgb),
                     ]
                 ),
@@ -369,7 +485,9 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
+    q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     mut commands: Commands,
+    focus: Res<InputFocus>,
 ) {
     if colors.is_changed() {
         for (slider_ent, slider, mut base) in sliders.iter_mut() {
@@ -431,5 +549,24 @@ fn update_colors(
             plane_value.0.y = colors.rgb_color.blue;
             plane_value.0.z = colors.rgb_color.green;
         }
+
+        // Only update the hex input field when it's not focused, otherwise it interferes
+        // with typing.
+        let (input_ent, mut editable_text) = q_text_input.into_inner();
+        if Some(input_ent) != focus.get() {
+            editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
+        }
+    }
+}
+
+fn handle_hex_color_change(
+    _change: On<TextEditChange>,
+    q_text_input: Single<&EditableText, With<HexColorInput>>,
+    mut colors: ResMut<DemoWidgetStates>,
+) {
+    let editable_text = *q_text_input;
+    if let Ok(color) = Srgba::hex(editable_text.value().to_string()) {
+        colors.rgb_color = color;
     }
 }

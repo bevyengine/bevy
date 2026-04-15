@@ -184,7 +184,7 @@ impl DynamicWorld {
 
             // check if the resource already exists, if not spawn it, otherwise override the value
             let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
-                *entity
+                entity
             } else {
                 world.spawn_empty().id()
             };

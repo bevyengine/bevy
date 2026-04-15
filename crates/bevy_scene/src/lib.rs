@@ -506,8 +506,9 @@
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::{
-        bsn, bsn_list, on, CommandsSceneExt, EntityCommandsSceneExt, EntityWorldMutSceneExt,
-        PatchFromTemplate, PatchTemplate, Scene, SceneList, ScenePatchInstance, WorldSceneExt,
+        bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
+        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
+        ScenePatchInstance, WorldSceneExt,
     };
 }
 
@@ -1195,5 +1196,25 @@ mod tests {
             }
         }
         world.spawn_scene(yappy()).unwrap();
+    }
+
+    #[test]
+    fn bsn_entry_can_surpass_tuple_limit() {
+        let _ = bsn! {
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+            Name
+        };
     }
 }

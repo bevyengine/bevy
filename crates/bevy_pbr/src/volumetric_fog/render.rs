@@ -16,7 +16,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
@@ -60,18 +60,6 @@ bitflags! {
     struct VolumetricFogBindGroupLayoutKey: u8 {
         /// The framebuffer is multisampled.
         const MULTISAMPLED = 0x1;
-        /// The volumetric fog has a 3D voxel density texture.
-        const DENSITY_TEXTURE = 0x2;
-    }
-}
-
-bitflags! {
-    /// Flags that describe the rasterization pipeline used to render volumetric
-    /// fog.
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-    struct VolumetricFogPipelineKeyFlags: u8 {
-        /// The view's color format has high dynamic range.
-        const HDR = 0x1;
         /// The volumetric fog has a 3D voxel density texture.
         const DENSITY_TEXTURE = 0x2;
     }
@@ -133,8 +121,11 @@ pub struct VolumetricFogPipelineKey {
     /// buffer layouts, so we only need one of them.
     vertex_buffer_layout: MeshVertexBufferLayoutRef,
 
-    /// Flags that specify features on the pipeline key.
-    flags: VolumetricFogPipelineKeyFlags,
+    /// Texture format of the view target
+    target_format: TextureFormat,
+
+    /// The volumetric fog has a 3D voxel density texture.
+    has_density_texture: bool,
 }
 
 /// The same as [`VolumetricFog`] and [`FogVolume`], but formatted for
@@ -505,8 +496,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         );
         bind_group_layout_key.set(
             VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE,
-            key.flags
-                .contains(VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE),
+            key.has_density_texture,
         );
 
         let volumetric_view_bind_group_layout =
@@ -534,10 +524,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             shader_defs.push("ATMOSPHERE".into());
         }
 
-        if key
-            .flags
-            .contains(VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE)
-        {
+        if key.has_density_texture {
             shader_defs.push("DENSITY_TEXTURE".into());
         }
 
@@ -566,11 +553,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.flags.contains(VolumetricFogPipelineKeyFlags::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     // Blend on top of what's already in the framebuffer. Doing
                     // the alpha blending with the hardware blender allows us to
                     // avoid having to use intermediate render targets.
@@ -650,14 +633,12 @@ pub fn prepare_volumetric_fog_pipelines(
             mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
         }
 
-        let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
-        textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
-
         // Specialize the pipeline.
         let textureless_pipeline_key = VolumetricFogPipelineKey {
             mesh_pipeline_view_key,
             vertex_buffer_layout: plane_mesh.layout.clone(),
-            flags: textureless_flags,
+            target_format: view.target_format,
+            has_density_texture: false,
         };
         let textureless_pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -668,8 +649,7 @@ pub fn prepare_volumetric_fog_pipelines(
             &pipeline_cache,
             &volumetric_lighting_pipeline,
             VolumetricFogPipelineKey {
-                flags: textureless_pipeline_key.flags
-                    | VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE,
+                has_density_texture: true,
                 ..textureless_pipeline_key
             },
         );
