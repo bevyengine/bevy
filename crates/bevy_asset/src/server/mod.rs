@@ -365,6 +365,8 @@ impl AssetServer {
         self.load_builder().load(path.into())
     }
 
+    /// Returns a [`LoadBuilder`] that can be used to start more complex loads. See [`LoadBuilder`]
+    /// for details.
     #[must_use = "the load doesn't start until LoadBuilder has been consumed"]
     pub fn load_builder(&self) -> LoadBuilder<'_> {
         LoadBuilder::new(self)
