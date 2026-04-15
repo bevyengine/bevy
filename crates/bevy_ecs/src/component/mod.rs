@@ -622,8 +622,7 @@ pub trait Component: Send + Sync + 'static {
     /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities = map_the_map)]
     /// // Also works: map_the_map::<M> or map_the_map::<_>
