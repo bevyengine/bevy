@@ -1,6 +1,6 @@
 ---
 title: Advanced AssetServer load variants are now exposed through a builder pattern.
-pull_requests: []
+pull_requests: [23663]
 ---
 
 In previous versions of Bevy, there were many different ways to load an asset:
