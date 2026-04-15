@@ -6,7 +6,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ptr::OwningPtr;
 use bumpalo::Bump;
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
 /// Enables pushing components to internal scratch space (uses a bump allocator), which can then be
 /// written as a dynamic bundle. The contents are cleared after each write and the allocated scratch
@@ -22,7 +22,7 @@ pub struct BundleWriter {
 }
 
 // SAFETY: The `NonNull` in `OwnedBundleScratch` is always a `Component`, which is Send
-unsafe impl Send for BundleWriter {}
+unsafe impl Send for BundleWriter where Bump: Send {}
 
 impl BundleWriter {
     /// Pushes the given component to the back of the current bundle scratch space. It will register
@@ -38,12 +38,30 @@ impl BundleWriter {
         component: C,
     ) {
         let id = components.register_component::<C>();
-        let component_mut = self.alloc.alloc(component);
-        // SAFETY: component_mut is not null, as it was allocated above with the `component` value
-        let component_ptr =
-            unsafe { NonNull::new_unchecked(core::ptr::from_mut(component_mut).cast::<u8>()) };
+        OwningPtr::make(component, |ptr| {
+            // SAFETY: ptr points to a C component value which matches the `id` looked up above.
+            // Layout matches C.
+            self.push_component_by_id(id, ptr, Layout::new::<C>());
+        });
+    }
+
+    /// Pushes the given component ptr to the back of the current bundle scratch space.
+    ///
+    /// # Safety
+    ///
+    /// `components` must be from the same world that all previous [`Self::push_component`] calls were called with,
+    /// and the _next_ [`Self::write`] call. `component` must point to a [`Component`] value that matches `id`.
+    /// `layout` must correspond to the layout of the [`Component`] type.
+    pub unsafe fn push_component_by_id(
+        &mut self,
+        id: ComponentId,
+        component: OwningPtr<'_>,
+        layout: Layout,
+    ) {
+        let start_ptr = self.alloc.alloc_layout(layout);
+        core::ptr::copy(component.as_ptr(), start_ptr.as_ptr(), layout.size());
         // SAFETY: component id looked up above
-        unsafe { self.bundle_scratch.push_ptr(id, component_ptr) };
+        unsafe { self.bundle_scratch.push_ptr(id, start_ptr) };
     }
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
