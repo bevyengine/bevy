@@ -11,8 +11,8 @@ enable wgpu_ray_query;
 #import bevy_solari::brdf::{evaluate_diffuse_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::unpack_resolved_light_sample
-#import bevy_solari::sampling::{LightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
-#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::sampling::{LightSample, ResolvedLightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
+#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME, RAY_T_MIN}
 #import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD
 #import bevy_solari::realtime_bindings::{view_output, light_tile_samples, light_tile_resolved_samples, di_reservoirs_a, di_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, ResolvedLightSamplePacked}
 
@@ -70,8 +70,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 
     if reservoir_valid(combined_reservoir) {
-        let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, light_sources[combined_reservoir.sample.light_id >> 16u]);
-        combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position, resolved_light_sample.world_position);
+        combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position + (surface.world_normal * RAY_T_MIN), merge_result.selected_light_world_position);
     }
 
     // More stability, less accuracy (shadows extend further out than they should)
@@ -129,7 +128,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         let inverse_target_function = select(0.0, 1.0 / reservoir_target_function, reservoir_target_function > 0.0);
         reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, light_sample_world_position);
+        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position + (world_normal * RAY_T_MIN), light_sample_world_position);
     }
 
     reservoir.confidence_weight = 1.0;
@@ -262,6 +261,7 @@ struct ReservoirMergeResult {
     merged_reservoir: Reservoir,
     selected_sample_radiance: vec3<f32>,
     wi: vec3<f32>,
+    selected_light_world_position: vec4<f32>,
 }
 
 fn merge_reservoirs(
@@ -275,13 +275,23 @@ fn merge_reservoirs(
     other_diffuse_brdf: vec3<f32>,
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
-    // Contributions for resampling
-    let canonical_contribution_canonical_sample = reservoir_contribution(canonical_reservoir, canonical_world_position, canonical_world_normal, canonical_diffuse_brdf);
-    let canonical_contribution_other_sample = reservoir_contribution(other_reservoir, canonical_world_position, canonical_world_normal, canonical_diffuse_brdf);
+    // Resolve each light sample once, then evaluate at both positions
+    var canonical_resolved: ResolvedLightSample;
+    if reservoir_valid(canonical_reservoir) {
+        canonical_resolved = resolve_light_sample(canonical_reservoir.sample, light_sources[canonical_reservoir.sample.light_id >> 16u]);
+    }
+    var other_resolved: ResolvedLightSample;
+    if reservoir_valid(other_reservoir) {
+        other_resolved = resolve_light_sample(other_reservoir.sample, light_sources[other_reservoir.sample.light_id >> 16u]);
+    }
 
-    // Extra contributions for MIS
-    let other_contribution_canonical_sample = reservoir_contribution(canonical_reservoir, other_world_position, other_world_normal, other_diffuse_brdf);
-    let other_contribution_other_sample = reservoir_contribution(other_reservoir, other_world_position, other_world_normal, other_diffuse_brdf);
+    // Contributions for resampling (evaluate resolved samples at canonical position)
+    let canonical_contribution_canonical_sample = resolved_reservoir_contribution(canonical_reservoir, canonical_resolved, canonical_world_position, canonical_world_normal, canonical_diffuse_brdf);
+    let canonical_contribution_other_sample = resolved_reservoir_contribution(other_reservoir, other_resolved, canonical_world_position, canonical_world_normal, canonical_diffuse_brdf);
+
+    // Extra contributions for MIS (evaluate resolved samples at other position)
+    let other_contribution_canonical_sample = resolved_reservoir_contribution(canonical_reservoir, canonical_resolved, other_world_position, other_world_normal, other_diffuse_brdf);
+    let other_contribution_other_sample = resolved_reservoir_contribution(other_reservoir, other_resolved, other_world_position, other_world_normal, other_diffuse_brdf);
 
     // Resampling weight for canonical sample
     let canonical_sample_mis_weight = balance_heuristic(
@@ -308,14 +318,14 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_contribution_other_sample.target_function, canonical_contribution_other_sample.target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_contribution_other_sample.radiance, canonical_contribution_other_sample.wi);
+        return ReservoirMergeResult(combined_reservoir, canonical_contribution_other_sample.radiance, canonical_contribution_other_sample.wi, other_resolved.world_position);
     } else {
         combined_reservoir.sample = canonical_reservoir.sample;
 
         let inverse_target_function = select(0.0, 1.0 / canonical_contribution_canonical_sample.target_function, canonical_contribution_canonical_sample.target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_contribution_canonical_sample.radiance, canonical_contribution_canonical_sample.wi);
+        return ReservoirMergeResult(combined_reservoir, canonical_contribution_canonical_sample.radiance, canonical_contribution_canonical_sample.wi, canonical_resolved.world_position);
     }
 }
 
@@ -325,10 +335,9 @@ struct ReservoirContribution {
     wi: vec3<f32>,
 }
 
-// TODO: Have input take ResolvedLightSample instead of reservoir.light_sample
-fn reservoir_contribution(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> ReservoirContribution {
+fn resolved_reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> ReservoirContribution {
     if !reservoir_valid(reservoir) { return ReservoirContribution(vec3(0.0), 0.0, vec3(0.0)); }
-    let light_contribution = resolve_and_calculate_light_contribution(reservoir.sample, world_position, world_normal);
+    let light_contribution = calculate_resolved_light_contribution(resolved, world_position, world_normal);
     let target_function = luminance(light_contribution.radiance * diffuse_brdf * saturate(dot(light_contribution.wi, world_normal)));
     return ReservoirContribution(light_contribution.radiance, target_function, light_contribution.wi);
 }

@@ -11,6 +11,8 @@ pub fn create_dark_theme() -> ThemeProps {
         color: HashMap::from([
             (tokens::WINDOW_BG, palette::GRAY_0),
             (tokens::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
+            (tokens::TEXT_MAIN, palette::LIGHT_GRAY_1),
+            (tokens::TEXT_DIM, palette::LIGHT_GRAY_2),
             // Button (normal)
             (tokens::BUTTON_BG, palette::GRAY_3),
             (tokens::BUTTON_BG_HOVER, palette::GRAY_3.lighter(0.05)),
@@ -128,6 +130,24 @@ pub fn create_dark_theme() -> ThemeProps {
             ),
             (tokens::TEXT_INPUT_CURSOR, palette::ACCENT.lighter(0.2)),
             (tokens::TEXT_INPUT_SELECTION, palette::ACCENT),
+            // Pane
+            (tokens::PANE_HEADER_BG, palette::GRAY_0),
+            (tokens::PANE_HEADER_BORDER, palette::WARM_GRAY_1),
+            (tokens::PANE_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::PANE_HEADER_DIVIDER, palette::WARM_GRAY_1),
+            (tokens::PANE_BODY_BG, palette::GRAY_1),
+            // Subpane
+            (tokens::SUBPANE_HEADER_BG, palette::GRAY_2),
+            (tokens::SUBPANE_HEADER_BORDER, palette::GRAY_3),
+            (tokens::SUBPANE_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::SUBPANE_BODY_BG, palette::GRAY_1),
+            (tokens::SUBPANE_BODY_BORDER, palette::GRAY_2),
+            // Group
+            (tokens::GROUP_HEADER_BG, palette::GRAY_2),
+            (tokens::GROUP_HEADER_BORDER, palette::GRAY_3),
+            (tokens::GROUP_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::GROUP_BODY_BG, palette::GRAY_2),
+            (tokens::GROUP_BODY_BORDER, palette::GRAY_3),
         ]),
     }
 }
