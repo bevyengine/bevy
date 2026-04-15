@@ -17,7 +17,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
@@ -81,7 +81,7 @@ pub fn radio(props: RadioProps) -> impl Scene {
         ThemeFontColor(tokens::RADIO_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [(
@@ -141,7 +141,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
         TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
             ..Default::default()
         },

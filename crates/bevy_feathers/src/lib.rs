@@ -47,18 +47,17 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod display;
 pub mod focus;
 pub mod font_styles;
-mod icon;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
-
-pub use icon::icon;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersCorePlugin;
