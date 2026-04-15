@@ -1988,6 +1988,9 @@ impl<'a> LoadBuilder<'a> {
         asset_path: impl Into<AssetPath<'b>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = asset_path.into();
+        if path.path() == Path::new("") {
+            return Err(AssetLoadError::EmptyPath(path.into_owned()));
+        }
 
         self.asset_server.write_infos().stats.started_load_tasks += 1;
 
