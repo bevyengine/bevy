@@ -118,7 +118,7 @@ pub struct HookContext {
 /// struct MyTrackedComponent;
 ///
 /// #[derive(Resource, Default)]
-/// struct TrackedEntities(HashSet<Entity>);
+/// struct TrackedEntities(EntityHashSet);
 ///
 /// let mut world = World::new();
 /// world.init_resource::<TrackedEntities>();

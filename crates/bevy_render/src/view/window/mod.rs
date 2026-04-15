@@ -6,9 +6,9 @@ use crate::{
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_log::{debug, info, warn};
-use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
@@ -210,7 +210,7 @@ struct SurfaceData {
 pub struct WindowSurfaces {
     surfaces: EntityHashMap<SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
-    configured_windows: HashSet<Entity>,
+    configured_windows: EntityHashSet,
 }
 
 impl WindowSurfaces {

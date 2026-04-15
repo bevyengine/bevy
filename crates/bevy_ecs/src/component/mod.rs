@@ -600,7 +600,7 @@ pub trait Component: Send + Sync + 'static {
     /// #[derive(Component)]
     /// #[component(map_entities)]
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// impl MapEntities for Inventory {
@@ -629,7 +629,7 @@ pub trait Component: Send + Sync + 'static {
     /// #[component(map_entities = map_the_map)]
     /// // Also works: map_the_map::<M> or map_the_map::<_>
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// fn map_the_map<M: EntityMapper>(inv: &mut Inventory, entity_mapper: &mut M) {
