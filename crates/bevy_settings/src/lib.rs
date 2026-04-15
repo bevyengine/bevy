@@ -759,9 +759,16 @@ mod tests {
         #[reflect(Resource, SettingsGroup, Default)]
         struct SingleFieldTupleStruct(u8);
 
+        #[derive(Reflect, PartialEq, Debug, Default)]
+        #[reflect(Default)]
+        struct NestedStruct {
+            a: u8,
+            b: u16,
+        }
+
         #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug, Default)]
         #[reflect(Resource, SettingsGroup, Default)]
-        struct MultiFieldTupleStruct(u8, u16);
+        struct MultiFieldTupleStruct(u8, NestedStruct);
 
         #[derive(Resource, SettingsGroup, Reflect, Default)]
         #[reflect(Resource, SettingsGroup, Default)]
@@ -834,7 +841,10 @@ mod tests {
 
         impl Default for EnumMultiNewTypeVariant {
             fn default() -> Self {
-                EnumMultiNewTypeVariant::A(SingleFieldTupleStruct(0), MultiFieldTupleStruct(0, 0))
+                EnumMultiNewTypeVariant::A(
+                    SingleFieldTupleStruct(0),
+                    MultiFieldTupleStruct(0, NestedStruct { a: 0, b: 0 }),
+                )
             }
         }
 
@@ -860,11 +870,11 @@ mod tests {
         world.insert_resource(ExtraCounterSettings { enabled: false });
         world.insert_resource(CounterRefreshRateSettings::Fast);
         world.insert_resource(SingleFieldTupleStruct(1));
-        world.insert_resource(MultiFieldTupleStruct(2, 3));
+        world.insert_resource(MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }));
         world.insert_resource(NewTypeSingleTupleStruct(SingleFieldTupleStruct(1)));
         world.insert_resource(NewTypeMultiTupleStruct(
             SingleFieldTupleStruct(1),
-            MultiFieldTupleStruct(2, 3),
+            MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }),
         ));
         world.insert_resource(EnumUnitVariant::A);
         world.insert_resource(EnumSingleTupleVariant::A(1));
@@ -873,7 +883,7 @@ mod tests {
         world.insert_resource(EnumSingleNewTypeVariant::A(SingleFieldTupleStruct(1)));
         world.insert_resource(EnumMultiNewTypeVariant::A(
             SingleFieldTupleStruct(1),
-            MultiFieldTupleStruct(2, 3),
+            MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }),
         ));
 
         // Build a manifest with both resource types
@@ -920,7 +930,8 @@ mod tests {
 
         let multi_field_tuple_struct = new_world.get_resource::<MultiFieldTupleStruct>().unwrap();
         assert_eq!(multi_field_tuple_struct.0, 2);
-        assert_eq!(multi_field_tuple_struct.1, 3);
+        assert_eq!(multi_field_tuple_struct.1.a, 1);
+        assert_eq!(multi_field_tuple_struct.1.b, 2);
 
         let new_type_single_tuple_struct = new_world
             .get_resource::<NewTypeSingleTupleStruct>()
@@ -931,7 +942,8 @@ mod tests {
             new_world.get_resource::<NewTypeMultiTupleStruct>().unwrap();
         assert_eq!(new_type_multi_tuple_struct.0 .0, 1);
         assert_eq!(new_type_multi_tuple_struct.1 .0, 2);
-        assert_eq!(new_type_multi_tuple_struct.1 .1, 3);
+        assert_eq!(new_type_multi_tuple_struct.1 .1.a, 1);
+        assert_eq!(new_type_multi_tuple_struct.1 .1.b, 2);
 
         let enum_unit_variant = new_world.get_resource::<EnumUnitVariant>().unwrap();
         assert_eq!(*enum_unit_variant, EnumUnitVariant::A);
@@ -952,11 +964,15 @@ mod tests {
             *enum_single_new_type_variant,
             EnumSingleNewTypeVariant::A(SingleFieldTupleStruct(1))
         );
+
         let enum_multi_new_type_variant =
             new_world.get_resource::<EnumMultiNewTypeVariant>().unwrap();
         assert_eq!(
             *enum_multi_new_type_variant,
-            EnumMultiNewTypeVariant::A(SingleFieldTupleStruct(1), MultiFieldTupleStruct(2, 3))
+            EnumMultiNewTypeVariant::A(
+                SingleFieldTupleStruct(1),
+                MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 })
+            )
         );
     }
 
