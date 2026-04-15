@@ -145,9 +145,15 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 }
 
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
+    // Defense-in-depth clamp. get_view_position() already clamps callers that go
+    // through it, but some call sites pass r directly. The SkyView LUT is
+    // parameterized only for r in [inner_radius, outer_radius]; sampling outside
+    // produces out-of-bounds UVs and black / garbage sky. Clamp to just inside
+    // the outer shell so the parameterization stays valid for orbital cameras.
+    let r_c = min(r, atmosphere.outer_radius - 1.0);
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
-    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
+    let uv = sky_view_lut_r_mu_azimuth_to_uv(r_c, mu, azimuth);
     return textureSampleLevel(sky_view_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -289,11 +295,21 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
 
 /// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
 fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
+    // Clamp to the atmosphere shell [inner_radius + eps, outer_radius - eps].
+    // The SkyView / AerialView LUT parameterizations are only valid inside the
+    // shell; outside the outer boundary (e.g. orbital cameras), sampling
+    // produces out-of-bounds UVs and the sky pass goes black. Clamping here
+    // means every caller of get_view_position() is safe.
     let min_radius = atmosphere.inner_radius + EPSILON;
+    let max_radius = atmosphere.outer_radius - EPSILON;
     let r = length(position);
     if r < min_radius {
         let up = normalize(position);
         return up * min_radius;
+    }
+    if r > max_radius {
+        let up = normalize(position);
+        return up * max_radius;
     }
     return position;
 }
