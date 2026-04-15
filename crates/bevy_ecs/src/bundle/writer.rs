@@ -15,7 +15,7 @@ use core::{alloc::Layout, ptr::NonNull};
 pub struct BundleWriter {
     // Correctness: this should never be made public or mismatched component ids could be inserted
     component_ids: Vec<ComponentId>,
-    // Correctness: this should never be made public or arbitary non-components could be inserted
+    // Correctness: this should never be made public or arbitrary non-components could be inserted
     component_ptrs: Vec<NonNull<u8>>,
     // Safety: this cannot be exposed, otherwise `alloc.reset()` could be called in arbitrary places,
     // which could invalidate the data stored in OwnedBundleScratch.

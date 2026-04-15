@@ -117,7 +117,7 @@ impl ScenePatch {
 /// An [`Error`] that occurs during scene spawning.
 #[derive(Error, Debug)]
 pub enum SpawnSceneError {
-    /// Calling [`ResolvedScene::apply`] failed.
+    /// Failed to apply a [`ResolvedScene`]s.
     #[error(transparent)]
     ApplySceneError(#[from] ApplySceneError),
     #[error(transparent)]

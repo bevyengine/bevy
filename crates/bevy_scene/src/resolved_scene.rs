@@ -74,7 +74,7 @@ pub struct ResolvedSceneListRoot {
 }
 
 impl ResolvedSceneListRoot {
-    /// Spawns a new [`Entity`] for each [`ResolvedScene`] in the list, and calls [`ResolvedScene::apply`] on them.
+    /// Spawns a new [`Entity`] for each [`ResolvedScene`] in the list, and applies that [`ResolvedScene`] to them.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<Vec<Entity>, ApplySceneError> {
         self.spawn_with(world, |_| {})
     }
@@ -118,7 +118,7 @@ impl ResolvedSceneListRoot {
 }
 
 /// A final resolved scene (usually produced by calling [`Scene::resolve`]). This consists of:
-/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedTemplate`]s.
+/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedComponentTemplate`]s and [`ErasedBundleTemplate`]s.
 /// 2. A collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
 /// 3. The inherited [`ScenePatch`] if it exists.
 ///
@@ -411,8 +411,8 @@ impl ResolvedScene {
             .unwrap()
     }
 
-    /// This will get the [`ErasedTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
-    /// it will use the `default` function to create a new [`ErasedTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
+    /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
+    /// it will use the `default` function to create a new [`ErasedComponentTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
     /// by `default` should match the passed in `type_id`_.
     ///
     /// This uses "copy-on-write" behavior for inherited scenes. If a [`Template`] that the inherited scene has is requested, it will be
@@ -459,7 +459,7 @@ impl ResolvedScene {
         template
     }
 
-    /// Returns the [`ErasedTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores scene inheritance.
+    /// Returns the [`ErasedComponentTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores scene inheritance.
     pub fn get_direct_erased_template(
         &self,
         type_id: TypeId,
@@ -561,13 +561,13 @@ pub enum InheritSceneError {
     },
 }
 
-/// An error produced when calling [`ResolvedScene::apply`].
+/// An error produced when applying a [`ResolvedScene`].
 #[derive(Error, Debug)]
 pub enum ApplySceneError {
     /// Caused when a [`Template`] fails to build
     #[error("Failed to build a Template in the current Scene: {0}")]
     TemplateBuildError(BevyError),
-    /// Caused when the inherited [`ResolvedScene`] fails to [`ResolvedScene::apply`].
+    /// Caused when the inherited [`ResolvedScene`] fails to apply a [`ResolvedScene`].
     #[error("Failed to apply the inherited Scene (asset path: \"{inherited:?}\"): {error}")]
     InheritedSceneApplyError {
         /// The asset path of the inherited scene that failed to apply.
@@ -591,7 +591,7 @@ pub enum ApplySceneError {
         /// The asset id of the inherited scene.
         id: AssetId<ScenePatch>,
     },
-    /// Caused when a related [`ResolvedScene`] fails to [`ResolvedScene::apply`].
+    /// Caused when a related [`ResolvedScene`] fails to apply.
     #[error(
         "Failed to apply the related {relationship_type_name} Scene at index {index}: {error}"
     )]
