@@ -1839,6 +1839,16 @@ impl AssetServer {
 }
 
 /// A builder for initiating a more complex load than the one provided by [`AssetServer::load`].
+///
+/// For example, a load may look like:
+///
+/// ```ignore
+/// asset_server
+///     .load_builder()
+///     .with_settings(settings)
+///     .override_unapproved()
+///     .load("my.path")
+/// ```
 pub struct LoadBuilder<'a> {
     /// The asset server on which the load is invoked.
     asset_server: &'a AssetServer,
