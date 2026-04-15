@@ -1,5 +1,5 @@
 ---
-title: Advanced AssetServer load variants are now expose through a builder pattern.
+title: Advanced AssetServer load variants are now exposed through a builder pattern.
 pull_requests: []
 ---
 
@@ -18,4 +18,13 @@ All these variants have been simplified to only two variants:
    loads including guards, loads with settings, etc.
 
 Every load variant above can be reimplemented using `load_builder`, and each one of these methods
-has deprecation messages on them explaining their new equivalent.
+has deprecation messages on them explaining their new equivalent. For example,
+`load_with_settings_override` can now be replaced by:
+
+```rust
+asset_server
+    .load_builder()
+    .with_settings(settings)
+    .override_unapproved()
+    .load(path)
+```
