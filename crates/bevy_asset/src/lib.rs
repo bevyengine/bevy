@@ -3122,36 +3122,54 @@ mod tests {
             // TODO: We have way too many "load" variants. We **need** to simplify this.
             assert_eq!(asset_server.load(path), Handle::<TestAsset>::default());
             assert_eq!(
-                asset_server.load_acquire(path, ()),
+                asset_server.load_builder().with_guard(()).load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_acquire_override(path, ()),
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .override_unapproved()
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_acquire_with_settings(path, boring_settings, ()),
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .with_settings(boring_settings)
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_erased(TYPE_ID, path),
+                asset_server.load_builder().load_erased(TYPE_ID, path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_override(path),
+                asset_server.load_builder().override_unapproved().load(path),
                 Handle::<TestAsset>::default()
             );
-            assert_eq!(asset_server.load_untyped(path), Handle::default());
+            assert_eq!(
+                asset_server.load_builder().load_untyped(path),
+                Handle::default()
+            );
             assert!(matches!(
-                block_on(asset_server.load_untyped_async(path)),
+                block_on(asset_server.load_builder().load_untyped_async(path)),
                 Err(AssetLoadError::EmptyPath(reported_path)) if AssetPath::from(path) == reported_path
             ));
             assert_eq!(
-                asset_server.load_with_settings(path, |_: &mut ()| {}),
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_with_settings_override(path, |_: &mut ()| {}),
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .override_unapproved()
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
         }
