@@ -112,7 +112,7 @@ pub struct HookContext {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_platform::collections::HashSet;
+/// use bevy_ecs::entity::EntityHashSet;
 ///
 /// #[derive(Component)]
 /// struct MyTrackedComponent;

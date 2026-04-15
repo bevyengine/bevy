@@ -595,8 +595,7 @@ pub trait Component: Send + Sync + 'static {
     /// component itself, and this method will simply call that implementation.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities)]
     /// struct Inventory {

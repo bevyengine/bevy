@@ -1,10 +1,7 @@
 //! Demonstrates how to observe events: both component lifecycle events and custom events.
 
 use bevy::ecs::entity::EntityHashSet;
-use bevy::{
-    platform::collections::{HashMap, HashSet},
-    prelude::*,
-};
+use bevy::{platform::collections::HashMap, prelude::*};
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
