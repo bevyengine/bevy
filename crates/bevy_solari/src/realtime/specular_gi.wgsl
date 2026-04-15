@@ -92,7 +92,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 #endif
 
     // Trace up to three bounces
-    for (var i = 0u; i< 3u; i += 1u) {
+    for (var i = 0u; i < 3u; i += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
