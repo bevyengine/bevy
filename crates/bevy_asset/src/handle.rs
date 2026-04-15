@@ -208,6 +208,7 @@ impl<T: Asset> FromTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
 }
 
+#[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     Path(AssetPath<'static>),
     Handle(Handle<T>),
@@ -352,6 +353,14 @@ pub enum UntypedHandle {
 }
 
 impl UntypedHandle {
+    /// Returns the equivalent of [`Handle`]'s default implementation for the given type ID.
+    pub fn default_for_type(type_id: TypeId) -> Self {
+        Self::Uuid {
+            type_id,
+            uuid: AssetId::<()>::DEFAULT_UUID,
+        }
+    }
+
     /// Returns the [`UntypedAssetId`] for the referenced asset.
     #[inline]
     pub fn id(&self) -> UntypedAssetId {

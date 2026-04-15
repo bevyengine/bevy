@@ -272,6 +272,22 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// });
 /// ```
 ///
+/// ## Best practices for event propagation
+///
+/// Propagation is useful for events that should be handled by multiple entities in a hierarchy, such as UI events.
+/// In these cases, it is common for the event to be triggered on a "leaf" entity, and then propagate up to "root" entities.
+/// In this pattern, it is generally recommended to trigger the event on the most specific entity possible (the leaf), and then use propagation to have it handled by more general entities (the roots).
+///
+/// Once an event is handled by a given entity, you should stop propagation.
+/// This ensures that only a single "behavior" resolves per event sent,
+/// avoiding unexpected behavior from entities higher up the hierarchy.
+///
+/// This advice has one notable wrinkle:
+/// if an entity is "disabled" (e.g. if a UI node is grayed out),
+/// the event should still be considered "handled" by that entity,
+/// even though the observer logic should not be run.
+/// This ensures consistent behavior regardless of the enabled/disabled state of entities.
+///
 /// ## Naming and Usage Conventions
 ///
 /// In most cases, it is recommended to use a named struct field for the "event target" entity, and to use

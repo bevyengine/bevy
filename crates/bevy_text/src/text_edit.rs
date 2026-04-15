@@ -141,6 +141,7 @@ impl TextEdit {
         driver: &'a mut PlainEditorDriver<TextBrush>,
         clipboard_text: &mut String,
         max_characters: Option<usize>,
+        char_filter: impl Fn(char) -> bool,
     ) {
         match self {
             TextEdit::Copy => {
@@ -157,6 +158,9 @@ impl TextEdit {
                 }
             }
             TextEdit::Paste => {
+                if !clipboard_text.chars().all(char_filter) {
+                    return;
+                }
                 if let Some(max) = max_characters {
                     let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
                     if max
@@ -168,6 +172,9 @@ impl TextEdit {
                 driver.insert_or_replace_selection(clipboard_text.as_str());
             }
             TextEdit::Insert(text) => {
+                if !text.chars().all(char_filter) {
+                    return;
+                }
                 if let Some(max) = max_characters {
                     let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
                     if max < driver.editor.text().chars().count() - select_len + text.len() {

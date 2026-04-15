@@ -64,6 +64,10 @@ pub use crate::pbr::prelude::*;
 pub use crate::render::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_scene")]
+pub use crate::scene::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_world_serialization")]
 pub use crate::world_serialization::prelude::*;
 

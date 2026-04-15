@@ -8,7 +8,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    template::EntityScopes,
+    template::{EntityScopes, FromTemplate},
     world::{EntityWorldMut, World},
 };
 use bevy_reflect::TypePath;
@@ -125,7 +125,7 @@ pub enum SpawnSceneError {
 }
 
 /// A component that, when added, will queue applying the given [`ScenePatch`] after the scene and its dependencies have been loaded and resolved.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, FromTemplate, Deref, DerefMut)]
 pub struct ScenePatchInstance(pub Handle<ScenePatch>);
 
 /// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`Vec`] of [`ResolvedScene`] (after the [`SceneList`] has been loaded and resolved)

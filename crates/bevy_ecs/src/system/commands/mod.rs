@@ -2343,6 +2343,16 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Returns a [`EntityEntryCommands`] with a smaller lifetime.
+    ///
+    /// This is useful if you have `&mut EntityEntryCommands` but need `EntityEntryCommands`.
+    pub fn reborrow(&mut self) -> EntityEntryCommands<'_, T> {
+        EntityEntryCommands {
+            entity_commands: self.entity_commands.reborrow(),
+            marker: PhantomData,
+        }
+    }
+
     /// [Insert](EntityCommands::insert) `default` into this entity,
     /// if `T` is not already present.
     #[track_caller]

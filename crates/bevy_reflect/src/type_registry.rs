@@ -1,4 +1,6 @@
-use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use crate::{
+    convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed,
+};
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -353,6 +355,65 @@ impl TypeRegistry {
         data.insert(D::from_type());
     }
 
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<i32>();
+    /// type_registry.register::<String>();
+    /// type_registry.register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
+    /// ```
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        data.get_or_insert_data_with(ReflectConvert::default)
+            .register_type_conversion(function);
+    }
+
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<u8>();
+    /// type_registry.register::<u32>();
+    /// type_registry.register_type_conversion::<u8, u32, _>(|n| Ok(n.into()));
+    /// ```
+    pub fn register_into_type_conversion<T, U>(&mut self)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        data.get_or_insert_data_with(ReflectConvert::default)
+            .register_type_conversion::<T, U, _>(|input| Ok(input.into()));
+    }
+
     /// Whether the type with given [`TypeId`] has been registered in this registry.
     pub fn contains(&self, type_id: TypeId) -> bool {
         self.registrations.contains_key(&type_id)
@@ -586,6 +647,18 @@ impl TypeRegistration {
     /// [type data]: TypeData
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
+    }
+
+    /// Gets the instance of `T` into this registration's [type data], if it exists. If it does not
+    /// exist, it will insert a new instance using `get_data` and then return it.
+    ///
+    /// [type data]: TypeData
+    pub fn get_or_insert_data_with<T: TypeData>(&mut self, get_data: impl FnOnce() -> T) -> &mut T {
+        let boxed_data = self
+            .data
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(get_data()));
+        boxed_data.downcast_mut::<T>().unwrap()
     }
 
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any

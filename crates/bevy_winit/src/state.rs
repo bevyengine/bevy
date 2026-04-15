@@ -545,10 +545,11 @@ impl WinitAppRunnerState {
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&self.world()).unwrap();
-                self.world_mut()
-                    .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
+                if let Ok(entity) = query.single(&self.world()) {
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .remove::<RawHandleWrapper>();
+                }
             }
         }
 

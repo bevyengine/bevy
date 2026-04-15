@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene2::prelude::*;
+use bevy_scene::prelude::*;
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,

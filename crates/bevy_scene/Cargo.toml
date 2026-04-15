@@ -1,5 +1,5 @@
 [package]
-name = "bevy_scene2"
+name = "bevy_scene"
 version = "0.19.0-dev"
 edition = "2024"
 description = "Provides scene functionality for Bevy Engine"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_scene2_macros = { path = "macros", version = "0.19.0-dev" }
+bevy_scene_macros = { path = "macros", version = "0.19.0-dev" }
 
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }

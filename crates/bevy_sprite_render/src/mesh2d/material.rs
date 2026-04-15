@@ -199,7 +199,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[derive(Component, FromTemplate, Clone, Debug, Deref, DerefMut, Reflect, From)]
 #[reflect(Component, Default, Clone)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
@@ -579,6 +579,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
         }
         Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::PbrNeutral => Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
