@@ -12,7 +12,7 @@ use crate::{
     event::Event,
     observer::{Observer, On},
     reflect::from_reflect_with_fallback,
-    world::World,
+    world::{DeferredWorld, World},
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
@@ -46,10 +46,14 @@ pub struct ReflectEventFns {
     /// Function pointer implementing [`ReflectEvent::trigger`].
     pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectEvent::observe`].
-    pub observe: fn(&mut World, Box<dyn Fn(&dyn PartialReflect) + Send + Sync>) -> Entity,
+    pub observe:
+        fn(&mut World, Box<dyn Fn(&dyn PartialReflect, DeferredWorld) + Send + Sync>) -> Entity,
     /// Function pointer implementing [`ReflectEvent::observe_entity`].
-    pub observe_entity:
-        fn(&mut World, Entity, Box<dyn Fn(&dyn PartialReflect) + Send + Sync>) -> Entity,
+    pub observe_entity: fn(
+        &mut World,
+        Entity,
+        Box<dyn Fn(&dyn PartialReflect, DeferredWorld) + Send + Sync>,
+    ) -> Entity,
 }
 
 impl ReflectEventFns {
@@ -76,7 +80,7 @@ impl ReflectEvent {
     pub fn observe(
         &self,
         world: &mut World,
-        callback: Box<dyn Fn(&dyn PartialReflect) + Send + Sync>,
+        callback: Box<dyn Fn(&dyn PartialReflect, DeferredWorld) + Send + Sync>,
     ) -> Entity {
         (self.0.observe)(world, callback)
     }
@@ -86,7 +90,7 @@ impl ReflectEvent {
         &self,
         world: &mut World,
         entity: Entity,
-        callback: Box<dyn Fn(&dyn PartialReflect) + Send + Sync>,
+        callback: Box<dyn Fn(&dyn PartialReflect, DeferredWorld) + Send + Sync>,
     ) -> Entity {
         (self.0.observe_entity)(world, entity, callback)
     }
@@ -139,14 +143,14 @@ where
             },
             observe: |world, callback| {
                 world
-                    .add_observer(move |event: On<E>| {
-                        callback((*event).as_partial_reflect());
+                    .add_observer(move |event: On<E>, world: DeferredWorld| {
+                        callback((*event).as_partial_reflect(), world);
                     })
                     .id()
             },
             observe_entity: |world, entity, callback| {
-                let observer = Observer::new(move |event: On<E>| {
-                    callback((*event).as_partial_reflect());
+                let observer = Observer::new(move |event: On<E>, world: DeferredWorld| {
+                    callback((*event).as_partial_reflect(), world);
                 })
                 .with_entity(entity);
                 world.spawn(observer).id()
