@@ -12,7 +12,7 @@ enable wgpu_ray_query;
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::unpack_resolved_light_sample
 #import bevy_solari::sampling::{LightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
-#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME, RAY_T_MIN}
 #import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD
 #import bevy_solari::realtime_bindings::{view_output, light_tile_samples, light_tile_resolved_samples, di_reservoirs_a, di_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, ResolvedLightSamplePacked}
 
@@ -71,7 +71,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     if reservoir_valid(combined_reservoir) {
         let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, light_sources[combined_reservoir.sample.light_id >> 16u]);
-        combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position, resolved_light_sample.world_position);
+        combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position + (surface.world_normal * RAY_T_MIN), resolved_light_sample.world_position);
     }
 
     // More stability, less accuracy (shadows extend further out than they should)
@@ -129,7 +129,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         let inverse_target_function = select(0.0, 1.0 / reservoir_target_function, reservoir_target_function > 0.0);
         reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, light_sample_world_position);
+        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position + (world_normal * RAY_T_MIN), light_sample_world_position);
     }
 
     reservoir.confidence_weight = 1.0;
