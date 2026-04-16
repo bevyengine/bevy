@@ -307,7 +307,10 @@ impl Plugin for MaterialsPlugin {
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline.after(MeshPipelineSystems))
+                .add_systems(
+                    RenderStartup,
+                    init_material_pipeline.after(MeshPipelineSystems),
+                )
                 .add_systems(
                     Render,
                     (

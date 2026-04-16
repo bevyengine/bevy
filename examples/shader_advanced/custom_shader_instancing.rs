@@ -108,7 +108,10 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSystems))
+            .add_systems(
+                RenderStartup,
+                init_custom_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 (

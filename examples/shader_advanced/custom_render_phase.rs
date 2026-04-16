@@ -131,7 +131,10 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .init_resource::<PendingCustomMeshQueues>()
-            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSystems))
+            .add_systems(
+                RenderStartup,
+                init_stencil_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
