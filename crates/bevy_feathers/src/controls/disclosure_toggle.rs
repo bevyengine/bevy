@@ -14,7 +14,8 @@ use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, Scene};
 use bevy_ui::{
-    px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node, UiTransform,
+    px, widget::ImageNode, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
+    UiTransform,
 };
 use bevy_ui_widgets::Checkbox;
 use bevy_window::SystemCursorIcon;
@@ -53,25 +54,49 @@ pub fn disclosure_toggle() -> impl Scene {
 }
 
 fn update_toggle_styles(
-    mut q_switches: Query<
-        (Has<InteractionDisabled>, Has<Checked>, &mut UiTransform),
+    mut q_toggle: Query<
+        (
+            Has<InteractionDisabled>,
+            Has<Checked>,
+            &mut UiTransform,
+            &Children,
+        ),
         (
             With<DisclosureToggleStyle>,
-            Or<(Added<Checked>, Added<InteractionDisabled>)>,
+            Or<(Added<Checkbox>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
+    mut q_icon: Query<&mut ImageNode>,
     theme: Res<UiTheme>,
 ) {
-    for (disabled, checked, mut transform) in q_switches.iter_mut() {
-        set_toggle_colors(disabled, checked, transform.as_mut(), &theme);
+    for (disabled, checked, mut transform, children) in q_toggle.iter_mut() {
+        let Some(child_id) = children.first() else {
+            continue;
+        };
+        let Ok(mut icon_child) = q_icon.get_mut(*child_id) else {
+            continue;
+        };
+        set_toggle_styles(
+            disabled,
+            checked,
+            transform.as_mut(),
+            &mut icon_child,
+            &theme,
+        );
     }
 }
 
 fn update_toggle_styles_remove(
-    mut q_switches: Query<
-        (Has<InteractionDisabled>, Has<Checked>, &mut UiTransform),
+    mut q_toggle: Query<
+        (
+            Has<InteractionDisabled>,
+            Has<Checked>,
+            &mut UiTransform,
+            &Children,
+        ),
         With<DisclosureToggleStyle>,
     >,
+    mut q_icon: Query<&mut ImageNode>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
     theme: Res<UiTheme>,
@@ -80,22 +105,41 @@ fn update_toggle_styles_remove(
         .read()
         .chain(removed_checked.read())
         .for_each(|ent| {
-            if let Ok((disabled, checked, mut transform)) = q_switches.get_mut(ent) {
-                set_toggle_colors(disabled, checked, transform.as_mut(), &theme);
+            if let Ok((disabled, checked, mut transform, children)) = q_toggle.get_mut(ent) {
+                let Some(child_id) = children.first() else {
+                    return;
+                };
+                let Ok(mut icon_child) = q_icon.get_mut(*child_id) else {
+                    return;
+                };
+                set_toggle_styles(
+                    disabled,
+                    checked,
+                    transform.as_mut(),
+                    &mut icon_child,
+                    &theme,
+                );
             }
         });
 }
 
-fn set_toggle_colors(
+fn set_toggle_styles(
     disabled: bool,
     checked: bool,
     transform: &mut UiTransform,
-    _theme: &Res<'_, UiTheme>,
+    image_node: &mut ImageNode,
+    theme: &Res<'_, UiTheme>,
 ) {
-    let _slide_token = match disabled {
-        true => tokens::SWITCH_SLIDE_DISABLED,
-        false => tokens::SWITCH_SLIDE,
+    // It's effectively the same color as the caption of a "plain" variant tool button with an icon.
+    let icon_color = match disabled {
+        true => theme.color(&tokens::BUTTON_TEXT_DISABLED),
+        false => theme.color(&tokens::BUTTON_TEXT),
     };
+
+    // Change icon color
+    if image_node.color != icon_color {
+        image_node.color = icon_color;
+    }
 
     match checked {
         true => {
