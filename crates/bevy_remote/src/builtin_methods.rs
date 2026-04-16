@@ -1,7 +1,7 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
-use core::any::TypeId;
 use alloc::sync::Arc;
+use core::any::TypeId;
 use std::sync::Mutex;
 
 use anyhow::{anyhow, Result as AnyhowResult};
