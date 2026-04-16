@@ -16,14 +16,14 @@ use bevy_ecs::{
     resource::Resource,
     schedule::Schedules,
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
+    world::{DeferredWorld, EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     structs::DynamicStruct,
-    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -1608,7 +1608,7 @@ pub fn process_remote_observe_watching_request(
         let registry_clone = app_type_registry.clone();
         let event_clone = event.clone();
 
-        let callback = Box::new(move |event_data: &dyn PartialReflect| {
+        let callback = Box::new(move |event_data: &dyn Reflect, _world: DeferredWorld| {
             let reg = registry_clone.read();
             let serializer = ReflectSerializer::new(event_data, &reg);
             match serde_json::to_value(&serializer) {
@@ -1626,10 +1626,11 @@ pub fn process_remote_observe_watching_request(
             }
         });
 
+        let observer = reflect_event.create_observer(callback);
         if let Some(target) = entity {
-            reflect_event.observe_entity(world, target, callback);
+            world.spawn(observer.with_entity(target));
         } else {
-            reflect_event.observe(world, callback);
+            world.spawn(observer);
         }
 
         world
