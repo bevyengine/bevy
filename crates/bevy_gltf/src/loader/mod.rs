@@ -174,12 +174,12 @@ pub struct GltfLoader {
 /// # use bevy_asset::{AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
-/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
-///     "my.gltf",
-///     |s: &mut GltfLoaderSettings| {
-///         s.load_cameras = false;
-///     }
-/// );
+/// let gltf_handle: Handle<Gltf> = asset_server.load_builder().with_settings(
+///         |s: &mut GltfLoaderSettings| {
+///             s.load_cameras = false;
+///         }
+///     )
+///     .load("my.gltf");
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
@@ -672,7 +672,9 @@ impl GltfLoader {
         let mut named_materials = <HashMap<_, _>>::default();
         // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
         if !settings.load_materials.is_empty() {
-            // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+            // NOTE: materials must be loaded after textures because image load() calls will happen
+            // before load_builder().with_settings().load(), preventing is_srgb from being set
+            // properly.
             for material in gltf.materials() {
                 let (label, gltf_material) = load_material(
                     &material,

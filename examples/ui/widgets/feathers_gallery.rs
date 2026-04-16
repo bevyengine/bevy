@@ -30,8 +30,8 @@ use bevy::{
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        checkbox_self_update, slider_self_update, Activate, ActivateOnPress, RadioButton,
+        RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -299,6 +299,26 @@ fn demo_column_1() -> impl Scene {
                         } else {
                             button.remove::<InteractionDisabled>();
                         }
+                        let mut checkbox = commands.entity(change.source);
+                        if change.value {
+                            checkbox.insert(Checked);
+                        } else {
+                            checkbox.remove::<Checked>();
+                        }
+                    }
+                )
+            ),
+            (
+                checkbox(CheckboxProps {
+                    caption: Box::new(bsn_list!(
+                        (Text("Fast Click Checkbox") ThemedText),
+                    )),
+                })
+                ActivateOnPress
+                on(
+                    |change: On<ValueChange<bool>>,
+                     mut commands: Commands| {
+                        info!("Checkbox clicked!");
                         let mut checkbox = commands.entity(change.source);
                         if change.value {
                             checkbox.insert(Checked);

@@ -5,7 +5,14 @@
 //!
 //! Same as [`component`](`super::component`), but for events.
 
-use crate::{event::Event, reflect::from_reflect_with_fallback, world::World};
+use alloc::boxed::Box;
+
+use crate::{
+    event::Event,
+    observer::{Observer, On},
+    reflect::from_reflect_with_fallback,
+    world::{DeferredWorld, World},
+};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
@@ -37,6 +44,8 @@ pub struct ReflectEvent(ReflectEventFns);
 pub struct ReflectEventFns {
     /// Function pointer implementing [`ReflectEvent::trigger`].
     pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectEvent::create_observer`].
+    pub create_observer: fn(Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Observer,
 }
 
 impl ReflectEventFns {
@@ -57,6 +66,14 @@ impl ReflectEvent {
     /// Triggers a reflected [`Event`] like [`trigger()`](World::trigger).
     pub fn trigger(&self, world: &mut World, event: &dyn PartialReflect, registry: &TypeRegistry) {
         (self.0.trigger)(world, event, registry);
+    }
+
+    /// Creates an [`Observer`] for this [`Event`] that calls the given callback.
+    pub fn create_observer(
+        &self,
+        callback: Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>,
+    ) -> Observer {
+        (self.0.create_observer)(callback)
     }
 
     /// Create a custom implementation of [`ReflectEvent`].
@@ -104,6 +121,11 @@ where
             trigger: |world, reflected_event, registry| {
                 let event = from_reflect_with_fallback::<E>(reflected_event, world, registry);
                 world.trigger(event);
+            },
+            create_observer: |callback| {
+                Observer::new(move |event: On<E>, world: DeferredWorld| {
+                    callback((*event).as_reflect(), world);
+                })
             },
         })
     }

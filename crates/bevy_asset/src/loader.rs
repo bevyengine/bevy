@@ -613,7 +613,7 @@ impl<'a> LoadContext<'a> {
         label: impl Into<CowArc<'b, str>>,
     ) -> Handle<A> {
         let path = self.asset_path.clone().with_label(label);
-        let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
+        let handle = self.asset_server.get_or_create_path_handle(path, None);
         // `get_or_create_path_handle` always returns a Strong variant, so we are safe to unwrap.
         let index = (&handle).try_into().unwrap();
         self.dependencies.insert(index);
