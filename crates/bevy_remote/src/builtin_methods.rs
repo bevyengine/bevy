@@ -1,7 +1,8 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
 use core::any::TypeId;
-use std::sync::{Arc, Mutex};
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_dev_tools::schedule_data::serde::ScheduleData;
