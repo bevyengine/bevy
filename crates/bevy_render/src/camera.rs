@@ -30,7 +30,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    entity::{ContainsEntity, Entity},
+    entity::{ContainsEntity, Entity, EntityHashMap, EntityHashSet},
     error::BevyError,
     lifecycle::HookContext,
     message::MessageReader,
@@ -55,7 +55,7 @@ use wgpu::TextureFormat;
 
 /// Main-pass color [`TextureFormat`] keyed by camera render entity.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct CameraMainPassTextureFormats(pub HashMap<Entity, TextureFormat>);
+pub struct CameraMainPassTextureFormats(pub EntityHashMap<TextureFormat>);
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -218,7 +218,7 @@ pub trait NormalizedRenderTargetExt {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &HashSet<Entity>,
+        changed_window_ids: &EntityHashSet,
         changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool;
 }
@@ -308,7 +308,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &HashSet<Entity>,
+        changed_window_ids: &EntityHashSet,
         changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
@@ -361,10 +361,10 @@ pub fn camera_system(
 ) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = <HashSet<_>>::default();
+    let mut changed_window_ids = EntityHashSet::default();
     changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_reader
+    let scale_factor_changed_window_ids: EntityHashSet = window_scale_factor_changed_reader
         .read()
         .map(|event| event.window)
         .collect();

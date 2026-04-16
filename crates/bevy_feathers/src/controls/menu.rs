@@ -15,7 +15,7 @@ use bevy_ecs::{
 use bevy_log::warn;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_scene::{prelude::*, template_value};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
     InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect, Val,
@@ -29,8 +29,8 @@ use crate::{
     constants::{fonts, icons, size},
     controls::{button, ButtonProps, ButtonVariant},
     cursor::EntityCursor,
+    display::icon,
     font_styles::InheritableFont,
-    icon,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
@@ -271,7 +271,7 @@ pub fn menu_item(props: MenuItemProps) -> impl Scene {
         ThemeFontColor(tokens::MENUITEM_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [
