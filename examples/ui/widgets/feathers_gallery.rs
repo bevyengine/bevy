@@ -9,12 +9,12 @@ use bevy::{
             pane_header_divider, subpane, subpane_body, subpane_header,
         },
         controls::{
-            button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
-            menu_divider, menu_item, menu_popup, radio, slider, text_input, text_input_container,
-            toggle_switch, tool_button, ButtonProps, ButtonVariant, CheckboxProps, ColorChannel,
-            ColorPlane, ColorPlaneValue, ColorSlider, ColorSliderProps, ColorSwatch,
-            ColorSwatchValue, MenuButtonProps, MenuItemProps, RadioProps, SliderBaseColor,
-            SliderProps, TextInputProps,
+            button, checkbox, color_plane, color_slider, color_swatch, disclosure_toggle, menu,
+            menu_button, menu_divider, menu_item, menu_popup, radio, slider, text_input,
+            text_input_container, toggle_switch, tool_button, ButtonProps, ButtonVariant,
+            CheckboxProps, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
+            ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
+            RadioProps, SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -406,6 +406,7 @@ fn demo_column_1() -> impl Scene {
                     (toggle_switch() on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled Checked on(checkbox_self_update)),
+                    (disclosure_toggle() on(checkbox_self_update)),
                 ]
             ),
             (
