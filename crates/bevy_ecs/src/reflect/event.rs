@@ -8,7 +8,6 @@
 use alloc::boxed::Box;
 
 use crate::{
-    entity::Entity,
     event::Event,
     observer::{Observer, On},
     reflect::from_reflect_with_fallback,
@@ -45,11 +44,8 @@ pub struct ReflectEvent(ReflectEventFns);
 pub struct ReflectEventFns {
     /// Function pointer implementing [`ReflectEvent::trigger`].
     pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectEvent::observe`].
-    pub observe: fn(&mut World, Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Entity,
-    /// Function pointer implementing [`ReflectEvent::observe_entity`].
-    pub observe_entity:
-        fn(&mut World, Entity, Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Entity,
+    /// Function pointer implementing [`ReflectEvent::create_observer`].
+    pub create_observer: fn(Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Observer,
 }
 
 impl ReflectEventFns {
@@ -72,23 +68,12 @@ impl ReflectEvent {
         (self.0.trigger)(world, event, registry);
     }
 
-    /// Registers a global [`Observer`] for this event type.
-    pub fn observe(
+    /// Creates an [`Observer`] for this [`Event`] that calls the given callback.
+    pub fn create_observer(
         &self,
-        world: &mut World,
         callback: Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>,
-    ) -> Entity {
-        (self.0.observe)(world, callback)
-    }
-
-    /// Registers an entity-scoped [`Observer`] for this event type.
-    pub fn observe_entity(
-        &self,
-        world: &mut World,
-        entity: Entity,
-        callback: Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>,
-    ) -> Entity {
-        (self.0.observe_entity)(world, entity, callback)
+    ) -> Observer {
+        (self.0.create_observer)(callback)
     }
 
     /// Create a custom implementation of [`ReflectEvent`].
@@ -137,19 +122,10 @@ where
                 let event = from_reflect_with_fallback::<E>(reflected_event, world, registry);
                 world.trigger(event);
             },
-            observe: |world, callback| {
-                world
-                    .add_observer(move |event: On<E>, world: DeferredWorld| {
-                        callback((*event).as_reflect(), world);
-                    })
-                    .id()
-            },
-            observe_entity: |world, entity, callback| {
-                let observer = Observer::new(move |event: On<E>, world: DeferredWorld| {
+            create_observer: |callback| {
+                Observer::new(move |event: On<E>, world: DeferredWorld| {
                     callback((*event).as_reflect(), world);
                 })
-                .with_entity(entity);
-                world.spawn(observer).id()
             },
         })
     }
