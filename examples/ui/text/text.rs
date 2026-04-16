@@ -97,9 +97,9 @@ fn text_with_multiple_sections() -> impl Scene {
     }
 }
 
-type TextRows = (&'static str, FontFeatureTag, &'static str);
-
 fn text_with_open_type_features() -> impl Scene {
+    type TextRows = (&'static str, FontFeatureTag, &'static str);
+
     let text_rows: [TextRows; 7] = [
         ("Smallcaps: ", FontFeatureTag::SMALL_CAPS, "Hello World"),
         (
@@ -122,6 +122,27 @@ fn text_with_open_type_features() -> impl Scene {
         ),
     ];
 
+    fn title(row: TextRows) -> impl Scene {
+        bsn! {
+            TextSpan::new(row.0)
+            TextFont {
+                font: FontSourceTemplate::Handle("fonts/EBGaramond12-Regular.otf"),
+                font_size: FontSize::Px(24.0),
+            }
+        }
+    }
+
+    fn text(row: TextRows) -> impl Scene {
+        bsn! {
+            TextSpan::new(format!("{0}\n", row.2))
+            TextFont {
+                font: FontSourceTemplate::Handle("fonts/EBGaramond12-Regular.otf"),
+                font_size: FontSize::Px(24.0),
+                font_features: { FontFeatures::builder().enable(row.1).build() },
+            }
+        }
+    }
+
     bsn! {
         Node {
             margin: UiRect::all(px(12.0)),
@@ -143,27 +164,6 @@ fn text_with_open_type_features() -> impl Scene {
             title(text_rows[5]), text(text_rows[5]),
             title(text_rows[6]), text(text_rows[6]),
         ]
-    }
-}
-
-fn title(row: TextRows) -> impl Scene {
-    bsn! {
-        TextSpan::new(row.0)
-        TextFont {
-            font: FontSourceTemplate::Handle("fonts/EBGaramond12-Regular.otf"),
-            font_size: FontSize::Px(24.0),
-        }
-    }
-}
-
-fn text(row: TextRows) -> impl Scene {
-    bsn! {
-        TextSpan::new(format!("{0}\n", row.2))
-        TextFont {
-            font: FontSourceTemplate::Handle("fonts/EBGaramond12-Regular.otf"),
-            font_size: FontSize::Px(24.0),
-            font_features: { FontFeatures::builder().enable(row.1).build() },
-        }
     }
 }
 
