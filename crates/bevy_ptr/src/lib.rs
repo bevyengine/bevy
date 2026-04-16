@@ -594,19 +594,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// The value previously stored at `dst` will be dropped.
     #[inline]
     pub fn assign_to(self, dst: &mut T) {
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `dst` is a mutable borrow, it must not alias any other access.
-        unsafe {
-            ptr::drop_in_place(dst);
-        }
-        // SAFETY:
-        // - `dst` is a mutable borrow, it must be valid for writes.
-        // - `dst` is a mutable borrow, it must always be aligned.
-        unsafe {
-            self.write_to(dst);
-        }
+        *dst = self.read();
     }
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.
