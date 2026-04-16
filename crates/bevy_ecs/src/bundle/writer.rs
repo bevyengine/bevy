@@ -1,5 +1,5 @@
 use crate::{
-    component::{Component, ComponentId, ComponentsRegistrator},
+    component::{Component, ComponentId, Components, ComponentsRegistrator},
     relationship::RelationshipHookMode,
     world::EntityWorldMut,
 };
@@ -84,5 +84,27 @@ impl BundleWriter {
         }
         self.component_ids.clear();
         self.alloc.reset();
+    }
+
+    /// This will drop all componets currently stored
+    ///
+    /// # Safety
+    /// `components` must be from the same world as the components that were pushed to this writer.
+    pub unsafe fn manual_drop(&mut self, components: &Components) {
+        for (id, ptr) in self
+            .component_ids
+            .drain(..)
+            .zip(self.component_ptrs.drain(..))
+        {
+            if let Some(info) = components.get_info(id)
+                && let Some(drop) = info.drop()
+            {
+                // SAFETY: ptr is a valid component that matches the given component id
+                unsafe {
+                    let ptr = OwningPtr::new(ptr);
+                    (drop)(ptr);
+                }
+            }
+        }
     }
 }

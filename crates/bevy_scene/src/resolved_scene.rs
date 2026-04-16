@@ -54,10 +54,14 @@ impl ResolvedSceneRoot {
 
         // SAFETY: caller verifies that `bundle_writer` is either empty or contains component ids registered
         // in `entity`'s World
-        unsafe {
-            self.scene.apply(&mut context, bundle_writer, ())?;
+        let result = unsafe { self.scene.apply(&mut context, bundle_writer, ()) };
+        if result.is_err() {
+            // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
+            unsafe {
+                bundle_writer.manual_drop(entity.world().components());
+            }
         }
-        Ok(())
+        result
     }
 
     fn new_scoped_entities(&self) -> ScopedEntities {
@@ -100,7 +104,7 @@ impl ResolvedSceneListRoot {
             func(&mut entity);
             entities.push(entity.id());
             // SAFETY: bundle_writer is always used with the same world
-            unsafe {
+            let result = unsafe {
                 scene.apply(
                     &mut TemplateContext::new(
                         &mut entity,
@@ -109,7 +113,14 @@ impl ResolvedSceneListRoot {
                     ),
                     &mut bundle_writer,
                     (),
-                )?;
+                )
+            };
+            if let Err(err) = result {
+                // SAFETY: Components comes from the same world as the `context` passed in to self.scene.apply above
+                unsafe {
+                    bundle_writer.manual_drop(entity.world().components());
+                }
+                return Err(err);
             }
         }
 

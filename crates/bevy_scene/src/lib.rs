@@ -559,6 +559,7 @@ impl Plugin for ScenePlugin {
 mod tests {
     use crate::{self as bevy_scene, ScenePlugin};
     use crate::{prelude::*, ScenePatch};
+    use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
@@ -566,6 +567,7 @@ mod tests {
     use bevy_ecs::prelude::*;
     use bevy_reflect::TypePath;
     use std::path::Path;
+    use std::sync::Mutex;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -1318,6 +1320,52 @@ mod tests {
             Name
             Name
         };
+    }
+
+    #[test]
+    fn drop_is_called_for_uninserted_components() {
+        #[derive(Component, Default)]
+        struct Fail;
+        impl FromTemplate for Fail {
+            type Template = Fail;
+        }
+        impl Template for Fail {
+            type Output = Fail;
+
+            fn build_template(
+                &self,
+                _context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                Err(BevyError::error("fail!"))
+            }
+
+            fn clone_template(&self) -> Self {
+                todo!()
+            }
+        }
+
+        #[derive(Component, FromTemplate)]
+        struct DropTracker(Option<Arc<Mutex<usize>>>);
+
+        impl Drop for DropTracker {
+            fn drop(&mut self) {
+                if let Some(count) = &mut self.0 {
+                    *count.lock().unwrap() += 1;
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let count_arc = Arc::new(Mutex::new(0));
+        let count = Some(count_arc.clone());
+        let scene = bsn! {
+            DropTracker({count.clone()})
+            Fail
+        };
+        let result = world.spawn_scene(scene);
+        assert!(result.is_err());
+        assert_eq!(1, *count_arc.lock().unwrap());
     }
 
     fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {
