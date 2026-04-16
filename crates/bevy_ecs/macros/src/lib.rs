@@ -649,45 +649,33 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
         (override_group_name, override_key_name, override_file)
     };
 
-    let (group_name, key_name) = match &input.data {
-        Data::Struct(_) => {
-            if override_key_name.is_some() {
+    let key_name = match &input.data {
+        Data::Struct(data) => match data.fields {
+            Fields::Named(_) if override_key_name.is_some() => {
                 return syn::Error::new(
                     Span::call_site(),
-                    "The `key` attribute is not supported for structs",
+                    "The `key` attribute is not supported for structs with named fields",
                 )
                 .into_compile_error()
                 .into();
             }
-            let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
-
-            (group_name, override_key_name)
-        }
-        Data::Enum(data) => {
-            if data.variants.iter().any(|v| v.fields != Fields::Unit) {
-                return syn::Error::new(
-                    Span::call_site(),
-                    "SettingsGroup can only be derived for enums with unit variants",
-                )
-                .into_compile_error()
-                .into();
+            Fields::Named(_) => None,
+            Fields::Unnamed(_) | Fields::Unit => {
+                override_key_name.or_else(|| Some(pascal_to_snake_case(&name.to_string())))
             }
-
-            let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
-            let key_name = override_key_name.or(Some(pascal_to_snake_case(&name.to_string())));
-
-            (group_name, key_name)
-        }
-        _ => {
+        },
+        Data::Enum(_) => override_key_name.or(Some(pascal_to_snake_case(&name.to_string()))),
+        Data::Union(_) => {
             return syn::Error::new(
                 Span::call_site(),
-                "SettingsGroup can only be derived for structs and enums",
+                "SettingsGroup cannot be derived for unions",
             )
             .into_compile_error()
             .into();
         }
     };
 
+    let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
     let key_name = key_name
         .map(|f| quote! { ::core::option::Option::Some(#f) })
         .unwrap_or(quote! { ::core::option::Option::None });

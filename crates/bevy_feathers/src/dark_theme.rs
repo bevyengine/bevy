@@ -11,6 +11,8 @@ pub fn create_dark_theme() -> ThemeProps {
         color: HashMap::from([
             (tokens::WINDOW_BG, palette::GRAY_0),
             (tokens::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
+            (tokens::TEXT_MAIN, palette::LIGHT_GRAY_1),
+            (tokens::TEXT_DIM, palette::LIGHT_GRAY_2),
             // Button (normal)
             (tokens::BUTTON_BG, palette::GRAY_3),
             (tokens::BUTTON_BG_HOVER, palette::GRAY_3.lighter(0.05)),
@@ -52,19 +54,46 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::SCROLLBAR_THUMB_HOVER, palette::ACCENT.lighter(0.1)),
             // Checkbox
             (tokens::CHECKBOX_BG, palette::GRAY_3),
-            (tokens::CHECKBOX_BG_CHECKED, palette::ACCENT),
+            (tokens::CHECKBOX_BG_HOVER, palette::GRAY_3),
+            (tokens::CHECKBOX_BG_PRESSED, palette::GRAY_3),
             (
                 tokens::CHECKBOX_BG_DISABLED,
                 palette::GRAY_1.with_alpha(0.5),
             ),
+            (tokens::CHECKBOX_BG_CHECKED, palette::ACCENT),
+            (
+                tokens::CHECKBOX_BG_CHECKED_HOVER,
+                palette::ACCENT.lighter(0.05),
+            ),
+            (
+                tokens::CHECKBOX_BG_CHECKED_PRESSED,
+                palette::ACCENT.lighter(0.1),
+            ),
             (
                 tokens::CHECKBOX_BG_CHECKED_DISABLED,
-                palette::GRAY_3.with_alpha(0.5),
+                palette::GRAY_1.with_alpha(0.5),
             ),
             (tokens::CHECKBOX_BORDER, palette::GRAY_3),
-            (tokens::CHECKBOX_BORDER_HOVER, palette::GRAY_3.lighter(0.1)),
+            (tokens::CHECKBOX_BORDER_HOVER, palette::GRAY_3.lighter(0.05)),
+            (
+                tokens::CHECKBOX_BORDER_PRESSED,
+                palette::GRAY_3.lighter(0.1),
+            ),
             (
                 tokens::CHECKBOX_BORDER_DISABLED,
+                palette::GRAY_3.with_alpha(0.5),
+            ),
+            (tokens::CHECKBOX_BORDER_CHECKED, palette::ACCENT),
+            (
+                tokens::CHECKBOX_BORDER_CHECKED_HOVER,
+                palette::ACCENT.lighter(0.05),
+            ),
+            (
+                tokens::CHECKBOX_BORDER_CHECKED_PRESSED,
+                palette::ACCENT.lighter(0.1),
+            ),
+            (
+                tokens::CHECKBOX_BORDER_CHECKED_DISABLED,
                 palette::GRAY_3.with_alpha(0.5),
             ),
             (tokens::CHECKBOX_MARK, palette::WHITE),
@@ -128,6 +157,24 @@ pub fn create_dark_theme() -> ThemeProps {
             ),
             (tokens::TEXT_INPUT_CURSOR, palette::ACCENT.lighter(0.2)),
             (tokens::TEXT_INPUT_SELECTION, palette::ACCENT),
+            // Pane
+            (tokens::PANE_HEADER_BG, palette::GRAY_0),
+            (tokens::PANE_HEADER_BORDER, palette::WARM_GRAY_1),
+            (tokens::PANE_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::PANE_HEADER_DIVIDER, palette::WARM_GRAY_1),
+            (tokens::PANE_BODY_BG, palette::GRAY_1),
+            // Subpane
+            (tokens::SUBPANE_HEADER_BG, palette::GRAY_2),
+            (tokens::SUBPANE_HEADER_BORDER, palette::GRAY_3),
+            (tokens::SUBPANE_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::SUBPANE_BODY_BG, palette::GRAY_1),
+            (tokens::SUBPANE_BODY_BORDER, palette::GRAY_2),
+            // Group
+            (tokens::GROUP_HEADER_BG, palette::GRAY_2),
+            (tokens::GROUP_HEADER_BORDER, palette::GRAY_3),
+            (tokens::GROUP_HEADER_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::GROUP_BODY_BG, palette::GRAY_2),
+            (tokens::GROUP_BODY_BORDER, palette::GRAY_3),
         ]),
     }
 }

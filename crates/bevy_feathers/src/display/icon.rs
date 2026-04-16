@@ -1,4 +1,4 @@
-//! BSN Template for loading images and displaying them as [`ImageNode`]s.
+//! BSN Scene for loading images and displaying them as [`ImageNode`]s.
 use bevy_asset::AssetServer;
 use bevy_ecs::template::template;
 use bevy_scene::{bsn, Scene};

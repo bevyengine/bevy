@@ -1,7 +1,9 @@
 use crate::{Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance, SpawnSceneError};
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
-use bevy_ecs::{message::MessageCursor, prelude::*, relationship::Relationship};
+use bevy_ecs::{
+    bundle::BundleScratch, message::MessageCursor, prelude::*, relationship::Relationship,
+};
 use bevy_platform::collections::HashMap;
 use tracing::error;
 
@@ -676,6 +678,7 @@ pub fn on_add_scene_patch_instance(
 pub fn spawn_queued(
     world: &mut World,
     scene_patch_instances: &mut QueryState<&ScenePatchInstance>,
+    mut bundle_scratch: Local<BundleScratch>,
     mut reader: Local<MessageCursor<AssetEvent<ScenePatch>>>,
     mut list_reader: Local<MessageCursor<AssetEvent<SceneListPatch>>>,
 ) {
@@ -685,7 +688,12 @@ pub fn spawn_queued(
                 if queued.is_empty() {
                     break;
                 }
-                queued.spawn_queued(world, scene_patch_instances, &list_patches);
+                queued.spawn_queued(
+                    world,
+                    scene_patch_instances,
+                    &mut bundle_scratch,
+                    &list_patches,
+                );
             }
 
             world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
@@ -697,7 +705,8 @@ pub fn spawn_queued(
                     {
                         for entity in entities {
                             if let Ok(mut entity_mut) = world.get_entity_mut(entity)
-                                && let Err(err) = resolved.apply(&mut entity_mut)
+                                && let Err(err) =
+                                    resolved.apply(&mut entity_mut, &mut bundle_scratch)
                             {
                                 error!(
                                     "Failed to apply scene (id: {}) to entity {entity}: {}",
@@ -757,6 +766,7 @@ impl QueuedScenes {
         &mut self,
         world: &mut World,
         scene_patch_instances: &mut QueryState<&ScenePatchInstance>,
+        bundle_scratch: &mut BundleScratch,
         list_patches: &Assets<SceneListPatch>,
     ) {
         for entity in core::mem::take(&mut self.new_scene_entities) {
@@ -766,7 +776,7 @@ impl QueuedScenes {
             let patches = world.resource::<Assets<ScenePatch>>();
             if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
                 let mut entity_mut = world.get_entity_mut(entity).unwrap();
-                if let Err(err) = resolved.apply(&mut entity_mut) {
+                if let Err(err) = resolved.apply(&mut entity_mut, bundle_scratch) {
                     let scene_patch_instance = scene_patch_instances.get(world, entity).unwrap();
                     let handle = &scene_patch_instance.0;
                     let id = handle.id();
