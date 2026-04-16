@@ -1650,7 +1650,15 @@ pub fn process_remote_observe_watching_request(
         return Ok(None);
     }
 
-    let captured: Vec<Value> = events.drain(..).collect();
+    let captured: Vec<Value> = events
+        .drain(..)
+        .map(|json_event| {
+            json_event
+                .get(&event)
+                .expect("event keyed by its type path")
+                .to_owned()
+        })
+        .collect();
     serde_json::to_value(captured)
         .map(Some)
         .map_err(BrpError::internal)
@@ -2156,10 +2164,7 @@ mod tests {
         let events: Vec<Value> =
             serde_json::from_value(captured).expect("captured events are a JSON array");
         assert_eq!(events.len(), 1);
-        let payload = events[0]
-            .get("bevy_remote::builtin_methods::tests::Ping")
-            .expect("event keyed by its type path");
-        assert_eq!(payload.get("value"), Some(&serde_json::json!(42)));
+        assert_eq!(events[0].get("value"), Some(&serde_json::json!(42)));
 
         assert_eq!(
             process_remote_observe_watching_request(In(Some(observe_params)), &mut world),
