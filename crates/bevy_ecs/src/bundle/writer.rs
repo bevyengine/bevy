@@ -86,7 +86,7 @@ impl BundleWriter {
         self.alloc.reset();
     }
 
-    /// This will drop all componets currently stored
+    /// This will drop all components currently stored
     ///
     /// # Safety
     /// `components` must be from the same world as the components that were pushed to this writer.
