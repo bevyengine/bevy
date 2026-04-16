@@ -6,19 +6,22 @@
 //! Note that this module is distinct from the core `bevy_text` crate to avoid pulling in
 //! [`bevy_input`] to that crate, which is intended to be usable in non-interactive contexts.
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
-use bevy_input::ButtonInput;
+use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{FocusedInput, InputFocus};
+use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
-use bevy_text::{EditableText, TextEdit};
+use bevy_text::{EditableText, PreeditCursor, TextEdit};
 use bevy_ui::widget::TextScroll;
+use bevy_ui::UiSystems;
 use bevy_ui::{
     widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
     UiGlobalTransform, UiScale,
 };
+use bevy_window::{Ime, PrimaryWindow, Window};
 
 const NONE: u8 = 0;
 const SUPER: u8 = 1;
@@ -223,6 +226,120 @@ fn on_pointer_drag(
     drag.propagate(false);
 }
 
+/// System that processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`] widget.
+///
+/// Preedit text (in-progress IME composition) is excluded from [`EditableText::value`].
+/// On commit, the preedit is cleared and the committed string is inserted.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
+fn on_ime_input(
+    mut ime_reader: MessageReader<Ime>,
+    input_focus: Res<InputFocus>,
+    mut editable_text_query: Query<&mut EditableText>,
+) {
+    let Some(focused_entity) = input_focus.get() else {
+        // No focused entity, nothing to do.
+        // Still need to drain the reader to prevent stale events on next focus.
+        ime_reader.read().for_each(drop);
+        return;
+    };
+
+    let Ok(mut editable_text) = editable_text_query.get_mut(focused_entity) else {
+        // Focused entity is not an EditableText, nothing to do.
+        // Still need to drain the reader to prevent stale events on next focus.
+        ime_reader.read().for_each(drop);
+        return;
+    };
+
+    for ime in ime_reader.read() {
+        match ime {
+            Ime::Preedit { value, cursor, .. } => {
+                editable_text.queue_edit(TextEdit::ImeSetCompose {
+                    value: value.as_str().into(),
+                    cursor: cursor.map(|(anchor, focus)| PreeditCursor { anchor, focus }),
+                });
+            }
+            Ime::Commit { value, .. } => {
+                editable_text.queue_edit(TextEdit::ImeCommit {
+                    value: value.as_str().into(),
+                });
+            }
+            Ime::Disabled { .. } => {
+                // IME was force-disabled; cancel any in-progress composition.
+                editable_text.queue_edit(TextEdit::clear_ime_compose());
+            }
+            Ime::Enabled { .. } => {
+                // Defensively clear any stale compose state before a fresh composition starts.
+                editable_text.queue_edit(TextEdit::clear_ime_compose());
+            }
+        }
+    }
+}
+
+/// System that updates the IME candidate window position to track the text cursor.
+///
+/// Reads the cursor bounding area from parley's layout and transforms it to screen coordinates
+/// so the OS places the IME candidate popup near the active cursor.
+///
+/// The position reported to the OS is the bottom-left of the cursor/preedit area so the candidate box appears below the
+/// composing text rather than overlapping it.
+fn update_ime_position(
+    input_focus: Res<InputFocus>,
+    editable_text_query: Query<(
+        &EditableText,
+        &ComputedNode,
+        &UiGlobalTransform,
+        &ComputedUiRenderTargetInfo,
+        &TextScroll,
+    )>,
+    // TODO: support multiple windows and track which one has focus
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+) {
+    let Some(focused) = input_focus.get() else {
+        return;
+    };
+    let Ok((editable_text, node, transform, target, text_scroll)) =
+        editable_text_query.get(focused)
+    else {
+        return;
+    };
+
+    let Ok(mut window) = windows.single_mut() else {
+        return;
+    };
+
+    let area = editable_text.editor.ime_cursor_area();
+    // area is in parley text-layout space (origin at top-left of the text layout).
+    // Use `y1` (bottom edge) so the OS-drawn candidate box sits below the current line
+    // rather than overlapping it.
+    let parley_local = Vec2::new(area.x0 as f32, area.y1 as f32);
+    let ui_local = parley_local + node.content_box().min - text_scroll.0;
+    window.ime_position =
+        transform.affine().transform_point2(ui_local) * ui_scale.0 / target.scale_factor();
+}
+
+/// System that enables or disables IME on the primary window based on whether the focused entity
+/// is an [`EditableText`].
+///
+/// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
+fn sync_window_ime_enabled(
+    input_focus: Res<InputFocus>,
+    editable_text_query: Query<(), With<EditableText>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if !input_focus.is_changed() {
+        return;
+    }
+    let Ok(mut window) = windows.single_mut() else {
+        return;
+    };
+    window.ime_enabled = input_focus
+        .get()
+        .is_some_and(|e| editable_text_query.contains(e));
+}
+
 /// Enables support for the [`EditableText`] widget.
 ///
 /// Contains the systems and observers necessary to update widget state and handle user input.
@@ -238,7 +355,14 @@ impl Plugin for EditableTextInputPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(on_focused_keyboard_input)
             .add_observer(on_pointer_drag)
-            .add_observer(on_pointer_press);
+            .add_observer(on_pointer_press)
+            .add_systems(
+                PreUpdate,
+                (on_ime_input, sync_window_ime_enabled)
+                    .chain()
+                    .after(InputSystems),
+            )
+            .add_systems(PostUpdate, update_ime_position.after(UiSystems::Layout));
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
