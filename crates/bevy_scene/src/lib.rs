@@ -1322,28 +1322,28 @@ mod tests {
         };
     }
 
+    #[derive(Component, Default)]
+    struct Fail;
+    impl FromTemplate for Fail {
+        type Template = Fail;
+    }
+    impl Template for Fail {
+        type Output = Fail;
+
+        fn build_template(
+            &self,
+            _context: &mut bevy_ecs::template::TemplateContext,
+        ) -> Result<Self::Output> {
+            Err(BevyError::error("fail!"))
+        }
+
+        fn clone_template(&self) -> Self {
+            todo!()
+        }
+    }
+
     #[test]
     fn drop_is_called_for_uninserted_components() {
-        #[derive(Component, Default)]
-        struct Fail;
-        impl FromTemplate for Fail {
-            type Template = Fail;
-        }
-        impl Template for Fail {
-            type Output = Fail;
-
-            fn build_template(
-                &self,
-                _context: &mut bevy_ecs::template::TemplateContext,
-            ) -> Result<Self::Output> {
-                Err(BevyError::error("fail!"))
-            }
-
-            fn clone_template(&self) -> Self {
-                todo!()
-            }
-        }
-
         #[derive(Component, FromTemplate)]
         struct DropTracker(Option<Arc<Mutex<usize>>>);
 
@@ -1366,6 +1366,18 @@ mod tests {
         let result = world.spawn_scene(scene);
         assert!(result.is_err());
         assert_eq!(1, *count_arc.lock().unwrap());
+    }
+
+    #[test]
+    fn despawn_on_failed_spawn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+        let current_entities = world.entities().len();
+        let result = world.spawn_scene(bsn! {
+           Fail
+        });
+        assert!(result.is_err());
+        assert_eq!(current_entities, world.entities().len());
     }
 
     fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {

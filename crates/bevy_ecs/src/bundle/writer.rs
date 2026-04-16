@@ -18,7 +18,7 @@ pub struct BundleWriter {
     // Correctness: this should never be made public or arbitrary non-components could be inserted
     component_ptrs: Vec<NonNull<u8>>,
     // Safety: this cannot be exposed, otherwise `alloc.reset()` could be called in arbitrary places,
-    // which could invalidate the data stored in OwnedBundleScratch.
+    // which could invalidate the data stored in `component_ptrs`.
     alloc: Bump,
 }
 
@@ -106,6 +106,12 @@ impl BundleWriter {
                 }
             }
         }
+    }
+
+    /// Returns true if there are currently no components.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.component_ids.is_empty()
     }
 }
 
