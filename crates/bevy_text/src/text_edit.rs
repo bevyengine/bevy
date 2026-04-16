@@ -218,9 +218,15 @@ impl TextEdit {
                     return;
                 }
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
+                    let select_len = driver
+                        .editor
+                        .selected_text()
+                        .map(str::chars)
+                        .map(|c| c.count())
+                        .unwrap_or(0);
                     if max
-                        < driver.editor.text().chars().count() - select_len + clipboard_text.len()
+                        < driver.editor.text().chars().count() - select_len
+                            + clipboard_text.chars().count()
                     {
                         return;
                     }
@@ -232,8 +238,15 @@ impl TextEdit {
                     return;
                 }
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
-                    if max < driver.editor.text().chars().count() - select_len + text.len() {
+                    let select_len = driver
+                        .editor
+                        .selected_text()
+                        .map(str::chars)
+                        .map(|c| c.count())
+                        .unwrap_or(0);
+                    if max
+                        < driver.editor.text().chars().count() - select_len + text.chars().count()
+                    {
                         return;
                     }
                 }
@@ -288,8 +301,6 @@ impl TextEdit {
                     return;
                 }
                 if let Some(max) = max_characters {
-                    // TODO: this uses `chars().count()` + `chars().count()` while `Insert` and
-                    // `Paste` above mix `chars().count()` with `text.len()` (bytes).
                     if max < driver.editor.text().chars().count() + text.chars().count() {
                         driver.clear_compose();
                         return;
