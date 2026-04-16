@@ -18,12 +18,12 @@ use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, PositionType, UiRect, UiTransform, Val,
+    Node, PositionType, Pressed, UiRect, UiTransform, Val,
 };
-use bevy_ui_widgets::Checkbox;
+use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
 use crate::{
     constants::{fonts, size},
@@ -33,6 +33,21 @@ use crate::{
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
+
+/// Parameters for the checkbox template, passed to [`checkbox`] function.
+pub struct CheckboxProps {
+    /// Label for this checkbox. This can contain multiple entities, which will be contained
+    /// in a flexbox.
+    pub caption: Box<dyn SceneList>,
+}
+
+impl Default for CheckboxProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+        }
+    }
+}
 
 /// Marker for the checkbox frame (contains both checkbox and label)
 #[derive(Component, Default, Clone, Reflect)]
@@ -55,7 +70,7 @@ struct CheckboxMark;
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn checkbox() -> impl Scene {
+pub fn checkbox(props: CheckboxProps) -> impl Scene {
     bsn! {
         Node {
             display: Display::Flex,
@@ -72,7 +87,7 @@ pub fn checkbox() -> impl Scene {
         ThemeFontColor(tokens::CHECKBOX_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [(
@@ -102,22 +117,20 @@ pub fn checkbox() -> impl Scene {
                 UiTransform::from_rotation(Rot2::FRAC_PI_4)
                 CheckboxMark
                 ThemeBorderColor(tokens::CHECKBOX_MARK)
-            )]
-        )]
+            )]),
+            {props.caption}
+        ]
     }
 }
 
 /// Template function to spawn a checkbox.
 ///
-/// # Arguments
-/// * `props` - construction properties for the checkbox.
-/// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
-/// * `label` - the label of the checkbox.
+/// This version does not take any props. A caption can be set by appending a child entity.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the checkbox() BSN function")]
 pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
@@ -139,7 +152,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
             ..Default::default()
         },
@@ -188,12 +201,19 @@ fn update_checkbox_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeFontColor,
         ),
         (
             With<CheckboxFrame>,
-            Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
+            Or<(
+                Changed<Hovered>,
+                Added<Checked>,
+                Added<Pressed>,
+                Added<InteractionDisabled>,
+            )>,
         ),
     >,
     q_children: Query<&Children>,
@@ -201,7 +221,9 @@ fn update_checkbox_styles(
     mut q_mark: Query<&ThemeBorderColor, With<CheckboxMark>>,
     mut commands: Commands,
 ) {
-    for (checkbox_ent, disabled, checked, hovered, font_color) in q_checkboxes.iter() {
+    for (checkbox_ent, disabled, checked, pressed, activate_on_press, hovered, font_color) in
+        q_checkboxes.iter()
+    {
         let Some(outline_ent) = q_children
             .iter_descendants(checkbox_ent)
             .find(|en| q_outline.contains(*en))
@@ -222,7 +244,9 @@ fn update_checkbox_styles(
             mark_ent,
             disabled,
             checked,
+            pressed,
             hovered.0,
+            activate_on_press,
             outline_bg,
             outline_border,
             mark_color,
@@ -238,6 +262,8 @@ fn update_checkbox_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeFontColor,
         ),
@@ -248,14 +274,25 @@ fn update_checkbox_styles_remove(
     mut q_mark: Query<&ThemeBorderColor, With<CheckboxMark>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
+    mut remove_pressed: RemovedComponents<Pressed>,
+    mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
+        .chain(remove_pressed.read())
+        .chain(remove_activate_on_press.read())
         .for_each(|ent| {
-            if let Ok((checkbox_ent, disabled, checked, hovered, font_color)) =
-                q_checkboxes.get(ent)
+            if let Ok((
+                checkbox_ent,
+                disabled,
+                checked,
+                pressed,
+                activate_on_press,
+                hovered,
+                font_color,
+            )) = q_checkboxes.get(ent)
             {
                 let Some(outline_ent) = q_children
                     .iter_descendants(checkbox_ent)
@@ -277,7 +314,9 @@ fn update_checkbox_styles_remove(
                     mark_ent,
                     disabled,
                     checked,
+                    pressed,
                     hovered.0,
+                    activate_on_press,
                     outline_bg,
                     outline_border,
                     mark_color,
@@ -294,24 +333,57 @@ fn set_checkbox_styles(
     mark_ent: Entity,
     disabled: bool,
     checked: bool,
+    pressed: bool,
     hovered: bool,
+    activate_on_press: bool,
     outline_bg: &ThemeBackgroundColor,
     outline_border: &ThemeBorderColor,
     mark_color: &ThemeBorderColor,
     font_color: &ThemeFontColor,
     commands: &mut Commands,
 ) {
-    let outline_border_token = match (disabled, hovered) {
-        (true, _) => tokens::CHECKBOX_BORDER_DISABLED,
-        (false, true) => tokens::CHECKBOX_BORDER_HOVER,
-        _ => tokens::CHECKBOX_BORDER,
+    let outline_border_token = if checked {
+        if disabled {
+            tokens::CHECKBOX_BORDER_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::CHECKBOX_BORDER_CHECKED_PRESSED
+        } else if hovered {
+            tokens::CHECKBOX_BORDER_CHECKED_HOVER
+        } else {
+            tokens::CHECKBOX_BORDER_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::CHECKBOX_BORDER_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::CHECKBOX_BORDER_PRESSED
+        } else if hovered {
+            tokens::CHECKBOX_BORDER_HOVER
+        } else {
+            tokens::CHECKBOX_BORDER
+        }
     };
 
-    let outline_bg_token = match (disabled, checked) {
-        (true, true) => tokens::CHECKBOX_BG_CHECKED_DISABLED,
-        (true, false) => tokens::CHECKBOX_BG_DISABLED,
-        (false, true) => tokens::CHECKBOX_BG_CHECKED,
-        (false, false) => tokens::CHECKBOX_BG,
+    let outline_bg_token = if checked {
+        if disabled {
+            tokens::CHECKBOX_BG_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::CHECKBOX_BG_CHECKED_PRESSED
+        } else if hovered {
+            tokens::CHECKBOX_BG_CHECKED_HOVER
+        } else {
+            tokens::CHECKBOX_BG_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::CHECKBOX_BG_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::CHECKBOX_BG_PRESSED
+        } else if hovered {
+            tokens::CHECKBOX_BG_HOVER
+        } else {
+            tokens::CHECKBOX_BG
+        }
     };
 
     let mark_token = match disabled {

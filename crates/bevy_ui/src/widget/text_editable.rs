@@ -30,7 +30,8 @@ use taffy::MaybeMath;
 pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
-    height: f32,
+    width: Option<f32>,
+    height: Option<f32>,
 }
 
 impl crate::Measure for TextInputMeasure {
@@ -40,22 +41,26 @@ impl crate::Measure for TextInputMeasure {
 
         let x = width
             .effective
-            .unwrap_or(match measure_args.available_width {
+            .unwrap_or(self.width.unwrap_or(match measure_args.available_width {
                 crate::AvailableSpace::Definite(x) => x,
                 crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
-            })
+            }))
             .maybe_clamp(width.min, width.max);
         let y = height
             .effective
-            .unwrap_or(self.height)
+            .unwrap_or(self.height.unwrap_or(match measure_args.available_height {
+                crate::AvailableSpace::Definite(y) => y,
+                crate::AvailableSpace::MinContent | crate::AvailableSpace::MaxContent => 0.0,
+            }))
             .maybe_clamp(height.min, height.max);
 
         Vec2::new(x, y).ceil()
     }
 }
 
-/// If `visible_lines` is `Some`, sets a `ContentSize` that determines the node's height
-/// as `line_height * visible_lines`, using the resolved font line height.
+/// If `visible_lines` or `visible_width` are `Some`, sets a `ContentSize` that determines:
+/// - node height as `line_height * visible_lines`, using the resolved font line height.
+/// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
 pub fn update_editable_text_content_size(
     mut text_input_query: Query<(
         Ref<EditableText>,
@@ -65,6 +70,7 @@ pub fn update_editable_text_content_size(
         &mut ContentSize,
     )>,
     fonts: Res<Assets<Font>>,
+    mut font_cx: ResMut<FontCx>,
     rem_size: Res<RemSize>,
 ) {
     for (editable_text, text_font, line_height, target, mut content_size) in &mut text_input_query {
@@ -78,17 +84,72 @@ pub fn update_editable_text_content_size(
             continue;
         }
 
-        if let Some(visible_lines) = editable_text.visible_lines {
-            let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+        let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+
+        let width = editable_text.visible_width.and_then(|visible_width| {
+            let font_context = &mut font_cx.0;
+            let mut query = font_context
+                .collection
+                .query(&mut font_context.source_cache);
+            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
+                parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
+                    query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
+                }
+                parley::FontFamily::Single(parley::FontFamilyName::Generic(generic)) => {
+                    query.set_families([parley::fontique::QueryFamily::Generic(generic)]);
+                }
+                _ => return None,
+            }
+            query.set_attributes(parley::fontique::Attributes::new(
+                text_font.width.into(),
+                text_font.style.into(),
+                text_font.weight.into(),
+            ));
+
+            let mut width = None;
+            query.matches_with(|query_font| {
+                let Some((glyph_id, font_ref)) = query_font
+                    .charmap()
+                    .and_then(|char_map| char_map.map('0'))
+                    .and_then(|glyph_id| u16::try_from(glyph_id).ok())
+                    .zip(FontRef::from_index(
+                        query_font.blob.as_ref(),
+                        query_font.index as usize,
+                    ))
+                else {
+                    return parley::fontique::QueryStatus::Continue;
+                };
+
+                let advance = font_ref
+                    .glyph_metrics(&[])
+                    .scale(font_size)
+                    .advance_width(glyph_id);
+                if advance.is_finite() {
+                    width = Some(advance.max(0.0));
+                    parley::fontique::QueryStatus::Stop
+                } else {
+                    parley::fontique::QueryStatus::Continue
+                }
+            });
+
+            width.map(|width| width * visible_width * target.scale_factor())
+        });
+
+        let height = editable_text.visible_lines.map(|visible_lines| {
             let logical_line_height = match *line_height {
                 LineHeight::Px(px) => px,
                 LineHeight::RelativeToFont(scale) => scale * font_size,
             };
+            visible_lines * logical_line_height * target.scale_factor()
+        });
+
+        if width.is_some() || height.is_some() {
             content_size.set(NodeMeasure::Custom(Box::new(TextInputMeasure {
-                height: visible_lines * logical_line_height * target.scale_factor(),
+                width,
+                height,
             })));
         } else {
-            content_size.measure = None;
+            content_size.clear();
         }
     }
 }
