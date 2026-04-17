@@ -80,13 +80,13 @@ fn text_with_multiple_sections() -> impl Scene {
             (
                 TextSpan
                 Children [(
-                    template(|ctx| {
+                    template(|_ctx| {
                         Ok(TextFont {
                             // If the "default_font" feature is unavailable, load a font to use instead.
                             #[cfg(not(feature = "default_font"))]
-                            font: FontSource::Handle(ctx.resource::<AssetServer>().load("fonts/FiraMono-Medium.ttf")),
+                            font: FontSource::Handle(_ctx.resource::<AssetServer>().load("fonts/FiraMono-Medium.ttf")),
                             font_size: FontSize::Px(33.0),
-                            ..Default::default()
+                            ..default()
                         })
                     })
                 )]
