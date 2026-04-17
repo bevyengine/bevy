@@ -298,7 +298,9 @@ pub fn ui_layout_system(
                         target_size,
                     )
                     .unwrap_or(0.)
-                    .max(0.);
+                    // Clamp outline offsets to at least the length of the node's shorter side
+                    // Negative offset outlines can be useful to create thing like in-set focus indicators
+                    .max(-0.5 * node.size.min_element());
             }
 
             node.bypass_change_detection().scrollbar_size =
