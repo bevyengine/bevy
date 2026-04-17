@@ -1149,6 +1149,8 @@ pub fn prepare_view_targets(
     view_target_attachments: Res<ViewTargetAttachments>,
     mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
 ) {
+    main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
+
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(out_attachment)) = (
