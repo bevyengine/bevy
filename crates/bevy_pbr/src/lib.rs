@@ -176,7 +176,7 @@ pub struct LtcLuts {
     pub ltc_2: Handle<Image>,
 }
 
-// DFG LUT generated using https://gist.github.com/dylansechet/6086e924266caf8dd975c127f73f1e45
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
 /// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
 #[derive(Resource, Clone)]
 pub struct DfgLut {
