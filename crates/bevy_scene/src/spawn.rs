@@ -1,8 +1,12 @@
-use crate::{Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance, SpawnSceneError};
+use crate::{
+    ResolveContext, ResolvedScene, ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch,
+    ScenePatchInstance, SpawnSceneError,
+};
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
 use bevy_ecs::{
     bundle::BundleScratch, message::MessageCursor, prelude::*, relationship::Relationship,
+    template::EntityScopes,
 };
 use bevy_platform::collections::HashMap;
 use tracing::error;
@@ -593,11 +597,23 @@ pub fn resolve_scene_patches(
     for event in events.read() {
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(patch) = patches.get(id) {
-                    match patch.resolve_internal(&assets, &patches) {
-                        Ok(resolved) => {
+                if let Some(patch) = patches.get_mut(id).and_then(|mut p| p.resolve_scene.take()) {
+                    let mut scene = ResolvedScene::default();
+                    let mut entity_scopes = EntityScopes::default();
+                    let mut resolve_context = ResolveContext {
+                        assets: &assets,
+                        patches: &patches,
+                        current_scope: 0,
+                        entity_scopes: &mut entity_scopes,
+                        inherited: None,
+                    };
+                    match (patch)(&mut resolve_context, &mut scene) {
+                        Ok(()) => {
                             let mut patch = patches.get_mut(id).unwrap();
-                            patch.resolved = Some(Arc::new(resolved));
+                            patch.resolved = Some(Arc::new(ResolvedSceneRoot {
+                                scene,
+                                entity_scopes,
+                            }));
                         }
                         Err(err) => error!("Failed to resolve scene {id}: {err}"),
                     }
@@ -619,11 +635,8 @@ pub fn resolve_scene_patches(
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(mut list_patch) = list_patches.get_mut(id) {
-                    match list_patch.resolve_internal(&assets, &patches) {
-                        Ok(resolved) => {
-                            list_patch.resolved = Some(resolved);
-                        }
-                        Err(err) => error!("Failed to resolve scene list {id}: {err}"),
+                    if let Err(err) = list_patch.resolve(&assets, &patches) {
+                        error!("Failed to resolve scene list {id}: {err}");
                     }
                 }
             }

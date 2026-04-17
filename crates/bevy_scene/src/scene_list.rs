@@ -6,11 +6,11 @@ use variadics_please::all_tuples;
 /// [`Scene`] is to [`Entity`] as [`SceneList`] is to [`Vec<Entity>`].
 ///
 /// [`Entity`]: bevy_ecs::entity::Entity
-pub trait SceneList: Send + Sync + 'static {
+pub trait SceneList: SceneListBox {
     /// This will apply the changes described in this [`SceneList`] to the given [`Vec<ResolvedScene>`]. This should not be called until all of
     /// the dependencies in [`Scene::register_dependencies`] have been loaded.
     fn resolve_list(
-        &self,
+        self,
         context: &mut ResolveContext,
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError>;
@@ -22,6 +22,48 @@ pub trait SceneList: Send + Sync + 'static {
     fn register_dependencies(&self, dependencies: &mut SceneDependencies);
 }
 
+/// Boxed version of [`SceneList`], which enables implementing [`SceneList`] for [`Box<dyn SceneList>`].
+pub trait SceneListBox: Send + Sync + 'static {
+    /// See [`SceneList::resolve_list`].
+    fn resolve_list_box(
+        self: Box<Self>,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError>;
+
+    /// See [`SceneList::register_dependencies`].
+    fn register_dependencies_box(&self, dependencies: &mut SceneDependencies);
+}
+
+impl<L: SceneList> SceneListBox for L {
+    #[inline]
+    fn resolve_list_box(
+        self: Box<Self>,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        (*self).resolve_list(context, scenes)
+    }
+
+    fn register_dependencies_box(&self, dependencies: &mut SceneDependencies) {
+        self.register_dependencies(dependencies);
+    }
+}
+
+impl<T: ?Sized + SceneListBox> SceneList for Box<T> {
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        self.resolve_list_box(context, scenes)
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        (**self).register_dependencies_box(dependencies);
+    }
+}
+
 /// Corresponds to a single member of a [`SceneList`] (an [`Entity`] with an `S` [`Scene`]).
 ///
 /// [`Entity`]: bevy_ecs::entity::Entity
@@ -29,7 +71,7 @@ pub struct EntityScene<S>(pub S);
 
 impl<S: Scene> SceneList for EntityScene<S> {
     fn resolve_list(
-        &self,
+        self,
         context: &mut ResolveContext,
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError> {
@@ -47,7 +89,7 @@ impl<S: Scene> SceneList for EntityScene<S> {
 macro_rules! scene_list_impl {
     ($($list: ident),*) => {
         impl<$($list: SceneList),*> SceneList for ($($list,)*) {
-            fn resolve_list(&self, _context: &mut ResolveContext, _scenes: &mut Vec<ResolvedScene>) -> Result<(), ResolveSceneError> {
+            fn resolve_list(self, _context: &mut ResolveContext, _scenes: &mut Vec<ResolvedScene>) -> Result<(), ResolveSceneError> {
                 #[expect(
                     clippy::allow_attributes,
                     reason = "This is inside a macro, and as such, may not trigger in all cases."
@@ -81,7 +123,7 @@ all_tuples!(scene_list_impl, 0, 12, P);
 
 impl<S: Scene> SceneList for Vec<S> {
     fn resolve_list(
-        &self,
+        self,
         context: &mut ResolveContext,
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError> {
