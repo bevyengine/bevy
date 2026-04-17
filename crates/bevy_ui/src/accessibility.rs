@@ -154,6 +154,7 @@ impl Plugin for AccessibilityPlugin {
                     .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system)
+                    .after(UiSystems::Layout)
                     .before(UiSystems::PostLayout),
                 button_changed,
                 image_changed,
