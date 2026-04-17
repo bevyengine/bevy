@@ -98,11 +98,13 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     ) {
     }
 
-    /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
-    /// should be moved into the copy, leaving this asset with only metadata.
-    /// An error may be returned to indicate that the asset has already been extracted, and should not
-    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
-    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
+    ///
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be removed from the main world.
+    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
+    /// unless [`Self::RetainedAsset`] is [`EmptyRetainedAsset`], in which case [`RetainedAssets`] of this asset is always empty.
+    ///
+    /// This is useful for storing asset's metadata after extracted to render world.
     fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset;
 }
 

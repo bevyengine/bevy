@@ -57,10 +57,12 @@ impl Default for RenderAssetUsages {
     }
 }
 
+/// Declares that this type is a retained asset of the source asset.
 pub trait RetainedAsset: Send + Sync {
     type SourceAsset: Asset;
 }
 
+/// A special [`RetainedAsset`] that won't be stored in [`RetainedAssets`].
 pub struct EmptyRetainedAsset<A: Asset>(PhantomData<A>);
 
 impl<A: Asset> Default for EmptyRetainedAsset<A> {
@@ -73,8 +75,7 @@ impl<A: Asset> RetainedAsset for EmptyRetainedAsset<A> {
     type SourceAsset = A;
 }
 
-/// Stores all CPU representations ([`HasRetainedAsset::RetainedAsset`])
-/// of `RenderAsset` as long as they exist.
+/// Stores all ([`RetainedAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
 #[derive(Resource)]
 pub struct RetainedAssets<R: RetainedAsset>(HashMap<AssetId<R::SourceAsset>, R>);
 

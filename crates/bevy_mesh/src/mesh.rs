@@ -274,8 +274,6 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
-    ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
     #[inline]
@@ -303,8 +301,6 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     #[inline]
     pub fn with_inserted_attribute(
         mut self,
@@ -316,8 +312,7 @@ impl Mesh {
     }
 
     /// Removes the data for a vertex attribute
-    /// Returns None if the mesh data has been extracted to `RenderWorld`or
-    /// if the attribute does not exist.
+    /// Returns None if the attribute does not exist.
     pub fn remove_attribute(
         &mut self,
         attribute: impl Into<MeshVertexAttributeId>,
@@ -331,8 +326,7 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
     ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`or
-    /// if the attribute does not exist.
+    /// Returns an error if the attribute does not exist.
     pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
         self.remove_attribute(attribute);
         self
@@ -404,10 +398,6 @@ impl Mesh {
     /// [`PrimitiveTopology`] variants that use triangles.
     ///
     /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_inserted_indices`]
     #[must_use]
     #[inline]
     pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
@@ -661,10 +651,6 @@ impl Mesh {
     /// Does nothing if no [`Indices`] are set.
     ///
     /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_duplicated_vertices`]
     #[must_use]
     pub fn with_duplicated_vertices(mut self) -> Self {
         self.duplicate_vertices();
@@ -673,7 +659,6 @@ impl Mesh {
 
     /// Remove duplicate vertices and create the index pointing to the unique vertices.
     ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     /// Returns an error if the mesh already has [`Indices`] set, even if there
     /// are duplicate vertices. If deduplication is needed with indices already set,
     /// consider calling [`Mesh::duplicate_vertices`] and then this function.
@@ -770,7 +755,6 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::merge_duplicate_vertices`] to mutate an existing mesh in-place)
     ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     /// Returns an error if the mesh already has [`Indices`] set, even if there
     /// are duplicate vertices. If deduplication is needed with indices already set,
     /// consider calling [`Mesh::duplicate_vertices`] and then this function.
@@ -1079,8 +1063,6 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh has indices defined
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_computed_flat_normals`]
     pub fn with_computed_flat_normals(mut self) -> Self {
         self.compute_flat_normals();
         self
@@ -1098,8 +1080,6 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_computed_smooth_normals`]
     pub fn with_computed_smooth_normals(mut self) -> Self {
         self.compute_smooth_normals();
         self
@@ -1118,8 +1098,6 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_computed_area_weighted_normals`]
     pub fn with_computed_area_weighted_normals(mut self) -> Self {
         self.compute_area_weighted_normals();
         self
@@ -1238,10 +1216,6 @@ impl Mesh {
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_transformed_by`]
     pub fn transformed_by(mut self, transform: Transform) -> Self {
         self.transform_by(transform);
         self
@@ -1303,10 +1277,6 @@ impl Mesh {
     /// Translates the vertex positions of the mesh by the given [`Vec3`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_translated_by`]
     pub fn translated_by(mut self, translation: Vec3) -> Self {
         self.translate_by(translation);
         self
@@ -1333,10 +1303,6 @@ impl Mesh {
     /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_rotated_by`]
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
         self.rotate_by(rotation);
         self
@@ -1385,10 +1351,6 @@ impl Mesh {
     /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_scaled_by`]
     pub fn scaled_by(mut self, scale: Vec3) -> Self {
         self.scale_by(scale);
         self
@@ -1566,8 +1528,6 @@ impl Mesh {
     /// Extracts the mesh vertex, index and morph target data for GPU upload.
     /// This function is called internally in render world extraction, it is
     /// unlikely to be useful outside of that context.
-    ///
-    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     pub fn retain_main_world_asset(&self) -> RetainedMesh {
         let mut aabb = None;
         // store the aabb extents as they cannot be computed after extraction
@@ -1648,10 +1608,6 @@ impl Mesh {
 
     /// Retrieve the morph target displacements for this mesh, or None if there
     /// are no morph targets.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_morph_targets`]
     #[cfg(feature = "morph")]
     pub fn morph_targets(&self) -> Option<&Vec<MorphAttributes>> {
         self.morph_targets.as_ref()
@@ -1663,10 +1619,6 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///
     /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_morph_targets`]
     #[must_use]
     #[cfg(feature = "morph")]
     pub fn with_morph_targets(mut self, morph_targets: Vec<MorphAttributes>) -> Self {
