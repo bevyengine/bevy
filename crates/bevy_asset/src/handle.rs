@@ -217,7 +217,22 @@ pub enum HandleTemplate<T: Asset> {
     Handle(Handle<T>),
     /// Creates a [`Handle`] by adding the given asset value using [`AssetServer::add`]. This will
     /// cache the resulting [`Handle`] on the template and reuse it for future template builds.
+    ///
+    /// This should generally be constructed using [`HandleTemplate::value`] or [`asset_value`].
     Value(ArcMutexValue<T>),
+}
+
+impl<T: Asset> HandleTemplate<T> {
+    /// This will create a new [`HandleTemplate`] for the given `asset` value. This makes it possible
+    /// to define assets "inline" in templates / scenes that produce a [`Handle`].
+    ///
+    /// This supports [`Into`]
+    /// to automatically convert values that can become `A`.
+    pub fn value(value: impl Into<T>) -> Self {
+        HandleTemplate::Value(ArcMutexValue(Arc::new(Mutex::new(AssetOrHandle::Value(
+            Some(value.into()),
+        )))))
+    }
 }
 
 /// Stores an [`Arc<Mutex<AssetOrHandle<T>>>`].
@@ -302,10 +317,7 @@ impl<T: Asset> Template for HandleTemplate<T> {
 /// This supports [`Into`]
 /// to automatically convert values that can become `A`.
 pub fn asset_value<I: Into<A>, A: Asset>(asset: I) -> HandleTemplate<A> {
-    let value = Some(asset.into());
-    HandleTemplate::Value(ArcMutexValue(Arc::new(Mutex::new(AssetOrHandle::Value(
-        value,
-    )))))
+    HandleTemplate::value(asset)
 }
 
 impl<A: Asset> core::fmt::Debug for Handle<A> {
