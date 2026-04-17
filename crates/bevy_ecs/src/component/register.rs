@@ -133,7 +133,12 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe { queued.components.shift_remove(&type_id).debug_checked_unwrap() }
+                unsafe {
+                    queued
+                        .components
+                        .shift_remove(&type_id)
+                        .debug_checked_unwrap()
+                }
             })
         } {
             registrator.register(self);
