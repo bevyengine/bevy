@@ -1246,14 +1246,17 @@ pub fn prepare_view_targets(
             };
             // re-use the same atomics frame to frame for views with the same main texture
             // to ensure post process writes persist through msaa writeback
-            let main_texture = main_texture_atomics
-                .get(&key)
-                .and_then(Weak::upgrade)
-                .unwrap_or_else(|| {
+            let main_texture = match main_texture_atomics.entry(key) {
+                Entry::Occupied(e) => e
+                    .get()
+                    .upgrade()
+                    .expect("dead weaks were pruned at top of system"),
+                Entry::Vacant(e) => {
                     let arc = Arc::new(AtomicUsize::new(0));
-                    main_texture_atomics.insert(key.clone(), Arc::downgrade(&arc));
+                    e.insert(Arc::downgrade(&arc));
                     arc
-                });
+                }
+            };
             (a, b, sampled, main_texture)
         });
 
