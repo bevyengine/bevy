@@ -8,7 +8,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
 #import bevy_render::maths::PI
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid}
-#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, dfg_lut, dfg_lut_sampler}
+#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler}
 
 struct EvaluateAndSampleBrdfResult {
     wi: vec3<f32>,
@@ -118,5 +118,5 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-    return textureSampleLevel(dfg_lut, dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }
