@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::IndexFormat;
 
-use crate::MeshAccessError;
-
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
 /// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
 /// branch taken.
@@ -58,8 +56,6 @@ pub enum MeshWindingInvertError {
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
     #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
-    #[error("Mesh access error: {0}")]
-    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
@@ -73,8 +69,12 @@ pub enum MeshTrianglesError {
 
     #[error("Face index data references vertices that do not exist")]
     BadIndices,
-    #[error("mesh access error: {0}")]
-    MeshAccessError(#[from] MeshAccessError),
+
+    #[error("Source mesh lacks position data")]
+    MissingPositions,
+
+    #[error("Source mesh lacks face index data")]
+    MissingIndices,
 }
 
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.

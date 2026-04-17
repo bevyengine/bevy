@@ -137,7 +137,6 @@ fn fallback_image_new(
         sampler,
         texture_descriptor: image.texture_descriptor,
         texture_view_descriptor: image.texture_view_descriptor,
-        had_data: true,
     }
 }
 

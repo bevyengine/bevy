@@ -1,7 +1,7 @@
 //! A module adding debug visualization of [`DynamicSkinnedMeshBounds`].
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Assets;
+use bevy_asset::{Assets, RetainedAssets};
 use bevy_camera::visibility::DynamicSkinnedMeshBounds;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -15,7 +15,7 @@ use bevy_math::Affine3A;
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed,
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Mesh, Mesh3d,
+    Mesh3d, RetainedMesh,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -85,14 +85,14 @@ pub struct ShowSkinnedMeshBoundsGizmo {
 fn draw(
     color: Color,
     mesh: &Mesh3d,
-    mesh_assets: &Res<Assets<Mesh>>,
+    mesh_assets: &Res<RetainedAssets<RetainedMesh>>,
     skinned_mesh: &SkinnedMesh,
     joint_entities: &Query<&GlobalTransform>,
     inverse_bindposes_assets: &Res<Assets<SkinnedMeshInverseBindposes>>,
     gizmos: &mut Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
     if let Some(mesh_asset) = mesh_assets.get(mesh)
-        && let Some(bounds) = mesh_asset.skinned_mesh_bounds()
+        && let Some(bounds) = &mesh_asset.skinned_mesh_bounds
         && let Some(inverse_bindposes_asset) =
             inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
     {
@@ -118,7 +118,7 @@ fn draw_skinned_mesh_bounds(
         With<DynamicSkinnedMeshBounds>,
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<Assets<Mesh>>,
+    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
@@ -146,7 +146,7 @@ fn draw_all_skinned_mesh_bounds(
         ),
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<Assets<Mesh>>,
+    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {

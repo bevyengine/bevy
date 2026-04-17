@@ -1,5 +1,11 @@
+use core::marker::PhantomData;
+
+use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
+
+use crate::{Asset, AssetId};
 
 bitflags::bitflags! {
     /// Defines where the asset will be used.
@@ -48,5 +54,58 @@ impl Default for RenderAssetUsages {
     /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
     fn default() -> Self {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
+}
+
+pub trait RetainedAsset: Send + Sync {
+    type SourceAsset: Asset;
+}
+
+pub struct EmptyRetainedAsset<A: Asset>(PhantomData<A>);
+
+impl<A: Asset> Default for EmptyRetainedAsset<A> {
+    fn default() -> Self {
+        Self(PhantomData::<A>)
+    }
+}
+
+impl<A: Asset> RetainedAsset for EmptyRetainedAsset<A> {
+    type SourceAsset = A;
+}
+
+/// Stores all CPU representations ([`HasRetainedAsset::RetainedAsset`])
+/// of `RenderAsset` as long as they exist.
+#[derive(Resource)]
+pub struct RetainedAssets<R: RetainedAsset>(HashMap<AssetId<R::SourceAsset>, R>);
+
+impl<R: RetainedAsset> Default for RetainedAssets<R> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<R: RetainedAsset> RetainedAssets<R> {
+    pub fn get(&self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<&R> {
+        self.0.get(&id.into())
+    }
+
+    pub fn get_mut(&mut self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<&mut R> {
+        self.0.get_mut(&id.into())
+    }
+
+    pub fn insert(&mut self, id: impl Into<AssetId<R::SourceAsset>>, value: R) -> Option<R> {
+        self.0.insert(id.into(), value)
+    }
+
+    pub fn remove(&mut self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<R> {
+        self.0.remove(&id.into())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId<R::SourceAsset>, &R)> {
+        self.0.iter().map(|(k, v)| (*k, v))
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (AssetId<R::SourceAsset>, &mut R)> {
+        self.0.iter_mut().map(|(k, v)| (*k, v))
     }
 }

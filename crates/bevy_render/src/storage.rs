@@ -1,10 +1,10 @@
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages, RetainedAsset};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -36,6 +36,25 @@ pub struct ShaderBuffer {
     pub asset_usage: RenderAssetUsages,
     /// Whether this buffer should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+}
+
+/// The representation of a storage buffer that is retained in [`RetainedAssets`] on the main world after extracting.
+///
+/// [`RetainedAssets`]: bevy_render::render_asset::RetainedAssets
+#[derive(Reflect, Debug, Clone)]
+#[reflect(opaque)]
+#[reflect(Debug, Clone)]
+pub struct RetainedShaderBuffer {
+    /// The buffer description used to create the buffer.
+    pub buffer_description: wgpu::BufferDescriptor<'static>,
+    /// The asset usage of the storage buffer.
+    pub asset_usage: RenderAssetUsages,
+    /// Whether this buffer should be copied on the GPU when resized.
+    pub copy_on_resize: bool,
+}
+
+impl RetainedAsset for RetainedShaderBuffer {
+    type SourceAsset = ShaderBuffer;
 }
 
 impl Default for ShaderBuffer {
@@ -134,26 +153,19 @@ pub struct GpuShaderBuffer {
 
 impl RenderAsset for GpuShaderBuffer {
     type SourceAsset = ShaderBuffer;
+    type RetainedAsset = RetainedShaderBuffer;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     fn asset_usage(source_asset: &Self::SourceAsset) -> RenderAssetUsages {
         source_asset.asset_usage
     }
 
-    fn take_gpu_data(
-        source: &mut Self::SourceAsset,
-        previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        let data = source.data.take();
-
-        let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
-
-        valid_upload
-            .then(|| Self::SourceAsset {
-                data,
-                ..source.clone()
-            })
-            .ok_or(AssetExtractionError::AlreadyExtracted)
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        RetainedShaderBuffer {
+            asset_usage: source.asset_usage,
+            buffer_description: source.buffer_description.clone(),
+            copy_on_resize: source.copy_on_resize,
+        }
     }
 
     fn prepare_asset(

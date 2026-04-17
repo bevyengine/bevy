@@ -5,7 +5,7 @@ pub mod morph;
 #[cfg(feature = "morph")]
 use crate::GpuResourceAppExt;
 use crate::{
-    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
     RenderApp,
@@ -114,7 +114,7 @@ pub enum RenderMeshBufferInfo {
 
 impl RenderAsset for RenderMesh {
     type SourceAsset = Mesh;
-
+    type RetainedAsset = RetainedMesh;
     #[cfg(not(feature = "morph"))]
     type Param = (
         SRes<RenderDevice>,
@@ -135,13 +135,8 @@ impl RenderAsset for RenderMesh {
         mesh.asset_usage
     }
 
-    fn take_gpu_data(
-        source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        source
-            .take_gpu_data()
-            .map_err(|_| AssetExtractionError::AlreadyExtracted)
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        source.retain_main_world_asset()
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {

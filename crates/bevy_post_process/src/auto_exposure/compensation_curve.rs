@@ -1,9 +1,9 @@
-use bevy_asset::{prelude::*, RenderAssetUsages};
+use bevy_asset::{prelude::*, EmptyRetainedAsset};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    render_asset::{AssetExtractionError, RenderAsset},
+    render_asset::RenderAsset,
     render_resource::{
         Extent3d, ShaderType, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         TextureView, UniformBuffer,
@@ -186,17 +186,11 @@ pub(super) struct AutoExposureCompensationCurveUniform {
 
 impl RenderAsset for GpuAutoExposureCompensationCurve {
     type SourceAsset = AutoExposureCompensationCurve;
+    type RetainedAsset = EmptyRetainedAsset<AutoExposureCompensationCurve>;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
-    fn asset_usage(_: &Self::SourceAsset) -> RenderAssetUsages {
-        RenderAssetUsages::RENDER_WORLD
-    }
-
-    fn take_gpu_data(
-        source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        Ok(source.clone())
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset::default()
     }
 
     fn prepare_asset(

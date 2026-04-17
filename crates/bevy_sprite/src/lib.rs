@@ -39,13 +39,9 @@ pub mod prelude {
     };
 }
 
-use bevy_asset::Assets;
-use bevy_camera::{
-    primitives::{Aabb, MeshAabb},
-    visibility::NoFrustumCulling,
-    visibility::VisibilitySystems,
-};
-use bevy_mesh::{Mesh, Mesh2d};
+use bevy_asset::{Assets, RetainedAssets};
+use bevy_camera::{primitives::Aabb, visibility::NoFrustumCulling, visibility::VisibilitySystems};
+use bevy_mesh::{Mesh2d, RetainedMesh};
 #[cfg(feature = "bevy_text")]
 use bevy_text::detect_text_needs_rerender;
 #[cfg(feature = "bevy_picking")]
@@ -117,7 +113,7 @@ impl Plugin for SpritePlugin {
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
+    meshes: Res<RetainedAssets<RetainedMesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     new_mesh_aabb: Query<
@@ -160,9 +156,9 @@ pub fn calculate_bounds_2d(
     // New meshes require inserting a component
     for (entity, mesh_handle) in &new_mesh_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.aabb
         {
-            commands.entity(entity).try_insert(aabb);
+            commands.entity(entity).try_insert(Aabb::from(aabb));
         }
     }
 
@@ -170,8 +166,8 @@ pub fn calculate_bounds_2d(
     update_mesh_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut aabb)| {
-            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
-                aabb.set_if_neq(new_aabb);
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(|m| m.aabb) {
+                aabb.set_if_neq(new_aabb.into());
             }
         });
 

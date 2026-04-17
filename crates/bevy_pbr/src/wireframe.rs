@@ -8,7 +8,7 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
+    AssetEventSystems, AssetId, AssetServer, Assets, EmptyRetainedAsset, Handle, UntypedAssetId,
 };
 use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
@@ -947,7 +947,12 @@ impl AsAssetId for Mesh3dWireframe {
 
 impl RenderAsset for RenderWireframeMaterial {
     type SourceAsset = WireframeMaterial;
+    type RetainedAsset = EmptyRetainedAsset<WireframeMaterial>;
     type Param = ();
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset::default()
+    }
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,

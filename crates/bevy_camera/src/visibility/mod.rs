@@ -44,7 +44,7 @@ pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AssetEventSystems, Assets};
+use bevy_asset::{AssetEventSystems, Assets, RetainedAssets};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -53,10 +53,10 @@ use smallvec::SmallVec;
 
 use crate::{
     camera::Camera,
-    primitives::{Aabb, Frustum, MeshAabb, Sphere},
+    primitives::{Aabb, Frustum, Sphere},
     Projection,
 };
-use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, RetainedMesh};
 
 /// Use this component to opt-out of the built-in CPU frustum culling, see
 /// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
@@ -556,7 +556,7 @@ pub struct NoAutoAabb;
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
+    meshes: Res<RetainedAssets<RetainedMesh>>,
     new_aabb: Query<
         (Entity, &Mesh3d),
         (
@@ -576,17 +576,17 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.aabb
         {
-            commands.entity(entity).try_insert(aabb);
+            commands.entity(entity).try_insert(Aabb::from(aabb));
         }
     }
 
     update_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut old_aabb)| {
-            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
-                *old_aabb = aabb;
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(|m| m.aabb) {
+                *old_aabb = aabb.into();
             }
         });
 }
@@ -595,7 +595,7 @@ pub fn calculate_bounds(
 // component.
 fn update_skinned_mesh_bounds(
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-    mesh_assets: Res<Assets<Mesh>>,
+    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
     mut mesh_entities: Query<
         (&mut Aabb, &Mesh3d, &SkinnedMesh, Option<&GlobalTransform>),
         With<DynamicSkinnedMeshBounds>,

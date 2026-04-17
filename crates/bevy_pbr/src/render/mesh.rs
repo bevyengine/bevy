@@ -2815,7 +2815,6 @@ pub fn build_dummy_white_gpu_image(
         sampler,
         texture_descriptor: image.texture_descriptor,
         texture_view_descriptor: image.texture_view_descriptor,
-        had_data: true,
     }
 }
 

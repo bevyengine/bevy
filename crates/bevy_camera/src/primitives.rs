@@ -7,33 +7,7 @@ use bevy_math::{
     primitives::{HalfSpace, ViewFrustum},
     Affine3A, Mat3A, Vec3, Vec3A,
 };
-use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
-
-pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
-}
-
-impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
-        if let Some(aabb) = self.final_aabb {
-            // use precomputed extents
-            return Some(aabb.into());
-        }
-
-        let Ok(VertexAttributeValues::Float32x3(values)) =
-            self.try_attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
-    }
-}
 
 /// An axis-aligned bounding box, defined by:
 /// - a center,

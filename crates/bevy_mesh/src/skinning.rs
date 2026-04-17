@@ -1,4 +1,4 @@
-use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
+use crate::{Mesh, MeshVertexAttribute, RetainedMesh, VertexAttributeValues, VertexFormat};
 use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
 use bevy_ecs::{
     component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
@@ -190,12 +190,12 @@ pub enum EntityAabbFromSkinnedMeshBoundsError {
 /// encloses the skinned vertices of the mesh.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
-    mesh: &Mesh,
+    mesh: &RetainedMesh,
     skinned_mesh: &SkinnedMesh,
     skinned_mesh_inverse_bindposes: &SkinnedMeshInverseBindposes,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Result<Aabb3d, EntityAabbFromSkinnedMeshBoundsError> {
-    let Some(skinned_mesh_bounds) = mesh.skinned_mesh_bounds() else {
+    let Some(skinned_mesh_bounds) = &mesh.skinned_mesh_bounds else {
         return Err(EntityAabbFromSkinnedMeshBoundsError::MissingSkinnedMeshBounds);
     };
 

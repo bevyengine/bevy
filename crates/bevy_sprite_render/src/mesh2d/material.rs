@@ -5,7 +5,8 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{
-    AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle, UntypedAssetId,
+    AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, EmptyRetainedAsset,
+    Handle, UntypedAssetId,
 };
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::{
@@ -1099,6 +1100,7 @@ impl<T: Material2d> PreparedMaterial2d<T> {
 
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type SourceAsset = M;
+    type RetainedAsset = EmptyRetainedAsset<M>;
 
     type Param = (
         SRes<RenderDevice>,
@@ -1110,6 +1112,10 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SResMut<RenderMaterial2dBindGroupIds>,
         M::Param,
     );
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset::default()
+    }
 
     fn prepare_asset(
         material: Self::SourceAsset,

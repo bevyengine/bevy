@@ -3,7 +3,10 @@ use crate::{
     RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{
+    Asset, AssetEvent, AssetId, Assets, EmptyRetainedAsset, RenderAssetUsages, RetainedAsset,
+    RetainedAssets,
+};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -12,6 +15,7 @@ use bevy_ecs::{
 };
 use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
+use core::any::{Any, TypeId};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
@@ -47,6 +51,8 @@ pub enum AssetExtractionError {
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
     type SourceAsset: Asset + Clone;
+
+    type RetainedAsset: RetainedAsset<SourceAsset = Self::SourceAsset>;
 
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     ///
@@ -97,12 +103,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// An error may be returned to indicate that the asset has already been extracted, and should not
     /// have been modified on the CPU side (as it cannot be transferred to GPU again).
     /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
-    fn take_gpu_data(
-        _source: &mut Self::SourceAsset,
-        _previous_gpu_asset: Option<&Self>,
-    ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        Err(AssetExtractionError::NoExtractionImplementation)
-    }
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -133,7 +134,9 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
     for RenderAssetPlugin<A, AFTER>
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
+        app.init_resource::<CachedExtractRenderAssetSystemState<A>>()
+            .init_resource::<RetainedAssets<A::RetainedAsset>>();
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
@@ -243,7 +246,7 @@ struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
-        Option<Res<'static, RenderAssets<A>>>,
+        ResMut<'static, RetainedAssets<A::RetainedAsset>>,
     )>,
 }
 
@@ -294,70 +297,69 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         .map(|r| core::mem::take(&mut r.ids))
         .filter(|ids| !ids.is_empty());
 
-    main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
+    main_world.resource_scope(|world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+        let (mut events, mut assets, mut retained_assets) = cached_state.state.get_mut(world).unwrap();
 
-            if let Some(reextract_ids) = reextract_ids {
-                needs_extracting.extend(reextract_ids);
-            }
+        if let Some(reextract_ids) = reextract_ids {
+            needs_extracting.extend(reextract_ids);
+        }
 
-            for event in events.read() {
-                #[expect(
-                    clippy::match_same_arms,
-                    reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
-                )]
-                match event {
-                    AssetEvent::Added { id } => {
+        for event in events.read() {
+            #[expect(
+                clippy::match_same_arms,
+                reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+            )]
+            match event {
+                AssetEvent::Added { id } => {
+                    // If we already removed the asset from main world and retained it, don't re-extract it again.
+                    if retained_assets.get(*id).is_none() {
                         needs_extracting.insert(*id);
                     }
-                    AssetEvent::Modified { id } => {
-                        needs_extracting.insert(*id);
-                        extracted_assets.modified.insert(*id);
-                    }
-                    AssetEvent::Removed { .. } => {
-                        // We don't care that the asset was removed from Assets<T> in the main world.
-                        // An asset is only removed from RenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
-                    }
-                    AssetEvent::Unused { id } => {
-                        needs_extracting.remove(id);
-                        extracted_assets.modified.remove(id);
-                        extracted_assets.removed.insert(*id);
-                    }
-                    AssetEvent::LoadedWithDependencies { .. } => {
-                        // TODO: handle this
-                    }
+                }
+                AssetEvent::Modified { id } => {
+                    needs_extracting.insert(*id);
+                    extracted_assets.modified.insert(*id);
+                }
+                AssetEvent::Removed { .. } => {
+                    // We don't care that the asset was removed from Assets<T> in the main world.
+                    // An asset is only removed from RenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
+                }
+                AssetEvent::Unused { id } => {
+                    needs_extracting.remove(id);
+                    extracted_assets.modified.remove(id);
+                    extracted_assets.removed.insert(*id);
+                    retained_assets.remove(*id);
+                }
+                AssetEvent::LoadedWithDependencies { .. } => {
+                    // TODO: handle this
                 }
             }
+        }
 
-            for id in needs_extracting.drain() {
-                if let Some(asset) = assets.get(id) {
-                    let asset_usage = A::asset_usage(asset);
-                    if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
-                        if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.get_mut_untracked(id) {
-                                let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
-                                match A::take_gpu_data(asset, previous_asset) {
-                                    Ok(gpu_data_asset) => {
-                                        extracted_assets.extracted.push((id, gpu_data_asset));
-                                        extracted_assets.added.insert(id);
-                                    }
-                                    Err(e) => {
-                                        error!("{} with RenderAssetUsages == RENDER_WORLD cannot be extracted: {e}", core::any::type_name::<A>());
-                                    }
-                                };
-                            }
-                        } else {
-                            extracted_assets.extracted.push((id, asset.clone()));
-                            extracted_assets.added.insert(id);
-                        }
+        for id in needs_extracting.drain() {
+            if let Some(asset) = assets.get(id) {
+                let retained_asset = A::retain_main_world_asset(asset);
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
+                    retained_assets.insert(id, retained_asset);
+                }
+                match A::asset_usage(asset) {
+                    u if u == RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD => {
+                        extracted_assets.extracted.push((id, asset.clone()));
+                        extracted_assets.added.insert(id);
                     }
+                    u if u == RenderAssetUsages::RENDER_WORLD => {
+                        let asset = assets.remove(id).unwrap();
+                        extracted_assets.extracted.push((id, asset));
+                        extracted_assets.added.insert(id);
+                    }
+                    u if u == RenderAssetUsages::MAIN_WORLD => {}
+                    _ => unreachable!(),
                 }
             }
+        }
 
-            cached_state.state.apply(world);
-        },
-    );
+        cached_state.state.apply(world);
+    });
 }
 
 // TODO: consider storing inside system?
