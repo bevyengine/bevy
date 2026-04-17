@@ -6,6 +6,7 @@ use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    bundle::BundleScratch,
     component::Component,
     entity::Entity,
     template::{EntityScopes, FromTemplate},
@@ -105,7 +106,7 @@ impl ScenePatch {
             .as_deref()
             .ok_or(SpawnSceneError::UnresolvedSceneError)?;
         resolved
-            .apply(entity)
+            .apply(entity, &mut BundleScratch::default())
             .map_err(SpawnSceneError::ApplySceneError)
     }
 }
@@ -113,7 +114,7 @@ impl ScenePatch {
 /// An [`Error`] that occurs during scene spawning.
 #[derive(Error, Debug)]
 pub enum SpawnSceneError {
-    /// Calling [`ResolvedScene::apply`] failed.
+    /// Failed to apply a [`ResolvedScene`]s.
     #[error(transparent)]
     ApplySceneError(#[from] ApplySceneError),
     #[error(transparent)]

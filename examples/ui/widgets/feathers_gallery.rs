@@ -9,12 +9,12 @@ use bevy::{
             pane_header_divider, subpane, subpane_body, subpane_header,
         },
         controls::{
-            button, checkbox, color_plane, color_slider, color_swatch, menu, menu_button,
-            menu_divider, menu_item, menu_popup, radio, slider, text_input, text_input_container,
-            toggle_switch, tool_button, ButtonProps, ButtonVariant, CheckboxProps, ColorChannel,
-            ColorPlane, ColorPlaneValue, ColorSlider, ColorSliderProps, ColorSwatch,
-            ColorSwatchValue, MenuButtonProps, MenuItemProps, RadioProps, SliderBaseColor,
-            SliderProps, TextInputProps,
+            button, checkbox, color_plane, color_slider, color_swatch, disclosure_toggle, menu,
+            menu_button, menu_divider, menu_item, menu_popup, radio, slider, text_input,
+            text_input_container, toggle_switch, tool_button, ButtonProps, ButtonVariant,
+            CheckboxProps, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
+            ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
+            RadioProps, SliderBaseColor, SliderProps, TextInputProps,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -30,8 +30,8 @@ use bevy::{
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, slider_self_update, Activate, RadioButton, RadioGroup,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        checkbox_self_update, slider_self_update, Activate, ActivateOnPress, RadioButton,
+        RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -311,6 +311,26 @@ fn demo_column_1() -> impl Scene {
             (
                 checkbox(CheckboxProps {
                     caption: Box::new(bsn_list!(
+                        (Text("Fast Click Checkbox") ThemedText),
+                    )),
+                })
+                ActivateOnPress
+                on(
+                    |change: On<ValueChange<bool>>,
+                     mut commands: Commands| {
+                        info!("Checkbox clicked!");
+                        let mut checkbox = commands.entity(change.source);
+                        if change.value {
+                            checkbox.insert(Checked);
+                        } else {
+                            checkbox.remove::<Checked>();
+                        }
+                    }
+                )
+            ),
+            (
+                checkbox(CheckboxProps {
+                    caption: Box::new(bsn_list!(
                         (Text("Disabled") ThemedText),
                     )),
                 })
@@ -386,6 +406,7 @@ fn demo_column_1() -> impl Scene {
                     (toggle_switch() on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled Checked on(checkbox_self_update)),
+                    (disclosure_toggle() on(checkbox_self_update)),
                 ]
             ),
             (
