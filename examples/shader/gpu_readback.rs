@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        gpu_readback::{Readback, ReadbackComplete},
+        gpu_readback::{Readback, ReadbackComplete, ReadbackOnce},
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
@@ -117,6 +117,17 @@ fn setup(
         .observe(|event: On<ReadbackComplete>| {
             let data: Vec<u32> = event.to_shader_type();
             info!("Buffer range {:?}", data);
+        });
+
+    // Use `ReadbackOnce` to read the data back a single time. Despawn the entity from the
+    // observer with `try_despawn` since an in-flight readback may still fire once more
+    // before the render world sees the component removal.
+    commands
+        .spawn(ReadbackOnce::buffer(buffer.clone()))
+        .observe(|event: On<ReadbackComplete>, mut commands: Commands| {
+            let data: Vec<u32> = event.to_shader_type();
+            info!("Buffer (once) {:?}", data);
+            commands.entity(event.entity).try_despawn();
         });
 
     // This is just a simple way to pass the buffer handle to the render app for our compute node

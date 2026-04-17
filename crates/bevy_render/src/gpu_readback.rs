@@ -16,11 +16,13 @@ use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    bundle::Bundle,
     change_detection::ResMut,
     entity::Entity,
     event::EntityEvent,
-    prelude::{Component, Resource, World},
-    system::{Query, Res},
+    prelude::{Component, On, Resource, World},
+    query::With,
+    system::{Commands, Query, Res},
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
@@ -49,7 +51,9 @@ impl Default for GpuReadbackPlugin {
 
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Readback>::default());
+        app.add_plugins(ExtractComponentPlugin::<Readback>::default())
+            .register_type::<ReadbackOnce>()
+            .add_observer(cleanup_readback_once);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -104,6 +108,45 @@ impl Readback {
             buffer,
             start_offset_and_size: Some((start_offset, size)),
         }
+    }
+}
+
+/// Marker component that pairs with a [`Readback`] to indicate the entity should be
+/// despawned after the first [`ReadbackComplete`] event fires for it.
+///
+/// ```ignore
+/// commands.spawn(ReadbackOnce::buffer(handle));
+/// ```
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct ReadbackOnce;
+
+impl ReadbackOnce {
+    /// Create a one-shot readback bundle for a texture using the given handle.
+    pub fn texture(image: Handle<Image>) -> impl Bundle {
+        (Readback::texture(image), Self)
+    }
+
+    /// Create a one-shot readback bundle for a full buffer using the given handle.
+    pub fn buffer(buffer: Handle<ShaderBuffer>) -> impl Bundle {
+        (Readback::buffer(buffer), Self)
+    }
+
+    /// Create a one-shot readback bundle for a buffer range using the given handle, a start
+    /// offset in bytes and a number of bytes to read.
+    pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> impl Bundle {
+        (Readback::buffer_range(buffer, start_offset, size), Self)
+    }
+}
+
+fn cleanup_readback_once(
+    event: On<ReadbackComplete>,
+    marked: Query<(), With<ReadbackOnce>>,
+    mut commands: Commands,
+) {
+    if marked.contains(event.entity) {
+        commands
+            .entity(event.entity)
+            .try_remove::<(Readback, ReadbackOnce)>();
     }
 }
 
