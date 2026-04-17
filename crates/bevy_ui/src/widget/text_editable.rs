@@ -251,6 +251,7 @@ pub fn editable_text_system(
 
         driver.refresh_layout();
 
+        let compose_range = driver.editor.raw_compose().clone();
         let layout = driver.layout();
 
         info.scale_factor = layout.scale();
@@ -262,6 +263,7 @@ pub fn editable_text_system(
 
         info.glyphs.clear();
         info.run_geometry.clear();
+        info.preedit_underline_rects.clear();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
@@ -326,6 +328,23 @@ pub fn editable_text_system(
                             });
                         }
 
+                        let metrics = run.metrics();
+                        let underline_y = glyph_run.baseline() - metrics.underline_offset;
+                        let underline_thickness = metrics.underline_size;
+
+                        let run_text_range = run.text_range();
+                        if let Some(cr) = &compose_range {
+                            if run_text_range.start < cr.end && run_text_range.end > cr.start {
+                                info.preedit_underline_rects.push(Rect {
+                                    min: Vec2::new(glyph_run.offset(), underline_y),
+                                    max: Vec2::new(
+                                        glyph_run.offset() + glyph_run.advance(),
+                                        underline_y + underline_thickness,
+                                    ),
+                                });
+                            }
+                        }
+
                         info.run_geometry.push(RunGeometry {
                             section_index: brush.section_index as usize,
                             bounds: Rect {
@@ -335,11 +354,10 @@ pub fn editable_text_system(
                                     line.metrics().max_coord,
                                 ),
                             },
-                            strikethrough_y: glyph_run.baseline()
-                                - run.metrics().strikethrough_offset,
-                            strikethrough_thickness: run.metrics().strikethrough_size,
-                            underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                            underline_thickness: run.metrics().underline_size,
+                            strikethrough_y: glyph_run.baseline() - metrics.strikethrough_offset,
+                            strikethrough_thickness: metrics.strikethrough_size,
+                            underline_y,
+                            underline_thickness,
                         });
                     }
                     PositionedLayoutItem::InlineBox(_inline) => {

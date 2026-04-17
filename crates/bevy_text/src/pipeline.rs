@@ -460,6 +460,9 @@ pub struct TextLayoutInfo {
     pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
+    /// Underline rects for the active IME preedit/compose region.
+    /// Should only have values when composition is in progress.
+    pub preedit_underline_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
@@ -471,6 +474,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
+        self.preedit_underline_rects.clear();
     }
 }
 

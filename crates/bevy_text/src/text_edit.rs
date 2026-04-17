@@ -158,9 +158,6 @@ pub enum TextEdit {
     /// Typically generated in response to [`bevy_window::Ime::Preedit`] events.
     ///
     /// [`bevy_window::Ime::Preedit`]: https://docs.rs/bevy/latest/bevy/prelude/enum.Ime.html#variant.Preedit
-    // TODO: the preedit region needs to be visually distinguished (e.g. underlined).
-    // parley provides `StyleProperty::Underline(true)` for the compose range, which we should hook into.
-    // This is important so users can understand which characters they're composing vs already committed.
     ImeSetCompose {
         /// The current preedit string. An empty string clears the composition.
         value: SmolStr,
