@@ -42,9 +42,13 @@ fn setup(
         })
         .id();
 
-    let font: FontSource = asset_server.load("fonts/FiraMono-Medium.ttf").into();
-
-    // Instructions
+    // Bevy supports IME-driven text input, but you need to use that supports the characters you want to input for it to work.
+    // If your users are reporting that they only get question marks or boxes when they try to input text,
+    // this is likely the problem.
+    //
+    // Bevy's default font only supports basic Latin characters,
+    // so we load a font which also has Japanese characters for this example.
+    let font: FontSource = asset_server.load("fonts/MPLUS2-Regular.ttf").into();
     let text_instructions = commands
         .spawn((
             Node {
@@ -94,7 +98,7 @@ fn setup(
             Text::new("testing"),
             TextOutput,
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font: font.clone(),
                 font_size: FontSize::Px(70.0),
                 ..default()
             },
