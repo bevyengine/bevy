@@ -250,7 +250,8 @@ fn build_text_interop(app: &mut App) {
             widget::update_editable_text_content_size
                 .in_set(UiSystems::Content)
                 .ambiguous_with(widget::update_image_content_size_system)
-                .ambiguous_with(widget::measure_text_system),
+                .ambiguous_with(widget::measure_text_system)
+                .ambiguous_with(bevy_sprite::update_text2d_layout),
             (widget::editable_text_system, widget::scroll_editable_text)
                 .chain()
                 .in_set(UiSystems::PostLayout)
@@ -263,6 +264,7 @@ fn build_text_interop(app: &mut App) {
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
                 .ambiguous_with(ui_stack_system)
                 .ambiguous_with(widget::text_system)
+                .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
