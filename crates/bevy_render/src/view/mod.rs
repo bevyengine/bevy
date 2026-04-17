@@ -1147,7 +1147,7 @@ pub fn prepare_view_targets(
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
-    mut ping_pong_ptrs: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
+    mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
@@ -1243,14 +1243,13 @@ pub fn prepare_view_targets(
                 None
             };
             // re-use the same atomics frame to frame for views with the same main texture
-            // to ensure post process writes persist into the next frame, i.e. for
-            // loads from the main texture to work correctly in the next frame
-            let main_texture = ping_pong_ptrs
+            // to ensure post process writes persist through msaa writeback
+            let main_texture = main_texture_atomics
                 .get(&key)
                 .and_then(Weak::upgrade)
                 .unwrap_or_else(|| {
                     let arc = Arc::new(AtomicUsize::new(0));
-                    ping_pong_ptrs.insert(key.clone(), Arc::downgrade(&arc));
+                    main_texture_atomics.insert(key.clone(), Arc::downgrade(&arc));
                     arc
                 });
             (a, b, sampled, main_texture)
