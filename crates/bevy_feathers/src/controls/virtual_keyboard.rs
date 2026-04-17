@@ -33,6 +33,9 @@ where
             let key_clone = key.clone();
             bsn! {
                 button(ButtonProps::default())
+                Node {
+                    flex_grow: 1.0,
+                }
                 on(
                     move |activate: On<Activate>,
                           mut commands: Commands,

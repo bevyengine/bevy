@@ -1,7 +1,9 @@
 use crate::{Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance, SpawnSceneError};
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
-use bevy_ecs::{message::MessageCursor, prelude::*, relationship::Relationship};
+use bevy_ecs::{
+    bundle::BundleScratch, message::MessageCursor, prelude::*, relationship::Relationship,
+};
 use bevy_platform::collections::HashMap;
 use tracing::error;
 
@@ -586,7 +588,7 @@ pub fn resolve_scene_patches(
     assets: Res<AssetServer>,
     mut patches: ResMut<Assets<ScenePatch>>,
     mut list_patches: ResMut<Assets<SceneListPatch>>,
-    mut queued: ResMut<QueuedScenes>,
+    mut waiting: ResMut<WaitingScenes>,
 ) {
     for event in events.read() {
         match *event {
@@ -602,11 +604,11 @@ pub fn resolve_scene_patches(
                 }
             }
             AssetEvent::Removed { id } => {
-                if let Some(waiting) = queued.waiting_scene_entities.remove(&id)
-                    && !waiting.is_empty()
+                if let Some(waiting_entities) = waiting.scene_entities.remove(&id)
+                    && !waiting_entities.is_empty()
                 {
                     error!(
-                        "Failed to spawn entities waiting for scene {id:?} because it was removed: {waiting:?}"
+                        "Failed to spawn entities waiting for scene {id:?} because it was removed: {waiting_entities:?}"
                     );
                 }
             }
@@ -626,18 +628,19 @@ pub fn resolve_scene_patches(
                 }
             }
             AssetEvent::Removed { id } => {
-                if let Some(waiting) = queued.waiting_scene_list_spawns.remove(&id)
-                    && waiting > 0
+                if let Some(waiting_scene_lists) = waiting.scene_list_spawns.remove(&id)
+                    && waiting_scene_lists > 0
                 {
                     error!(
-                        "Failed to spawn scene list {id:?} {waiting} times because it was removed."
+                        "Failed to spawn scene list {id:?} {waiting_scene_lists} times because it was removed."
                     );
                 }
 
-                if let Some(waiting) = queued.waiting_related_list_entities.remove(&id)
-                    && !waiting.is_empty()
+                if let Some(waiting_related) = waiting.related_list_entities.remove(&id)
+                    && !waiting_related.is_empty()
                 {
-                    let waiting_entities = waiting.iter().map(|r| r.entity).collect::<Vec<_>>();
+                    let waiting_entities =
+                        waiting_related.iter().map(|r| r.entity).collect::<Vec<_>>();
                     error!(
                         "Failed to spawn related entities for scene list {id:?} because it was removed: {waiting_entities:?}"
                     );
@@ -654,9 +657,14 @@ pub struct QueuedScenes {
     new_scene_entities: Vec<Entity>,
     related_scene_list_spawns: Vec<(RelatedSceneListSpawn, Handle<SceneListPatch>)>,
     scene_list_spawns: Vec<Handle<SceneListPatch>>,
-    waiting_scene_entities: HashMap<Handle<ScenePatch>, Vec<Entity>>,
-    waiting_related_list_entities: HashMap<Handle<SceneListPatch>, Vec<RelatedSceneListSpawn>>,
-    waiting_scene_list_spawns: HashMap<Handle<SceneListPatch>, usize>,
+}
+
+/// A [`Resource`] that tracks entities / scenes that are waiting for an asset to load
+#[derive(Resource, Default)]
+pub struct WaitingScenes {
+    scene_entities: HashMap<Handle<ScenePatch>, Vec<Entity>>,
+    related_list_entities: HashMap<Handle<SceneListPatch>, Vec<RelatedSceneListSpawn>>,
+    scene_list_spawns: HashMap<Handle<SceneListPatch>, usize>,
 }
 
 pub(crate) struct RelatedSceneListSpawn {
@@ -676,16 +684,25 @@ pub fn on_add_scene_patch_instance(
 pub fn spawn_queued(
     world: &mut World,
     scene_patch_instances: &mut QueryState<&ScenePatchInstance>,
+    mut queued: Local<QueuedScenes>,
+    mut bundle_scratch: Local<BundleScratch>,
     mut reader: Local<MessageCursor<AssetEvent<ScenePatch>>>,
     mut list_reader: Local<MessageCursor<AssetEvent<SceneListPatch>>>,
 ) {
+    core::mem::swap(&mut *world.resource_mut::<QueuedScenes>(), &mut queued);
     world.resource_scope(|world, mut list_patches: Mut<Assets<SceneListPatch>>| {
-        world.resource_scope(|world, mut queued: Mut<QueuedScenes>| {
+        world.resource_scope(|world, mut waiting: Mut<WaitingScenes>| {
             loop {
                 if queued.is_empty() {
                     break;
                 }
-                queued.spawn_queued(world, scene_patch_instances, &list_patches);
+                queued.spawn_queued(
+                    world,
+                    &mut waiting,
+                    scene_patch_instances,
+                    &mut bundle_scratch,
+                    &list_patches,
+                );
             }
 
             world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
@@ -693,11 +710,12 @@ pub fn spawn_queued(
                     let patches = world.resource::<Assets<ScenePatch>>();
                     if let AssetEvent::LoadedWithDependencies { id } = event
                         && let Some(resolved) = patches.get(*id).and_then(|p| p.resolved.clone())
-                        && let Some(entities) = queued.waiting_scene_entities.remove(id)
+                        && let Some(entities) = waiting.scene_entities.remove(id)
                     {
                         for entity in entities {
                             if let Ok(mut entity_mut) = world.get_entity_mut(entity)
-                                && let Err(err) = resolved.apply(&mut entity_mut)
+                                && let Err(err) =
+                                    resolved.apply(&mut entity_mut, &mut bundle_scratch)
                             {
                                 error!(
                                     "Failed to apply scene (id: {}) to entity {entity}: {}",
@@ -715,7 +733,7 @@ pub fn spawn_queued(
                             && let Some(list_patch) = list_patches.get_mut(*id)
                         {
                             if let Some(scene_list_spawns) =
-                                queued.waiting_related_list_entities.remove(id)
+                                waiting.related_list_entities.remove(id)
                             {
                                 for scene_list_spawn in scene_list_spawns {
                                     let result = list_patch.spawn_with(world, |entity| {
@@ -728,8 +746,7 @@ pub fn spawn_queued(
                                 }
                             }
 
-                            if let Some(waiting_list_spawns) =
-                                queued.waiting_scene_list_spawns.remove(id)
+                            if let Some(waiting_list_spawns) = waiting.scene_list_spawns.remove(id)
                             {
                                 for _ in 0..waiting_list_spawns {
                                     let result = list_patch.spawn(world);
@@ -756,7 +773,9 @@ impl QueuedScenes {
     fn spawn_queued(
         &mut self,
         world: &mut World,
+        waiting_scenes: &mut WaitingScenes,
         scene_patch_instances: &mut QueryState<&ScenePatchInstance>,
+        bundle_scratch: &mut BundleScratch,
         list_patches: &Assets<SceneListPatch>,
     ) {
         for entity in core::mem::take(&mut self.new_scene_entities) {
@@ -766,7 +785,7 @@ impl QueuedScenes {
             let patches = world.resource::<Assets<ScenePatch>>();
             if let Some(resolved) = patches.get(handle).and_then(|p| p.resolved.clone()) {
                 let mut entity_mut = world.get_entity_mut(entity).unwrap();
-                if let Err(err) = resolved.apply(&mut entity_mut) {
+                if let Err(err) = resolved.apply(&mut entity_mut, bundle_scratch) {
                     let scene_patch_instance = scene_patch_instances.get(world, entity).unwrap();
                     let handle = &scene_patch_instance.0;
                     let id = handle.id();
@@ -777,8 +796,8 @@ impl QueuedScenes {
                     );
                 }
             } else {
-                let entities = self
-                    .waiting_scene_entities
+                let entities = waiting_scenes
+                    .scene_entities
                     .entry(handle.clone())
                     .or_default();
                 entities.push(entity);
@@ -800,8 +819,8 @@ impl QueuedScenes {
                     );
                 }
             } else {
-                let entities = self
-                    .waiting_related_list_entities
+                let entities = waiting_scenes
+                    .related_list_entities
                     .entry(handle)
                     .or_default();
                 entities.push(scene_list_spawn);
@@ -820,7 +839,7 @@ impl QueuedScenes {
                     );
                 }
             } else {
-                let count = self.waiting_scene_list_spawns.entry(handle).or_default();
+                let count = waiting_scenes.scene_list_spawns.entry(handle).or_default();
                 *count += 1;
             }
         }

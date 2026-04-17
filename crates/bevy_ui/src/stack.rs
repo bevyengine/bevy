@@ -4,8 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ComputedNode, GlobalZIndex, ZIndex,
 };
-use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use core::ops::Range;
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
@@ -43,7 +42,7 @@ impl ChildBufferCache {
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut visited_root_nodes: Local<HashSet<Entity>>,
+    mut visited_root_nodes: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
