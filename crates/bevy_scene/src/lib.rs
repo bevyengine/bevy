@@ -1,3 +1,4 @@
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 //! Composable scene authoring for Bevy, defined using the Bevy Scene Notation (BSN) format.
 //!
 //! Game entities rarely exist in isolation.
@@ -541,6 +542,7 @@ pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedScenes>()
+            .init_resource::<WaitingScenes>()
             .init_asset::<ScenePatch>()
             .init_asset::<SceneListPatch>()
             .add_systems(
@@ -556,12 +558,19 @@ impl Plugin for ScenePlugin {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
     use crate::{self as bevy_scene, ScenePlugin};
+    use crate::{prelude::*, ScenePatch};
+    use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
-    use bevy_asset::{Asset, AssetApp, AssetPlugin, AssetServer, Handle};
+    use bevy_asset::io::memory::{Dir, MemoryAssetReader};
+    use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
+    use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
+    use std::path::Path;
+    use std::sync::Mutex;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -600,6 +609,104 @@ mod tests {
             }
         }
 
+        let id = world.spawn_scene(b()).unwrap().id();
+        let root = world.entity(id);
+
+        let position = root.get::<Position>().unwrap();
+        assert_eq!(position.x, 1.);
+        assert_eq!(position.y, 2.);
+        assert_eq!(position.z, 0.);
+
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 2);
+
+        let x = world.entity(children[0]);
+        let name = x.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "X");
+
+        let y = world.entity(children[1]);
+        let name = y.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "Y");
+    }
+
+    #[test]
+    fn loaded_asset_inheritance_patching() {
+        #[derive(Component, FromTemplate)]
+        struct Position {
+            x: f32,
+            y: f32,
+            z: f32,
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                :"a.bsn"
+                Position { x: 1. }
+                Children [ #Y ]
+            }
+        }
+
+        fn a() -> impl Scene {
+            bsn! {
+                Position { y: 2. }
+                Children [ #X ]
+            }
+        }
+
+        let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+
+        app.finish();
+        app.cleanup();
+        // Create a fake loader to act as a ScenePatch loaded from a file.
+        app.register_asset_loader(FakeSceneLoader);
+
+        #[derive(TypePath)]
+        struct FakeSceneLoader;
+
+        impl AssetLoader for FakeSceneLoader {
+            type Asset = ScenePatch;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _reader: &mut dyn bevy_asset::io::Reader,
+                _settings: &Self::Settings,
+                load_context: &mut bevy_asset::LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(ScenePatch::load_with(load_context, a()))
+            }
+        }
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("a.bsn"), "");
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("a.bsn");
+        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+        let patch = app
+            .world()
+            .resource::<Assets<ScenePatch>>()
+            .get(&handle)
+            .unwrap();
+        assert!(patch.resolved.is_some());
+
+        let world = app.world_mut();
         let id = world.spawn_scene(b()).unwrap().id();
         let root = world.entity(id);
 
@@ -1216,5 +1323,102 @@ mod tests {
             Name
             Name
         };
+    }
+
+    #[derive(Component, Default)]
+    struct Fail;
+    impl FromTemplate for Fail {
+        type Template = Fail;
+    }
+    impl Template for Fail {
+        type Output = Fail;
+
+        fn build_template(
+            &self,
+            _context: &mut bevy_ecs::template::TemplateContext,
+        ) -> Result<Self::Output> {
+            Err(BevyError::error("fail!"))
+        }
+
+        fn clone_template(&self) -> Self {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn queue_spawn_scene_during_spawn() {
+        #[derive(Component, Default, Clone)]
+        #[component(on_insert)]
+        struct SpawnOnInsert;
+
+        impl SpawnOnInsert {
+            fn on_insert(mut world: DeferredWorld, _context: HookContext) {
+                world.commands().queue_spawn_scene(scene2());
+            }
+        }
+
+        fn scene1() -> impl Scene {
+            bsn!(SpawnOnInsert)
+        }
+
+        fn scene2() -> impl Scene {
+            bsn!(#Name)
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.queue_spawn_scene(scene1());
+
+        app.update();
+    }
+
+    #[test]
+    fn drop_is_called_for_uninserted_components() {
+        #[derive(Component, FromTemplate)]
+        struct DropTracker(Option<Arc<Mutex<usize>>>);
+
+        impl Drop for DropTracker {
+            fn drop(&mut self) {
+                if let Some(count) = &mut self.0 {
+                    *count.lock().unwrap() += 1;
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let count_arc = Arc::new(Mutex::new(0));
+        let count = Some(count_arc.clone());
+        let scene = bsn! {
+            DropTracker({count.clone()})
+            Fail
+        };
+        let result = world.spawn_scene(scene);
+        assert!(result.is_err());
+        assert_eq!(1, *count_arc.lock().unwrap());
+    }
+
+    #[test]
+    fn despawn_on_failed_spawn() {
+        let mut app = test_app();
+        let world = app.world_mut();
+        let current_entities = world.entities().len();
+        let result = world.spawn_scene(bsn! {
+           Fail
+        });
+        assert!(result.is_err());
+        assert_eq!(current_entities, world.entities().len());
+    }
+
+    fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {
+        const LARGE_ITERATION_COUNT: usize = 10000;
+        for _ in 0..LARGE_ITERATION_COUNT {
+            app.update();
+            if predicate() {
+                return;
+            }
+        }
+
+        panic!("Ran out of loops to return `Some` from `predicate`");
     }
 }

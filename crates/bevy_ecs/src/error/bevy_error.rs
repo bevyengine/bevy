@@ -445,9 +445,11 @@ mod tests {
         );
 
         // On mac backtraces can start with Backtrace::create
+        // Rust 1.95 changed the format to use angle brackets: <std::backtrace::Backtrace>::create
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "std::backtrace::Backtrace::create"
+            && (line[6..] == *"std::backtrace::Backtrace::create"
+                || line[6..] == *"<std::backtrace::Backtrace>::create")
         {
             skip = true;
         }

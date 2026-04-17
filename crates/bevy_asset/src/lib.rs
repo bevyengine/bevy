@@ -277,8 +277,8 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is unapproved, unless an override method is used, like
-    /// [`AssetServer::load_override`].
+    /// Fails to load any asset that is unapproved, unless [`LoadBuilder::override_unapproved`] is
+    /// used.
     Deny,
     /// Fails to load any asset that is unapproved.
     #[default]
@@ -2130,7 +2130,10 @@ mod tests {
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         assert_eq!(
-            asset_server.load_override::<CoolText>("../a.cool.ron"),
+            asset_server
+                .load_builder()
+                .override_unapproved()
+                .load::<CoolText>("../a.cool.ron"),
             Handle::default()
         );
     }
@@ -2151,7 +2154,10 @@ mod tests {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load_override::<CoolText>("../a.cool.ron");
+        let handle = asset_server
+            .load_builder()
+            .override_unapproved()
+            .load::<CoolText>("../a.cool.ron");
         assert_ne!(handle, Handle::default());
 
         // Make sure this asset actually loads.
@@ -2543,10 +2549,10 @@ mod tests {
         // Load the test asset twice but with different settings.
 
         fn load(asset_server: &AssetServer, path: &'static str, value: u8) -> Handle<U8Asset> {
-            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
-                path,
-                move |s: &mut U8LoaderSettings| s.0 = value,
-            )
+            asset_server
+                .load_builder()
+                .with_settings(move |s: &mut U8LoaderSettings| s.0 = value)
+                .load::<U8Asset>(path)
         }
 
         let handle_1 = load(asset_server, "test.u8", 1);
@@ -3116,36 +3122,54 @@ mod tests {
             // TODO: We have way too many "load" variants. We **need** to simplify this.
             assert_eq!(asset_server.load(path), Handle::<TestAsset>::default());
             assert_eq!(
-                asset_server.load_acquire(path, ()),
+                asset_server.load_builder().with_guard(()).load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_acquire_override(path, ()),
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .override_unapproved()
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_acquire_with_settings(path, boring_settings, ()),
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .with_settings(boring_settings)
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_erased(TYPE_ID, path),
+                asset_server.load_builder().load_erased(TYPE_ID, path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_override(path),
+                asset_server.load_builder().override_unapproved().load(path),
                 Handle::<TestAsset>::default()
             );
-            assert_eq!(asset_server.load_untyped(path), Handle::default());
+            assert_eq!(
+                asset_server.load_builder().load_untyped(path),
+                Handle::default()
+            );
             assert!(matches!(
-                block_on(asset_server.load_untyped_async(path)),
+                block_on(asset_server.load_builder().load_untyped_async(path)),
                 Err(AssetLoadError::EmptyPath(reported_path)) if AssetPath::from(path) == reported_path
             ));
             assert_eq!(
-                asset_server.load_with_settings(path, |_: &mut ()| {}),
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
             assert_eq!(
-                asset_server.load_with_settings_override(path, |_: &mut ()| {}),
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .override_unapproved()
+                    .load(path),
                 Handle::<TestAsset>::default()
             );
         }

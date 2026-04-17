@@ -347,11 +347,13 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
-                .load_erased_with_meta_transform(
+                .load_with_meta_transform_erased(
                     path,
                     self.typing.asset_type_id,
+                    None,
                     self.meta_transform,
                     (),
+                    false,
                 )
         } else {
             self.load_context
@@ -359,10 +361,11 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
                 .get_or_create_path_handle_erased(
                     path,
                     self.typing.asset_type_id,
+                    None,
                     self.meta_transform,
                 )
         };
-        // `load_erased_with_meta_transform` and `get_or_create_path_handle_erased` always returns a
+        // `load_with_meta_transform_erased` and `get_or_create_path_handle_erased` always returns a
         // Strong variant, so we are safe to unwrap.
         let index = (&handle).try_into().unwrap();
         self.load_context.dependencies.insert(index);
@@ -384,7 +387,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
-                .load_unknown_type_with_meta_transform(path, self.meta_transform)
+                .load_unknown_type_with_meta_transform(path, self.meta_transform, (), false)
         } else {
             self.load_context
                 .asset_server

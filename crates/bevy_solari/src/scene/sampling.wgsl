@@ -220,7 +220,7 @@ fn trace_light_visibility(ray_origin: vec3<f32>, light_sample_world_position: ve
         let ray = ray_direction - ray_origin;
         let dist = length(ray);
         ray_direction = ray / dist;
-        ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
+        ray_t_max = dist - RAY_T_MIN;
     }
 
     if ray_t_max < RAY_T_MIN { return 0.0; }
@@ -234,7 +234,7 @@ fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
     let dist = length(ray);
     let ray_direction = ray / dist;
 
-    let ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
+    let ray_t_max = dist - RAY_T_MIN;
     if ray_t_max < RAY_T_MIN { return 0.0; }
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
