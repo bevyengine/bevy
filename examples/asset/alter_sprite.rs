@@ -8,17 +8,22 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<BirdAssetUsage>()
         .add_systems(Startup, (setup, spawn_text))
         .add_systems(
             Update,
-            alter_handle.run_if(input_just_pressed(KeyCode::Space)),
-        )
-        .add_systems(
-            Update,
-            alter_asset.run_if(input_just_pressed(KeyCode::Enter)),
+            (
+                read_asset_events,
+                alter_handle.run_if(input_just_pressed(KeyCode::Space)),
+                alter_asset.run_if(input_just_pressed(KeyCode::Enter)),
+                alter_asset_usage.run_if(input_just_pressed(KeyCode::KeyQ)),
+            ),
         )
         .run();
 }
+
+#[derive(Resource, Default)]
+struct BirdAssetUsage(RenderAssetUsages);
 
 #[derive(Component, Debug)]
 enum Bird {
@@ -45,11 +50,11 @@ impl Bird {
 #[derive(Component, Debug)]
 struct Left;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, asset_usage: Res<BirdAssetUsage>) {
     let bird_left = Bird::Normal;
     let bird_right = Bird::Normal;
     commands.spawn(Camera2d);
-
+    let usage = asset_usage.0;
     let texture_left = asset_server
         .load_builder()
         .with_settings(
@@ -67,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
             // RAM. For this example however, this would not work, as we need to inspect and modify the
             // image at runtime.
-            |settings: &mut ImageLoaderSettings| settings.asset_usage = RenderAssetUsages::all(),
+            move |settings: &mut ImageLoaderSettings| settings.asset_usage = usage,
         )
         .load(bird_left.get_texture_path());
 
@@ -90,13 +95,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(mut commands: Commands, asset_usage: Res<BirdAssetUsage>) {
     commands.spawn((
         Name::new("Instructions"),
-        Text::new(
-            "Space: swap the right sprite's image handle\n\
-            Return: modify the image Asset of the left sprite, affecting all uses of it",
-        ),
+        Text::default(),
+        children![
+            TextSpan::new("Space: swap the right sprite's image handle\n"),
+            TextSpan::new(
+                "Return: modify the image Asset of the left sprite, affecting all uses of it\n"
+            ),
+            TextSpan::new(format!("Q: switch asset usage: {:?}\n", asset_usage.0)),
+        ],
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -104,6 +113,50 @@ fn spawn_text(mut commands: Commands) {
             ..default()
         },
     ));
+}
+
+fn alter_asset_usage(
+    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+    mut asset_usage: ResMut<BirdAssetUsage>,
+    mut birds: Query<&mut Sprite>,
+    text: Single<Entity, With<Text>>,
+    mut text_writer: TextUiWriter,
+) {
+    asset_usage.0 = match asset_usage.0 {
+        u if u == RenderAssetUsages::all() => RenderAssetUsages::RENDER_WORLD,
+        u if u == RenderAssetUsages::RENDER_WORLD => RenderAssetUsages::MAIN_WORLD,
+        u if u == RenderAssetUsages::MAIN_WORLD => RenderAssetUsages::all(),
+        _ => unreachable!(),
+    };
+
+    let usage = asset_usage.0;
+    *text_writer.text(text.entity(), 3) = format!("Q: switch asset usage: {:?}\n", asset_usage.0);
+
+    for mut bird in birds.iter_mut() {
+        images.remove(bird.image.id());
+        bird.image = Handle::default();
+    }
+    let texture = asset_server
+        .load_builder()
+        .with_settings(move |settings: &mut ImageLoaderSettings| settings.asset_usage = usage)
+        .load(Bird::Normal.get_texture_path());
+    for mut bird in birds.iter_mut() {
+        bird.image = texture.clone();
+    }
+}
+
+fn read_asset_events(mut events: MessageReader<AssetEvent<Image>>, asset_server: Res<AssetServer>) {
+    for e in events.read() {
+        let id = match e {
+            AssetEvent::Added { id } => id,
+            AssetEvent::Modified { id } => id,
+            AssetEvent::Removed { id } => id,
+            AssetEvent::Unused { id } => id,
+            AssetEvent::LoadedWithDependencies { id } => id,
+        };
+        bevy::log::info!("{:?}, {:?}", e, asset_server.get_path(*id));
+    }
 }
 
 fn alter_handle(
