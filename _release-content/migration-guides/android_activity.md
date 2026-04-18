@@ -7,7 +7,7 @@ Bevy previously had `"android-game-activity"` as part of its default features. U
 
 Now both activities are not part of the default features but need to be added explicitly.
 
-migration from bevy 0.18 to 0.19
+**Migration from bevy 0.18 to 0.19:**
 
 For apps with GameActivity you need to add the feature `"android-game-activity"` in your `cargo.toml`. See updated examples/mobile.
 
