@@ -5,7 +5,7 @@ pull_requests: [23708]
 
 Bevy previously had `"android-game-activity"` as part of its default features. Users that wanted to use "android-native-activity" instead, had to disable `default-features` and define all features + "android-native-activity" explicitly since they can't have both activity features at once.
 
-To make it possible to use the native activity with the defaults, the game activity is removed.
+Now both activities are not part of the default features but need to be added explicitly.
 
 migration from bevy 0.18 to 0.19
 
