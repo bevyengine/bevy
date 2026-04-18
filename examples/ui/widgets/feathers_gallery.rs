@@ -26,7 +26,6 @@ use bevy::{
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
-    scene::prelude::Scene,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
@@ -64,14 +63,13 @@ fn main() {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(Update, update_colors)
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, demo_root()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, demo_root()]
 }
 
 fn demo_root() -> impl Scene {
