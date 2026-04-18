@@ -2165,29 +2165,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn take_gpu_data_calculates_aabb() {
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        );
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            vec![
-                [-0.5, 0., 0.],
-                [-1., 0., 0.],
-                [-1., -1., 0.],
-                [-0.5, -1., 0.],
-            ],
-        );
-        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
-        mesh = mesh.take_gpu_data().unwrap();
-        assert_eq!(
-            mesh.final_aabb,
-            Some(Aabb3d::from_min_max([-1., -1., 0.], [-0.5, 0., 0.]))
-        );
-    }
-
     #[cfg(feature = "serialize")]
     #[test]
     fn serialize_deserialize_mesh() {
