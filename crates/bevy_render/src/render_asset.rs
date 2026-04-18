@@ -105,7 +105,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// unless [`Self::RetainedAsset`] is [`EmptyRetainedAsset`], in which case [`RetainedAssets`] of this asset is always empty.
     ///
     /// This is useful for storing asset's metadata after extracted to render world.
-    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset;
+    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -336,7 +336,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         }
 
         for id in needs_extracting.drain() {
-            if let Some(asset) = assets.get(id) {
+            if let Some(asset) = assets.get_mut_untracked(id) {
                 let retained_asset = A::retain_main_world_asset(asset);
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);

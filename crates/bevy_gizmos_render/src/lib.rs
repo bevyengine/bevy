@@ -257,7 +257,7 @@ impl RenderAsset for GpuLineGizmo {
     type RetainedAsset = EmptyRetainedAsset<GizmoAsset>;
     type Param = SRes<RenderDevice>;
 
-    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         EmptyRetainedAsset::default()
     }
 

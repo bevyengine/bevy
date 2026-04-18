@@ -189,7 +189,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
     type RetainedAsset = EmptyRetainedAsset<AutoExposureCompensationCurve>;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
-    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         EmptyRetainedAsset::default()
     }
 

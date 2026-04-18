@@ -950,7 +950,7 @@ impl RenderAsset for RenderWireframeMaterial {
     type RetainedAsset = EmptyRetainedAsset<WireframeMaterial>;
     type Param = ();
 
-    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         EmptyRetainedAsset::default()
     }
 

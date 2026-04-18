@@ -150,7 +150,7 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    pub skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
@@ -1522,40 +1522,6 @@ impl Mesh {
             Some(Triangle3d {
                 vertices: [vert0, vert1, vert2],
             })
-        }
-    }
-
-    /// Extracts the mesh vertex, index and morph target data for GPU upload.
-    /// This function is called internally in render world extraction, it is
-    /// unlikely to be useful outside of that context.
-    pub fn retain_main_world_asset(&self) -> RetainedMesh {
-        let mut aabb = None;
-        // store the aabb extents as they cannot be computed after extraction
-        if let Some(MeshAttributeData {
-            values: VertexAttributeValues::Float32x3(position_values),
-            ..
-        }) = self.attribute_data(Self::ATTRIBUTE_POSITION.id)
-            && !position_values.is_empty()
-        {
-            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
-            let mut min = iter.next().unwrap();
-            let mut max = min;
-            for v in iter {
-                min = Vec3::min(min, v);
-                max = Vec3::max(max, v);
-            }
-            aabb = Some(Aabb3d::from_min_max(min, max));
-        }
-
-        RetainedMesh {
-            primitive_topology: self.primitive_topology(),
-            has_indices: self.indices.is_some(),
-            #[cfg(feature = "morph")]
-            has_morph_targets: self.has_morph_targets(),
-            asset_usage: self.asset_usage,
-            enable_raytracing: self.enable_raytracing,
-            aabb,
-            skinned_mesh_bounds: self.skinned_mesh_bounds().cloned(),
         }
     }
 

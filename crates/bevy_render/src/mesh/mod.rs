@@ -20,7 +20,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_math::bounding::Aabb3d;
 pub use bevy_mesh::*;
+use glam::Vec3;
 use wgpu::IndexFormat;
 
 #[cfg(feature = "morph")]
@@ -135,8 +137,40 @@ impl RenderAsset for RenderMesh {
         mesh.asset_usage
     }
 
-    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
-        source.retain_main_world_asset()
+    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset {
+        let mut aabb = None;
+        // store the aabb extents as they cannot be computed after extraction
+        if let Some(VertexAttributeValues::Float32x3(position_values)) =
+            source.attribute(Mesh::ATTRIBUTE_POSITION)
+            && !position_values.is_empty()
+        {
+            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
+            let mut min = iter.next().unwrap();
+            let mut max = min;
+            for v in iter {
+                min = Vec3::min(min, v);
+                max = Vec3::max(max, v);
+            }
+            aabb = Some(Aabb3d::from_min_max(min, max));
+        }
+
+        let skinned_mesh_bounds = if source.asset_usage == RenderAssetUsages::RENDER_WORLD {
+            // For render world only usage, the asset will be extracted and this field is unused in `prepare_asset`.
+            // So we can take the data.
+            source.skinned_mesh_bounds.take()
+        } else {
+            source.skinned_mesh_bounds().cloned()
+        };
+        RetainedMesh {
+            primitive_topology: source.primitive_topology(),
+            has_indices: source.indices().is_some(),
+            #[cfg(feature = "morph")]
+            has_morph_targets: source.has_morph_targets(),
+            asset_usage: source.asset_usage,
+            enable_raytracing: source.enable_raytracing,
+            aabb,
+            skinned_mesh_bounds,
+        }
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {

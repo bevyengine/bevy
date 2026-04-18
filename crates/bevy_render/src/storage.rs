@@ -160,7 +160,7 @@ impl RenderAsset for GpuShaderBuffer {
         source_asset.asset_usage
     }
 
-    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         RetainedShaderBuffer {
             asset_usage: source.asset_usage,
             buffer_description: source.buffer_description.clone(),

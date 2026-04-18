@@ -74,7 +74,7 @@ impl RenderAsset for GpuImage {
         image.asset_usage
     }
 
-    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         RetainedImage {
             data_order: source.data_order,
             texture_descriptor: source.texture_descriptor.clone(),

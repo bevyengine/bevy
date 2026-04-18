@@ -66,7 +66,7 @@ impl RenderAsset for GpuScatteringMedium {
     type RetainedAsset = EmptyRetainedAsset<ScatteringMedium>;
     type Param = (Res<'static, RenderDevice>, Res<'static, RenderQueue>);
 
-    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
         EmptyRetainedAsset::default()
     }
 
