@@ -3,8 +3,10 @@ use crate::{
     RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
+use bevy_asset::{
+    Asset, AssetEvent, AssetId, Assets, RetainedAsset, RetainedAssets, UntypedAssetId,
+};
+use bevy_asset::{EmptyRetainedAsset, RenderAssetUsages};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -14,6 +16,7 @@ use bevy_ecs::{
 use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_asset::RenderAssetBytesPerFrameLimiter;
+use core::any::{Any, TypeId};
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -41,6 +44,8 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
     type SourceAsset: Asset + Clone;
     /// The target representation of the asset in the "render world".
     type ErasedAsset: Send + Sync + 'static + Sized;
+    /// The [`RetainedAsset`] the asset will retain in the main world.
+    type RetainedAsset: RetainedAsset<SourceAsset = Self::SourceAsset>;
 
     /// Specifies all ECS data required by [`ErasedRenderAsset::prepare_asset`].
     ///
@@ -84,6 +89,15 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
         _param: &mut SystemParamItem<Self::Param>,
     ) {
     }
+
+    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
+    ///
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be removed from the main world.
+    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
+    /// unless [`Self::RetainedAsset`] is [`EmptyRetainedAsset`], in which case [`RetainedAssets`] of this asset is always empty.
+    ///
+    /// This is useful for storing asset's metadata after extracted to render world.
+    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -233,6 +247,7 @@ struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
+        ResMut<'static, RetainedAssets<A::RetainedAsset>>,
     )>,
 }
 
@@ -257,7 +272,7 @@ fn collect_erased_render_assets_to_reextract<A: ErasedRenderAsset>(
     mut render_assets: ResMut<ErasedRenderAssets<A::ErasedAsset>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
 ) {
-    let source_type_id = core::any::TypeId::of::<A::SourceAsset>();
+    let source_type_id = TypeId::of::<A::SourceAsset>();
     // ErasedRenderAssets is shared across all material types that produce
     // the same ErasedAsset type. Drain only the entries matching our SourceAsset.
     let mut ids = Vec::new();
@@ -296,7 +311,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
 
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
+            let (mut events, mut assets, mut retained_assets) = cached_state.state.get_mut(world).unwrap();
 
             if let Some(reextract_ids) = reextract_ids {
                 needs_extracting.extend(reextract_ids);
@@ -331,18 +346,26 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
             }
 
             for id in needs_extracting.drain() {
-                if let Some(asset) = assets.get(id) {
-                    let asset_usage = A::asset_usage(asset);
-                    if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
-                        if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.extracted.push((id, asset));
-                                extracted_assets.added.insert(id);
-                            }
-                        } else {
+                if let Some(asset) = assets.get_mut_untracked(id) {
+                    let retained_asset = A::retain_main_world_asset(asset);
+                    if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
+                        retained_assets.insert(id, retained_asset);
+                    }
+                    match A::asset_usage(asset) {
+                        u if u == RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD => {
                             extracted_assets.extracted.push((id, asset.clone()));
                             extracted_assets.added.insert(id);
                         }
+                        u if u == RenderAssetUsages::RENDER_WORLD => {
+                            let asset = match assets.extract_untracked(id){
+                                Ok(asset) => asset,
+                                Err(err) => panic!("Failed to extract {}: {}", id, err),
+                            }.unwrap();
+                            extracted_assets.extracted.push((id, asset));
+                            extracted_assets.added.insert(id);
+                        }
+                        u if u == RenderAssetUsages::MAIN_WORLD => {}
+                        _ => unreachable!(),
                     }
                 }
             }

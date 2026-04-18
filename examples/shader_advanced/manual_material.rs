@@ -34,6 +34,7 @@ use bevy::{
     },
     utils::Parallel,
 };
+use bevy_asset::EmptyRetainedAsset;
 use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
@@ -132,6 +133,7 @@ struct ImageMaterial {
 impl ErasedRenderAsset for ImageMaterial {
     type SourceAsset = ImageMaterial;
     type ErasedAsset = PreparedMaterial;
+    type RetainedAsset = EmptyRetainedAsset<ImageMaterial>;
     type Param = (
         SRes<DrawFunctions<Opaque3d>>,
         SRes<ImageMaterialBindGroupLayout>,
@@ -141,6 +143,10 @@ impl ErasedRenderAsset for ImageMaterial {
         SRes<RenderAssets<GpuImage>>,
         SRes<ImageMaterialBindGroupSampler>,
     );
+
+    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset::default()
+    }
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,

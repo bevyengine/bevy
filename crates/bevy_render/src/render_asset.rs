@@ -51,7 +51,7 @@ pub enum AssetExtractionError {
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
     type SourceAsset: Asset + Clone;
-
+    /// The [`RetainedAsset`] the asset will retain in the main world.
     type RetainedAsset: RetainedAsset<SourceAsset = Self::SourceAsset>;
 
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
@@ -100,11 +100,13 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 
     /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
     ///
-    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be removed from the main world.
-    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
-    /// unless [`Self::RetainedAsset`] is [`EmptyRetainedAsset`], in which case [`RetainedAssets`] of this asset is always empty.
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted from [`Assets`]
+    /// and the data will be discarded.
     ///
-    /// This is useful for storing asset's metadata after extracted to render world.
+    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
+    /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`RetainedAssets`] of this asset is always empty.
+    ///
+    /// This is useful for retaining asset's metadata after extracted to render world.
     fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset;
 }
 
