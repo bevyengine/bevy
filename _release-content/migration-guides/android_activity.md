@@ -9,7 +9,7 @@ Now both activities are not part of the default features but need to be added ex
 
 **Migration from bevy 0.18 to 0.19:**
 
-For apps with GameActivity you need to add the feature `"android-game-activity"` in your `cargo.toml`. See updated examples/mobile.
+For apps using `GameActivity` you need to add the feature `"android-game-activity"` to your `Cargo.toml`:
 
 ```toml
 bevy = { version = "0.19", features = ["android-game-activity"] }
