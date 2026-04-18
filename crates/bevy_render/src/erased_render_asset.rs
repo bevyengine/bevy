@@ -131,7 +131,8 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
     for ErasedRenderAssetPlugin<A, AFTER>
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CachedExtractErasedRenderAssetSystemState<A>>();
+        app.init_resource::<CachedExtractErasedRenderAssetSystemState<A>>()
+            .init_resource::<RetainedAssets<A::RetainedAsset>>();
     }
 
     fn finish(&self, app: &mut App) {
