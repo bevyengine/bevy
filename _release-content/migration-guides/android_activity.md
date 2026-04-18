@@ -3,7 +3,7 @@ title: "Remove android game activity from default"
 pull_requests: [23708]
 ---
 
-In the default features of bevy the `"android-game-activity"` was set. This blocks simply adding the `"android-native-activity"` together with the default features. Only one android activity could be set in one build.
+Bevy previously had `"android-game-activity"` as part of its default features. Users that wanted to use "android-native-activity" instead, had to disable `default-features` and define all features + "android-native-activity" explicitly since they can't have both activity features at once.
 
 To make it possible to use the native activity with the defaults, the game activity is removed.
 
