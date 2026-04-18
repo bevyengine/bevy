@@ -53,7 +53,10 @@ impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<Readback>::default())
             .register_type::<ReadbackOnce>()
-            .add_systems(First, cleanup_readback_once);
+            .add_systems(
+                First,
+                cleanup_readback_once.after(bevy_ecs::message::MessageUpdateSystems),
+            );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
