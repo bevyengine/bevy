@@ -15,7 +15,7 @@ For apps using `GameActivity` you need to add the feature `"android-game-activit
 bevy = { version = "0.19", features = ["android-game-activity"] }
 ```
 
-For apps with NativeActivity you do not need to change anything, but if you like, you should use now the default and add only the feature `"android-native-activity"` in your `cargo.toml`.
+Since apps using `NativeActivity` already define features explicitly, you don't have to necessarily make changes. If you want to use the default features instead, you can now just add the feature `"android-native-activity"` to your `Cargo.toml` instead of redefining features explicitly:
 
 ```toml
 bevy = { version = "0.19", features = ["android-native-activity"] }
