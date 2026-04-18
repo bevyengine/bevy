@@ -1,7 +1,7 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
 use bevy::{
-    asset::{AsAssetId, AssetEventSystems},
+    asset::{AsAssetId, AssetEventSystems, EmptyRetainedAsset},
     core_pipeline::core_3d::Opaque3d,
     ecs::system::{
         lifetimeless::{SRes, SResMut},
@@ -34,7 +34,6 @@ use bevy::{
     },
     utils::Parallel,
 };
-use bevy_asset::EmptyRetainedAsset;
 use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
