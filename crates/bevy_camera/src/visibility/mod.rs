@@ -63,7 +63,7 @@ use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3
 ///
 /// It can be used for example:
 /// - disabling CPU culling completely for a [`Camera`], using only GPU culling.
-/// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
+/// - when overwriting a `Mesh`'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
 ///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
@@ -310,9 +310,9 @@ impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
 /// [`Frustum`].
 ///
 /// It can be used for example:
-/// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
-/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-///   to appear in the reflection of a [`Mesh`] within.
+/// - when a `Mesh` is updated but its [`Aabb`] is not, which might happen with animations,
+/// - when using some light effects, like wanting a `Mesh` out of the [`Frustum`]
+///   to appear in the reflection of a `Mesh` within.
 #[derive(Debug, Component, Default, Reflect, Clone, PartialEq)]
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;

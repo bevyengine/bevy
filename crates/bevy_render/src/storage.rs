@@ -40,7 +40,7 @@ pub struct ShaderBuffer {
 
 /// The representation of a storage buffer that is retained in [`RetainedAssets`] on the main world after extracting.
 ///
-/// [`RetainedAssets`]: bevy_render::render_asset::RetainedAssets
+/// [`RetainedAssets`]: bevy_asset::RetainedAssets
 #[derive(Reflect, Debug, Clone)]
 #[reflect(opaque)]
 #[reflect(Debug, Clone)]

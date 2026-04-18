@@ -24,12 +24,12 @@ pub struct GpuImage {
 
 /// The representation of an [`Image`] that is retained in [`RetainedAssets`] on the main world after extracting.
 ///
-/// [`RetainedAssets`]: bevy_render::render_asset::RetainedAssets
+/// [`RetainedAssets`]: bevy_asset::RetainedAssets
 #[derive(Debug, Clone, PartialEq)]
 pub struct RetainedImage {
     /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
     ///
-    /// Use [`TextureDataOrder::default()`] for all other cases.
+    /// Use [`wgpu_types::TextureDataOrder::default()`] for all other cases.
     pub data_order: wgpu_types::TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     /// Describes the data layout of the GPU texture.\

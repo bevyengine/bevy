@@ -156,7 +156,7 @@ impl RenderAsset for RenderMesh {
 
         let skinned_mesh_bounds = if source.asset_usage == RenderAssetUsages::RENDER_WORLD {
             // For render world only usage, the asset will be extracted and this field is unused in `prepare_asset`.
-            // So we can take the data.
+            // So we can take the data to reuse the memory.
             source.skinned_mesh_bounds.take()
         } else {
             source.skinned_mesh_bounds().cloned()

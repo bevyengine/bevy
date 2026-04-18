@@ -374,10 +374,9 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Extract the given `asset` and return it, identified by the given `id`.
-    /// Once extracted, it can only be accessed by `*_maybe_extracted` methods,
-    /// such as [`Self::get_maybe_extracted`] and [`Self::get_mut_maybe_extracted`]. Other methods will ignore it or return None.
-    ///
-    /// Note: This will never return an error for UUID asset IDs.
+    /// This is used when extracting [`crate::RenderAssetUsages::RENDER_WORLD`]-only asset.
+    /// Once extracted, the asset can only be accessed by `*_maybe_extracted` methods.
+    /// Other methods will treat it like it doesn't exist or return None.
     pub fn extract_untracked(
         &mut self,
         id: impl Into<AssetId<A>>,
