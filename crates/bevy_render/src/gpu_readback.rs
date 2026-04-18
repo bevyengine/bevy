@@ -12,7 +12,7 @@ use crate::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use async_channel::{Receiver, Sender};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, First, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -21,7 +21,8 @@ use bevy_ecs::{
     entity::Entity,
     event::EntityEvent,
     prelude::{Component, Resource, World},
-    system::{Query, Res},
+    query::With,
+    system::{Commands, Query, Res},
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
@@ -51,7 +52,8 @@ impl Default for GpuReadbackPlugin {
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<Readback>::default())
-            .register_type::<ReadbackOnce>();
+            .register_type::<ReadbackOnce>()
+            .add_systems(First, cleanup_readback_once);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -133,6 +135,12 @@ impl ReadbackOnce {
     /// offset in bytes and a number of bytes to read.
     pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> impl Bundle {
         (Readback::buffer_range(buffer, start_offset, size), Self)
+    }
+}
+
+fn cleanup_readback_once(mut commands: Commands, query: Query<Entity, With<ReadbackOnce>>) {
+    for entity in &query {
+        commands.entity(entity).remove::<(Readback, ReadbackOnce)>();
     }
 }
 
@@ -269,11 +277,6 @@ fn sync_readbacks(
     readbacks.mapped.retain(|readback| {
         if let Ok((entity, buffer, data)) = readback.rx.try_recv() {
             main_world.trigger(ReadbackComplete { data, entity });
-            if let Ok(mut entity_mut) = main_world.get_entity_mut(entity)
-                && entity_mut.contains::<ReadbackOnce>()
-            {
-                entity_mut.remove::<(Readback, ReadbackOnce)>();
-            }
             buffer_pool.return_buffer(&buffer);
             false
         } else {
