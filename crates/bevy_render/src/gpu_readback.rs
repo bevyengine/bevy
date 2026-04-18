@@ -20,9 +20,8 @@ use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
     event::EntityEvent,
-    prelude::{Component, On, Resource, World},
-    query::With,
-    system::{Commands, Query, Res},
+    prelude::{Component, Resource, World},
+    system::{Query, Res},
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
@@ -52,8 +51,7 @@ impl Default for GpuReadbackPlugin {
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<Readback>::default())
-            .register_type::<ReadbackOnce>()
-            .add_observer(cleanup_readback_once);
+            .register_type::<ReadbackOnce>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -135,18 +133,6 @@ impl ReadbackOnce {
     /// offset in bytes and a number of bytes to read.
     pub fn buffer_range(buffer: Handle<ShaderBuffer>, start_offset: u64, size: u64) -> impl Bundle {
         (Readback::buffer_range(buffer, start_offset, size), Self)
-    }
-}
-
-fn cleanup_readback_once(
-    event: On<ReadbackComplete>,
-    marked: Query<(), With<ReadbackOnce>>,
-    mut commands: Commands,
-) {
-    if marked.contains(event.entity) {
-        commands
-            .entity(event.entity)
-            .try_remove::<(Readback, ReadbackOnce)>();
     }
 }
 
@@ -283,6 +269,11 @@ fn sync_readbacks(
     readbacks.mapped.retain(|readback| {
         if let Ok((entity, buffer, data)) = readback.rx.try_recv() {
             main_world.trigger(ReadbackComplete { data, entity });
+            if let Ok(mut entity_mut) = main_world.get_entity_mut(entity)
+                && entity_mut.contains::<ReadbackOnce>()
+            {
+                entity_mut.remove::<(Readback, ReadbackOnce)>();
+            }
             buffer_pool.return_buffer(&buffer);
             false
         } else {
