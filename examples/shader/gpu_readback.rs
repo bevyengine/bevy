@@ -35,6 +35,7 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)
+        .add_systems(Update, trigger_once_readback)
         .run();
 }
 
@@ -60,6 +61,21 @@ impl Plugin for GpuReadbackPlugin {
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackBuffer(Handle<ShaderBuffer>);
+
+fn trigger_once_readback(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    readback_buffer: Res<ReadbackBuffer>,
+    mut commands: Commands,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        commands
+            .spawn(ReadbackOnce::buffer(readback_buffer.0.clone()))
+            .observe(|event: On<ReadbackComplete>| {
+                let data: Vec<u32> = event.to_shader_type();
+                info!("Buffer (once) {:?}", data);
+            });
+    }
+}
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);
@@ -117,17 +133,6 @@ fn setup(
         .observe(|event: On<ReadbackComplete>| {
             let data: Vec<u32> = event.to_shader_type();
             info!("Buffer range {:?}", data);
-        });
-
-    // Use `ReadbackOnce` to read the data back a single time. Despawn the entity from the
-    // observer with `try_despawn` since an in-flight readback may still fire once more
-    // before the render world sees the component removal.
-    commands
-        .spawn(ReadbackOnce::buffer(buffer.clone()))
-        .observe(|event: On<ReadbackComplete>, mut commands: Commands| {
-            let data: Vec<u32> = event.to_shader_type();
-            info!("Buffer (once) {:?}", data);
-            commands.entity(event.entity).try_despawn();
         });
 
     // This is just a simple way to pass the buffer handle to the render app for our compute node
