@@ -313,10 +313,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             )]
             match event {
                 AssetEvent::Added { id } => {
-                    // If we already removed the asset from main world and retained it, don't re-extract it again.
-                    if retained_assets.get(*id).is_none() {
-                        needs_extracting.insert(*id);
-                    }
+                    needs_extracting.insert(*id);
                 }
                 AssetEvent::Modified { id } => {
                     needs_extracting.insert(*id);
@@ -350,7 +347,10 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         extracted_assets.added.insert(id);
                     }
                     u if u == RenderAssetUsages::RENDER_WORLD => {
-                        let asset = assets.remove(id).unwrap();
+                        let asset = match assets.extract_untracked(id){
+                            Ok(asset) => asset,
+                            Err(err) => panic!("Failed to extract {}: {}", id, err),
+                        }.unwrap();
                         extracted_assets.extracted.push((id, asset));
                         extracted_assets.added.insert(id);
                     }

@@ -101,6 +101,34 @@ pub struct LoadedUntypedAsset {
     pub handle: UntypedHandle,
 }
 
+pub enum MaybeExtracted<A> {
+    Extracted,
+    Data(A),
+}
+
+impl<A: Asset> MaybeExtracted<A> {
+    pub fn as_option(self) -> Option<A> {
+        match self {
+            MaybeExtracted::Extracted => None,
+            MaybeExtracted::Data(a) => Some(a),
+        }
+    }
+
+    pub fn as_option_ref(&self) -> Option<&A> {
+        match self {
+            MaybeExtracted::Extracted => None,
+            MaybeExtracted::Data(a) => Some(a),
+        }
+    }
+
+    pub fn as_option_mut(&mut self) -> Option<&mut A> {
+        match self {
+            MaybeExtracted::Extracted => None,
+            MaybeExtracted::Data(a) => Some(a),
+        }
+    }
+}
+
 // PERF: do we actually need this to be an enum? Can we just use an "invalid" generation instead
 #[derive(Default)]
 enum Entry<A: Asset> {
@@ -108,7 +136,10 @@ enum Entry<A: Asset> {
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: Option<MaybeExtracted<A>>,
+        generation: u32,
+    },
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -143,18 +174,18 @@ impl<A: Asset> DenseAssetStorage<A> {
     pub(crate) fn insert(
         &mut self,
         index: AssetIndex,
-        asset: A,
-    ) -> Result<bool, InvalidGenerationError> {
+        asset: MaybeExtracted<A>,
+    ) -> Result<Option<MaybeExtracted<A>>, InvalidGenerationError> {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
         if let Entry::Some { value, generation } = entry {
             if *generation == index.generation {
-                let exists = value.is_some();
+                let old_value = value.replace(asset);
+                let exists = old_value.is_some();
                 if !exists {
                     self.len += 1;
                 }
-                *value = Some(asset);
-                Ok(exists)
+                Ok(old_value)
             } else {
                 Err(InvalidGenerationError::Occupied {
                     index,
@@ -168,7 +199,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will recycle the id and allow new entries to be inserted.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<MaybeExtracted<A>> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
             dense_storage.allocator.recycle(index);
@@ -178,7 +209,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
     /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
-    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<MaybeExtracted<A>> {
         self.remove_internal(index, |_| {})
     }
 
@@ -186,7 +217,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         &mut self,
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
-    ) -> Option<A> {
+    ) -> Option<MaybeExtracted<A>> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -202,7 +233,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         value
     }
 
-    pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
+    pub(crate) fn get(&self, index: AssetIndex) -> Option<&MaybeExtracted<A>> {
         let entry = self.storage.get(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -216,7 +247,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
+    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut MaybeExtracted<A>> {
         let entry = self.storage.get_mut(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -287,7 +318,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<Uuid, A>,
+    hash_map: HashMap<Uuid, MaybeExtracted<A>>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
@@ -332,12 +363,37 @@ impl<A: Asset> Assets<A> {
         asset: A,
     ) -> Result<(), InvalidGenerationError> {
         match id.into() {
-            AssetId::Index { index, .. } => self.insert_with_index(index, asset).map(|_| ()),
+            AssetId::Index { index, .. } => self
+                .insert_with_index(index, MaybeExtracted::Data(asset))
+                .map(|_| ()),
             AssetId::Uuid { uuid } => {
-                self.insert_with_uuid(uuid, asset);
+                self.insert_with_uuid(uuid, MaybeExtracted::Data(asset));
                 Ok(())
             }
         }
+    }
+
+    /// Extract the given `asset` and return it, identified by the given `id`.
+    /// Once extracted, it can only be accessed by `*_maybe_extracted` methods,
+    /// such as [`Self::get_maybe_extracted`] and [`Self::get_mut_maybe_extracted`]. Other methods will ignore it or return None.
+    ///
+    /// Note: This will never return an error for UUID asset IDs.
+    pub fn extract_untracked(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+    ) -> Result<Option<A>, ExtractError> {
+        let ok = match id.into() {
+            AssetId::Index { index, .. } => {
+                self.insert_with_index_untracked(index, MaybeExtracted::Extracted)?
+            }
+            AssetId::Uuid { uuid } => {
+                self.insert_with_uuid_untracked(uuid, MaybeExtracted::Extracted)
+            }
+        };
+        Ok(match ok {
+            Some(extractable) => Some(extractable.as_option().ok_or(ExtractError::Extracted)?),
+            None => None,
+        })
     }
 
     /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
@@ -349,7 +405,7 @@ impl<A: Asset> Assets<A> {
         &mut self,
         id: impl Into<AssetId<A>>,
         insert_fn: impl FnOnce() -> A,
-    ) -> Result<AssetMut<'_, A>, InvalidGenerationError> {
+    ) -> Result<AssetMut<'_, A, A>, InvalidGenerationError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
             self.insert(id, insert_fn())?;
@@ -369,8 +425,26 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
-        let result = self.hash_map.insert(uuid, asset);
+    pub(crate) fn insert_with_uuid_untracked(
+        &mut self,
+        uuid: Uuid,
+        asset: MaybeExtracted<A>,
+    ) -> Option<MaybeExtracted<A>> {
+        self.hash_map.insert(uuid, asset)
+    }
+    pub(crate) fn insert_with_index_untracked(
+        &mut self,
+        index: AssetIndex,
+        asset: MaybeExtracted<A>,
+    ) -> Result<Option<MaybeExtracted<A>>, InvalidGenerationError> {
+        Ok(self.dense_storage.insert(index, asset)?)
+    }
+    pub(crate) fn insert_with_uuid(
+        &mut self,
+        uuid: Uuid,
+        asset: MaybeExtracted<A>,
+    ) -> Option<MaybeExtracted<A>> {
+        let result = self.insert_with_uuid_untracked(uuid, asset);
         if result.is_some() {
             self.queued_events
                 .push(AssetEvent::Modified { id: uuid.into() });
@@ -383,24 +457,25 @@ impl<A: Asset> Assets<A> {
     pub(crate) fn insert_with_index(
         &mut self,
         index: AssetIndex,
-        asset: A,
-    ) -> Result<bool, InvalidGenerationError> {
-        let replaced = self.dense_storage.insert(index, asset)?;
-        if replaced {
+        asset: MaybeExtracted<A>,
+    ) -> Result<Option<MaybeExtracted<A>>, InvalidGenerationError> {
+        let result = self.insert_with_index_untracked(index, asset)?;
+        if result.is_some() {
             self.queued_events
                 .push(AssetEvent::Modified { id: index.into() });
         } else {
             self.queued_events
                 .push(AssetEvent::Added { id: index.into() });
         }
-        Ok(replaced)
+        Ok(result)
     }
 
     /// Adds the given `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
     pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
-        self.insert_with_index(index, asset.into()).unwrap();
+        self.insert_with_index(index, MaybeExtracted::Data(asset.into()))
+            .unwrap();
         Handle::Strong(self.handle_provider.get_handle(index, false, None, None))
     }
 
@@ -432,12 +507,50 @@ impl<A: Asset> Assets<A> {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
             AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
         }
+        .and_then(|maybe_extracted| maybe_extracted.as_option_ref())
+    }
+
+    /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// This can be used to access assets that is extracted. See also [`Self::extract_untracked`].
+    #[inline]
+    pub fn get_maybe_extracted(&self, id: impl Into<AssetId<A>>) -> Option<&MaybeExtracted<A>> {
+        match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get(index),
+            AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
+        }
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'_, A>> {
+    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<AssetMut<'_, A, A>> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        }
+        .and_then(|maybe_extracted| maybe_extracted.as_option_mut());
+        Some(AssetMut {
+            asset: result?,
+            guard: AssetMutChangeNotifier {
+                changed: false,
+                asset_id: id,
+                queued_events: &mut self.queued_events,
+            },
+        })
+    }
+
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// This can be used to access assets that is extracted. See also [`Self::extract_untracked`].
+    #[inline]
+    pub fn get_mut_maybe_extracted(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+    ) -> Option<AssetMut<'_, MaybeExtracted<A>, A>> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
@@ -458,6 +571,24 @@ impl<A: Asset> Assets<A> {
     /// This is the same as [`Assets::get_mut`] except it doesn't emit [`AssetEvent::Modified`].
     #[inline]
     pub fn get_mut_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        }
+        .and_then(|maybe_extracted| maybe_extracted.as_option_mut())
+    }
+
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
+    ///
+    /// This is the same as [`Assets::get_mut`] except it doesn't emit [`AssetEvent::Modified`].
+    ///
+    /// This can be used to access assets that is extracted. See also [`Self::extract_untracked`].
+    #[inline]
+    pub fn get_mut_untracked_maybe_extracted(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+    ) -> Option<&mut MaybeExtracted<A>> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
@@ -489,6 +620,7 @@ impl<A: Asset> Assets<A> {
             }
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
+        .and_then(|maybe_extracted| maybe_extracted.as_option())
     }
 
     /// Removes the [`Asset`] with the given `id`.
@@ -540,22 +672,26 @@ impl<A: Asset> Assets<A> {
             .enumerate()
             .filter_map(|(i, v)| match v {
                 Entry::None => None,
-                Entry::Some { value, generation } => value.as_ref().map(|v| {
-                    let id = AssetId::Index {
-                        index: AssetIndex {
-                            generation: *generation,
-                            index: i as u32,
-                        },
-                        marker: PhantomData,
-                    };
-                    (id, v)
+                Entry::Some { value, generation } => value.as_ref().and_then(|maybe_extracted| {
+                    if let MaybeExtracted::Data(v) = maybe_extracted {
+                        let id = AssetId::Index {
+                            index: AssetIndex {
+                                generation: *generation,
+                                index: i as u32,
+                            },
+                            marker: PhantomData,
+                        };
+                        Some((id, v))
+                    } else {
+                        None
+                    }
                 }),
             })
-            .chain(
-                self.hash_map
-                    .iter()
-                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v)),
-            )
+            .chain(self.hash_map.iter().filter_map(|(i, maybe_extracted)| {
+                maybe_extracted
+                    .as_option_ref()
+                    .map(|v| (AssetId::Uuid { uuid: *i }, v))
+            }))
     }
 
     /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
@@ -628,20 +764,20 @@ impl<A: Asset> Assets<A> {
 ///
 /// Just as an example, this allows checking if a material property has changed
 /// before modifying it to avoid unnecessary material extraction down the pipeline.
-pub struct AssetMut<'a, A: Asset> {
-    asset: &'a mut A,
+pub struct AssetMut<'a, T, A: Asset> {
+    asset: &'a mut T,
     guard: AssetMutChangeNotifier<'a, A>,
 }
 
-impl<'a, A: Asset> AssetMut<'a, A> {
+impl<'a, T, A: Asset> AssetMut<'a, T, A> {
     /// Marks with inner asset as modified and returns reference to it.
-    pub fn into_inner(mut self) -> &'a mut A {
+    pub fn into_inner(mut self) -> &'a mut T {
         self.guard.changed = true;
         self.asset
     }
 
     /// Returns reference to the inner asset but doesn't mark it as modified.
-    pub fn into_inner_untracked(self) -> &'a mut A {
+    pub fn into_inner_untracked(self) -> &'a mut T {
         self.asset
     }
 
@@ -652,20 +788,20 @@ impl<'a, A: Asset> AssetMut<'a, A> {
     /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
-    pub fn bypass_change_detection(&mut self) -> &mut A {
+    pub fn bypass_change_detection(&mut self) -> &mut T {
         self.asset
     }
 }
 
-impl<'a, A: Asset> Deref for AssetMut<'a, A> {
-    type Target = A;
+impl<'a, T, A: Asset> Deref for AssetMut<'a, T, A> {
+    type Target = T;
 
     fn deref(&self) -> &Self::Target {
         self.asset
     }
 }
 
-impl<'a, A: Asset> DerefMut for AssetMut<'a, A> {
+impl<'a, T, A: Asset> DerefMut for AssetMut<'a, T, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.guard.changed = true;
         self.asset
@@ -693,7 +829,7 @@ impl<'a, A: Asset> Drop for AssetMutChangeNotifier<'a, A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, MaybeExtracted<A>>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
@@ -714,13 +850,17 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
                         marker: PhantomData,
                     };
                     self.queued_events.push(AssetEvent::Modified { id });
-                    if let Some(value) = value {
+                    if let Some(value) = value
+                        && let MaybeExtracted::Data(value) = value
+                    {
                         return Some((id, value));
                     }
                 }
             }
         }
-        if let Some((key, value)) = self.hash_map.next() {
+        if let Some((key, value)) = self.hash_map.next()
+            && let MaybeExtracted::Data(value) = value
+        {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
             Some((id, value))
@@ -728,6 +868,15 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
             None
         }
     }
+}
+
+/// An error returned when an [`AssetIndex`] has an invalid generation.
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum ExtractError {
+    #[error(transparent)]
+    InvalidGeneration(#[from] InvalidGenerationError),
+    #[error("Asset has been extracted")]
+    Extracted,
 }
 
 /// An error returned when an [`AssetIndex`] has an invalid generation.
