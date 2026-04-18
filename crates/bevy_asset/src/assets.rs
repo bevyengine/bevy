@@ -665,6 +665,15 @@ impl<A: Asset> Assets<A> {
     /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
+        self.iter_maybe_extracted()
+            .filter_map(|(id, maybe_extracted)| maybe_extracted.as_option_ref().map(|a| (id, a)))
+    }
+
+    /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
+    ///
+    /// This can be used to access assets that is extracted. See also [`Self::extract_untracked`].
+    // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
+    pub fn iter_maybe_extracted(&self) -> impl Iterator<Item = (AssetId<A>, &MaybeExtracted<A>)> {
         self.dense_storage
             .storage
             .iter()
@@ -672,31 +681,39 @@ impl<A: Asset> Assets<A> {
             .filter_map(|(i, v)| match v {
                 Entry::None => None,
                 Entry::Some { value, generation } => value.as_ref().and_then(|maybe_extracted| {
-                    if let MaybeExtracted::Data(v) = maybe_extracted {
-                        let id = AssetId::Index {
-                            index: AssetIndex {
-                                generation: *generation,
-                                index: i as u32,
-                            },
-                            marker: PhantomData,
-                        };
-                        Some((id, v))
-                    } else {
-                        None
-                    }
+                    let id = AssetId::Index {
+                        index: AssetIndex {
+                            generation: *generation,
+                            index: i as u32,
+                        },
+                        marker: PhantomData,
+                    };
+                    Some((id, maybe_extracted))
                 }),
             })
-            .chain(self.hash_map.iter().filter_map(|(i, maybe_extracted)| {
-                maybe_extracted
-                    .as_option_ref()
-                    .map(|v| (AssetId::Uuid { uuid: *i }, v))
-            }))
+            .chain(
+                self.hash_map
+                    .iter()
+                    .map(|(i, maybe_extracted)| (AssetId::Uuid { uuid: *i }, maybe_extracted)),
+            )
     }
 
     /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter_mut(&mut self) -> AssetsMutIterator<'_, A> {
         AssetsMutIterator {
+            dense_storage: self.dense_storage.storage.iter_mut().enumerate(),
+            hash_map: self.hash_map.iter_mut(),
+            queued_events: &mut self.queued_events,
+        }
+    }
+
+    /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection, including extracted assets.
+    ///
+    /// This can be used to access assets that is extracted. See also [`Self::extract_untracked`].
+    // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
+    pub fn iter_mut_maybe_extracted(&mut self) -> AssetsMutIteratorMaybeExtracted<'_, A> {
+        AssetsMutIteratorMaybeExtracted {
             dense_storage: self.dense_storage.storage.iter_mut().enumerate(),
             hash_map: self.hash_map.iter_mut(),
             queued_events: &mut self.queued_events,
@@ -860,6 +877,47 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
         if let Some((key, value)) = self.hash_map.next()
             && let MaybeExtracted::Data(value) = value
         {
+            let id = AssetId::Uuid { uuid: *key };
+            self.queued_events.push(AssetEvent::Modified { id });
+            Some((id, value))
+        } else {
+            None
+        }
+    }
+}
+
+/// A mutable iterator over [`Assets`], including extracted assets.
+pub struct AssetsMutIteratorMaybeExtracted<'a, A: Asset> {
+    queued_events: &'a mut Vec<AssetEvent<A>>,
+    dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, MaybeExtracted<A>>,
+}
+
+impl<'a, A: Asset> Iterator for AssetsMutIteratorMaybeExtracted<'a, A> {
+    type Item = (AssetId<A>, &'a mut MaybeExtracted<A>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for (i, entry) in &mut self.dense_storage {
+            match entry {
+                Entry::None => {
+                    continue;
+                }
+                Entry::Some { value, generation } => {
+                    let id = AssetId::Index {
+                        index: AssetIndex {
+                            generation: *generation,
+                            index: i as u32,
+                        },
+                        marker: PhantomData,
+                    };
+                    self.queued_events.push(AssetEvent::Modified { id });
+                    if let Some(value) = value {
+                        return Some((id, value));
+                    }
+                }
+            }
+        }
+        if let Some((key, value)) = self.hash_map.next() {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
             Some((id, value))
