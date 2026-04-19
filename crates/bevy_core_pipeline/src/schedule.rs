@@ -13,11 +13,11 @@ use core::fmt::{self, Display, Formatter};
 
 use bevy_camera::{ClearColor, NormalizedRenderTarget};
 use bevy_ecs::{
+    entity::EntityHashSet,
     prelude::*,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
 };
 use bevy_log::info_span;
-use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
@@ -109,7 +109,7 @@ impl Core2d {
 
 /// Holds the entity of windows that are a render target for a camera
 #[derive(Resource)]
-struct CameraWindows(HashSet<Entity>);
+struct CameraWindows(EntityHashSet);
 
 /// A render-world marker component for a view that corresponds to neither a
 /// camera nor a camera-associated shadow map.
@@ -144,7 +144,7 @@ pub fn camera_driver(world: &mut World) {
             .collect()
     };
 
-    let mut camera_windows = HashSet::default();
+    let mut camera_windows = EntityHashSet::default();
 
     for root_view in root_views {
         let mut run_schedule = true;

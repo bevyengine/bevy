@@ -199,7 +199,7 @@ where
         BatchedInstanceBuffers {
             current_input_buffer: InstanceInputUniformBuffer::new(),
             previous_input_buffer: PreviousInstanceInputUniformBuffer::new(),
-            phase_instance_buffers: HashMap::default(),
+            phase_instance_buffers: TypeIdMap::default(),
         }
     }
 }

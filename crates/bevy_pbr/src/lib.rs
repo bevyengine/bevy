@@ -176,6 +176,13 @@ pub struct LtcLuts {
     pub ltc_2: Handle<Image>,
 }
 
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
+/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+#[derive(Resource, Clone)]
+pub struct DfgLut {
+    pub texture: Handle<Image>,
+}
+
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/pbr_types.wgsl");
@@ -327,6 +334,31 @@ impl Plugin for PbrPlugin {
 
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
                 render_app.world_mut().insert_resource(ltc_luts);
+            }
+        }
+
+        let has_dfg_lut = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<DfgLut>());
+
+        if !has_dfg_lut {
+            #[cfg(feature = "dfg_lut")]
+            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
+                Image::from_buffer(
+                    include_bytes!("environment_map/dfg.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded DFG LUT"),
+            );
+            #[cfg(not(feature = "dfg_lut"))]
+            let texture = Handle::default();
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(DfgLut { texture });
             }
         }
 
