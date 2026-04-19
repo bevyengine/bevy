@@ -1740,13 +1740,6 @@ pub fn prepare_lights(
                 commands.entity(view_light_entity).insert(NoIndirectDrawing);
             }
 
-            // Subsequent views with the same light entity will reuse the same shadow map
-            shadow_render_phases.prepare_for_new_frame(
-                retained_view_entity,
-                gpu_preprocessing_support.max_supported_mode,
-            );
-            live_shadow_mapping_lights.insert(retained_view_entity);
-
             point_and_spot_light_view_entities.0 = vec![view_light_entity];
         }
 
