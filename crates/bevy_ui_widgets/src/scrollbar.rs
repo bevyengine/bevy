@@ -462,6 +462,9 @@ impl Plugin for ScrollbarPlugin {
                 PostUpdate,
                 update_scrollbar_thumb
                     .in_set(UiSystems::Layout)
+                    // The Stack systems just modify the stack_index of ComputedNode, which this
+                    // system doesn't use.
+                    .ambiguous_with(UiSystems::Stack)
                     .after(ui_layout_system),
             );
     }

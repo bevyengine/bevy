@@ -3385,6 +3385,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
