@@ -156,7 +156,10 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
+impl<A: Asset + FromReflect> FromType<A> for ReflectAsset
+where
+    A::Storage: FromReflect,
+{
     fn from_type() -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
@@ -182,7 +185,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             insert: |world, asset_id, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A = FromReflect::from_reflect(value)
+                let value: A::Storage = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
                 assets.insert(asset_id.typed_debug_checked(), value)
             },

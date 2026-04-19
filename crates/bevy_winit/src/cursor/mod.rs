@@ -143,11 +143,21 @@ fn update_cursors(
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
+                    use bevy_asset::Extractable;
+
                     let Some(image) = images.get(handle) else {
                         tracing::warn!(
                             "Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame."
                         );
                         queue.insert(entity);
+                        continue;
+                    };
+
+                    let Extractable::Data(image) = image else {
+                        tracing::warn!(
+                            "Cursor image {handle:?} is extracted to render world. \
+                            Please add `RenderAssetUsages::MAIN_WORLD` usage to it."
+                        );
                         continue;
                     };
 

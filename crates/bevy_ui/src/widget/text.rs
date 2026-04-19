@@ -321,6 +321,7 @@ pub fn measure_text_system(
                 | TextError::FailedToGetGlyphImage(_)
                 | TextError::MissingAtlasLayout
                 | TextError::MissingAtlasTexture
+                | TextError::ExtractedAtlasTexture
                 | TextError::InconsistentAtlasState),
             ) => {
                 panic!("Fatal error when processing text: {e}.");
@@ -395,6 +396,7 @@ pub fn text_system(
                     e @ (TextError::FailedToAddGlyph(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
+                    | TextError::ExtractedAtlasTexture
                     | TextError::InconsistentAtlasState),
                 ) => {
                     panic!("Fatal error when processing text: {e}.");

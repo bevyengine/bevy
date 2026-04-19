@@ -56,7 +56,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
 use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
-use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
+use bevy_image::{RetainedImage, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::Vec2;
 
 /// Adds support for 2D sprites.
@@ -114,7 +114,7 @@ impl Plugin for SpritePlugin {
 pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<RetainedAssets<RetainedMesh>>,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     new_mesh_aabb: Query<
         (Entity, &Mesh2d),
@@ -178,7 +178,7 @@ pub fn calculate_bounds_2d(
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(&sprite.image).map(Image::size_f32),
+                None => images.get(&sprite.image).map(RetainedImage::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)
@@ -218,7 +218,7 @@ pub fn calculate_bounds_2d(
 // inside the vertex shader which isn't recognized by calculate_aabb().
 fn calculate_bounds_2d_sprite_mesh(
     mut commands: Commands,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     new_sprite_aabb: Query<
         (Entity, &SpriteMesh, &Anchor),
@@ -244,7 +244,7 @@ fn calculate_bounds_2d_sprite_mesh(
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(&sprite.image).map(Image::size_f32),
+                None => images.get(&sprite.image).map(RetainedImage::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)

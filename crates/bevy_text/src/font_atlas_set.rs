@@ -42,6 +42,7 @@ impl FontAtlasSet {
             .map(|font_atlas| {
                 images
                     .get(&font_atlas.texture)
+                    .and_then(|maybe_extracted| maybe_extracted.as_option_ref())
                     .and_then(|image| image.data.as_ref())
                     .map_or(0, |data| data.len() as u64)
             })

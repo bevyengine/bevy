@@ -107,7 +107,7 @@ impl Plugin for AudioPlugin {
 impl AddAudioSource for App {
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
-        T: Decodable + Asset,
+        T: Decodable + Asset<Storage = T>,
         f32: rodio::cpal::FromSample<Sample>,
     {
         self.init_asset::<T>().add_systems(

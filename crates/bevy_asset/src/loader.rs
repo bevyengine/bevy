@@ -324,7 +324,7 @@ impl<A: Asset> AssetContainer for A {
         // We only ever call this if we know the asset is still alive, so it is fine to unwrap here.
         world
             .resource_mut::<Assets<A>>()
-            .insert(index, *self)
+            .insert(index, (*self).into())
             .expect("the AssetIndex is still valid");
     }
 

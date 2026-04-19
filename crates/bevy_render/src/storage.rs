@@ -27,6 +27,7 @@ impl Plugin for StoragePlugin {
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(opaque)]
 #[reflect(Default, Debug, Clone)]
+#[asset(extractable)]
 pub struct ShaderBuffer {
     /// Optional data used to initialize the buffer.
     pub data: Option<Vec<u8>>,

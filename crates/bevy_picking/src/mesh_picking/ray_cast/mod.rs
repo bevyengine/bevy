@@ -17,7 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
 
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Extractable, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
 use bevy_math::FloatOrd;
 use bevy_transform::components::GlobalTransform;
@@ -279,6 +279,9 @@ impl<'w, 's> MeshRayCast<'w, 's> {
 
                 // Does the mesh handle resolve?
                 let Some(mesh) = self.meshes.get(mesh_handle) else {
+                    return;
+                };
+                let Extractable::Data(mesh) = mesh else {
                     return;
                 };
 

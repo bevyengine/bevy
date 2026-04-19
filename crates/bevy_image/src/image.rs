@@ -14,7 +14,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages, RetainedAsset};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -219,10 +219,10 @@ impl Plugin for ImagePlugin {
         let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
 
         image_assets
-            .insert(&Handle::default(), Image::default())
+            .insert(&Handle::default(), Image::default().into())
             .unwrap();
         image_assets
-            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
+            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent().into())
             .unwrap();
 
         #[cfg(feature = "compressed_image_saver")]
@@ -610,6 +610,7 @@ impl ToExtents for UVec3 {
 )]
 #[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 #[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
+#[asset(extractable)]
 pub struct Image {
     /// Raw pixel data.
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
@@ -643,6 +644,70 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+}
+
+/// The representation of an [`Image`] that is retained in [`RetainedAssets`] on the main world after extracting.
+///
+/// [`RetainedAssets`]: bevy_asset::RetainedAssets
+#[derive(Debug, Clone, PartialEq)]
+pub struct RetainedImage {
+    /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
+    ///
+    /// Use [`wgpu_types::TextureDataOrder::default()`] for all other cases.
+    pub data_order: TextureDataOrder,
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
+    /// Describes the data layout of the GPU texture.\
+    /// For example, whether a texture contains 1D/2D/3D data, and what the format of the texture data is.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
+    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
+    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
+    /// The [`ImageSampler`] to use during rendering.
+    pub sampler: ImageSampler,
+    /// Describes how the GPU texture should be interpreted.\
+    /// For example, 2D image data could be read as plain 2D, an array texture of layers of 2D with the same dimensions (and the number of layers in that case),
+    /// a cube map, an array of cube maps, etc.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
+    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
+    pub asset_usage: RenderAssetUsages,
+    /// Whether this image should be copied on the GPU when resized.
+    pub copy_on_resize: bool,
+}
+
+impl RetainedAsset for RetainedImage {
+    type SourceAsset = Image;
+}
+
+impl RetainedImage {
+    /// Returns the width of a 2D image.
+    #[inline]
+    pub fn width(&self) -> u32 {
+        self.texture_descriptor.size.width
+    }
+
+    /// Returns the height of a 2D image.
+    #[inline]
+    pub fn height(&self) -> u32 {
+        self.texture_descriptor.size.height
+    }
+
+    /// Returns the size of a 2D image as f32.
+    #[inline]
+    pub fn size_f32(&self) -> Vec2 {
+        Vec2::new(self.width() as f32, self.height() as f32)
+    }
+
+    /// Returns the size of a 2D image.
+    #[inline]
+    pub fn size(&self) -> UVec2 {
+        UVec2::new(self.width(), self.height())
+    }
 }
 
 #[cfg(feature = "serialize")]

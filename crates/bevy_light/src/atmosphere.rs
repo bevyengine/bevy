@@ -1,7 +1,7 @@
 //! Provides types to specify atmosphere lighting, scattering terms, etc.
 
 use alloc::{borrow::Cow, sync::Arc};
-use bevy_asset::{Asset, AssetEvent, AssetId, Handle};
+use bevy_asset::{Asset, AssetEvent, AssetId, Extractable, Handle};
 use bevy_color::{ColorToComponents, Gray, LinearRgba};
 use bevy_ecs::{
     component::Component,
@@ -570,6 +570,9 @@ pub fn extract_chromatic_phase_textures(
         }
 
         let Some(image) = images.get(*id) else {
+            continue;
+        };
+        let Extractable::Data(image) = image else {
             continue;
         };
         if image.texture_descriptor.format != TextureFormat::Rgba32Float {

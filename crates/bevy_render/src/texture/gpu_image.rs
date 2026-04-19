@@ -3,9 +3,9 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages, RetainedAsset};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{Image, ImageSampler, RetainedImage};
 use bevy_log::warn;
 use bevy_math::{AspectRatio, UVec2};
 use wgpu::{Extent3d, TexelCopyBufferLayout, TextureFormat, TextureUsages};
@@ -20,44 +20,6 @@ pub struct GpuImage {
     pub sampler: Sampler,
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
-}
-
-/// The representation of an [`Image`] that is retained in [`RetainedAssets`] on the main world after extracting.
-///
-/// [`RetainedAssets`]: bevy_asset::RetainedAssets
-#[derive(Debug, Clone, PartialEq)]
-pub struct RetainedImage {
-    /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
-    ///
-    /// Use [`wgpu_types::TextureDataOrder::default()`] for all other cases.
-    pub data_order: wgpu_types::TextureDataOrder,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
-    /// Describes the data layout of the GPU texture.\
-    /// For example, whether a texture contains 1D/2D/3D data, and what the format of the texture data is.
-    ///
-    /// ## Field Usage Notes
-    /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
-    ///   If you use assets, the label is purely a debugging aid.
-    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
-    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
-    /// The [`ImageSampler`] to use during rendering.
-    pub sampler: ImageSampler,
-    /// Describes how the GPU texture should be interpreted.\
-    /// For example, 2D image data could be read as plain 2D, an array texture of layers of 2D with the same dimensions (and the number of layers in that case),
-    /// a cube map, an array of cube maps, etc.
-    ///
-    /// ## Field Usage Notes
-    /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
-    ///   If you use assets, the label is purely a debugging aid.
-    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
-    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
-    pub asset_usage: RenderAssetUsages,
-    /// Whether this image should be copied on the GPU when resized.
-    pub copy_on_resize: bool,
-}
-
-impl RetainedAsset for RetainedImage {
-    type SourceAsset = Image;
 }
 
 impl RenderAsset for GpuImage {

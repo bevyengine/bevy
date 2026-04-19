@@ -12,7 +12,7 @@
 
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
-use bevy_asset::prelude::*;
+use bevy_asset::{prelude::*, Extractable};
 use bevy_camera::{
     visibility::{RenderLayers, ViewVisibility},
     Camera, Projection, RenderTarget,
@@ -242,6 +242,9 @@ fn sprite_picking(
                                     // [`Sprite::from_color`] returns a defaulted handle.
                                     // This handle doesn't return a valid image, so returning false here would make picking "color sprites" impossible
                                     break 'valid_pixel true;
+                                };
+                                let Extractable::Data(image) = image else {
+                                    break 'valid_pixel false;
                                 };
                                 // grab pixel and check alpha
                                 let color = match image.get_color_at(

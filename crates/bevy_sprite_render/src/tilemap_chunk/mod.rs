@@ -1,6 +1,6 @@
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Extractable, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -230,6 +230,13 @@ pub fn update_tilemap_chunk_indices(
         let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
+                chunk_entity
+            );
+            continue;
+        };
+        let Extractable::Data(tile_data_image) = &mut *tile_data_image else {
+            warn!(
+                "TilemapChunkMaterial tile data image is extracted to render world {}",
                 chunk_entity
             );
             continue;

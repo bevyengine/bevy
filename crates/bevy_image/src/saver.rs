@@ -201,7 +201,7 @@ mod tests {
                 ..Default::default()
             },
         ))
-        .init_asset::<Image>()
+        .init_extractable_asset::<Image>()
         .register_asset_loader(ImageLoader::new(CompressedImageFormats::empty()));
 
         (app, dir)

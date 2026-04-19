@@ -89,6 +89,7 @@ impl Sprite {
     ) -> Result<Vec2, Vec2> {
         let image_size = images
             .get(&self.image)
+            .and_then(|maybe_extracted| maybe_extracted.as_option_ref())
             .map(Image::size)
             .unwrap_or(UVec2::ONE);
 

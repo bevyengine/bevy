@@ -206,7 +206,9 @@ impl Process for () {
     }
 }
 
-impl Asset for () {}
+impl Asset for () {
+    type Storage = ();
+}
 
 impl VisitAssetDependencies for () {
     fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {

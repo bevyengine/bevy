@@ -23,6 +23,9 @@ pub enum TextError {
     /// Missing texture for the font atlas
     #[error("missing texture for the font atlas")]
     MissingAtlasTexture,
+    /// Missing texture for the font atlas
+    #[error("the texture for the font atlas is extracted to render asset")]
+    ExtractedAtlasTexture,
     /// Failed to find glyph in atlas after it was added
     #[error("failed to find glyph in atlas after it was added")]
     InconsistentAtlasState,

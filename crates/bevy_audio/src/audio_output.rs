@@ -81,7 +81,7 @@ impl<'w, 's> EarPositions<'w, 's> {
 ///
 /// This system detects such entities, checks if their source asset
 /// data is available, and creates/inserts the sink.
-pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
+pub(crate) fn play_queued_audio_system<Source: Asset<Storage = Source> + Decodable>(
     audio_output: Res<AudioOutput>,
     audio_sources: Res<Assets<Source>>,
     global_volume: Res<GlobalVolume>,
@@ -281,7 +281,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     }
 }
 
-pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
+pub(crate) fn cleanup_finished_audio<T: Decodable + Asset<Storage = T>>(
     mut commands: Commands,
     query_nonspatial_despawn: Query<
         (Entity, &AudioSink),

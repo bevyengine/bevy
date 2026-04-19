@@ -11,10 +11,36 @@ pub(crate) fn bevy_asset_path() -> Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_asset"))
 }
 
+const ASSET_ATTRIBUTE: &str = "asset";
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
 
+mod kw {
+    syn::custom_keyword!(extractable);
+}
+
+struct AssetAttributes {
+    extractable: bool,
+}
+
+impl syn::parse::Parse for AssetAttributes {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut extractable: bool = false;
+
+        while !input.is_empty() {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(kw::extractable) {
+                input.parse::<kw::extractable>()?;
+                extractable = true;
+            } else {
+                return Err(lookahead.error());
+            }
+        }
+        Ok(AssetAttributes { extractable })
+    }
+}
+
 /// Implement the `Asset` trait.
-#[proc_macro_derive(Asset, attributes(dependency))]
+#[proc_macro_derive(Asset, attributes(dependency, asset))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
@@ -25,9 +51,27 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
         Ok(dependency_visitor) => dependency_visitor,
         Err(err) => return err.into_compile_error().into(),
     };
+    let stored_type = if let Some(attr) = ast
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident(ASSET_ATTRIBUTE))
+        && let Ok(attr) = attr.parse_args::<AssetAttributes>()
+        && attr.extractable
+    {
+        quote! {
+            type Storage = #bevy_asset_path::Extractable<#struct_name #type_generics>;
+
+        }
+    } else {
+        quote! {
+            type Storage = #struct_name #type_generics;
+        }
+    };
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause { }
+        impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause {
+            #stored_type
+        }
         #dependency_visitor
     })
 }

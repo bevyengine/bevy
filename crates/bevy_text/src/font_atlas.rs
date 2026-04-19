@@ -95,6 +95,9 @@ impl FontAtlas {
         let mut atlas_texture = textures
             .get_mut(&self.texture)
             .ok_or(TextError::MissingAtlasTexture)?;
+        let mut atlas_texture = atlas_texture
+            .as_option_mut()
+            .ok_or(TextError::ExtractedAtlasTexture)?;
 
         if let Ok(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
             &mut self.texture_atlas,

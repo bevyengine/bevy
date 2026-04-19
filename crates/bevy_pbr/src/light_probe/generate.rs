@@ -12,7 +12,9 @@
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages, RetainedAssets,
+};
 use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
     component::Component,
@@ -22,7 +24,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::{Image, RetainedImage};
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -1018,11 +1020,12 @@ pub fn filtering_system(
 pub fn generate_environment_map_light(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
+    retained_images: Res<RetainedAssets<RetainedImage>>,
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
         // Validate and fetch the source cubemap so we can size our targets correctly
-        let Some(src_image) = images.get(&filtered_env_map.environment_map) else {
+        let Some(src_image) = retained_images.get(&filtered_env_map.environment_map) else {
             // Texture not ready yet – try again next frame
             continue;
         };

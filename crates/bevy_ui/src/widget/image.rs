@@ -1,8 +1,8 @@
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle, RetainedAssets};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
+use bevy_image::{prelude::*, RetainedImage, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
@@ -243,7 +243,7 @@ type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    textures: Res<Assets<Image>>,
+    textures: Res<RetainedAssets<RetainedImage>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<
         (
@@ -272,7 +272,7 @@ pub fn update_image_content_size_system(
                 .map(|rect| rect.size().as_uvec2())
                 .or_else(|| match &image.texture_atlas {
                     Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-                    None => textures.get(&image.image).map(Image::size),
+                    None => textures.get(&image.image).map(RetainedImage::size),
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations

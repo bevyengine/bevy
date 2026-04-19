@@ -297,6 +297,7 @@ pub fn update_text2d_layout(
                     e @ (TextError::FailedToAddGlyph(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
+                    | TextError::ExtractedAtlasTexture
                     | TextError::InconsistentAtlasState),
                 ) => {
                     panic!("Fatal error when processing text: {e}.");
@@ -326,6 +327,7 @@ pub fn update_text2d_layout(
                 | TextError::FailedToGetGlyphImage(_)
                 | TextError::MissingAtlasLayout
                 | TextError::MissingAtlasTexture
+                | TextError::ExtractedAtlasTexture
                 | TextError::InconsistentAtlasState
                 | TextError::DegenerateScaleFactor),
             ) => {

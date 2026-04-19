@@ -2677,7 +2677,7 @@ mod test {
             }
         }
 
-        app.init_asset::<Image>()
+        app.init_extractable_asset::<Image>()
             .register_asset_loader(FakePngLoader);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2736,7 +2736,7 @@ mod test {
 "#,
         );
 
-        app.init_asset::<Image>();
+        app.init_extractable_asset::<Image>();
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");

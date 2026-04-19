@@ -185,6 +185,11 @@ pub fn update_viewport_render_target_size(
             continue;
         };
         let size = size.as_uvec2().max(UVec2::ONE).to_extents();
-        images.get_mut(image_handle).unwrap().resize(size);
+        images
+            .get_mut(image_handle)
+            .unwrap()
+            .as_option_mut()
+            .expect("Image is extracted to render world")
+            .resize(size);
     }
 }

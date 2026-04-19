@@ -451,7 +451,11 @@ impl Plugin for AssetPlugin {
     label = "invalid `Asset`",
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
-pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
+pub trait Asset:
+    VisitAssetDependencies + TypePath + Send + Sync + 'static + Into<Self::Storage>
+{
+    type Storage: Send + Sync + 'static;
+}
 
 /// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
 pub trait AsAssetId: Component {
@@ -585,7 +589,8 @@ pub trait AssetApp {
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
-        A: Asset + Reflect + FromReflect + GetTypeRegistration;
+        A: Asset + Reflect + FromReflect + GetTypeRegistration,
+        A::Storage: FromReflect;
     /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
     /// is registered.
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self;
@@ -675,6 +680,7 @@ impl AssetApp for App {
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration,
+        A::Storage: FromReflect,
     {
         let type_registry = self.world().resource::<AppTypeRegistry>();
         {
@@ -971,7 +977,7 @@ mod tests {
 
     const LARGE_ITERATION_COUNT: usize = 10000;
 
-    fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
+    fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A::Storage> {
         world.resource::<Assets<A>>().get(id)
     }
 

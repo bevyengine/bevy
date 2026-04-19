@@ -284,6 +284,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 }),
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
+                .and_then(|maybe_extracted| maybe_extracted.as_option_ref())
                 .map(|image| RenderTargetInfo {
                     physical_size: image.size(),
                     scale_factor: image_target.scale_factor,

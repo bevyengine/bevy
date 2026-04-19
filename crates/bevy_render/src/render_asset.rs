@@ -4,8 +4,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{
-    Asset, AssetEvent, AssetId, Assets, EmptyRetainedAsset, RenderAssetUsages, RetainedAsset,
-    RetainedAssets,
+    Asset, AssetEvent, AssetId, Assets, EmptyRetainedAsset, Extractable, RenderAssetUsages,
+    RetainedAsset, RetainedAssets,
 };
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
@@ -338,22 +338,42 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         }
 
         for id in needs_extracting.drain() {
-            if let Some(asset) = assets.get_mut_untracked(id) {
+            let Some(asset) = assets.get_mut_untracked(id) else {
+                continue;
+            };
+
+            if let Some(extractable_asset) = (asset as &mut dyn Any).downcast_mut::<Extractable<A::SourceAsset>>() {
+                let Extractable::Data(asset_data) = extractable_asset else {
+                    panic!("Asset {} is already extracted", id);
+                };
+                let retained_asset = A::retain_main_world_asset(asset_data);
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
+                    retained_assets.insert(id, retained_asset);
+                }
+                match A::asset_usage(asset_data) {
+                    u if u == RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD => {
+                        extracted_assets.extracted.push((id, asset_data.clone()));
+                        extracted_assets.added.insert(id);
+                    }
+                    u if u == RenderAssetUsages::RENDER_WORLD => {
+                        let asset_data = extractable_asset.take().as_option().unwrap();
+                        extracted_assets.extracted.push((id, asset_data));
+                        extracted_assets.added.insert(id);
+                    }
+                    u if u == RenderAssetUsages::MAIN_WORLD => {}
+                    _ => unreachable!(),
+                }
+            } else {
+                let Some(asset) = (asset as &mut dyn Any).downcast_mut::<A::SourceAsset>() else {
+                    panic!("RenderAsset::SourceAsset::Storage must be Extractable<SourceAsset> or SourceAsset, {}", id);
+                };
                 let retained_asset = A::retain_main_world_asset(asset);
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);
                 }
                 match A::asset_usage(asset) {
-                    u if u == RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD => {
+                    u if u.contains(RenderAssetUsages::RENDER_WORLD) => {
                         extracted_assets.extracted.push((id, asset.clone()));
-                        extracted_assets.added.insert(id);
-                    }
-                    u if u == RenderAssetUsages::RENDER_WORLD => {
-                        let asset = match assets.extract_untracked(id){
-                            Ok(asset) => asset,
-                            Err(err) => panic!("Failed to extract {}: {}", id, err),
-                        }.unwrap();
-                        extracted_assets.extracted.push((id, asset));
                         extracted_assets.added.insert(id);
                     }
                     u if u == RenderAssetUsages::MAIN_WORLD => {}

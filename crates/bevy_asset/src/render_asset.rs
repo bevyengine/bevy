@@ -57,6 +57,50 @@ impl Default for RenderAssetUsages {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, Reflect)]
+pub enum Extractable<A> {
+    #[default]
+    Extracted,
+    Data(A),
+}
+
+impl<A> Extractable<A> {
+    pub fn as_option(self) -> Option<A> {
+        match self {
+            Extractable::Extracted => None,
+            Extractable::Data(a) => Some(a),
+        }
+    }
+
+    pub fn as_option_ref(&self) -> Option<&A> {
+        match self {
+            Extractable::Extracted => None,
+            Extractable::Data(a) => Some(a),
+        }
+    }
+
+    pub fn as_option_mut(&mut self) -> Option<&mut A> {
+        match self {
+            Extractable::Extracted => None,
+            Extractable::Data(a) => Some(a),
+        }
+    }
+
+    pub fn replace(&mut self, value: Self) -> Self {
+        core::mem::replace(self, value)
+    }
+
+    pub fn take(&mut self) -> Self {
+        core::mem::take(self)
+    }
+}
+
+impl<A: Asset> From<A> for Extractable<A> {
+    fn from(value: A) -> Self {
+        Self::Data(value)
+    }
+}
+
 /// Declares that this type is a retained asset of the source asset.
 pub trait RetainedAsset: Send + Sync {
     type SourceAsset: Asset;
@@ -90,10 +134,6 @@ impl<R: RetainedAsset> RetainedAssets<R> {
         self.0.get(&id.into())
     }
 
-    pub fn get_mut(&mut self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<&mut R> {
-        self.0.get_mut(&id.into())
-    }
-
     pub fn insert(&mut self, id: impl Into<AssetId<R::SourceAsset>>, value: R) -> Option<R> {
         self.0.insert(id.into(), value)
     }
@@ -104,9 +144,5 @@ impl<R: RetainedAsset> RetainedAssets<R> {
 
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<R::SourceAsset>, &R)> {
         self.0.iter().map(|(k, v)| (*k, v))
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (AssetId<R::SourceAsset>, &mut R)> {
-        self.0.iter_mut().map(|(k, v)| (*k, v))
     }
 }

@@ -120,6 +120,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
+#[asset(extractable)]
 pub struct Mesh {
     #[reflect(ignore, clone)]
     primitive_topology: PrimitiveTopology,

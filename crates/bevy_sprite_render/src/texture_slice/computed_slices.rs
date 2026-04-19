@@ -1,7 +1,7 @@
 use crate::{ExtractedSlice, TextureAtlasLayout};
-use bevy_asset::{AssetEvent, Assets};
+use bevy_asset::{AssetEvent, Assets, RetainedAssets};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::{Image, RetainedImage};
 use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashSet;
 use bevy_sprite::{Sprite, SpriteImageMode, TextureSlice};
@@ -56,7 +56,7 @@ impl ComputedTextureSlices {
 #[must_use]
 fn compute_sprite_slices(
     sprite: &Sprite,
-    images: &Assets<Image>,
+    images: &RetainedAssets<RetainedImage>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
     let (image_size, texture_rect) = match &sprite.texture_atlas {
@@ -109,7 +109,7 @@ fn compute_sprite_slices(
 pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: MessageReader<AssetEvent<Image>>,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     sprites: Query<(Entity, &Sprite)>,
 ) {
@@ -141,7 +141,7 @@ pub(crate) fn compute_slices_on_asset_event(
 /// System reacting to changes on the [`Sprite`] component to compute the sprite slices
 pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     changed_sprites: Query<(Entity, &Sprite), Changed<Sprite>>,
 ) {
