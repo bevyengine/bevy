@@ -332,12 +332,12 @@ impl<A: Asset> Assets<A> {
     pub fn insert(
         &mut self,
         id: impl Into<AssetId<A>>,
-        asset: A::Storage,
+        asset: A,
     ) -> Result<(), InvalidGenerationError> {
         match id.into() {
-            AssetId::Index { index, .. } => self.insert_with_index(index, asset).map(|_| ()),
+            AssetId::Index { index, .. } => self.insert_with_index(index, asset.into()).map(|_| ()),
             AssetId::Uuid { uuid } => {
-                self.insert_with_uuid(uuid, asset);
+                self.insert_with_uuid(uuid, asset.into());
                 Ok(())
             }
         }
@@ -351,7 +351,7 @@ impl<A: Asset> Assets<A> {
     pub fn get_or_insert_with(
         &mut self,
         id: impl Into<AssetId<A>>,
-        insert_fn: impl FnOnce() -> A::Storage,
+        insert_fn: impl FnOnce() -> A,
     ) -> Result<AssetMut<'_, A::Storage, A>, InvalidGenerationError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
@@ -384,7 +384,7 @@ impl<A: Asset> Assets<A> {
         index: AssetIndex,
         asset: A::Storage,
     ) -> Result<Option<A::Storage>, InvalidGenerationError> {
-        Ok(self.dense_storage.insert(index, asset)?)
+        self.dense_storage.insert(index, asset)
     }
     pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A::Storage) -> Option<A::Storage> {
         let result = self.insert_with_uuid_untracked(uuid, asset);
@@ -557,7 +557,7 @@ impl<A: Asset> Assets<A> {
             .enumerate()
             .filter_map(|(i, v)| match v {
                 Entry::None => None,
-                Entry::Some { value, generation } => value.as_ref().and_then(|stored| {
+                Entry::Some { value, generation } => value.as_ref().map(|stored| {
                     let id = AssetId::Index {
                         index: AssetIndex {
                             generation: *generation,
@@ -565,7 +565,7 @@ impl<A: Asset> Assets<A> {
                         },
                         marker: PhantomData,
                     };
-                    Some((id, stored))
+                    (id, stored)
                 }),
             })
             .chain(

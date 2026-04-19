@@ -58,6 +58,17 @@ impl RetainedAsset for RetainedShaderBuffer {
     type SourceAsset = ShaderBuffer;
 }
 
+impl From<RetainedShaderBuffer> for ShaderBuffer {
+    fn from(value: RetainedShaderBuffer) -> Self {
+        ShaderBuffer {
+            data: None,
+            buffer_description: value.buffer_description,
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
+}
+
 impl Default for ShaderBuffer {
     fn default() -> Self {
         Self {

@@ -185,7 +185,7 @@ where
             },
             insert: |world, asset_id, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A::Storage = FromReflect::from_reflect(value)
+                let value = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
                 assets.insert(asset_id.typed_debug_checked(), value)
             },

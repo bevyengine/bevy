@@ -201,7 +201,7 @@ mod tests {
                 ..Default::default()
             },
         ))
-        .init_extractable_asset::<Image>()
+        .init_asset::<Image>()
         .register_asset_loader(ImageLoader::new(CompressedImageFormats::empty()));
 
         (app, dir)
@@ -286,11 +286,19 @@ mod tests {
             .get(&handle)
             .unwrap();
 
-        assert_eq!(loaded_image.size(), UVec2::new(WIDTH, WIDTH));
+        assert_eq!(
+            loaded_image.as_option_ref().unwrap().size(),
+            UVec2::new(WIDTH, WIDTH)
+        );
         let compare_images = 'compare_images: {
             for y in 0..WIDTH {
                 for x in 0..WIDTH {
-                    if image.get_color_at(x, y).unwrap() != loaded_image.get_color_at(x, y).unwrap()
+                    if image.get_color_at(x, y).unwrap()
+                        != loaded_image
+                            .as_option_ref()
+                            .unwrap()
+                            .get_color_at(x, y)
+                            .unwrap()
                     {
                         break 'compare_images Err((x, y));
                     }
@@ -321,7 +329,7 @@ mod tests {
             }
             panic!(
                 "Mismatch in color at ({x}, {y})\nleft:\n{}\nright:\n{}",
-                image_to_string(loaded_image),
+                image_to_string(loaded_image.as_option_ref().unwrap()),
                 image_to_string(&image)
             );
         }

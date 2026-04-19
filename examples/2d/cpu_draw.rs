@@ -121,7 +121,7 @@ fn draw(
     let (x, y) = (xy.x as u32, xy.y as u32);
 
     // Get the old color of that pixel.
-    let old_color = image.get_color_at(x, y).unwrap();
+    let old_color = image.as_option_ref().unwrap().get_color_at(x, y).unwrap();
 
     // If the old color is our current color, change our drawing color.
     let tolerance = 1.0 / 255.0;
@@ -135,6 +135,8 @@ fn draw(
 
     // Set the new color, but keep old alpha value from image.
     image
+        .as_option_mut()
+        .unwrap()
         .set_color_at(x, y, draw_color.with_alpha(old_color.alpha()))
         .unwrap();
 

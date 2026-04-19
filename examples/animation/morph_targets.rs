@@ -2,6 +2,7 @@
 //!
 //! Also illustrates how to read morph target names in `name_morphs`.
 
+use bevy::asset::Extractable;
 use bevy::{prelude::*, world_serialization::WorldInstanceReady};
 use std::f32::consts::PI;
 
@@ -86,6 +87,7 @@ fn name_morphs(
         if let AssetEvent::<Mesh>::Added { id } = event
             && let Some(path) = asset_server.get_path(*id)
             && let Some(mesh) = meshes.get(*id)
+            && let Extractable::Data(mesh) = &mesh
             && let Some(names) = mesh.morph_target_names()
         {
             info!("Morph target names for {path:?}:");

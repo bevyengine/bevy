@@ -41,6 +41,7 @@ fn perform_save(
     asset_server: Res<AssetServer>,
 ) {
     let image = images.get(&image_to_save.0).unwrap();
+    let image = image.as_option_ref().unwrap();
 
     let image = image.clone();
     let asset_server = asset_server.clone();
@@ -235,6 +236,7 @@ fn try_plot(
     };
     let pixel_coordinates = pixel_space.floor().as_uvec2();
     let mut image = images.get_mut(&sprite.image).unwrap();
+    let image = image.as_option_mut().unwrap();
     // For an actual drawing app, you'd at least draw a line from the last point, but this is
     // simpler.
     image

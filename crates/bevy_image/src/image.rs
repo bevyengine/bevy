@@ -219,10 +219,10 @@ impl Plugin for ImagePlugin {
         let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
 
         image_assets
-            .insert(&Handle::default(), Image::default().into())
+            .insert(&Handle::default(), Image::default())
             .unwrap();
         image_assets
-            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent().into())
+            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
             .unwrap();
 
         #[cfg(feature = "compressed_image_saver")]
@@ -682,6 +682,20 @@ pub struct RetainedImage {
 
 impl RetainedAsset for RetainedImage {
     type SourceAsset = Image;
+}
+
+impl From<RetainedImage> for Image {
+    fn from(value: RetainedImage) -> Self {
+        Image {
+            data: None,
+            data_order: value.data_order,
+            texture_descriptor: value.texture_descriptor,
+            sampler: value.sampler,
+            texture_view_descriptor: value.texture_view_descriptor,
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
 }
 
 impl RetainedImage {

@@ -10,6 +10,7 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
+use bevy::asset::Extractable;
 use bevy::{
     camera::{Exposure, Hdr},
     core_pipeline::tonemapping::Tonemapping,
@@ -374,6 +375,7 @@ impl FromWorld for Cubemaps {
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
     if let Some(mut image) = images.get_mut(&cubemaps.specular_environment_map)
+        && let Extractable::Data(image) = &mut *image
         && !image
             .texture_descriptor
             .usage

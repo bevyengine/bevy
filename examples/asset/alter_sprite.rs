@@ -1,5 +1,6 @@
 //! Shows how to modify texture assets after spawning.
 
+use bevy::asset::Extractable;
 use bevy::{
     asset::RenderAssetUsages, image::ImageLoaderSettings,
     input::common_conditions::input_just_pressed, prelude::*,
@@ -126,6 +127,9 @@ fn alter_handle(
 fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
     let Some(mut image) = images.get_mut(&left_bird.image) else {
+        return;
+    };
+    let Extractable::Data(image) = &mut *image else {
         return;
     };
 

@@ -3,6 +3,8 @@
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSet};
 
+use bevy::asset::RetainedAssets;
+use bevy::image::RetainedImage;
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
@@ -40,7 +42,7 @@ fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_set: Res<FontAtlasSet>,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
 ) {
     if let Some(font_atlases) = font_atlas_set.values().next() {
         let x_offset = state.atlas_count as f32;

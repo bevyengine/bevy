@@ -1810,7 +1810,6 @@ mod tests {
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::bounding::Aabb3d;
     use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;

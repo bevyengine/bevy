@@ -395,6 +395,7 @@ fn add_raytracing_meshes_on_scene_load(
 
             // Ensure meshes are Solari compatible
             let mut mesh = meshes.get_mut(mesh_handle).unwrap();
+            let mesh = mesh.as_option_mut().unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
                 let vertex_count = mesh.count_vertices();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);

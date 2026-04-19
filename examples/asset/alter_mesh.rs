@@ -1,5 +1,6 @@
 //! Shows how to modify mesh assets after spawning.
 
+use bevy::asset::Extractable;
 use bevy::{
     asset::RenderAssetUsages, gltf::GltfLoaderSettings,
     input::common_conditions::input_just_pressed, mesh::VertexAttributeValues, prelude::*,
@@ -179,6 +180,9 @@ fn alter_mesh(
 ) {
     // Obtain a mutable reference to the Mesh asset.
     let Some(mut mesh) = meshes.get_mut(*left_shape) else {
+        return;
+    };
+    let Extractable::Data(mesh) = &mut *mesh else {
         return;
     };
 

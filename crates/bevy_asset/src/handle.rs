@@ -722,7 +722,9 @@ mod tests {
         struct MyAsset {
             value: u32,
         }
-        impl Asset for MyAsset {}
+        impl Asset for MyAsset {
+            type Storage = Self;
+        }
         impl VisitAssetDependencies for MyAsset {
             fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
         }

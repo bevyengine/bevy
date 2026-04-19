@@ -13,6 +13,8 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use bevy::asset::RetainedAssets;
+use bevy::image::RetainedImage;
 use bevy::{
     color::palettes::css::*,
     light::Skybox,
@@ -526,7 +528,7 @@ fn play_animations(
 }
 
 fn create_cubes(
-    image_assets: Res<Assets<Image>>,
+    image_assets: Res<RetainedAssets<RetainedImage>>,
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,

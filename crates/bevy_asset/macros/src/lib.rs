@@ -40,6 +40,8 @@ impl syn::parse::Parse for AssetAttributes {
 }
 
 /// Implement the `Asset` trait.
+///
+/// Add `#[asset(extractable)]` to make the asset stored in `Extracable<T>`.
 #[proc_macro_derive(Asset, attributes(dependency, asset))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

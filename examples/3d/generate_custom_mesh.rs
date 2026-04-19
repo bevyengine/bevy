@@ -2,6 +2,7 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
+use bevy::asset::Extractable;
 use bevy::{
     asset::RenderAssetUsages,
     mesh::{Indices, VertexAttributeValues},
@@ -77,8 +78,11 @@ fn input_handler(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let mesh_handle = mesh_query.single().expect("Query not successful");
-        let mesh = meshes.get_mut(mesh_handle).unwrap();
-        toggle_texture(mesh.into_inner());
+        let mut mesh = meshes.get_mut(mesh_handle).unwrap();
+        let Extractable::Data(mesh) = &mut *mesh else {
+            panic!("Mesh is extracted to render world")
+        };
+        toggle_texture(mesh);
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {

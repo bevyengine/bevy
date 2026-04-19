@@ -11,7 +11,7 @@ use fast_image_resize::{ResizeAlg, ResizeOptions, Resizer};
 use tracing::warn;
 
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{Extractable, RenderAssetUsages},
     image::{ImageSampler, ImageSamplerDescriptor},
     pbr::{ExtendedMaterial, MaterialExtension},
     platform::collections::HashMap,
@@ -232,7 +232,7 @@ pub struct MipmapTasks<M: Material + GetImages>(
 pub struct MaterialHandle<M: Material + GetImages>(pub Handle<M>);
 
 #[allow(clippy::too_many_arguments)]
-pub fn generate_mipmaps<M: Material + GetImages>(
+pub fn generate_mipmaps<M: Material<Storage = M> + GetImages>(
     mut commands: Commands,
     mut material_events: MessageReader<AssetEvent<M>>,
     mut materials: ResMut<Assets<M>>,
@@ -272,6 +272,9 @@ pub fn generate_mipmaps<M: Material + GetImages>(
                     continue; //There is already a task for this image
                 }
                 if let Some(mut image) = images.get_mut(image_h) {
+                    let Extractable::Data(image) = &mut *image else {
+                        panic!("Image is extracted to render world")
+                    };
                     let mut descriptor = match image.sampler.clone() {
                         ImageSampler::Default => default_sampler.0.clone(),
                         ImageSampler::Descriptor(descriptor) => descriptor,
@@ -279,7 +282,7 @@ pub fn generate_mipmaps<M: Material + GetImages>(
                     descriptor.anisotropy_clamp = settings.anisotropic_filtering;
                     image.sampler = ImageSampler::Descriptor(descriptor);
                     if image.texture_descriptor.mip_level_count == 1
-                        && check_image_compatible(&image).is_ok()
+                        && check_image_compatible(image).is_ok()
                     {
                         let mut image = image.clone();
                         let settings = settings.clone();
@@ -314,7 +317,7 @@ pub fn generate_mipmaps<M: Material + GetImages>(
         match future::block_on(future::poll_once(task)) {
             Some(task_data) => {
                 if let Some(mut image) = images.get_mut(image_h) {
-                    *image = task_data.image;
+                    *image = Extractable::Data(task_data.image);
                     progress.processed += 1;
                     let prev_cached_data_gb = bytes_to_gb(progress.cached_data_size_bytes);
                     progress.cached_data_size_bytes += task_data.added_cache_size;

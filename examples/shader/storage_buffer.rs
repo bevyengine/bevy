@@ -1,4 +1,6 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
+use bevy::asset::{Extractable, RetainedAssets};
+use bevy::render::storage::RetainedShaderBuffer;
 use bevy::{
     mesh::MeshTag,
     prelude::*,
@@ -70,11 +72,14 @@ fn update(
     material_handles: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
+    retained_buffers: Res<RetainedAssets<RetainedShaderBuffer>>,
 ) {
     let material = materials.get_mut(&material_handles.0).unwrap();
 
     let mut buffer = buffers.get_mut(&material.colors).unwrap();
-    buffer.set_data(
+    let retained_buffer = retained_buffers.get(&material.colors).unwrap();
+    let mut new_buffer: ShaderBuffer = retained_buffer.clone().into();
+    new_buffer.set_data(
         (0..5)
             .map(|i| {
                 let t = time.elapsed_secs() * 5.0;
@@ -87,6 +92,7 @@ fn update(
             })
             .collect::<Vec<[f32; 4]>>(),
     );
+    *buffer = Extractable::Data(new_buffer);
 }
 
 // Holds handles to the custom materials

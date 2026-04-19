@@ -286,6 +286,7 @@ fn merge_world_asset(
         let Some(mesh) = entity_ref
             .get::<Mesh3d>()
             .and_then(|mesh3d| meshes.get(mesh3d))
+            .and_then(|mesh3d| mesh3d.as_option_ref())
         else {
             continue;
         };

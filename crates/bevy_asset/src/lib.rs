@@ -454,6 +454,7 @@ impl Plugin for AssetPlugin {
 pub trait Asset:
     VisitAssetDependencies + TypePath + Send + Sync + 'static + Into<Self::Storage>
 {
+    /// The type stored in [`Assets`] internally.
     type Storage: Send + Sync + 'static;
 }
 

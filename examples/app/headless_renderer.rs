@@ -12,6 +12,7 @@
 //! without gaps, it is simpler to use [`bevy::render::view::window::screenshot::Screenshot`]
 //! than this approach.
 
+use bevy::asset::Extractable;
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     camera::RenderTarget,
@@ -471,6 +472,9 @@ fn update(
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
                     let mut img_bytes = images.get_mut(image.id()).unwrap();
+                    let Extractable::Data(img_bytes) = &mut *img_bytes else {
+                        panic!("Image is extracted to render world")
+                    };
 
                     // We need to ensure that this works regardless of the image dimensions
                     // If the image became wider when copying from the texture to the buffer,

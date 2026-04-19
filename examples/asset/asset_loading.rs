@@ -40,7 +40,7 @@ fn setup(
         // You might notice that this doesn't run! This is because assets load in parallel without
         // blocking. When an asset has loaded, it will appear in relevant Assets<T>
         // collection.
-        info!("{:?}", sphere.primitive_topology());
+        info!("{:?}", sphere.as_option_ref().map(Mesh::primitive_topology));
     } else {
         info!("sphere hasn't loaded yet");
     }

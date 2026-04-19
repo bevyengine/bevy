@@ -57,6 +57,7 @@ impl Default for RenderAssetUsages {
     }
 }
 
+/// Represents a value that can be extracted, like [`Option`].
 #[derive(Debug, Default, Clone, Copy, Reflect)]
 pub enum Extractable<A> {
     #[default]

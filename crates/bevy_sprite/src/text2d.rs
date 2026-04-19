@@ -435,7 +435,7 @@ mod tests {
         // A font is needed to ensure the text is laid out with an actual size.
         load_internal_binary_asset!(
             app,
-            Handle::default(),
+            Handle::<Font>::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec(), "bevy default font") }
         );

@@ -280,7 +280,9 @@ fn calculate_bounds_2d_sprite_mesh(
 #[cfg(test)]
 mod test {
     use super::*;
+    use bevy_image::Image;
     use bevy_math::{Rect, Vec2, Vec3A};
+    use bevy_mesh::Mesh;
 
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {

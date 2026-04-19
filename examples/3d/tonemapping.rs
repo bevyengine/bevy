@@ -1,5 +1,7 @@
 //! This examples compares Tonemapping options
 
+use bevy::asset::RetainedAssets;
+use bevy::image::RetainedImage;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::Hdr,
@@ -228,7 +230,7 @@ fn resize_image(
     image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
+    images: Res<RetainedAssets<RetainedImage>>,
     mut image_event_reader: MessageReader<AssetEvent<Image>>,
 ) {
     for event in image_event_reader.read() {

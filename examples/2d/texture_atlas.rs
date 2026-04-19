@@ -7,6 +7,7 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
+use bevy::asset::Extractable;
 use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
 
 fn main() {
@@ -232,6 +233,13 @@ fn create_texture_atlas(
             );
             continue;
         };
+        let Extractable::Data(texture) = texture else {
+            warn!(
+                "`Image` {} is extracted to render world.",
+                handle.path().unwrap()
+            );
+            continue;
+        };
 
         texture_atlas_builder.add_texture(Some(id), texture);
     }
@@ -242,6 +250,7 @@ fn create_texture_atlas(
 
     // Update the sampling settings of the texture atlas
     let mut image = textures.get_mut(&texture).unwrap();
+    let image = image.as_option_mut().unwrap();
     image.sampler = sampling.unwrap_or_default();
 
     (texture_atlas_layout, texture_atlas_sources, texture)
