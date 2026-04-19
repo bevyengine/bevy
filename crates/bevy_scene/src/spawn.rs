@@ -634,10 +634,10 @@ pub fn resolve_scene_patches(
     for event in list_events.read() {
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(mut list_patch) = list_patches.get_mut(id) {
-                    if let Err(err) = list_patch.resolve(&assets, &patches) {
-                        error!("Failed to resolve scene list {id}: {err}");
-                    }
+                if let Some(mut list_patch) = list_patches.get_mut(id)
+                    && let Err(err) = list_patch.resolve(&assets, &patches)
+                {
+                    error!("Failed to resolve scene list {id}: {err}");
                 }
             }
             AssetEvent::Removed { id } => {
