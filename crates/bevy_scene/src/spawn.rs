@@ -1,12 +1,11 @@
 use crate::{
-    ResolveContext, ResolvedScene, ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch,
-    ScenePatchInstance, SpawnSceneError,
+    ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
+    SpawnSceneError,
 };
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
 use bevy_ecs::{
     bundle::BundleScratch, message::MessageCursor, prelude::*, relationship::Relationship,
-    template::EntityScopes,
 };
 use bevy_platform::collections::HashMap;
 use tracing::error;
@@ -598,22 +597,10 @@ pub fn resolve_scene_patches(
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(scene) = patches.get_mut(id).and_then(|mut p| p.scene.take()) {
-                    let mut resolved_scene = ResolvedScene::default();
-                    let mut entity_scopes = EntityScopes::default();
-                    let mut resolve_context = ResolveContext {
-                        assets: &assets,
-                        patches: &patches,
-                        current_scope: 0,
-                        entity_scopes: &mut entity_scopes,
-                        inherited: None,
-                    };
-                    match scene.resolve_box(&mut resolve_context, &mut resolved_scene) {
-                        Ok(()) => {
+                    match ResolvedSceneRoot::resolve(scene, &assets, &patches) {
+                        Ok(resolved) => {
                             let mut patch = patches.get_mut(id).unwrap();
-                            patch.resolved = Some(Arc::new(ResolvedSceneRoot {
-                                scene: resolved_scene,
-                                entity_scopes,
-                            }));
+                            patch.resolved = Some(Arc::new(resolved));
                         }
                         Err(err) => error!("Failed to resolve scene {id}: {err}"),
                     }

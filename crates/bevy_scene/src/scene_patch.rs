@@ -1,6 +1,6 @@
 use crate::{
-    ApplySceneError, ResolveContext, ResolveSceneError, ResolvedScene, ResolvedSceneListRoot,
-    ResolvedSceneRoot, Scene, SceneDependencies, SceneList,
+    ApplySceneError, ResolveSceneError, ResolvedSceneListRoot, ResolvedSceneRoot, Scene,
+    SceneDependencies, SceneList,
 };
 use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
@@ -9,7 +9,7 @@ use bevy_ecs::{
     bundle::BundleScratch,
     component::Component,
     entity::Entity,
-    template::{EntityScopes, FromTemplate},
+    template::FromTemplate,
     world::{EntityWorldMut, World},
 };
 use bevy_reflect::TypePath;
@@ -59,23 +59,10 @@ impl ScenePatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let mut resolved_scene = ResolvedScene::default();
-        let mut entity_scopes = EntityScopes::default();
         let scene = self.scene.take().unwrap();
-        scene.resolve_box(
-            &mut ResolveContext {
-                assets,
-                patches,
-                current_scope: 0,
-                entity_scopes: &mut entity_scopes,
-                inherited: None,
-            },
-            &mut resolved_scene,
-        )?;
-        self.resolved = Some(Arc::new(ResolvedSceneRoot {
-            scene: resolved_scene,
-            entity_scopes,
-        }));
+        self.resolved = Some(Arc::new(ResolvedSceneRoot::resolve(
+            scene, assets, patches,
+        )?));
         Ok(())
     }
 
@@ -160,22 +147,7 @@ impl SceneListPatch {
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
         let scene_list = self.scene_list.take().unwrap();
-        let mut resolved_scenes = Vec::new();
-        let mut entity_scopes = EntityScopes::default();
-        scene_list.resolve_list_box(
-            &mut ResolveContext {
-                assets,
-                patches,
-                current_scope: 0,
-                entity_scopes: &mut entity_scopes,
-                inherited: None,
-            },
-            &mut resolved_scenes,
-        )?;
-        self.resolved = Some(ResolvedSceneListRoot {
-            scenes: resolved_scenes,
-            entity_scopes,
-        });
+        self.resolved = Some(ResolvedSceneListRoot::resolve(scene_list, assets, patches)?);
         Ok(())
     }
 
