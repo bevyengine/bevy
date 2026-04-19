@@ -103,13 +103,13 @@ pub struct LoadedUntypedAsset {
 
 // PERF: do we actually need this to be an enum? Can we just use an "invalid" generation instead
 #[derive(Default)]
-enum Entry<StoredType> {
+enum Entry<Storage> {
     /// None is an indicator that this entry does not have live handles.
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
     Some {
-        value: Option<StoredType>,
+        value: Option<Storage>,
         generation: u32,
     },
 }

@@ -698,6 +698,32 @@ impl From<RetainedImage> for Image {
     }
 }
 
+impl From<Image> for RetainedImage {
+    fn from(value: Image) -> Self {
+        RetainedImage {
+            data_order: value.data_order,
+            texture_descriptor: value.texture_descriptor,
+            sampler: value.sampler,
+            texture_view_descriptor: value.texture_view_descriptor,
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
+}
+
+impl From<&Image> for RetainedImage {
+    fn from(value: &Image) -> Self {
+        RetainedImage {
+            data_order: value.data_order,
+            texture_descriptor: value.texture_descriptor.clone(),
+            sampler: value.sampler.clone(),
+            texture_view_descriptor: value.texture_view_descriptor.clone(),
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
+}
+
 impl RetainedImage {
     /// Returns the width of a 2D image.
     #[inline]

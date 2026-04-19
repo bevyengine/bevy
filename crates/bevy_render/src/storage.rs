@@ -69,6 +69,26 @@ impl From<RetainedShaderBuffer> for ShaderBuffer {
     }
 }
 
+impl From<ShaderBuffer> for RetainedShaderBuffer {
+    fn from(value: ShaderBuffer) -> Self {
+        RetainedShaderBuffer {
+            buffer_description: value.buffer_description,
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
+}
+
+impl From<&ShaderBuffer> for RetainedShaderBuffer {
+    fn from(value: &ShaderBuffer) -> Self {
+        RetainedShaderBuffer {
+            buffer_description: value.buffer_description.clone(),
+            asset_usage: value.asset_usage,
+            copy_on_resize: value.copy_on_resize,
+        }
+    }
+}
+
 impl Default for ShaderBuffer {
     fn default() -> Self {
         Self {
@@ -173,11 +193,7 @@ impl RenderAsset for GpuShaderBuffer {
     }
 
     fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        RetainedShaderBuffer {
-            asset_usage: source.asset_usage,
-            buffer_description: source.buffer_description.clone(),
-            copy_on_resize: source.copy_on_resize,
-        }
+        (&*source).into()
     }
 
     fn prepare_asset(

@@ -291,10 +291,15 @@ mod test {
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
+        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
         let image_handle = image_assets.add(Image::default());
+        retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
+        app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
+        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
         app.insert_resource(mesh_assets);
+        app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
@@ -328,11 +333,17 @@ mod test {
         let mut app = App::new();
 
         // Add resources and get handle to image
+        // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
+        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
         let image_handle = image_assets.add(Image::default());
+        retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
+        app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
+        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
         app.insert_resource(mesh_assets);
+        app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
@@ -392,10 +403,15 @@ mod test {
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
+        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
         let image_handle = image_assets.add(Image::default());
+        retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
+        app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
+        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
         app.insert_resource(mesh_assets);
+        app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 

@@ -1325,8 +1325,9 @@ mod test {
         struct ManualMark(bool);
         #[derive(Resource, Default)]
         struct ObservedChanged(bool);
-        app.init_resource::<ManualMark>();
-        app.init_resource::<ObservedChanged>();
+        app.init_resource::<ManualMark>()
+            .init_resource::<ObservedChanged>()
+            .init_resource::<RetainedAssets<RetainedMesh>>();
 
         app.add_systems(
             PostUpdate,

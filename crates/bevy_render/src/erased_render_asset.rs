@@ -331,7 +331,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     extracted_assets.modified.insert(*id);
                 }
                 AssetEvent::Removed { .. } => {
-                    // We don't care that the asset was removed from ExtractedAssets<T> in the main world.
+                    // We don't care that the asset was removed from Assets<T> in the main world.
                     // An asset is only removed from ErasedRenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
                 }
                 AssetEvent::Unused { id } => {
