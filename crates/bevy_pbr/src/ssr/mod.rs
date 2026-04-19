@@ -574,6 +574,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());

@@ -542,6 +542,7 @@ pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedScenes>()
+            .init_resource::<WaitingScenes>()
             .init_asset::<ScenePatch>()
             .init_asset::<SceneListPatch>()
             .add_systems(
@@ -564,7 +565,9 @@ mod tests {
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
     use bevy_asset::io::{AssetSourceBuilder, AssetSourceId};
     use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
+    use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use std::path::Path;
     use std::sync::Mutex;
@@ -1340,6 +1343,33 @@ mod tests {
         fn clone_template(&self) -> Self {
             todo!()
         }
+    }
+
+    #[test]
+    fn queue_spawn_scene_during_spawn() {
+        #[derive(Component, Default, Clone)]
+        #[component(on_insert)]
+        struct SpawnOnInsert;
+
+        impl SpawnOnInsert {
+            fn on_insert(mut world: DeferredWorld, _context: HookContext) {
+                world.commands().queue_spawn_scene(scene2());
+            }
+        }
+
+        fn scene1() -> impl Scene {
+            bsn!(SpawnOnInsert)
+        }
+
+        fn scene2() -> impl Scene {
+            bsn!(#Name)
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.queue_spawn_scene(scene1());
+
+        app.update();
     }
 
     #[test]

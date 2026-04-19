@@ -119,21 +119,101 @@ pub fn create_dark_theme() -> ThemeProps {
             ),
             // Toggle Switch
             (tokens::SWITCH_BG, palette::GRAY_3),
-            (tokens::SWITCH_BG_CHECKED, palette::ACCENT),
+            (tokens::SWITCH_BG_HOVER, palette::GRAY_3.lighter(0.05)),
+            (tokens::SWITCH_BG_PRESSED, palette::GRAY_3.lighter(0.1)),
             (tokens::SWITCH_BG_DISABLED, palette::GRAY_1.with_alpha(0.5)),
+            (tokens::SWITCH_BG_CHECKED, palette::ACCENT),
+            (
+                tokens::SWITCH_BG_CHECKED_HOVER,
+                palette::ACCENT.lighter(0.05),
+            ),
+            (
+                tokens::SWITCH_BG_CHECKED_PRESSED,
+                palette::ACCENT.lighter(0.1),
+            ),
             (
                 tokens::SWITCH_BG_CHECKED_DISABLED,
-                palette::GRAY_3.with_alpha(0.5),
+                palette::GRAY_1.with_alpha(0.5),
             ),
             (tokens::SWITCH_BORDER, palette::GRAY_3),
-            (tokens::SWITCH_BORDER_HOVER, palette::GRAY_3.lighter(0.1)),
+            (tokens::SWITCH_BORDER_HOVER, palette::GRAY_3.lighter(0.05)),
+            (tokens::SWITCH_BORDER_PRESSED, palette::GRAY_3.lighter(0.1)),
             (
                 tokens::SWITCH_BORDER_DISABLED,
                 palette::GRAY_3.with_alpha(0.5),
             ),
-            (tokens::SWITCH_SLIDE, palette::LIGHT_GRAY_2),
+            (tokens::SWITCH_BORDER_CHECKED, palette::ACCENT),
             (
-                tokens::SWITCH_SLIDE_DISABLED,
+                tokens::SWITCH_BORDER_CHECKED_HOVER,
+                palette::ACCENT.lighter(0.05),
+            ),
+            (
+                tokens::SWITCH_BORDER_CHECKED_PRESSED,
+                palette::ACCENT.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_BORDER_CHECKED_DISABLED,
+                palette::GRAY_3.with_alpha(0.5),
+            ),
+            (tokens::SWITCH_SLIDE_BG, palette::LIGHT_GRAY_1.lighter(0.1)),
+            (
+                tokens::SWITCH_SLIDE_BG_HOVER,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_PRESSED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_DISABLED,
+                palette::GRAY_1.with_alpha(0.5),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_CHECKED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_CHECKED_HOVER,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_CHECKED_PRESSED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BG_CHECKED_DISABLED,
+                palette::LIGHT_GRAY_2.with_alpha(0.3),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_HOVER,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_PRESSED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_DISABLED,
+                palette::GRAY_2.with_alpha(0.5),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_CHECKED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_CHECKED_HOVER,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_CHECKED_PRESSED,
+                palette::LIGHT_GRAY_1.lighter(0.1),
+            ),
+            (
+                tokens::SWITCH_SLIDE_BORDER_CHECKED_DISABLED,
                 palette::LIGHT_GRAY_2.with_alpha(0.3),
             ),
             (tokens::COLOR_PLANE_BG, palette::GRAY_1),

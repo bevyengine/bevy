@@ -222,8 +222,8 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     (
-                        update_point_light_bounding_spheres,
-                        update_spot_light_bounding_spheres,
+                        update_point_light_bounding_spheres.after(TransformSystems::Propagate),
+                        update_spot_light_bounding_spheres.after(TransformSystems::Propagate),
                         add_light_probe_and_decal_aabbs,
                     )
                         .in_set(SimulationLightSystems::UpdateBounds)
