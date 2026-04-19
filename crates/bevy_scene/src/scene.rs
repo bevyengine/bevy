@@ -67,7 +67,16 @@ pub trait Scene: SceneBox {
     fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
 }
 
-/// Boxed version of [`Scene`], which enables implementing [`Scene`] for [`Box<dyn Scene>`].
+/// Boxed version of [`Scene`], which enables implementing [`Scene`] for [`Box<dyn Scene>`]. Most
+/// developers do not need to think about or use this trait.
+///
+/// ## Why does this exist?
+///
+/// [`Scene::resolve`] consumes `self`, which by default is not something that [`Box<dyn Scene>`]
+/// can do in Rust, as `dyn Scene` is "unsized". The "way out" is to have every [`Scene`] type
+/// _also_ know how to resolve itself for `self: Box<Self>`. [`SceneBox`] has a blanket impl
+/// for `Scene + Sized` (which can just rely on the [`Scene`] impl). Then [`Box<dyn Scene>`] has a
+/// manual [`SceneBox`] impl that relies on the _stored_ [`SceneBox::resolve_box`] impl.
 pub trait SceneBox: Send + Sync + 'static {
     /// See [`Scene::resolve`].
     fn resolve_box(
