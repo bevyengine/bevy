@@ -2333,38 +2333,33 @@ pub(crate) fn specialize_shadows(
                     continue;
                 }
 
+                // Check for material instance, mesh, and material. If any of
+                // these fail, it's probably because the relevant asset hasn't
+                // loaded yet. In that case, add the entity to the list of
+                // pending mesh materials and bail.
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
-                    // We couldn't fetch the material, probably because the
-                    // material hasn't been loaded yet. Add the entity to
-                    // the list of pending shadows and bail.
                     view_pending_shadow_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
-
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    // We couldn't fetch the mesh, probably because it
-                    // hasn't loaded yet. Add the entity to the list of
-                    // pending shadows and bail.
                     view_pending_shadow_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
-                    // We couldn't fetch the material, probably because the
-                    // material hasn't been loaded yet. Add the entity to
-                    // the list of pending shadows and bail.
                     view_pending_shadow_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
+
                 if !material.properties.shadows_enabled {
                     // If the material is not a shadow caster, we don't need to specialize it.
                     continue;
