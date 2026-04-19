@@ -23,6 +23,16 @@ pub trait SceneList: SceneListBox {
 }
 
 /// Boxed version of [`SceneList`], which enables implementing [`SceneList`] for [`Box<dyn SceneList>`].
+/// Most developers do not need to think about or use this trait.
+///
+/// ## Why does this exist?
+///
+/// [`SceneList::resolve_list`] consumes `self`, which by default is not something that
+/// [`Box<dyn SceneList>`] can do in Rust, as `dyn Scene` is "unsized". The "way out" is to have
+/// every [`Scene`] type _also_ know how to resolve itself for `self: Box<Self>`. [`SceneListBox`]
+/// has a blanket impl for `SceneList + Sized` (which can just rely on the [`SceneList`] impl).
+/// Then [`Box<dyn SceneList>`] has a manual [`SceneListBox`] impl that relies on the _stored_
+/// [`SceneListBox::resolve_list_box`] impl.
 pub trait SceneListBox: Send + Sync + 'static {
     /// See [`SceneList::resolve_list`].
     fn resolve_list_box(
@@ -45,6 +55,7 @@ impl<L: SceneList> SceneListBox for L {
         (*self).resolve_list(context, scenes)
     }
 
+    #[inline]
     fn register_dependencies_box(&self, dependencies: &mut SceneDependencies) {
         self.register_dependencies(dependencies);
     }
