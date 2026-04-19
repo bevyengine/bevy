@@ -82,6 +82,9 @@ smaa_luts = ["bevy_anti_alias?/smaa_luts", "ktx2", "bevy_image/zstd"]
 # Include Bluenoise texture for environment map generation.
 bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
+# Include a preintegrated BRDF Look Up Table for more accurate specular shading.
+dfg_lut = ["bevy_pbr?/dfg_lut", "ktx2", "bevy_image/zstd"]
+
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]
 
@@ -460,6 +463,7 @@ hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
+schedule_data = ["bevy_dev_tools/schedule_data"]
 
 [dependencies]
 # bevy (no_std)

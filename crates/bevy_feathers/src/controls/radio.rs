@@ -17,7 +17,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
@@ -43,6 +43,21 @@ struct RadioOutline;
 #[reflect(Component, Clone, Default)]
 struct RadioMark;
 
+/// Parameters for the radio button template, passed to [`radio`] function.
+pub struct RadioProps {
+    /// Label for this radio button. This can contain multiple entities, which will be contained
+    /// in a flexbox.
+    pub caption: Box<dyn SceneList>,
+}
+
+impl Default for RadioProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+        }
+    }
+}
+
 /// Scene function to spawn a radio.
 ///
 /// # Emitted events
@@ -50,7 +65,7 @@ struct RadioMark;
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn radio() -> impl Scene {
+pub fn radio(props: RadioProps) -> impl Scene {
     bsn! {
         Node {
             display: Display::Flex,
@@ -66,7 +81,7 @@ pub fn radio() -> impl Scene {
         ThemeFontColor(tokens::RADIO_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [(
@@ -91,17 +106,15 @@ pub fn radio() -> impl Scene {
                 }
                 RadioMark
                 ThemeBackgroundColor(tokens::RADIO_MARK)
-            )]
-        )]
+            )]),
+            {props.caption}
+        ]
     }
 }
 
 /// Template function to spawn a radio.
 ///
-/// # Arguments
-/// * `props` - construction properties for the radio.
-/// * `overrides` - a bundle of components that are merged in with the normal radio components.
-/// * `label` - the label of the radio.
+/// This version does not take any props. A caption can be set by appending a child entity.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
@@ -128,7 +141,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
         TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
             ..Default::default()
         },

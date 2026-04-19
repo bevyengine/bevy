@@ -59,6 +59,8 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+mod rect_light;
+pub use rect_light::RectLight;
 /// Provides gizmo drawing for visualizing light positions.
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos;
@@ -70,7 +72,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
+        GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, RectLight,
+        SpotLight,
     };
 
     #[doc(hidden)]
@@ -219,8 +222,8 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     (
-                        update_point_light_bounding_spheres,
-                        update_spot_light_bounding_spheres,
+                        update_point_light_bounding_spheres.after(TransformSystems::Propagate),
+                        update_spot_light_bounding_spheres.after(TransformSystems::Propagate),
                         add_light_probe_and_decal_aabbs,
                     )
                         .in_set(SimulationLightSystems::UpdateBounds)
@@ -239,8 +242,13 @@ impl Plugin for LightPlugin {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
-pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
+/// With<DirectionalLight>, With<RectLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
+pub type WithLight = Or<(
+    With<PointLight>,
+    With<SpotLight>,
+    With<DirectionalLight>,
+    With<RectLight>,
+)>;
 
 /// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default, Clone, PartialEq)]
@@ -251,7 +259,7 @@ pub struct NotShadowCaster;
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
-#[derive(Debug, Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
 /// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
@@ -261,7 +269,7 @@ pub struct NotShadowReceiver;
 /// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
-#[derive(Debug, Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 

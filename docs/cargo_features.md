@@ -118,6 +118,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
+|dfg_lut|Include a preintegrated BRDF Look Up Table for more accurate specular shading.|
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
@@ -168,6 +169,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
 |reflect_functions|Enable function reflection|
+|schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|

@@ -11,12 +11,22 @@
 //! Consider copying this code into your own project,
 //! and refining the styles and abstractions provided to meet your needs.
 //!
+//! ## Best practices for event propagation
+//!
+//! Generally, when a widget handles an event,
+//! propagation of that event to parent entities should be stopped.
+//! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
+//!
+//! For more guidance on this, see the documentation for [`EntityEvent`](bevy_ecs::event::EntityEvent).
+//!
 //! ## Warning: Experimental!
 //! All that said, this crate is still experimental and unfinished!
 //! It will change in breaking ways, and there will be both bugs and limitations.
 //!
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
+
+extern crate alloc;
 
 use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
@@ -37,9 +47,11 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod display;
 pub mod focus;
 pub mod font_styles;
 pub mod palette;
@@ -48,9 +60,9 @@ pub mod theme;
 pub mod tokens;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
-pub struct FeathersPlugin;
+pub struct FeathersCorePlugin;
 
-impl Plugin for FeathersPlugin {
+impl Plugin for FeathersCorePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
@@ -60,6 +72,11 @@ impl Plugin for FeathersPlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+
+        // Embedded icons
+        embedded_asset!(app, "assets/icons/chevron-down.png");
+        embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
@@ -102,6 +119,6 @@ impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(TabNavigationPlugin)
-            .add(FeathersPlugin)
+            .add(FeathersCorePlugin)
     }
 }

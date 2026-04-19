@@ -99,24 +99,3 @@ impl<S: Scene> SceneList for Vec<S> {
         }
     }
 }
-
-impl SceneList for Vec<Box<dyn Scene>> {
-    fn resolve_list(
-        &self,
-        context: &mut ResolveContext,
-        scenes: &mut Vec<ResolvedScene>,
-    ) -> Result<(), ResolveSceneError> {
-        for scene in self {
-            let mut resolved_scene = ResolvedScene::default();
-            scene.resolve(context, &mut resolved_scene)?;
-            scenes.push(resolved_scene);
-        }
-        Ok(())
-    }
-
-    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
-        for scene in self {
-            scene.register_dependencies(dependencies);
-        }
-    }
-}

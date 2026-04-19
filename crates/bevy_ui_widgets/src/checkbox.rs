@@ -12,9 +12,10 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{Click, Pointer};
-use bevy_ui::{Checkable, Checked, InteractionDisabled};
+use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
+use crate::ActivateOnPress;
 use crate::ValueChange;
 use bevy_ecs::entity::Entity;
 
@@ -55,27 +56,99 @@ fn checkbox_on_key_input(
 
 fn checkbox_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    q_checkbox: Query<(Has<Checked>, Has<InteractionDisabled>), With<Checkbox>>,
-    focus: Option<ResMut<InputFocus>>,
-    focus_visible: Option<ResMut<InputFocusVisible>>,
+    q_checkbox: Query<
+        (Has<Checked>, Has<InteractionDisabled>),
+        (With<Checkbox>, Without<ActivateOnPress>),
+    >,
     mut commands: Commands,
 ) {
     if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
-        // Clicking on a button makes it the focused input,
-        // and hides the focus ring if it was visible.
-        if let Some(mut focus) = focus {
-            focus.0 = Some(click.entity);
-        }
-        if let Some(mut focus_visible) = focus_visible {
-            focus_visible.0 = false;
-        }
-
         click.propagate(false);
         if !disabled {
             commands.trigger(ValueChange {
                 source: click.entity,
                 value: !is_checked,
             });
+        }
+    }
+}
+
+fn checkbox_on_pointer_down(
+    mut press: On<Pointer<Press>>,
+    mut q_checkbox: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
+        ),
+        With<Checkbox>,
+    >,
+    focus: Option<ResMut<InputFocus>>,
+    focus_visible: Option<ResMut<InputFocusVisible>>,
+    mut commands: Commands,
+) {
+    if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
+        q_checkbox.get_mut(press.entity)
+    {
+        // Clicking on a button makes it the focused input,
+        // and hides the focus ring if it was visible.
+        if let Some(mut focus) = focus {
+            focus.set(press.entity);
+        }
+        if let Some(mut focus_visible) = focus_visible {
+            focus_visible.0 = false;
+        }
+
+        press.propagate(false);
+        if !disabled && !pressed {
+            commands.entity(checkbox).insert(Pressed);
+            if activate_on_press {
+                commands.trigger(ValueChange {
+                    source: press.entity,
+                    value: !checked,
+                });
+            }
+        }
+    }
+}
+
+fn checkbox_on_pointer_up(
+    mut release: On<Pointer<Release>>,
+    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
+    mut commands: Commands,
+) {
+    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {
+        release.propagate(false);
+        if !disabled && pressed {
+            commands.entity(checkbox).remove::<Pressed>();
+        }
+    }
+}
+
+fn checkbox_on_pointer_drag_end(
+    mut drag_end: On<Pointer<DragEnd>>,
+    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
+    mut commands: Commands,
+) {
+    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(drag_end.entity) {
+        drag_end.propagate(false);
+        if !disabled && pressed {
+            commands.entity(checkbox).remove::<Pressed>();
+        }
+    }
+}
+
+fn checkbox_on_pointer_cancel(
+    mut cancel: On<Pointer<Cancel>>,
+    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
+    mut commands: Commands,
+) {
+    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(cancel.entity) {
+        cancel.propagate(false);
+        if !disabled && pressed {
+            commands.entity(checkbox).remove::<Pressed>();
         }
     }
 }
@@ -176,6 +249,10 @@ impl Plugin for CheckboxPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(checkbox_on_key_input)
             .add_observer(checkbox_on_pointer_click)
+            .add_observer(checkbox_on_pointer_down)
+            .add_observer(checkbox_on_pointer_up)
+            .add_observer(checkbox_on_pointer_drag_end)
+            .add_observer(checkbox_on_pointer_cancel)
             .add_observer(checkbox_on_set_checked)
             .add_observer(checkbox_on_toggle_checked);
     }

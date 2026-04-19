@@ -58,7 +58,9 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
+use bevy_light::{
+    AmbientLight, DirectionalLight, PointLight, RectLight, ShadowFilteringMethod, SpotLight,
+};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use decal::clustered::ClusteredDecalPlugin;
@@ -102,9 +104,7 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-#[cfg(feature = "bluenoise_texture")]
-use bevy_image::{CompressedImageFormats, ImageType};
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
@@ -161,6 +161,25 @@ impl Default for PbrPlugin {
 #[derive(Resource)]
 pub struct Bluenoise {
     /// Texture handle for spatio-temporal blue noise
+    pub texture: Handle<Image>,
+}
+
+/// LTC (Linearly Transformed Cosines) LUT textures for area light shading.
+///
+/// `ltc_1` encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
+/// `ltc_2` encodes amplitude and Fresnel-related weights.
+///
+/// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
+#[derive(Resource, Clone)]
+pub struct LtcLuts {
+    pub ltc_1: Handle<Image>,
+    pub ltc_2: Handle<Image>,
+}
+
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
+/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+#[derive(Resource, Clone)]
+pub struct DfgLut {
     pub texture: Handle<Image>,
 }
 
@@ -222,6 +241,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight, Self>::default(),
                 SyncComponentPlugin::<PointLight, Self>::default(),
                 SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<RectLight, Self>::default(),
                 SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
             .add_plugins((
@@ -278,6 +298,67 @@ impl Plugin for PbrPlugin {
                 render_app
                     .world_mut()
                     .insert_resource(Bluenoise { texture: handle });
+            }
+        }
+
+        let has_ltc_luts = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<LtcLuts>());
+
+        if !has_ltc_luts {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            let ltc_luts = LtcLuts {
+                ltc_1: images.add(
+                    Image::from_buffer(
+                        include_bytes!("ltc/ltc1.ktx2"),
+                        ImageType::Extension("ktx2"),
+                        CompressedImageFormats::NONE,
+                        false,
+                        ImageSampler::linear(),
+                        RenderAssetUsages::RENDER_WORLD,
+                    )
+                    .expect("Failed to decode embedded LTC LUT 1"),
+                ),
+                ltc_2: images.add(
+                    Image::from_buffer(
+                        include_bytes!("ltc/ltc2.ktx2"),
+                        ImageType::Extension("ktx2"),
+                        CompressedImageFormats::NONE,
+                        false,
+                        ImageSampler::linear(),
+                        RenderAssetUsages::RENDER_WORLD,
+                    )
+                    .expect("Failed to decode embedded LTC LUT 2"),
+                ),
+            };
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(ltc_luts);
+            }
+        }
+
+        let has_dfg_lut = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<DfgLut>());
+
+        if !has_dfg_lut {
+            #[cfg(feature = "dfg_lut")]
+            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
+                Image::from_buffer(
+                    include_bytes!("environment_map/dfg.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded DFG LUT"),
+            );
+            #[cfg(not(feature = "dfg_lut"))]
+            let texture = Handle::default();
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(DfgLut { texture });
             }
         }
 
@@ -394,6 +475,9 @@ impl SyncComponent<PbrPlugin> for PointLight {
     type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
+    type Target = Self;
+}
+impl SyncComponent<PbrPlugin> for RectLight {
     type Target = Self;
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {

@@ -52,7 +52,7 @@ use bevy::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
             PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            VertexState,
         },
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
@@ -215,7 +215,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: key.target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

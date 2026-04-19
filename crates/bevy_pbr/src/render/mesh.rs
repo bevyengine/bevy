@@ -28,7 +28,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -65,8 +65,7 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
-        ViewUniformOffset,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
     },
     Extract,
 };
@@ -97,10 +96,13 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_render::camera::{DirtySpecializations, TemporalJitter};
+use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter};
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use bevy_render::view::{ExtractedView, RenderShadowMapVisibleEntities, RenderVisibleEntities};
+use bevy_render::view::{
+    texture_format_from_code, texture_format_to_code, ExtractedView,
+    RenderShadowMapVisibleEntities, RenderVisibleEntities,
+};
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_tasks::ComputeTaskPool;
 
@@ -156,7 +158,8 @@ impl Plugin for MeshRenderPlugin {
                     ShaderDefVal::UInt(
                         "MAX_CASCADES_PER_LIGHT".into(),
                         MAX_CASCADES_PER_LIGHT as u32,
-                    )
+                    ),
+                    ShaderDefVal::UInt("MAX_RECT_LIGHTS".into(), MAX_RECT_LIGHTS as u32,),
                 ]
             });
         load_shader_library!(app, "mesh_view_bindings.wgsl");
@@ -358,9 +361,9 @@ pub fn check_views_need_specialization(
     mut dirty_specializations: ResMut<DirtySpecializations>,
     mut views: Query<(
         &ExtractedView,
+        Option<&ExtractedCamera>,
         &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
+        (Option<&Tonemapping>, Option<&DebandDither>),
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusion>,
         (
@@ -384,9 +387,9 @@ pub fn check_views_need_specialization(
 ) {
     for (
         view,
+        camera,
         msaa,
-        tonemapping,
-        dither,
+        (tonemapping, dither),
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
@@ -401,7 +404,7 @@ pub fn check_views_need_specialization(
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -467,7 +470,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !view.hdr {
+        if !camera.is_some_and(|camera| camera.hdr) {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -3037,34 +3040,33 @@ bitflags::bitflags! {
         const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
 
         // Flag bits
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const DEPTH_PREPASS                     = 1 << 3;
-        const NORMAL_PREPASS                    = 1 << 4;
-        const DEFERRED_PREPASS                  = 1 << 5;
-        const MOTION_VECTOR_PREPASS             = 1 << 6;
-        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const DEPTH_PREPASS                     = 1 << 2;
+        const NORMAL_PREPASS                    = 1 << 3;
+        const DEFERRED_PREPASS                  = 1 << 4;
+        const MOTION_VECTOR_PREPASS             = 1 << 5;
+        const MAY_DISCARD                       = 1 << 6; // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = 1 << 8;
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
-        const UNCLIPPED_DEPTH_ORTHO             = 1 << 10; // Disables depth clipping for use with directional light shadow views
+        const ENVIRONMENT_MAP                   = 1 << 7;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 8;
+        const UNCLIPPED_DEPTH_ORTHO             = 1 << 9; // Disables depth clipping for use with directional light shadow views
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
-        const TEMPORAL_JITTER                   = 1 << 11;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
-        const LIGHTMAPPED                       = 1 << 13;
-        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
-        const IRRADIANCE_VOLUME                 = 1 << 15;
-        const VISIBILITY_RANGE_DITHER           = 1 << 16;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
-        const HAS_PREVIOUS_SKIN                 = 1 << 18;
-        const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_ENABLED                       = 1 << 20;
-        const DISTANCE_FOG                      = 1 << 21;
-        const ATMOSPHERE                        = 1 << 22;
-        const INVERT_CULLING                    = 1 << 23;
-        const PREPASS_READS_MATERIAL            = 1 << 24;
+        const TEMPORAL_JITTER                   = 1 << 10;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const LIGHTMAPPED                       = 1 << 12;
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 13;
+        const IRRADIANCE_VOLUME                 = 1 << 14;
+        const VISIBILITY_RANGE_DITHER           = 1 << 15;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
+        const HAS_PREVIOUS_SKIN                 = 1 << 17;
+        const HAS_PREVIOUS_MORPH                = 1 << 18;
+        const OIT_ENABLED                       = 1 << 19;
+        const DISTANCE_FOG                      = 1 << 20;
+        const ATMOSPHERE                        = 1 << 21;
+        const INVERT_CULLING                    = 1 << 22;
+        const PREPASS_READS_MATERIAL            = 1 << 23;
         const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
@@ -3091,6 +3093,7 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_GAUSSIAN      = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
@@ -3105,13 +3108,16 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS
+            << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
+            Self::COLOR_TARGET_FORMAT_RESERVED_BITS.bits();
     }
 }
 
@@ -3122,7 +3128,7 @@ impl MeshPipelineKey {
     const BLEND_MASK_BITS: u64 = 0b111;
     const BLEND_SHIFT_BITS: u64 = Self::MSAA_MASK_BITS.count_ones() as u64 + Self::MSAA_SHIFT_BITS;
 
-    const TONEMAP_METHOD_MASK_BITS: u64 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u64 =
         Self::BLEND_MASK_BITS.count_ones() as u64 + Self::BLEND_SHIFT_BITS;
 
@@ -3139,18 +3145,34 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const COLOR_TARGET_FORMAT_MASK_BITS: u64 = view::COLOR_TARGET_FORMAT_MASK_BITS as u64;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
-        } else {
-            MeshPipelineKey::NONE
-        }
+    /// Create a pipeline key from the view's color target format.
+    #[inline]
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u64;
+        Self::from_bits_retain(
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color target format of the main pass for this pipeline key.
+    #[inline]
+    pub fn target_format(&self) -> TextureFormat {
+        let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
+            & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
+        texture_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -3364,6 +3386,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
@@ -3525,6 +3550,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL {
+                shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -3608,11 +3635,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this

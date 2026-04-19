@@ -70,36 +70,38 @@ fn print_controls() {
 
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut atmosphere_settings: Query<&mut AtmosphereSettings>,
-    mut atmosphere_query: Query<&mut Atmosphere>,
+    mut planet_atmosphere: Query<(&mut Atmosphere, &mut Transform)>,
+    mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Digit3) {
-        for mut atmosphere in &mut atmosphere_query {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
             println!("Switched to Earth atmosphere");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit4) {
-        for mut atmosphere in &mut atmosphere_query {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
             *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
             println!("Switched to Mars atmosphere");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit1) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
             println!("Switched to lookup texture rendering method");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit2) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::Raymarched;
             println!("Switched to raymarched rendering method");
         }
@@ -136,12 +138,13 @@ fn setup_camera_fog(
         mars: mars_medium.clone(),
     });
 
+    // Spawn earth atmosphere
+    commands.spawn(Atmosphere::earth(earth_medium));
+
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Earth atmosphere
-        Atmosphere::earth(earth_medium),
-        // Can be adjusted to change the scene scale and rendering quality
+        // Can be adjusted to change the rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
@@ -262,38 +265,40 @@ fn spawn_water(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterial3d(water_materials.add(ExtendedMaterial {
-            base: StandardMaterial {
-                base_color: BLACK.into(),
-                perceptual_roughness: 0.0,
-                ..default()
-            },
-            extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        });
-                    },
-                ),
-                // These water settings are just random values to create some
-                // variety.
-                settings: WaterSettings {
-                    octave_vectors: [
-                        vec4(0.080, 0.059, 0.073, -0.062),
-                        vec4(0.153, 0.138, -0.149, -0.195),
-                    ],
-                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
-                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+        MeshMaterial3d(
+            water_materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color: BLACK.into(),
+                    perceptual_roughness: 0.0,
+                    ..default()
                 },
-            },
-        })),
+                extension: Water {
+                    normals: asset_server
+                        .load_builder()
+                        .with_settings(|settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = false;
+                            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                mag_filter: ImageFilterMode::Linear,
+                                min_filter: ImageFilterMode::Linear,
+                                ..default()
+                            });
+                        })
+                        .load("textures/water_normals.png"),
+                    // These water settings are just random values to create some
+                    // variety.
+                    settings: WaterSettings {
+                        octave_vectors: [
+                            vec4(0.080, 0.059, 0.073, -0.062),
+                            vec4(0.153, 0.138, -0.149, -0.195),
+                        ],
+                        octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
+                        octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+                    },
+                },
+            }),
+        ),
         Transform::from_scale(Vec3::splat(100.0)),
     ));
 }

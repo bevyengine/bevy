@@ -73,6 +73,7 @@ use crate::{
     text_edit::TextEdit, FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont,
     TextLayout,
 };
+use alloc::sync::Arc;
 use bevy_ecs::prelude::*;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
@@ -94,7 +95,7 @@ pub struct Clipboard(pub String);
 /// which manages both the text content and the cursor position,
 /// and provides methods for applying text edits and cursor movements correctly
 /// according to Unicode rules.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[require(TextLayout, TextFont, TextColor, LineHeight, FontHinting)]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -125,6 +126,9 @@ pub struct EditableText {
     pub max_characters: Option<usize>,
     /// Sets the input’s height in number of visible lines.
     pub visible_lines: Option<f32>,
+    /// Sets the input's width in number of visible glyphs.
+    /// For proportional fonts the final size is the given value times the "0" advance width.
+    pub visible_width: Option<f32>,
     /// Allow new lines
     pub allow_newlines: bool,
 }
@@ -140,12 +144,22 @@ impl Default for EditableText {
             text_edited: false,
             max_characters: None,
             visible_lines: Some(1.),
+            visible_width: None,
             allow_newlines: false,
         }
     }
 }
 
 impl EditableText {
+    /// Creates a new `EditableText` with its buffer already containing some initial text and
+    /// its cursor positioned at the end.
+    pub fn new(initial_text: impl AsRef<str>) -> Self {
+        let mut editable_text = Self::default();
+        editable_text.editor.set_text(initial_text.as_ref());
+        editable_text.queue_edit(TextEdit::TextEnd(false));
+        editable_text
+    }
+
     /// Access the internal [`PlainEditor`].
     pub fn editor(&self) -> &PlainEditor<TextBrush> {
         &self.editor
@@ -177,6 +191,7 @@ impl EditableText {
         font_context: &mut FontContext,
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard_text: &mut String,
+        char_filter: impl Fn(char) -> bool,
     ) {
         let Self {
             editor,
@@ -188,7 +203,7 @@ impl EditableText {
         let mut driver = editor.driver(font_context, layout_context);
 
         for edit in pending_edits.drain(..) {
-            edit.apply(&mut driver, clipboard_text, *max_characters);
+            edit.apply(&mut driver, clipboard_text, *max_characters, &char_filter);
         }
     }
 
@@ -205,15 +220,28 @@ impl EditableText {
     }
 }
 
+/// Sets a per-character filter for this text input. Insert and paste edits are ignored if the filter rejects any character.
+///
+/// The filter does not apply to characters already within the `EditableText`'s text buffer.
+#[derive(Component, Clone, Default)]
+pub struct EditableTextFilter(Option<Arc<dyn Fn(char) -> bool + Send + Sync + 'static>>);
+
+impl EditableTextFilter {
+    /// Create a new `EditableTextFilter` from the given filter function.
+    pub fn new(filter: impl Fn(char) -> bool + Send + Sync + 'static) -> Self {
+        Self(Some(Arc::new(filter)))
+    }
+}
+
 /// Applies pending text edit actions to all [`EditableText`] widgets.
 pub fn apply_text_edits(
-    mut query: Query<(Entity, &mut EditableText)>,
+    mut query: Query<(Entity, &mut EditableText, Option<&EditableTextFilter>)>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard_text: ResMut<Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text) in query.iter_mut() {
+    for (entity, mut editable_text, filter) in query.iter_mut() {
         editable_text.text_edited = !editable_text.pending_edits.is_empty();
 
         if editable_text.text_edited {
@@ -221,6 +249,10 @@ pub fn apply_text_edits(
                 &mut font_context.0,
                 &mut layout_context.0,
                 &mut clipboard_text.0,
+                match filter {
+                    Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
+                    _ => &|_| true,
+                },
             );
 
             commands.trigger(TextEditChange { entity });
@@ -232,6 +264,6 @@ pub fn apply_text_edits(
 ///
 /// As [`TextEdit`] includes cursor motions, this will be emitted even if [`EditableText::value`] is unchanged.
 #[derive(EntityEvent)]
-struct TextEditChange {
+pub struct TextEditChange {
     entity: Entity,
 }

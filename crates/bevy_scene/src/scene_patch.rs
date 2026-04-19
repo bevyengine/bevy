@@ -6,9 +6,10 @@ use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    bundle::BundleScratch,
     component::Component,
     entity::Entity,
-    template::EntityScopes,
+    template::{EntityScopes, FromTemplate},
     world::{EntityWorldMut, World},
 };
 use bevy_reflect::TypePath;
@@ -105,7 +106,7 @@ impl ScenePatch {
             .as_deref()
             .ok_or(SpawnSceneError::UnresolvedSceneError)?;
         resolved
-            .apply(entity)
+            .apply(entity, &mut BundleScratch::default())
             .map_err(SpawnSceneError::ApplySceneError)
     }
 }
@@ -113,7 +114,7 @@ impl ScenePatch {
 /// An [`Error`] that occurs during scene spawning.
 #[derive(Error, Debug)]
 pub enum SpawnSceneError {
-    /// Calling [`ResolvedScene::apply`] failed.
+    /// Failed to apply a [`ResolvedScene`]s.
     #[error(transparent)]
     ApplySceneError(#[from] ApplySceneError),
     #[error(transparent)]
@@ -125,7 +126,7 @@ pub enum SpawnSceneError {
 }
 
 /// A component that, when added, will queue applying the given [`ScenePatch`] after the scene and its dependencies have been loaded and resolved.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, FromTemplate, Deref, DerefMut)]
 pub struct ScenePatchInstance(pub Handle<ScenePatch>);
 
 /// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`Vec`] of [`ResolvedScene`] (after the [`SceneList`] has been loaded and resolved)
@@ -151,7 +152,7 @@ impl SceneListPatch {
         scene_list.register_dependencies(&mut dependencies);
         let dependencies = dependencies
             .iter()
-            .map(|dep| assets.load_erased(dep.type_id, &dep.path))
+            .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
             .collect::<Vec<_>>();
         SceneListPatch {
             scene_list: Box::new(scene_list),

@@ -1,4 +1,10 @@
-//! A procedurally generated city
+//! A procedurally generated city.
+//!
+//! This scene is intended to be an attractive, fairly realistic stress test of Bevy's capacity
+//! to model extremely large scenes.
+//! As a result, the complexity is higher than in most examples or benchmarks —
+//! we want to use a large number of features so that pathological paths
+//! are caught during development, rather than by end users.
 
 use argh::FromArgs;
 use assets::{load_assets, CityAssets};
@@ -8,7 +14,10 @@ use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
-    light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
+    light::{
+        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        Atmosphere, AtmosphereEnvironmentMapLight,
+    },
     pbr::{
         wireframe::{WireframeConfig, WireframePlugin},
         AtmosphereSettings, ContactShadows,
@@ -20,7 +29,10 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
-use crate::{assets::strip_base_url, settings::Settings};
+use crate::{
+    assets::{merge_car_meshes, strip_base_url},
+    settings::Settings,
+};
 use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
@@ -75,27 +87,42 @@ fn main() {
         // Like in many realistic large scenes, many of the objects don't move
         // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::Enabled)
-        .add_systems(Startup, (setup, load_assets))
-        .add_systems(Update, (simulate_cars, loading_screen))
-        .add_observer(add_no_cpu_culling)
+        .add_message::<CityAssetsLoaded>()
+        .add_message::<CityAssetsReady>()
+        .add_message::<CitySpawned>()
+        .add_systems(Startup, (setup, spawn_atmosphere, load_assets))
+        .add_systems(
+            Update,
+            (
+                simulate_cars,
+                loading_screen,
+                process_assets.run_if(on_message::<CityAssetsLoaded>),
+                on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
+                (add_no_cpu_culling, on_city_spawned, setup_settings_ui)
+                    .run_if(on_message::<CitySpawned>),
+            ),
+        )
         .add_observer(add_no_cpu_culling_on_scene_ready)
-        .add_observer(on_city_assets_ready)
-        .add_observer(setup_settings_ui)
         .run();
 }
 
-fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
+fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
-        Atmosphere::earth(scattering_mediums.add(ScatteringMedium::default())),
-        AtmosphereSettings::default(),
+        AtmosphereSettings {
+            // Reduce the default max distance in the aerial view LUT
+            // to 16km to approximately fit the size of the city. This way the aerial perspective
+            // gets more detail and has less banding artifacts compared to the 32km default.
+            aerial_view_lut_max_distance: 1.6e4,
+            ..default()
+        },
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 13.0 },
+        Exposure::OVERCAST,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
@@ -158,6 +185,50 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
     ));
 }
 
+/// Spawns the earth atmosphere plus an extra near-ground fog term.
+fn spawn_atmosphere(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
+    let mut earth_medium = ScatteringMedium::default();
+
+    // Same 60 km atmosphere height as `ScatteringMedium::earth`
+    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+
+    // The scale height of haze is set to 100 meters providing a low-lying dense fog layer.
+    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+
+    // Fog has high albedo and very low absorption resulting in a white color.
+    const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
+
+    // Distance at which contrast falls low enough to be indistinguishable from the sky.
+    // known as Meteorological Optical Range
+    const HAZE_VISIBILITY_KM: f32 = 12.0;
+
+    // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
+    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+
+    // Add the fog to the earth medium as an additional scattering term.
+    earth_medium.terms.push(ScatteringTerm {
+        absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
+        scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
+        falloff: Falloff::Exponential {
+            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+        },
+        // Fog is approximated as a mie scatterer with this asymmetry factor
+        phase: PhaseFunction::Mie { asymmetry: 0.76 },
+    });
+    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
+
+    // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
+    let scale = 1.0 / 20.0;
+    commands.spawn((
+        earth_atmosphere.clone(),
+        Transform::from_scale(Vec3::splat(scale))
+            .with_translation(-Vec3::Y * earth_atmosphere.inner_radius * scale),
+    ));
+}
+
 #[derive(Component)]
 struct LoadingScreen;
 #[derive(Component)]
@@ -165,27 +236,28 @@ struct LoadingText;
 #[derive(Component)]
 struct LoadingPaths;
 
-#[derive(Event)]
+/// Triggers when all the assets managed in [`CityAssets`] are loaded
+#[derive(Message)]
+struct CityAssetsLoaded;
+/// Triggers when all the assets are done loading and have been processed
+#[derive(Message)]
 struct CityAssetsReady;
-
-#[derive(Event)]
+/// Triggers once all the city blocks have been spawned
+#[derive(Message)]
 struct CitySpawned;
 
+#[allow(clippy::type_complexity)]
 fn loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
     asset_server: Res<AssetServer>,
     mut loading_text: Query<&mut Text, With<LoadingText>>,
-    mut loading_paths: Query<&mut Text, (With<LoadingPaths>, Without<LoadingText>)>,
-    loading_screen: Query<Entity, With<LoadingScreen>>,
+    mut loading_paths: Query<(Entity, &mut Text), (With<LoadingPaths>, Without<LoadingText>)>,
 ) {
-    let Ok(loading_screen) = loading_screen.single() else {
-        return;
-    };
     let Ok(mut text) = loading_text.single_mut() else {
         return;
     };
-    let Ok(mut paths_text) = loading_paths.single_mut() else {
+    let Ok((paths_entity, mut paths_text)) = loading_paths.single_mut() else {
         return;
     };
     let mut paths = vec![];
@@ -198,8 +270,10 @@ fn loading_screen(
         }
     }
     if paths.is_empty() {
-        commands.entity(loading_screen).despawn();
-        commands.trigger(CityAssetsReady);
+        commands.entity(paths_entity).despawn();
+        text.0 = "Processing assets...".into();
+        // Use a Message instead of an Event so asset processing only starts on the next frame
+        commands.write_message(CityAssetsLoaded);
     } else {
         text.0 = format!(
             "Loading assets: {}/{}",
@@ -211,14 +285,46 @@ fn loading_screen(
     }
 }
 
-fn on_city_assets_ready(
-    _: On<CityAssetsReady>,
+/// Runs after the assets are loaded. For now, this will merge all the meshes for each car gltf into
+/// a single mesh. This is necessary because the tires are separate meshes and this increases the
+/// amount of meshes bevy has to process every frame for no benefits.
+///
+/// Eventually, this will also be used for things like generating LODs
+fn process_assets(
     mut commands: Commands,
-    assets: Res<CityAssets>,
-    args: Res<Args>,
+    mut city_assets: ResMut<CityAssets>,
+    mut world_assets: ResMut<Assets<WorldAsset>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    spawn_city(&mut commands, &assets, args.seed, args.size);
-    commands.trigger(CitySpawned);
+    merge_car_meshes(&mut city_assets, &mut world_assets, &mut meshes);
+
+    // Use a Message instead of an Event so spawning the city happens in the next frame
+    commands.write_message(CityAssetsReady);
+}
+
+fn on_city_assets_ready(
+    mut commands: Commands,
+    city_assets: Res<CityAssets>,
+    args: Res<Args>,
+    mut loading_text: Query<&mut Text, With<LoadingText>>,
+) {
+    let Ok(mut text) = loading_text.single_mut() else {
+        return;
+    };
+    text.0 = "Spawning city...".into();
+
+    spawn_city(&mut commands, &city_assets, args.seed, args.size);
+    commands.write_message(CitySpawned);
+}
+
+fn on_city_spawned(
+    mut commands: Commands,
+    loading_screen: Option<Single<Entity, With<LoadingScreen>>>,
+) {
+    let Some(loading_screen) = loading_screen else {
+        return;
+    };
+    commands.entity(*loading_screen).despawn();
 }
 
 #[derive(Component)]
@@ -234,6 +340,10 @@ struct Car {
     dir: f32,
 }
 
+/// Do a very naive traffic simulation. This will only move the car to the end of the road then
+/// spawn it back at the start.
+///
+/// Eventually this will be a more complex traffic simulation that should stress the ECS
 fn simulate_cars(
     settings: Res<Settings>,
     roads: Query<(&Road, &Transform, &Children), Without<Car>>,
@@ -264,8 +374,8 @@ fn simulate_cars(
     }
 }
 
+/// Adds [`NoCpuCulling`] to all meshes in the scene after the city is done spawning
 fn add_no_cpu_culling(
-    _: On<CitySpawned>,
     mut commands: Commands,
     meshes: Query<Entity, (With<Mesh3d>, Without<NoCpuCulling>)>,
     args: Res<Args>,
@@ -277,6 +387,10 @@ fn add_no_cpu_culling(
     }
 }
 
+/// Adds [`NoCpuCulling`] to all meshes in all scenes after the city is done spawning
+///
+/// This is required because a few assets are spawned using a [`WorldAssetRoot`] instead of directly
+/// spawning a [`Mesh`]
 fn add_no_cpu_culling_on_scene_ready(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
