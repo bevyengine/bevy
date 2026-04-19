@@ -200,7 +200,7 @@ pub fn init_post_processing_pipeline(
                 uniform_buffer::<ChromaticAberrationUniform>(true),
                 // Vignette settings:
                 uniform_buffer::<VignetteUniform>(true),
-                // Lens Distortion settings;
+                // Lens Distortion settings:
                 uniform_buffer::<LensDistortionUniform>(true),
             ),
         ),
@@ -465,7 +465,7 @@ pub fn prepare_post_processing_uniforms(
                     .lens_distortion
                     .push(&LensDistortionUniform {
                         intensity: lens_distortion.intensity,
-                        scale: lens_distortion.scale.max(1e-4),
+                        scale: lens_distortion.scale.max(1e-6),
                         multiplier: lens_distortion.multiplier.max(Vec2::ZERO),
                         center: lens_distortion.center.clamp(Vec2::ZERO, Vec2::ONE),
                         edge_curvature: lens_distortion.edge_curvature,

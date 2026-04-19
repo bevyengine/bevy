@@ -9,21 +9,6 @@ use bevy_render::{
     extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
 };
 
-/// The default lens distortion intensity amount.
-const DEFAULT_LENS_DISTORTION_INTENSITY: f32 = 0.5;
-
-/// The default lens distortion scale amount.
-const DEFAULT_LENS_DISTORTION_SCALE: f32 = 1.0;
-
-/// The default lens distortion multiplier.
-const DEFAULT_LENS_DISTORTION_MULTIPLIER: Vec2 = Vec2::ONE;
-
-/// The default lens distortion center.
-const DEFAULT_LENS_DISTORTION_CENTER: Vec2 = Vec2::splat(0.5);
-
-/// The default lens distortion edge curvature.
-const DEFAULT_LENS_DISTORTION_EDGE_CURVATURE: f32 = 0.0;
-
 /// Simulates the warping of the image caused by real-world camera lenses.
 ///
 /// [Lens distortion] simulates the imperfections of optical systems, where
@@ -33,14 +18,14 @@ const DEFAULT_LENS_DISTORTION_EDGE_CURVATURE: f32 = 0.0;
 ///
 /// Bevy's implementation is based on a simplified special case of the
 /// Brown-Conrady model, where p₁ = p₂ = 0 and control is retained only
-/// for k₁ and k₂.
+/// for k1 and k2.
 #[derive(Reflect, Component, Clone)]
 pub struct LensDistortion {
     /// The overall strength of the distortion effect.
     ///
     /// Positive values typically produce **barrel distortion** (bulging outwards),
     /// while negative values produce **pincushion distortion** (pinching inwards).
-    /// This corresponds roughly to the radial distortion coefficient `k₁`
+    /// This corresponds roughly to the radial distortion coefficient `k1`
     /// in the simplified model.
     ///
     /// The default value is 0.5.
@@ -71,12 +56,11 @@ pub struct LensDistortion {
     pub center: Vec2,
     /// Controls the sharpness of the distortion curve near the screen edges.
     ///
-    /// `edge_curvature` provides indirect control over the k₂ parameter.
-    /// The reason for indirect control is that k₁ and k₂ are typically correlated.
-    /// If k₂ did not vary with k₁, it would easily cause visual jumping when intensity
-    /// transitions from positive to negative. Furthermore, improper configuration of
-    /// the k₂ parameter can result in unnatural distortion artifacts. In most cases,
-    /// setting k₂ to 0.0 is appropriate.
+    /// `edge_curvature` provides indirect control over the k2 parameter.
+    /// The reason for indirect control is that k1 and k2 are typically correlated.
+    /// If k2 did not vary with k1, it would easily cause visual jumping when intensity
+    /// transitions from positive to negative.
+    /// For a simple and natural look in most cases, we recommend setting `edge_curvature` to 0.0.
     ///
     /// The default value is 0.0.
     pub edge_curvature: f32,
@@ -85,11 +69,11 @@ pub struct LensDistortion {
 impl Default for LensDistortion {
     fn default() -> Self {
         Self {
-            intensity: DEFAULT_LENS_DISTORTION_INTENSITY,
-            scale: DEFAULT_LENS_DISTORTION_SCALE,
-            multiplier: DEFAULT_LENS_DISTORTION_MULTIPLIER,
-            center: DEFAULT_LENS_DISTORTION_CENTER,
-            edge_curvature: DEFAULT_LENS_DISTORTION_EDGE_CURVATURE,
+            intensity: 0.5,
+            scale: 1.0,
+            multiplier: Vec2::ONE,
+            center: Vec2::splat(0.5),
+            edge_curvature: 0.0,
         }
     }
 }
@@ -119,16 +103,10 @@ impl ExtractComponent for LensDistortion {
 /// each of these fields.
 #[derive(ShaderType, Default)]
 pub struct LensDistortionUniform {
-    /// The overall strength of the distortion effect.
     pub(super) intensity: f32,
-    /// A global scale factor applied to the final distorted image.
     pub(super) scale: f32,
-    /// A multiplier that determines how the distortion scales along the X and Y axes.
     pub(super) multiplier: Vec2,
-    /// The center point of the distortion effect in UV space `[0.0, 1.0]`.
     pub(super) center: Vec2,
-    /// Controls the sharpness of the distortion curve near the screen edges.
     pub(super) edge_curvature: f32,
-    /// Padding data.
     pub(super) unused: u32,
 }
