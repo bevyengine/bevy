@@ -597,8 +597,8 @@ pub fn resolve_scene_patches(
     for event in events.read() {
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(patch) = patches.get_mut(id).and_then(|mut p| p.resolve_scene.take()) {
-                    let mut scene = ResolvedScene::default();
+                if let Some(scene) = patches.get_mut(id).and_then(|mut p| p.scene.take()) {
+                    let mut resolved_scene = ResolvedScene::default();
                     let mut entity_scopes = EntityScopes::default();
                     let mut resolve_context = ResolveContext {
                         assets: &assets,
@@ -607,11 +607,11 @@ pub fn resolve_scene_patches(
                         entity_scopes: &mut entity_scopes,
                         inherited: None,
                     };
-                    match (patch)(&mut resolve_context, &mut scene) {
+                    match scene.resolve_box(&mut resolve_context, &mut resolved_scene) {
                         Ok(()) => {
                             let mut patch = patches.get_mut(id).unwrap();
                             patch.resolved = Some(Arc::new(ResolvedSceneRoot {
-                                scene,
+                                scene: resolved_scene,
                                 entity_scopes,
                             }));
                         }

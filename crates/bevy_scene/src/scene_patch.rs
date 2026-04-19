@@ -19,13 +19,7 @@ use thiserror::Error;
 #[derive(Asset, TypePath)]
 pub struct ScenePatch {
     /// A [`Scene`].
-    pub resolve_scene: Option<
-        Box<
-            dyn FnOnce(&mut ResolveContext, &mut ResolvedScene) -> Result<(), ResolveSceneError>
-                + Send
-                + Sync,
-        >,
-    >,
+    pub scene: Option<Box<dyn Scene>>,
     /// The dependencies of `scene` (populated using [`Scene::register_dependencies`]). These are "asset dependencies" and will affect the load state.
     #[dependency]
     pub dependencies: Vec<UntypedHandle>,
@@ -52,9 +46,7 @@ impl ScenePatch {
             .map(|i| load_from_path.load_from_path_erased(i.type_id, i.path.clone()))
             .collect::<Vec<_>>();
         ScenePatch {
-            resolve_scene: Some(Box::new(|context, resolved_scene| {
-                scene.resolve(context, resolved_scene)
-            })),
+            scene: Some(Box::new(scene)),
             dependencies,
             resolved: None,
         }
@@ -67,10 +59,10 @@ impl ScenePatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let mut scene = ResolvedScene::default();
+        let mut resolved_scene = ResolvedScene::default();
         let mut entity_scopes = EntityScopes::default();
-        let resolve_scene = self.resolve_scene.take().unwrap();
-        (resolve_scene)(
+        let scene = self.scene.take().unwrap();
+        scene.resolve_box(
             &mut ResolveContext {
                 assets,
                 patches,
@@ -78,10 +70,10 @@ impl ScenePatch {
                 entity_scopes: &mut entity_scopes,
                 inherited: None,
             },
-            &mut scene,
+            &mut resolved_scene,
         )?;
         self.resolved = Some(Arc::new(ResolvedSceneRoot {
-            scene,
+            scene: resolved_scene,
             entity_scopes,
         }));
         Ok(())
@@ -132,16 +124,7 @@ pub struct ScenePatchInstance(pub Handle<ScenePatch>);
 #[derive(Asset, TypePath)]
 pub struct SceneListPatch {
     /// A [`SceneList`].
-    pub resolve_scene_list: Option<
-        Box<
-            dyn FnOnce(
-                    &mut ResolveContext,
-                    &mut Vec<ResolvedScene>,
-                ) -> Result<(), ResolveSceneError>
-                + Send
-                + Sync,
-        >,
-    >,
+    pub scene_list: Option<Box<dyn SceneList>>,
 
     /// The dependencies of `scene_list` (populated using [`SceneList::register_dependencies`]). These are "asset dependencies" and will affect the load state.
     #[dependency]
@@ -163,9 +146,7 @@ impl SceneListPatch {
             .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
             .collect::<Vec<_>>();
         SceneListPatch {
-            resolve_scene_list: Some(Box::new(|context, scenes| {
-                scene_list.resolve_list(context, scenes)
-            })),
+            scene_list: Some(Box::new(scene_list)),
             dependencies,
             resolved: None,
         }
@@ -178,10 +159,10 @@ impl SceneListPatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let resolve_scene_list = self.resolve_scene_list.take().unwrap();
-        let mut scenes = Vec::new();
+        let scene_list = self.scene_list.take().unwrap();
+        let mut resolved_scenes = Vec::new();
         let mut entity_scopes = EntityScopes::default();
-        (resolve_scene_list)(
+        scene_list.resolve_list_box(
             &mut ResolveContext {
                 assets,
                 patches,
@@ -189,10 +170,10 @@ impl SceneListPatch {
                 entity_scopes: &mut entity_scopes,
                 inherited: None,
             },
-            &mut scenes,
+            &mut resolved_scenes,
         )?;
         self.resolved = Some(ResolvedSceneListRoot {
-            scenes,
+            scenes: resolved_scenes,
             entity_scopes,
         });
         Ok(())
