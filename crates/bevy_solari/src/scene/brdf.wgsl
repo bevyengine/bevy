@@ -71,14 +71,9 @@ fn evaluate_and_sample_brdf(
         wi_tangent = sample_ggx_vndf(wo_tangent, material.roughness, rng);
         if ggx_vndf_sample_invalid(wi_tangent) { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-    }
-
-    // Mirror is a delta function
-    if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
-        if diffuse_selected {
-            return EvaluateAndSampleBrdfResult(wi, rho.rho_diff / (1.0 - specular_weight), 1.0);
-        } else {
-            if dot(N, wi) <= 0.0 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
+        
+        // Mirror specular is a delta function
+        if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
             return EvaluateAndSampleBrdfResult(wi, rho.rho_spec / specular_weight, 1.0);
         }
     }
