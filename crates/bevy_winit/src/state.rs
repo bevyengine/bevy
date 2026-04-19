@@ -163,12 +163,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
-                requested_resume: Some(resume),
-                ..
+                requested_resume, ..
             } => {
                 // If the resume time is not after now, it means that at least the wait timeout
-                // has elapsed.
-                resume <= Instant::now()
+                // has elapsed. Alternatively, if the resume time is unset, the wait never elapses.
+                requested_resume
+                    .map(|resume| resume <= Instant::now())
+                    .unwrap_or_default()
             }
             _ => true,
         };
