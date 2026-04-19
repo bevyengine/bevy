@@ -309,7 +309,10 @@ impl Plugin for MaterialsPlugin {
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline.after(MeshPipelineSet))
+                .add_systems(
+                    RenderStartup,
+                    init_material_pipeline.after(MeshPipelineSystems),
+                )
                 .add_systems(
                     Render,
                     (
@@ -632,6 +635,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
         }
         Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+        Tonemapping::PbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 

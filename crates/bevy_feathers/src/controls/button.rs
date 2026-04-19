@@ -15,7 +15,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, template_value};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::FontWeight;
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 use bevy_ui_widgets::Button;
 
@@ -40,15 +40,29 @@ pub enum ButtonVariant {
     /// A button with a more prominent color, this is used for "call to action" buttons,
     /// default buttons for dialog boxes, and so on.
     Primary,
+    /// Don't display the button background unless hovering or pressed.
+    Plain,
 }
 
 /// Parameters for the button template, passed to [`button`] function.
-#[derive(Default)]
 pub struct ButtonProps {
+    /// Label for this button. This can contain multiple entities, which will be contained
+    /// in a horizontal flexbox.
+    pub caption: Box<dyn SceneList>,
     /// Color variant for the button.
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
+}
+
+impl Default for ButtonProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+            variant: ButtonVariant::default(),
+            corners: Default::default(),
+        }
+    }
 }
 
 /// Scene function to spawn a button.
@@ -69,7 +83,6 @@ pub fn button(props: ButtonProps) -> impl Scene {
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
-            flex_grow: 1.0,
             border_radius: {props.corners.to_border_radius(4.0)},
         }
         Button
@@ -82,18 +95,49 @@ pub fn button(props: ButtonProps) -> impl Scene {
         ThemeFontColor(tokens::BUTTON_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
+        Children [
+            {props.caption}
+        ]
     }
+}
+
+/// Tool button scene function: a smaller button for embedding in panel headers.
+///
+/// # Arguments
+/// * `props` - construction properties for the button.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
+///     * the pointer is released while hovering over the button.
+///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+pub fn tool_button(props: ButtonProps) -> impl Scene {
+    bsn! {
+        :button(props)
+        Node {
+            padding: UiRect::axes(Val::Px(4.0), Val::Px(0.)),
+            min_width: size::ROW_HEIGHT,
+        }
+    }
+}
+
+/// Parameters for the [`button_bundle`] template.
+#[derive(Default)]
+pub struct ButtonBundleProps {
+    /// Color variant for the button.
+    pub variant: ButtonVariant,
+    /// Rounded corners options
+    pub corners: RoundedCorners,
 }
 
 /// Template function to spawn a button.
 ///
 /// # Arguments
 /// * `props` - construction properties for the button.
-/// * `overrides` - a bundle of components that are merged in with the normal button components.
-/// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::Activate`] when any of the following happens:
@@ -103,7 +147,7 @@ pub fn button(props: ButtonProps) -> impl Scene {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the button() BSN function")]
 pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonProps,
+    props: ButtonBundleProps,
     overrides: B,
     children: C,
 ) -> impl Bundle {
@@ -126,7 +170,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
             ..Default::default()
         },
@@ -223,13 +267,17 @@ fn set_button_styles(
         (ButtonVariant::Primary, false, true, _) => tokens::BUTTON_PRIMARY_BG_PRESSED,
         (ButtonVariant::Primary, false, false, true) => tokens::BUTTON_PRIMARY_BG_HOVER,
         (ButtonVariant::Primary, false, false, false) => tokens::BUTTON_PRIMARY_BG,
+        (ButtonVariant::Plain, true, _, _) => tokens::BUTTON_PLAIN_BG_DISABLED,
+        (ButtonVariant::Plain, false, true, _) => tokens::BUTTON_PLAIN_BG_PRESSED,
+        (ButtonVariant::Plain, false, false, true) => tokens::BUTTON_PLAIN_BG_HOVER,
+        (ButtonVariant::Plain, false, false, false) => tokens::BUTTON_PLAIN_BG,
     };
 
     let font_color_token = match (variant, disabled) {
-        (ButtonVariant::Normal, true) => tokens::BUTTON_TEXT_DISABLED,
-        (ButtonVariant::Normal, false) => tokens::BUTTON_TEXT,
         (ButtonVariant::Primary, true) => tokens::BUTTON_PRIMARY_TEXT_DISABLED,
         (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
+        (ButtonVariant::Normal | ButtonVariant::Plain, true) => tokens::BUTTON_TEXT_DISABLED,
+        (ButtonVariant::Normal | ButtonVariant::Plain, false) => tokens::BUTTON_TEXT,
     };
 
     let cursor_shape = match disabled {

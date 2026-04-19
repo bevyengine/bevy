@@ -1,7 +1,8 @@
-use bevy_asset::{Assets, Handle, RenderAssetUsages};
+use bevy_asset::{Assets, Handle, HandleTemplate, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
 use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
+use bevy_ecs::template::{FromTemplate, OptionTemplate};
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -224,7 +225,12 @@ impl Default for EnvironmentMapLight {
 #[reflect(Component, Default, Clone)]
 pub struct Skybox {
     /// The cubemap to use.
-    pub image: Handle<Image>,
+    ///
+    /// If this is [`None`], the skybox will not be rendered, as if it does not exist.
+    /// This allows `Skybox` to implement [`Default`].
+    #[template(OptionTemplate<HandleTemplate<Image>>)]
+    pub image: Option<Handle<Image>>,
+
     /// Scale factor applied to the skybox image.
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
@@ -239,7 +245,7 @@ pub struct Skybox {
 impl Default for Skybox {
     fn default() -> Self {
         Skybox {
-            image: Handle::default(),
+            image: None,
             brightness: 0.0,
             rotation: Quat::IDENTITY,
         }

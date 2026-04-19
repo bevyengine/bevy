@@ -450,15 +450,17 @@ mod gltf_coordinate_conversion {
 
         commands
             .spawn((
-                WorldAssetRoot(asset_server.load_with_settings(
-                    GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
-                    |s: &mut GltfLoaderSettings| {
-                        s.convert_coordinates = Some(GltfConvertCoordinates {
-                            rotate_scene_entity: true,
-                            rotate_meshes: true,
-                        });
-                    },
-                )),
+                WorldAssetRoot(
+                    asset_server
+                        .load_builder()
+                        .with_settings(|s: &mut GltfLoaderSettings| {
+                            s.convert_coordinates = Some(GltfConvertCoordinates {
+                                rotate_scene_entity: true,
+                                rotate_meshes: true,
+                            });
+                        })
+                        .load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
+                ),
                 DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(show_aabbs);
@@ -586,7 +588,7 @@ mod white_furnace_solid_color_light {
                 ..OrthographicProjection::default_3d()
             }),
             Skybox {
-                image: white_cubemap_handle,
+                image: Some(white_cubemap_handle),
                 // middle gray
                 brightness: 500.0,
                 ..default()
@@ -701,7 +703,7 @@ mod white_furnace_environment_map_light {
                 ..OrthographicProjection::default_3d()
             }),
             Skybox {
-                image: white_cubemap_handle,
+                image: Some(white_cubemap_handle),
                 // middle gray
                 brightness: 500.0,
                 ..default()

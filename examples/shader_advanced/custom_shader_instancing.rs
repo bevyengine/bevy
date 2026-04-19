@@ -9,7 +9,7 @@
 
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::pbr::{
-    self, MeshInputUniform, MeshPipelineSet, MeshUniform, SetMeshViewBindingArrayBindGroup,
+    self, MeshInputUniform, MeshPipelineSystems, MeshUniform, SetMeshViewBindingArrayBindGroup,
     ViewKeyCache,
 };
 use bevy::{
@@ -112,7 +112,10 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSet))
+            .add_systems(
+                RenderStartup,
+                init_custom_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 (

@@ -15,7 +15,7 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
-use bevy::pbr::{self, MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -52,7 +52,7 @@ use bevy::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
             PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            VertexState,
         },
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
@@ -131,7 +131,10 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .init_resource::<PendingCustomMeshQueues>()
-            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSet))
+            .add_systems(
+                RenderStartup,
+                init_stencil_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -215,7 +218,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: key.target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

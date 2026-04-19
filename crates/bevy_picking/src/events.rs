@@ -42,7 +42,13 @@ use std::collections::HashSet;
 
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    query::QueryData,
+    system::SystemParam,
+    traversal::Traversal,
+};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
@@ -459,11 +465,11 @@ pub struct Scroll {
 #[derive(Debug, Clone, Default)]
 pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
-    pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
+    pub pressing: EntityHashMap<(Location, Instant, HitData)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
-    pub dragging: HashMap<Entity, DragEntry>,
+    pub dragging: EntityHashMap<DragEntry>,
     /// Stores the hit data for each entity currently being dragged over by the pointer.
-    pub dragging_over: HashMap<Entity, HitData>,
+    pub dragging_over: EntityHashMap<HitData>,
 }
 
 impl PointerButtonState {
@@ -477,7 +483,7 @@ impl PointerButtonState {
 
 /// A cache map containing the ancestry of hovered entities
 #[derive(Debug, Clone, Default, Deref, DerefMut)]
-pub struct HoveredEntityAncestors(HashMap<Entity, HashSet<Entity>>);
+pub struct HoveredEntityAncestors(EntityHashMap<EntityHashSet>);
 
 impl HoveredEntityAncestors {
     /// Clears self and rebuilds a map of every hovered entity to its ancestors.
@@ -504,7 +510,7 @@ impl HoveredEntityAncestors {
             {
                 self.insert(hovered_entity, previous_entry.clone());
             } else {
-                let mut ancestors = HashSet::new();
+                let mut ancestors = EntityHashSet::new();
                 for member in ancestors_query.iter_ancestors(hovered_entity) {
                     ancestors.insert(member);
                 }
@@ -514,16 +520,16 @@ impl HoveredEntityAncestors {
     }
 
     /// Returns a new combined `HashSet` of ancestors for the provided `hover_entities`
-    pub fn get_ancestors_union(&self, hover_entities: &HashSet<Entity>) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hover_entities: &EntityHashSet) -> EntityHashSet {
         hover_entities
             .iter()
             .flat_map(|entity| self.get(entity))
             .flat_map(|set| set.iter().copied())
-            .collect::<HashSet<Entity>>()
+            .collect::<EntityHashSet>()
     }
 
     /// Returns the ancestors for the provided `hover_entity`, if it has been created
-    pub fn get_ancestors(&self, hover_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hover_entity: &Entity) -> Option<&EntityHashSet> {
         self.get(hover_entity)
     }
 }
@@ -555,12 +561,12 @@ impl PointerState {
     }
 
     /// Retrieves the ancestors for a given hovered entity
-    pub fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&EntityHashSet> {
         self.hovered_entity_ancestors.get_ancestors(hovered_entity)
     }
 
     /// Retrieves the union of ancestors for the given hovered entities
-    pub fn get_ancestors_union(&self, hovered_entities: &HashSet<Entity>) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hovered_entities: &EntityHashSet) -> EntityHashSet {
         self.hovered_entity_ancestors
             .get_ancestors_union(hovered_entities)
     }
@@ -711,7 +717,7 @@ pub fn pointer_events(
                     || {
                         ancestors_query
                             .iter_ancestors(hovered_entity)
-                            .collect::<HashSet<Entity>>()
+                            .collect::<EntityHashSet>()
                     },
                     Clone::clone,
                 );
@@ -726,7 +732,7 @@ pub fn pointer_events(
                 let union = new_hovered_entities
                     .union(&new_hovered_ancestors)
                     .copied()
-                    .collect::<HashSet<Entity>>();
+                    .collect::<EntityHashSet>();
                 // Keep entities and ancestors that are not going to continue to be hovered over
                 entities_to_send_leave.retain(|entity| !union.contains(entity));
                 // Send `Leave` events for those entities.
@@ -832,7 +838,7 @@ pub fn pointer_events(
                     || {
                         ancestors_query
                             .iter_ancestors(hovered_entity)
-                            .collect::<HashSet<Entity>>()
+                            .collect::<EntityHashSet>()
                     },
                     Clone::clone,
                 );
@@ -848,7 +854,7 @@ pub fn pointer_events(
                 let union = prev_hovered_entities
                     .union(&prev_hovered_ancestors)
                     .copied()
-                    .collect::<HashSet<Entity>>();
+                    .collect::<EntityHashSet>();
                 // Keep entities and ancestors that were not hovered over previously
                 entities_to_send_enter.retain(|entity| !union.contains(entity));
                 // Send `Enter` events for those entities.
@@ -1228,7 +1234,7 @@ mod tests {
 
     fn update_hover_map_with_hovered_entities(app: &mut App, camera: Entity, entities: &[Entity]) {
         let mut hover_map = HoverMap::default();
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::with_capacity(entities.len());
         for entity in entities {
             entity_map.insert(
                 *entity,
