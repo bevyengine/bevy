@@ -15,7 +15,7 @@ use bevy_ecs::{
 use bevy_reflect::TypePath;
 use thiserror::Error;
 
-/// An [`Asset`] that holds a [`Scene`], tracks its dependencies, and holds the [`ResolvedScene`] (after the [`Scene`] has been loaded and resolved).
+/// An [`Asset`] that holds a [`Scene`], tracks its dependencies, and holds the [`ResolvedSceneRoot`] (after the [`Scene`] has been loaded and resolved).
 #[derive(Asset, TypePath)]
 pub struct ScenePatch {
     /// A [`Scene`].
@@ -23,7 +23,7 @@ pub struct ScenePatch {
     /// The dependencies of `scene` (populated using [`Scene::register_dependencies`]). These are "asset dependencies" and will affect the load state.
     #[dependency]
     pub dependencies: Vec<UntypedHandle>,
-    /// The [`ResolvedScene`], if exists. This is populated after the [`Scene`] has been loaded and resolved
+    /// The [`ResolvedSceneRoot`], if exists. This is populated after the [`Scene`] has been loaded and resolved
     // TODO: consider breaking this out to prevent mutating asset events when resolved. Assets as Entities will enable this!
     // TODO: This Arc exists to allow nested ResolvedSceneRoot::apply when borrowing inherited ScenePatch assets (see the ResolvedSceneRoot::apply implementation).
     pub resolved: Option<Arc<ResolvedSceneRoot>>,
@@ -92,7 +92,9 @@ impl ScenePatch {
 /// An [`Error`] that occurs during scene spawning.
 #[derive(Error, Debug)]
 pub enum SpawnSceneError {
-    /// Failed to apply a [`ResolvedScene`]s.
+    /// Failed to apply a [`ResolvedScene`].
+    ///
+    /// [`ResolvedScene`]: crate::ResolvedScene
     #[error(transparent)]
     ApplySceneError(#[from] ApplySceneError),
     #[error(transparent)]
@@ -107,7 +109,7 @@ pub enum SpawnSceneError {
 #[derive(Component, FromTemplate, Deref, DerefMut)]
 pub struct ScenePatchInstance(pub Handle<ScenePatch>);
 
-/// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`Vec`] of [`ResolvedScene`] (after the [`SceneList`] has been loaded and resolved)
+/// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`ResolvedSceneListRoot`] (after the [`SceneList`] has been loaded and resolved)
 #[derive(Asset, TypePath)]
 pub struct SceneListPatch {
     /// A [`SceneList`].
