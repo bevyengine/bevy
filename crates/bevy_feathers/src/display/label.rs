@@ -1,6 +1,6 @@
 //! BSN scene function for displaying a plain text string in the correct font.
 use bevy_ecs::hierarchy::Children;
-use bevy_scene::{bsn, template_value, Scene};
+use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{widget::Text, Node};
 
@@ -13,7 +13,6 @@ use crate::{
 
 /// A text label.
 pub fn label(text: impl Into<String>) -> impl Scene {
-    let text = Text::new(text.into());
     bsn! {
         Node
         ThemeFontColor(tokens::TEXT_MAIN)
@@ -23,7 +22,7 @@ pub fn label(text: impl Into<String>) -> impl Scene {
             weight: FontWeight::NORMAL,
         }
         Children [
-            template_value(text)
+            Text(text)
             ThemedText
         ]
     }
@@ -31,7 +30,6 @@ pub fn label(text: impl Into<String>) -> impl Scene {
 
 /// A text label with a dimmed color.
 pub fn label_dim(text: impl Into<String>) -> impl Scene {
-    let text = Text::new(text.into());
     bsn! {
         Node
         ThemeFontColor(tokens::TEXT_DIM)
@@ -41,7 +39,7 @@ pub fn label_dim(text: impl Into<String>) -> impl Scene {
             weight: FontWeight::NORMAL,
         }
         Children [
-            template_value(text)
+            Text(text)
             ThemedText
         ]
     }
