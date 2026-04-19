@@ -521,7 +521,6 @@ jobs:
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-          rm Cargo.lock
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: ${{ steps.msrv.outputs.msrv }}
