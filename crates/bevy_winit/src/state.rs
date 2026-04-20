@@ -39,7 +39,8 @@ use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
-    converters, create_windows,
+    converters::{self, convert_touch_phase},
+    create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, RawWinitWindowEvent, UpdateMode,
     WinitSettings, WinitUserEvent, WINIT_WINDOWS,
@@ -336,24 +337,29 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                             y: delta.y,
                         }));
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                                window,
-                            });
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
+                        let phase = convert_touch_phase(phase);
+                        match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                    window,
+                                    phase,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                    window,
+                                    phase,
+                                });
+                            }
                         }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                                window,
-                            });
-                        }
-                    },
+                    }
                     WindowEvent::Touch(touch) => {
                         let location = touch
                             .location

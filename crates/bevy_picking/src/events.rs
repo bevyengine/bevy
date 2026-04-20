@@ -49,7 +49,7 @@ use bevy_ecs::{
     system::SystemParam,
     traversal::Traversal,
 };
-use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::{mouse::MouseScrollUnit, touch::TouchPhase};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_platform::time::Instant;
@@ -458,6 +458,10 @@ pub struct Scroll {
     pub y: f32,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Touch phase of the input.
+    ///
+    /// When using a mouse, this will always be [`TouchPhase::Moved`].
+    pub phase: TouchPhase,
 }
 
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
@@ -1141,7 +1145,7 @@ pub fn pointer_events(
                     message_writers.move_events.write(move_event);
                 }
             }
-            PointerAction::Scroll { x, y, unit } => {
+            PointerAction::Scroll { x, y, unit, phase } => {
                 for (hovered_entity, hit) in hover_map
                     .get(&pointer_id)
                     .iter()
@@ -1156,6 +1160,7 @@ pub fn pointer_events(
                             x,
                             y,
                             hit: hit.clone(),
+                            phase,
                         },
                         hovered_entity,
                     );
