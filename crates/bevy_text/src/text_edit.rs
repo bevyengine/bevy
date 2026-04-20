@@ -293,17 +293,14 @@ impl TextEdit {
                 }
             }
             TextEdit::ImeCommit { value: text } => {
-                if !text.chars().all(&char_filter) {
-                    driver.clear_compose();
-                    return;
-                }
-                if max_characters.is_some_and(|max| {
-                    max < driver.editor.text().chars().count() + text.chars().count()
-                }) {
-                    driver.clear_compose();
-                    return;
-                }
                 driver.clear_compose();
+                if text.chars().all(&char_filter)
+                    && max_characters.is_none_or(|max| {
+                        driver.editor.text().chars().count() + text.chars().count() <= max
+                    })
+                {
+                    driver.insert_or_replace_selection(text.as_str());
+                }
                 driver.insert_or_replace_selection(text.as_str());
             }
         }
