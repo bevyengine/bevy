@@ -29,7 +29,7 @@ use bevy::{
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, slider_self_update, Activate, ActivateOnPress, RadioButton,
+        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
         RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
@@ -352,44 +352,74 @@ fn demo_column_1() -> impl Scene {
             (
                 Node {
                     display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
                 }
-                RadioGroup
-                on(
-                    |value_change: On<ValueChange<Entity>>,
-                        q_radio: Query<Entity, With<RadioButton>>,
-                        mut commands: Commands| {
-                        for radio in q_radio.iter() {
-                            if radio == value_change.value {
-                                commands.entity(radio).insert(Checked);
-                            } else {
-                                commands.entity(radio).remove::<Checked>();
-                            }
-                        }
-                    }
-                )
                 Children [
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("One") ThemedText),
-                        )),
-                    }) Checked),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Two") ThemedText),
-                        )),
-                    })),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Fast Click") ThemedText),
-                        )),
-                    }) ActivateOnPress),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Disabled") ThemedText),
-                        )),
-                    }) InteractionDisabled),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    ),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    )
                 ]
             ),
             (

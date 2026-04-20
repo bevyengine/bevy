@@ -277,7 +277,7 @@ fn radio_button_on_pointer_drag_end(
     }
 }
 
-fn checkbox_on_pointer_cancel(
+fn radio_button_on_pointer_cancel(
     mut cancel: On<Pointer<Cancel>>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
@@ -327,6 +327,31 @@ impl Plugin for RadioGroupPlugin {
             .add_observer(radio_button_on_pointer_down)
             .add_observer(radio_button_on_pointer_up)
             .add_observer(radio_button_on_pointer_drag_end)
-            .add_observer(checkbox_on_pointer_cancel);
+            .add_observer(radio_button_on_pointer_cancel);
+    }
+}
+
+/// Observer function which updates the radio buttons in a group in response to a [`ValueChange`] event.
+/// This can be used to make the radio buttons automatically update their own states and within
+/// the correct radio group when clicked, as opposed to managing the states externally.
+pub fn radio_self_update(
+    value_change: On<ValueChange<Entity>>,
+    q_radio_group: Query<&Children, With<RadioGroup>>,
+    q_radio: Query<Entity, With<RadioButton>>,
+    mut commands: Commands,
+) {
+    // Get the children of the source radio group
+    let Ok(children) = q_radio_group.get(value_change.source) else {
+        return;
+    };
+
+    // Iterate the children of this radio group
+    let mut iter = q_radio.iter_many(children);
+    while let Some(radio) = iter.fetch_next() {
+        if radio == value_change.value {
+            commands.entity(radio).insert(Checked);
+        } else {
+            commands.entity(radio).remove::<Checked>();
+        }
     }
 }
