@@ -58,15 +58,12 @@ fn on_focused_keyboard_input(
         return; // Focused entity is not an EditableText, nothing to do
     };
 
-    // Inputs should be captured by the IME if open;
-    // so ignore keyboard events if we're currently composing IME text
-    // TODO: Tab navigation should also be cancelled while composing,
-    // but doing so is non-trivial since this is controlled by `bevy_input_focus`,
-    // which this crate relies on.
-    // That crate does not have any awareness of IME composition,
-    // so we need to somehow temporarily disable tab navigation here
-    // when the IME is active.
+    // While the IME is composing, all keyboard input (including Tab) belongs to the IME.
+    // Stopping propagation prevents `handle_tab_navigation` (registered on the window,
+    // which sits further up the `FocusedInput` bubble chain) from responding to Tab;
+    // inadvertantly changing focus while the IME is active.
     if editable_text.is_composing() {
+        keyboard_input.propagate(false);
         return;
     }
 
