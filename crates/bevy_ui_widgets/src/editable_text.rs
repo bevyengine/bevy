@@ -347,7 +347,7 @@ fn sync_window_ime_enabled(
 /// This plugin is included in the [`UiWidgetsPlugins`](crate::UiWidgetsPlugins) group, but can also be added individually
 /// if only editable text input is needed.
 ///
-/// Note that [`TextEdit`]s are applied during [`PostUpdate`](bevy_app::PostUpdate)
+/// Note that [`TextEdit`]s are applied during [`PostUpdate`]
 /// in the [`EditableTextSystems`](bevy_text::EditableTextSystems) system set.
 pub struct EditableTextInputPlugin;
 
