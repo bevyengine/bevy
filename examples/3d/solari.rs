@@ -660,6 +660,10 @@ struct PerformanceText;
 fn update_performance_text(
     mut text: Single<&mut Text, With<PerformanceText>>,
     diagnostics: Res<DiagnosticsStore>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
+    >,
 ) {
     text.0.clear();
 
@@ -692,7 +696,10 @@ fn update_performance_text(
         "Specular indirect",
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
-    (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if matches!(dlss_camera.single(), Ok(true)) {
+        (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    }
     text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
 
     if let Some(world_cache_active_cells_count) = diagnostics
