@@ -82,7 +82,7 @@ futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { git = "https://github.com/BVE-Reborn/ktx2.git", rev = "49e6fed", optional = true }
+ktx2 = { version = "0.5", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 zstd = { version = "0.13.3", optional = true }
@@ -91,7 +91,7 @@ ruzstd = { version = "0.8.0", optional = true }
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
-ctt = { git = "https://github.com/cwfitzgerald/ctt", rev = "0ac0748fc25fd0cdee2794a43d1617cc5b776e05", optional = true }
+ctt = { version = "0.3", optional = true }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
