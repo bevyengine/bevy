@@ -28,8 +28,9 @@ use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextScroll, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
-    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedStackIndex,
+    ComputedUiTargetCamera, Display, Node, OuterColor, Outline, ResolvedBorderRadius,
+    UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -389,6 +390,7 @@ pub fn extract_uinode_background_colors(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -404,6 +406,7 @@ pub fn extract_uinode_background_colors(
     for (
         entity,
         uinode,
+        stack_index,
         transform,
         inherited_visibility,
         clip,
@@ -428,7 +431,7 @@ pub fn extract_uinode_background_colors(
         if !background_color.is_fully_transparent() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
@@ -455,7 +458,7 @@ pub fn extract_uinode_background_colors(
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
@@ -487,6 +490,7 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -497,7 +501,9 @@ pub fn extract_uinode_images(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
+        &uinode_query
+    {
         let content_box = uinode.content_box();
         // Skip invisible images
         if !inherited_visibility.get()
@@ -543,7 +549,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+            z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
@@ -572,6 +578,7 @@ pub fn extract_uinode_borders(
             Entity,
             Option<&Node>,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -588,6 +595,7 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
+        stack_index,
         transform,
         inherited_visibility,
         maybe_clip,
@@ -642,7 +650,7 @@ pub fn extract_uinode_borders(
                 completed_flags |= border_flags;
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
@@ -674,7 +682,7 @@ pub fn extract_uinode_borders(
         {
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
@@ -849,6 +857,7 @@ pub fn extract_viewport_nodes(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -859,8 +868,16 @@ pub fn extract_viewport_nodes(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        stack_index,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        viewport_node,
+    ) in &uinode_query
     {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -883,7 +900,7 @@ pub fn extract_viewport_nodes(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+            z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
@@ -914,6 +931,7 @@ pub fn extract_text_sections(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -935,6 +953,7 @@ pub fn extract_text_sections(
     for (
         entity,
         uinode,
+        stack_index,
         global_transform,
         inherited_visibility,
         maybe_clip,
@@ -1028,7 +1047,7 @@ pub fn extract_text_sections(
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
                     clip,
@@ -1052,6 +1071,7 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &ComputedUiTargetCamera,
             &InheritedVisibility,
@@ -1072,6 +1092,7 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
+        stack_index,
         global_transform,
         target,
         inherited_visibility,
@@ -1130,7 +1151,7 @@ pub fn extract_text_shadows(
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
                     clip,
@@ -1159,7 +1180,7 @@ pub fn extract_text_shadows(
 
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip,
                     image: AssetId::default(),
@@ -1185,7 +1206,7 @@ pub fn extract_text_shadows(
 
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip,
                     image: AssetId::default(),
@@ -1218,6 +1239,7 @@ pub fn extract_text_decorations(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &ComputedTextBlock,
             &UiGlobalTransform,
             &InheritedVisibility,
@@ -1241,6 +1263,7 @@ pub fn extract_text_decorations(
     for (
         entity,
         uinode,
+        stack_index,
         computed_block,
         global_transform,
         inherited_visibility,
@@ -1295,7 +1318,7 @@ pub fn extract_text_decorations(
 
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip,
                     image: AssetId::default(),
@@ -1325,7 +1348,7 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip,
                     image: AssetId::default(),
@@ -1355,7 +1378,7 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip,
                     image: AssetId::default(),

@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
-use bevy_platform::collections::Equivalent;
+use bevy_platform::{collections::Equivalent, sync::Mutex};
 use bevy_reflect::{Reflect, TypePath};
 use core::{
     any::TypeId,
@@ -208,10 +208,56 @@ impl<T: Asset> FromTemplate for Handle<T> {
     type Template = HandleTemplate<T>;
 }
 
+/// A [`Template`] that produces a [`Handle`].
 #[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
+    /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].
     Path(AssetPath<'static>),
+    /// Creates a [`Handle`] by cloning the given [`Handle`] value.
     Handle(Handle<T>),
+    /// Creates a [`Handle`] by adding the given asset value using [`AssetServer::add`]. This will
+    /// cache the resulting [`Handle`] on the template and reuse it for future template builds.
+    ///
+    /// This should generally be constructed using [`HandleTemplate::value`] or [`asset_value`].
+    Value(ArcMutexValue<T>),
+}
+
+impl<T: Asset> HandleTemplate<T> {
+    /// This will create a new [`HandleTemplate`] for the given `asset` value. This makes it possible
+    /// to define assets "inline" in templates / scenes that produce a [`Handle`].
+    ///
+    /// This supports [`Into`]
+    /// to automatically convert values that can become `A`.
+    pub fn value(value: impl Into<T>) -> Self {
+        HandleTemplate::Value(ArcMutexValue(Arc::new(Mutex::new(AssetOrHandle::Value(
+            Some(value.into()),
+        )))))
+    }
+}
+
+/// Stores an [`Arc<Mutex<AssetOrHandle<T>>>`].
+///
+/// This intermediary type exists largely to enable reflect(opaque).
+#[derive(Reflect)]
+#[reflect(opaque)]
+pub struct ArcMutexValue<T: Asset>(Arc<Mutex<AssetOrHandle<T>>>);
+
+impl<T: Asset> Clone for ArcMutexValue<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+#[derive(Reflect)]
+enum AssetOrHandle<T: Asset> {
+    Value(Option<T>),
+    Handle(Handle<T>),
+}
+
+impl<T: Asset> Default for AssetOrHandle<T> {
+    fn default() -> Self {
+        Self::Handle(Default::default())
+    }
 }
 
 impl<T: Asset> Default for HandleTemplate<T> {
@@ -238,6 +284,21 @@ impl<T: Asset> Template for HandleTemplate<T> {
         Ok(match self {
             HandleTemplate::Path(asset_path) => context.resource::<AssetServer>().load(asset_path),
             HandleTemplate::Handle(handle) => handle.clone(),
+            HandleTemplate::Value(value) => {
+                // This unwrap is ok. If another caller panicked while holding this mutex, then the
+                // program is in an invalid state and this should panic too.
+                let mut value_or_handle = value.0.lock().unwrap();
+                match &mut *value_or_handle {
+                    AssetOrHandle::Value(value) => {
+                        // This unwrap is ok because AssetOrHandle::Value will always either contain a Some Value
+                        // when it is in this state (AssetOrHandle is private).
+                        let handle = context.resource::<AssetServer>().add(value.take().unwrap());
+                        *value_or_handle = AssetOrHandle::Handle(handle.clone());
+                        handle
+                    }
+                    AssetOrHandle::Handle(handle) => handle.clone(),
+                }
+            }
         })
     }
 
@@ -245,9 +306,20 @@ impl<T: Asset> Template for HandleTemplate<T> {
         match self {
             HandleTemplate::Path(asset_path) => HandleTemplate::Path(asset_path.clone()),
             HandleTemplate::Handle(handle) => HandleTemplate::Handle(handle.clone()),
+            HandleTemplate::Value(value) => HandleTemplate::Value(value.clone()),
         }
     }
 }
+
+/// This will create a new [`HandleTemplate`] for the given `asset` value. This makes it possible
+/// to define assets "inline" in templates / scenes that produce a [`Handle`].
+///
+/// This supports [`Into`]
+/// to automatically convert values that can become `A`.
+pub fn asset_value<I: Into<A>, A: Asset>(asset: I) -> HandleTemplate<A> {
+    HandleTemplate::value(asset)
+}
+
 impl<A: Asset> core::fmt::Debug for Handle<A> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = ShortName::of::<A>();

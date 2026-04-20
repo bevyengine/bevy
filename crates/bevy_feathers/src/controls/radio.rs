@@ -20,9 +20,9 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, UiRect, Val,
+    Node, Pressed, UiRect, Val,
 };
-use bevy_ui_widgets::RadioButton;
+use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
 use crate::{
     constants::{fonts, size},
@@ -184,12 +184,19 @@ fn update_radio_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeFontColor,
         ),
         (
             With<RadioButton>,
-            Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
+            Or<(
+                Changed<Hovered>,
+                Added<Checked>,
+                Added<Pressed>,
+                Added<InteractionDisabled>,
+            )>,
         ),
     >,
     q_children: Query<&Children>,
@@ -197,7 +204,9 @@ fn update_radio_styles(
     mut q_mark: Query<&ThemeBackgroundColor, With<RadioMark>>,
     mut commands: Commands,
 ) {
-    for (radio_ent, disabled, checked, hovered, font_color) in q_radioes.iter() {
+    for (radio_ent, disabled, checked, pressed, activate_on_press, hovered, font_color) in
+        q_radioes.iter()
+    {
         let Some(outline_ent) = q_children
             .iter_descendants(radio_ent)
             .find(|en| q_outline.contains(*en))
@@ -218,7 +227,9 @@ fn update_radio_styles(
             mark_ent,
             disabled,
             checked,
+            pressed,
             hovered.0,
+            activate_on_press,
             outline_border,
             mark_color,
             font_color,
@@ -233,6 +244,8 @@ fn update_radio_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeFontColor,
         ),
@@ -243,13 +256,26 @@ fn update_radio_styles_remove(
     mut q_mark: Query<&ThemeBackgroundColor, With<RadioMark>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
+    mut remove_pressed: RemovedComponents<Pressed>,
+    mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
+        .chain(remove_pressed.read())
+        .chain(remove_activate_on_press.read())
         .for_each(|ent| {
-            if let Ok((radio_ent, disabled, checked, hovered, font_color)) = q_radioes.get(ent) {
+            if let Ok((
+                radio_ent,
+                disabled,
+                checked,
+                pressed,
+                activate_on_press,
+                hovered,
+                font_color,
+            )) = q_radioes.get(ent)
+            {
                 let Some(outline_ent) = q_children
                     .iter_descendants(radio_ent)
                     .find(|en| q_outline.contains(*en))
@@ -270,7 +296,9 @@ fn update_radio_styles_remove(
                     mark_ent,
                     disabled,
                     checked,
+                    pressed,
                     hovered.0,
+                    activate_on_press,
                     outline_border,
                     mark_color,
                     font_color,
@@ -286,21 +314,44 @@ fn set_radio_styles(
     mark_ent: Entity,
     disabled: bool,
     checked: bool,
+    pressed: bool,
     hovered: bool,
+    activate_on_press: bool,
     outline_border: &ThemeBorderColor,
     mark_color: &ThemeBackgroundColor,
     font_color: &ThemeFontColor,
     commands: &mut Commands,
 ) {
-    let outline_border_token = match (disabled, hovered) {
-        (true, _) => tokens::RADIO_BORDER_DISABLED,
-        (false, true) => tokens::RADIO_BORDER_HOVER,
-        _ => tokens::RADIO_BORDER,
+    let outline_border_token = if checked {
+        if disabled {
+            tokens::RADIO_BORDER_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BORDER_CHECKED_PRESSED
+        } else if hovered {
+            tokens::RADIO_BORDER_CHECKED_HOVER
+        } else {
+            tokens::RADIO_BORDER_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::RADIO_BORDER_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BORDER_PRESSED
+        } else if hovered {
+            tokens::RADIO_BORDER_HOVER
+        } else {
+            tokens::RADIO_BORDER
+        }
     };
 
-    let mark_token = match disabled {
-        true => tokens::RADIO_MARK_DISABLED,
-        false => tokens::RADIO_MARK,
+    let mark_token = if disabled {
+        tokens::RADIO_MARK_DISABLED
+    } else if pressed && !activate_on_press {
+        tokens::RADIO_MARK_PRESSED
+    } else if hovered {
+        tokens::RADIO_MARK_HOVER
+    } else {
+        tokens::RADIO_MARK
     };
 
     let font_color_token = match disabled {
@@ -324,7 +375,7 @@ fn set_radio_styles(
     if mark_color.0 != mark_token {
         commands
             .entity(mark_ent)
-            .insert(ThemeBorderColor(mark_token));
+            .insert(ThemeBackgroundColor(mark_token));
     }
 
     // Change mark visibility

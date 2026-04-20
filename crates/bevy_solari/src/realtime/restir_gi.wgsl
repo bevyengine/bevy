@@ -99,7 +99,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
     let sample_point = resolve_ray_hit_full(ray);
 
-    if all(sample_point.material.emissive != vec3(0.0)) {
+    if any(sample_point.material.emissive != vec3(0.0)) {
         return reservoir;
     }
 
