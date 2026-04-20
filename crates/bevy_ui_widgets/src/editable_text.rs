@@ -173,6 +173,11 @@ fn on_pointer_press(
         return;
     };
 
+    if editable_text.is_composing() {
+        // The IME is active; all input needs to be routed there, including pointer presses.
+        return;
+    }
+
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse
             .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0)
@@ -219,6 +224,11 @@ fn on_pointer_drag(
     else {
         return;
     };
+
+    if editable_text.is_composing() {
+        // The IME is active; all input needs to be routed there, including pointer drags.
+        return;
+    }
 
     let Some(local_pos) = transform.try_inverse().map(|inverse| {
         inverse
