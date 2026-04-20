@@ -330,4 +330,3 @@ fn merge_reservoirs(
         return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance, canonical_sample_wi);
     }
 }
-
