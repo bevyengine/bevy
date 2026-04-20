@@ -10,7 +10,6 @@ use bevy::{
         tokens, FeathersPlugins,
     },
     prelude::*,
-    scene::prelude::Scene,
     ui_widgets::Activate,
 };
 
@@ -31,7 +30,7 @@ fn main() {
         // Configure feathers to use the dark theme
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(Counter(0))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(
             Update,
             update_counter_text.run_if(resource_changed::<Counter>),
@@ -39,9 +38,8 @@ fn main() {
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, demo_root()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, demo_root()]
 }
 
 fn demo_root() -> impl Scene {

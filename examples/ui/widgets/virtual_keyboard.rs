@@ -15,7 +15,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
@@ -23,9 +23,8 @@ fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str
     println!("key pressed: {}", virtual_key_pressed.key);
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, keyboard()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, keyboard()]
 }
 
 fn keyboard() -> impl Scene {

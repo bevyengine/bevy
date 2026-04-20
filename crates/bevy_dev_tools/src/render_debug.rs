@@ -43,7 +43,7 @@ use bevy_shader::Shader;
 use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
     MeshViewBindGroup, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
@@ -73,7 +73,7 @@ impl Plugin for RenderDebugOverlayPlugin {
 
         render_app.add_systems(
             RenderStartup,
-            init_render_debug_overlay_pipeline.after(MeshPipelineSet),
+            init_render_debug_overlay_pipeline.after(MeshPipelineSystems),
         );
     }
 
