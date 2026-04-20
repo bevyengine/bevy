@@ -333,16 +333,16 @@ pub fn editable_text_system(
                         let underline_thickness = metrics.underline_size;
 
                         let run_text_range = run.text_range();
-                        if let Some(cr) = &compose_range {
-                            if run_text_range.start < cr.end && run_text_range.end > cr.start {
-                                info.preedit_underline_rects.push(Rect {
-                                    min: Vec2::new(glyph_run.offset(), underline_y),
-                                    max: Vec2::new(
-                                        glyph_run.offset() + glyph_run.advance(),
-                                        underline_y + underline_thickness,
-                                    ),
-                                });
-                            }
+                        if compose_range.as_ref().is_some_and(|cr| {
+                            run_text_range.start < cr.end && run_text_range.end > cr.start
+                        }) {
+                            info.preedit_underline_rects.push(Rect {
+                                min: Vec2::new(glyph_run.offset(), underline_y),
+                                max: Vec2::new(
+                                    glyph_run.offset() + glyph_run.advance(),
+                                    underline_y + underline_thickness,
+                                ),
+                            });
                         }
 
                         info.run_geometry.push(RunGeometry {

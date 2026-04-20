@@ -219,7 +219,7 @@ impl TextEdit {
                         .editor
                         .selected_text()
                         .map(str::chars)
-                        .map(|c| c.count())
+                        .map(Iterator::count)
                         .unwrap_or(0);
                     if max
                         < driver.editor.text().chars().count() - select_len
@@ -239,7 +239,7 @@ impl TextEdit {
                         .editor
                         .selected_text()
                         .map(str::chars)
-                        .map(|c| c.count())
+                        .map(Iterator::count)
                         .unwrap_or(0);
                     if max
                         < driver.editor.text().chars().count() - select_len + text.chars().count()
@@ -297,11 +297,11 @@ impl TextEdit {
                     driver.clear_compose();
                     return;
                 }
-                if let Some(max) = max_characters {
-                    if max < driver.editor.text().chars().count() + text.chars().count() {
-                        driver.clear_compose();
-                        return;
-                    }
+                if max_characters.is_some_and(|max| {
+                    max < driver.editor.text().chars().count() + text.chars().count()
+                }) {
+                    driver.clear_compose();
+                    return;
                 }
                 driver.clear_compose();
                 driver.insert_or_replace_selection(text.as_str());
