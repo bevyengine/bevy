@@ -114,7 +114,9 @@ pub fn solari_lighting(
     #[cfg(not(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
     let specular_gi_pipeline = pipelines.specular_gi_pipeline;
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let specular_gi_pipeline = if view_dlss_rr_textures.is_some() {
+    let specular_gi_pipeline = if view_dlss_rr_textures.is_some()
+        && !solari_lighting.quarter_resolution_indirect_lighting
+    {
         pipelines.specular_gi_with_psr_pipeline
     } else {
         pipelines.specular_gi_pipeline
@@ -361,7 +363,9 @@ pub fn solari_lighting(
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/specular_indirect_lighting");
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures {
+    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures
+        && !solari_lighting.quarter_resolution_indirect_lighting
+    {
         pass.set_bind_group(2, bind_group_resolve_dlss_rr_textures, &[]);
     }
     pass.set_pipeline(specular_gi_pipeline);
