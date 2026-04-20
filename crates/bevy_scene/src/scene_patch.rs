@@ -59,7 +59,7 @@ impl ScenePatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let scene = self.scene.take().unwrap();
+        let scene = self.scene.take().ok_or(ResolveSceneError::MissingScene)?;
         self.resolved = Some(Arc::new(ResolvedSceneRoot::resolve(
             scene, assets, patches,
         )?));
@@ -148,7 +148,10 @@ impl SceneListPatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let scene_list = self.scene_list.take().unwrap();
+        let scene_list = self
+            .scene_list
+            .take()
+            .ok_or(ResolveSceneError::MissingScene)?;
         self.resolved = Some(ResolvedSceneListRoot::resolve(scene_list, assets, patches)?);
         Ok(())
     }

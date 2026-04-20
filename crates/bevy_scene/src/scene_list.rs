@@ -25,6 +25,8 @@ pub trait SceneList: SceneListBox {
 /// Boxed version of [`SceneList`], which enables implementing [`SceneList`] for [`Box<dyn SceneList>`].
 /// Most developers do not need to think about or use this trait.
 ///
+/// Related: [`SceneBox`].
+///
 /// ## Why does this exist?
 ///
 /// [`SceneList::resolve_list`] consumes `self`, which by default is not something that
@@ -33,6 +35,8 @@ pub trait SceneList: SceneListBox {
 /// has a blanket impl for `SceneList + Sized` (which can just rely on the [`SceneList`] impl).
 /// Then [`Box<dyn SceneList>`] has a manual [`SceneListBox`] impl that relies on the _stored_
 /// [`SceneListBox::resolve_list_box`] impl.
+///
+/// [`SceneBox`]: crate::SceneBox
 pub trait SceneListBox: Send + Sync + 'static {
     /// See [`SceneList::resolve_list`].
     fn resolve_list_box(

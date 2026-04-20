@@ -37,7 +37,7 @@ use variadics_please::all_tuples;
 ///
 /// See [`ResolvedScene`] for more information on how it can be composed.
 ///
-/// A [`Scene`] can have dependencies (defined with [`Self::register_dependencies`]), which _must_ be loaded before calling [`Scene::resolve`], or it
+/// A [`Scene`] can have dependencies (defined in [`Scene::register_dependencies`]), which _must_ be loaded before calling [`Scene::resolve`], or it
 /// might return a [`ResolveSceneError`].
 ///
 /// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::queue_spawn_scene`]
@@ -70,6 +70,8 @@ pub trait Scene: SceneBox {
 /// Boxed version of [`Scene`], which enables implementing [`Scene`] for [`Box<dyn Scene>`]. Most
 /// developers do not need to think about or use this trait.
 ///
+/// Related: [`SceneListBox`].
+///
 /// ## Why does this exist?
 ///
 /// [`Scene::resolve`] consumes `self`, which by default is not something that [`Box<dyn Scene>`]
@@ -77,6 +79,8 @@ pub trait Scene: SceneBox {
 /// _also_ know how to resolve itself for `self: Box<Self>`. [`SceneBox`] has a blanket impl
 /// for `Scene + Sized` (which can just rely on the [`Scene`] impl). Then [`Box<dyn Scene>`] has a
 /// manual [`SceneBox`] impl that relies on the _stored_ [`SceneBox::resolve_box`] impl.
+///
+/// [`SceneListBox`]: crate::SceneListBox
 pub trait SceneBox: Send + Sync + 'static {
     /// See [`Scene::resolve`].
     fn resolve_box(
@@ -159,6 +163,9 @@ pub enum ResolveSceneError {
     /// Caused when inheriting a scene during [`Scene::resolve`] fails.
     #[error(transparent)]
     InheritSceneError(#[from] InheritSceneError),
+    /// Caused when a Scene/SceneList is not present on the scene asset.
+    #[error("The Scene/SceneList is not present on the scene asset. This is likely because the scene has already been resolved, which consumed the source scene")]
+    MissingScene,
 }
 
 /// Context used by [`Scene`] implementations during [`Scene::resolve`].
