@@ -67,7 +67,7 @@ fn main() {
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
-        app.add_systems(Update, toggle_quarter_res_indirect);
+        app.add_systems(Update, toggle_quarter_res);
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         app.add_systems(Update, toggle_dlss_rr);
 
@@ -460,11 +460,15 @@ fn add_raytracing_meshes_on_scene_load(
     }
 }
 
-fn toggle_quarter_res_indirect(
+fn toggle_quarter_res(
     key_input: Res<ButtonInput<KeyCode>>,
     mut solari_lighting: Single<&mut SolariLighting>,
 ) {
     if key_input.just_pressed(KeyCode::Digit3) {
+        solari_lighting.quarter_resolution_direct_lighting =
+            !solari_lighting.quarter_resolution_direct_lighting;
+    }
+    if key_input.just_pressed(KeyCode::Digit4) {
         solari_lighting.quarter_resolution_indirect_lighting =
             !solari_lighting.quarter_resolution_indirect_lighting;
     }
@@ -477,7 +481,7 @@ fn toggle_dlss_rr(
     dlss_rr_supported: Option<Res<DlssRayReconstructionSupported>>,
     mut commands: Commands,
 ) {
-    if key_input.just_pressed(KeyCode::Digit4) && dlss_rr_supported.is_some() {
+    if key_input.just_pressed(KeyCode::Digit5) && dlss_rr_supported.is_some() {
         let (entity, dlss) = *camera;
         if dlss {
             commands
@@ -618,20 +622,27 @@ fn update_control_text(
         }
     }
 
+    if solari_lighting.quarter_resolution_direct_lighting {
+        text.0
+            .push_str("\n(3): Disable quarter-res direct lighting");
+    } else {
+        text.0.push_str("\n(3): Enable quarter-res direct lighting");
+    }
+
     if solari_lighting.quarter_resolution_indirect_lighting {
         text.0
-            .push_str("\n(3): Disable quarter-res indirect lighting");
+            .push_str("\n(4): Disable quarter-res indirect lighting");
     } else {
         text.0
-            .push_str("\n(3): Enable quarter-res indirect lighting");
+            .push_str("\n(4): Enable quarter-res indirect lighting");
     }
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
         if matches!(dlss_camera.single(), Ok(true)) {
-            text.0.push_str("\n(4): Disable DLSS Ray Reconstruction");
+            text.0.push_str("\n(5): Disable DLSS Ray Reconstruction");
         } else {
-            text.0.push_str("\n(4): Enable DLSS Ray Reconstruction");
+            text.0.push_str("\n(5): Enable DLSS Ray Reconstruction");
         }
     } else {
         text.0

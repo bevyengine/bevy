@@ -60,6 +60,7 @@ pub struct SolariLightingResources {
     pub world_cache_active_cells_count: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
     pub view_size: UVec2,
+    pub quarter_resolution_direct_lighting: bool,
     pub quarter_resolution_indirect_lighting: bool,
 }
 
@@ -103,12 +104,17 @@ pub fn prepare_solari_lighting_resources(
             view_size = *resolution_override;
         }
 
-        if solari_lighting_resources.map(|r| (r.view_size, r.quarter_resolution_indirect_lighting))
-            == Some((
-                view_size,
-                solari_lighting.quarter_resolution_indirect_lighting,
-            ))
-        {
+        if solari_lighting_resources.map(|r| {
+            (
+                r.view_size,
+                r.quarter_resolution_direct_lighting,
+                r.quarter_resolution_indirect_lighting,
+            )
+        }) == Some((
+            view_size,
+            solari_lighting.quarter_resolution_direct_lighting,
+            solari_lighting.quarter_resolution_indirect_lighting,
+        )) {
             continue;
         }
 
@@ -129,6 +135,11 @@ pub fn prepare_solari_lighting_resources(
         });
 
         let di_reservoirs = |name| {
+            let mut view_size = view_size;
+            if solari_lighting.quarter_resolution_direct_lighting {
+                view_size.x = view_size.x.div_ceil(2);
+                view_size.y = view_size.y.div_ceil(2);
+            }
             render_device
                 .create_texture(&TextureDescriptor {
                     label: Some(name),
@@ -258,6 +269,7 @@ pub fn prepare_solari_lighting_resources(
             world_cache_active_cells_count,
             world_cache_active_cells_dispatch,
             view_size,
+            quarter_resolution_direct_lighting: solari_lighting.quarter_resolution_direct_lighting,
             quarter_resolution_indirect_lighting: solari_lighting
                 .quarter_resolution_indirect_lighting,
         });

@@ -179,7 +179,7 @@ pub fn solari_lighting(
         return;
     };
 
-    let view_target_attachment = view_target.get_unsampled_color_attachment();
+    let mut view_target_attachment = view_target.get_unsampled_color_attachment();
 
     let s = solari_lighting_resources;
     let bind_group = render_device.create_bind_group(
@@ -239,6 +239,7 @@ pub fn solari_lighting(
     let immediates = [
         frame_index,
         solari_lighting.reset as u32,
+        solari_lighting.quarter_resolution_direct_lighting as u32,
         solari_lighting.quarter_resolution_indirect_lighting as u32,
     ];
     let immediates = bytemuck::cast_slice(&immediates);
@@ -249,7 +250,14 @@ pub fn solari_lighting(
     let command_encoder = ctx.command_encoder();
 
     // Clear the view target if we're the first node to write to it
-    if matches!(view_target_attachment.ops.load, LoadOp::Clear(_)) {
+    if let LoadOp::Clear(ref mut clear_color) = view_target_attachment.ops.load {
+        if solari_lighting.quarter_resolution_direct_lighting {
+            clear_color.r = 0.0;
+            clear_color.g = 0.0;
+            clear_color.b = 0.0;
+            clear_color.a = 1.0;
+        }
+
         command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("solari_lighting_clear"),
             color_attachments: &[Some(view_target_attachment)],
@@ -267,8 +275,14 @@ pub fn solari_lighting(
 
     let dx = solari_lighting_resources.view_size.x.div_ceil(8);
     let dy = solari_lighting_resources.view_size.y.div_ceil(8);
-    let mut gi_dx = solari_lighting_resources.view_size.x.div_ceil(8);
-    let mut gi_dy = solari_lighting_resources.view_size.y.div_ceil(8);
+    let mut di_dx = dx;
+    let mut di_dy = dy;
+    if solari_lighting.quarter_resolution_direct_lighting {
+        di_dx = di_dx.div_ceil(2);
+        di_dy = di_dy.div_ceil(2);
+    }
+    let mut gi_dx = dx;
+    let mut gi_dy = dy;
     if solari_lighting.quarter_resolution_indirect_lighting {
         gi_dx = gi_dx.div_ceil(2);
         gi_dy = gi_dy.div_ceil(2);
@@ -341,11 +355,11 @@ pub fn solari_lighting(
 
     pass.set_pipeline(di_initial_and_temporal_pipeline);
     pass.set_immediates(0, immediates);
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.dispatch_workgroups(di_dx, di_dy, 1);
 
     pass.set_pipeline(di_spatial_and_shade_pipeline);
     pass.set_immediates(0, immediates);
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.dispatch_workgroups(di_dx, di_dy, 1);
 
     d.end(&mut pass);
 
@@ -463,7 +477,7 @@ pub fn init_solari_lighting_pipelines(
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some(label.into()),
             layout,
-            immediate_size: 12,
+            immediate_size: 16,
             shader,
             shader_defs,
             entry_point: Some(entry_point.into()),

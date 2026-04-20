@@ -11,7 +11,7 @@ enable wgpu_ray_query;
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
 #import bevy_solari::specular_gi::DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD
-#import bevy_solari::gi_utils::{gi_resolution, gi_thread_to_full_resolution_pixel, gi_reservoir_index, gi_snap_to_quad_pixel_previous_frame, quarter_resolution_dimensions, quarter_to_full_resolution_pixel}
+#import bevy_solari::resolution_utils::{gi_resolution, gi_thread_to_full_resolution_pixel, gi_reservoir_index, gi_snap_to_quad_pixel_previous_frame, quarter_resolution_dimensions, quarter_to_full_resolution_pixel}
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -155,6 +155,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
 fn load_temporal_reservoir_inner(temporal_pixel_id_in: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
     let temporal_pixel_id = gi_snap_to_quad_pixel_previous_frame(temporal_pixel_id_in);
 
+    // Check if the pixel features have changed heavily between the current and previous frame
     let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
     let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
     let temporal_diffuse_brdf = temporal_surface.material.base_color / PI;

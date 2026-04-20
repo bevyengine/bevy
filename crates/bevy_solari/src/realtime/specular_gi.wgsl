@@ -4,7 +4,7 @@ enable wgpu_ray_query;
 
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
 #import bevy_render::maths::{orthonormalize, PI}
-#import bevy_solari::gi_utils::{gi_resolution, gi_thread_to_full_resolution_pixel, gi_reservoir_index}
+#import bevy_solari::resolution_utils::{gi_resolution, gi_thread_to_full_resolution_pixel, gi_reservoir_index}
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}

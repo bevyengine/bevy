@@ -1,7 +1,39 @@
-#define_import_path bevy_solari::gi_utils
+#define_import_path bevy_solari::resolution_utils
 
 #import bevy_pbr::utils::rand_f
 #import bevy_solari::realtime_bindings::{view, constants}
+
+fn di_resolution() -> vec2<u32> {
+    if bool(constants.quarter_resolution_direct_lighting) {
+        return quarter_resolution_dimensions();
+    } else {
+        return vec2u(view.main_pass_viewport.zw);
+    }
+}
+
+fn di_thread_to_full_resolution_pixel(thread_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_direct_lighting) {
+        return quarter_to_full_resolution_pixel(thread_xy, constants.frame_index);
+    } else {
+        return thread_xy;
+    }
+}
+
+fn di_reservoir_pixel(full_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_direct_lighting) {
+        return full_xy / 2u;
+    } else {
+        return full_xy;
+    }
+}
+
+fn di_snap_to_quad_pixel_previous_frame(full_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_direct_lighting) {
+        return quarter_to_full_resolution_pixel(full_xy / 2u, constants.frame_index - 5782582u);
+    } else {
+        return full_xy;
+    }
+}
 
 fn gi_resolution() -> vec2<u32> {
     if bool(constants.quarter_resolution_indirect_lighting) {

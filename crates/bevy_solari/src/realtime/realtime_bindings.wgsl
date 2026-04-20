@@ -43,7 +43,7 @@ enable wgpu_ray_query;
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 #endif
 
-struct PushConstants { frame_index: u32, reset: u32, quarter_resolution_indirect_lighting: u32 }
+struct PushConstants { frame_index: u32, reset: u32, quarter_resolution_direct_lighting: u32, quarter_resolution_indirect_lighting: u32 }
 var<immediate> constants: PushConstants;
 
 // Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
