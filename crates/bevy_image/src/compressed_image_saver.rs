@@ -181,7 +181,6 @@ impl AssetSaver for CompressedImageSaver {
             mipmap: true,
             mipmap_count: None,
             mipmap_filter: ctt::MipmapFilter::default(),
-            allow_lossy: false,
             encoder_settings: None,
             registry: None,
         };
