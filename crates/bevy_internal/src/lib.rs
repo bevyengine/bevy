@@ -78,6 +78,8 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_settings")]
+pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
 #[cfg(feature = "bevy_solari")]
@@ -104,3 +106,5 @@ pub use bevy_utils as utils;
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
+#[cfg(feature = "bevy_world_serialization")]
+pub use bevy_world_serialization as world_serialization;

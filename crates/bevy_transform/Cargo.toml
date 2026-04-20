@@ -29,6 +29,7 @@ bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = 
   "approx",
 ] }
 approx = "0.5.1"
+ron = "0.8"
 
 [features]
 # Turning off default features leaves you with a barebones
@@ -74,6 +75,7 @@ std = [
   "bevy_math/std",
   "bevy_reflect?/std",
   "bevy_utils/parallel",
+  "bevy_utils/buffered_channel",
   "serde?/std",
 ]
 
@@ -95,5 +97,9 @@ libm = ["bevy_math/libm"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

@@ -32,11 +32,8 @@ fn main() {
     let main_app = app.main_mut();
     configure_ambiguity_detection(main_app);
 
-    // Ambiguities in the RenderApp are currently allowed.
-    // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
-    // Uncomment the lines below to show the current ambiguities in the RenderApp.
-    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
-    // configure_ambiguity_detection(sub_app);
+    let sub_app = app.sub_app_mut(bevy_render::RenderApp);
+    configure_ambiguity_detection(sub_app);
 
     app.finish();
     app.cleanup();
@@ -47,6 +44,12 @@ fn main() {
         main_app_ambiguities.total(),
         0,
         "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
+    );
+    let render_app_ambiguities = count_ambiguities(app.sub_app(bevy_render::RenderApp));
+    assert_eq!(
+        render_app_ambiguities.total(),
+        0,
+        "Render app has unexpected ambiguities among the following schedules: \n{render_app_ambiguities:#?}.",
     );
 }
 

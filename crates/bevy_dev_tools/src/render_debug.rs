@@ -1,22 +1,23 @@
 //! Renderer debugging overlay
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, Handle};
+use bevy_asset::{embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     mip_generation::experimental::depth::ViewDepthPyramid,
-    oit::OrderIndependentTransparencySettingsOffset, FullscreenShader,
+    oit::OrderIndependentTransparencySettingsOffset,
+    schedule::{Core3d, Core3dSystems},
+    upscaling::upscaling,
+    FullscreenShader,
 };
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     message::{Message, MessageReader, MessageWriter},
     prelude::{Has, ReflectComponent},
-    query::QueryItem,
     reflect::ReflectResource,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_input::{prelude::KeyCode, ButtonInput};
 use bevy_log::info;
@@ -25,9 +26,6 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
-    render_graph::{
-        NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
-    },
     render_resource::{
         binding_types, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
@@ -36,17 +34,19 @@ use bevy_render::{
         ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
         TextureSampleType, VertexState,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
+use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    Bluenoise, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -58,13 +58,23 @@ impl Plugin for RenderDebugOverlayPlugin {
         embedded_asset!(app, "debug_overlay.wgsl");
 
         app.register_type::<RenderDebugOverlay>()
-            .init_resource::<RenderDebugOverlay>()
+            .register_type::<GlobalRenderDebugOverlay>()
+            .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
             .add_plugins((
-                ExtractResourcePlugin::<RenderDebugOverlay>::default(),
+                ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
             .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            RenderStartup,
+            init_render_debug_overlay_pipeline.after(MeshPipelineSystems),
+        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -73,24 +83,21 @@ impl Plugin for RenderDebugOverlayPlugin {
         };
 
         render_app
-            .init_resource::<RenderDebugOverlayPipeline>()
-            .init_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
-            .init_resource::<RenderDebugOverlayUniforms>()
-            .add_render_graph_node::<ViewNodeRunner<RenderDebugOverlayNode>>(
-                bevy_core_pipeline::core_3d::graph::Core3d,
-                RenderDebugOverlayLabel,
-            )
-            .add_render_graph_edge(
-                bevy_core_pipeline::core_3d::graph::Core3d,
-                bevy_core_pipeline::core_3d::graph::Node3d::Tonemapping,
-                RenderDebugOverlayLabel,
-            )
+            .init_gpu_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
+            .init_gpu_resource::<RenderDebugOverlayUniforms>()
             .add_systems(
                 Render,
                 (
                     prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
                     prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
+            )
+            .add_systems(
+                Core3d,
+                render_debug_overlay
+                    .after(Core3dSystems::PostProcess)
+                    .before(ui_pass)
+                    .before(upscaling),
             );
     }
 }
@@ -113,7 +120,7 @@ pub fn handle_input(
 pub fn update_overlay(
     mut commands: Commands,
     mut events: MessageReader<RenderDebugOverlayEvent>,
-    mut config_res: ResMut<RenderDebugOverlay>,
+    mut config_res: ResMut<GlobalRenderDebugOverlay>,
     cameras: Query<
         (
             Entity,
@@ -122,7 +129,7 @@ pub fn update_overlay(
             Has<bevy_core_pipeline::prepass::NormalPrepass>,
             Has<bevy_core_pipeline::prepass::MotionVectorPrepass>,
             Has<bevy_core_pipeline::prepass::DeferredPrepass>,
-            Has<bevy_render::experimental::occlusion_culling::OcclusionCulling>,
+            Has<bevy_render::occlusion_culling::OcclusionCulling>,
             Has<bevy_pbr::ScreenSpaceReflections>,
         ),
         bevy_ecs::query::With<bevy_camera::Camera>,
@@ -242,9 +249,15 @@ pub fn update_overlay(
         }
     }
 
+    let config_comp = RenderDebugOverlay {
+        enabled: config_res.enabled,
+        mode: config_res.mode,
+        opacity: config_res.opacity,
+    };
+
     for (entity, existing_config, ..) in &cameras {
-        if existing_config.is_none() || (changed && Some(config_res.as_ref()) != existing_config) {
-            commands.entity(entity).insert(config_res.clone());
+        if existing_config.is_none() || (changed && Some(&config_comp) != existing_config) {
+            commands.entity(entity).insert(config_comp.clone());
         }
     }
 }
@@ -260,8 +273,9 @@ pub enum RenderDebugOverlayEvent {
 }
 
 /// Configure the render debug overlay.
-#[derive(Resource, Component, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
-#[reflect(Resource, Component, Default)]
+/// Overwrites the default [`GlobalRenderDebugOverlay`] resource.
+#[derive(Component, Clone, ExtractComponent, Reflect, PartialEq)]
+#[reflect(Component, Default)]
 pub struct RenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -272,6 +286,29 @@ pub struct RenderDebugOverlay {
 }
 
 impl Default for RenderDebugOverlay {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            mode: RenderDebugMode::Depth,
+            opacity: 1.0,
+        }
+    }
+}
+
+/// Configure the render debug overlay globally.
+/// Can be overwritten by using a [`RenderDebugOverlay`] component.
+#[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
+#[reflect(Resource, Default)]
+pub struct GlobalRenderDebugOverlay {
+    /// Enables or disables drawing the overlay.
+    pub enabled: bool,
+    /// The kind of data to write to the overlay.
+    pub mode: RenderDebugMode,
+    /// The opacity of the overlay, to allow seeing the rendered image underneath.
+    pub opacity: f32,
+}
+
+impl Default for GlobalRenderDebugOverlay {
     fn default() -> Self {
         Self {
             enabled: false,
@@ -324,54 +361,52 @@ struct RenderDebugOverlayPipeline {
     fullscreen_vertex_shader: VertexState,
 }
 
-impl FromWorld for RenderDebugOverlayPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let asset_server = world.resource::<bevy_asset::AssetServer>();
-        let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
-        let fullscreen_vertex_shader = world.resource::<FullscreenShader>().to_vertex_state();
+fn init_render_debug_overlay_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    asset_server: Res<AssetServer>,
+    fullscreen_shader: Res<FullscreenShader>,
+) {
+    let fullscreen_vertex_shader = fullscreen_shader.to_vertex_state();
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
-            "debug_overlay_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
-                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
-                    binding_types::sampler(
-                        bevy_render::render_resource::SamplerBindingType::Filtering,
-                    ),
-                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
-                    binding_types::sampler(
-                        bevy_render::render_resource::SamplerBindingType::Filtering,
-                    ),
-                ),
+    let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
+        "debug_overlay_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
+                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(bevy_render::render_resource::SamplerBindingType::Filtering),
+                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(bevy_render::render_resource::SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        let bind_group_layout = render_device.create_bind_group_layout(
-            bind_group_layout_descriptor.label.as_ref(),
-            &bind_group_layout_descriptor.entries,
-        );
+    let bind_group_layout = render_device.create_bind_group_layout(
+        bind_group_layout_descriptor.label.as_ref(),
+        &bind_group_layout_descriptor.entries,
+    );
 
-        Self {
-            shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
-            mesh_view_layouts,
-            bind_group_layout,
-            bind_group_layout_descriptor,
-            sampler,
-            fullscreen_vertex_shader,
-        }
-    }
+    let res = RenderDebugOverlayPipeline {
+        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
+        mesh_view_layouts: mesh_view_layouts.clone(),
+        bind_group_layout,
+        bind_group_layout_descriptor,
+        sampler,
+        fullscreen_vertex_shader,
+    };
+    commands.insert_resource(res);
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct RenderDebugOverlayPipelineKey {
     mode: RenderDebugMode,
     view_layout_key: MeshPipelineViewLayoutKey,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
@@ -483,7 +518,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                 shader_defs,
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -491,7 +526,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
             primitive: bevy_render::render_resource::PrimitiveState::default(),
             depth_stencil: None,
             multisample: bevy_render::render_resource::MultisampleState::default(),
-            push_constant_ranges: vec![],
+            immediate_size: 0,
             zero_initialize_workgroup_memory: false,
         }
     }
@@ -541,7 +576,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
-                texture_format: target.main_texture_format(),
+                target_format: target.main_texture_format(),
             },
         );
 
@@ -589,132 +624,116 @@ fn prepare_debug_overlay_resources(
     }
 }
 
-/// The render debug overlay.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct RenderDebugOverlayLabel;
-
-#[derive(Default)]
-struct RenderDebugOverlayNode;
-
-impl ViewNode for RenderDebugOverlayNode {
-    type ViewQuery = (
-        &'static ViewTarget,
-        &'static RenderDebugOverlay,
-        &'static RenderDebugOverlayPipelineId,
-        &'static RenderDebugOverlayUniformOffset,
-        &'static MeshViewBindGroup,
-        &'static ViewUniformOffset,
-        &'static ViewLightsUniformOffset,
-        &'static ViewFogUniformOffset,
-        &'static ViewLightProbesUniformOffset,
-        &'static ViewScreenSpaceReflectionsUniformOffset,
-        &'static ViewContactShadowsUniformOffset,
-        &'static ViewEnvironmentMapUniformOffset,
+fn render_debug_overlay(
+    view: ViewQuery<(
+        &ViewTarget,
+        &RenderDebugOverlay,
+        &RenderDebugOverlayPipelineId,
+        &RenderDebugOverlayUniformOffset,
+        &MeshViewBindGroup,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
+        &ViewFogUniformOffset,
+        &ViewLightProbesUniformOffset,
+        &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
+        &ViewEnvironmentMapUniformOffset,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
-        Option<&'static OrderIndependentTransparencySettingsOffset>,
-        Option<&'static ViewDepthPyramid>,
+        Option<&OrderIndependentTransparencySettingsOffset>,
+        Option<&ViewDepthPyramid>,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline_res: Res<RenderDebugOverlayPipeline>,
+    uniforms: Res<RenderDebugOverlayUniforms>,
+    fallback_image: Res<FallbackImage>,
+    mut ctx: RenderContext,
+) {
+    let (
+        target,
+        config,
+        pipeline_id,
+        uniform_offset,
+        mesh_view_bind_group,
+        view_uniform_offset,
+        view_lights_offset,
+        view_fog_offset,
+        view_light_probes_offset,
+        view_ssr_offset,
+        view_contact_shadows_offset,
+        view_environment_map_offset,
+        has_oit,
+        view_oit_offset,
+        depth_pyramid,
+    ) = view.into_inner();
+
+    if !config.enabled {
+        return;
+    }
+
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
+        return;
+    };
+
+    let Some(uniform_binding) = uniforms.uniforms.binding() else {
+        return;
+    };
+
+    let post_process = target.post_process_write();
+
+    let depth_pyramid_view = if let Some(dp) = depth_pyramid {
+        &dp.all_mips
+    } else {
+        &fallback_image.d2.texture_view
+    };
+
+    let debug_bind_group = ctx.render_device().create_bind_group(
+        "debug_buffer_bind_group",
+        &pipeline_res.bind_group_layout,
+        &BindGroupEntries::sequential((
+            uniform_binding,
+            post_process.source,
+            &pipeline_res.sampler,
+            depth_pyramid_view,
+            &pipeline_res.sampler,
+        )),
     );
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (
-            target,
-            config,
-            pipeline_id,
-            uniform_offset,
-            mesh_view_bind_group,
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_ssr_offset,
-            view_contact_shadows_offset,
-            view_environment_map_offset,
-            has_oit,
-            view_oit_offset,
-            depth_pyramid,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        if !config.enabled {
-            return Ok(());
-        }
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("debug_buffer_pass"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: post_process.destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations {
+                load: bevy_render::render_resource::LoadOp::Clear(Default::default()),
+                store: bevy_render::render_resource::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    };
 
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline_res = world.resource::<RenderDebugOverlayPipeline>();
-        let uniforms = world.resource::<RenderDebugOverlayUniforms>();
-        let fallback_image = world.resource::<FallbackImage>();
+    let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
-            return Ok(());
-        };
+    render_pass.set_pipeline(pipeline);
 
-        let Some(uniform_binding) = uniforms.uniforms.binding() else {
-            return Ok(());
-        };
-
-        let post_process = target.post_process_write();
-
-        let depth_pyramid_view = if let Some(dp) = depth_pyramid {
-            &dp.all_mips
-        } else {
-            &fallback_image.d2.texture_view
-        };
-
-        let debug_bind_group = render_context.render_device().create_bind_group(
-            "debug_buffer_bind_group",
-            &pipeline_res.bind_group_layout,
-            &BindGroupEntries::sequential((
-                uniform_binding,
-                post_process.source,
-                &pipeline_res.sampler,
-                depth_pyramid_view,
-                &pipeline_res.sampler,
-            )),
-        );
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("debug_buffer_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations {
-                    load: bevy_render::render_resource::LoadOp::Clear(Default::default()),
-                    store: bevy_render::render_resource::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-
-        render_pass.set_pipeline(pipeline);
-
-        let mut dynamic_offsets = vec![
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ];
-        if has_oit && let Some(view_oit_offset) = view_oit_offset {
-            dynamic_offsets.push(view_oit_offset.offset);
-        }
-
-        render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
-        render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
-
-        render_pass.draw(0..3, 0..1);
-
-        Ok(())
+    let mut dynamic_offsets = vec![
+        view_uniform_offset.offset,
+        view_lights_offset.offset,
+        view_fog_offset.offset,
+        **view_light_probes_offset,
+        **view_ssr_offset,
+        **view_contact_shadows_offset,
+        **view_environment_map_offset,
+    ];
+    if has_oit && let Some(view_oit_offset) = view_oit_offset {
+        dynamic_offsets.push(view_oit_offset.offset);
     }
+
+    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
+    render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
+
+    render_pass.draw(0..3, 0..1);
 }

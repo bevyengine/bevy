@@ -9,7 +9,7 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
@@ -20,6 +20,7 @@ use bevy_ecs::{
     entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
+use bevy_log::{error, info, warn};
 use bevy_material::{
     bind_group_layout_entries::{binding_types::texture_2d, BindGroupLayoutEntries},
     descriptor::{
@@ -41,11 +42,10 @@ use std::{
         Mutex,
     },
 };
-use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
-#[reflect(Debug)]
+#[reflect(Debug, Event)]
 pub struct ScreenshotCaptured {
     pub entity: Entity,
     #[deref]
@@ -229,7 +229,8 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+    let (mut commands, primary_window, screenshots) =
+        system_state.get_mut(&mut main_world).unwrap();
 
     targets.clear();
     seen_targets.clear();
@@ -310,11 +311,9 @@ fn prepare_screenshots(
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let view_format = gpu_image
-                    .texture_view_format
-                    .unwrap_or(gpu_image.texture_format);
+                let view_format = gpu_image.view_format();
                 let (texture_view, state) = prepare_screenshot_state(
-                    gpu_image.size,
+                    gpu_image.texture_descriptor.size,
                     view_format,
                     &render_device,
                     &screenshot_pipeline,
@@ -411,7 +410,9 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>()
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
             .add_systems(
                 First,
                 clear_screenshots
@@ -428,7 +429,7 @@ impl Plugin for ScreenshotPlugin {
             .insert_resource(RenderScreenshotsSender(tx))
             .init_resource::<RenderScreenshotTargets>()
             .init_resource::<RenderScreenshotsPrepared>()
-            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
             .add_systems(RenderStartup, init_screenshot_to_screen_pipeline)
             .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
             .add_systems(
@@ -436,7 +437,7 @@ impl Plugin for ScreenshotPlugin {
                 prepare_screenshots
                     .after(prepare_view_attachments)
                     .before(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             );
     }
 }
@@ -533,9 +534,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.width;
-                let height = gpu_image.size.height;
-                let texture_format = gpu_image.texture_format;
+                let width = gpu_image.texture_descriptor.size.width;
+                let height = gpu_image.texture_descriptor.size.height;
+                let texture_format = gpu_image.texture_descriptor.format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
                     encoder,
@@ -618,6 +619,7 @@ fn render_screenshot(
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &prepared_state.bind_group, &[]);
@@ -628,7 +630,7 @@ fn render_screenshot(
 
 pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
-    let _span = tracing::info_span!("collect_screenshots").entered();
+    let _span = bevy_log::info_span!("collect_screenshots").entered();
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();
@@ -688,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetUsages::MAIN_WORLD,
                 ),
             )) {
                 error!("Failed to send screenshot: {}", e);

@@ -1,8 +1,8 @@
 //! Demonstrates how to define and use specialized mesh pipeline
 //!
 //! This example shows how to use the built-in [`SpecializedMeshPipeline`]
-//! functionality with a custom [`RenderCommand`] to allow custom mesh rendering with
-//! more flexibility than the material api.
+//! functionality with a custom [`RenderCommand`](bevy::render::render_phase::RenderCommand)
+//! to allow custom mesh rendering with more flexibility than the material api.
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
@@ -14,12 +14,14 @@ use bevy::{
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshPipelineViewLayoutKey,
+        RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
+        ViewKeyCache,
     },
     prelude::*,
     render::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -31,9 +33,9 @@ use bevy::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
             FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            SpecializedMeshPipelines, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
@@ -111,9 +113,13 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
         render_app
             // This is needed to tell bevy about your custom pipeline
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
+            .init_resource::<PendingCustomMeshQueues>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
-            .add_systems(RenderStartup, init_custom_mesh_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_custom_mesh_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 queue_custom_mesh_pipeline.in_set(RenderSystems::Queue),
@@ -221,13 +227,9 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
                 targets: vec![Some(ColorTargetState {
-                    // This isn't required, but bevy supports HDR and non-HDR rendering
+                    // This isn't required, but bevy supports rendering different formats
                     // so it's generally recommended to specialize the pipeline for that
-                    format: if mesh_key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: mesh_key.target_format(),
                     // For this example we only use opaque meshes,
                     // but if you wanted to use alpha blending you would need to set it here
                     blend: None,
@@ -237,6 +239,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
@@ -246,8 +249,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),
@@ -262,6 +265,13 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
     }
 }
 
+/// A resource that stores meshes that couldn't be specialized yet because their
+/// materials hadn't loaded.
+///
+/// See the documentation for [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+struct PendingCustomMeshQueues(pub PendingQueues);
+
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_mesh_pipeline(
@@ -272,7 +282,8 @@ fn queue_custom_mesh_pipeline(
         Res<DrawFunctions<Opaque3d>>,
     ),
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView)>,
+    view_key_cache: Res<ViewKeyCache>,
     (render_meshes, render_mesh_instances): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
@@ -280,6 +291,8 @@ fn queue_custom_mesh_pipeline(
     mut change_tick: Local<Tick>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -289,38 +302,68 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_visible_entities, view, msaa) in views.iter() {
+    for (view_visible_entities, view) in views.iter() {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
-        // Create the key based on the view. In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
+
+        let Some(render_visible_mesh_entities) =
+            view_visible_entities.get::<CustomRenderedEntity>()
+        else {
+            continue;
+        };
+
+        // Initialize the pending queues.
+        let view_pending_custom_mesh_queues =
+            pending_custom_mesh_queues.prepare_for_new_frame(view.retained_view_entity);
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+        }
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &(render_entity, visible_entity) in
-            view_visible_entities.get::<CustomRenderedEntity>().iter()
-        {
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_mesh_queues.prev_frame,
+        ) {
             // Get the mesh instance
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(visible_entity)
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't been
+                // loaded yet. Add the entity to the list of pending custom
+                // meshes and bail.
+                view_pending_custom_mesh_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 
             // Get the mesh data
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             // Specialize the key for the current mesh entity
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             // Finally, we can specialize the pipeline based on the key
             let pipeline_id = specialized_mesh_pipelines
@@ -344,16 +387,15 @@ fn queue_custom_mesh_pipeline(
                     draw_function,
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
-                    index_slab,
+                    slabs: mesh_slabs,
                     lightmap_slab: None,
                 },
                 // For this example we can use the mesh asset id as the bin key,
                 // but you can use any asset_id as a key
                 Opaque3dBinKey {
-                    asset_id: mesh_instance.mesh_asset_id.into(),
+                    asset_id: mesh_instance.mesh_asset_id().into(),
                 },
-                (render_entity, visible_entity),
+                (*render_entity, *visible_entity),
                 mesh_instance.current_uniform_index,
                 // This example supports batching and multi draw indirect,
                 // but if your pipeline doesn't support it you can use
@@ -362,7 +404,6 @@ fn queue_custom_mesh_pipeline(
                     mesh_instance.should_batch(),
                     &gpu_preprocessing_support,
                 ),
-                *change_tick,
             );
         }
     }

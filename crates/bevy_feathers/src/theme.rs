@@ -19,7 +19,7 @@ use bevy_ui::{BackgroundColor, BorderColor};
 use smol_str::SmolStr;
 
 /// A design token for the theme. This serves as the lookup key for the theme properties.
-#[derive(Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Clone, PartialEq, Eq, Hash, Reflect, Default)]
 pub struct ThemeToken(SmolStr);
 
 impl ThemeToken {
@@ -84,7 +84,7 @@ impl UiTheme {
 }
 
 /// Component which causes the background color of an entity to be set based on a theme color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[require(BackgroundColor)]
 #[component(immutable)]
 #[derive(Reflect)]
@@ -93,7 +93,7 @@ pub struct ThemeBackgroundColor(pub ThemeToken);
 
 /// Component which causes the border color of an entity to be set based on a theme color.
 /// Only supports setting all borders to the same color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[require(BorderColor)]
 #[component(immutable)]
 #[derive(Reflect)]
@@ -101,16 +101,16 @@ pub struct ThemeBackgroundColor(pub ThemeToken);
 pub struct ThemeBorderColor(pub ThemeToken);
 
 /// Component which causes the inherited text color of an entity to be set based on a theme color.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default)]
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-#[require(ThemedText, PropagateOver::<TextColor>::default())]
+#[require(ThemedText, PropagateOver::<TextColor>)]
 pub struct ThemeFontColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component, Reflect, Default)]
+#[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component)]
 pub struct ThemedText;
 

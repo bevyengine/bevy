@@ -1,4 +1,5 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
@@ -7,10 +8,11 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
-#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic}
+#import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic, isnan}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
+#import bevy_solari::specular_gi::DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -28,6 +30,10 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    if surface.material.metallic > 0.9999 && surface.material.roughness <= DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
+        gi_reservoirs_b[pixel_index] = empty_reservoir();
+        return;
+    }
 
     let initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, &rng);
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
@@ -50,6 +56,10 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    if surface.material.metallic > 0.9999 && surface.material.roughness <= DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
+        gi_reservoirs_a[pixel_index] = empty_reservoir();
+        return;
+    }
 
     let input_reservoir = gi_reservoirs_b[pixel_index];
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
@@ -62,14 +72,15 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 #endif
 
-    combined_reservoir.unbiased_contribution_weight *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
+    combined_reservoir.unbiased_contribution_weight *= trace_point_visibility(surface.world_position + (surface.world_normal * RAY_T_MIN), combined_reservoir.sample_point_world_position);
 
     // More stability, less accuracy (shadows extend further out than they should)
 #ifdef BIASED_RESAMPLING
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 #endif
 
-    let brdf = evaluate_diffuse_brdf(surface.world_normal, merge_result.wi, surface.material.base_color, surface.material.metallic);
+    let wo = normalize(view.world_position - surface.world_position);
+    let brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure * brdf, 0.0);
@@ -80,7 +91,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     var reservoir = empty_reservoir();
 
     let ray_direction = sample_uniform_hemisphere(world_normal, rng);
-    let ray = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+    let ray = trace_ray(world_position + (world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
 
     if ray.kind == RAY_QUERY_INTERSECTION_NONE {
         return reservoir;
@@ -88,7 +99,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
     let sample_point = resolve_ray_hit_full(ray);
 
-    if all(sample_point.material.emissive != vec3(0.0)) {
+    if any(sample_point.material.emissive != vec3(0.0)) {
         return reservoir;
     }
 
@@ -150,13 +161,15 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
+    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            search_radius /= 2.0;
             continue;
         }
 
@@ -168,8 +181,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     return NeighborInfo(empty_reservoir(), world_position, world_normal, vec3(0.0));
 }
 
-fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
     spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
@@ -199,10 +212,6 @@ fn jacobian(
 
 fn isinf(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) == 0x7f800000u;
-}
-
-fn isnan(x: f32) -> bool {
-    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
 fn empty_reservoir() -> Reservoir {

@@ -115,6 +115,13 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 }
             }
 
+            fn index_of_name(&self, name: &str) -> #FQOption<usize> {
+                match name {
+                    #(#field_names => #fqoption::Some(#field_indices),)*
+                    _ => #FQOption::None,
+                }
+            }
+
             fn field_len(&self) -> usize {
                 #field_count
             }
@@ -144,8 +151,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value)
                     = #bevy_reflect_path::PartialReflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::structs::Struct::iter_fields(struct_value)) {
-                        let name = #bevy_reflect_path::structs::Struct::name_at(struct_value, i).unwrap();
+                    for (name, value) in #bevy_reflect_path::structs::Struct::iter_fields(struct_value) {
                         if let #FQOption::Some(v) = #bevy_reflect_path::structs::Struct::field_mut(self, name) {
                            #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
                         }

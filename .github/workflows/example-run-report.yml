@@ -53,7 +53,7 @@ jobs:
           mkdir screenshots
           mv screenshots-* screenshots/
       - name: save screenshots
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: screenshots-macos
           path: screenshots
@@ -77,7 +77,8 @@ jobs:
       branch: ${{ needs.make-macos-screenshots-available.outputs.branch-name }}
       artifact: screenshots-macos
       os: macos
-    secrets: inherit
+    secrets:
+      PIXELEAGLE_TOKEN: ${{ secrets.PIXELEAGLE_TOKEN }}
 
   comment-on-pr:
     permissions:
@@ -87,7 +88,7 @@ jobs:
     needs: [make-macos-screenshots-available, compare-macos-screenshots]
     if: ${{ always() && needs.compare-macos-screenshots.result == 'failure' }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: "Check if PR already has label"

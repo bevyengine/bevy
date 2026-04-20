@@ -93,3 +93,36 @@ pub fn derive_label(
     }
     .into()
 }
+
+/// Convert a string from ``PascalCase`` to ``snake_case``.
+pub fn pascal_to_snake_case(s: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = s.chars().collect();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch.is_uppercase() {
+            let prev_is_lower = i > 0 && chars[i - 1].is_lowercase();
+            let next_is_lower = chars.get(i + 1).is_some_and(|c| c.is_lowercase());
+
+            if i > 0 && (prev_is_lower || next_is_lower) {
+                out.push('_');
+            }
+            out.push(ch.to_lowercase().next().unwrap());
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pascal_to_snake_case() {
+        assert_eq!(pascal_to_snake_case("PascalCase"), "pascal_case");
+        assert_eq!(pascal_to_snake_case("lowercase"), "lowercase");
+        assert_eq!(pascal_to_snake_case("HTTPServer"), "http_server");
+    }
+}

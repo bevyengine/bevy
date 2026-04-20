@@ -21,22 +21,17 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryItem, With},
+    query::With,
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::World,
+    system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
+    camera::ExtractedCamera,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_graph::{
-        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
-    },
     render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
@@ -48,26 +43,24 @@ use bevy_render::{
         ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
-    renderer::{RenderContext, RenderDevice},
-    sync_component::SyncComponentPlugin,
+    renderer::{RenderContext, RenderDevice, ViewQuery},
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
+use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
-    },
+    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
@@ -186,8 +179,7 @@ pub struct DepthOfFieldUniform {
 pub struct DepthOfFieldPipelineKey {
     /// Whether we're doing Gaussian or bokeh blur.
     pass: DofPass,
-    /// Whether we're using HDR.
-    hdr: bool,
+    target_format: TextureFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
 }
@@ -218,18 +210,19 @@ impl Plugin for DepthOfFieldPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
             .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
                 (
-                    configure_depth_of_field_view_targets,
+                    configure_depth_of_field_view_targets
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_auxiliary_depth_of_field_textures,
                 )
                     .after(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             )
             .add_systems(
                 Render,
@@ -244,17 +237,9 @@ impl Plugin for DepthOfFieldPlugin {
                 Render,
                 prepare_depth_of_field_global_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
-            .add_render_graph_edges(
-                Core3d,
-                (Node3d::Bloom, Node3d::DepthOfField, Node3d::Tonemapping),
-            );
+            .add_systems(Core3d, depth_of_field.after(bloom).before(tonemapping));
     }
 }
-
-/// The node in the render graph for depth of field.
-#[derive(Default)]
-pub struct DepthOfFieldNode;
 
 /// The layout for the bind group shared among all invocations of the depth of
 /// field shader.
@@ -325,154 +310,6 @@ pub struct DepthOfFieldPipeline {
     fragment_shader: Handle<Shader>,
 }
 
-impl ViewNode for DepthOfFieldNode {
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewTarget>,
-        Read<ViewDepthTexture>,
-        Read<DepthOfFieldPipelines>,
-        Read<ViewDepthOfFieldBindGroupLayouts>,
-        Read<DynamicUniformIndex<DepthOfFieldUniform>>,
-        Option<Read<AuxiliaryDepthOfFieldTexture>>,
-    );
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (
-            view_uniform_offset,
-            view_target,
-            view_depth_texture,
-            view_pipelines,
-            view_bind_group_layouts,
-            depth_of_field_uniform_index,
-            auxiliary_dof_texture,
-        ): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let view_uniforms = world.resource::<ViewUniforms>();
-        let global_bind_group = world.resource::<DepthOfFieldGlobalBindGroup>();
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        // We can be in either Gaussian blur or bokeh mode here. Both modes are
-        // similar, consisting of two passes each. We factor out the information
-        // specific to each pass into
-        // [`DepthOfFieldPipelines::pipeline_render_info`].
-        for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
-            let (Some(render_pipeline), Some(view_uniforms_binding), Some(global_bind_group)) = (
-                pipeline_cache.get_render_pipeline(pipeline_render_info.pipeline),
-                view_uniforms.uniforms.binding(),
-                &**global_bind_group,
-            ) else {
-                return Ok(());
-            };
-
-            // We use most of the postprocess infrastructure here. However,
-            // because the bokeh pass has an additional render target, we have
-            // to manage a secondary *auxiliary* texture alongside the textures
-            // managed by the postprocessing logic.
-            let postprocess = view_target.post_process_write();
-
-            let view_bind_group = if pipeline_render_info.is_dual_input {
-                let (Some(auxiliary_dof_texture), Some(dual_input_bind_group_layout)) = (
-                    auxiliary_dof_texture,
-                    view_bind_group_layouts.dual_input.as_ref(),
-                ) else {
-                    once!(warn!(
-                        "Should have created the auxiliary depth of field texture by now"
-                    ));
-                    continue;
-                };
-                render_context.render_device().create_bind_group(
-                    Some(pipeline_render_info.view_bind_group_label),
-                    &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
-                    &BindGroupEntries::sequential((
-                        view_uniforms_binding,
-                        view_depth_texture.view(),
-                        postprocess.source,
-                        &auxiliary_dof_texture.default_view,
-                    )),
-                )
-            } else {
-                render_context.render_device().create_bind_group(
-                    Some(pipeline_render_info.view_bind_group_label),
-                    &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
-                    &BindGroupEntries::sequential((
-                        view_uniforms_binding,
-                        view_depth_texture.view(),
-                        postprocess.source,
-                    )),
-                )
-            };
-
-            // Push the first input attachment.
-            let mut color_attachments: SmallVec<[_; 2]> = SmallVec::new();
-            color_attachments.push(Some(RenderPassColorAttachment {
-                view: postprocess.destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(default()),
-                    store: StoreOp::Store,
-                },
-            }));
-
-            // The first pass of the bokeh shader has two color outputs, not
-            // one. Handle this case by attaching the auxiliary texture, which
-            // should have been created by now in
-            // `prepare_auxiliary_depth_of_field_textures``.
-            if pipeline_render_info.is_dual_output {
-                let Some(auxiliary_dof_texture) = auxiliary_dof_texture else {
-                    once!(warn!(
-                        "Should have created the auxiliary depth of field texture by now"
-                    ));
-                    continue;
-                };
-                color_attachments.push(Some(RenderPassColorAttachment {
-                    view: &auxiliary_dof_texture.default_view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(default()),
-                        store: StoreOp::Store,
-                    },
-                }));
-            }
-
-            let render_pass_descriptor = RenderPassDescriptor {
-                label: Some(pipeline_render_info.pass_label),
-                color_attachments: &color_attachments,
-                ..default()
-            };
-
-            let mut render_pass = render_context
-                .command_encoder()
-                .begin_render_pass(&render_pass_descriptor);
-            let pass_span =
-                diagnostics.pass_span(&mut render_pass, pipeline_render_info.pass_label);
-
-            render_pass.set_pipeline(render_pipeline);
-            // Set the per-view bind group.
-            render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
-            // Set the global bind group shared among all invocations of the shader.
-            render_pass.set_bind_group(
-                1,
-                global_bind_group,
-                &[depth_of_field_uniform_index.index()],
-            );
-            // Render the full-screen pass.
-            render_pass.draw(0..3, 0..1);
-
-            pass_span.end(&mut render_pass);
-        }
-
-        Ok(())
-    }
-}
-
 impl Default for DepthOfField {
     fn default() -> Self {
         let physical_camera_default = PhysicalCameraParameters::default();
@@ -482,7 +319,7 @@ impl Default for DepthOfField {
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
             max_depth: f32::INFINITY,
-            mode: DepthOfFieldMode::Bokeh,
+            mode: DepthOfFieldMode::default(),
         }
     }
 }
@@ -672,13 +509,16 @@ pub fn prepare_depth_of_field_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    view_targets: Query<(
-        Entity,
-        &ExtractedView,
-        &DepthOfField,
-        &ViewDepthOfFieldBindGroupLayouts,
-        &Msaa,
-    )>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &DepthOfField,
+            &ViewDepthOfFieldBindGroupLayouts,
+            &Msaa,
+        ),
+        With<ExtractedCamera>,
+    >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
@@ -691,7 +531,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -703,7 +543,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -712,7 +552,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -728,7 +568,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -737,7 +577,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },
@@ -755,11 +595,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         // Build up our pipeline layout.
         let (mut layout, mut shader_defs) = (vec![], vec![]);
         let mut targets = vec![Some(ColorTargetState {
-            format: if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            },
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         })];
@@ -816,6 +652,16 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
+impl SyncComponent for DepthOfField {
+    type Target = (
+        DepthOfField,
+        DepthOfFieldUniform,
+        DepthOfFieldPipelines,
+        AuxiliaryDepthOfFieldTexture,
+        ViewDepthOfFieldBindGroupLayouts,
+    );
+}
+
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
@@ -835,15 +681,8 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                DepthOfField,
-                DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
-                DepthOfFieldPipelines,
-                AuxiliaryDepthOfFieldTexture,
-                ViewDepthOfFieldBindGroupLayouts,
-            )>();
+            entity_commands.remove::<<DepthOfField as SyncComponent>::Target>();
+
             continue;
         };
 
@@ -920,5 +759,137 @@ impl DepthOfFieldPipelines {
                 },
             ],
         }
+    }
+}
+
+pub(crate) fn depth_of_field(
+    view: ViewQuery<(
+        &ViewUniformOffset,
+        &ViewTarget,
+        &ViewDepthTexture,
+        &DepthOfFieldPipelines,
+        &ViewDepthOfFieldBindGroupLayouts,
+        &DynamicUniformIndex<DepthOfFieldUniform>,
+        Option<&AuxiliaryDepthOfFieldTexture>,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    view_uniforms: Res<ViewUniforms>,
+    global_bind_group: Res<DepthOfFieldGlobalBindGroup>,
+    mut ctx: RenderContext,
+) {
+    let (
+        view_uniform_offset,
+        view_target,
+        view_depth_texture,
+        view_pipelines,
+        view_bind_group_layouts,
+        depth_of_field_uniform_index,
+        auxiliary_dof_texture,
+    ) = view.into_inner();
+
+    // We can be in either Gaussian blur or bokeh mode here. Both modes are
+    // similar, consisting of two passes each.
+    for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
+        let (Some(render_pipeline), Some(view_uniforms_binding), Some(global_bind_group)) = (
+            pipeline_cache.get_render_pipeline(pipeline_render_info.pipeline),
+            view_uniforms.uniforms.binding(),
+            &**global_bind_group,
+        ) else {
+            return;
+        };
+
+        // We use most of the postprocess infrastructure here. However,
+        // because the bokeh pass has an additional render target, we have
+        // to manage a secondary *auxiliary* texture alongside the textures
+        // managed by the postprocessing logic.
+        let postprocess = view_target.post_process_write();
+
+        let view_bind_group = if pipeline_render_info.is_dual_input {
+            let (Some(auxiliary_dof_texture), Some(dual_input_bind_group_layout)) = (
+                auxiliary_dof_texture,
+                view_bind_group_layouts.dual_input.as_ref(),
+            ) else {
+                once!(warn!(
+                    "Should have created the auxiliary depth of field texture by now"
+                ));
+                continue;
+            };
+            ctx.render_device().create_bind_group(
+                Some(pipeline_render_info.view_bind_group_label),
+                &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
+                &BindGroupEntries::sequential((
+                    view_uniforms_binding,
+                    view_depth_texture.view(),
+                    postprocess.source,
+                    &auxiliary_dof_texture.default_view,
+                )),
+            )
+        } else {
+            ctx.render_device().create_bind_group(
+                Some(pipeline_render_info.view_bind_group_label),
+                &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
+                &BindGroupEntries::sequential((
+                    view_uniforms_binding,
+                    view_depth_texture.view(),
+                    postprocess.source,
+                )),
+            )
+        };
+
+        // Push the first input attachment.
+        let mut color_attachments: SmallVec<[_; 2]> = SmallVec::new();
+        color_attachments.push(Some(RenderPassColorAttachment {
+            view: postprocess.destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(default()),
+                store: StoreOp::Store,
+            },
+        }));
+
+        // The first pass of the bokeh shader has two color outputs, not
+        // one. Handle this case by attaching the auxiliary texture, which
+        // should have been created by now in
+        // `prepare_auxiliary_depth_of_field_textures``.
+        if pipeline_render_info.is_dual_output {
+            let Some(auxiliary_dof_texture) = auxiliary_dof_texture else {
+                once!(warn!(
+                    "Should have created the auxiliary depth of field texture by now"
+                ));
+                continue;
+            };
+            color_attachments.push(Some(RenderPassColorAttachment {
+                view: &auxiliary_dof_texture.default_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Clear(default()),
+                    store: StoreOp::Store,
+                },
+            }));
+        }
+
+        let render_pass_descriptor = RenderPassDescriptor {
+            label: Some(pipeline_render_info.pass_label),
+            color_attachments: &color_attachments,
+            ..default()
+        };
+
+        let mut render_pass = ctx
+            .command_encoder()
+            .begin_render_pass(&render_pass_descriptor);
+
+        render_pass.set_pipeline(render_pipeline);
+        // Set the per-view bind group.
+        render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
+        // Set the global bind group shared among all invocations of the shader.
+        render_pass.set_bind_group(
+            1,
+            global_bind_group,
+            &[depth_of_field_uniform_index.index()],
+        );
+        // Render the full-screen pass.
+        render_pass.draw(0..3, 0..1);
     }
 }

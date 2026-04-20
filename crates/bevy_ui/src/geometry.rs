@@ -1119,6 +1119,11 @@ mod tests {
         let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
+
+        let result = Val::Px(10.).resolve(3., size, viewport_size).unwrap();
+        assert_eq!(result, 30.);
+        let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
+        assert_eq!(result, 2.5);
     }
 
     #[test]

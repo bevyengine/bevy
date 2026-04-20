@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     ));
 
     // info UI
-    let font_size = 33.;
+    let font_size = FontSize::Px(33.);
 
     commands.spawn((
         Node {
