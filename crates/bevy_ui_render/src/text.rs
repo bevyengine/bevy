@@ -149,6 +149,7 @@ pub fn extract_preedit_underlines(
                 &InheritedVisibility,
                 Option<&CalculatedClip>,
                 &ComputedUiTargetCamera,
+                &ComputedStackIndex,
                 Option<&TextScroll>,
             ),
             With<EditableText>,
@@ -167,6 +168,7 @@ pub fn extract_preedit_underlines(
         inherited_visibility,
         maybe_clip,
         target_camera,
+        stack_index,
         text_scroll,
     ) in text_node_query.iter()
     {
@@ -202,7 +204,7 @@ pub fn extract_preedit_underlines(
         for rect in text_layout_info.preedit_underline_rects.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                 clip,
                 image: AssetId::default(),
                 extracted_camera_entity,

@@ -292,7 +292,6 @@ pub fn update_editable_text_layout(
 
         driver.refresh_layout();
 
-
         let compose_range = driver.editor.raw_compose().clone();
 
         let layout_changed = driver.editor.generation() != **generation;
