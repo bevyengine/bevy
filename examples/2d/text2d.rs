@@ -10,13 +10,13 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::{Anchor, Text2dShadow},
-    text::{FontSmoothing, LineBreak, TextBounds},
+    text::{FontSmoothing, FontSourceTemplate, LineBreak, TextBounds},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(
             Update,
             (animate_translation, animate_rotation, animate_scale),
@@ -24,153 +24,230 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct AnimateTranslation;
 
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct AnimateRotation;
 
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct AnimateScale;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_font = TextFont {
-        font: font.clone().into(),
-        font_size: FontSize::Px(50.0),
-        ..default()
-    };
-    let text_justification = Justify::Center;
-    commands.spawn(Camera2d);
-    // Demonstrate changing translation
-    commands.spawn((
-        Text2d::new(" translation "),
-        text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
-        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
-        AnimateTranslation,
-    ));
-    // Demonstrate changing rotation
-    commands.spawn((
-        Text2d::new(" rotation "),
-        text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
-        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
-        AnimateRotation,
-    ));
-    // Demonstrate changing scale
-    commands.spawn((
-        Text2d::new(" scale "),
-        text_font,
-        TextLayout::new_with_justify(text_justification),
-        Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
-        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
-        AnimateScale,
-    ));
-    // Demonstrate text wrapping
-    let slightly_smaller_text_font = TextFont {
-        font: font.into(),
-        font_size: FontSize::Px(35.0),
-        ..default()
-    };
+// font, font_size, text_justification, text_background_color
+type ChangingProps = (&'static str, FontSize, Justify, Color);
+
+// font, font_size, text_shadow_color
+type TextWrappingProps = (&'static str, FontSize, Color);
+
+// font, font_size
+type OtherProps = (&'static str, FontSize);
+
+fn scene() -> impl SceneList {
+    let changing_props = (
+        "fonts/FiraSans-Bold.ttf",
+        FontSize::Px(50.0),
+        Justify::Center,
+        Color::BLACK.with_alpha(0.5),
+    );
+
+    let text_wrapping_props = (
+        changing_props.0,
+        FontSize::Px(35.0),
+        Color::srgb(0.25, 0.25, 0.55).darker(0.05),
+    );
+
+    let other_props = (text_wrapping_props.0, text_wrapping_props.1);
+
+    bsn_list![
+        Camera2d,
+        demonstrate_changing_translation(changing_props),
+        demonstrate_changing_rotation(changing_props),
+        demonstrate_changing_scale(changing_props),
+        demonstrate_text_wrapping_with_unicode_linebreaks(text_wrapping_props),
+        demonstrate_text_wrapping_with_any_character_linebreaks(text_wrapping_props),
+        demonstrate_font_smoothing_off(other_props),
+        demonstrate_anchors(other_props),
+    ]
+}
+
+fn demonstrate_changing_translation(
+    (font, font_size, text_justification, text_background_color): ChangingProps,
+) -> impl Scene {
+    bsn![
+        Text2d::new(" translation ")
+        TextFont {
+            font: FontSourceTemplate::Handle(font),
+            font_size: font_size,
+        }
+        TextLayout::new_with_justify(text_justification)
+        TextBackgroundColor(text_background_color)
+        Text2dShadow::default()
+        AnimateTranslation
+    ]
+}
+
+fn demonstrate_changing_rotation(
+    (font, font_size, text_justification, text_background_color): ChangingProps,
+) -> impl Scene {
+    bsn![
+        Text2d::new(" rotation ")
+        TextFont {
+            font: FontSourceTemplate::Handle(font),
+            font_size: font_size,
+        }
+        TextLayout::new_with_justify(text_justification)
+        TextBackgroundColor(text_background_color)
+        Text2dShadow::default()
+        AnimateRotation
+    ]
+}
+
+fn demonstrate_changing_scale(
+    (font, font_size, text_justification, text_background_color): ChangingProps,
+) -> impl Scene {
+    bsn![
+        Text2d::new(" scale ")
+        TextFont {
+            font: FontSourceTemplate::Handle(font),
+            font_size: font_size,
+        }
+        TextLayout::new_with_justify(text_justification)
+        Transform::from_translation(Vec3::new(400.0, 0.0, 0.0))
+        TextBackgroundColor(text_background_color)
+        Text2dShadow::default()
+        AnimateScale
+    ]
+}
+
+fn demonstrate_text_wrapping_with_unicode_linebreaks(
+    (font, font_size, text_shadow_color): TextWrappingProps,
+) -> impl Scene {
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
-    let box_color = Color::srgb(0.25, 0.25, 0.55);
-    let text_shadow_color = box_color.darker(0.05);
-    commands.spawn((
-        Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
-        Transform::from_translation(box_position.extend(0.0)),
-        children![(
-            Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
-            slightly_smaller_text_font.clone(),
-            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
+
+    bsn![
+        Sprite {
+            color: Color::srgb(0.25, 0.25, 0.55),
+            custom_size: box_size,
+        }
+        Transform::from_translation(box_position.extend(0.0))
+        Children[(
+            Text2d::new("this text wraps in the box\n(Unicode linebreaks)")
+            TextFont {
+                font: FontSourceTemplate::Handle(font),
+                font_size: font_size,
+            }
+            TextLayout::new(Justify::Left, LineBreak::WordBoundary)
             // Wrap text in the rectangle
-            TextBounds::from(box_size),
+            TextBounds::from(box_size)
             // Ensure the text is drawn on top of the box
-            Transform::from_translation(Vec3::Z),
+            Transform::from_translation(Vec3::Z)
             // Add a shadow to the text
             Text2dShadow {
                 color: text_shadow_color,
-                ..default()
-            },
-            Underline,
-        )],
-    ));
+            }
+            Underline
+        )]
+    ]
+}
 
+fn demonstrate_text_wrapping_with_any_character_linebreaks(
+    (font, font_size, text_shadow_color): TextWrappingProps,
+) -> impl Scene {
     let other_box_size = Vec2::new(300.0, 200.0);
     let other_box_position = Vec2::new(320.0, -250.0);
-    commands.spawn((
-        Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
-        Transform::from_translation(other_box_position.extend(0.0)),
-        children![(
-            Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
-            slightly_smaller_text_font.clone(),
-            TextLayout::new(Justify::Left, LineBreak::AnyCharacter),
+
+    bsn![
+        Sprite {
+            color: Color::srgb(0.25, 0.25, 0.55),
+            custom_size: other_box_size,
+        }
+        Transform::from_translation(other_box_position.extend(0.0))
+        Children[(
+            Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)")
+            TextFont {
+                font: FontSourceTemplate::Handle(font),
+                font_size: font_size,
+            }
+            TextLayout::new(Justify::Left, LineBreak::AnyCharacter)
             // Wrap text in the rectangle
-            TextBounds::from(other_box_size),
+            TextBounds::from(other_box_size)
             // Ensure the text is drawn on top of the box
-            Transform::from_translation(Vec3::Z),
+            Transform::from_translation(Vec3::Z)
             // Add a shadow to the text
             Text2dShadow {
                 color: text_shadow_color,
-                ..default()
             }
-        )],
-    ));
+        )]
+    ]
+}
 
-    // Demonstrate font smoothing off
-    commands.spawn((
-        Text2d::new("This text has\nFontSmoothing::None\nAnd Justify::Center"),
-        slightly_smaller_text_font
-            .clone()
-            .with_font_smoothing(FontSmoothing::None),
-        TextLayout::new_with_justify(Justify::Center),
-        Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+fn demonstrate_font_smoothing_off((font, font_size): OtherProps) -> impl Scene {
+    bsn! [
+        Text2d::new("This text has\nFontSmoothing::None\nAnd Justify::Center")
+        TextFont {
+            font: FontSourceTemplate::Handle(font),
+            font_size: font_size,
+            font_smoothing: FontSmoothing::None,
+        }
+        TextLayout::new_with_justify(Justify::Center)
+        Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0))
         // Add a black shadow to the text
-        Text2dShadow::default(),
-    ));
+        Text2dShadow::default()
+    ]
+}
 
-    let make_child = move |(text_anchor, color): (Anchor, Color)| {
-        (
-            Text2d::new(" Anchor".to_string()),
-            slightly_smaller_text_font.clone(),
-            text_anchor,
-            TextBackgroundColor(Color::WHITE.darker(0.8)),
-            Transform::from_translation(-1. * Vec3::Z),
-            children![
+fn demonstrate_anchors(other_props: OtherProps) -> impl Scene {
+    fn make_child(
+        (font, font_size): OtherProps,
+        (text_anchor, color): (Anchor, Color),
+    ) -> impl Scene {
+        bsn![
+            Text2d::new(" Anchor".to_string())
+            TextFont {
+                font: FontSourceTemplate::Handle(font),
+                font_size: font_size,
+            }
+            // TODO: what can be done here instead?
+            Anchor({text_anchor.as_vec()})
+            TextBackgroundColor({Color::WHITE.darker(0.8)})
+            Transform::from_translation(-1. * Vec3::Z)
+            Children[
                 (
-                    TextSpan("::".to_string()),
-                    slightly_smaller_text_font.clone(),
-                    TextColor(LIGHT_GREY.into()),
-                    TextBackgroundColor(DARK_BLUE.into()),
+                    TextSpan({"::".to_string()})
+                    TextFont {
+                        font: FontSourceTemplate::Handle(font),
+                        font_size: font_size,
+                    }
+                    TextColor(Color::from(LIGHT_GREY))
+                    TextBackgroundColor(Color::from(DARK_BLUE))
                 ),
                 (
-                    TextSpan(format!("{text_anchor:?} ")),
-                    slightly_smaller_text_font.clone(),
-                    TextColor(color),
-                    TextBackgroundColor(color.darker(0.3)),
+                    TextSpan({format!("{text_anchor:?} ")})
+                    TextFont {
+                        font: FontSourceTemplate::Handle(font),
+                        font_size: font_size,
+                    }
+                    TextColor(color)
+                    TextBackgroundColor(Color::from(color.darker(0.3)))
                 )
-            ],
-        )
-    };
+            ]
+        ]
+    }
 
-    commands.spawn((
+    bsn![
         Sprite {
             color: Color::Srgba(LIGHT_CYAN),
-            custom_size: Some(Vec2::new(10., 10.)),
-            ..Default::default()
-        },
-        Transform::from_translation(250. * Vec3::Y),
-        children![
-            make_child((Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON))),
-            make_child((Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN))),
-            make_child((Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE))),
-            make_child((Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW))),
-        ],
-    ));
+            custom_size: Vec2::new(10., 10.),
+        }
+        Transform::from_translation(250. * Vec3::Y)
+        Children[
+            make_child(other_props, (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON))),
+            make_child(other_props, (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN))),
+            make_child(other_props, (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE))),
+            make_child(other_props, (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW))),
+        ]
+    ]
 }
 
 fn animate_translation(
