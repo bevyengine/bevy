@@ -606,6 +606,7 @@ Example | Description
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
+[IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node

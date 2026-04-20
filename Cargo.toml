@@ -1003,6 +1003,18 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "ime_support"
+path = "examples/ui/text/ime_support.rs"
+doc-scrape-examples = true
+required-features = ["system_font_discovery"]
+
+[package.metadata.example.ime_support]
+name = "IME Support"
+description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_input"
 path = "examples/ui/text/text_input.rs"
 doc-scrape-examples = true
