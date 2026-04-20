@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
-use bevy_input_focus::{FocusedInput, InputFocus};
+use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
@@ -22,6 +22,8 @@ use bevy_ui::{
     UiGlobalTransform, UiScale,
 };
 use bevy_window::{Ime, PrimaryWindow, Window};
+
+use crate::editable_text;
 
 const NONE: u8 = 0;
 const SUPER: u8 = 1;
@@ -343,7 +345,7 @@ fn update_ime_position(
 /// is an [`EditableText`].
 ///
 /// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
-fn sync_window_ime_enabled(
+fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
     editable_text_query: Query<(), With<EditableText>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
@@ -354,9 +356,29 @@ fn sync_window_ime_enabled(
     let Ok(mut window) = windows.single_mut() else {
         return;
     };
-    window.ime_enabled = input_focus
+    let editable_text_focused = input_focus
         .get()
         .is_some_and(|e| editable_text_query.contains(e));
+
+    // The IME should be enabled whenever an EditableText is focused,
+    // even if the IME isn't currently composing (i.e. there's no preedit text).
+    // The field here is about "should" we accept IME input, not "are we currently" accepting IME input
+    window.ime_enabled = editable_text_focused;
+}
+
+/// Observer that clears in-progress IME composition when an [`EditableText`] loses focus.
+///
+/// We need to clear the composition on focus loss because IME composition state is not automatically tied to widget focus;
+/// the IME remains active until explicitly disabled, even if the focused widget changes to another `EditableText` or to a non-`EditableText`.
+///
+/// Without this, switching focus between two text inputs leaves stale preedit state on the
+/// previous input.
+/// The IME stays enabled because both entities are [`EditableText`],
+/// and no [`Ime::Disabled`] event is ever fired to trigger the cleanup in [`on_ime_input`].
+fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut EditableText>) {
+    if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
+        editable_text.queue_edit(TextEdit::clear_ime_compose());
+    }
 }
 
 /// Enables support for the [`EditableText`] widget.
@@ -375,9 +397,10 @@ impl Plugin for EditableTextInputPlugin {
         app.add_observer(on_focused_keyboard_input)
             .add_observer(on_pointer_drag)
             .add_observer(on_pointer_press)
+            .add_observer(on_focus_lost)
             .add_systems(
                 PreUpdate,
-                (on_ime_input, sync_window_ime_enabled)
+                (on_ime_input, listen_for_ime_input_when_text_input_focused)
                     .chain()
                     .after(InputSystems),
             )
