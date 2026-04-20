@@ -5,17 +5,158 @@ use std::{path::Path, time::Duration};
 
 use bevy_app::App;
 use bevy_asset::{
+    asset_value,
     io::{
         memory::{Dir, MemoryAssetReader},
         AssetSourceBuilder, AssetSourceId,
     },
-    AssetApp, AssetLoader, AssetServer, Assets,
+    Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle,
 };
 use bevy_ecs::prelude::*;
 use bevy_scene::{prelude::*, ScenePatch};
 use bevy_ui::prelude::*;
 
 criterion_group!(benches, spawn);
+
+fn spawn(c: &mut Criterion) {
+    let mut group = c.benchmark_group("spawn");
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(4));
+    group.bench_function("ui_immediate_function_scene", |b| {
+        let mut app = bench_app(|_| {}, |_| {});
+        b.iter(move || {
+            app.world_mut().spawn_scene(ui()).unwrap();
+        });
+    });
+    group.bench_function("ui_immediate_loaded_scene", |b| {
+        let dir = Dir::default();
+        let mut app = bench_app(
+            |app| {
+                in_memory_asset_source(dir.clone(), app);
+            },
+            |app| {
+                app.register_asset_loader(FakeSceneLoader::new(button));
+            },
+        );
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("button.bsn"), "");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("button.bsn");
+
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+
+        let patch = app
+            .world()
+            .resource::<Assets<ScenePatch>>()
+            .get(&handle)
+            .unwrap();
+        assert!(patch.resolved.is_some());
+
+        b.iter(move || {
+            app.world_mut().spawn_scene(ui_loaded_asset()).unwrap();
+        });
+
+        drop(handle);
+    });
+    group.bench_function("ui_raw_bundle_no_scene", |b| {
+        let mut app = bench_app(|_| {}, |_| {});
+
+        b.iter(move || {
+            app.world_mut().spawn(raw_ui());
+        });
+    });
+
+    group.bench_function("handle_template_handle", |b| {
+        let dir = Dir::default();
+        let mut app = bench_app(
+            |app| {
+                in_memory_asset_source(dir.clone(), app);
+            },
+            |app| {
+                app.init_asset::<EmptyAsset>();
+                let assets = app.world().resource::<AssetServer>();
+                let handles = (0..10).map(|_| assets.add(EmptyAsset)).collect::<Vec<_>>();
+                app.register_asset_loader(FakeSceneLoader::new(move || {
+                    asset_handle_scene(handles.clone())
+                }));
+            },
+        );
+
+        dir.insert_asset_text(Path::new("a.bsn"), "");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<ScenePatch>("a.bsn");
+
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+
+        let world = app.world_mut();
+        b.iter(|| {
+            for _ in 0..100 {
+                world.spawn_scene(bsn! { :"a.bsn" }).unwrap();
+            }
+        });
+    });
+
+    group.bench_function("handle_template_value", |b| {
+        let dir = Dir::default();
+        let mut app = bench_app(
+            |app| {
+                in_memory_asset_source(dir.clone(), app);
+            },
+            |app| {
+                app.register_asset_loader(FakeSceneLoader::new(asset_value_scene));
+                app.init_asset::<EmptyAsset>();
+            },
+        );
+
+        dir.insert_asset_text(Path::new("a.bsn"), "");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<ScenePatch>("a.bsn");
+
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+
+        let world = app.world_mut();
+        b.iter(|| {
+            for _ in 0..100 {
+                world.spawn_scene(bsn! { :"a.bsn" }).unwrap();
+            }
+        });
+    });
+    group.finish();
+}
+
+#[derive(Asset, TypePath)]
+struct EmptyAsset;
+
+#[derive(Component, FromTemplate)]
+#[expect(unused, reason = "this is just used for init")]
+struct AssetReference(Handle<EmptyAsset>);
+
+fn asset_value_scene() -> impl Scene {
+    let children = (0..10)
+        .map(|_| {
+            bsn! {AssetReference(asset_value(EmptyAsset))}
+        })
+        .collect::<Vec<_>>();
+    bsn! {
+        Children [{children}]
+    }
+}
+
+fn asset_handle_scene(mut handles: Vec<Handle<EmptyAsset>>) -> impl Scene {
+    let children = handles
+        .drain(..)
+        .map(|handle| {
+            bsn! {AssetReference({handle.clone()})}
+        })
+        .collect::<Vec<_>>();
+    bsn! {
+        Children [{children}]
+    }
+}
 
 fn ui() -> impl Scene {
     bsn! {
@@ -209,88 +350,47 @@ fn run_app_until(app: &mut App, mut predicate: impl FnMut() -> bool) {
     panic!("Ran out of loops to return `Some` from `predicate`");
 }
 
-fn spawn(c: &mut Criterion) {
-    let mut group = c.benchmark_group("spawn");
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(4));
-    group.bench_function("ui_immediate_function_scene", |b| {
-        let mut app = App::new();
-        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene::ScenePlugin));
+fn bench_app(before: impl FnOnce(&mut App), after: impl FnOnce(&mut App)) -> App {
+    let mut app = App::new();
+    before(&mut app);
+    app.add_plugins((
+        bevy_app::TaskPoolPlugin::default(),
+        bevy_asset::AssetPlugin::default(),
+        bevy_scene::ScenePlugin,
+    ));
+    after(&mut app);
+    app.finish();
+    app.cleanup();
+    app
+}
 
-        b.iter(move || {
-            app.world_mut().spawn_scene(ui()).unwrap();
-        });
-    });
-    group.bench_function("ui_immediate_loaded_scene", |b| {
-        let mut app = App::new();
-        let dir = Dir::default();
-        let dir_clone = dir.clone();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: dir_clone.clone(),
-                })
-            }),
-        );
-        app.add_plugins((
-            bevy_app::TaskPoolPlugin::default(),
-            bevy_asset::AssetPlugin::default(),
-            bevy_scene::ScenePlugin,
-        ));
-        app.finish();
-        app.cleanup();
+fn in_memory_asset_source(dir: Dir, app: &mut App) {
+    app.register_asset_source(
+        AssetSourceId::Default,
+        AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+    );
+}
 
-        // Create a fake loader to act as a ScenePatch loaded from a file.
-        app.register_asset_loader(FakeSceneLoader);
+#[derive(TypePath)]
+struct FakeSceneLoader(Box<dyn Fn() -> Box<dyn Scene> + Send + Sync>);
 
-        #[derive(TypePath)]
-        struct FakeSceneLoader;
+impl FakeSceneLoader {
+    pub fn new<S: Scene>(scene_fn: impl (Fn() -> S) + Send + Sync + 'static) -> Self {
+        Self(Box::new(move || Box::new(scene_fn())))
+    }
+}
 
-        impl AssetLoader for FakeSceneLoader {
-            type Asset = ScenePatch;
-            type Error = std::io::Error;
-            type Settings = ();
+impl AssetLoader for FakeSceneLoader {
+    type Asset = ScenePatch;
+    type Error = std::io::Error;
+    type Settings = ();
 
-            async fn load(
-                &self,
-                _reader: &mut dyn bevy_asset::io::Reader,
-                _settings: &Self::Settings,
-                load_context: &mut bevy_asset::LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(ScenePatch::load_with(load_context, button()))
-            }
-        }
-
-        // Insert an asset that the fake loader can fake read.
-        dir.insert_asset_text(Path::new("button.bsn"), "");
-
-        let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load("button.bsn");
-        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
-
-        run_app_until(&mut app, || asset_server.is_loaded(&handle));
-
-        let patch = app
-            .world()
-            .resource::<Assets<ScenePatch>>()
-            .get(&handle)
-            .unwrap();
-        assert!(patch.resolved.is_some());
-
-        b.iter(move || {
-            app.world_mut().spawn_scene(ui_loaded_asset()).unwrap();
-        });
-
-        drop(handle);
-    });
-    group.bench_function("ui_raw_bundle_no_scene", |b| {
-        let mut app = App::new();
-        app.add_plugins((bevy_asset::AssetPlugin::default(), bevy_scene::ScenePlugin));
-
-        b.iter(move || {
-            app.world_mut().spawn(raw_ui());
-        });
-    });
-    group.finish();
+    async fn load(
+        &self,
+        _reader: &mut dyn bevy_asset::io::Reader,
+        _settings: &Self::Settings,
+        load_context: &mut bevy_asset::LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        Ok(ScenePatch::load_with(load_context, (self.0)()))
+    }
 }

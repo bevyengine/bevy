@@ -1,7 +1,7 @@
 use crate::{
     collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
     SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
@@ -152,7 +152,7 @@ impl Plugin for WireframePlugin {
             .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
-                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+                init_wireframe_3d_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Core3d,

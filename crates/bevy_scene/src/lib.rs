@@ -509,7 +509,7 @@ pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
         EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
-        ScenePatchInstance, WorldSceneExt,
+        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
@@ -523,6 +523,7 @@ mod scene;
 mod scene_list;
 mod scene_patch;
 mod spawn;
+mod spawn_system;
 
 pub use bevy_scene_macros::*;
 pub use resolved_scene::*;
@@ -530,6 +531,7 @@ pub use scene::*;
 pub use scene_list::*;
 pub use scene_patch::*;
 pub use spawn::*;
+pub use spawn_system::*;
 
 use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
