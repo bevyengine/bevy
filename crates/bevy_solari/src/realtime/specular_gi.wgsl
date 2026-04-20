@@ -68,7 +68,10 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let brdf = evaluate_specular_brdf(wo, wi, surface.world_normal, surface.material);
     radiance *= brdf * view.exposure;
-    radiance *= select(1.0, 4.0, bool(constants.quarter_resolution_indirect_lighting));
+
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        radiance *= 4.0;
+    }
 
     var pixel_color = textureLoad(view_output, pixel_id);
     pixel_color += vec4(radiance, 0.0);
