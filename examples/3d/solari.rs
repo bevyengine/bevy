@@ -72,10 +72,9 @@ fn main() {
         app.add_systems(Update, toggle_dlss_rr);
 
         if args.many_lights != Some(true) {
-            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path))
-                .add_systems(PostUpdate, update_control_text);
+            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
         }
-        app.add_systems(PostUpdate, update_performance_text);
+        app.add_systems(PostUpdate, (update_control_text, update_performance_text));
     }
 
     app.run();
@@ -359,6 +358,17 @@ fn setup_many_lights(
     }
 
     commands.spawn((
+        ControlText,
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12.0),
+            left: px(12.0),
+            ..default()
+        },
+    ));
+
+    commands.spawn((
         Node {
             position_type: PositionType::Absolute,
             right: px(0.0),
@@ -574,6 +584,7 @@ fn update_control_text(
     directional_light: Query<Entity, With<DirectionalLight>>,
     solari_lighting: Single<&SolariLighting>,
     time: Res<Time<Virtual>>,
+    args: Res<Args>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
         Res<DlssRayReconstructionSupported>,
     >,
@@ -584,24 +595,26 @@ fn update_control_text(
 ) {
     text.0.clear();
 
-    if time.is_paused() {
-        text.0.push_str("(Space): Resume");
-    } else {
-        text.0.push_str("(Space): Pause");
-    }
-
-    if directional_light.single().is_ok() {
-        text.0.push_str("\n(1): Disable directional light");
-    } else {
-        text.0.push_str("\n(1): Enable directional light");
-    }
-
-    match robot_light_material.and_then(|m| materials.get(&m.0)) {
-        Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
-            text.0.push_str("\n(2): Disable robot emissive light");
+    if args.many_lights != Some(true) {
+        if time.is_paused() {
+            text.0.push_str("(Space): Resume");
+        } else {
+            text.0.push_str("(Space): Pause");
         }
-        _ => {
-            text.0.push_str("\n(2): Enable robot emissive light");
+
+        if directional_light.single().is_ok() {
+            text.0.push_str("\n(1): Disable directional light");
+        } else {
+            text.0.push_str("\n(1): Enable directional light");
+        }
+
+        match robot_light_material.and_then(|m| materials.get(&m.0)) {
+            Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
+                text.0.push_str("\n(2): Disable robot emissive light");
+            }
+            _ => {
+                text.0.push_str("\n(2): Enable robot emissive light");
+            }
         }
     }
 
