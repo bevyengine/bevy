@@ -67,7 +67,7 @@ fn main() -> AnyhowResult<()> {
             }
             if let Some(result) = response.get("result") {
                 let events = result.as_array().expect("Expected events array");
-                let event = &events[0][type_name::<ScreenshotCaptured>()];
+                let event = &events[0];
 
                 let image_data = &event["image"];
                 let width = image_data["texture_descriptor"]["size"]["width"]
