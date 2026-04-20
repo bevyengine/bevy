@@ -137,17 +137,13 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     }
 
     let point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
-    var temporal: NeighborInfo;
-    if bool(constants.quarter_resolution_indirect_lighting) {
-        temporal = load_temporal_reservoir_inner(point_temporal_pixel_id, depth, world_position, world_normal);
-    } else {
-        let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, constants.frame_index, view.main_pass_viewport.zw);
-        temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
+    let scale = select(1u, 2u, bool(constants.quarter_resolution_indirect_lighting));
+    let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id / scale, constants.frame_index, vec2<f32>(gi_resolution())) * scale;
+    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
-        // If permuted reprojection failed (tends to happen on object edges), try point reprojection
-        if all(temporal.reservoir.radiance == vec3(0.0)) {
-            temporal = load_temporal_reservoir_inner(point_temporal_pixel_id, depth, world_position, world_normal);
-        }
+    // If permuted reprojection failed (tends to happen on object edges), try point reprojection
+    if all(temporal.reservoir.radiance == vec3(0.0)) {
+        temporal = load_temporal_reservoir_inner(point_temporal_pixel_id, depth, world_position, world_normal);
     }
 
     temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
@@ -192,7 +188,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
     if bool(constants.quarter_resolution_indirect_lighting) {
-        var spatial_id = vec2<f32>(center_pixel_id / vec2(2u)) + sample_disk(search_radius, rng) * 0.5;
+        var spatial_id = vec2<f32>(center_pixel_id / 2u) + sample_disk(search_radius, rng) * 0.5;
         spatial_id = clamp(spatial_id, vec2(0.0), vec2<f32>(quarter_resolution_dimensions()) - 1.0);
         return quarter_to_full_resolution_pixel(vec2<u32>(spatial_id), constants.frame_index);
     } else {
@@ -352,7 +348,7 @@ fn gi_thread_to_full_resolution_pixel(thread_xy: vec2<u32>) -> vec2<u32> {
 
 fn gi_reservoir_index(full_xy: vec2<u32>) -> u32 {
     if bool(constants.quarter_resolution_indirect_lighting) {
-        return quarter_resolution_index(full_xy / vec2(2u));
+        return quarter_resolution_index(full_xy / 2u);
     } else {
         return full_xy.x + full_xy.y * u32(view.main_pass_viewport.z);
     }
@@ -360,14 +356,14 @@ fn gi_reservoir_index(full_xy: vec2<u32>) -> u32 {
 
 fn gi_snap_to_quad_pixel_previous_frame(full_xy: vec2<u32>) -> vec2<u32> {
     if bool(constants.quarter_resolution_indirect_lighting) {
-        return quarter_to_full_resolution_pixel(full_xy / vec2(2u), constants.frame_index - 5782582u);
+        return quarter_to_full_resolution_pixel(full_xy / 2u, constants.frame_index - 5782582u);
     } else {
         return full_xy;
     }
 }
 
 fn quarter_resolution_dimensions() -> vec2<u32> {
-    return (vec2u(view.main_pass_viewport.zw) + vec2(1u)) / vec2(2u);
+    return (vec2u(view.main_pass_viewport.zw) + 1u) / 2u;
 }
 
 fn quarter_resolution_index(quarter_xy: vec2<u32>) -> u32 {
@@ -377,5 +373,5 @@ fn quarter_resolution_index(quarter_xy: vec2<u32>) -> u32 {
 fn quarter_to_full_resolution_pixel(quarter_xy: vec2<u32>, frame: u32) -> vec2<u32> {
     var rng = quarter_resolution_index(quarter_xy) * 0x9E3779B9u + frame;
     let qi = u32(rand_f(&rng) * 4.0);
-    return min(quarter_xy * 2u + vec2(qi / 2u, qi % 2u), vec2u(view.main_pass_viewport.zw) - vec2(1u));
+    return min(quarter_xy * 2u + vec2(qi / 2u, qi % 2u), vec2u(view.main_pass_viewport.zw) - 1u);
 }
