@@ -403,7 +403,7 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
 
     for data_format_descriptor in ktx2.dfd_blocks() {
         if let Block::Basic(basic_data_format_descriptor) = data_format_descriptor {
-            return ktx2_dfd_header_to_texture_format(&basic_data_format_descriptor, is_srgb);
+            return ktx2_dfd_header_to_texture_format(basic_data_format_descriptor, is_srgb);
         }
     }
 
