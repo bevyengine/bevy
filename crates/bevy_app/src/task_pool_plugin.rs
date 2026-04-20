@@ -19,6 +19,7 @@ cfg_select! {
             tick_global_task_pools_on_main_thread();
         }
     }
+    _ => {}
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`], [`ComputeTaskPool`], [`IoTaskPool`].
