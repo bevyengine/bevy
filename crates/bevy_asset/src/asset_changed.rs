@@ -291,6 +291,15 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
+    /// # Safety
+    ///
+    /// - `fetch` must have been initialized via [`WorldQuery::init_fetch`] and subsequently
+    ///   configured via [`WorldQuery::set_archetype`] or [`WorldQuery::set_table`] for the
+    ///   archetype/table that contains `entity` and `table_row`.
+    /// - `entity` must be a valid entity present in the ECS world.
+    /// - `table_row` must be a valid row index within the table associated with `entity`.
+    /// - `state` must have been initialized from the same [`World`] that was used to create
+    ///   `fetch`, ensuring component IDs remain consistent.
     #[inline]
     unsafe fn filter_fetch(
         state: &Self::State,
@@ -299,7 +308,9 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         table_row: TableRow,
     ) -> bool {
         fetch.inner.as_mut().is_some_and(|inner| {
-            // SAFETY: We delegate to the inner `fetch` for `A`
+            // SAFETY: The caller guarantees that `state`, `fetch`, `entity`, and `table_row`
+            // are all valid and consistent with the same world, satisfying the safety
+            // requirements of `<&A>::fetch`.
             unsafe {
                 let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
                 handle.is_some_and(|handle| fetch.check.has_changed(handle))
