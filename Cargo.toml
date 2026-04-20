@@ -1003,12 +1003,12 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "editable_text"
-path = "examples/ui/text/editable_text.rs"
+name = "text_input"
+path = "examples/ui/text/text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.editable_text]
-name = "Editable Text"
+[package.metadata.example.text_input]
+name = "Text Input"
 description = "Demonstrates a simple, unstyled text input widget"
 category = "UI (User Interface)"
 wasm = true
