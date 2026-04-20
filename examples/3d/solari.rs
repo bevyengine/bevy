@@ -22,8 +22,11 @@ use rand::{RngExt, SeedableRng};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_alias::dlss::{
-    Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+use bevy::{
+    anti_alias::dlss::{
+        Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+    },
+    render::camera::{MipBias, TemporalJitter},
 };
 
 /// `bevy_solari` demo.
@@ -64,6 +67,10 @@ fn main() {
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
+        app.add_systems(Update, toggle_quarter_res_indirect);
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        app.add_systems(Update, toggle_dlss_rr);
+
         if args.many_lights != Some(true) {
             app.add_systems(Update, (pause_scene, toggle_lights, patrol_path))
                 .add_systems(PostUpdate, update_control_text);
@@ -443,6 +450,41 @@ fn add_raytracing_meshes_on_scene_load(
     }
 }
 
+fn toggle_quarter_res_indirect(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut solari_lighting: Single<&mut SolariLighting>,
+) {
+    if key_input.just_pressed(KeyCode::Digit3) {
+        solari_lighting.quarter_resolution_indirect_lighting =
+            !solari_lighting.quarter_resolution_indirect_lighting;
+    }
+}
+
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+fn toggle_dlss_rr(
+    key_input: Res<ButtonInput<KeyCode>>,
+    camera: Single<(Entity, Has<Dlss<DlssRayReconstructionFeature>>), With<SolariLighting>>,
+    dlss_rr_supported: Option<Res<DlssRayReconstructionSupported>>,
+    mut commands: Commands,
+) {
+    if key_input.just_pressed(KeyCode::Digit4) && dlss_rr_supported.is_some() {
+        let (entity, dlss) = *camera;
+        if dlss {
+            commands
+                .entity(entity)
+                .remove::<(Dlss<DlssRayReconstructionFeature>, TemporalJitter, MipBias)>();
+        } else {
+            commands
+                .entity(entity)
+                .insert(Dlss::<DlssRayReconstructionFeature> {
+                    perf_quality_mode: Default::default(),
+                    reset: Default::default(),
+                    _phantom_data: Default::default(),
+                });
+        }
+    }
+}
+
 fn pause_scene(mut time: ResMut<Time<Virtual>>, key_input: Res<ButtonInput<KeyCode>>) {
     if key_input.just_pressed(KeyCode::Space) {
         time.toggle();
@@ -530,9 +572,14 @@ fn update_control_text(
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
+    solari_lighting: Single<&SolariLighting>,
     time: Res<Time<Virtual>>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
         Res<DlssRayReconstructionSupported>,
+    >,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
     >,
 ) {
     text.0.clear();
@@ -558,10 +605,21 @@ fn update_control_text(
         }
     }
 
+    if solari_lighting.quarter_resolution_indirect_lighting {
+        text.0
+            .push_str("\n(3): Disable quarter-res indirect lighting");
+    } else {
+        text.0
+            .push_str("\n(3): Enable quarter-res indirect lighting");
+    }
+
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        text.0
-            .push_str("\nDenoising: DLSS Ray Reconstruction enabled");
+        if matches!(dlss_camera.single(), Ok(true)) {
+            text.0.push_str("\n(4): Disable DLSS Ray Reconstruction");
+        } else {
+            text.0.push_str("\n(4): Enable DLSS Ray Reconstruction");
+        }
     } else {
         text.0
             .push_str("\nDenoising: DLSS Ray Reconstruction not supported");

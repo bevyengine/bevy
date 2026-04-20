@@ -109,7 +109,7 @@ pub struct SolariLighting {
 impl Default for SolariLighting {
     fn default() -> Self {
         Self {
-            quarter_resolution_indirect_lighting: true,
+            quarter_resolution_indirect_lighting: false,
             reset: true, // No temporal history on the first frame
         }
     }
