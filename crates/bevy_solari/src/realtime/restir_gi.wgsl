@@ -2,10 +2,8 @@
 enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk}
 #import bevy_render::maths::PI
-#import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility, balance_heuristic, isnan}
@@ -18,11 +16,12 @@ const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
+fn initial_and_temporal(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+    if any(thread_id.xy >= gi_resolution()) { return; }
 
-    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_index;
+    let global_id = vec3(gi_thread_to_full_resolution_pixel(thread_id.xy), 0u);
+    let pixel_index = gi_reservoir_index(global_id.xy);
+    var rng = (global_id.x + global_id.y * u32(view.main_pass_viewport.z)) + constants.frame_index;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -44,11 +43,12 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
+fn spatial_and_shade(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+    if any(thread_id.xy >= gi_resolution()) { return; }
 
-    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_index;
+    let global_id = vec3(gi_thread_to_full_resolution_pixel(thread_id.xy), 0u);
+    let pixel_index = gi_reservoir_index(global_id.xy);
+    var rng = (global_id.x + global_id.y * u32(view.main_pass_viewport.z)) + constants.frame_index;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -81,6 +81,10 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let wo = normalize(view.world_position - surface.world_position);
     let brdf = evaluate_diffuse_brdf(wo, merge_result.wi, surface.world_normal, surface.material);
+
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        combined_reservoir.unbiased_contribution_weight *= 4.0;
+    }
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure * brdf, 0.0);
@@ -132,12 +136,18 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.main_pass_viewport.zw);
-    var temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
+    let point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
+    var temporal: NeighborInfo;
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        temporal = load_temporal_reservoir_inner(point_temporal_pixel_id, depth, world_position, world_normal);
+    } else {
+        let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, constants.frame_index, view.main_pass_viewport.zw);
+        temporal = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
-    // If permuted reprojection failed (tends to happen on object edges), try point reprojection
-    if all(temporal.reservoir.radiance == vec3(0.0)) {
-        temporal = load_temporal_reservoir_inner(vec2<u32>(temporal_pixel_id_float), depth, world_position, world_normal);
+        // If permuted reprojection failed (tends to happen on object edges), try point reprojection
+        if all(temporal.reservoir.radiance == vec3(0.0)) {
+            temporal = load_temporal_reservoir_inner(point_temporal_pixel_id, depth, world_position, world_normal);
+        }
     }
 
     temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
@@ -145,8 +155,9 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     return temporal;
 }
 
-fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
-    // Check if the pixel features have changed heavily between the current and previous frame
+fn load_temporal_reservoir_inner(temporal_pixel_id_in: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
+    let temporal_pixel_id = gi_snap_to_quad_pixel_previous_frame(temporal_pixel_id_in);
+
     let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
     let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
     let temporal_diffuse_brdf = temporal_surface.material.base_color / PI;
@@ -154,8 +165,7 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
-    let temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
+    let temporal_reservoir = gi_reservoirs_a[gi_reservoir_index(temporal_pixel_id)];
 
     return NeighborInfo(temporal_reservoir, temporal_surface.world_position, temporal_surface.world_normal, temporal_diffuse_brdf);
 }
@@ -173,8 +183,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
             continue;
         }
 
-        let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-        let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
+        let spatial_reservoir = gi_reservoirs_b[gi_reservoir_index(spatial_pixel_id)];
         return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
     }
 
@@ -182,9 +191,15 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
-    spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
-    return vec2<u32>(spatial_id);
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        var spatial_id = vec2<f32>(center_pixel_id / vec2(2u)) + sample_disk(search_radius, rng) * 0.5;
+        spatial_id = clamp(spatial_id, vec2(0.0), vec2<f32>(quarter_resolution_dimensions()) - 1.0);
+        return quarter_to_full_resolution_pixel(vec2<u32>(spatial_id), constants.frame_index);
+    } else {
+        var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
+        spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
+        return vec2<u32>(spatial_id);
+    }
 }
 
 struct NeighborInfo {
@@ -317,4 +332,50 @@ fn merge_reservoirs(
 
         return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance, canonical_sample_wi);
     }
+}
+
+fn gi_resolution() -> vec2<u32> {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_resolution_dimensions();
+    } else {
+        return vec2u(view.main_pass_viewport.zw);
+    }
+}
+
+fn gi_thread_to_full_resolution_pixel(thread_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_to_full_resolution_pixel(thread_xy, constants.frame_index);
+    } else {
+        return thread_xy;
+    }
+}
+
+fn gi_reservoir_index(full_xy: vec2<u32>) -> u32 {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_resolution_index(full_xy / vec2(2u));
+    } else {
+        return full_xy.x + full_xy.y * u32(view.main_pass_viewport.z);
+    }
+}
+
+fn gi_snap_to_quad_pixel_previous_frame(full_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_to_full_resolution_pixel(full_xy / vec2(2u), constants.frame_index - 5782582u);
+    } else {
+        return full_xy;
+    }
+}
+
+fn quarter_resolution_dimensions() -> vec2<u32> {
+    return (vec2u(view.main_pass_viewport.zw) + vec2(1u)) / vec2(2u);
+}
+
+fn quarter_resolution_index(quarter_xy: vec2<u32>) -> u32 {
+    return quarter_xy.x + quarter_xy.y * quarter_resolution_dimensions().x;
+}
+
+fn quarter_to_full_resolution_pixel(quarter_xy: vec2<u32>, frame: u32) -> vec2<u32> {
+    var rng = quarter_resolution_index(quarter_xy) * 0x9E3779B9u + frame;
+    let qi = u32(rand_f(&rng) * 4.0);
+    return min(quarter_xy * 2u + vec2(qi / 2u, qi % 2u), vec2u(view.main_pass_viewport.zw) - vec2(1u));
 }

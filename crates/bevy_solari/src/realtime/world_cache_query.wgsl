@@ -9,12 +9,6 @@ enable wgpu_ray_query;
     world_cache_checksums,
     world_cache_radiance,
     world_cache_geometry_data,
-    world_cache_luminance_deltas,
-    world_cache_a,
-    world_cache_b,
-    world_cache_active_cell_indices,
-    world_cache_active_cells_count,
-    WorldCacheGeometryData,
 }
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)

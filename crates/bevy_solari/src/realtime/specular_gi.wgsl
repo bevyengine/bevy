@@ -3,8 +3,8 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
-#import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, ResolvedGPixel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid, power_heuristic}
@@ -40,9 +40,11 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var wi: vec3<f32>;
     if surface.material.roughness > DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
         // Surface is very rough, reuse the ReSTIR GI reservoir
-        let gi_reservoir = gi_reservoirs_a[pixel_index];
+        if any(global_id.xy != gi_snap_to_quad_pixel(global_id.xy)) { return; }
+        let gi_reservoir = gi_reservoirs_a[gi_reservoir_index(global_id.xy)];
+        let ucw = select(1.0, 4.0, bool(constants.quarter_resolution_indirect_lighting));
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
-        radiance = gi_reservoir.radiance * gi_reservoir.unbiased_contribution_weight;
+        radiance = gi_reservoir.radiance * gi_reservoir.unbiased_contribution_weight * ucw;
     } else {
         // Surface is glossy or mirror-like, trace a new path
         let TBN = orthonormalize(surface.world_normal);
@@ -241,3 +243,33 @@ fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: v
     return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 }
 #endif
+
+fn gi_snap_to_quad_pixel(full_xy: vec2<u32>) -> vec2<u32> {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_to_full_resolution_pixel(full_xy / vec2(2u), constants.frame_index);
+    } else {
+        return full_xy;
+    }
+}
+
+fn gi_reservoir_index(full_xy: vec2<u32>) -> u32 {
+    if bool(constants.quarter_resolution_indirect_lighting) {
+        return quarter_resolution_index(full_xy / vec2(2u));
+    } else {
+        return full_xy.x + full_xy.y * u32(view.main_pass_viewport.z);
+    }
+}
+
+fn quarter_resolution_dimensions() -> vec2<u32> {
+    return (vec2u(view.main_pass_viewport.zw) + vec2(1u)) / vec2(2u);
+}
+
+fn quarter_resolution_index(quarter_xy: vec2<u32>) -> u32 {
+    return quarter_xy.x + quarter_xy.y * quarter_resolution_dimensions().x;
+}
+
+fn quarter_to_full_resolution_pixel(quarter_xy: vec2<u32>, frame: u32) -> vec2<u32> {
+    var rng = quarter_resolution_index(quarter_xy) * 0x9E3779B9u + frame;
+    let qi = u32(rand_f(&rng) * 4.0);
+    return min(quarter_xy * 2u + vec2(qi / 2u, qi % 2u), vec2u(view.main_pass_viewport.zw) - vec2(1u));
+}

@@ -3,7 +3,7 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::lighting::D_GGX
-#import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
+#import bevy_pbr::utils::{rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
 
