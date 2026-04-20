@@ -423,7 +423,7 @@ pub fn resolve_font_source<'a>(
         FontSource::Family(family) => FontFamily::named(family.as_str()),
         generic => {
             #[cfg(not(feature = "system_font_discovery"))]
-            error_once!(
+            bevy_log::error_once!(
                 "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
                 feature is not enabled. Text may not render. Enable the feature to allow Bevy \
                 to discover system fonts."
