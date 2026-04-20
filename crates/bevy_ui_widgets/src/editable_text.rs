@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
-use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
+use bevy_input_focus::{FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
@@ -399,8 +399,9 @@ impl Plugin for EditableTextInputPlugin {
             .add_systems(
                 PreUpdate,
                 (on_ime_input, listen_for_ime_input_when_text_input_focused)
-                    .chain()
-                    .after(InputSystems),
+                    .after(InputSystems)
+                    .after(InputFocusSystems::Dispatch)
+                    .after(UiSystems::Focus),
             )
             .add_systems(PostUpdate, update_ime_position.after(UiSystems::Layout));
 
