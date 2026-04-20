@@ -31,7 +31,7 @@ fn setup(mut commands: Commands) {
 
     let instructions = commands
         .spawn((
-            Text::new("Type using your IME, then press Ctrl+Enter to submit"),
+            Text::new("Type using your IME, then press Ctrl+Enter to submit. Your system default sans-serif font will be used, so make sure you have fonts installed that support the characters you want to input!"),
             TextFont {
                 font_size: FontSize::Px(20.0),
                 ..default()
@@ -100,8 +100,6 @@ fn text_submission(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_input: Query<&mut EditableText>,
     mut text_output: Single<&mut Text, With<TextOutput>>,
-    mut font_context: ResMut<FontCx>,
-    mut layout_context: ResMut<LayoutCx>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Enter)
         && (keyboard_input.pressed(KeyCode::ControlLeft)

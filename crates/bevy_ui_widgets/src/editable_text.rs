@@ -61,7 +61,7 @@ fn on_focused_keyboard_input(
     // While the IME is composing, all keyboard input (including Tab) belongs to the IME.
     // Stopping propagation prevents `handle_tab_navigation` (registered on the window,
     // which sits further up the `FocusedInput` bubble chain) from responding to Tab;
-    // inadvertantly changing focus while the IME is active.
+    // inadvertently changing focus while the IME is active.
     if editable_text.is_composing() {
         keyboard_input.propagate(false);
         return;
