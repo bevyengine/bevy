@@ -366,7 +366,7 @@ pub fn solari_lighting(
     }
     pass.set_pipeline(specular_gi_pipeline);
     pass.set_immediates(0, immediates);
-    pass.dispatch_workgroups(dx, dy, 1);
+    pass.dispatch_workgroups(gi_dx, gi_dy, 1);
     d.end(&mut pass);
 
     drop(pass);
