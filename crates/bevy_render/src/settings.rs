@@ -127,7 +127,10 @@ impl Default for WgpuSettings {
 
         let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
-        let instance_flags = InstanceFlags::default().with_env();
+        let mut instance_flags = InstanceFlags::default();
+        #[cfg(not(debug_assertions))]
+        instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+        instance_flags = instance_flags.with_env();
 
         Self {
             device_label: Default::default(),

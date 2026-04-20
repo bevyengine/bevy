@@ -645,6 +645,7 @@ mod impls {
 }
 
 pub mod attributes;
+pub mod convert;
 pub mod enums;
 mod generics;
 pub mod serde;
@@ -773,7 +774,7 @@ pub mod __macro_exports {
         mod __automatic_type_registration_impl {
             use super::*;
 
-            pub use inventory;
+            pub use ::inventory;
 
             /// Stores type registration functions
             pub struct AutomaticReflectRegistrations(pub fn(&mut TypeRegistry));

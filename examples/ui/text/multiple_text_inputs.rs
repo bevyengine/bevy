@@ -12,7 +12,7 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
+use bevy::text::{EditableText, TextCursorStyle};
 
 fn main() {
     App::new()
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: px(4.).all(),
                         ..default()
                     },
-                    EditableText::default(),
+                    EditableText::new(format!("Initial text {row}")),
                     TextCursorStyle::default(),
                     font.clone(),
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
@@ -191,8 +191,6 @@ fn submit_text(
     keyboard_input: Res<ButtonInput<Key>>,
     mut text_input: Query<(&mut EditableText, &TextInputRow)>,
     mut text_output: Query<(&mut Text, &TextInputRow), With<SubmitOutput>>,
-    mut font_context: ResMut<FontCx>,
-    mut layout_context: ResMut<LayoutCx>,
 ) {
     if keyboard_input.just_pressed(Key::Enter)
         && keyboard_input.pressed(Key::Control)
@@ -210,7 +208,7 @@ fn submit_text(
                 break;
             }
         }
-        editable_text.clear(&mut font_context.0, &mut layout_context.0);
+        editable_text.clear();
     }
 }
 

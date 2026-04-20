@@ -11,11 +11,11 @@
 //! sub-schedule or sub-graph of the root render graph schedule.
 use bevy_camera::{ClearColor, NormalizedRenderTarget};
 use bevy_ecs::{
+    entity::EntityHashSet,
     prelude::*,
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
 };
 use bevy_log::info_span;
-use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
     render_resource::{
@@ -106,7 +106,7 @@ impl Core2d {
 
 /// Holds the entity of windows that are a render target for a camera
 #[derive(Resource)]
-struct CameraWindows(HashSet<Entity>);
+struct CameraWindows(EntityHashSet);
 
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
@@ -122,7 +122,7 @@ pub fn camera_driver(world: &mut World) {
         sorted.0.iter().map(|c| (c.entity, c.order)).collect()
     };
 
-    let mut camera_windows = HashSet::default();
+    let mut camera_windows = EntityHashSet::default();
 
     for camera in sorted_cameras {
         #[cfg(feature = "trace")]

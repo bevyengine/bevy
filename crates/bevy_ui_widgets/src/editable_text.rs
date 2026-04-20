@@ -123,10 +123,8 @@ fn on_focused_keyboard_input(
                 queue_edit(TextEdit::Insert(text.clone()));
             }
         }
-        (NONE, Key::Enter) => {
-            if allow_newlines {
-                queue_edit(TextEdit::Insert("\n".into()));
-            }
+        (NONE, Key::Enter) if allow_newlines => {
+            queue_edit(TextEdit::Insert("\n".into()));
         }
         _ => {
             // Ignore and propagate to allow for tab navigation and submit actions.

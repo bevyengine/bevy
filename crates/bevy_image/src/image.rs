@@ -11,6 +11,8 @@ use bevy_app::{App, Plugin};
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
@@ -27,11 +29,15 @@ use wgpu_types::{
 
 /// Trait used to provide default values for Bevy-external types that
 /// do not implement [`Default`].
+#[deprecated(
+    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
+)]
 pub trait BevyDefault {
     /// Returns the default value for a type.
     fn bevy_default() -> Self;
 }
 
+#[expect(deprecated, reason = "deprecated")]
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
@@ -602,6 +608,7 @@ impl ToExtents for UVec3 {
     derive(Reflect),
     reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 #[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
@@ -636,6 +643,25 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+}
+
+#[cfg(feature = "serialize")]
+mod image_serde {
+    use super::*;
+
+    impl Serialize for Image {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            super::super::serialized_image::SerializedImage::from_image(self.clone())
+                .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Image {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            super::super::serialized_image::SerializedImage::deserialize(deserializer)
+                .map(super::super::serialized_image::SerializedImage::into_image)
+        }
+    }
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -1128,7 +1154,7 @@ impl Image {
         // We rely on the default texture format being RGBA8UnormSrgb
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
-        let format = TextureFormat::bevy_default();
+        let format = TextureFormat::Rgba8UnormSrgb;
         if let Ok(pixel_size) = format.pixel_size() {
             debug_assert!(pixel_size == 4);
         }
@@ -1146,7 +1172,7 @@ impl Image {
         Image::new_uninit(
             Extent3d::default(),
             TextureDimension::D2,
-            TextureFormat::bevy_default(),
+            TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
         )
     }
@@ -1664,7 +1690,10 @@ impl Image {
     /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
     /// you used when writing it using this function.
     ///
-    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    /// For RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    ///
+    /// For R formats the linear RGB [`Color`] will be converted to grayscale
+    /// and the R channel will be the luminance.
     ///
     /// Other [`TextureFormat`]s are unsupported, such as:
     ///  - block-compressed formats
@@ -2555,7 +2584,7 @@ mod test {
     fn get_or_init_sampler_modifications() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_filter(ImageFilterMode::Linear)
@@ -2572,7 +2601,7 @@ mod test {
     fn get_or_init_sampler_anisotropy() {
         // given some sampler
         let mut default_sampler = ImageSampler::Default;
-        // a load_with_settings call wants to customize the descriptor
+        // a LoadBuilder::with_settings call wants to customize the descriptor
         let my_sampler_in_a_loader = default_sampler
             .get_or_init_descriptor()
             .set_anisotropic_filter(8);
