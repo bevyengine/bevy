@@ -110,6 +110,6 @@ fn text_submission(
         && let Ok(mut input) = text_input.get_mut(focused_entity)
     {
         text_output.0 = input.value().to_string();
-        input.clear(&mut font_context.0, &mut layout_context.0);
+        input.clear();
     }
 }
