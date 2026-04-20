@@ -56,7 +56,7 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
     Projection,
 };
-use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, RetainedMesh};
+use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
 /// Use this component to opt-out of the built-in CPU frustum culling, see
 /// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
@@ -556,7 +556,7 @@ pub struct NoAutoAabb;
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
-    meshes: Res<RetainedAssets<RetainedMesh>>,
+    meshes: Res<RetainedAssets<Mesh>>,
     new_aabb: Query<
         (Entity, &Mesh3d),
         (
@@ -595,7 +595,7 @@ pub fn calculate_bounds(
 // component.
 fn update_skinned_mesh_bounds(
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
+    mesh_assets: Res<RetainedAssets<Mesh>>,
     mut mesh_entities: Query<
         (&mut Aabb, &Mesh3d, &SkinnedMesh, Option<&GlobalTransform>),
         With<DynamicSkinnedMeshBounds>,
@@ -1327,7 +1327,7 @@ mod test {
         struct ObservedChanged(bool);
         app.init_resource::<ManualMark>()
             .init_resource::<ObservedChanged>()
-            .init_resource::<RetainedAssets<RetainedMesh>>();
+            .init_resource::<RetainedAssets<Mesh>>();
 
         app.add_systems(
             PostUpdate,

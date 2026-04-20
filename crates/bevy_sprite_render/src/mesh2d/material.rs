@@ -5,8 +5,8 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{
-    AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, EmptyRetainedAsset,
-    Handle, UntypedAssetId,
+    AsAssetId, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle, RetainAsset,
+    UntypedAssetId,
 };
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::{
@@ -134,7 +134,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
+pub trait Material2d: AsBindGroup + RetainAsset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -1100,7 +1100,6 @@ impl<T: Material2d> PreparedMaterial2d<T> {
 
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type SourceAsset = M;
-    type RetainedAsset = EmptyRetainedAsset<M>;
 
     type Param = (
         SRes<RenderDevice>,
@@ -1112,10 +1111,6 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SResMut<RenderMaterial2dBindGroupIds>,
         M::Param,
     );
-
-    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        EmptyRetainedAsset::default()
-    }
 
     fn prepare_asset(
         material: Self::SourceAsset,

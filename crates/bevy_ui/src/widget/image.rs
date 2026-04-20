@@ -243,7 +243,7 @@ type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    textures: Res<RetainedAssets<RetainedImage>>,
+    textures: Res<RetainedAssets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<
         (

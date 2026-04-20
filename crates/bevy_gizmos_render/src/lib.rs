@@ -27,7 +27,6 @@ mod pipeline_2d;
 mod pipeline_3d;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::EmptyRetainedAsset;
 use bevy_ecs::{
     name::Name,
     resource::Resource,
@@ -254,12 +253,7 @@ struct GpuLineGizmo {
 
 impl RenderAsset for GpuLineGizmo {
     type SourceAsset = GizmoAsset;
-    type RetainedAsset = EmptyRetainedAsset<GizmoAsset>;
     type Param = SRes<RenderDevice>;
-
-    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        EmptyRetainedAsset::default()
-    }
 
     fn prepare_asset(
         gizmo: Self::SourceAsset,

@@ -13,7 +13,7 @@ use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_resource::{AsBindGroup, ShaderType},
-    storage::{RetainedShaderBuffer, ShaderBuffer},
+    storage::ShaderBuffer,
 };
 use bevy_shader::{Shader, ShaderRef};
 use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
@@ -101,7 +101,7 @@ impl UiMaterial for FrametimeGraphMaterial {
 fn update_frame_time_values(
     mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
-    retained_buffers: Res<RetainedAssets<RetainedShaderBuffer>>,
+    retained_buffers: Res<RetainedAssets<ShaderBuffer>>,
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {

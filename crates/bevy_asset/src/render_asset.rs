@@ -102,9 +102,20 @@ impl<A: Asset> From<A> for Extractable<A> {
     }
 }
 
-/// Declares that this type is a retained asset of the source asset.
-pub trait RetainedAsset: Send + Sync {
-    type SourceAsset: Asset;
+/// Declares that this type can retain an asset of the source asset during `RenderAsset` extraction.
+pub trait RetainAsset: Asset {
+    /// The type of retained asset.
+    type RetainedAsset: Send + Sync + 'static;
+    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
+    ///
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted from [`Assets`]
+    /// and the data will be discarded.
+    ///
+    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
+    /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`RetainedAssets`] of this asset is always empty.
+    ///
+    /// This is useful for retaining asset's metadata after extracted to render world.
+    fn retain_asset(&self) -> Self::RetainedAsset;
 }
 
 /// A special [`RetainedAsset`] that won't be stored in [`RetainedAssets`].
@@ -116,34 +127,34 @@ impl<A: Asset> Default for EmptyRetainedAsset<A> {
     }
 }
 
-impl<A: Asset> RetainedAsset for EmptyRetainedAsset<A> {
-    type SourceAsset = A;
-}
-
 /// Stores all ([`RetainedAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
 #[derive(Resource)]
-pub struct RetainedAssets<R: RetainedAsset>(HashMap<AssetId<R::SourceAsset>, R>);
+pub struct RetainedAssets<A: RetainAsset>(HashMap<AssetId<A>, A::RetainedAsset>);
 
-impl<R: RetainedAsset> Default for RetainedAssets<R> {
+impl<R: RetainAsset> Default for RetainedAssets<R> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<R: RetainedAsset> RetainedAssets<R> {
-    pub fn get(&self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<&R> {
+impl<A: RetainAsset> RetainedAssets<A> {
+    pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A::RetainedAsset> {
         self.0.get(&id.into())
     }
 
-    pub fn insert(&mut self, id: impl Into<AssetId<R::SourceAsset>>, value: R) -> Option<R> {
+    pub fn insert(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+        value: A::RetainedAsset,
+    ) -> Option<A::RetainedAsset> {
         self.0.insert(id.into(), value)
     }
 
-    pub fn remove(&mut self, id: impl Into<AssetId<R::SourceAsset>>) -> Option<R> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A::RetainedAsset> {
         self.0.remove(&id.into())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (AssetId<R::SourceAsset>, &R)> {
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A::RetainedAsset)> {
         self.0.iter().map(|(k, v)| (*k, v))
     }
 }

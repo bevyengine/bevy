@@ -53,27 +53,42 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
         Ok(dependency_visitor) => dependency_visitor,
         Err(err) => return err.into_compile_error().into(),
     };
-    let stored_type = if let Some(attr) = ast
+    let (storage_type, impl_empty_retained_assets) = if let Some(attr) = ast
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident(ASSET_ATTRIBUTE))
         && let Ok(attr) = attr.parse_args::<AssetAttributes>()
         && attr.extractable
     {
-        quote! {
-            type Storage = #bevy_asset_path::Extractable<#struct_name #type_generics>;
+        (
+            quote! {
+                type Storage = #bevy_asset_path::Extractable<#struct_name #type_generics>;
 
-        }
+            },
+            quote! {},
+        )
     } else {
-        quote! {
-            type Storage = #struct_name #type_generics;
-        }
+        (
+            quote! {
+                type Storage = #struct_name #type_generics;
+            },
+            quote! {
+                impl #impl_generics #bevy_asset_path::RetainAsset for #struct_name #type_generics #where_clause {
+                    type RetainedAsset = #bevy_asset_path::EmptyRetainedAsset<Self>;
+
+                    fn retain_asset(&self) -> #bevy_asset_path::EmptyRetainedAsset<Self> {
+                        #bevy_asset_path::EmptyRetainedAsset::default()
+                    }
+                }
+            },
+        )
     };
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause {
-            #stored_type
+            #storage_type
         }
+        #impl_empty_retained_assets
         #dependency_visitor
     })
 }

@@ -41,7 +41,7 @@ pub mod prelude {
 
 use bevy_asset::{Assets, RetainedAssets};
 use bevy_camera::{primitives::Aabb, visibility::NoFrustumCulling, visibility::VisibilitySystems};
-use bevy_mesh::{Mesh2d, RetainedMesh};
+use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
 use bevy_text::detect_text_needs_rerender;
 #[cfg(feature = "bevy_picking")]
@@ -56,7 +56,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
 use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
-use bevy_image::{RetainedImage, TextureAtlasLayout, TextureAtlasPlugin};
+use bevy_image::{Image, RetainedImage, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::Vec2;
 
 /// Adds support for 2D sprites.
@@ -113,8 +113,8 @@ impl Plugin for SpritePlugin {
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
     mut commands: Commands,
-    meshes: Res<RetainedAssets<RetainedMesh>>,
-    images: Res<RetainedAssets<RetainedImage>>,
+    meshes: Res<RetainedAssets<Mesh>>,
+    images: Res<RetainedAssets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     new_mesh_aabb: Query<
         (Entity, &Mesh2d),
@@ -218,7 +218,7 @@ pub fn calculate_bounds_2d(
 // inside the vertex shader which isn't recognized by calculate_aabb().
 fn calculate_bounds_2d_sprite_mesh(
     mut commands: Commands,
-    images: Res<RetainedAssets<RetainedImage>>,
+    images: Res<RetainedAssets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
     new_sprite_aabb: Query<
         (Entity, &SpriteMesh, &Anchor),
@@ -291,13 +291,13 @@ mod test {
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
-        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
+        let mut retained_image_assets = RetainedAssets::<Image>::default();
         let image_handle = image_assets.add(Image::default());
         retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
         app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
-        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
+        let retained_mesh_assets = RetainedAssets::<Mesh>::default();
         app.insert_resource(mesh_assets);
         app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
@@ -335,13 +335,13 @@ mod test {
         // Add resources and get handle to image
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
-        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
+        let mut retained_image_assets = RetainedAssets::<Image>::default();
         let image_handle = image_assets.add(Image::default());
         retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
         app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
-        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
+        let retained_mesh_assets = RetainedAssets::<Mesh>::default();
         app.insert_resource(mesh_assets);
         app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
@@ -403,13 +403,13 @@ mod test {
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
-        let mut retained_image_assets = RetainedAssets::<RetainedImage>::default();
+        let mut retained_image_assets = RetainedAssets::<Image>::default();
         let image_handle = image_assets.add(Image::default());
         retained_image_assets.insert(image_handle.id(), RetainedImage::from(Image::default()));
         app.insert_resource(image_assets);
         app.insert_resource(retained_image_assets);
         let mesh_assets = Assets::<Mesh>::default();
-        let retained_mesh_assets = RetainedAssets::<RetainedMesh>::default();
+        let retained_mesh_assets = RetainedAssets::<Mesh>::default();
         app.insert_resource(mesh_assets);
         app.insert_resource(retained_mesh_assets);
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();

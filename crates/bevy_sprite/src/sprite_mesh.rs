@@ -103,7 +103,7 @@ impl SpriteMesh {
         &self,
         point_relative_to_sprite: Vec2,
         anchor: Anchor,
-        images: &RetainedAssets<RetainedImage>,
+        images: &RetainedAssets<Image>,
         texture_atlases: &Assets<TextureAtlasLayout>,
     ) -> Result<Vec2, Vec2> {
         let image_size = images

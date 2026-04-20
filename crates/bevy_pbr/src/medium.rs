@@ -2,7 +2,7 @@ use bevy_color::ColorToComponents;
 use bevy_light::atmosphere::{ScatteringMedium, ScatteringTerm};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, EmptyRetainedAsset};
+use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, SystemParamItem},
@@ -63,12 +63,7 @@ pub struct GpuScatteringMedium {
 
 impl RenderAsset for GpuScatteringMedium {
     type SourceAsset = ScatteringMedium;
-    type RetainedAsset = EmptyRetainedAsset<ScatteringMedium>;
     type Param = (Res<'static, RenderDevice>, Res<'static, RenderQueue>);
-
-    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        EmptyRetainedAsset::default()
-    }
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,

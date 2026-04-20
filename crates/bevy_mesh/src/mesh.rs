@@ -13,9 +13,10 @@ use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-use bevy_asset::{Asset, RenderAssetUsages, RetainedAsset};
+use bevy_asset::{Asset, RenderAssetUsages, RetainAsset};
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 use bevy_platform::collections::{hash_map, HashMap};
+use bevy_platform::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
@@ -151,7 +152,7 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    pub skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    skinned_mesh_bounds: Option<Arc<SkinnedMeshBounds>>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
@@ -165,11 +166,39 @@ pub struct RetainedMesh {
     pub asset_usage: RenderAssetUsages,
     pub enable_raytracing: bool,
     pub aabb: Option<Aabb3d>,
-    pub skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    pub skinned_mesh_bounds: Option<Arc<SkinnedMeshBounds>>,
 }
 
-impl RetainedAsset for RetainedMesh {
-    type SourceAsset = Mesh;
+impl RetainAsset for Mesh {
+    type RetainedAsset = RetainedMesh;
+    fn retain_asset(&self) -> Self::RetainedAsset {
+        let mut aabb = None;
+        // store the aabb extents as they cannot be computed after extraction
+        if let Some(VertexAttributeValues::Float32x3(position_values)) =
+            self.attribute(Mesh::ATTRIBUTE_POSITION)
+            && !position_values.is_empty()
+        {
+            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
+            let mut min = iter.next().unwrap();
+            let mut max = min;
+            for v in iter {
+                min = Vec3::min(min, v);
+                max = Vec3::max(max, v);
+            }
+            aabb = Some(Aabb3d::from_min_max(min, max));
+        }
+
+        RetainedMesh {
+            primitive_topology: self.primitive_topology(),
+            has_indices: self.indices().is_some(),
+            #[cfg(feature = "morph")]
+            has_morph_targets: self.has_morph_targets(),
+            asset_usage: self.asset_usage,
+            enable_raytracing: self.enable_raytracing,
+            aabb,
+            skinned_mesh_bounds: self.skinned_mesh_bounds.clone(),
+        }
+    }
 }
 
 impl Mesh {
@@ -1528,12 +1557,12 @@ impl Mesh {
 
     /// Get this mesh's [`SkinnedMeshBounds`].
     pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
-        self.skinned_mesh_bounds.as_ref()
+        self.skinned_mesh_bounds.as_deref()
     }
 
     /// Set this mesh's [`SkinnedMeshBounds`].
     pub fn set_skinned_mesh_bounds(&mut self, skinned_mesh_bounds: Option<SkinnedMeshBounds>) {
-        self.skinned_mesh_bounds = skinned_mesh_bounds;
+        self.skinned_mesh_bounds = skinned_mesh_bounds.map(Arc::new);
     }
 
     /// Consumes the mesh and returns a mesh with the given [`SkinnedMeshBounds`].
@@ -1547,7 +1576,7 @@ impl Mesh {
 
     /// Generate [`SkinnedMeshBounds`] for this mesh.
     pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
-        self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
+        self.skinned_mesh_bounds = Some(Arc::new(SkinnedMeshBounds::from_mesh(self)?));
         Ok(())
     }
 

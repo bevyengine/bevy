@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_image::{Image, ImageSampler, RetainedImage};
+use bevy_image::{Image, ImageSampler};
 use bevy_log::warn;
 use bevy_math::{AspectRatio, UVec2};
 use wgpu::{Extent3d, TexelCopyBufferLayout, TextureFormat, TextureUsages};
@@ -24,7 +24,6 @@ pub struct GpuImage {
 
 impl RenderAsset for GpuImage {
     type SourceAsset = Image;
-    type RetainedAsset = RetainedImage;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
@@ -34,10 +33,6 @@ impl RenderAsset for GpuImage {
     #[inline]
     fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
         image.asset_usage
-    }
-
-    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        (&*source).into()
     }
 
     #[inline]

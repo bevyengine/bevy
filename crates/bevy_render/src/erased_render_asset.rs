@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{
-    Asset, AssetEvent, AssetId, Assets, Extractable, RetainedAsset, RetainedAssets, UntypedAssetId,
+    AssetEvent, AssetId, Assets, Extractable, RetainAsset, RetainedAssets, UntypedAssetId,
 };
 use bevy_asset::{EmptyRetainedAsset, RenderAssetUsages};
 use bevy_ecs::{
@@ -41,11 +41,9 @@ pub struct AssetExtractionSystems;
 /// is transformed into its GPU-representation of type [`ErasedRenderAsset`].
 pub trait ErasedRenderAsset: Send + Sync + 'static {
     /// The representation of the asset in the "main world".
-    type SourceAsset: Asset + Clone;
+    type SourceAsset: RetainAsset + Clone;
     /// The target representation of the asset in the "render world".
     type ErasedAsset: Send + Sync + 'static + Sized;
-    /// The [`RetainedAsset`] the asset will retain in the main world.
-    type RetainedAsset: RetainedAsset<SourceAsset = Self::SourceAsset>;
 
     /// Specifies all ECS data required by [`ErasedRenderAsset::prepare_asset`].
     ///
@@ -89,15 +87,6 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
         _param: &mut SystemParamItem<Self::Param>,
     ) {
     }
-
-    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
-    ///
-    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be removed from the main world.
-    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
-    /// unless [`Self::RetainedAsset`] is [`EmptyRetainedAsset`], in which case [`RetainedAssets`] of this asset is always empty.
-    ///
-    /// This is useful for storing asset's metadata after extracted to render world.
-    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -132,7 +121,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractErasedRenderAssetSystemState<A>>()
-            .init_resource::<RetainedAssets<A::RetainedAsset>>();
+            .init_resource::<RetainedAssets<A::SourceAsset>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -248,7 +237,7 @@ struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
-        ResMut<'static, RetainedAssets<A::RetainedAsset>>,
+        ResMut<'static, RetainedAssets<A::SourceAsset>>,
     )>,
 }
 
@@ -351,10 +340,10 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
             };
 
             if let Some(extractable_asset) = (asset as &mut dyn Any).downcast_mut::<Extractable<A::SourceAsset>>() {
-                let Extractable::Data(asset_data) = extractable_asset else {
+                let Extractable::Data(asset_data) = &*extractable_asset else {
                     panic!("Asset is already extracted: {}", id);
                 };
-                let retained_asset = A::retain_main_world_asset(asset_data);
+                let retained_asset = asset_data.retain_asset();
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);
                 }
@@ -372,8 +361,8 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     _ => unreachable!(),
                 }
             } else {
-                let asset = (asset as &mut dyn Any).downcast_mut::<A::SourceAsset>().unwrap();
-                let retained_asset = A::retain_main_world_asset(asset);
+                let asset = (asset as &dyn Any).downcast_ref::<A::SourceAsset>().unwrap();
+                let retained_asset = asset.retain_asset();
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);
                 }

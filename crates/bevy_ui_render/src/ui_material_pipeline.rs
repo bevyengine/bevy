@@ -545,7 +545,6 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
-    type RetainedAsset = EmptyRetainedAsset<M>;
 
     type Param = (
         SRes<RenderDevice>,
@@ -553,10 +552,6 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         SRes<UiMaterialPipeline<M>>,
         M::Param,
     );
-
-    fn retain_main_world_asset(_source: &mut Self::SourceAsset) -> Self::RetainedAsset {
-        EmptyRetainedAsset::default()
-    }
 
     fn prepare_asset(
         material: Self::SourceAsset,

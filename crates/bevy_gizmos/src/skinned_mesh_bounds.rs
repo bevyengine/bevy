@@ -15,7 +15,7 @@ use bevy_math::Affine3A;
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed,
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Mesh3d, RetainedMesh,
+    Mesh, Mesh3d,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
@@ -85,7 +85,7 @@ pub struct ShowSkinnedMeshBoundsGizmo {
 fn draw(
     color: Color,
     mesh: &Mesh3d,
-    mesh_assets: &Res<RetainedAssets<RetainedMesh>>,
+    mesh_assets: &Res<RetainedAssets<Mesh>>,
     skinned_mesh: &SkinnedMesh,
     joint_entities: &Query<&GlobalTransform>,
     inverse_bindposes_assets: &Res<Assets<SkinnedMeshInverseBindposes>>,
@@ -118,7 +118,7 @@ fn draw_skinned_mesh_bounds(
         With<DynamicSkinnedMeshBounds>,
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
+    mesh_assets: Res<RetainedAssets<Mesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
@@ -146,7 +146,7 @@ fn draw_all_skinned_mesh_bounds(
         ),
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<RetainedAssets<RetainedMesh>>,
+    mesh_assets: Res<RetainedAssets<Mesh>>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {

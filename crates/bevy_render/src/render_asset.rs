@@ -4,8 +4,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{
-    Asset, AssetEvent, AssetId, Assets, EmptyRetainedAsset, Extractable, RenderAssetUsages,
-    RetainedAsset, RetainedAssets,
+    AssetEvent, AssetId, Assets, EmptyRetainedAsset, Extractable, RenderAssetUsages, RetainAsset,
+    RetainedAssets,
 };
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
@@ -50,10 +50,7 @@ pub enum AssetExtractionError {
 /// is transformed into its GPU-representation of type [`RenderAsset`].
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
-    type SourceAsset: Asset + Clone;
-    /// The [`RetainedAsset`] the asset will retain in the main world.
-    type RetainedAsset: RetainedAsset<SourceAsset = Self::SourceAsset>;
-
+    type SourceAsset: RetainAsset + Clone;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
@@ -97,17 +94,6 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         _param: &mut SystemParamItem<Self::Param>,
     ) {
     }
-
-    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
-    ///
-    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted from [`Assets`]
-    /// and the data will be discarded.
-    ///
-    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
-    /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`RetainedAssets`] of this asset is always empty.
-    ///
-    /// This is useful for retaining asset's metadata after extracted to render world.
-    fn retain_main_world_asset(source: &mut Self::SourceAsset) -> Self::RetainedAsset;
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -139,7 +125,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>()
-            .init_resource::<RetainedAssets<A::RetainedAsset>>();
+            .init_resource::<RetainedAssets<A::SourceAsset>>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -250,7 +236,7 @@ struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
-        ResMut<'static, RetainedAssets<A::RetainedAsset>>,
+        ResMut<'static, RetainedAssets<A::SourceAsset>>,
     )>,
 }
 
@@ -343,10 +329,10 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             };
 
             if let Some(extractable_asset) = (asset as &mut dyn Any).downcast_mut::<Extractable<A::SourceAsset>>() {
-                let Extractable::Data(asset_data) = extractable_asset else {
+                let Extractable::Data(asset_data) = &*extractable_asset else {
                     panic!("Asset {} is already extracted", id);
                 };
-                let retained_asset = A::retain_main_world_asset(asset_data);
+                let retained_asset = asset_data.retain_asset();
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);
                 }
@@ -364,10 +350,10 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     _ => unreachable!(),
                 }
             } else {
-                let Some(asset) = (asset as &mut dyn Any).downcast_mut::<A::SourceAsset>() else {
+                let Some(asset) = (asset as &dyn Any).downcast_ref::<A::SourceAsset>() else {
                     panic!("RenderAsset::SourceAsset::Storage must be Extractable<SourceAsset> or SourceAsset, {}", id);
                 };
-                let retained_asset = A::retain_main_world_asset(asset);
+                let retained_asset = asset.retain_asset();
                 if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
                     retained_assets.insert(id, retained_asset);
                 }

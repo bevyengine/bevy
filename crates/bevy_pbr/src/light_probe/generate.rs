@@ -24,7 +24,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{Image, RetainedImage};
+use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -1020,7 +1020,7 @@ pub fn filtering_system(
 pub fn generate_environment_map_light(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    retained_images: Res<RetainedAssets<RetainedImage>>,
+    retained_images: Res<RetainedAssets<Image>>,
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
