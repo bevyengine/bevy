@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Metadata associated with a required component. See [`Component`] for details.
-#[derive(Clone)]
+#[derive(Clone, Component)]
 pub struct RequiredComponent {
     /// The constructor used for the required component.
     pub constructor: RequiredComponentConstructor,
@@ -25,7 +25,12 @@ pub struct RequiredComponent {
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     // Note: this function makes `unsafe` assumptions, so it cannot be public.
-    Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)>,
+    Arc<
+        dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)
+            + Send
+            + Sync
+            + 'static,
+    >,
 );
 
 impl RequiredComponentConstructor {
@@ -36,7 +41,7 @@ impl RequiredComponentConstructor {
     /// - `component_id` must be a valid component for type `C`.
     pub unsafe fn new<C: Component>(
         component_id: ComponentId,
-        constructor: impl Fn() -> C + 'static,
+        constructor: impl Fn() -> C + Send + Sync + 'static,
     ) -> Self {
         RequiredComponentConstructor({
             // `portable-atomic-util` `Arc` is not able to coerce an unsized
@@ -49,13 +54,14 @@ impl RequiredComponentConstructor {
             use alloc::boxed::Box;
 
             type Constructor = dyn for<'a, 'b> Fn(
-                &'a mut Table,
-                &'b mut SparseSets,
-                Tick,
-                TableRow,
-                Entity,
-                MaybeLocation,
-            );
+                    &'a mut Table,
+                    &'b mut SparseSets,
+                    Tick,
+                    TableRow,
+                    Entity,
+                    MaybeLocation,
+                ) + Send
+                + Sync;
 
             #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
@@ -155,7 +161,7 @@ impl RequiredComponents {
     unsafe fn register<C: Component>(
         &mut self,
         components: &mut ComponentsRegistrator<'_>,
-        constructor: impl Fn() -> C + 'static,
+        constructor: impl Fn() -> C + Send + Sync + 'static,
     ) {
         let id = components.register_component::<C>();
         // SAFETY:
@@ -177,7 +183,7 @@ impl RequiredComponents {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        constructor: impl Fn() -> C + 'static,
+        constructor: impl Fn() -> C + Send + Sync + 'static,
     ) {
         // SAFETY: the caller guarantees that `component_id` is valid for the type `C`.
         let constructor =
@@ -588,7 +594,10 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     ///
     /// If the component was not already registered as an explicit required component then it is added
     /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
-    pub fn register_required<C: Component>(&mut self, constructor: impl Fn() -> C + 'static) {
+    pub fn register_required<C: Component>(
+        &mut self,
+        constructor: impl Fn() -> C + Send + Sync + 'static,
+    ) {
         // SAFETY: we internally guarantee that all components in `required_components`
         // are registered in `components`
         unsafe {
