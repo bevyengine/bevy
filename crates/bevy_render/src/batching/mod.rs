@@ -9,11 +9,12 @@ use nonmax::NonMaxU32;
 use bevy_material::{descriptor::CachedRenderPipelineId, labels::DrawFunctionId};
 
 use crate::{
+    batching::gpu_preprocessing::BufferDataInput,
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
         SortedRenderPhase, ViewBinnedRenderPhases,
     },
-    render_resource::{AtomicPod, GpuArrayBufferable},
+    render_resource::GpuArrayBufferable,
     sync_world::MainEntity,
 };
 
@@ -119,7 +120,7 @@ pub trait GetBatchData {
 pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the
     /// [`crate::render_resource::BufferVec`] during extraction.
-    type BufferInputData: AtomicPod;
+    type BufferInputData: BufferDataInput;
 
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`].
