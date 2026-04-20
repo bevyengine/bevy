@@ -69,9 +69,19 @@ pub const BUTTON_PLAIN_BG_PRESSED: ThemeToken =
 
 /// Background for slider
 pub const SLIDER_BG: ThemeToken = ThemeToken::new_static("feathers.slider.bg");
-/// Background for slider moving bar
+/// Background for slider (hovered)
+pub const SLIDER_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bg.hover");
+/// Background for slider (pressed)
+pub const SLIDER_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.pressed");
+/// Background for slider (disabled)
+pub const SLIDER_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.disabled");
+/// Fill color for slider
 pub const SLIDER_BAR: ThemeToken = ThemeToken::new_static("feathers.slider.bar");
-/// Background for slider moving bar (disabled)
+/// Fill color for slider (hovered)
+pub const SLIDER_BAR_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bar.hover");
+/// Fill color for slider (pressed)
+pub const SLIDER_BAR_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.pressed");
+/// Fill color for slider (disabled)
 pub const SLIDER_BAR_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.disabled");
 /// Background for slider text
 pub const SLIDER_TEXT: ThemeToken = ThemeToken::new_static("feathers.slider.text");
@@ -147,15 +157,34 @@ pub const CHECKBOX_TEXT_DISABLED: ThemeToken =
 
 // Radio button
 
-/// Radio border around the checkmark
+/// Border around the radio button
 pub const RADIO_BORDER: ThemeToken = ThemeToken::new_static("feathers.radio.border");
-/// Radio border around the checkmark (hovered)
+/// Border around the radio button (hovered)
 pub const RADIO_BORDER_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.border.hover");
-/// Radio border around the checkmark (disabled)
+/// Border around the radio button (pressed)
+pub const RADIO_BORDER_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.pressed");
+/// Border around the radio button (disabled)
 pub const RADIO_BORDER_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.radio.border.disabled");
+/// Border around the radio button (checked)
+pub const RADIO_BORDER_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked");
+/// Border around the radio button (checked+hovered)
+pub const RADIO_BORDER_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.hover");
+/// Border around the radio button (checked+pressed)
+pub const RADIO_BORDER_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.pressed");
+/// Border around the radio button (checked+disabled)
+pub const RADIO_BORDER_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.disabled");
 /// Radio check mark
 pub const RADIO_MARK: ThemeToken = ThemeToken::new_static("feathers.radio.mark");
+/// Radio check mark (hovered)
+pub const RADIO_MARK_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.mark.hover");
+/// Radio check mark (pressed)
+pub const RADIO_MARK_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.pressed");
 /// Radio check mark (disabled)
 pub const RADIO_MARK_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.disabled");
 /// Radio label text
@@ -165,27 +194,94 @@ pub const RADIO_TEXT_DISABLED: ThemeToken = ThemeToken::new_static("feathers.rad
 
 // Toggle Switch
 
-/// Switch background around the checkmark
+/// Switch background around the switch
 pub const SWITCH_BG: ThemeToken = ThemeToken::new_static("feathers.switch.bg");
-/// Switch border around the checkmark (disabled)
+/// Switch background around the switch (hovered)
+pub const SWITCH_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.switch.bg.hover");
+/// Switch background around the switch (pressed)
+pub const SWITCH_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.switch.bg.pressed");
+/// Switch background around the switch (disabled)
 pub const SWITCH_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.switch.bg.disabled");
-/// Switch background around the checkmark
+/// Switch background around the switch (checked)
 pub const SWITCH_BG_CHECKED: ThemeToken = ThemeToken::new_static("feathers.switch.bg.checked");
-/// Switch border around the checkmark (disabled)
+/// Switch background around the switch (checked+hover)
+pub const SWITCH_BG_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.bg.checked.hover");
+/// Switch background around the switch (checked+pressed)
+pub const SWITCH_BG_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.bg.checked.pressed");
+/// Switch background around the switch (checked+disabled)
 pub const SWITCH_BG_CHECKED_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.switch.bg.checked.disabled");
-/// Switch border around the checkmark
+/// Switch border around the switch
 pub const SWITCH_BORDER: ThemeToken = ThemeToken::new_static("feathers.switch.border");
-/// Switch border around the checkmark (hovered)
+/// Switch border around the switch (hovered)
 pub const SWITCH_BORDER_HOVER: ThemeToken = ThemeToken::new_static("feathers.switch.border.hover");
-/// Switch border around the checkmark (disabled)
+/// Switch border around the switch (pressed)
+pub const SWITCH_BORDER_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.border.hover.pressed");
+/// Switch border around the switch (disabled)
 pub const SWITCH_BORDER_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.switch.border.disabled");
-/// Switch slide
-pub const SWITCH_SLIDE: ThemeToken = ThemeToken::new_static("feathers.switch.slide");
-/// Switch slide (disabled)
-pub const SWITCH_SLIDE_DISABLED: ThemeToken =
-    ThemeToken::new_static("feathers.switch.slide.disabled");
+/// Switch border around the switch (checked)
+pub const SWITCH_BORDER_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.border.checked");
+/// Switch border around the switch (checked+hovered)
+pub const SWITCH_BORDER_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.border.checked.hover");
+/// Switch border around the switch (checked+pressed)
+pub const SWITCH_BORDER_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.border.checked.pressed");
+/// Switch border around the switch (checked+disabled)
+pub const SWITCH_BORDER_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.border.checked.disabled");
+/// Switch slide background
+pub const SWITCH_SLIDE_BG: ThemeToken = ThemeToken::new_static("feathers.switch.slide.bg");
+/// Switch slide background (hovered)
+pub const SWITCH_SLIDE_BG_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.hover");
+/// Switch slide background (pressed)
+pub const SWITCH_SLIDE_BG_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.pressed");
+/// Switch slide background (disabled)
+pub const SWITCH_SLIDE_BG_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.disabled");
+/// Switch slide background (checked)
+pub const SWITCH_SLIDE_BG_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.checked");
+/// Switch slide background (checked+hovered)
+pub const SWITCH_SLIDE_BG_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.checked.hover");
+/// Switch slide background (checked+pressed)
+pub const SWITCH_SLIDE_BG_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.checked.pressed");
+/// Switch slide background (checked+disabled)
+pub const SWITCH_SLIDE_BG_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.bg.checked.disabled");
+
+/// Switch slide border
+pub const SWITCH_SLIDE_BORDER: ThemeToken = ThemeToken::new_static("feathers.switch.slide.border");
+/// Switch slide border (hovered)
+pub const SWITCH_SLIDE_BORDER_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.hover");
+/// Switch slide border (pressed)
+pub const SWITCH_SLIDE_BORDER_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.pressed");
+/// Switch slide border (disabled)
+pub const SWITCH_SLIDE_BORDER_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.disabled");
+/// Switch slide border (checked)
+pub const SWITCH_SLIDE_BORDER_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.checked");
+/// Switch slide border (checked+hovered)
+pub const SWITCH_SLIDE_BORDER_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.checked.hover");
+/// Switch slide border (checked+pressed)
+pub const SWITCH_SLIDE_BORDER_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.checked.pressed");
+/// Switch slide border (checked+disabled)
+pub const SWITCH_SLIDE_BORDER_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.switch.slide.border.checked.disabled");
 
 // Color Plane
 

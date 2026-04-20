@@ -33,8 +33,9 @@ use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
-    Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedStackIndex, ComputedUiRenderTargetInfo,
+    ConicGradient, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
+    ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -343,6 +344,7 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &ComputedUiTargetCamera,
             &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
@@ -359,6 +361,7 @@ pub fn extract_gradients(
     for (
         entity,
         uinode,
+        stack_index,
         camera,
         target,
         transform,
@@ -390,7 +393,7 @@ pub fn extract_gradients(
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        z_order: uinode.stack_index as f32
+                        z_order: stack_index.0 as f32
                             + match node_type {
                                 NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
@@ -438,7 +441,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
@@ -488,7 +491,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
@@ -544,7 +547,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {

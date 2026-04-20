@@ -6,18 +6,18 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::On,
-    query::{Has, With},
+    query::{Has, With, Without},
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
-use bevy_picking::events::{Click, Pointer};
+use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{Checkable, Checked, InteractionDisabled};
+use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::ValueChange;
+use crate::{ActivateOnPress, ValueChange};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`RadioButton`] components together, allowing them to behave as a single unit. It
@@ -188,18 +188,21 @@ fn radio_button_on_key_input(
 }
 
 fn radio_button_on_click(
-    mut ev: On<Pointer<Click>>,
+    mut click: On<Pointer<Click>>,
     q_group: Query<(), With<RadioGroup>>,
-    q_radio: Query<(Has<InteractionDisabled>, Has<Checked>), With<RadioButton>>,
+    q_radio: Query<
+        (Has<InteractionDisabled>, Has<Checked>),
+        (With<RadioButton>, Without<ActivateOnPress>),
+    >,
     q_parents: Query<&ChildOf>,
     mut commands: Commands,
 ) {
-    let Ok((disabled, checked)) = q_radio.get(ev.entity) else {
+    let Ok((disabled, checked)) = q_radio.get(click.entity) else {
         // Not a radio button
         return;
     };
 
-    ev.propagate(false);
+    click.propagate(false);
 
     // Radio button is disabled or already checked
     if disabled || checked {
@@ -207,11 +210,84 @@ fn radio_button_on_click(
     }
 
     trigger_radio_button_and_radio_group_value_change(
-        ev.entity,
+        click.entity,
         &q_group,
         &q_parents,
         &mut commands,
     );
+}
+
+fn radio_button_on_pointer_down(
+    mut press: On<Pointer<Press>>,
+    q_group: Query<(), With<RadioGroup>>,
+    mut q_radio: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
+        ),
+        With<RadioButton>,
+    >,
+    q_parents: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    if let Ok((radio, disabled, checked, pressed, activate_on_press)) =
+        q_radio.get_mut(press.entity)
+    {
+        press.propagate(false);
+        if !disabled && !pressed {
+            commands.entity(radio).insert(Pressed);
+            if activate_on_press && !checked {
+                trigger_radio_button_and_radio_group_value_change(
+                    press.entity,
+                    &q_group,
+                    &q_parents,
+                    &mut commands,
+                );
+            }
+        }
+    }
+}
+
+fn radio_button_on_pointer_up(
+    mut release: On<Pointer<Release>>,
+    mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
+    mut commands: Commands,
+) {
+    if let Ok((radio, disabled, pressed)) = q_radio.get_mut(release.entity) {
+        release.propagate(false);
+        if !disabled && pressed {
+            commands.entity(radio).remove::<Pressed>();
+        }
+    }
+}
+
+fn radio_button_on_pointer_drag_end(
+    mut drag_end: On<Pointer<DragEnd>>,
+    mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
+    mut commands: Commands,
+) {
+    if let Ok((radio, disabled, pressed)) = q_radio.get_mut(drag_end.entity) {
+        drag_end.propagate(false);
+        if !disabled && pressed {
+            commands.entity(radio).remove::<Pressed>();
+        }
+    }
+}
+
+fn checkbox_on_pointer_cancel(
+    mut cancel: On<Pointer<Cancel>>,
+    mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
+    mut commands: Commands,
+) {
+    if let Ok((radio, disabled, pressed)) = q_radio.get_mut(cancel.entity) {
+        cancel.propagate(false);
+        if !disabled && pressed {
+            commands.entity(radio).remove::<Pressed>();
+        }
+    }
 }
 
 fn trigger_radio_button_and_radio_group_value_change(
@@ -247,6 +323,10 @@ impl Plugin for RadioGroupPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(radio_group_on_key_input)
             .add_observer(radio_button_on_click)
-            .add_observer(radio_button_on_key_input);
+            .add_observer(radio_button_on_key_input)
+            .add_observer(radio_button_on_pointer_down)
+            .add_observer(radio_button_on_pointer_up)
+            .add_observer(radio_button_on_pointer_drag_end)
+            .add_observer(checkbox_on_pointer_cancel);
     }
 }
