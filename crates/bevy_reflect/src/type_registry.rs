@@ -292,22 +292,18 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
-        use bevy_platform::collections::hash_map::Entry;
-
-        match self.registrations.entry(type_id) {
-            Entry::Occupied(_) => false,
-            Entry::Vacant(entry) => {
-                let registration = get_registration();
-                Self::update_registration_indices(
-                    &registration,
-                    &mut self.short_path_to_id,
-                    &mut self.type_path_to_id,
-                    &mut self.ambiguous_names,
-                );
-                entry.insert(registration);
-                true
-            }
+        if self.registrations.contains_key(&type_id) {
+            return false;
         }
+        let registration = get_registration();
+        Self::update_registration_indices(
+            &registration,
+            &mut self.short_path_to_id,
+            &mut self.type_path_to_id,
+            &mut self.ambiguous_names,
+        );
+        self.registrations.insert(type_id, registration);
+        true
     }
 
     /// Internal method to register additional lookups for a given [`TypeRegistration`].

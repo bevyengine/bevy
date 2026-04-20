@@ -26,11 +26,10 @@ use bevy::{
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
-    scene::prelude::Scene,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, slider_self_update, Activate, ActivateOnPress, RadioButton,
+        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
         RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
@@ -64,14 +63,13 @@ fn main() {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(Update, update_colors)
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, demo_root()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, demo_root()]
 }
 
 fn demo_root() -> impl Scene {
@@ -342,7 +340,7 @@ fn demo_column_1() -> impl Scene {
             (
                 checkbox(CheckboxProps {
                     caption: Box::new(bsn_list!(
-                        (Text("Disabled+Checked") ThemedText),
+                        (Text("Checked+Disabled") ThemedText),
                     )),
                 })
                 InteractionDisabled
@@ -354,44 +352,74 @@ fn demo_column_1() -> impl Scene {
             (
                 Node {
                     display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
                 }
-                RadioGroup
-                on(
-                    |value_change: On<ValueChange<Entity>>,
-                        q_radio: Query<Entity, With<RadioButton>>,
-                        mut commands: Commands| {
-                        for radio in q_radio.iter() {
-                            if radio == value_change.value {
-                                commands.entity(radio).insert(Checked);
-                            } else {
-                                commands.entity(radio).remove::<Checked>();
-                            }
-                        }
-                    }
-                )
                 Children [
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("One") ThemedText),
-                        )),
-                    }) Checked),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Two") ThemedText),
-                        )),
-                    })),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Three") ThemedText),
-                        )),
-                    })),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Disabled") ThemedText),
-                        )),
-                    }) InteractionDisabled),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    ),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    )
                 ]
             ),
             (
@@ -404,6 +432,7 @@ fn demo_column_1() -> impl Scene {
                 }
                 Children [
                     (toggle_switch() on(checkbox_self_update)),
+                    (toggle_switch() ActivateOnPress on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled on(checkbox_self_update)),
                     (toggle_switch() InteractionDisabled Checked on(checkbox_self_update)),
                     (disclosure_toggle() on(checkbox_self_update)),
@@ -712,7 +741,9 @@ fn handle_hex_color_change(
     mut colors: ResMut<DemoWidgetStates>,
 ) {
     let editable_text = *q_text_input;
-    if let Ok(color) = Srgba::hex(editable_text.value().to_string()) {
+    if let Ok(color) = Srgba::hex(editable_text.value().to_string())
+        && color != colors.rgb_color
+    {
         colors.rgb_color = color;
     }
 }

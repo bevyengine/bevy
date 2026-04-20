@@ -2,10 +2,18 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    ComputedNode, GlobalZIndex, ZIndex,
+    GlobalZIndex, ZIndex,
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use core::ops::Range;
+
+/// The order of the node in the UI layout.
+/// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
+///
+/// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
+#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct ComputedStackIndex(pub u32);
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -46,10 +54,13 @@ pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    zindex_global_node_query: Query<
+        (Entity, &GlobalZIndex, Option<&ZIndex>),
+        With<ComputedStackIndex>,
+    >,
     ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
-    mut update_query: Query<&mut ComputedNode>,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedStackIndex>,
 ) {
     ui_stack.partition.clear();
     ui_stack.uinodes.clear();
@@ -96,8 +107,8 @@ pub fn ui_stack_system(
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok(mut node) = update_query.get_mut(*entity) {
-            node.bypass_change_detection().stack_index = i as u32;
+        if let Ok(mut stack_index) = update_query.get_mut(*entity) {
+            stack_index.0 = i as u32;
         }
     }
 }
@@ -106,7 +117,7 @@ fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
     ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);

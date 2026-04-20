@@ -1,5 +1,5 @@
 use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
@@ -108,7 +108,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .init_gpu_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 RenderStartup,
-                init_deferred_lighting_layout.after(MeshPipelineSet),
+                init_deferred_lighting_layout.after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,

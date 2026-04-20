@@ -270,13 +270,19 @@ pub(crate) fn despawn_windows(
         }
     }
 
-    // On macOS, when exiting, we need to tell the rendering thread the windows are about to
-    // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
+    // On macOS, many things need to be dropped on the main thread, or the app will hang:
+    // - notify the rendering thread the windows are about to close
+    // - take the `WindowWrapper`s out of `WINIT_WINDOWS` and into the local `windows_to_drop`
     if !exit_event_reader.is_empty() {
         exit_event_reader.clear();
-        for window in window_entities.iter() {
-            closing_event_writer.write(WindowClosing { window });
-        }
+        WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
+            for window in window_entities.iter() {
+                closing_event_writer.write(WindowClosing { window });
+                if let Some(wrapper) = winit_windows.remove_window(window) {
+                    windows_to_drop.push(wrapper);
+                }
+            }
+        });
     }
 }
 

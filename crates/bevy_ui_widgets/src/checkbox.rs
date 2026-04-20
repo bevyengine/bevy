@@ -15,8 +15,7 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::ActivateOnPress;
-use crate::ValueChange;
+use crate::{ActivateOnPress, ValueChange};
 use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
