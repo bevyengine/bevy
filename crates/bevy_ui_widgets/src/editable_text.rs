@@ -23,8 +23,6 @@ use bevy_ui::{
 };
 use bevy_window::{Ime, PrimaryWindow, Window};
 
-use crate::editable_text;
-
 const NONE: u8 = 0;
 const SUPER: u8 = 1;
 const CTRL: u8 = 2;

@@ -12,7 +12,7 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
+use bevy::text::{EditableText, TextCursorStyle};
 
 fn main() {
     App::new()
