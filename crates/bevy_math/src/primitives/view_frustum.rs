@@ -41,7 +41,8 @@ impl ViewFrustum {
     #[inline]
     pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
         let mut frustum = ViewFrustum::from_clip_from_world_no_far(clip_from_world);
-        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(clip_from_world.row(2));
+        frustum.half_spaces[Self::FAR_PLANE_IDX] =
+            HalfSpace::new(clip_from_world.row(3) - clip_from_world.row(2));
         frustum
     }
 
@@ -100,7 +101,7 @@ impl ViewFrustum {
                 HalfSpace::new(row3 - row0),
                 HalfSpace::new(row3 + row1),
                 HalfSpace::new(row3 - row1),
-                HalfSpace::new(row3 + row2),
+                HalfSpace::new(row2),
                 HalfSpace::new(Self::INACTIVE_HALF_SPACE),
             ],
         }
@@ -112,6 +113,7 @@ mod view_frustum_tests {
     use core::f32::consts::FRAC_1_SQRT_2;
 
     use approx::assert_relative_eq;
+    use glam::Mat4;
 
     use super::ViewFrustum;
     use crate::{primitives::HalfSpace, Vec3, Vec4};
@@ -247,5 +249,41 @@ mod view_frustum_tests {
             ],
         };
         assert!(invalid.corners().is_none());
+    }
+
+    #[test]
+    fn perspective_frustum_extraction() {
+        let mut clip_from_world = Mat4::perspective_rh(60.0_f32.to_radians(), 1.0, 1.0, 100.0);
+        clip_from_world.y_axis = -clip_from_world.y_axis; // Flip the Y axis downwards.
+
+        let frustum = ViewFrustum::from_clip_from_world(&clip_from_world);
+
+        let expected_half_spaces = [
+            HalfSpace::new(Vec4::new(0.8660254, 0.0, -0.5, 0.0)), // Left
+            HalfSpace::new(Vec4::new(-0.8660254, 0.0, -0.5, 0.0)), // Right
+            HalfSpace::new(Vec4::new(0.0, -0.8660254, -0.5, 0.0)), // Top
+            HalfSpace::new(Vec4::new(0.0, 0.8660254, -0.5, 0.0)), // Bottom
+            HalfSpace::new(Vec4::new(0.0, 0.0, -1.0, -1.0)),      // Near
+            HalfSpace::new(Vec4::new(0.0, 0.0, 1.0, 100.0)),      // Far
+        ];
+
+        for (actual, expected) in frustum.half_spaces.iter().zip(expected_half_spaces.iter()) {
+            assert_relative_eq!(actual.normal_d(), expected.normal_d(), epsilon = 1e-3);
+        }
+
+        let frustum_custom_far = ViewFrustum::from_clip_from_world_custom_far(
+            &clip_from_world,
+            &Vec3::ZERO,
+            &Vec3::Z,
+            100.0,
+        );
+
+        for (actual, expected) in frustum_custom_far
+            .half_spaces
+            .iter()
+            .zip(expected_half_spaces.iter())
+        {
+            assert_relative_eq!(actual.normal_d(), expected.normal_d(), epsilon = 1e-3);
+        }
     }
 }
