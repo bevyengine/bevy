@@ -28,7 +28,7 @@ use crate::{
 };
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct ComponentInfo {
     pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
