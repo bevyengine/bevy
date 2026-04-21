@@ -179,9 +179,7 @@ impl Plugin for AccessibilityPlugin {
                 sync_bounds_and_transforms
                     .after(button_changed)
                     .after(image_changed)
-                    .after(label_changed)
-                    // the listed systems do not affect calculated size
-                    .ambiguous_with(crate::ui_stack_system),
+                    .after(label_changed),
             )
                 .in_set(UiSystems::PostLayout)
                 .before(AccessibilitySystems::Update),

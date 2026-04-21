@@ -71,7 +71,7 @@ fn update(
     material_handles: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
-    retained_buffers: Res<RetainedAssets<ShaderBuffer>>,
+    retained_buffers: RetainedAssets<ShaderBuffer>,
 ) {
     let material = materials.get_mut(&material_handles.0).unwrap();
 

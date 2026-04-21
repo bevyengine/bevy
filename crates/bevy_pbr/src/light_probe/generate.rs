@@ -1020,7 +1020,7 @@ pub fn filtering_system(
 pub fn generate_environment_map_light(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    retained_images: Res<RetainedAssets<Image>>,
+    retained_images: RetainedAssets<Image>,
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {

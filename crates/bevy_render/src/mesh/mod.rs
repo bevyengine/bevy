@@ -12,7 +12,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, GetRetainedAsset, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -20,7 +20,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_math::bounding::BoundingVolume;
 pub use bevy_mesh::*;
+use glam::Vec3;
 use wgpu::IndexFormat;
 
 #[cfg(feature = "morph")]
@@ -59,6 +61,9 @@ impl Plugin for MeshRenderAssetPlugin {
 pub struct RenderMesh {
     /// The number of vertices in the mesh.
     pub vertex_count: u32,
+
+    /// The 3D center of the mesh in model space.
+    pub aabb_center: Vec3,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -114,6 +119,7 @@ pub enum RenderMeshBufferInfo {
 
 impl RenderAsset for RenderMesh {
     type SourceAsset = Mesh;
+    type RetainedAsset = <Mesh as GetRetainedAsset>::RetainedAsset;
     #[cfg(not(feature = "morph"))]
     type Param = (
         SRes<RenderDevice>,
@@ -144,6 +150,19 @@ impl RenderAsset for RenderMesh {
         let vertex_count = mesh.count_vertices();
         let index_bytes = mesh.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
         Some(vertex_size * vertex_count + index_bytes)
+    }
+
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        RetainedMesh {
+            primitive_topology: source.primitive_topology(),
+            has_indices: source.indices().is_some(),
+            #[cfg(feature = "morph")]
+            has_morph_targets: source.has_morph_targets(),
+            asset_usage: source.asset_usage,
+            enable_raytracing: source.enable_raytracing,
+            aabb: source.compute_aabb(),
+            skinned_mesh_bounds: source.skinned_mesh_bounds.clone(),
+        }
     }
 
     /// Converts the extracted mesh into a [`RenderMesh`].
@@ -197,6 +216,10 @@ impl RenderAsset for RenderMesh {
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
+            aabb_center: match mesh.compute_aabb() {
+                Some(aabb) => aabb.center().into(),
+                None => Vec3::ZERO,
+            },
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,

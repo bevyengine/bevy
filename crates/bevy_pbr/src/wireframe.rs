@@ -1,14 +1,14 @@
 use crate::{
     collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
     SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
+    AssetEventSystems, AssetId, AssetServer, Assets, EmptyRetainedAsset, Handle, UntypedAssetId,
 };
 use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
@@ -152,7 +152,7 @@ impl Plugin for WireframePlugin {
             .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
-                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+                init_wireframe_3d_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Core3d,
@@ -947,7 +947,12 @@ impl AsAssetId for Mesh3dWireframe {
 
 impl RenderAsset for RenderWireframeMaterial {
     type SourceAsset = WireframeMaterial;
+    type RetainedAsset = EmptyRetainedAsset;
     type Param = ();
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
+    }
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,

@@ -11,7 +11,7 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
+use bevy::text::{EditableText, TextCursorStyle};
 
 fn main() {
     App::new()
@@ -151,8 +151,6 @@ fn text_submission(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_input: Query<(&mut EditableText, &Name)>,
     mut text_output: Single<&mut Text, With<TextOutput>>,
-    mut font_context: ResMut<FontCx>,
-    mut layout_context: ResMut<LayoutCx>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Enter)
         && (keyboard_input.pressed(KeyCode::ControlLeft)
@@ -162,6 +160,6 @@ fn text_submission(
     {
         text_output.0 = format!("{:}: {:}", name, text_input.value());
 
-        text_input.clear(&mut font_context.0, &mut layout_context.0);
+        text_input.clear();
     }
 }

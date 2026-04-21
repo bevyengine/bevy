@@ -556,7 +556,7 @@ pub struct NoAutoAabb;
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
-    meshes: Res<RetainedAssets<Mesh>>,
+    meshes: RetainedAssets<Mesh>,
     new_aabb: Query<
         (Entity, &Mesh3d),
         (
@@ -595,7 +595,7 @@ pub fn calculate_bounds(
 // component.
 fn update_skinned_mesh_bounds(
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-    mesh_assets: Res<RetainedAssets<Mesh>>,
+    mesh_assets: RetainedAssets<Mesh>,
     mut mesh_entities: Query<
         (&mut Aabb, &Mesh3d, &SkinnedMesh, Option<&GlobalTransform>),
         With<DynamicSkinnedMeshBounds>,
@@ -945,6 +945,8 @@ pub fn add_visibility_class<C>(
 mod test {
     use super::*;
     use bevy_app::prelude::*;
+    use bevy_asset::ErasedRetainedAssets;
+    use bevy_mesh::RetainedMesh;
 
     #[test]
     fn visibility_propagation() {
@@ -1327,7 +1329,7 @@ mod test {
         struct ObservedChanged(bool);
         app.init_resource::<ManualMark>()
             .init_resource::<ObservedChanged>()
-            .init_resource::<RetainedAssets<Mesh>>();
+            .init_resource::<ErasedRetainedAssets<RetainedMesh>>();
 
         app.add_systems(
             PostUpdate,

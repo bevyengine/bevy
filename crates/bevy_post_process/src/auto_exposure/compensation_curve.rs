@@ -1,4 +1,4 @@
-use bevy_asset::prelude::*;
+use bevy_asset::{prelude::*, EmptyRetainedAsset};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
 use bevy_reflect::prelude::*;
@@ -186,7 +186,12 @@ pub(super) struct AutoExposureCompensationCurveUniform {
 
 impl RenderAsset for GpuAutoExposureCompensationCurve {
     type SourceAsset = AutoExposureCompensationCurve;
+    type RetainedAsset = EmptyRetainedAsset;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
+    }
 
     fn prepare_asset(
         source: Self::SourceAsset,

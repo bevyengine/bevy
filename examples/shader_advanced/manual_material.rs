@@ -1,5 +1,6 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
+use bevy::asset::EmptyRetainedAsset;
 use bevy::{
     asset::{AsAssetId, AssetEventSystems},
     core_pipeline::core_3d::Opaque3d,
@@ -131,6 +132,7 @@ struct ImageMaterial {
 
 impl ErasedRenderAsset for ImageMaterial {
     type SourceAsset = ImageMaterial;
+    type RetainedAsset = EmptyRetainedAsset;
     type ErasedAsset = PreparedMaterial;
     type Param = (
         SRes<DrawFunctions<Opaque3d>>,
@@ -141,6 +143,10 @@ impl ErasedRenderAsset for ImageMaterial {
         SRes<RenderAssets<GpuImage>>,
         SRes<ImageMaterialBindGroupSampler>,
     );
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
+    }
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{
-    AssetEvent, AssetId, Assets, Extractable, RetainAsset, RetainedAssets, UntypedAssetId,
+    Asset, AssetEvent, AssetId, Assets, ErasedRetainedAssets, Extractable, UntypedAssetId,
 };
 use bevy_asset::{EmptyRetainedAsset, RenderAssetUsages};
 use bevy_ecs::{
@@ -41,7 +41,8 @@ pub struct AssetExtractionSystems;
 /// is transformed into its GPU-representation of type [`ErasedRenderAsset`].
 pub trait ErasedRenderAsset: Send + Sync + 'static {
     /// The representation of the asset in the "main world".
-    type SourceAsset: RetainAsset + Clone;
+    type SourceAsset: Asset + Clone;
+    type RetainedAsset: Send + Sync + 'static;
     /// The target representation of the asset in the "render world".
     type ErasedAsset: Send + Sync + 'static + Sized;
 
@@ -66,6 +67,18 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
     fn byte_len(erased_asset: &Self::SourceAsset) -> Option<usize> {
         None
     }
+
+    /// Make a [`Self::RetainedAsset`] to be added to the [`ErasedRetainedAssets`].
+    ///
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted
+    /// and its data will be discarded.
+    ///
+    /// The retained asset is guaranteed to exist in the [`ErasedRetainedAssets`] for any [`RenderAssetUsages`],
+    /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`ErasedRetainedAssets`] of this asset is always empty.
+    /// To access the retained assets, use the [`bevy_asset::RetainedAssets`] system parameter.
+    ///
+    /// This is useful for retaining asset's metadata after extracted to render world.
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset;
 
     /// Prepares the [`ErasedRenderAsset::SourceAsset`] for the GPU by transforming it into a [`ErasedRenderAsset`].
     ///
@@ -121,7 +134,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractErasedRenderAssetSystemState<A>>()
-            .init_resource::<RetainedAssets<A::SourceAsset>>();
+            .init_resource::<ErasedRetainedAssets<A::RetainedAsset>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -237,7 +250,7 @@ struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
-        ResMut<'static, RetainedAssets<A::SourceAsset>>,
+        ResMut<'static, ErasedRetainedAssets<A::RetainedAsset>>,
     )>,
 }
 
@@ -327,6 +340,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     needs_extracting.remove(id);
                     extracted_assets.modified.remove(id);
                     extracted_assets.removed.insert(*id);
+                    retained_assets.remove(&id.untyped());
                 }
                 AssetEvent::LoadedWithDependencies { .. } => {
                     // TODO: handle this
@@ -343,9 +357,9 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                 let Extractable::Data(asset_data) = &*extractable_asset else {
                     panic!("Asset is already extracted: {}", id);
                 };
-                let retained_asset = asset_data.retain_asset();
-                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
-                    retained_assets.insert(id, retained_asset);
+                let retained_asset = A::retain_main_world_asset(asset_data);
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset>() {
+                    retained_assets.insert(id.untyped(), retained_asset);
                 }
                 match A::asset_usage(asset_data) {
                     u if u == RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD => {
@@ -361,14 +375,14 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     _ => unreachable!(),
                 }
             } else {
-                let asset = (asset as &dyn Any).downcast_ref::<A::SourceAsset>().unwrap();
-                let retained_asset = asset.retain_asset();
-                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
-                    retained_assets.insert(id, retained_asset);
+                let asset_data = (asset as &dyn Any).downcast_ref::<A::SourceAsset>().unwrap();
+                let retained_asset = A::retain_main_world_asset(asset_data);
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset>() {
+                    retained_assets.insert(id.untyped(), retained_asset);
                 }
-                match A::asset_usage(asset) {
+                match A::asset_usage(asset_data) {
                     u if u.contains(RenderAssetUsages::RENDER_WORLD) => {
-                        extracted_assets.extracted.push((id, asset.clone()));
+                        extracted_assets.extracted.push((id, asset_data.clone()));
                         extracted_assets.added.insert(id);
                     }
                     u if u == RenderAssetUsages::MAIN_WORLD => {}

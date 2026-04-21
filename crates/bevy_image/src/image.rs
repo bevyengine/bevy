@@ -14,7 +14,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages, RetainAsset};
+use bevy_asset::{
+    uuid_handle, Asset, AssetApp, Assets, GetRetainedAsset, Handle, RenderAssetUsages,
+};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -680,11 +682,8 @@ pub struct RetainedImage {
     pub copy_on_resize: bool,
 }
 
-impl RetainAsset for Image {
+impl GetRetainedAsset for Image {
     type RetainedAsset = RetainedImage;
-    fn retain_asset(&self) -> Self::RetainedAsset {
-        self.into()
-    }
 }
 
 impl From<RetainedImage> for Image {

@@ -101,7 +101,7 @@ impl UiMaterial for FrametimeGraphMaterial {
 fn update_frame_time_values(
     mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
-    retained_buffers: Res<RetainedAssets<ShaderBuffer>>,
+    retained_buffers: RetainedAssets<ShaderBuffer>,
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {

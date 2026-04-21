@@ -1,5 +1,7 @@
 use bevy_app::{App, AppLabel};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{
+    Asset, AssetApp, AssetEvent, AssetId, Assets, EmptyRetainedAsset, RenderAssetUsages,
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -17,10 +19,15 @@ struct DummyRenderAsset;
 
 impl RenderAsset for DummyRenderAsset {
     type SourceAsset = DummyAsset;
+    type RetainedAsset = EmptyRetainedAsset;
     type Param = ();
 
     fn asset_usage(_: &Self::SourceAsset) -> RenderAssetUsages {
         RenderAssetUsages::RENDER_WORLD
+    }
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
     }
 
     fn prepare_asset(

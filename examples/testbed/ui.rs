@@ -48,6 +48,7 @@ fn main() {
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
+    .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -88,6 +89,7 @@ enum Scene {
     ViewportCoords,
     OuterColor,
     BoxedContent,
+    EditableText,
 }
 
 impl std::str::FromStr for Scene {
@@ -127,7 +129,8 @@ impl Next for Scene {
             Scene::Transformations => Scene::ViewportCoords,
             Scene::ViewportCoords => Scene::OuterColor,
             Scene::OuterColor => Scene::BoxedContent,
-            Scene::BoxedContent => Scene::Image,
+            Scene::BoxedContent => Scene::EditableText,
+            Scene::EditableText => Scene::Image,
         }
     }
 }
@@ -1956,5 +1959,83 @@ mod boxed_content {
                         });
                 }
             });
+    }
+}
+
+mod editable_text {
+    use bevy::color::palettes::css::YELLOW;
+    use bevy::prelude::*;
+    use bevy::text::EditableText;
+    use bevy::text::TextEdit;
+    use bevy::ui::widget::TextScroll;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::EditableText)));
+        commands.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                width: vw(100),
+                height: vh(100),
+                row_gap: px(25.),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::EditableText),
+            children![
+                (
+                    EditableText {
+                        pending_edits: vec![TextEdit::Insert("Single line EditableText".into())],
+                        ..default()
+                    },
+                    Node {
+                        width: px(200.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+                (
+                    EditableText {
+                        pending_edits: vec![
+                            TextEdit::Insert(
+                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
+                                    .into()
+                            ),
+                            TextEdit::TextStart(false),
+                        ],
+                        visible_lines: Some(8.),
+                        ..default()
+                    },
+                    TextScroll::default(),
+                    Node {
+                        width: px(350.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+                (
+                    EditableText {
+                        pending_edits: vec![
+                            TextEdit::Insert(
+                                "1. Multiline EditableText\n2.\n3.\n4.\n5.\n6.\n7.\n8.\n9.\n10."
+                                    .into()
+                            ),
+                            TextEdit::TextEnd(true),
+                        ],
+                        visible_lines: Some(8.),
+                        ..default()
+                    },
+                    TextScroll::default(),
+                    Node {
+                        width: px(350.),
+                        border: px(2).all(),
+                        ..default()
+                    },
+                    BorderColor::all(YELLOW),
+                ),
+            ],
+        ));
     }
 }
