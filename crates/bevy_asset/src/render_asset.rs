@@ -1,9 +1,13 @@
-use bevy_ecs::resource::Resource;
+use bevy_ecs::{
+    resource::Resource,
+    system::{Res, SystemParam},
+};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use derive_more::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::{Asset, AssetId};
+use crate::{Asset, AssetId, UntypedAssetId};
 
 bitflags::bitflags! {
     /// Defines where the asset will be used.
@@ -100,53 +104,39 @@ impl<A: Asset> From<A> for Extractable<A> {
     }
 }
 
-/// Declares that this type can retain an asset of the source asset during `RenderAsset` extraction.
-pub trait RetainAsset: Asset {
+/// Declares this type has an associated retained asset for use in the [`RetainedAssets`] system param.
+pub trait GetRetainedAsset: Asset {
     /// The type of retained asset.
     type RetainedAsset: Send + Sync + 'static;
-    /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
-    ///
-    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted
-    /// and its data will be discarded.
-    ///
-    /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
-    /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`RetainedAssets`] of this asset is always empty.
-    ///
-    /// This is useful for retaining asset's metadata after extracted to render world.
-    fn retain_asset(&self) -> Self::RetainedAsset;
 }
 
-/// A special [`RetainAsset`] that won't be stored in [`RetainedAssets`].
+/// A special retained asset that won't be stored in [`RetainedAssets`].
 pub struct EmptyRetainedAsset;
 
-/// Stores all ([`RetainAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
-#[derive(Resource)]
-pub struct RetainedAssets<A: RetainAsset>(HashMap<AssetId<A>, A::RetainedAsset>);
+/// Stores all `RenderAsset::RetainedAsset` if they exist and are not [`EmptyRetainedAsset`] during `RenderAsset`/`ErasedRenderAsset` extraction.
+#[derive(Resource, Deref, DerefMut)]
+pub struct ErasedRetainedAssets<A>(HashMap<UntypedAssetId, A>);
 
-impl<R: RetainAsset> Default for RetainedAssets<R> {
+impl<A> Default for ErasedRetainedAssets<A> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<A: RetainAsset> RetainedAssets<A> {
+/// A system parameter for getting the retained asset of an asset that implements [`GetRetainedAsset`]
+#[derive(SystemParam)]
+pub struct RetainedAssets<'w, A: GetRetainedAsset> {
+    erased_retained_assets: Res<'w, ErasedRetainedAssets<<A as GetRetainedAsset>::RetainedAsset>>,
+}
+
+impl<'w, A: GetRetainedAsset> RetainedAssets<'w, A> {
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A::RetainedAsset> {
-        self.0.get(&id.into())
-    }
-
-    pub fn insert(
-        &mut self,
-        id: impl Into<AssetId<A>>,
-        value: A::RetainedAsset,
-    ) -> Option<A::RetainedAsset> {
-        self.0.insert(id.into(), value)
-    }
-
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A::RetainedAsset> {
-        self.0.remove(&id.into())
+        self.erased_retained_assets.get(&id.into().untyped())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A::RetainedAsset)> {
-        self.0.iter().map(|(k, v)| (*k, v))
+        self.erased_retained_assets
+            .iter()
+            .map(|(k, v)| (k.typed(), v))
     }
 }

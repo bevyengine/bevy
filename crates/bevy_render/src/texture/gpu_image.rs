@@ -3,7 +3,7 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, GetRetainedAsset, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_log::warn;
@@ -24,6 +24,7 @@ pub struct GpuImage {
 
 impl RenderAsset for GpuImage {
     type SourceAsset = Image;
+    type RetainedAsset = <Image as GetRetainedAsset>::RetainedAsset;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
@@ -38,6 +39,10 @@ impl RenderAsset for GpuImage {
     #[inline]
     fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
         image.data.as_ref().map(Vec::len)
+    }
+
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        source.into()
     }
 
     /// Converts the extracted image into a [`GpuImage`].

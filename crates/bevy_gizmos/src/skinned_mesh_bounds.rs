@@ -85,7 +85,7 @@ pub struct ShowSkinnedMeshBoundsGizmo {
 fn draw(
     color: Color,
     mesh: &Mesh3d,
-    mesh_assets: &Res<RetainedAssets<Mesh>>,
+    mesh_assets: &RetainedAssets<Mesh>,
     skinned_mesh: &SkinnedMesh,
     joint_entities: &Query<&GlobalTransform>,
     inverse_bindposes_assets: &Res<Assets<SkinnedMeshInverseBindposes>>,
@@ -118,7 +118,7 @@ fn draw_skinned_mesh_bounds(
         With<DynamicSkinnedMeshBounds>,
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<RetainedAssets<Mesh>>,
+    mesh_assets: RetainedAssets<Mesh>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {
@@ -146,7 +146,7 @@ fn draw_all_skinned_mesh_bounds(
         ),
     >,
     joint_entities: Query<&GlobalTransform>,
-    mesh_assets: Res<RetainedAssets<Mesh>>,
+    mesh_assets: RetainedAssets<Mesh>,
     inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut gizmos: Gizmos<SkinnedMeshBoundsGizmoConfigGroup>,
 ) {

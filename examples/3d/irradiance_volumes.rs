@@ -527,7 +527,7 @@ fn play_animations(
 }
 
 fn create_cubes(
-    image_assets: Res<RetainedAssets<Image>>,
+    image_assets: RetainedAssets<Image>,
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,

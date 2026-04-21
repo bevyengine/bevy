@@ -4,7 +4,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages, RetainAsset};
+use bevy_asset::{Asset, AssetApp, AssetId, GetRetainedAsset, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -54,11 +54,8 @@ pub struct RetainedShaderBuffer {
     pub copy_on_resize: bool,
 }
 
-impl RetainAsset for ShaderBuffer {
+impl GetRetainedAsset for ShaderBuffer {
     type RetainedAsset = RetainedShaderBuffer;
-    fn retain_asset(&self) -> Self::RetainedAsset {
-        self.into()
-    }
 }
 
 impl From<RetainedShaderBuffer> for ShaderBuffer {
@@ -188,10 +185,15 @@ pub struct GpuShaderBuffer {
 
 impl RenderAsset for GpuShaderBuffer {
     type SourceAsset = ShaderBuffer;
+    type RetainedAsset = <ShaderBuffer as GetRetainedAsset>::RetainedAsset;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
     fn asset_usage(source_asset: &Self::SourceAsset) -> RenderAssetUsages {
         source_asset.asset_usage
+    }
+
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        source.into()
     }
 
     fn prepare_asset(

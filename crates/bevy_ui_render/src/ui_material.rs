@@ -1,5 +1,5 @@
 use crate::Node;
-use bevy_asset::{AssetId, Handle, RetainAsset};
+use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -17,7 +17,7 @@ use derive_more::derive::From;
 /// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
-/// Materials must also implement [`RetainAsset`] so they can be treated as such.
+/// Materials must also implement [`Asset`] so they can be treated as such.
 ///
 /// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
 /// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
@@ -99,7 +99,7 @@ use derive_more::derive::From;
 ///
 /// }
 /// ```
-pub trait UiMaterial: AsBindGroup + RetainAsset + Clone + Sized {
+pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
     fn vertex_shader() -> ShaderRef {

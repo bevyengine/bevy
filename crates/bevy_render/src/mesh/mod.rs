@@ -12,7 +12,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, GetRetainedAsset, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -119,6 +119,7 @@ pub enum RenderMeshBufferInfo {
 
 impl RenderAsset for RenderMesh {
     type SourceAsset = Mesh;
+    type RetainedAsset = <Mesh as GetRetainedAsset>::RetainedAsset;
     #[cfg(not(feature = "morph"))]
     type Param = (
         SRes<RenderDevice>,
@@ -149,6 +150,19 @@ impl RenderAsset for RenderMesh {
         let vertex_count = mesh.count_vertices();
         let index_bytes = mesh.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
         Some(vertex_size * vertex_count + index_bytes)
+    }
+
+    fn retain_main_world_asset(source: &Self::SourceAsset) -> Self::RetainedAsset {
+        RetainedMesh {
+            primitive_topology: source.primitive_topology(),
+            has_indices: source.indices().is_some(),
+            #[cfg(feature = "morph")]
+            has_morph_targets: source.has_morph_targets(),
+            asset_usage: source.asset_usage,
+            enable_raytracing: source.enable_raytracing,
+            aabb: source.compute_aabb(),
+            skinned_mesh_bounds: source.skinned_mesh_bounds.clone(),
+        }
     }
 
     /// Converts the extracted mesh into a [`RenderMesh`].

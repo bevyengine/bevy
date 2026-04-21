@@ -555,13 +555,17 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
-
+    type RetainedAsset = EmptyRetainedAsset;
     type Param = (
         SRes<RenderDevice>,
         SRes<PipelineCache>,
         SRes<UiMaterialPipeline<M>>,
         M::Param,
     );
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
+    }
 
     fn prepare_asset(
         material: Self::SourceAsset,

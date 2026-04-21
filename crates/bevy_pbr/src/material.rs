@@ -4,7 +4,9 @@ use crate::material_bind_groups::{
 use crate::*;
 use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AssetEventSystems, AssetId, AssetServer, RetainAsset, UntypedAssetId};
+use bevy_asset::{
+    Asset, AssetEventSystems, AssetId, AssetServer, EmptyRetainedAsset, UntypedAssetId,
+};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
@@ -143,7 +145,7 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material: RetainAsset + AsBindGroup + Clone + Sized {
+pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -1522,6 +1524,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     type SourceAsset = M;
+    type RetainedAsset = EmptyRetainedAsset;
     type ErasedAsset = PreparedMaterial;
 
     type Param = (
@@ -1542,6 +1545,10 @@ where
         SRes<AssetServer>,
         M::Param,
     );
+
+    fn retain_main_world_asset(_source: &Self::SourceAsset) -> Self::RetainedAsset {
+        EmptyRetainedAsset
+    }
 
     fn prepare_asset(
         material: Self::SourceAsset,

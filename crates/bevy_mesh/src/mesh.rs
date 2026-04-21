@@ -13,7 +13,7 @@ use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-use bevy_asset::{Asset, RenderAssetUsages, RetainAsset};
+use bevy_asset::{Asset, GetRetainedAsset, RenderAssetUsages};
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_platform::sync::Arc;
@@ -152,7 +152,7 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    skinned_mesh_bounds: Option<Arc<SkinnedMeshBounds>>,
+    pub skinned_mesh_bounds: Option<Arc<SkinnedMeshBounds>>,
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq)]
@@ -169,20 +169,8 @@ pub struct RetainedMesh {
     pub skinned_mesh_bounds: Option<Arc<SkinnedMeshBounds>>,
 }
 
-impl RetainAsset for Mesh {
+impl GetRetainedAsset for Mesh {
     type RetainedAsset = RetainedMesh;
-    fn retain_asset(&self) -> Self::RetainedAsset {
-        RetainedMesh {
-            primitive_topology: self.primitive_topology(),
-            has_indices: self.indices().is_some(),
-            #[cfg(feature = "morph")]
-            has_morph_targets: self.has_morph_targets(),
-            asset_usage: self.asset_usage,
-            enable_raytracing: self.enable_raytracing,
-            aabb: self.compute_aabb(),
-            skinned_mesh_bounds: self.skinned_mesh_bounds.clone(),
-        }
-    }
 }
 
 impl Mesh {
