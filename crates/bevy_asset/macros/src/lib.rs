@@ -74,10 +74,10 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
             },
             quote! {
                 impl #impl_generics #bevy_asset_path::RetainAsset for #struct_name #type_generics #where_clause {
-                    type RetainedAsset = #bevy_asset_path::EmptyRetainedAsset<Self>;
+                    type RetainedAsset = #bevy_asset_path::EmptyRetainedAsset;
 
-                    fn retain_asset(&self) -> #bevy_asset_path::EmptyRetainedAsset<Self> {
-                        #bevy_asset_path::EmptyRetainedAsset::default()
+                    fn retain_asset(&self) -> #bevy_asset_path::EmptyRetainedAsset {
+                        #bevy_asset_path::EmptyRetainedAsset
                     }
                 }
             },

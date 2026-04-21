@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -119,13 +117,7 @@ pub trait RetainAsset: Asset {
 }
 
 /// A special [`RetainAsset`] that won't be stored in [`RetainedAssets`].
-pub struct EmptyRetainedAsset<A: Asset>(PhantomData<A>);
-
-impl<A: Asset> Default for EmptyRetainedAsset<A> {
-    fn default() -> Self {
-        Self(PhantomData::<A>)
-    }
-}
+pub struct EmptyRetainedAsset;
 
 /// Stores all ([`RetainAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
 #[derive(Resource)]

@@ -333,7 +333,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     panic!("Asset {} is already extracted", id);
                 };
                 let retained_asset = asset_data.retain_asset();
-                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset>() {
                     retained_assets.insert(id, retained_asset);
                 }
                 match A::asset_usage(asset_data) {
@@ -354,7 +354,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     panic!("RenderAsset::SourceAsset::Storage must be Extractable<SourceAsset> or SourceAsset, {}", id);
                 };
                 let retained_asset = asset.retain_asset();
-                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset<A::SourceAsset>>() {
+                if retained_asset.type_id() != TypeId::of::<EmptyRetainedAsset>() {
                     retained_assets.insert(id, retained_asset);
                 }
                 match A::asset_usage(asset) {
