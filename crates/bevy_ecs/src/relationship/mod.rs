@@ -523,7 +523,7 @@ pub enum RelationshipAccessorInitializer {
         allow_self_referential: bool,
         /// Getter for [`ComponentId`] of the [`RelationshipTarget`] counterpart.
         /// Should return `None` if [`RelationshipTarget`] isn't registered yet.
-        relationship_target_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+        relationship_target_getter: Arc<dyn Fn(&Components) -> Option<ComponentId> + Send + Sync>,
     },
     /// Describes a [`RelationshipTarget`] component.
     RelationshipTarget {
@@ -539,7 +539,7 @@ pub enum RelationshipAccessorInitializer {
         allow_self_referential: bool,
         /// Getter for [`ComponentId`] of the [`Relationship`] counterpart.
         /// Should return `None` if [`Relationship`] isn't registered yet.
-        relationship_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+        relationship_getter: Arc<dyn Fn(&Components) -> Option<ComponentId> + Send + Sync>,
     },
 }
 
@@ -741,7 +741,7 @@ impl<C> ComponentRelationshipAccessor<C> {
         C: Relationship,
     {
         // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
-        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId> + Send + Sync> =
             Box::new(|components| components.get_id(TypeId::of::<C::RelationshipTarget>()));
         Self {
             initializer: RelationshipAccessorInitializer::Relationship {
@@ -760,7 +760,7 @@ impl<C> ComponentRelationshipAccessor<C> {
         C: RelationshipTarget,
     {
         // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
-        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId> + Send + Sync> =
             Box::new(|components| components.get_id(TypeId::of::<C::Relationship>()));
         Self {
             initializer: RelationshipAccessorInitializer::RelationshipTarget {
