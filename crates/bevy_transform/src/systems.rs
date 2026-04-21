@@ -30,9 +30,9 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+#[cfg(feature = "multi_threaded")]
 pub use parallel::propagate_parent_transforms;
-#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+#[cfg(not(feature = "multi_threaded"))]
 pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -54,14 +54,14 @@ pub fn sync_simple_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    #[cfg(feature = "multi_threaded")]
     query
         .p0()
         .par_iter_mut()
         .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
-    #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+    #[cfg(not(feature = "multi_threaded"))]
     query
         .p0()
         .iter_mut()
@@ -115,23 +115,25 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     static_optimizations: Res<StaticTransformOptimizations>,
     // Cached allocations for multi-threaded parallel implementation
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] mut shared_bitset: Local<
+    #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
     >,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] mut local_bitset: Local<
+    #[cfg(feature = "multi_threaded")] mut local_bitset: Local<
         bevy_utils::Parallel<alloc::vec::Vec<u64>>,
     >,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    mut consumer_channels: Local<bevy_utils::BufferedChannel<Entity>>,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    mut traversal_channels: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "multi_threaded")] mut consumer_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut traversal_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
 ) {
     if !static_optimizations.is_enabled() {
         return;
     }
 
     // Simple serial implementation that iterates changed entities and traverses the tree.
-    #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+    #[cfg(not(feature = "multi_threaded"))]
     for entity in changed.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok(mut tree) = transforms.get_mut(next) {
@@ -160,7 +162,7 @@ pub fn mark_dirty_trees(
     // of the scope and asynchronously await incoming batches of work. This allows the entire
     // pipeline to start working as soon as there is available work to process, instead of running
     // each stage serially with inner parallelism.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    #[cfg(feature = "multi_threaded")]
     {
         use bevy_tasks::ComputeTaskPool;
         use core::sync::atomic::Ordering;
@@ -318,7 +320,7 @@ pub fn mark_dirty_trees(
 // module, and make the multithreaded module no_std compatible.
 //
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
-#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+#[cfg(not(feature = "multi_threaded"))]
 mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
@@ -480,7 +482,7 @@ mod serial {
 //
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+#[cfg(feature = "multi_threaded")]
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
