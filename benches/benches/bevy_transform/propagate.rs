@@ -2,6 +2,7 @@ use core::{f32::consts::TAU, hint::black_box, time::Duration};
 
 use benches::bench;
 use bevy_ecs::prelude::*;
+use bevy_math::ops::{cos, sin};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_transform::{
     components::{GlobalTransform, Transform},
@@ -104,8 +105,8 @@ impl WorldBench {
             let entity = self.movers[idx];
             if let Some(mut transform) = self.world.get_mut::<Transform>(entity) {
                 let phase = (self.frame + offset) as f32 * 0.0005;
-                transform.translation.x += phase.sin() * 0.015;
-                transform.translation.y += phase.cos() * 0.010;
+                transform.translation.x += sin(phase) * 0.015;
+                transform.translation.y += cos(phase) * 0.010;
                 transform.rotate_z(0.001 + ((idx % 17) as f32 * 0.000_05));
             }
         }
@@ -120,7 +121,7 @@ impl WorldBench {
             let entity = self.roots[idx];
             if let Some(mut transform) = self.world.get_mut::<Transform>(entity) {
                 let phase = (self.frame + offset) as f32 * 0.001;
-                transform.translation.z += phase.sin() * 0.02;
+                transform.translation.z += sin(phase) * 0.02;
                 transform.rotate_y(0.0015);
             }
         }
@@ -162,8 +163,8 @@ fn spawn_complex_hierarchy(world: &mut World) -> SceneData {
                     let child = world
                         .spawn((
                             Transform::from_xyz(
-                                angle.cos() * (depth as f32 + 1.0),
-                                angle.sin() * (depth as f32 + 0.5),
+                                cos(angle) * (depth as f32 + 1.0),
+                                sin(angle) * (depth as f32 + 0.5),
                                 depth as f32 * 0.75,
                             ),
                             GlobalTransform::IDENTITY,
@@ -254,7 +255,7 @@ impl ReparentBench {
     fn run_churn_frame(&mut self, batch: usize) {
         let len = self.children.len();
         let start = (self.frame * batch) % len;
-        let target_parent = if self.frame % 2 == 0 {
+        let target_parent = if self.frame.is_multiple_of(2) {
             self.parent_b
         } else {
             self.parent_a
