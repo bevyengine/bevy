@@ -292,6 +292,8 @@ pub fn update_editable_text_layout(
 
         driver.refresh_layout();
 
+        let compose_range = driver.editor.raw_compose().clone();
+
         let layout_changed = driver.editor.generation() != **generation;
         if layout_changed {
             **generation = driver.editor.generation();
@@ -307,6 +309,7 @@ pub fn update_editable_text_layout(
             )
                 .into();
 
+            info.preedit_underline_rects.clear();
             info.glyphs.clear();
             info.run_geometry.clear();
 
@@ -374,6 +377,39 @@ pub fn update_editable_text_layout(
                                 });
                             }
 
+                            let metrics = run.metrics();
+                            let underline_y = glyph_run.baseline() - metrics.underline_offset;
+                            let underline_thickness = metrics.underline_size;
+
+                            let run_text_range = run.text_range();
+                            if let Some(cr) = &compose_range
+                                && run_text_range.start < cr.end
+                                && run_text_range.end > cr.start
+                            {
+                                let mut x = glyph_run.offset();
+                                let mut underline_start_x = None;
+                                let mut underline_end_x = x;
+
+                                for cluster in run.visual_clusters() {
+                                    let ct = cluster.text_range();
+                                    if ct.start < cr.end && ct.end > cr.start {
+                                        underline_start_x.get_or_insert(x);
+                                        underline_end_x = x + cluster.advance();
+                                    }
+                                    x += cluster.advance();
+                                }
+
+                                if let Some(start_x) = underline_start_x {
+                                    info.preedit_underline_rects.push(Rect {
+                                        min: Vec2::new(start_x, underline_y),
+                                        max: Vec2::new(
+                                            underline_end_x,
+                                            underline_y + underline_thickness,
+                                        ),
+                                    });
+                                }
+                            }
+
                             info.run_geometry.push(RunGeometry {
                                 section_index: brush.section_index as usize,
                                 bounds: Rect {
@@ -384,10 +420,10 @@ pub fn update_editable_text_layout(
                                     ),
                                 },
                                 strikethrough_y: glyph_run.baseline()
-                                    - run.metrics().strikethrough_offset,
-                                strikethrough_thickness: run.metrics().strikethrough_size,
-                                underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                                underline_thickness: run.metrics().underline_size,
+                                    - metrics.strikethrough_offset,
+                                strikethrough_thickness: metrics.strikethrough_size,
+                                underline_y,
+                                underline_thickness,
                             });
                         }
                         PositionedLayoutItem::InlineBox(_inline) => {

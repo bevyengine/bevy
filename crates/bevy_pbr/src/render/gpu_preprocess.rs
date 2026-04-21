@@ -71,7 +71,7 @@ use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
+use crate::{LightEntity, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
 
 use super::{ShadowView, ViewLightEntities};
 
@@ -518,6 +518,7 @@ pub fn clear_indirect_parameters_metadata(
 pub fn unpack_bins(
     current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
     view_query: Query<&ExtractedView, Without<SkipGpuPreprocess>>,
+    light_query: Query<&LightEntity>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     pipeline_cache: Res<PipelineCache>,
     preprocess_pipelines: Res<PreprocessPipelines>,
@@ -538,7 +539,8 @@ pub fn unpack_bins(
     // Gather up all views.
     let view_entity = current_view.entity();
     let shadow_cascade_views = current_view.into_inner();
-    let all_views = gather_shadow_cascades_for_view(view_entity, shadow_cascade_views);
+    let all_views =
+        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
 
     // Don't run if the shaders haven't been compiled yet.
     if let Some(bin_unpacking_pipeline_id) = preprocess_pipelines.bin_unpacking.pipeline_id
@@ -601,6 +603,7 @@ pub fn early_gpu_preprocess(
         ),
         Without<SkipGpuPreprocess>,
     >,
+    light_query: Query<&LightEntity>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     pipeline_cache: Res<PipelineCache>,
     preprocess_pipelines: Res<PreprocessPipelines>,
@@ -620,7 +623,8 @@ pub fn early_gpu_preprocess(
 
     let view_entity = current_view.entity();
     let shadow_cascade_views = current_view.into_inner();
-    let all_views = gather_shadow_cascades_for_view(view_entity, shadow_cascade_views);
+    let all_views =
+        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
 
     // Run the compute passes.
     for view_entity in all_views {
@@ -783,11 +787,22 @@ pub fn early_gpu_preprocess(
 fn gather_shadow_cascades_for_view(
     view_entity: Entity,
     shadow_cascade_views: Option<&ViewLightEntities>,
+    light_query: &Query<&LightEntity>,
 ) -> SmallVec<[Entity; 8]> {
     let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
     all_views.push(view_entity);
     if let Some(shadow_cascade_views) = shadow_cascade_views {
-        all_views.extend(shadow_cascade_views.lights.iter().copied());
+        all_views.extend(
+            shadow_cascade_views
+                .lights
+                .iter()
+                .filter(|light_entity| {
+                    light_query.get(**light_entity).is_ok_and(|light_entity| {
+                        matches!(*light_entity, LightEntity::Directional { .. })
+                    })
+                })
+                .copied(),
+        );
     }
     all_views
 }
@@ -960,7 +975,12 @@ pub fn late_prepass_build_indirect_parameters(
     );
 }
 
+/// Builds indirect parameters for the main opaque and transparent passes.
+///
+/// The unused `_current_view` parameter is necessary so that we don't try to
+/// render a main pass for shadow views.
 pub fn main_build_indirect_parameters(
+    _current_view: ViewQuery<Entity, Without<ShadowView>>,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
@@ -2611,11 +2631,10 @@ fn create_build_indirect_parameters_bind_groups(
         build_indirect_parameters_bind_groups.insert(
             *phase_type_id,
             PhaseBuildIndirectParametersBindGroups {
-                reset_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
+                reset_indexed_indirect_batch_sets: phase_indirect_parameters_buffer
                     .indexed
-                    .batch_sets_buffer(),)
-                {
-                    (Some(indexed_batch_sets_buffer),) => Some(
+                    .batch_sets_buffer()
+                    .map(|indexed_batch_sets_buffer| {
                         render_device.create_bind_group(
                             "reset_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
@@ -2629,16 +2648,13 @@ fn create_build_indirect_parameters_bind_groups(
                             &BindGroupEntries::sequential((
                                 indexed_batch_sets_buffer.as_entire_binding(),
                             )),
-                        ),
-                    ),
-                    _ => None,
-                },
+                        )
+                    }),
 
-                reset_non_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
+                reset_non_indexed_indirect_batch_sets: phase_indirect_parameters_buffer
                     .non_indexed
-                    .batch_sets_buffer(),)
-                {
-                    (Some(non_indexed_batch_sets_buffer),) => Some(
+                    .batch_sets_buffer()
+                    .map(|non_indexed_batch_sets_buffer| {
                         render_device.create_bind_group(
                             "reset_non_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
@@ -2652,10 +2668,8 @@ fn create_build_indirect_parameters_bind_groups(
                             &BindGroupEntries::sequential((
                                 non_indexed_batch_sets_buffer.as_entire_binding(),
                             )),
-                        ),
-                    ),
-                    _ => None,
-                },
+                        )
+                    }),
 
                 build_indexed_indirect: match (
                     phase_indirect_parameters_buffer
@@ -2794,6 +2808,11 @@ fn create_bin_unpacking_bind_groups(
 
     // We run the bin unpacking shader once per phase, so loop over all phases.
     for phase_type_id in indirect_parameters_buffers.keys() {
+        let bin_unpacking_buffers_key = BinUnpackingBuffersKey {
+            phase: *phase_type_id,
+            view: *view_entity,
+        };
+
         // Fetch the buffers we need.
         let Some(phase_batched_instance_buffers) = phase_instance_buffers.get(phase_type_id) else {
             continue;
@@ -2804,13 +2823,9 @@ fn create_bin_unpacking_bind_groups(
         else {
             continue;
         };
-        let Some(view_phase_bin_unpacking_buffers) =
-            bin_unpacking_buffers
-                .view_phase_buffers
-                .get(&BinUnpackingBuffersKey {
-                    phase: *phase_type_id,
-                    view: *view_entity,
-                })
+        let Some(view_phase_bin_unpacking_buffers) = bin_unpacking_buffers
+            .view_phase_buffers
+            .get(&bin_unpacking_buffers_key)
         else {
             continue;
         };
@@ -2829,10 +2844,7 @@ fn create_bin_unpacking_bind_groups(
 
         // Create the actual bind groups.
         bin_unpacking_bind_groups.insert(
-            BinUnpackingBuffersKey {
-                phase: *phase_type_id,
-                view: *view_entity,
-            },
+            bin_unpacking_buffers_key,
             ViewPhaseBinUnpackingBindGroups {
                 indexed: match maybe_indexed_work_item_buffer {
                     Some(indexed_work_item_buffer) => view_phase_bin_unpacking_buffers

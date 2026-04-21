@@ -1,4 +1,7 @@
-use crate::{Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance, SpawnSceneError};
+use crate::{
+    ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
+    SpawnSceneError,
+};
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
 use bevy_ecs::{
@@ -593,8 +596,8 @@ pub fn resolve_scene_patches(
     for event in events.read() {
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(patch) = patches.get(id) {
-                    match patch.resolve_internal(&assets, &patches) {
+                if let Some(scene) = patches.get_mut(id).and_then(|mut p| p.scene.take()) {
+                    match ResolvedSceneRoot::resolve(scene, &assets, &patches) {
                         Ok(resolved) => {
                             let mut patch = patches.get_mut(id).unwrap();
                             patch.resolved = Some(Arc::new(resolved));
@@ -618,13 +621,10 @@ pub fn resolve_scene_patches(
     for event in list_events.read() {
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(mut list_patch) = list_patches.get_mut(id) {
-                    match list_patch.resolve_internal(&assets, &patches) {
-                        Ok(resolved) => {
-                            list_patch.resolved = Some(resolved);
-                        }
-                        Err(err) => error!("Failed to resolve scene list {id}: {err}"),
-                    }
+                if let Some(mut list_patch) = list_patches.get_mut(id)
+                    && let Err(err) = list_patch.resolve(&assets, &patches)
+                {
+                    error!("Failed to resolve scene list {id}: {err}");
                 }
             }
             AssetEvent::Removed { id } => {

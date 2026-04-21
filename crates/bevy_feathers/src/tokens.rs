@@ -319,6 +319,14 @@ pub const TEXT_INPUT_TEXT_DISABLED: ThemeToken =
 pub const TEXT_INPUT_CURSOR: ThemeToken = ThemeToken::new_static("feathers.textinput.cursor");
 /// Selection color for text input
 pub const TEXT_INPUT_SELECTION: ThemeToken = ThemeToken::new_static("feathers.textinput.selection");
+/// Background color for label text
+pub const TEXT_INPUT_LABEL_BG: ThemeToken = ThemeToken::new_static("feathers.textinput.label.bg");
+/// Sigil color for X
+pub const TEXT_INPUT_X_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.x");
+/// Sigil color for Y
+pub const TEXT_INPUT_Y_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.y");
+/// Sigil color for Z
+pub const TEXT_INPUT_Z_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.z");
 
 // Pane
 

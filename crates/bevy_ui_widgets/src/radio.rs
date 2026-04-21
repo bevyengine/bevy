@@ -142,11 +142,13 @@ fn radio_group_on_key_input(
             commands.trigger(ValueChange::<bool> {
                 source: next_id,
                 value: true,
+                is_final: true,
             });
             // Trigger the `ValueChange` event for the newly checked radio button on radio group
             commands.trigger(ValueChange::<Entity> {
                 source: ev.focused_entity,
                 value: next_id,
+                is_final: true,
             });
         }
     }
@@ -299,6 +301,7 @@ fn trigger_radio_button_and_radio_group_value_change(
     commands.trigger(ValueChange::<bool> {
         source: radio_button,
         value: true,
+        is_final: true,
     });
 
     // Find if radio button is inside radio group
@@ -312,6 +315,7 @@ fn trigger_radio_button_and_radio_group_value_change(
         commands.trigger(ValueChange::<Entity> {
             source: radio_group,
             value: radio_button,
+            is_final: true,
         });
     }
 }

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.92.0"
+rust-version = "1.95.0"
 
 [workspace]
 resolver = "3"
@@ -1006,12 +1006,24 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "editable_text"
-path = "examples/ui/text/editable_text.rs"
+name = "ime_support"
+path = "examples/ui/text/ime_support.rs"
+doc-scrape-examples = true
+required-features = ["system_font_discovery"]
+
+[package.metadata.example.ime_support]
+name = "IME Support"
+description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_input"
+path = "examples/ui/text/text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.editable_text]
-name = "Editable Text"
+[package.metadata.example.text_input]
+name = "Text Input"
 description = "Demonstrates a simple, unstyled text input widget"
 category = "UI (User Interface)"
 wasm = true
@@ -2948,17 +2960,6 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
-[[example]]
-name = "text_input"
-path = "examples/input/text_input.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.text_input]
-name = "Text Input"
-description = "Simple text input with IME support"
-category = "Input"
-wasm = false
-
 # Reflection
 [[example]]
 name = "reflection"
@@ -4287,6 +4288,7 @@ wasm = false
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.ambiguity_detection]
 hidden = true

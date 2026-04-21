@@ -1423,4 +1423,36 @@ mod tests {
 
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
+
+    #[test]
+    fn inheritance_with_generics() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
+            value: T,
+            number: u32,
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                :a::<0, i32>
+                Children [ #Y ]
+            }
+        }
+
+        fn a<
+            const A: u32,
+            T: 'static
+                + Send
+                + Sync
+                + FromTemplate<Template: Send + Sync + Default + Template<Output = T>>,
+        >() -> impl Scene {
+            bsn! {
+                Foo<T>{
+                    number: A
+                }
+            }
+        }
+
+        b();
+    }
 }
