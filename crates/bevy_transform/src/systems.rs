@@ -278,7 +278,7 @@ pub fn mark_dirty_trees(
                 );
             };
             #[cfg(feature = "trace")]
-            info_span!("producer_mark_dirty").in_scope(producer);
+            info_span!("producer_mark_dirty").in_scope(&mut producer);
             #[cfg(not(feature = "trace"))]
             producer();
         });
