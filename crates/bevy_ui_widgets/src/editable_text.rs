@@ -6,6 +6,7 @@
 //! Note that this module is distinct from the core `bevy_text` crate to avoid pulling in
 //! [`bevy_input`] to that crate, which is intended to be usable in non-interactive contexts.
 
+use bevy_a11y::AccessibilitySystems;
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
@@ -15,7 +16,7 @@ use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, Press};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
-use bevy_ui::widget::TextScroll;
+use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
 use bevy_ui::UiSystems;
 use bevy_ui::{
     widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
@@ -379,6 +380,23 @@ fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut Edi
     }
 }
 
+/// System sets for IME-related systems used by [`EditableTextInputPlugin`].
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ImeSystems {
+    /// Processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`].
+    ///
+    /// Runs in [`PreUpdate`].
+    HandleEvents,
+    /// Enables or disables IME on the window based on focus state.
+    ///
+    /// Runs in [`PreUpdate`].
+    ToggleWindowIMEInput,
+    /// Updates the IME candidate window position to track the text cursor.
+    ///
+    /// Runs in [`PostUpdate`].
+    UpdatePosition,
+}
+
 /// Enables support for the [`EditableText`] widget.
 ///
 /// Contains the systems and observers necessary to update widget state and handle user input.
@@ -398,12 +416,27 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_focus_lost)
             .add_systems(
                 PreUpdate,
-                (on_ime_input, listen_for_ime_input_when_text_input_focused)
+                (
+                    on_ime_input.in_set(ImeSystems::HandleEvents),
+                    listen_for_ime_input_when_text_input_focused
+                        .in_set(ImeSystems::ToggleWindowIMEInput),
+                )
                     .after(InputSystems)
                     .after(InputFocusSystems::Dispatch)
                     .after(UiSystems::Focus),
             )
-            .add_systems(PostUpdate, update_ime_position.after(UiSystems::Layout));
+            .add_systems(
+                PostUpdate,
+                update_ime_position
+                    .in_set(ImeSystems::UpdatePosition)
+                    .in_set(UiSystems::PostLayout)
+                    .before(AccessibilitySystems::Update)
+                    .after(update_editable_text_layout)
+                    .after(scroll_editable_text)
+                    // FocusChangeEvents does not mutate the actual InputFocus;
+                    // this is a false positive that can be ignored
+                    .ambiguous_with(InputFocusSystems::FocusChangeEvents),
+            );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
