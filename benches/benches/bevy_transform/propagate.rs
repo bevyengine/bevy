@@ -234,8 +234,8 @@ impl ReparentBench {
         schedule.add_systems(
             (
                 mark_dirty_trees,
-                sync_simple_transforms,
                 propagate_parent_transforms,
+                sync_simple_transforms,
             )
                 .chain(),
         );
@@ -344,8 +344,8 @@ fn transform_pipeline_bench(c: &mut Criterion) {
             schedule.add_systems(
                 (
                     mark_dirty_trees,
-                    sync_simple_transforms,
                     propagate_parent_transforms,
+                    sync_simple_transforms,
                 )
                     .chain(),
             );
@@ -362,8 +362,8 @@ fn transform_pipeline_bench(c: &mut Criterion) {
             schedule.add_systems(
                 (
                     mark_dirty_trees,
-                    sync_simple_transforms,
                     propagate_parent_transforms,
+                    sync_simple_transforms,
                 )
                     .chain(),
             );
