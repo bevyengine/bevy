@@ -4287,6 +4287,7 @@ wasm = false
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.ambiguity_detection]
 hidden = true
