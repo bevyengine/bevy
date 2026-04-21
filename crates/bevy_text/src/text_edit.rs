@@ -301,7 +301,6 @@ impl TextEdit {
                 {
                     driver.insert_or_replace_selection(text.as_str());
                 }
-                driver.insert_or_replace_selection(text.as_str());
             }
         }
     }
