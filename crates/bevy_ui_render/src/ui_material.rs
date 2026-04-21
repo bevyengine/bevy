@@ -17,7 +17,7 @@ use derive_more::derive::From;
 /// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
-/// Materials must also implement [`Asset`] so they can be treated as such.
+/// Materials must also implement [`RetainAsset`] so they can be treated as such.
 ///
 /// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
 /// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the

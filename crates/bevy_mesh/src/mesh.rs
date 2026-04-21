@@ -172,22 +172,6 @@ pub struct RetainedMesh {
 impl RetainAsset for Mesh {
     type RetainedAsset = RetainedMesh;
     fn retain_asset(&self) -> Self::RetainedAsset {
-        let mut aabb = None;
-        // store the aabb extents as they cannot be computed after extraction
-        if let Some(VertexAttributeValues::Float32x3(position_values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-            && !position_values.is_empty()
-        {
-            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
-            let mut min = iter.next().unwrap();
-            let mut max = min;
-            for v in iter {
-                min = Vec3::min(min, v);
-                max = Vec3::max(max, v);
-            }
-            aabb = Some(Aabb3d::from_min_max(min, max));
-        }
-
         RetainedMesh {
             primitive_topology: self.primitive_topology(),
             has_indices: self.indices().is_some(),
@@ -195,7 +179,7 @@ impl RetainAsset for Mesh {
             has_morph_targets: self.has_morph_targets(),
             asset_usage: self.asset_usage,
             enable_raytracing: self.enable_raytracing,
-            aabb,
+            aabb: self.compute_aabb(),
             skinned_mesh_bounds: self.skinned_mesh_bounds.clone(),
         }
     }
@@ -1584,6 +1568,28 @@ impl Mesh {
     pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
         self.generate_skinned_mesh_bounds()?;
         Ok(self)
+    }
+
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
+    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
+    pub fn compute_aabb(&self) -> Option<Aabb3d> {
+        let mut aabb = None;
+        if let Some(VertexAttributeValues::Float32x3(position_values)) =
+            self.attribute(Mesh::ATTRIBUTE_POSITION)
+            && !position_values.is_empty()
+        {
+            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
+            let mut min = iter.next().unwrap();
+            let mut max = min;
+            for v in iter {
+                min = Vec3::min(min, v);
+                max = Vec3::max(max, v);
+            }
+            aabb = Some(Aabb3d::from_min_max(min, max));
+        }
+        aabb
     }
 }
 

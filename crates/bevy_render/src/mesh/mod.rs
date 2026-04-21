@@ -13,7 +13,6 @@ use crate::{
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, RenderAssetUsages};
-use bevy_camera::primitives::MeshAabb;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -21,6 +20,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_math::bounding::BoundingVolume;
 pub use bevy_mesh::*;
 use glam::Vec3;
 use wgpu::IndexFormat;
@@ -203,7 +203,7 @@ impl RenderAsset for RenderMesh {
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             aabb_center: match mesh.compute_aabb() {
-                Some(aabb) => aabb.center.into(),
+                Some(aabb) => aabb.center().into(),
                 None => Vec3::ZERO,
             },
             buffer_info,

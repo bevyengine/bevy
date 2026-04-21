@@ -108,8 +108,8 @@ pub trait RetainAsset: Asset {
     type RetainedAsset: Send + Sync + 'static;
     /// Make a [`Self::RetainedAsset`] to be added to the [`RetainedAssets`].
     ///
-    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted from [`Assets`]
-    /// and the data will be discarded.
+    /// During render asset extraction, assets that don't contain [`RenderAssetUsages::MAIN_WORLD`] will be extracted
+    /// and its data will be discarded.
     ///
     /// The retained asset is guaranteed to exist in the [`RetainedAssets`] for any [`RenderAssetUsages`],
     /// unless the retained asset is [`EmptyRetainedAsset`], in which case the [`RetainedAssets`] of this asset is always empty.
@@ -118,7 +118,7 @@ pub trait RetainAsset: Asset {
     fn retain_asset(&self) -> Self::RetainedAsset;
 }
 
-/// A special [`RetainedAsset`] that won't be stored in [`RetainedAssets`].
+/// A special [`RetainAsset`] that won't be stored in [`RetainedAssets`].
 pub struct EmptyRetainedAsset<A: Asset>(PhantomData<A>);
 
 impl<A: Asset> Default for EmptyRetainedAsset<A> {
@@ -127,7 +127,7 @@ impl<A: Asset> Default for EmptyRetainedAsset<A> {
     }
 }
 
-/// Stores all ([`RetainedAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
+/// Stores all ([`RetainAsset`]) of extracted `RenderAsset` if they exist and are not [`EmptyRetainedAsset`].
 #[derive(Resource)]
 pub struct RetainedAssets<A: RetainAsset>(HashMap<AssetId<A>, A::RetainedAsset>);
 

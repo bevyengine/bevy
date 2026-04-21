@@ -327,6 +327,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                     needs_extracting.remove(id);
                     extracted_assets.modified.remove(id);
                     extracted_assets.removed.insert(*id);
+                    retained_assets.remove(*id);
                 }
                 AssetEvent::LoadedWithDependencies { .. } => {
                     // TODO: handle this
