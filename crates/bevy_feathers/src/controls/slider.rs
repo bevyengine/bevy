@@ -15,14 +15,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::PickingSystems;
+use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
-    PositionType, UiRect, Val,
+    PositionType, Pressed, UiRect, Val,
 };
 use bevy_ui_widgets::{
     Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
@@ -34,7 +34,7 @@ use crate::{
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeFontColor, ThemedText, UiTheme},
+    theme::{InheritableThemeTextColor, ThemedText, UiTheme},
     tokens,
 };
 
@@ -90,6 +90,7 @@ pub fn slider(props: SliderProps) -> impl Scene {
             flex_grow: 1.0,
             border_radius: {RoundedCorners::All.to_border_radius(6.0)},
         }
+        Hovered
         Slider {
             track_click: TrackClick::Drag,
             orientation: SliderOrientation::Horizontal,
@@ -120,7 +121,7 @@ pub fn slider(props: SliderProps) -> impl Scene {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
-            ThemeFontColor(tokens::SLIDER_TEXT)
+            InheritableThemeTextColor(tokens::SLIDER_TEXT)
             InheritableFont {
                 font: fonts::MONO,
                 font_size: size::SMALL_FONT,
@@ -155,6 +156,7 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
             border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
         },
+        Hovered::default(),
         Slider {
             track_click: TrackClick::Drag,
             orientation: SliderOrientation::Horizontal,
@@ -187,7 +189,7 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            ThemeFontColor(tokens::SLIDER_TEXT),
+            InheritableThemeTextColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font_size: size::SMALL_FONT,
                 weight: FontWeight::NORMAL,
@@ -200,17 +202,33 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
 
 fn update_slider_styles(
     mut q_sliders: Query<
-        (Entity, Has<InteractionDisabled>, &mut BackgroundGradient),
-        (With<SliderStyle>, Or<(Spawned, Added<InteractionDisabled>)>),
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Pressed>,
+            &Hovered,
+            &mut BackgroundGradient,
+        ),
+        (
+            With<SliderStyle>,
+            Or<(
+                Spawned,
+                Added<InteractionDisabled>,
+                Changed<Hovered>,
+                Added<Pressed>,
+            )>,
+        ),
     >,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    for (slider_ent, disabled, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient) in q_sliders.iter_mut() {
         set_slider_styles(
             slider_ent,
             &theme,
             disabled,
+            pressed,
+            hovered.0,
             gradient.as_mut(),
             &mut commands,
         );
@@ -218,37 +236,69 @@ fn update_slider_styles(
 }
 
 fn update_slider_styles_remove(
-    mut q_sliders: Query<(Entity, Has<InteractionDisabled>, &mut BackgroundGradient)>,
+    mut q_sliders: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Pressed>,
+            &Hovered,
+            &mut BackgroundGradient,
+        ),
+        With<SliderStyle>,
+    >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    mut remove_pressed: RemovedComponents<Pressed>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    removed_disabled.read().for_each(|ent| {
-        if let Ok((slider_ent, disabled, mut gradient)) = q_sliders.get_mut(ent) {
-            set_slider_styles(
-                slider_ent,
-                &theme,
-                disabled,
-                gradient.as_mut(),
-                &mut commands,
-            );
-        }
-    });
+    removed_disabled
+        .read()
+        .chain(remove_pressed.read())
+        .for_each(|ent| {
+            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient)) =
+                q_sliders.get_mut(ent)
+            {
+                set_slider_styles(
+                    slider_ent,
+                    &theme,
+                    disabled,
+                    pressed,
+                    hovered.0,
+                    gradient.as_mut(),
+                    &mut commands,
+                );
+            }
+        });
 }
 
 fn set_slider_styles(
     slider_ent: Entity,
     theme: &Res<'_, UiTheme>,
     disabled: bool,
+    pressed: bool,
+    hovered: bool,
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(&match disabled {
-        true => tokens::SLIDER_BAR_DISABLED,
-        false => tokens::SLIDER_BAR,
+    let bar_color = theme.color(&if disabled {
+        tokens::SLIDER_BAR_DISABLED
+    } else if pressed {
+        tokens::SLIDER_BAR_PRESSED
+    } else if hovered {
+        tokens::SLIDER_BAR_HOVER
+    } else {
+        tokens::SLIDER_BAR
     });
 
-    let bg_color = theme.color(&tokens::SLIDER_BG);
+    let bg_color = theme.color(&if disabled {
+        tokens::SLIDER_BG_DISABLED
+    } else if pressed {
+        tokens::SLIDER_BG_PRESSED
+    } else if hovered {
+        tokens::SLIDER_BG_HOVER
+    } else {
+        tokens::SLIDER_BG
+    });
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,

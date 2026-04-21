@@ -12,6 +12,7 @@
 //! - Text entry
 //! - Basic keyboard-driven cursor movement (arrow keys, home/end keys)
 //! - Backspace and delete operations
+//! - Input Method Editor (IME) support for complex scripts (Japanese, Chinese, Korean, etc.)
 //!
 //! You might use this widget as the basis for text input fields in forms, chat boxes, for naming characters,
 //! or any other scenario where you want to extract an unformatted text string from the user.
@@ -48,7 +49,6 @@
 //! - Clipboard operations (copy, cut, paste)
 //! - Undo/redo functionality
 //! - Newline support for multi-line input
-//! - Input Method Editor (IME) support for complex scripts
 //! - Text validation (e.g., email format, numeric input, max length)
 //! - Password-style character masking
 //! - Soft-wrapping of long lines
@@ -74,6 +74,7 @@ use crate::{
     TextLayout,
 };
 use alloc::sync::Arc;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
@@ -96,7 +97,14 @@ pub struct Clipboard(pub String);
 /// and provides methods for applying text edits and cursor movements correctly
 /// according to Unicode rules.
 #[derive(Component, Clone)]
-#[require(TextLayout, TextFont, TextColor, LineHeight, FontHinting)]
+#[require(
+    TextLayout,
+    TextFont,
+    TextColor,
+    LineHeight,
+    FontHinting,
+    EditableTextGeneration
+)]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
     ///
@@ -117,8 +125,6 @@ pub struct EditableText {
     pub cursor_width: f32,
     /// Cursor blink period in seconds.
     pub cursor_blink_period: Duration,
-    /// True if a `TextEdit` was applied this frame
-    pub text_edited: bool,
     /// Maximum number of characters the text input can contain.
     ///
     /// Edits which would cause the length to exceed the maximum are ignored.
@@ -141,7 +147,6 @@ impl Default for EditableText {
             pending_edits: Vec::new(),
             cursor_width: 0.2,
             cursor_blink_period: Duration::from_secs(1),
-            text_edited: false,
             max_characters: None,
             visible_lines: Some(1.),
             visible_width: None,
@@ -207,18 +212,26 @@ impl EditableText {
         }
     }
 
-    /// Clears the current input and resets the cursor position.
-    pub fn clear(
-        &mut self,
-        font_context: &mut FontContext,
-        layout_context: &mut LayoutContext<TextBrush>,
-    ) {
+    /// Clears the input's text buffer and any pending edits.
+    pub fn clear(&mut self) {
         self.editor.set_text("");
-        let mut driver = self.editor_mut().driver(font_context, layout_context);
-        driver.move_to_byte(0);
         self.pending_edits.clear();
     }
+
+    /// Is the IME currently composing text for this input?
+    ///
+    /// Some behavior (e.g. "submit on Enter") may want to be suppressed while the IME is active
+    /// to avoid interrupting the user's composition.
+    pub fn is_composing(&self) -> bool {
+        self.editor.is_composing()
+    }
 }
+
+/// Wrapper around a `parley::Generation`. Used to track when `TextLayoutInfo` is stale and needs reupdating.
+/// The initial `Generation` of the `PlainEditor` is not equal to the default `Generation` value, so the
+/// `TextLayoutInfo` will always be given an initial update.
+#[derive(Component, PartialEq, Eq, Default, Clone, Copy, Deref, DerefMut)]
+pub struct EditableTextGeneration(parley::Generation);
 
 /// Sets a per-character filter for this text input. Insert and paste edits are ignored if the filter rejects any character.
 ///
@@ -235,16 +248,19 @@ impl EditableTextFilter {
 
 /// Applies pending text edit actions to all [`EditableText`] widgets.
 pub fn apply_text_edits(
-    mut query: Query<(Entity, &mut EditableText, Option<&EditableTextFilter>)>,
+    mut query: Query<(
+        Entity,
+        &mut EditableText,
+        Option<&EditableTextFilter>,
+        &EditableTextGeneration,
+    )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard_text: ResMut<Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter) in query.iter_mut() {
-        editable_text.text_edited = !editable_text.pending_edits.is_empty();
-
-        if editable_text.text_edited {
+    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
+        if !editable_text.pending_edits.is_empty() {
             editable_text.apply_pending_edits(
                 &mut font_context.0,
                 &mut layout_context.0,
@@ -254,7 +270,9 @@ pub fn apply_text_edits(
                     _ => &|_| true,
                 },
             );
+        }
 
+        if **generation != editable_text.editor.generation() {
             commands.trigger(TextEditChange { entity });
         }
     }

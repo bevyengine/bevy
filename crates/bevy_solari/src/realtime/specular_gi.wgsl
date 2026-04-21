@@ -2,7 +2,9 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::specular_gi
 
+#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
@@ -155,6 +157,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
             throughput /= p_bounce;
         }
+
+        // Russian roulette for early termination
+        let p = luminance(throughput);
+        if rand_f(rng) > p { break; }
+        throughput /= p;
 
         // Path spread increase
         path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);

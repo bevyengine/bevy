@@ -47,7 +47,7 @@ use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
-    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSet,
+    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSystems,
     MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
@@ -212,7 +212,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
             .init_gpu_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
             .add_systems(
                 RenderStartup,
-                init_screen_space_reflections_pipeline.after(MeshPipelineSet),
+                init_screen_space_reflections_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
@@ -573,6 +573,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
+        }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
         }
 
         #[cfg(not(target_arch = "wasm32"))]

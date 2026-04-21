@@ -28,6 +28,7 @@ use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
+use bevy_ui::ComputedStackIndex;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
@@ -219,6 +220,7 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -230,7 +232,9 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
+        &slicers_query
+    {
         let content_box = uinode.content_box();
 
         // Skip invisible images
@@ -281,7 +285,7 @@ pub fn extract_ui_texture_slices(
 
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
+            stack_index: stack_index.0,
             transform: Affine2::from(*transform) * Affine2::from_translation(content_box.center()),
             color: image.color.into(),
             rect: Rect {

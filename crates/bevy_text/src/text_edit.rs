@@ -5,6 +5,21 @@ use smol_str::SmolStr;
 
 use crate::TextBrush;
 
+/// A selection within IME preedit text, expressed as byte offsets from the start of the preedit.
+///
+/// The anchor and focus map directly onto parley's `Selection::new(anchor, focus)` when
+/// the preedit is applied. If `anchor == focus`, the selection is a caret.
+///
+/// This corresponds to [`ImePredit::Commit.cursor`](https://docs.rs/bevy/latest/bevy/prelude/enum.Ime.html#variant.Preedit.field.cursor)
+/// from `bevy_window`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+pub struct PreeditCursor {
+    /// Anchor byte offset within the preedit text.
+    pub anchor: usize,
+    /// Focus (caret) byte offset within the preedit text.
+    pub focus: usize,
+}
+
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug, Clone, PartialEq, Reflect)]
 pub enum TextEdit {
@@ -132,9 +147,47 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to shift-clicking within the text area.
     ShiftClickExtension(Vec2),
+    /// Set the IME preedit/composing text at the cursor, or clear it if `value` is empty.
+    ///
+    /// The preedit text is excluded from [`EditableText::value`](crate::EditableText::value).
+    /// `cursor` describes the selection within the preedit text, or `None` to hide the cursor.
+    ///
+    /// Passing an empty `value` clears any in-progress composition; `cursor` is ignored in
+    /// that case. Use [`TextEdit::clear_ime_compose`] as a convenience constructor.
+    ///
+    /// Typically generated in response to [`bevy_window::Ime::Preedit`] events.
+    ///
+    /// [`bevy_window::Ime::Preedit`]: https://docs.rs/bevy/latest/bevy/prelude/enum.Ime.html#variant.Preedit
+    ImeSetCompose {
+        /// The current preedit string. An empty string clears the composition.
+        value: SmolStr,
+        /// Selection within the preedit text, or `None` to hide the cursor.
+        cursor: Option<PreeditCursor>,
+    },
+    /// Accept IME composition and insert `value` at the cursor.
+    ///
+    /// Clears any in-progress preedit first, then inserts the committed string,
+    /// respecting [`EditableText::max_characters`](crate::EditableText::max_characters)
+    /// and the `char_filter`.
+    ///
+    /// Typically generated in response to [`bevy_window::Ime::Commit`] events.
+    ///
+    /// [`bevy_window::Ime::Commit`]: https://docs.rs/bevy/latest/bevy/prelude/enum.Ime.html#variant.Commit
+    ImeCommit {
+        /// The committed text to insert at the cursor.
+        value: SmolStr,
+    },
 }
 
 impl TextEdit {
+    /// Convenience constructor for a [`TextEdit::ImeSetCompose`] that clears the preedit.
+    pub fn clear_ime_compose() -> Self {
+        Self::ImeSetCompose {
+            value: SmolStr::new_inline(""),
+            cursor: None,
+        }
+    }
+
     /// Apply the `TextEdit` to the text editor driver
     pub fn apply<'a>(
         self,
@@ -162,9 +215,15 @@ impl TextEdit {
                     return;
                 }
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
+                    let select_len = driver
+                        .editor
+                        .selected_text()
+                        .map(str::chars)
+                        .map(Iterator::count)
+                        .unwrap_or(0);
                     if max
-                        < driver.editor.text().chars().count() - select_len + clipboard_text.len()
+                        < driver.editor.text().chars().count() - select_len
+                            + clipboard_text.chars().count()
                     {
                         return;
                     }
@@ -176,8 +235,15 @@ impl TextEdit {
                     return;
                 }
                 if let Some(max) = max_characters {
-                    let select_len = driver.editor.selected_text().map(str::len).unwrap_or(0);
-                    if max < driver.editor.text().chars().count() - select_len + text.len() {
+                    let select_len = driver
+                        .editor
+                        .selected_text()
+                        .map(str::chars)
+                        .map(Iterator::count)
+                        .unwrap_or(0);
+                    if max
+                        < driver.editor.text().chars().count() - select_len + text.chars().count()
+                    {
                         return;
                     }
                 }
@@ -218,6 +284,24 @@ impl TextEdit {
                 driver.extend_selection_to_point(point.x, point.y);
             }
             TextEdit::ShiftClickExtension(point) => driver.shift_click_extension(point.x, point.y),
+            TextEdit::ImeSetCompose { value, cursor } => {
+                if value.is_empty() {
+                    driver.clear_compose();
+                } else {
+                    let cursor = cursor.map(|c| (c.anchor, c.focus));
+                    driver.set_compose(&value, cursor);
+                }
+            }
+            TextEdit::ImeCommit { value: text } => {
+                driver.clear_compose();
+                if text.chars().all(&char_filter)
+                    && max_characters.is_none_or(|max| {
+                        driver.editor.text().chars().count() + text.chars().count() <= max
+                    })
+                {
+                    driver.insert_or_replace_selection(text.as_str());
+                }
+            }
         }
     }
 }

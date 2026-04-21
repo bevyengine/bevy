@@ -31,12 +31,34 @@ impl EntityRefs {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct HoistedExpressions {
+    expressions: Vec<TokenStream>,
+    index: usize,
+}
+
+impl HoistedExpressions {
+    fn next_ident(&mut self) -> Ident {
+        let index = self.index;
+        let ident = format_ident!("_expr{index}");
+        self.index += 1;
+        ident
+    }
+
+    pub fn hoist(&mut self, value: &BsnValue) -> Ident {
+        let ident = self.next_ident();
+        self.expressions.push(quote! {let #ident = #value;});
+        ident
+    }
+}
+
 /// Context used in the [`Bsn`] code generation pipeline.
 /// Used to accumulate validation errors without short-circuiting.
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
     pub entity_refs: &'a mut EntityRefs,
+    pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
 }
@@ -62,6 +84,7 @@ impl BsnTokenStream for BsnRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
+        let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
 
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
@@ -69,6 +92,7 @@ impl BsnTokenStream for BsnRoot {
         // e.g. when typing the name of a field but no value yet.
         quote! {
             #bevy_scene::SceneScope({
+                #(#hoisted_exprs)*
                 let _res = #tokens;
                 #(#errors)*
                 _res
@@ -82,6 +106,7 @@ impl BsnTokenStream for BsnListRoot {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
+        let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
 
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
@@ -89,6 +114,7 @@ impl BsnTokenStream for BsnListRoot {
         // e.g. when typing the name of a field but no value yet.
         quote! {
             {
+                #(#hoisted_exprs)*
                 let _res = #bevy_scene::SceneListScope(#tokens);
                 #(#errors)*
                 _res
@@ -217,16 +243,6 @@ impl BsnEntry {
             }),
         }
     }
-}
-
-macro_rules! field_value_type {
-    () => {
-        BsnValue::Expr(_)
-            | BsnValue::Closure(_)
-            | BsnValue::Ident(_)
-            | BsnValue::Lit(_)
-            | BsnValue::Tuple(_)
-    };
 }
 
 impl BsnType {
@@ -390,18 +406,28 @@ impl BsnType {
     ) -> syn::Result<()> {
         match value {
             // Enables field autocomplete in Rust Analyzer
-            Some(field_value_type!()) | None => {
+            Some(
+                BsnValue::Ident(_) | BsnValue::Expr(_) | BsnValue::Closure(_) | BsnValue::Tuple(_),
+            )
+            | None => {
                 // NOTE: It is very important to still produce outputs for None field values. This is what
                 // enables field autocomplete in Rust Analyzer
                 assignments.push(
                     value
-                        .map(|v| quote! { #(#base_path.)*#member = #v; })
+                        .map(|v| {
+                            let ident = ctx.hoisted_expressions.hoist(v);
+                            quote! { #(#base_path.)*#member = #ident; }
+                        })
                         .unwrap_or(quote! {
                             #(#base_path.)*#member;
                         }),
                 );
             }
-
+            Some(BsnValue::Lit(_)) => {
+                // value is Some
+                let value = value.unwrap();
+                assignments.push(quote! { #(#base_path.)*#member = #value; });
+            }
             Some(BsnValue::Name(ident)) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
@@ -548,11 +574,16 @@ mod tests {
             }
         }
 
-        fn ctx<'a>(&'a self, refs: &'a mut EntityRefs) -> BsnCodegenCtx<'a> {
+        fn ctx<'a>(
+            &'a self,
+            refs: &'a mut EntityRefs,
+            hoisted_expressions: &'a mut HoistedExpressions,
+        ) -> BsnCodegenCtx<'a> {
             BsnCodegenCtx {
                 bevy_scene: &self.bevy_scene,
                 bevy_ecs: &self.bevy_ecs,
                 entity_refs: refs,
+                hoisted_expressions,
                 errors: Vec::new(),
             }
         }
@@ -562,7 +593,8 @@ mod tests {
     fn duplicate_field() {
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         let mut assignments = vec![];
         let duplicate = BsnType {
             path: parse_quote!(Transform),
@@ -599,7 +631,8 @@ mod tests {
     fn recursive_duplicate_field() {
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         let mut assignments = vec![];
         let nested_duplicate = BsnType {
             path: parse_quote!(Parent),
@@ -644,7 +677,8 @@ mod tests {
     fn missing_struct_field() {
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         let mut assignments = Vec::new();
         let missing = BsnType {
             path: parse_quote!(Transform),
@@ -676,7 +710,8 @@ mod tests {
         // Arrange
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         let mut assignments = vec![];
         let duplicate = BsnType {
             path: parse_quote!(MyEnum),
@@ -720,7 +755,8 @@ mod tests {
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         ctx.errors.push(syn::Error::new(
             proc_macro2::Span::call_site(),
             "Test Error",
@@ -745,7 +781,8 @@ mod tests {
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
-        let mut ctx = paths.ctx(&mut refs);
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
         ctx.errors.push(syn::Error::new(
             proc_macro2::Span::call_site(),
             "Test Error",
