@@ -12,6 +12,7 @@
 //! - Text entry
 //! - Basic keyboard-driven cursor movement (arrow keys, home/end keys)
 //! - Backspace and delete operations
+//! - Input Method Editor (IME) support for complex scripts (Japanese, Chinese, Korean, etc.)
 //!
 //! You might use this widget as the basis for text input fields in forms, chat boxes, for naming characters,
 //! or any other scenario where you want to extract an unformatted text string from the user.
@@ -48,7 +49,6 @@
 //! - Clipboard operations (copy, cut, paste)
 //! - Undo/redo functionality
 //! - Newline support for multi-line input
-//! - Input Method Editor (IME) support for complex scripts
 //! - Text validation (e.g., email format, numeric input, max length)
 //! - Password-style character masking
 //! - Soft-wrapping of long lines
@@ -216,6 +216,14 @@ impl EditableText {
     pub fn clear(&mut self) {
         self.editor.set_text("");
         self.pending_edits.clear();
+    }
+
+    /// Is the IME currently composing text for this input?
+    ///
+    /// Some behavior (e.g. "submit on Enter") may want to be suppressed while the IME is active
+    /// to avoid interrupting the user's composition.
+    pub fn is_composing(&self) -> bool {
+        self.editor.is_composing()
     }
 }
 

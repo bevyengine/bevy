@@ -25,7 +25,7 @@ use crate::{
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor},
     tokens,
 };
 
@@ -92,7 +92,7 @@ pub fn button(props: ButtonProps) -> impl Scene {
         TabIndex(0)
         FocusIndicator
         ThemeBackgroundColor(tokens::BUTTON_BG)
-        ThemeFontColor(tokens::BUTTON_TEXT)
+        InheritableThemeTextColor(tokens::BUTTON_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
@@ -168,7 +168,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
         TabIndex(0),
         FocusIndicator,
         ThemeBackgroundColor(tokens::BUTTON_BG),
-        ThemeFontColor(tokens::BUTTON_TEXT),
+        InheritableThemeTextColor(tokens::BUTTON_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
@@ -187,7 +187,7 @@ fn update_button_styles(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         Or<(
             Changed<Hovered>,
@@ -221,7 +221,7 @@ fn update_button_styles_remove(
         Has<Pressed>,
         &Hovered,
         &ThemeBackgroundColor,
-        &ThemeFontColor,
+        &InheritableThemeTextColor,
     )>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_pressed: RemovedComponents<Pressed>,
@@ -255,7 +255,7 @@ fn set_button_styles(
     pressed: bool,
     hovered: bool,
     bg_color: &ThemeBackgroundColor,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let bg_token = match (variant, disabled, pressed, hovered) {
@@ -296,7 +296,7 @@ fn set_button_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(button_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape

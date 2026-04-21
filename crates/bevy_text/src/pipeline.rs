@@ -421,19 +421,30 @@ pub fn resolve_font_source<'a>(
             )))
         }
         FontSource::Family(family) => FontFamily::named(family.as_str()),
-        FontSource::Serif => parley::GenericFamily::Serif.into(),
-        FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-        FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-        FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-        FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-        FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-        FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-        FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-        FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-        FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-        FontSource::Math => parley::GenericFamily::Math.into(),
-        FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+        generic => {
+            #[cfg(not(feature = "system_font_discovery"))]
+            bevy_log::error_once!(
+                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
+                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                to discover system fonts."
+            );
+            match generic {
+                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
+                FontSource::Serif => parley::GenericFamily::Serif.into(),
+                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+                FontSource::Math => parley::GenericFamily::Math.into(),
+                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+            }
+        }
     })
 }
 
@@ -460,6 +471,9 @@ pub struct TextLayoutInfo {
     pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
+    /// Underline rects for the active IME preedit/compose region.
+    /// Should only have values when composition is in progress.
+    pub preedit_underline_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
@@ -471,6 +485,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
+        self.preedit_underline_rects.clear();
     }
 }
 

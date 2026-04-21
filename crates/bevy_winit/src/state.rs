@@ -682,13 +682,13 @@ impl WinitAppRunnerState {
                 // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                 // we cannot use the visibility to drive rendering on these platforms
                 // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
+                cfg_select! {
+                    not(any(
                         target_arch = "wasm32",
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
+                    )) =>
                     {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
                             winit_windows.windows.iter().any(|(_, w)| {
@@ -702,7 +702,7 @@ impl WinitAppRunnerState {
                             ControlFlow::Poll
                         });
                     }
-                    else {
+                    _ => {
                         event_loop.set_control_flow(ControlFlow::Wait);
                     }
                 }
@@ -903,11 +903,12 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
     trace!("starting winit event loop");
     // The winit docs mention using `spawn` instead of `run` on Wasm.
     // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+    cfg_select! {
+        target_arch = "wasm32" => {
             event_loop.spawn_app(runner_state);
             AppExit::Success
-        } else {
+        }
+        _ => {
             let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
                 bevy_log::error!("winit event loop returned an error: {err}");
