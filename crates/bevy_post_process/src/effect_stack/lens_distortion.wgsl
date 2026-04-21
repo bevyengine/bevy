@@ -32,20 +32,18 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32>{
     let radius = max(length(uv_centered), MATH_EPSILON);
 
     let direction = uv_centered / radius;
-    let weight_x = abs(direction.x);
-    let weight_y = abs(direction.y);
-    let adjust = weight_x * multiplier.x + weight_y * multiplier.y;
+    let adjust = dot(abs(direction), multiplier);
 
     // Maintains the correlation between k2 and k1, while ensuring the sign of k2
-    // is determinedsolely by `edge_curvature` rather than being influenced by intensity.
+    // is determined solely by `edge_curvature` rather than being influenced by intensity.
     let k1 = intensity * adjust;
     let k2 = k1 * intensity * lens_distortion_settings.edge_curvature;
 
     let r2 = radius * radius;
-    let r_distorted = radius * (1.0 + k1 * r2 + k2 * r2 * r2);
+    let r_distorted = radius * (1.0 + (k1 + k2 * r2) * r2);
 
     let uv_distorted = direction * r_distorted + center;
-    
+
     // Compensates for the distortion pushing pixels outside the [0,1] UV bounds.
     let uv_scaled = (uv_distorted - center) / lens_distortion_settings.scale + center;
 

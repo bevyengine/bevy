@@ -4,6 +4,7 @@
 //!
 //! - Chromatic Aberration
 //! - Vignette
+//! - Lens Distortion
 
 use std::f32::consts::PI;
 
