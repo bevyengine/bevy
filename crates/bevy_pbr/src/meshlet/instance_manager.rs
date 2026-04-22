@@ -134,6 +134,7 @@ impl InstanceManager {
             None,
             None,
             None,
+            render_layers,
         );
 
         // Append instance data
