@@ -454,6 +454,7 @@ impl GetFullBatchData for StencilPipeline {
             None,
             None,
             None,
+            None,
         ))
     }
 
