@@ -432,7 +432,7 @@ impl BsnType {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
                 assignments.push(quote! {
-                    #(#base_path.)*#member = #bevy_ecs::template::EntityReference::ScopedEntityIndex(
+                    #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::ScopedEntityIndex(
                         #bevy_ecs::template::ScopedEntityIndex {
                             scope: _context.current_entity_scope(), index: #index
                         }
