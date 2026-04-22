@@ -769,6 +769,7 @@ mod render_layers {
             },
             Transform::from_xyz(4.0, 8.0, 4.0),
             DespawnOnExit(CURRENT_SCENE),
+            RenderLayers::layer(0).with(1).with(2),
         ));
 
         let window_half_size = window.physical_size() / 2;
