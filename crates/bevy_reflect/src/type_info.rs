@@ -3,7 +3,7 @@ use crate::{
     enums::{DynamicEnum, EnumInfo},
     list::{DynamicList, ListInfo},
     map::{DynamicMap, MapInfo},
-    set::SetInfo,
+    set::{DynamicSet, SetInfo},
     structs::{DynamicStruct, StructInfo},
     tuple::{DynamicTuple, TupleInfo},
     tuple_struct::{DynamicTupleStruct, TupleStructInfo},
@@ -139,6 +139,8 @@ impl MaybeTyped for DynamicTupleStruct {}
 impl MaybeTyped for DynamicStruct {}
 
 impl MaybeTyped for DynamicMap {}
+
+impl MaybeTyped for DynamicSet {}
 
 impl MaybeTyped for DynamicList {}
 
@@ -366,6 +368,7 @@ impl TypeInfo {
     impl_cast_method!(as_list: List => ListInfo);
     impl_cast_method!(as_array: Array => ArrayInfo);
     impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_set: Set => SetInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
     impl_cast_method!(as_opaque: Opaque => OpaqueInfo);
 }
@@ -622,6 +625,7 @@ impl OpaqueInfo {
 mod tests {
     use super::*;
     use alloc::vec::Vec;
+    use bevy_platform::collections::HashSet;
 
     #[test]
     fn should_return_error_on_invalid_cast() {
@@ -632,6 +636,15 @@ mod tests {
                 expected: ReflectKind::Struct,
                 received: ReflectKind::List
             })
+        ));
+    }
+
+    #[test]
+    fn should_cast_to_set() {
+        let info = <HashSet<u64> as Typed>::type_info();
+        assert!(matches!(
+            info.as_set(),
+            Ok(_)
         ));
     }
 }
