@@ -170,16 +170,20 @@ fn toggle_lights(
     mut light_states: ResMut<LightStates>,
     mut directional_layer_1: Single<
         &mut DirectionalLight,
-        (With<DirectionalLayer1Light>, Without<DirectionalLayer0Light>),
+        (
+            With<DirectionalLayer1Light>,
+            Without<DirectionalLayer0Light>,
+        ),
     >,
     mut directional_layer_0: Single<
         &mut DirectionalLight,
-        (With<DirectionalLayer0Light>, Without<DirectionalLayer1Light>),
+        (
+            With<DirectionalLayer0Light>,
+            Without<DirectionalLayer1Light>,
+        ),
     >,
-    mut point_layer_1:
-        Single<&mut PointLight, (With<PointLayer1Light>, Without<PointLayer0Light>)>,
-    mut point_layer_0:
-        Single<&mut PointLight, (With<PointLayer0Light>, Without<PointLayer1Light>)>,
+    mut point_layer_1: Single<&mut PointLight, (With<PointLayer1Light>, Without<PointLayer0Light>)>,
+    mut point_layer_0: Single<&mut PointLight, (With<PointLayer0Light>, Without<PointLayer1Light>)>,
 ) {
     if key_input.just_pressed(KeyCode::Digit1) {
         light_states.directional_layer_1 = !light_states.directional_layer_1;
@@ -216,7 +220,10 @@ fn toggle_lights(
     };
 }
 
-fn update_help_text(mut text: Single<&mut Text, With<ExampleText>>, light_states: Res<LightStates>) {
+fn update_help_text(
+    mut text: Single<&mut Text, With<ExampleText>>,
+    light_states: Res<LightStates>,
+) {
     fn status(enabled: bool) -> &'static str {
         if enabled {
             "ON"
