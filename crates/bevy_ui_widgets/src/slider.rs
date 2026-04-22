@@ -361,11 +361,7 @@ pub(crate) fn slider_on_pointer_down(
 pub(crate) fn slider_on_drag_start(
     mut drag_start: On<Pointer<DragStart>>,
     mut q_slider: Query<
-        (
-            &SliderValue,
-            &mut SliderDragState,
-            Has<InteractionDisabled>,
-        ),
+        (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
 ) {

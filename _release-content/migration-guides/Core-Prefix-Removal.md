@@ -1,6 +1,6 @@
 ---
 title: "`Core` prefix removed from UI widget components"
-pull_requests: [23612, TODO]
+pull_requests: [23612, 23938]
 ---
 
 `CoreScrollbarThumb` has been renamed to `ScrollbarThumb`.
