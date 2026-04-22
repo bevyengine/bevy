@@ -2,25 +2,15 @@
 
 use bevy::{
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
-    ui_widgets::{
-        ControlOrientation, CoreScrollbarDragState, CoreScrollbarThumb, Scrollbar, ScrollbarPlugin,
-    },
+    ui_widgets::{ControlOrientation, CoreScrollbarDragState, Scrollbar, ScrollbarThumb},
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            ScrollbarPlugin,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(UiScale(1.25))
         .add_systems(Startup, setup_view_root)
         .add_systems(Update, update_scrollbar_thumb)
@@ -118,14 +108,13 @@ fn scroll_area_demo() -> impl Bundle {
                     min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        border_radius: BorderRadius::all(px(4)),
-                        ..default()
-                    },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
+                    BorderColor::all(colors::GRAY3),
+                    ScrollbarThumb {
+                        border_radius: BorderRadius::all(px(4)),
+                        border: px(1).all(),
+                    },
                 ))),
             ));
 
@@ -143,14 +132,13 @@ fn scroll_area_demo() -> impl Bundle {
                     min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        border_radius: BorderRadius::all(px(4)),
-                        ..default()
-                    },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
+                    BorderColor::all(colors::GRAY3),
+                    ScrollbarThumb {
+                        border_radius: BorderRadius::all(px(4)),
+                        border: px(1).all(),
+                    },
                 ))),
             ));
         }),)),
@@ -173,7 +161,7 @@ fn update_scrollbar_thumb(
     mut q_thumb: Query<
         (&mut BackgroundColor, &Hovered, &CoreScrollbarDragState),
         (
-            With<CoreScrollbarThumb>,
+            With<ScrollbarThumb>,
             Or<(Changed<Hovered>, Changed<CoreScrollbarDragState>)>,
         ),
     >,
@@ -181,7 +169,7 @@ fn update_scrollbar_thumb(
     for (mut thumb_bg, Hovered(is_hovering), drag) in q_thumb.iter_mut() {
         let color: Color = if *is_hovering || drag.dragging {
             // If hovering, use a lighter color
-            colors::GRAY3
+            colors::GRAY4
         } else {
             // Default color for the slider
             colors::GRAY2
@@ -200,5 +188,6 @@ mod colors {
 
     pub const GRAY1: Srgba = Srgba::new(0.224, 0.224, 0.243, 1.0);
     pub const GRAY2: Srgba = Srgba::new(0.486, 0.486, 0.529, 1.0);
-    pub const GRAY3: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+    pub const GRAY3: Srgba = Srgba::new(0.71, 0.71, 0.772, 1.0);
+    pub const GRAY4: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
 }

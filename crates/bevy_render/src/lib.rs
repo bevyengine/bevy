@@ -20,7 +20,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -57,10 +58,12 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+pub mod slab_allocator;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
+pub mod uniform;
 pub mod view;
 
 /// The render prelude.
@@ -84,7 +87,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::PipelineCache,
+    render_resource::{PipelineCache, SparseBufferPlugin},
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
     settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
@@ -93,10 +96,13 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_ecs::{
+    prelude::*,
+    schedule::{InternedScheduleLabel, ScheduleLabel},
+};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
@@ -113,7 +119,7 @@ use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
-/// Rendering is done in a [`SubApp`](bevy_app::SubApp), which exchanges data with the main app
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
 /// between main schedule iterations.
 ///
 /// Rendering can be executed between iterations of the main schedule,
@@ -179,6 +185,9 @@ pub enum RenderSystems {
     PrepareResources,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
     PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that writes batches
+    /// for render phases to the GPU.
+    PrepareResourcesWritePhaseBuffers,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
     /// [`PrepareResourcesBatchPhases`](RenderSystems::PrepareResourcesBatchPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
@@ -205,10 +214,74 @@ pub enum RenderSystems {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// Constructs a `T` resource with `from_world` and inserts it.
+pub fn init_gpu_resource<R: Resource + FromWorld>(world: &mut World) {
+    let res = R::from_world(world);
+    world.insert_resource(res);
+}
+
+/// Convenience methods for render-recovery-aware resource initialization.
+pub trait GpuResourceAppExt {
+    /// Causes the provided GPU resource to be re-initialized during [`RenderStartup`].
+    ///
+    /// This is useful when recovering from lost render devices.
+    ///
+    /// Shorthand for:
+    /// ```ignore
+    /// app.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all());
+    /// ```
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self;
+}
+
+impl GpuResourceAppExt for SubApp {
+    fn init_gpu_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.add_systems(RenderStartup, init_gpu_resource::<R>.ambiguous_with_all())
+    }
+}
+
+/// The render recovery schedule. This schedule runs the [`RenderScheduleOrder`] schedules if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
+
+/// Defines the schedules to be run for the rendering, including their order.
+///
+/// This is the same approach as [`MainScheduleOrder`](`bevy_app::MainScheduleOrder`).
+#[derive(Resource, Debug)]
+pub struct RenderScheduleOrder {
+    /// The labels to run for the rendering schedule (in the order they will be run).
+    pub labels: Vec<InternedScheduleLabel>,
+}
+
+impl Default for RenderScheduleOrder {
+    fn default() -> Self {
+        Self {
+            labels: vec![Render.intern()],
+        }
+    }
+}
+
+impl RenderScheduleOrder {
+    /// Adds the given `schedule` after the `after` schedule
+    pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
+        self.labels.insert(index + 1, schedule.intern());
+    }
+
+    /// Adds the given `schedule` before the `before` schedule
+    pub fn insert_before(&mut self, before: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&before))
+            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
+        self.labels.insert(index, schedule.intern());
+    }
+}
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -252,6 +325,7 @@ impl Render {
             (
                 PrepareResources,
                 PrepareResourcesBatchPhases,
+                PrepareResourcesWritePhaseBuffers,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
@@ -301,6 +375,7 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            SparseBufferPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));
@@ -312,8 +387,9 @@ impl Plugin for RenderPlugin {
         app.init_resource::<RenderAssetBytesPerFrame>()
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<RenderScheduleOrder>();
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
             render_app.insert_resource(asset_server);
             render_app.insert_resource(RenderState::Initializing);
@@ -325,9 +401,22 @@ impl Plugin for RenderPlugin {
                 ),
             );
 
+            #[cfg(not(feature = "reflect_auto_register"))]
+            render_app.init_resource::<AppTypeRegistry>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            render_app.insert_resource(AppTypeRegistry::new_with_derived_types());
+
+            #[cfg(feature = "reflect_functions")]
+            render_app.init_resource::<AppFunctionRegistry>();
+
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
+            render_app
+                .get_schedule_mut(RenderStartup)
+                .unwrap()
+                .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
             render_app.update_schedule = Some(RenderRecovery.intern());
             render_app.add_systems(
                 RenderRecovery,
@@ -382,7 +471,11 @@ fn renderer_is_ready(state: Res<RenderState>) -> bool {
 }
 
 fn run_render_schedule(world: &mut World) {
-    world.run_schedule(Render);
+    world.resource_scope(|world, order: Mut<RenderScheduleOrder>| {
+        for &label in &order.labels {
+            let _ = world.try_run_schedule(label);
+        }
+    });
 }
 
 fn send_time(time_sender: Res<TimeSender>) {

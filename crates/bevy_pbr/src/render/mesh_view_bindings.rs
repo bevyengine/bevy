@@ -1,3 +1,4 @@
+use crate::{DfgLut, LtcLuts};
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
@@ -14,7 +15,6 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res},
 };
-use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_render::{
@@ -45,7 +45,7 @@ use crate::{
         self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
     },
     prepass,
-    resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
+    resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
     Bluenoise, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta,
     GlobalClusterableObjectMeta, GpuClusteredLights, GpuFog, GpuLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
@@ -367,9 +367,8 @@ pub fn layout_entries(
     ));
 
     // Prepass
-    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-        || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
-            && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
+    if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
+        || !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
@@ -426,7 +425,7 @@ pub fn layout_entries(
             ),
             (33, sampler(SamplerBindingType::Filtering)),
             // atmosphere data buffer
-            (34, storage_buffer_read_only::<AtmosphereData>(false)),
+            (34, storage_buffer_read_only::<GpuAtmosphere>(false)),
         ));
     }
 
@@ -437,7 +436,28 @@ pub fn layout_entries(
             texture_2d_array(TextureSampleType::Float { filterable: false }),
         ),));
     }
-
+    // LTC LUTs for area lights
+    entries = entries.extend_with_indices((
+        (
+            36,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (
+            37,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (38, sampler(SamplerBindingType::Filtering)),
+    ));
+    // DFG LUT
+    if cfg!(feature = "dfg_lut") {
+        entries = entries.extend_with_indices((
+            (
+                39,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (40, sampler(SamplerBindingType::Filtering)),
+        ));
+    }
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
         (0, environment_map_entries[0]),
@@ -636,12 +656,22 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
     ),
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler, blue_noise): (
+    (
+        decals_buffer,
+        render_decals,
+        atmosphere_buffer,
+        atmosphere_sampler,
+        blue_noise,
+        ltc_luts,
+        dfg_lut,
+    ): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
+        Res<LtcLuts>,
+        Res<DfgLut>,
     ),
 ) {
     if let (
@@ -687,7 +717,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::bevy_default())
+                .image_for_samplecount(1, TextureFormat::Rgba8UnormSrgb)
                 .texture_view
                 .clone();
             let ssao_view = ssao_resources
@@ -742,10 +772,10 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
 
-            // When using WebGL, we can't have a depth texture with multisampling
+            // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
+            // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
-            {
+            if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
                 for (binding, index) in prepass_bindings
                     .iter()
@@ -811,6 +841,27 @@ pub fn prepare_mesh_view_bind_groups(
                     .expect("STBN texture is added unconditionally with at least a placeholder")
                     .texture_view;
                 entries = entries.extend_with_indices(((35, stbn_view),));
+            }
+
+            // LTC LUTs for area lights
+            let (ltc1_view, ltc_sampler) = images
+                .get(&ltc_luts.ltc_1)
+                .map(|img| (&img.texture_view, &img.sampler))
+                .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+            let ltc2_view = images
+                .get(&ltc_luts.ltc_2)
+                .map(|img| &img.texture_view)
+                .unwrap_or(&fallback_image.d2.texture_view);
+            entries =
+                entries.extend_with_indices(((36, ltc1_view), (37, ltc2_view), (38, ltc_sampler)));
+
+            // DFG LUT
+            if cfg!(feature = "dfg_lut") {
+                let (dfg_view, dfg_sampler) = images
+                    .get(&dfg_lut.texture)
+                    .map(|img| (&img.texture_view, &img.sampler))
+                    .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+                entries = entries.extend_with_indices(((39, dfg_view), (40, dfg_sampler)));
             }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();

@@ -20,7 +20,7 @@ pub fn main() {
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
                 level: Level::DEBUG,
-                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                filter: "wgpu=error,naga=info,bevy_render=info,bevy_ecs=trace".to_string(),
                 ..Default::default()
             })
             .set(WindowPlugin {
@@ -97,7 +97,11 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    device: Res<bevy::render::renderer::RenderDevice>,
 ) {
+    bevy::log::info!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    bevy::log::info!("Configured wgpu adapter Features: {:#?}", device.features());
+
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),

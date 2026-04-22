@@ -20,7 +20,7 @@ use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
-        InputDispatchPlugin, InputFocus, InputFocusVisible,
+        InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2, Rot2},
     picking::{
@@ -34,12 +34,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        // Input focus is not enabled by default, so we need to add the corresponding plugins
-        .add_plugins((
-            DefaultPlugins,
-            InputDispatchPlugin,
-            DirectionalNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, DirectionalNavigationPlugin))
         // This resource is canonically used to track whether or not to render a focus indicator
         // It starts as false, but we set it to true here as we would like to see the focus indicator
         .insert_resource(InputFocusVisible(true))
@@ -375,7 +370,7 @@ fn update_focus_display(
     mut display_query: Query<&mut Text, With<FocusDisplay>>,
 ) {
     if let Ok(mut text) = display_query.single_mut() {
-        if let Some(focused_entity) = input_focus.0 {
+        if let Some(focused_entity) = input_focus.get() {
             if let Ok(name) = button_query.get(focused_entity) {
                 **text = format!("Focused: {}", name);
             } else {
@@ -433,7 +428,7 @@ fn highlight_focused_element(
     mut query: Query<(Entity, &mut BorderColor)>,
 ) {
     for (entity, mut border_color) in query.iter_mut() {
-        if input_focus.0 == Some(entity) && input_focus_visible.0 {
+        if input_focus.get() == Some(entity) && input_focus_visible.0 {
             *border_color = BorderColor::all(FOCUSED_BORDER);
         } else {
             *border_color = BorderColor::DEFAULT;
@@ -449,7 +444,7 @@ fn interact_with_focused_button(
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
-        && let Some(focused_entity) = input_focus.0
+        && let Some(focused_entity) = input_focus.get()
     {
         commands.trigger(Pointer::new(
             PointerId::Mouse,

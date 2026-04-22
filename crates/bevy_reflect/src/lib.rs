@@ -5,7 +5,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -644,6 +645,7 @@ mod impls {
 }
 
 pub mod attributes;
+pub mod convert;
 pub mod enums;
 mod generics;
 pub mod serde;
@@ -772,7 +774,7 @@ pub mod __macro_exports {
         mod __automatic_type_registration_impl {
             use super::*;
 
-            pub use inventory;
+            pub use ::inventory;
 
             /// Stores type registration functions
             pub struct AutomaticReflectRegistrations(pub fn(&mut TypeRegistry));

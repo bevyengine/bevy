@@ -20,7 +20,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -40,7 +39,7 @@ use bevy_render::{
     sync_component::SyncComponent,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
@@ -48,7 +47,7 @@ use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
-    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSet,
+    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSystems,
     MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
@@ -192,7 +191,7 @@ pub struct ViewScreenSpaceReflectionsUniformOffset(u32);
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
-    is_hdr: bool,
+    target_format: TextureFormat,
     has_environment_maps: bool,
     has_atmosphere: bool,
 }
@@ -209,11 +208,11 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         };
 
         render_app
-            .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
+            .init_gpu_resource::<ScreenSpaceReflectionsBuffer>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
             .add_systems(
                 RenderStartup,
-                init_screen_space_reflections_pipeline.after(MeshPipelineSet),
+                init_screen_space_reflections_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
@@ -476,7 +475,7 @@ pub fn prepare_ssr_pipelines(
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key,
-                is_hdr: extracted_view.hdr,
+                target_format: extracted_view.target_format,
                 has_environment_maps,
                 has_atmosphere,
             },
@@ -516,12 +515,17 @@ pub fn prepare_ssr_settings(
 }
 
 impl SyncComponent for ScreenSpaceReflections {
-    type Out = ScreenSpaceReflectionsUniform;
+    type Target = (
+        ScreenSpaceReflectionsUniform,
+        ViewScreenSpaceReflectionsUniformOffset,
+        ScreenSpaceReflectionsPipelineId,
+    );
 }
 
 impl ExtractComponent for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
+    type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
@@ -570,6 +574,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
@@ -582,11 +589,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.is_hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

@@ -12,6 +12,10 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputFocusPlugin,
+        #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_window")]
@@ -27,6 +31,8 @@ plugin_group! {
         bevy_asset::io::web:::WebAssetPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
+        #[cfg(feature = "bevy_world_serialization")]
+        bevy_world_serialization:::WorldSerializationPlugin,
         #[cfg(feature = "bevy_scene")]
         bevy_scene:::ScenePlugin,
         // NOTE: WinitPlugin needs to be after AssetPlugin because of custom cursors.
@@ -83,10 +89,13 @@ plugin_group! {
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
+        #[custom(cfg(all(feature = "bevy_dev_tools", feature = "bevy_pbr")))]
         bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
+        #[plugin_group]
+        #[cfg(feature = "bevy_ui_widgets")]
+        bevy_ui_widgets:::UiWidgetsPlugins,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
@@ -115,6 +124,19 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
         reason = "The `app` parameter is used only if a combination of crates that contain ambiguities with each other are enabled."
     )]
     fn build(&self, app: &mut bevy_app::App) {
+        #[cfg(all(feature = "bevy_ui_widgets", feature = "bevy_sprite"))]
+        if app.is_plugin_added::<bevy_ui_widgets::EditableTextInputPlugin>()
+            && app.is_plugin_added::<bevy_sprite::SpritePlugin>()
+        {
+            // update_ime_position reads Window to reposition the IME cursor, while
+            // update_text2d_layout writes Window bounds for text wrapping.
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_ui_widgets::ImeSystems::UpdatePosition,
+                bevy_sprite::update_text2d_layout,
+            );
+        }
+
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         if app.is_plugin_added::<bevy_animation::AnimationPlugin>()

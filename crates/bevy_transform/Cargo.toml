@@ -29,6 +29,7 @@ bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = 
   "approx",
 ] }
 approx = "0.5.1"
+ron = "0.8"
 
 [features]
 # Turning off default features leaves you with a barebones
