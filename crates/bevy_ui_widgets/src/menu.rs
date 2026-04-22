@@ -40,7 +40,6 @@ use bevy_ecs::{
     query::{Has, With},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::FromTemplate,
 };
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
@@ -111,7 +110,7 @@ pub enum MenuLayout {
 /// Some care needs to be taken in implementing a menu button: we normally want menu buttons to
 /// toggle the open state of the menu; but clicking on the button will cause focus loss which means
 /// that the menu will always be closed by the time the click event is processed.
-#[derive(Component, FromTemplate, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::MenuListPopup)),
     TabGroup::modal()
@@ -123,7 +122,7 @@ pub struct MenuPopup {
 }
 
 /// Component that defines a menu item.
-#[derive(Component, FromTemplate, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
 pub struct MenuItem;
 
@@ -398,7 +397,7 @@ fn menu_item_on_pointer_cancel(
 
 /// Headless menu button widget. This is meant to be combined with the `Button` component, and
 /// adds a few more key codes - arrow keys to open the popup.
-#[derive(Component, FromTemplate, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Button)),
     Button,

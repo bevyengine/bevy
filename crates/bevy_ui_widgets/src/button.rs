@@ -2,7 +2,6 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::query::Has;
-use bevy_ecs::template::FromTemplate;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -21,13 +20,13 @@ use crate::Activate;
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
-#[derive(Component, FromTemplate, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct Button;
 
 /// Optional marker component that indicates we want the button to activate on the pointer down
 /// event, this is used for menu buttons.
-#[derive(Component, FromTemplate, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone)]
 pub struct ActivateOnPress;
 
 fn button_on_key_event(

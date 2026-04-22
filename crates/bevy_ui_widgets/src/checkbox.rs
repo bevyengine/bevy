@@ -4,7 +4,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::event::EntityEvent;
 use bevy_ecs::query::{Has, With, Without};
 use bevy_ecs::system::ResMut;
-use bevy_ecs::template::FromTemplate;
 use bevy_ecs::{
     component::Component,
     observer::On,
@@ -30,7 +29,7 @@ use bevy_ecs::entity::Entity;
 /// The [`Checkbox`] component can be used to implement other kinds of toggle widgets. If you
 /// are going to do a toggle switch, you should override the [`AccessibilityNode`] component with
 /// the `Switch` role instead of the `Checkbox` role.
-#[derive(Component, FromTemplate, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
 pub struct Checkbox;
 
