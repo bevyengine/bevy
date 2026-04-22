@@ -642,6 +642,6 @@ mod tests {
     #[test]
     fn should_cast_to_set() {
         let info = <HashSet<u64> as Typed>::type_info();
-        assert!(matches!(info.as_set(), Ok(_)));
+        assert!(info.as_set().is_ok());
     }
 }
