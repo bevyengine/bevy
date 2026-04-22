@@ -569,6 +569,7 @@ mod tests {
     use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::relationship::Relationship;
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use std::path::Path;
@@ -1152,6 +1153,34 @@ mod tests {
 
         let sprite = root.get::<Sprite>().unwrap();
         assert_eq!(sprite.0, handle);
+    }
+
+    #[test]
+    fn child_of_template() {
+        let mut app = test_app();
+
+        let world = app.world_mut();
+
+        fn scene(root: Entity) -> impl SceneList {
+            bsn_list! {
+                ( #Child1 ChildOf(root) ),
+                ( #Child2 ChildOf(#Child1) ),
+            }
+        }
+
+        let root = world.spawn_empty().id();
+
+        let ids = world.spawn_scene_list(scene(root)).unwrap();
+        assert_eq!(ids.len(), 2);
+
+        let [a, b] = world.entity(&*ids)[..] else {
+            unreachable!()
+        };
+        assert_eq!(a.get::<Name>().unwrap().as_str(), "Child1");
+        assert_eq!(a.get::<ChildOf>().unwrap().get(), root);
+
+        assert_eq!(b.get::<Name>().unwrap().as_str(), "Child2");
+        assert_eq!(b.get::<ChildOf>().unwrap().get(), a.id());
     }
 
     #[test]
