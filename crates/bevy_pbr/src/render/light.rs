@@ -2275,9 +2275,8 @@ pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     shadow_render_phases: Res<'w, ViewBinnedRenderPhases<Shadow>>,
     render_lightmaps: Res<'w, RenderLightmaps>,
     view_light_entities: Query<'w, 's, (&'static LightEntity, &'static ExtractedView)>,
-    point_light_entities: Query<'w, 's, &'static ExtractedPointLight>,
     directional_light_entities: Query<'w, 's, &'static ExtractedDirectionalLight>,
-    spot_light_entities: Query<'w, 's, &'static ExtractedPointLight>,
+    point_and_spot_light_entities: Query<'w, 's, &'static ExtractedPointLight>,
     shadow_map_visible_entities_query: Query<'w, 's, &'static RenderShadowMapVisibleEntities>,
     light_key_cache: Res<'w, LightKeyCache>,
     specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
@@ -2303,6 +2302,8 @@ pub(crate) fn specialize_shadows(
             shadow_render_phases,
             render_lightmaps,
             view_light_entities,
+            directional_light_entities,
+            point_and_spot_light_entities,
             shadow_map_visible_entities_query,
             light_key_cache,
             mut specialized_shadow_material_pipeline_cache,
@@ -2330,28 +2331,27 @@ pub(crate) fn specialize_shadows(
             let light_render_layers = match light_entity {
                 LightEntity::Directional {
                     light_entity,
-                    cascade_index,
+                    ..
                 } => {
-                    let light = directional_light_entities
+                    &directional_light_entities
                         .get(*light_entity)
-                        .expect("Failed to get directional light");
-
-                    &light.render_layers
+                        .expect("Failed to get directional light")
+                        .render_layers
                 }
                 LightEntity::Point {
                     light_entity,
-                    face_index,
+                    ..
                 } => {
-                    let light = point_light_entities
+                    &point_and_spot_light_entities
                         .get(*light_entity)
-                        .expect("Failed to get point light");
-                    &light.render_layers
+                        .expect("Failed to get point light")
+                        .render_layers
                 }
                 LightEntity::Spot { light_entity } => {
-                    let light = spot_light_entities
+                    &point_and_spot_light_entities
                         .get(*light_entity)
-                        .expect("Failed to get spot light");
-                    &light.render_layers
+                        .expect("Failed to get spot light")
+                        .render_layers
                 }
             };
             let mut maybe_specialized_shadow_material_pipeline_cache =
@@ -2545,9 +2545,8 @@ pub fn queue_shadows(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    point_light_entities: Query<&ExtractedPointLight>,
+    point_and_spot_light_entities: Query<&ExtractedPointLight>,
     directional_light_entities: Query<&ExtractedDirectionalLight>,
-    spot_light_entities: Query<&ExtractedPointLight>,
     view_light_entities: Query<(&LightEntity, &ExtractedView, Option<&RenderLayers>)>,
     shadow_map_visible_entities_query: Query<&RenderShadowMapVisibleEntities>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
@@ -2585,28 +2584,27 @@ pub fn queue_shadows(
         let light_render_layers = match light_entity {
             LightEntity::Directional {
                 light_entity,
-                cascade_index,
+                ..
             } => {
-                let light = directional_light_entities
+                &directional_light_entities
                     .get(*light_entity)
-                    .expect("Failed to get directional light");
-
-                &light.render_layers
+                    .expect("Failed to get directional light")
+                    .render_layers
             }
             LightEntity::Point {
                 light_entity,
-                face_index,
+                ..
             } => {
-                let light = point_light_entities
+                &point_and_spot_light_entities
                     .get(*light_entity)
-                    .expect("Failed to get point light");
-                &light.render_layers
+                    .expect("Failed to get point light")
+                    .render_layers
             }
             LightEntity::Spot { light_entity } => {
-                let light = spot_light_entities
+                &point_and_spot_light_entities
                     .get(*light_entity)
-                    .expect("Failed to get spot light");
-                &light.render_layers
+                    .expect("Failed to get spot light")
+                    .render_layers
             }
         };
 
