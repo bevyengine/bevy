@@ -703,6 +703,9 @@ impl MeshUniform {
 ///
 /// Keep this in sync with the light-side packing in `light.rs` and the shader
 /// constants in `mesh_view_types.wgsl`.
+/// The light flags field is a u32, and the lower 6 bits are already used for light
+/// feature flags (bit 0..bit 5), so render-layer bits must start at shift 6,
+/// leaving exactly 26 bits for layer membership.
 const SHADER_RENDER_LAYER_MASK_BITS: u32 = 26;
 const SHADER_RENDER_LAYER_MASK: u32 = (1 << SHADER_RENDER_LAYER_MASK_BITS) - 1;
 
