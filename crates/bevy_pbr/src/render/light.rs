@@ -2329,19 +2329,13 @@ pub(crate) fn specialize_shadows(
             );
 
             let light_render_layers = match light_entity {
-                LightEntity::Directional {
-                    light_entity,
-                    ..
-                } => {
+                LightEntity::Directional { light_entity, .. } => {
                     &directional_light_entities
                         .get(*light_entity)
                         .expect("Failed to get directional light")
                         .render_layers
                 }
-                LightEntity::Point {
-                    light_entity,
-                    ..
-                } => {
+                LightEntity::Point { light_entity, .. } => {
                     &point_and_spot_light_entities
                         .get(*light_entity)
                         .expect("Failed to get point light")
@@ -2582,19 +2576,13 @@ pub fn queue_shadows(
         };
 
         let light_render_layers = match light_entity {
-            LightEntity::Directional {
-                light_entity,
-                ..
-            } => {
+            LightEntity::Directional { light_entity, .. } => {
                 &directional_light_entities
                     .get(*light_entity)
                     .expect("Failed to get directional light")
                     .render_layers
             }
-            LightEntity::Point {
-                light_entity,
-                ..
-            } => {
+            LightEntity::Point { light_entity, .. } => {
                 &point_and_spot_light_entities
                     .get(*light_entity)
                     .expect("Failed to get point light")
