@@ -10,10 +10,10 @@ Tracing instrumentation is now gated on the new `trace` feature (using `tracing`
 directly, matching `bevy_ecs`):
 
 ```toml
-# 0.15
+# 0.18
 bevy_transform = { features = ["bevy_log"] }
 
-# 0.16
+# 0.19
 bevy_transform = { features = ["trace"] }
 ```
 
@@ -21,9 +21,9 @@ Parallel transform propagation is no longer tied to the `std` feature. It now
 requires the explicit `multi_threaded` feature:
 
 ```toml
-# 0.15 — parallel was enabled implicitly via std
+# 0.18 — parallel was enabled implicitly via std
 bevy_transform = { features = ["std"] }
 
-# 0.16 — opt in explicitly
+# 0.19 — opt in explicitly
 bevy_transform = { features = ["std", "multi_threaded"] }
 ```
