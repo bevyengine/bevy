@@ -900,17 +900,13 @@ impl ViewTarget {
         self.main_texture_format
     }
 
-    /// The final texture this view will render to, if an output surface is
-    /// available this frame. Returns `None` when the render target is attached
-    /// but its output surface couldn't be acquired (e.g. occluded swap chain).
+    /// The final texture this view will render to.
     #[inline]
     pub fn out_texture(&self) -> Option<&TextureView> {
         self.out_texture.as_ref().map(|t| &t.view)
     }
 
-    /// Returns the final output color attachment for this view, or `None` if
-    /// no output surface is available this frame. Callers that blit/upscale to
-    /// the output should short-circuit on `None`.
+    /// The final texture this view will render to, as a color attachment.
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
