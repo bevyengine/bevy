@@ -70,16 +70,9 @@ pub mod prelude {
 ///     }
 /// }
 /// ```
-pub trait HitDataExtra: Any + Send + Sync + fmt::Debug {
-    /// Returns `self` as `&dyn Any` for downcasting.
-    fn as_any(&self) -> &dyn Any;
-}
+pub trait HitDataExtra: Any + Send + Sync + fmt::Debug {}
 
-impl<T: Clone + Send + Sync + fmt::Debug + Any + 'static> HitDataExtra for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
+impl<T: Clone + Send + Sync + fmt::Debug + Any + 'static> HitDataExtra for T {}
 
 /// A message produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
@@ -190,7 +183,8 @@ impl HitData {
 
     /// Returns any attached extra data as `T` if available.
     pub fn extra_as<T: Any>(&self) -> Option<&T> {
-        self.extra.as_deref()?.as_any().downcast_ref::<T>()
+        let extra: &dyn Any = self.extra.as_deref()?;
+        extra.downcast_ref::<T>()
     }
 
     /// Creates a [`HitData`] with backend-specific extra data. `extra` can be
