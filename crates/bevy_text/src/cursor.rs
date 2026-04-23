@@ -17,6 +17,9 @@ pub struct TextCursorStyle {
     /// Background color of selected text
     pub selection_color: Color,
     /// Background color of unfocused selected text
+    ///
+    /// In many applications, this is completely transparent,
+    /// in order to reduce visual clutter.
     pub unfocused_selection_color: Color,
     /// If some, overrides the color of selected text
     pub selected_text_color: Option<Color>,
