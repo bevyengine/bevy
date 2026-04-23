@@ -342,3 +342,53 @@ pub mod ray {
             .ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    struct TriangleHitInfo {
+        triangle_index: u32,
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct OtherHitInfo {
+        triangle_index: u32,
+    }
+
+    #[test]
+    fn hit_data_extra() {
+        let camera = Entity::PLACEHOLDER;
+
+        let hit = HitData::new_with_extra(
+            camera,
+            1.0,
+            Some(Vec3::new(1.0, 2.0, 3.0)),
+            Some(Vec3::Y),
+            TriangleHitInfo { triangle_index: 7 },
+        );
+
+        assert_eq!(
+            hit.extra_as::<TriangleHitInfo>(),
+            Some(&TriangleHitInfo { triangle_index: 7 })
+        );
+        assert_eq!(hit.extra_as::<OtherHitInfo>(), None);
+
+        let cloned = hit.clone();
+        assert_eq!(
+            cloned.extra_as::<TriangleHitInfo>(),
+            Some(&TriangleHitInfo { triangle_index: 7 })
+        );
+
+        let other_extra = HitData::new_with_extra(
+            camera,
+            1.0,
+            Some(Vec3::new(1.0, 2.0, 3.0)),
+            Some(Vec3::Y),
+            TriangleHitInfo { triangle_index: 99 },
+        );
+
+        assert_eq!(hit, other_extra);
+    }
+}
