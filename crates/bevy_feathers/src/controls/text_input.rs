@@ -132,6 +132,8 @@ fn update_text_cursor_color(
         for mut cursor_style in q_text_input.iter_mut() {
             cursor_style.color = theme.color(&tokens::TEXT_INPUT_CURSOR);
             cursor_style.selection_color = theme.color(&tokens::TEXT_INPUT_SELECTION);
+            cursor_style.unfocused_selection_color =
+                theme.color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED);
         }
     }
 }

@@ -2,6 +2,7 @@ use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
+use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::{sync_world::TemporaryRenderEntity, Extract};
 use bevy_sprite::BorderRect;
@@ -33,6 +34,7 @@ pub fn extract_text_cursor(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    input_focus: Extract<Option<Res<InputFocus>>>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -74,10 +76,22 @@ pub fn extract_text_cursor(
             maybe_clip.map(|clip| clip.clip)
         };
 
-        if !text_layout_info.selection_rects.is_empty()
-            && !cursor_style.selection_color.is_fully_transparent()
+        let mut focused = false;
+
+        if let Some(input_focus) = input_focus.as_ref()
+            && Some(entity) == input_focus.get()
         {
-            let selection_color = cursor_style.selection_color.to_linear();
+            focused = true;
+        }
+
+        let sc = if focused {
+            cursor_style.selection_color
+        } else {
+            cursor_style.unfocused_selection_color
+        };
+
+        if !text_layout_info.selection_rects.is_empty() && !sc.is_fully_transparent() {
+            let selection_color = sc.to_linear();
 
             for selection in text_layout_info.selection_rects.iter() {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {

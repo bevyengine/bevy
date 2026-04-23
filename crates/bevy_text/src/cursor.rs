@@ -1,5 +1,5 @@
 use bevy_color::{
-    palettes::css::{GREEN, RED},
+    palettes::css::{BLUE, GREEN, RED},
     Color,
 };
 use bevy_ecs::component::Component;
@@ -16,6 +16,8 @@ pub struct TextCursorStyle {
     pub color: Color,
     /// Background color of selected text
     pub selection_color: Color,
+    /// Background color of unfocused selected text
+    pub unfocused_selection_color: Color,
     /// If some, overrides the color of selected text
     pub selected_text_color: Option<Color>,
 }
@@ -25,6 +27,7 @@ impl Default for TextCursorStyle {
         Self {
             color: RED.into(),
             selection_color: Color::from(GREEN),
+            unfocused_selection_color: Color::from(BLUE),
             selected_text_color: None,
         }
     }
