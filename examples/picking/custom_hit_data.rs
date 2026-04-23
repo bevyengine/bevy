@@ -47,9 +47,9 @@ fn main() {
 }
 
 /// The custom hit data used by our picking backend. All structs that implement
-/// `Clone + Send + Sync + fmt::Debug + 'static` automatically implement
-/// `HitDataExtra` and can be used as extra data in `HitData`.
-#[derive(Clone, Debug)]
+/// `Send + Sync + fmt::Debug + 'static` automatically implement `HitDataExtra`
+/// and can be used as extra data in `HitData`.
+#[derive(Debug)]
 struct TriangleHitInfo {
     triangle_vertices: Option<[Vec3; 3]>,
 }

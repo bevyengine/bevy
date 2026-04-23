@@ -52,10 +52,10 @@ pub mod prelude {
 /// Extra data attached to a [`HitData`] by a picking backend.
 ///
 /// Use this for backend-specific data like triangle indices, UVs, or material information.
-/// Any `Clone + Send + Sync + fmt::Debug + 'static` type implements this trait automatically.
+/// Any `Send + Sync + fmt::Debug + 'static` type implements this trait automatically.
 ///
 /// ```rust
-/// #[derive(Clone, Debug)]
+/// #[derive(Debug)]
 /// struct MyHitInfo { triangle_index: u32 }
 /// ```
 ///
@@ -63,7 +63,7 @@ pub mod prelude {
 ///
 /// ```rust
 /// # use bevy_picking::backend::HitData;
-/// # #[derive(Clone, Debug)] struct MyHitInfo { triangle_index: u32 }
+/// # #[derive(Debug)] struct MyHitInfo { triangle_index: u32 }
 /// fn read_extra(hit: &HitData) {
 ///     if let Some(info) = hit.extra_as::<MyHitInfo>() {
 ///         println!("Hit triangle {}", info.triangle_index);
@@ -72,7 +72,7 @@ pub mod prelude {
 /// ```
 pub trait HitDataExtra: Any + Send + Sync + fmt::Debug {}
 
-impl<T: Clone + Send + Sync + fmt::Debug + Any + 'static> HitDataExtra for T {}
+impl<T: Send + Sync + fmt::Debug + Any + 'static> HitDataExtra for T {}
 
 /// A message produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
@@ -195,7 +195,7 @@ impl HitData {
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_picking::backend::HitData;
-    /// #[derive(Clone, Debug)]
+    /// #[derive(Debug)]
     /// struct MyHitInfo { triangle_index: u32 }
     ///
     /// # let camera = Entity::PLACEHOLDER;
