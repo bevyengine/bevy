@@ -51,8 +51,13 @@ pub mod prelude {
 
 /// Extra data attached to a [`HitData`] by a picking backend.
 ///
-/// Use this for backend-specific data like triangle indices, UVs, or material information.
-/// Any `Send + Sync + fmt::Debug + 'static` type implements this trait automatically.
+/// Use this for backend-specific data like triangle indices, UVs, or material
+/// information.
+/// Any `Send + Sync + fmt::Debug + 'static` type implements this trait
+/// automatically. `Clone` is not required: extra data is stored in an [`Arc`],
+/// so [`HitData`] can still implement [`Clone`]. `Clone` requires knowing the
+/// size of the type, which is not possible with dynamically dispatched types,
+/// so it cannot be used for `dyn HitDataExtra`.
 ///
 /// ```rust
 /// #[derive(Debug)]
@@ -141,9 +146,11 @@ pub struct HitData {
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,
-    /// Optional backend-specific extra data attached to this hit. Read it with
-    /// [`HitData::extra_as`]. This field is excluded from [`PartialEq`]
-    /// comparisons and reflection.
+    /// Optional backend-specific extra data attached to this hit. Read it with [`HitData::extra_as`].
+    ///
+    /// This is stored in an [`Arc`] so cloning [`HitData`] stays cheap. This field is excluded
+    /// from [`PartialEq`] because value equality for trait objects would require extra dynamic
+    /// downcasting that the picking pipeline does not need.
     #[reflect(ignore)]
     pub extra: Option<Arc<dyn HitDataExtra>>,
 }
@@ -182,6 +189,9 @@ impl HitData {
     }
 
     /// Returns any attached extra data as `T` if available.
+    ///
+    /// This returns `None` if no extra data was attached, or if the hit stores a
+    /// different concrete extra data type.
     pub fn extra_as<T: Any>(&self) -> Option<&T> {
         let extra: &dyn Any = self.extra.as_deref()?;
         extra.downcast_ref::<T>()
