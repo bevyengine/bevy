@@ -4,7 +4,7 @@
 //! that is kept synchronized with the [`EditableText`]'s contents by the [`synchronize_output_text`] system, and the third column is updated
 //! by the [`submit_text`] system when the user submits the [`EditableText`]'s text by pressing `Ctrl` + `Enter`.
 
-use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::Key;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
                     TextInputRow(row),
                     TabIndex(row as i32),
-                    BorderColor::all(YELLOW),
+                    BorderColor::all(SLATE_300),
                 ));
                 if row == 0 {
                     input.insert(AutoFocus);
@@ -229,7 +229,7 @@ fn update_row_border_colors(
 
     for (row, mut border_color, is_input) in &mut row_borders {
         let mut color = if is_input {
-            YELLOW.into()
+            SLATE_300.into()
         } else {
             Color::WHITE
         };

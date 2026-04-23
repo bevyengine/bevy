@@ -22,7 +22,8 @@
 //! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::{DARK_GREY, YELLOW};
+use bevy::color::palettes::css::DARK_GREY;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
@@ -63,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: px(100),
                 ..Default::default()
             },
-            BorderColor::from(Color::from(YELLOW)),
+            BorderColor::from(Color::from(SLATE_300)),
             Text::new("Ctrl+Enter to submit text"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
@@ -98,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 border: px(5).all(),
                 ..Default::default()
             },
-            BorderColor::from(Color::from(YELLOW)),
+            BorderColor::from(Color::from(SLATE_300)),
             Text::new("testing"),
             TextOutput,
             TextFont {
@@ -128,7 +129,7 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
                 padding: px(5).all(),
                 ..Default::default()
             },
-            BorderColor::from(Color::from(YELLOW)),
+            BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
             EditableText {
                 max_characters: (!is_left).then_some(7),
