@@ -918,7 +918,9 @@ impl ViewTarget {
 
     /// Whether the final texture this view will render to needs to be presented.
     pub fn needs_present(&self) -> bool {
-        self.out_texture.as_ref().is_some_and(|t| t.needs_present())
+        self.out_texture
+            .as_ref()
+            .is_some_and(OutputColorAttachment::needs_present)
     }
 
     /// The format of the final texture this view will render to, if any.
