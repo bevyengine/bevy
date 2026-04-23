@@ -923,9 +923,7 @@ impl ViewTarget {
     /// Whether the final texture this view will render to needs to be presented.
     /// Always `false` when no output surface is available this frame.
     pub fn needs_present(&self) -> bool {
-        self.out_texture
-            .as_ref()
-            .is_some_and(|t| t.needs_present())
+        self.out_texture.as_ref().is_some_and(|t| t.needs_present())
     }
 
     /// The format of the final texture this view will render to, if any.
@@ -1101,10 +1099,6 @@ pub fn prepare_view_attachments(
             continue;
         };
 
-        // Cameras that don't drive an output (`CameraOutputMode::Skip`) don't
-        // need an output attachment. Populating one would cost a swap-chain
-        // texture acquisition for nothing, since the upscaling node will early
-        // return before writing to it.
         if matches!(camera.output_mode, bevy_camera::CameraOutputMode::Skip) {
             continue;
         }
@@ -1173,22 +1167,22 @@ pub fn prepare_view_targets(
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let Some(target_size) = camera.physical_target_size else {
-            // Without a target size we can't allocate the main texture pair at all;
-            // this is a genuine not-yet-ready state (camera driver missing / target
-            // uninitialized), so drop the ViewTarget.
+            // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         };
 
-        // The output attachment may be absent this frame even though the render
-        // target is valid — e.g. a window whose swap chain returned Occluded or
-        // Timeout during startup. We still construct a ViewTarget so that
-        // intermediate passes render against the persistent `main_textures`; only
-        // the final blit/present is skipped.
         let out_attachment = camera
             .target
             .as_ref()
             .and_then(|target| view_target_attachments.get(target));
+
+        // If we have no output and the camera is set to clear, we can skip rendering
+        // entirely.
+        if out_attachment.is_none() && !matches!(camera.clear_color, ClearColorConfig::None) {
+            commands.entity(entity).try_remove::<ViewTarget>();
+            continue;
+        }
 
         let main_texture_format = view.target_format;
 
