@@ -1,9 +1,9 @@
 enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_F0}
+#import bevy_pbr::pbr_functions::calculate_F0
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
-#import bevy_render::maths::PI
+#import bevy_render::maths::{PI, orthonormalize}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, fresnel}
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
@@ -103,7 +103,7 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
     let diffuse_weight = mix(df, 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
-    let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+    let TBN = orthonormalize(ray_hit.world_normal);
     let T = TBN[0];
     let B = TBN[1];
     let N = TBN[2];

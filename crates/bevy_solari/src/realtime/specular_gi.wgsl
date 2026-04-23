@@ -3,7 +3,7 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
@@ -100,7 +100,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+        let TBN = orthonormalize(ray_hit.world_normal);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
