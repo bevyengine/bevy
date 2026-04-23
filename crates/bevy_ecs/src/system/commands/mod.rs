@@ -1486,11 +1486,10 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn insert_if_neq<T: Component + PartialEq>(&mut self, component: T) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
-            if let Some(old_component) = entity.get::<T>() {
-                if *old_component != component {
-                    entity.insert(component);
-                }
-            } else {
+            if entity
+                .get::<T>()
+                .is_none_or(|old_component| *old_component != component)
+            {
                 entity.insert(component);
             }
         })
