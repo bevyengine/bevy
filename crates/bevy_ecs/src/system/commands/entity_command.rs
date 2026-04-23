@@ -200,7 +200,6 @@ pub fn insert_if_neq<T: Component + PartialEq>(component: T) -> impl EntityComma
                 );
             }
         } else {
-            // TODO: determine behavior of this case (why?); inserts for now
             move_as_ptr!(component);
             entity.insert_with_caller(
                 component,
