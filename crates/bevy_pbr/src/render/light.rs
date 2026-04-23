@@ -2328,26 +2328,11 @@ pub(crate) fn specialize_shadows(
                 extracted_view_light,
             );
 
-            let light_render_layers = match light_entity {
-                LightEntity::Directional { light_entity, .. } => {
-                    &directional_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get directional light")
-                        .render_layers
-                }
-                LightEntity::Point { light_entity, .. } => {
-                    &point_and_spot_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get point light")
-                        .render_layers
-                }
-                LightEntity::Spot { light_entity } => {
-                    &point_and_spot_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get spot light")
-                        .render_layers
-                }
-            };
+            let light_render_layers = get_light_render_layers(
+                light_entity,
+                &directional_light_entities,
+                &point_and_spot_light_entities,
+            );
             let mut maybe_specialized_shadow_material_pipeline_cache =
                 specialized_shadow_material_pipeline_cache
                     .get_mut(&extracted_view_light.retained_view_entity);
@@ -2575,26 +2560,11 @@ pub fn queue_shadows(
             continue;
         };
 
-        let light_render_layers = match light_entity {
-            LightEntity::Directional { light_entity, .. } => {
-                &directional_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get directional light")
-                    .render_layers
-            }
-            LightEntity::Point { light_entity, .. } => {
-                &point_and_spot_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get point light")
-                    .render_layers
-            }
-            LightEntity::Spot { light_entity } => {
-                &point_and_spot_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get spot light")
-                    .render_layers
-            }
-        };
+        let light_render_layers = get_light_render_layers(
+            light_entity,
+            &directional_light_entities,
+            &point_and_spot_light_entities,
+        );
 
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
         for &main_entity in dirty_specializations
@@ -2966,6 +2936,35 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
+        }
+    }
+}
+
+/// Returns the [`RenderLayers`] associated with a [`LightEntity`] off the
+/// appropriate Extracted Light component [`ExtractedDirectionalLight`] / [`ExtractedPointLight`]
+fn get_light_render_layers<'w, 's: 'w>(
+    light_entity: &'_ LightEntity,
+    directional_light_entities: &'w Query<'w, 's, &'_ ExtractedDirectionalLight>,
+    point_and_spot_light_entities: &'w Query<'w, 's, &'_ ExtractedPointLight>,
+) -> &'w RenderLayers {
+    match light_entity {
+        LightEntity::Directional { light_entity, .. } => {
+            &directional_light_entities
+                .get(*light_entity)
+                .expect("Failed to get directional light")
+                .render_layers
+        }
+        LightEntity::Point { light_entity, .. } => {
+            &point_and_spot_light_entities
+                .get(*light_entity)
+                .expect("Failed to get point light")
+                .render_layers
+        }
+        LightEntity::Spot { light_entity } => {
+            &point_and_spot_light_entities
+                .get(*light_entity)
+                .expect("Failed to get spot light")
+                .render_layers
         }
     }
 }
