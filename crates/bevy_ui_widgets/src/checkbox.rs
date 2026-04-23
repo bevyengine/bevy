@@ -15,8 +15,7 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::ActivateOnPress;
-use crate::ValueChange;
+use crate::{ActivateOnPress, ValueChange};
 use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
@@ -49,6 +48,7 @@ fn checkbox_on_key_input(
             commands.trigger(ValueChange {
                 source: ev.focused_entity,
                 value: !is_checked,
+                is_final: true,
             });
         }
     }
@@ -68,6 +68,7 @@ fn checkbox_on_pointer_click(
             commands.trigger(ValueChange {
                 source: click.entity,
                 value: !is_checked,
+                is_final: true,
             });
         }
     }
@@ -108,6 +109,7 @@ fn checkbox_on_pointer_down(
                 commands.trigger(ValueChange {
                     source: press.entity,
                     value: !checked,
+                    is_final: true,
                 });
             }
         }
@@ -220,6 +222,7 @@ fn checkbox_on_set_checked(
             commands.trigger(ValueChange {
                 source: set_checked.entity,
                 value: will_be_checked,
+                is_final: true,
             });
         }
     }
@@ -238,6 +241,7 @@ fn checkbox_on_toggle_checked(
         commands.trigger(ValueChange {
             source: toggle_checked.entity,
             value: !is_checked,
+            is_final: true,
         });
     }
 }

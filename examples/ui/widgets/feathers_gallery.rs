@@ -10,27 +10,28 @@ use bevy::{
         },
         controls::{
             button, checkbox, color_plane, color_slider, color_swatch, disclosure_toggle, menu,
-            menu_button, menu_divider, menu_item, menu_popup, radio, slider, text_input,
-            text_input_container, toggle_switch, tool_button, ButtonProps, ButtonVariant,
-            CheckboxProps, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
+            menu_button, menu_divider, menu_item, menu_popup, number_input, radio, slider,
+            text_input, text_input_container, toggle_switch, tool_button, ButtonProps,
+            ButtonVariant, CheckboxProps, ColorChannel, ColorPlane, ColorPlaneValue, ColorSlider,
             ColorSliderProps, ColorSwatch, ColorSwatchValue, MenuButtonProps, MenuItemProps,
-            RadioProps, SliderBaseColor, SliderProps, TextInputProps,
+            NumberInputProps, NumberInputValue, RadioProps, SliderBaseColor, SliderProps,
+            TextInputProps, UpdateNumberInput,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
-        display::{icon, label, label_dim},
+        display::{icon, label, label_dim, label_small},
         font_styles::InheritableFont,
+        palette,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
-    scene::prelude::Scene,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        checkbox_self_update, slider_self_update, Activate, ActivateOnPress, RadioButton,
+        checkbox_self_update, radio_self_update, slider_self_update, Activate, ActivateOnPress,
         RadioGroup, SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
@@ -41,6 +42,8 @@ use bevy::{
 struct DemoWidgetStates {
     rgb_color: Srgba,
     hsl_color: Hsla,
+    scalar_prop: f32,
+    vec3_prop: Vec3,
 }
 
 #[derive(Component, Clone, Copy, PartialEq, FromTemplate)]
@@ -56,6 +59,17 @@ struct HexColorInput;
 #[derive(Component, Clone, Copy, Default)]
 struct DemoDisabledButton;
 
+#[derive(Component, Clone, Copy, Default)]
+struct DemoScalarField;
+
+#[derive(Component, Clone, Copy, Default)]
+enum DemoVec3Field {
+    #[default]
+    X,
+    Y,
+    Z,
+}
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
@@ -63,15 +77,16 @@ fn main() {
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
+            scalar_prop: 7.0,
+            vec3_prop: Vec3::new(10.1, 7.124, 100.0),
         })
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(Update, update_colors)
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, demo_root()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, demo_root()]
 }
 
 fn demo_root() -> impl Scene {
@@ -342,7 +357,7 @@ fn demo_column_1() -> impl Scene {
             (
                 checkbox(CheckboxProps {
                     caption: Box::new(bsn_list!(
-                        (Text("Disabled+Checked") ThemedText),
+                        (Text("Checked+Disabled") ThemedText),
                     )),
                 })
                 InteractionDisabled
@@ -354,44 +369,74 @@ fn demo_column_1() -> impl Scene {
             (
                 Node {
                     display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
                 }
-                RadioGroup
-                on(
-                    |value_change: On<ValueChange<Entity>>,
-                        q_radio: Query<Entity, With<RadioButton>>,
-                        mut commands: Commands| {
-                        for radio in q_radio.iter() {
-                            if radio == value_change.value {
-                                commands.entity(radio).insert(Checked);
-                            } else {
-                                commands.entity(radio).remove::<Checked>();
-                            }
-                        }
-                    }
-                )
                 Children [
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("One") ThemedText),
-                        )),
-                    }) Checked),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Two") ThemedText),
-                        )),
-                    })),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Three") ThemedText),
-                        )),
-                    })),
-                    (radio(RadioProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Disabled") ThemedText),
-                        )),
-                    }) InteractionDisabled),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    ),
+                    (
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(4),
+                        }
+                        RadioGroup
+                        on(radio_self_update)
+                        Children [
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("One") ThemedText),
+                                )),
+                            }) Checked),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Two") ThemedText),
+                                )),
+                            })),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Fast Click") ThemedText),
+                                )),
+                            }) ActivateOnPress),
+                            (radio(RadioProps {
+                                caption: Box::new(bsn_list!(
+                                    (Text("Disabled") ThemedText),
+                                )),
+                            }) InteractionDisabled),
+                        ]
+                    )
                 ]
             ),
             (
@@ -434,7 +479,7 @@ fn demo_column_1() -> impl Scene {
                     :flex_spacer,
                     // Text input
                     (
-                        :text_input_container
+                        :text_input_container()
                         Node {
                             flex_grow: 0.
                             padding: { px(4.).left().with_right(px(0.)) },
@@ -609,12 +654,111 @@ fn demo_column_2() -> impl Scene {
                                 ],
                                 :subpane_body Children [
                                     :label_dim("A standard sub-pane"),
-                                    :group Children [
+                                    :group
+                                    Children [
                                         :group_header Children [
                                             (Text("Group") ThemedText),
                                         ],
-                                        :group_body Children [
-                                            :label_dim("A standard group"),
+                                        :group_body
+                                        Children [
+                                            :label("A standard group"),
+                                            :label_small("Scalar property"),
+                                            (
+                                                :number_input(NumberInputProps::default())
+                                                DemoScalarField
+                                                Node {
+                                                    flex_grow: 1.0,
+                                                    max_width: px(100),
+                                                }
+                                                on(
+                                                    |value_change: On<ValueChange<f32>>,
+                                                    mut states: ResMut<DemoWidgetStates>| {
+                                                    if value_change.is_final {
+                                                        states.scalar_prop = value_change.value;
+                                                    }
+                                                })
+                                            ),
+                                            :label_small("Scalar property (copy)"),
+                                            (
+                                                :number_input(NumberInputProps::default())
+                                                DemoScalarField
+                                                Node {
+                                                    flex_grow: 1.0,
+                                                    max_width: px(100),
+                                                }
+                                                on(
+                                                    |value_change: On<ValueChange<f32>>,
+                                                    mut states: ResMut<DemoWidgetStates>| {
+                                                    if value_change.is_final {
+                                                        states.scalar_prop = value_change.value;
+                                                    }
+                                                })
+                                            ),
+                                            :label_small("Vec3 property"),
+                                            Node {
+                                                display: Display::Flex,
+                                                flex_direction: FlexDirection::Row,
+                                                column_gap: px(6),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                            }
+                                            Children [
+                                                (
+                                                    :number_input(NumberInputProps {
+                                                        sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                        label_text: Some("X"),
+                                                        ..default()
+                                                    })
+                                                    template_value(DemoVec3Field::X)
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    BorderColor::all(palette::X_AXIS)
+                                                    on(
+                                                        |value_change: On<ValueChange<f32>>,
+                                                        mut states: ResMut<DemoWidgetStates>| {
+                                                        if value_change.is_final {
+                                                            states.vec3_prop.x = value_change.value;
+                                                        }
+                                                    })
+                                                ),
+                                                (
+                                                    :number_input(NumberInputProps {
+                                                        sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                        label_text: Some("Y"),
+                                                        ..default()
+                                                    })
+                                                    template_value(DemoVec3Field::Y)
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    on(
+                                                        |value_change: On<ValueChange<f32>>,
+                                                        mut states: ResMut<DemoWidgetStates>| {
+                                                        if value_change.is_final {
+                                                            states.vec3_prop.y = value_change.value;
+                                                        }
+                                                    })
+                                                ),
+                                                (
+                                                    :number_input(NumberInputProps {
+                                                        sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                        label_text: Some("Z"),
+                                                        ..default()
+                                                    })
+                                                    template_value(DemoVec3Field::Z)
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    on(
+                                                        |value_change: On<ValueChange<f32>>,
+                                                        mut states: ResMut<DemoWidgetStates>| {
+                                                        if value_change.is_final {
+                                                            states.vec3_prop.z = value_change.value;
+                                                        }
+                                                    })
+                                                ),
+                                            ],
                                         ],
                                     ]
                                 ],
@@ -628,73 +772,75 @@ fn demo_column_2() -> impl Scene {
 }
 
 fn update_colors(
-    colors: Res<DemoWidgetStates>,
+    states: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<ColorSwatch>>,
     mut color_planes: Query<&mut ColorPlaneValue, With<ColorPlane>>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
+    q_scalar_input: Query<Entity, With<DemoScalarField>>,
+    q_vec3_input: Query<(Entity, &DemoVec3Field)>,
     mut commands: Commands,
     focus: Res<InputFocus>,
 ) {
-    if colors.is_changed() {
+    if states.is_changed() {
         for (slider_ent, slider, mut base) in sliders.iter_mut() {
             match slider.channel {
                 ColorChannel::Red => {
-                    base.0 = colors.rgb_color.into();
+                    base.0 = states.rgb_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.rgb_color.red));
+                        .insert(SliderValue(states.rgb_color.red));
                 }
                 ColorChannel::Green => {
-                    base.0 = colors.rgb_color.into();
+                    base.0 = states.rgb_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.rgb_color.green));
+                        .insert(SliderValue(states.rgb_color.green));
                 }
                 ColorChannel::Blue => {
-                    base.0 = colors.rgb_color.into();
+                    base.0 = states.rgb_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.rgb_color.blue));
+                        .insert(SliderValue(states.rgb_color.blue));
                 }
                 ColorChannel::HslHue => {
-                    base.0 = colors.hsl_color.into();
+                    base.0 = states.hsl_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.hsl_color.hue));
+                        .insert(SliderValue(states.hsl_color.hue));
                 }
                 ColorChannel::HslSaturation => {
-                    base.0 = colors.hsl_color.into();
+                    base.0 = states.hsl_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.hsl_color.saturation));
+                        .insert(SliderValue(states.hsl_color.saturation));
                 }
                 ColorChannel::HslLightness => {
-                    base.0 = colors.hsl_color.into();
+                    base.0 = states.hsl_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.hsl_color.lightness));
+                        .insert(SliderValue(states.hsl_color.lightness));
                 }
                 ColorChannel::Alpha => {
-                    base.0 = colors.rgb_color.into();
+                    base.0 = states.rgb_color.into();
                     commands
                         .entity(slider_ent)
-                        .insert(SliderValue(colors.rgb_color.alpha));
+                        .insert(SliderValue(states.rgb_color.alpha));
                 }
             }
         }
 
         for (mut swatch_value, swatch_type) in swatches.iter_mut() {
             swatch_value.0 = match swatch_type {
-                SwatchType::Rgb => colors.rgb_color.into(),
-                SwatchType::Hsl => colors.hsl_color.into(),
+                SwatchType::Rgb => states.rgb_color.into(),
+                SwatchType::Hsl => states.hsl_color.into(),
             };
         }
 
         for mut plane_value in color_planes.iter_mut() {
-            plane_value.0.x = colors.rgb_color.red;
-            plane_value.0.y = colors.rgb_color.blue;
-            plane_value.0.z = colors.rgb_color.green;
+            plane_value.0.x = states.rgb_color.red;
+            plane_value.0.y = states.rgb_color.blue;
+            plane_value.0.z = states.rgb_color.green;
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes
@@ -702,7 +848,27 @@ fn update_colors(
         let (input_ent, mut editable_text) = q_text_input.into_inner();
         if Some(input_ent) != focus.get() {
             editable_text.queue_edit(TextEdit::SelectAll);
-            editable_text.queue_edit(TextEdit::Insert(colors.rgb_color.to_hex().into()));
+            editable_text.queue_edit(TextEdit::Insert(states.rgb_color.to_hex().into()));
+        }
+
+        for scalar_input_ent in q_scalar_input.iter() {
+            commands.trigger(UpdateNumberInput {
+                entity: scalar_input_ent,
+                value: NumberInputValue::F32(states.scalar_prop),
+            });
+        }
+
+        for (vec3_input_ent, axis) in q_vec3_input.iter() {
+            let new_value = match axis {
+                DemoVec3Field::X => states.vec3_prop.x,
+                DemoVec3Field::Y => states.vec3_prop.y,
+                DemoVec3Field::Z => states.vec3_prop.z,
+            };
+
+            commands.trigger(UpdateNumberInput {
+                entity: vec3_input_ent,
+                value: NumberInputValue::F32(new_value),
+            });
         }
     }
 }

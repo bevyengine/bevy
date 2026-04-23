@@ -386,9 +386,39 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 ///
 /// You can look up the key for your event by calling the [`World::event_key`] method.
 ///
+/// For dynamic events not backed by a Rust type, create an `EventKey` from
+/// a [`ComponentId`] using [`EventKey::new`]. Obtain a [`ComponentId`] via
+/// [`World::register_component_with_descriptor`].
+///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
+
+impl EventKey {
+    /// Creates a new [`EventKey`] from a [`ComponentId`].
+    ///
+    /// Useful for dynamic events not backed by a Rust type. Obtain a
+    /// [`ComponentId`] via [`World::register_component_with_descriptor`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `component_id` was registered for use as
+    /// an event (e.g. via [`World::register_component_with_descriptor`]).
+    /// Using an unrelated [`ComponentId`] may cause observers to receive
+    /// data with an unexpected layout.
+    ///
+    /// [`World::register_component_with_descriptor`]: crate::world::World::register_component_with_descriptor
+    #[inline]
+    pub const unsafe fn new(component_id: ComponentId) -> Self {
+        Self(component_id)
+    }
+
+    /// Returns the underlying [`ComponentId`] for this event key.
+    #[inline]
+    pub const fn component_id(self) -> ComponentId {
+        self.0
+    }
+}
 
 #[cfg(test)]
 mod tests {

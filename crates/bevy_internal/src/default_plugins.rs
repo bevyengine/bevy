@@ -124,6 +124,19 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
         reason = "The `app` parameter is used only if a combination of crates that contain ambiguities with each other are enabled."
     )]
     fn build(&self, app: &mut bevy_app::App) {
+        #[cfg(all(feature = "bevy_ui_widgets", feature = "bevy_sprite"))]
+        if app.is_plugin_added::<bevy_ui_widgets::EditableTextInputPlugin>()
+            && app.is_plugin_added::<bevy_sprite::SpritePlugin>()
+        {
+            // update_ime_position reads Window to reposition the IME cursor, while
+            // update_text2d_layout writes Window bounds for text wrapping.
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_ui_widgets::ImeSystems::UpdatePosition,
+                bevy_sprite::update_text2d_layout,
+            );
+        }
+
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         if app.is_plugin_added::<bevy_animation::AnimationPlugin>()

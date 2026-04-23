@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle, HandleTemplate, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
-use bevy_color::{Color, ColorToComponents, Srgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::template::{FromTemplate, OptionTemplate};
 use bevy_image::Image;
@@ -160,6 +160,7 @@ impl EnvironmentMapLight {
         Self {
             diffuse_map: handle.clone(),
             specular_map: handle,
+            intensity: 1.0,
             ..Default::default()
         }
     }
@@ -169,9 +170,9 @@ impl EnvironmentMapLight {
         mid_color: Color,
         bottom_color: Color,
     ) -> Image {
-        let top_color: Srgba = top_color.into();
-        let mid_color: Srgba = mid_color.into();
-        let bottom_color: Srgba = bottom_color.into();
+        let top_color: LinearRgba = top_color.into();
+        let mid_color: LinearRgba = mid_color.into();
+        let bottom_color: LinearRgba = bottom_color.into();
         Image {
             texture_view_descriptor: Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),

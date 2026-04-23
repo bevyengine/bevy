@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
+    query::Changed,
     system::{Local, Query, Res, ResMut},
     world::Ref,
 };
@@ -16,10 +17,10 @@ use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText, Font,
-    FontAtlasKey, FontAtlasSet, FontCx, FontHinting, GlyphCacheKey, LayoutCx, LineBreak,
-    LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
-    TextLayoutInfo,
+    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
+    EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
+    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
+    TextBrush, TextFont, TextLayout, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -154,12 +155,95 @@ pub fn update_editable_text_content_size(
     }
 }
 
-/// Updates [`EditableText::editor`] to match e.g. [`TextFont`]
-/// Writes layout to [`TextLayoutInfo`] for rendering
-/// Adds required glyphs to the texture atlas
-// TODO: add change detection logic here to improve performance
-pub fn editable_text_system(
+/// Syncs each [`EditableText`] entity's [`PlainEditor`](parley::PlainEditor)
+/// style properties to match its [`TextFont`], [`LineHeight`], and [`TextLayout`] components.
+pub fn update_editable_text_styles(
     fonts: Res<Assets<Font>>,
+    mut editable_text_query: Query<(
+        &mut EditableText,
+        Ref<TextFont>,
+        Ref<LineHeight>,
+        Ref<ComputedUiRenderTargetInfo>,
+        Ref<TextLayout>,
+    )>,
+    rem_size: Res<RemSize>,
+) {
+    for (mut editable_text, text_font, line_height, target, text_layout) in
+        editable_text_query.iter_mut()
+    {
+        let editor = editable_text.editor_mut();
+
+        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
+            editor.set_scale(target.scale_factor());
+        }
+
+        if text_font.is_changed()
+            || matches!(text_font.font_size, FontSize::Rem(_)) && rem_size.is_changed()
+            || matches!(
+                text_font.font_size,
+                FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
+            ) && target.is_changed()
+        {
+            editor.edit_styles().insert(StyleProperty::FontSize(
+                text_font.font_size.eval(target.logical_size(), rem_size.0),
+            ));
+        }
+
+        if text_font.is_changed() {
+            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+                continue;
+            };
+
+            let family = font_family.into_owned();
+            let style_set = editable_text.editor.edit_styles();
+            style_set.insert(StyleProperty::FontFamily(family));
+            style_set.insert(StyleProperty::Brush(TextBrush::new(
+                0,
+                text_font.font_smoothing,
+            )));
+        }
+
+        if line_height.is_changed() {
+            let style_set = editable_text.editor.edit_styles();
+            style_set.insert(StyleProperty::LineHeight(line_height.eval()));
+        }
+
+        if text_layout.is_changed() {
+            let style_set = editable_text.editor.edit_styles();
+            match text_layout.linebreak {
+                LineBreak::AnyCharacter => {
+                    style_set.insert(StyleProperty::WordBreak(parley::WordBreak::BreakAll));
+                    style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                    style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+                }
+                LineBreak::WordOrCharacter => {
+                    style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                    style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Anywhere));
+                    style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+                }
+                LineBreak::NoWrap => {
+                    style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                    style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                    style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::NoWrap));
+                }
+                LineBreak::WordBoundary => {
+                    style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
+                    style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
+                    style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
+                }
+            }
+
+            editable_text
+                .editor
+                .set_alignment(text_layout.justify.into());
+        }
+    }
+}
+
+/// Refreshes the [`EditableText`]'s layout if stale and then writes it
+/// it to [`TextLayoutInfo`] for rendering and picking.
+/// Adds required glyphs to the texture atlas
+pub fn update_editable_text_layout(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     mut scale_cx: ResMut<ScaleCx>,
@@ -168,13 +252,12 @@ pub fn editable_text_system(
     mut input_field_query: Query<(
         Entity,
         &TextFont,
-        &LineHeight,
-        &FontHinting,
+        Ref<FontHinting>,
         Ref<ComputedUiRenderTargetInfo>,
         &mut EditableText,
         &mut TextLayoutInfo,
         Ref<ComputedNode>,
-        &TextLayout,
+        &mut EditableTextGeneration,
     )>,
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
@@ -186,58 +269,16 @@ pub fn editable_text_system(
     for (
         entity,
         text_font,
-        line_height,
         hinting,
         target,
         mut editable_text,
         mut info,
         computed_node,
-        text_layout,
+        mut generation,
     ) in input_field_query.iter_mut()
     {
-        let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
-            continue;
-        };
-
-        let family = font_family.into_owned();
-        let style_set = editable_text.editor.edit_styles();
-        style_set.insert(StyleProperty::LineHeight(line_height.eval()));
-        style_set.insert(StyleProperty::FontFamily(family));
-
-        let logical_viewport_size = target.logical_size();
-        let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
-        style_set.insert(StyleProperty::FontSize(font_size));
-        style_set.insert(StyleProperty::Brush(TextBrush::new(
-            0,
-            text_font.font_smoothing,
-        )));
-
-        match text_layout.linebreak {
-            LineBreak::AnyCharacter => {
-                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::BreakAll));
-                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
-                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
-            }
-            LineBreak::WordOrCharacter => {
-                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
-                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Anywhere));
-                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
-            }
-            LineBreak::NoWrap => {
-                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
-                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
-                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::NoWrap));
-            }
-            LineBreak::WordBoundary => {
-                style_set.insert(StyleProperty::WordBreak(parley::WordBreak::Normal));
-                style_set.insert(StyleProperty::OverflowWrap(parley::OverflowWrap::Normal));
-                style_set.insert(StyleProperty::TextWrapMode(parley::TextWrapMode::Wrap));
-            }
-        }
-
-        if target.is_changed() {
-            editable_text.editor.set_scale(target.scale_factor());
-        }
+        let cursor_width = editable_text.cursor_width;
+        let cursor_blink_period = editable_text.cursor_blink_period;
 
         if computed_node.is_changed() {
             editable_text
@@ -251,130 +292,177 @@ pub fn editable_text_system(
 
         driver.refresh_layout();
 
-        let layout = driver.layout();
+        let compose_range = driver.editor.raw_compose().clone();
 
-        info.scale_factor = layout.scale();
-        info.size = (
-            layout.width() / layout.scale(),
-            layout.height() / layout.scale(),
-        )
-            .into();
+        let layout_changed = driver.editor.generation() != **generation;
+        if layout_changed {
+            **generation = driver.editor.generation();
+        }
 
-        info.glyphs.clear();
-        info.run_geometry.clear();
+        if layout_changed || hinting.is_changed() {
+            let layout = driver.layout();
 
-        for (line_index, line) in layout.lines().enumerate() {
-            for item in line.items() {
-                match item {
-                    PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let brush = glyph_run.style().brush;
+            info.scale_factor = layout.scale();
+            info.size = (
+                layout.width() / layout.scale(),
+                layout.height() / layout.scale(),
+            )
+                .into();
 
-                        let run = glyph_run.run();
+            info.preedit_underline_rects.clear();
+            info.glyphs.clear();
+            info.run_geometry.clear();
 
-                        let font_data = run.font();
-                        let font_size = run.font_size();
-                        let coords = run.normalized_coords();
+            for (line_index, line) in layout.lines().enumerate() {
+                for item in line.items() {
+                    match item {
+                        PositionedLayoutItem::GlyphRun(glyph_run) => {
+                            let brush = glyph_run.style().brush;
 
-                        let font_atlas_key = FontAtlasKey {
-                            id: font_data.data.id() as u32,
-                            index: font_data.index,
-                            font_size_bits: font_size.to_bits(),
-                            variations_hash: FixedHasher.hash_one(coords),
-                            hinting: *hinting,
-                            font_smoothing: brush.font_smoothing,
-                        };
+                            let run = glyph_run.run();
 
-                        for glyph in glyph_run.positioned_glyphs() {
-                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-                            let Ok(atlas_info) = get_glyph_atlas_info(
-                                font_atlases,
-                                GlyphCacheKey {
-                                    glyph_id: glyph.id as u16,
-                                },
-                            )
-                            .map(Ok)
-                            .unwrap_or_else(|| {
-                                let font_ref = FontRef::from_index(
-                                    font_data.data.as_ref(),
-                                    font_data.index as usize,
-                                )
-                                .unwrap();
-                                let mut scaler = scale_cx
-                                    .builder(font_ref)
-                                    .size(font_size)
-                                    .hint(matches!(hinting, FontHinting::Enabled))
-                                    .normalized_coords(coords)
-                                    .build();
-                                add_glyph_to_atlas(
-                                    font_atlases,
-                                    textures.as_mut(),
-                                    &mut scaler,
-                                    text_font.font_smoothing,
-                                    glyph.id as u16,
-                                )
-                            }) else {
-                                continue;
+                            let font_data = run.font();
+                            let font_size = run.font_size();
+                            let coords = run.normalized_coords();
+
+                            let font_atlas_key = FontAtlasKey {
+                                id: font_data.data.id() as u32,
+                                index: font_data.index,
+                                font_size_bits: font_size.to_bits(),
+                                variations_hash: FixedHasher.hash_one(coords),
+                                hinting: *hinting,
+                                font_smoothing: brush.font_smoothing,
                             };
 
-                            info.glyphs.push(PositionedGlyph {
-                                position: Vec2::new(glyph.x, glyph.y)
-                                    + atlas_info.rect.size() / 2.
-                                    + atlas_info.offset,
-                                atlas_info,
+                            for glyph in glyph_run.positioned_glyphs() {
+                                let font_atlases =
+                                    font_atlas_set.entry(font_atlas_key).or_default();
+                                let Ok(atlas_info) = get_glyph_atlas_info(
+                                    font_atlases,
+                                    GlyphCacheKey {
+                                        glyph_id: glyph.id as u16,
+                                    },
+                                )
+                                .map(Ok)
+                                .unwrap_or_else(|| {
+                                    let font_ref = FontRef::from_index(
+                                        font_data.data.as_ref(),
+                                        font_data.index as usize,
+                                    )
+                                    .unwrap();
+                                    let mut scaler = scale_cx
+                                        .builder(font_ref)
+                                        .size(font_size)
+                                        .hint(matches!(*hinting, FontHinting::Enabled))
+                                        .normalized_coords(coords)
+                                        .build();
+                                    add_glyph_to_atlas(
+                                        font_atlases,
+                                        textures.as_mut(),
+                                        &mut scaler,
+                                        text_font.font_smoothing,
+                                        glyph.id as u16,
+                                    )
+                                }) else {
+                                    continue;
+                                };
+
+                                info.glyphs.push(PositionedGlyph {
+                                    position: Vec2::new(glyph.x, glyph.y)
+                                        + atlas_info.rect.size() / 2.
+                                        + atlas_info.offset,
+                                    atlas_info,
+                                    section_index: brush.section_index as usize,
+                                    line_index,
+                                });
+                            }
+
+                            let metrics = run.metrics();
+                            let underline_y = glyph_run.baseline() - metrics.underline_offset;
+                            let underline_thickness = metrics.underline_size;
+
+                            let run_text_range = run.text_range();
+                            if let Some(cr) = &compose_range
+                                && run_text_range.start < cr.end
+                                && run_text_range.end > cr.start
+                            {
+                                let mut x = glyph_run.offset();
+                                let mut underline_start_x = None;
+                                let mut underline_end_x = x;
+
+                                for cluster in run.visual_clusters() {
+                                    let ct = cluster.text_range();
+                                    if ct.start < cr.end && ct.end > cr.start {
+                                        underline_start_x.get_or_insert(x);
+                                        underline_end_x = x + cluster.advance();
+                                    }
+                                    x += cluster.advance();
+                                }
+
+                                if let Some(start_x) = underline_start_x {
+                                    info.preedit_underline_rects.push(Rect {
+                                        min: Vec2::new(start_x, underline_y),
+                                        max: Vec2::new(
+                                            underline_end_x,
+                                            underline_y + underline_thickness,
+                                        ),
+                                    });
+                                }
+                            }
+
+                            info.run_geometry.push(RunGeometry {
                                 section_index: brush.section_index as usize,
-                                line_index,
+                                bounds: Rect {
+                                    min: Vec2::new(
+                                        line.metrics().inline_min_coord + glyph_run.offset(),
+                                        line.metrics().block_min_coord,
+                                    ),
+                                    max: Vec2::new(
+                                        line.metrics().inline_min_coord
+                                            + glyph_run.offset()
+                                            + glyph_run.advance(),
+                                        line.metrics().block_max_coord,
+                                    ),
+                                },
+                                strikethrough_y: glyph_run.baseline()
+                                    - metrics.strikethrough_offset,
+                                strikethrough_thickness: metrics.strikethrough_size,
+                                underline_y,
+                                underline_thickness,
                             });
                         }
-
-                        info.run_geometry.push(RunGeometry {
-                            section_index: brush.section_index as usize,
-                            bounds: Rect {
-                                min: Vec2::new(glyph_run.offset(), line.metrics().min_coord),
-                                max: Vec2::new(
-                                    glyph_run.offset() + glyph_run.advance(),
-                                    line.metrics().max_coord,
-                                ),
-                            },
-                            strikethrough_y: glyph_run.baseline()
-                                - run.metrics().strikethrough_offset,
-                            strikethrough_thickness: run.metrics().strikethrough_size,
-                            underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                            underline_thickness: run.metrics().underline_size,
-                        });
-                    }
-                    PositionedLayoutItem::InlineBox(_inline) => {
-                        // TODO: handle inline boxes
+                        PositionedLayoutItem::InlineBox(_inline) => {
+                            // TODO: handle inline boxes
+                        }
                     }
                 }
             }
-        }
 
-        let geom = editable_text
-            .editor
-            .cursor_geometry(editable_text.cursor_width * font_size);
-
-        if let Some(input_focus) = input_focus.as_ref()
-            && Some(entity) == input_focus.get()
-        {
-            if input_focus.is_changed()
-                || editable_text.text_edited
-                || *cursor_timer >= editable_text.cursor_blink_period
-            {
-                *cursor_timer = Duration::ZERO;
-            }
-
-            if *cursor_timer < editable_text.cursor_blink_period / 2 {
-                info.cursor = geom.map(bounding_box_to_rect);
-            } else {
-                info.cursor = None;
-            }
-
-            info.selection_rects = editable_text
+            info.selection_rects = driver
                 .editor
                 .selection_geometry()
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+        }
+
+        if let Some(input_focus) = input_focus.as_ref()
+            && Some(entity) == input_focus.get()
+        {
+            if input_focus.is_changed() || layout_changed || *cursor_timer >= cursor_blink_period {
+                *cursor_timer = Duration::ZERO;
+            }
+
+            if *cursor_timer < cursor_blink_period / 2 {
+                info.cursor = driver
+                    .editor
+                    .cursor_geometry(
+                        cursor_width * text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    )
+                    .map(bounding_box_to_rect);
+            } else {
+                info.cursor = None;
+            }
         } else {
             info.cursor = None;
         }
@@ -395,12 +483,13 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
 }
 
 /// Scroll editable text to keep cursor in view after edits.
-pub fn scroll_editable_text(mut query: Query<(&EditableText, &mut TextScroll, &ComputedNode)>) {
+pub fn scroll_editable_text(
+    mut query: Query<
+        (&EditableText, &mut TextScroll, &ComputedNode),
+        Changed<EditableTextGeneration>,
+    >,
+) {
     for (editable_text, mut scroll, node) in query.iter_mut() {
-        if !editable_text.text_edited {
-            continue;
-        }
-
         let view_size = node.content_box().size();
         if view_size.cmple(Vec2::ZERO).any() {
             continue;

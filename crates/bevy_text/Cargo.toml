@@ -39,7 +39,7 @@ smallvec = { version = "1", default-features = false }
 smol_str = { version = "0.2", default-features = false }
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-parley = { version = "0.8.0", default-features = false, features = ["std"] }
+parley = { version = "0.9.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 
 [lints]

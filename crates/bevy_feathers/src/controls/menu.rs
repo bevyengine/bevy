@@ -32,7 +32,7 @@ use crate::{
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 use bevy_input_focus::{
@@ -268,7 +268,7 @@ pub fn menu_item(props: MenuItemProps) -> impl Scene {
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
         ThemeBackgroundColor(tokens::MENU_BG) // Same as menu
-        ThemeFontColor(tokens::MENUITEM_TEXT)
+        InheritableThemeTextColor(tokens::MENUITEM_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
@@ -288,7 +288,7 @@ fn update_menuitem_styles(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         (
             With<FeathersMenuItem>,
@@ -321,7 +321,7 @@ fn update_menuitem_styles_remove(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         With<FeathersMenuItem>,
     >,
@@ -360,7 +360,7 @@ fn update_menuitem_styles_focus_changed(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         With<FeathersMenuItem>,
     >,
@@ -391,7 +391,7 @@ fn set_menuitem_colors(
     hovered: bool,
     focused: bool,
     bg_color: &ThemeBackgroundColor,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let bg_token = match (focused, pressed, hovered) {
@@ -417,7 +417,7 @@ fn set_menuitem_colors(
     if font_color.0 != font_color_token {
         commands
             .entity(button_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 }
 

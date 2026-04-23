@@ -27,6 +27,7 @@ use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
+use bevy_ui::ComputedStackIndex;
 use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::ResolvedBorderRadius;
 use bevy_ui::UiStack;
@@ -176,6 +177,7 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -188,7 +190,8 @@ pub fn extract_debug_overlay(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, maybe_clip, computed_target, debug) in &uinode_query
+    for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
+        &uinode_query
     {
         let debug_options = debug.copied().unwrap_or((*debug_options.as_ref()).into());
         if !debug_options.enabled {
@@ -205,7 +208,7 @@ pub fn extract_debug_overlay(
         let color = debug_options
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32;
+        let z_order = (ui_stack.uinodes.len() as u32 + stack_index.0) as f32;
         let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
         let transform = transform.affine();
 

@@ -509,7 +509,7 @@ pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
         EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
-        ScenePatchInstance, WorldSceneExt,
+        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
@@ -523,6 +523,7 @@ mod scene;
 mod scene_list;
 mod scene_patch;
 mod spawn;
+mod spawn_system;
 
 pub use bevy_scene_macros::*;
 pub use resolved_scene::*;
@@ -530,6 +531,7 @@ pub use scene::*;
 pub use scene_list::*;
 pub use scene_patch::*;
 pub use spawn::*;
+pub use spawn_system::*;
 
 use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
@@ -567,6 +569,7 @@ mod tests {
     use bevy_asset::{Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle};
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::relationship::Relationship;
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use std::path::Path;
@@ -1153,6 +1156,34 @@ mod tests {
     }
 
     #[test]
+    fn child_of_template() {
+        let mut app = test_app();
+
+        let world = app.world_mut();
+
+        fn scene(root: Entity) -> impl SceneList {
+            bsn_list! {
+                ( #Child1 ChildOf(root) ),
+                ( #Child2 ChildOf(#Child1) ),
+            }
+        }
+
+        let root = world.spawn_empty().id();
+
+        let ids = world.spawn_scene_list(scene(root)).unwrap();
+        assert_eq!(ids.len(), 2);
+
+        let [a, b] = world.entity(&*ids)[..] else {
+            unreachable!()
+        };
+        assert_eq!(a.get::<Name>().unwrap().as_str(), "Child1");
+        assert_eq!(a.get::<ChildOf>().unwrap().get(), root);
+
+        assert_eq!(b.get::<Name>().unwrap().as_str(), "Child2");
+        assert_eq!(b.get::<ChildOf>().unwrap().get(), a.id());
+    }
+
+    #[test]
     fn scene_list_children() {
         let mut app = test_app();
         let world = app.world_mut();
@@ -1420,5 +1451,37 @@ mod tests {
         }
 
         panic!("Ran out of loops to return `Some` from `predicate`");
+    }
+
+    #[test]
+    fn inheritance_with_generics() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Foo<T: FromTemplate<Template: Default + Template<Output = T>>> {
+            value: T,
+            number: u32,
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                :a::<0, i32>
+                Children [ #Y ]
+            }
+        }
+
+        fn a<
+            const A: u32,
+            T: 'static
+                + Send
+                + Sync
+                + FromTemplate<Template: Send + Sync + Default + Template<Output = T>>,
+        >() -> impl Scene {
+            bsn! {
+                Foo<T>{
+                    number: A
+                }
+            }
+        }
+
+        b();
     }
 }
