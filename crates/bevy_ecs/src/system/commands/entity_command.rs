@@ -184,33 +184,6 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     }
 }
 
-/// An [`EntityCommand`] that adds a component to an entity if it differs.
-#[track_caller]
-pub fn insert_if_neq<T: Component + PartialEq>(component: T) -> impl EntityCommand {
-    let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        if let Some(old_component) = entity.get::<T>() {
-            if *old_component != component {
-                move_as_ptr!(component);
-                entity.insert_with_caller(
-                    component,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                );
-            }
-        } else {
-            move_as_ptr!(component);
-            entity.insert_with_caller(
-                component,
-                InsertMode::Replace,
-                caller,
-                RelationshipHookMode::Run,
-            );
-        }
-    }
-}
-
 /// An [`EntityCommand`] that adds a component to an entity using
 /// some function that returns the component.
 ///

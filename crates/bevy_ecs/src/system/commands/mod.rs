@@ -1481,10 +1481,16 @@ impl<'a> EntityCommands<'a> {
         }
     }
 
-    /// Adds a [`Component`] to the entity if it differs.
+    /// Adds a [`Component`] to the entity if the component is different or
+    /// missing.
     #[track_caller]
     pub fn insert_if_neq<T: Component + PartialEq>(&mut self, component: T) -> &mut Self {
-        self.queue(entity_command::insert_if_neq(component))
+        self.queue(move |mut entity: EntityWorldMut| match entity.get::<T>() {
+            Some(old_component) if *old_component == component => {}
+            _ => {
+                entity.insert(component);
+            }
+        })
     }
 
     /// Adds a dynamic [`Component`] to the entity.
@@ -2718,8 +2724,6 @@ mod tests {
             .entity(entity)
             .insert_if_neq(P(42u8));
 
-        // TODO: revisit here if the behavior (when the component does not exist)
-        // is determined. This inserts for now
         let entity2 = Commands::new(&mut command_queue, &world).spawn_empty().id();
 
         Commands::new(&mut command_queue, &world)
