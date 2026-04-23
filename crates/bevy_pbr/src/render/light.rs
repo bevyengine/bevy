@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{render::layers::render_layers_to_mask, *};
 use alloc::sync::Arc;
 use bevy_asset::UntypedAssetId;
 use bevy_camera::primitives::{
@@ -147,26 +147,12 @@ bitflags::bitflags! {
 }
 
 /// The first bit in light flags that stores packed render layer membership.
+/// The lower bits are used for light feature flags.
 const LIGHT_RENDER_LAYERS_SHIFT: u32 = 6;
+/// Number of render layer bits available for filtering.
+const LIGHT_RENDER_LAYERS_MASK_BITS: u32 = u32::BITS - LIGHT_RENDER_LAYERS_SHIFT;
 /// The bitmask used to store packed render layer membership in light flags.
-const LIGHT_RENDER_LAYERS_MASK: u32 = (1 << (u32::BITS - LIGHT_RENDER_LAYERS_SHIFT)) - 1;
-
-/// Packs render layers into light flags.
-///
-/// We reserve the lower bits for light feature flags. If layers outside the
-/// packed range are used, we fall back to `all bits set` to preserve behavior.
-fn render_layers_to_light_mask(render_layers: &RenderLayers) -> u32 {
-    let bits = render_layers.bits();
-    let low_bits = bits.first().copied().unwrap_or_default();
-    let unsupported_bits = (low_bits >> (u32::BITS - LIGHT_RENDER_LAYERS_SHIFT)) != 0
-        || bits.iter().skip(1).any(|&extra_bits| extra_bits != 0);
-
-    if unsupported_bits {
-        LIGHT_RENDER_LAYERS_MASK
-    } else {
-        (low_bits as u32) & LIGHT_RENDER_LAYERS_MASK
-    }
-}
+const LIGHT_RENDER_LAYERS_MASK: u32 = (1 << LIGHT_RENDER_LAYERS_MASK_BITS) - 1;
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalCascade {
@@ -1305,7 +1291,11 @@ pub fn prepare_lights(
         let light = point_lights.get(*entity).unwrap().2;
 
         let mut flags = PointLightFlags::NONE;
-        let render_layers_mask = render_layers_to_light_mask(&light.render_layers);
+        let render_layers_mask = render_layers_to_mask(
+            Some(&light.render_layers),
+            LIGHT_RENDER_LAYERS_MASK_BITS,
+            LIGHT_RENDER_LAYERS_MASK,
+        );
         flags |= PointLightFlags::from_bits_retain(render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT);
 
         // Lights are sorted, shadow enabled lights are first
@@ -1846,7 +1836,11 @@ pub fn prepare_lights(
             num_directional_lights_for_this_view += 1;
 
             let mut flags = DirectionalLightFlags::NONE;
-            let render_layers_mask = render_layers_to_light_mask(&light.render_layers);
+            let render_layers_mask = render_layers_to_mask(
+                Some(&light.render_layers),
+                LIGHT_RENDER_LAYERS_MASK_BITS,
+                LIGHT_RENDER_LAYERS_MASK,
+            );
             flags |= DirectionalLightFlags::from_bits_retain(
                 render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT,
             );

@@ -85,6 +85,7 @@ use tracing::{error, info_span, warn};
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
     render::{
+        layers::render_layers_to_mask,
         morph::{
             extract_morphs, no_automatic_morph_batching, write_morph_buffers, MorphIndices,
             MorphUniforms,
@@ -686,7 +687,11 @@ impl MeshUniform {
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
-            render_layers: render_layers_to_shader_mask(render_layers),
+            render_layers: render_layers_to_mask(
+                render_layers,
+                SHADER_RENDER_LAYER_MASK_BITS,
+                SHADER_RENDER_LAYER_MASK,
+            ),
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
             material_and_lightmap_bind_group_slot,
@@ -708,20 +713,6 @@ impl MeshUniform {
 /// leaving exactly 26 bits for layer membership.
 const SHADER_RENDER_LAYER_MASK_BITS: u32 = 26;
 const SHADER_RENDER_LAYER_MASK: u32 = (1 << SHADER_RENDER_LAYER_MASK_BITS) - 1;
-
-fn render_layers_to_shader_mask(render_layers: Option<&RenderLayers>) -> u32 {
-    let render_layers = render_layers.unwrap_or_default();
-    let bits = render_layers.bits();
-    let low_bits = bits.first().copied().unwrap_or_default();
-    let unsupported_bits = (low_bits >> SHADER_RENDER_LAYER_MASK_BITS) != 0
-        || bits.iter().skip(1).any(|&extra_bits| extra_bits != 0);
-
-    if unsupported_bits {
-        SHADER_RENDER_LAYER_MASK
-    } else {
-        (low_bits as u32) & SHADER_RENDER_LAYER_MASK
-    }
-}
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
@@ -1520,7 +1511,11 @@ impl RenderMeshInstanceGpuBuilder {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
-            render_layers: render_layers_to_shader_mask(self.render_layers.as_ref()),
+            render_layers: render_layers_to_mask(
+                self.render_layers.as_ref(),
+                SHADER_RENDER_LAYER_MASK_BITS,
+                SHADER_RENDER_LAYER_MASK,
+            ),
             previous_input_index: u32::MAX,
             timestamp: timestamp.0,
             first_vertex_index,
