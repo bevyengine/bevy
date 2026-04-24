@@ -34,8 +34,8 @@ use crate::{
     },
     saver::{tests::CoolTextSaver, AssetSaver},
     tests::{
-        read_asset_as_string, read_meta_as_string, run_app_until, CoolText, CoolTextLoader,
-        CoolTextRon, SubText,
+        read_asset_as_string, read_meta_as_string, run_app_until, serialize_as_cool_text, CoolText,
+        CoolTextLoader, CoolTextRon, SubText,
     },
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
@@ -221,20 +221,6 @@ impl<R: AssetReader> AssetReader for LockGatedReader<R> {
         let _guard = self.gate.read().await;
         self.reader.is_directory(path).await
     }
-}
-
-/// Serializes `text` into a `CoolText` that can be loaded.
-///
-/// This doesn't support all the features of `CoolText`, so more complex scenarios may require doing
-/// this manually.
-fn serialize_as_cool_text(text: &str) -> String {
-    let cool_text_ron = CoolTextRon {
-        text: text.into(),
-        dependencies: vec![],
-        embedded_dependencies: vec![],
-        sub_texts: vec![],
-    };
-    ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
 }
 
 /// Sets the transaction log for the app to a fake one to prevent touching the filesystem.
