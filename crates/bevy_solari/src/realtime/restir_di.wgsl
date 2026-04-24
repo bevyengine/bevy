@@ -179,15 +179,13 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
-    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, SPATIAL_REUSE_RADIUS_PIXELS, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
-            search_radius /= 2.0;
             continue;
         }
 
