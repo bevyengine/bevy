@@ -1,5 +1,5 @@
 use bevy_color::{
-    palettes::tailwind::{SKY_200, SLATE_200, SLATE_600},
+    palettes::tailwind::{SLATE_400, SLATE_700},
     Color,
 };
 use bevy_ecs::component::Component;
@@ -29,8 +29,8 @@ pub struct TextCursorStyle {
 impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
-            color: Color::from(SLATE_600),
-            selection_color: Color::from(SKY_200),
+            color: Color::from(SLATE_700),
+            selection_color: Color::from(SLATE_400),
             unfocused_selection_color: Color::srgba(0.0, 0.0, 0.0, 0.0),
             selected_text_color: None,
         }
