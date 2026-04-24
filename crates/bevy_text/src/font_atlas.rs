@@ -206,7 +206,12 @@ pub fn get_outlined_glyph_texture(
         swash::scale::image::Content::Mask => {
             let mut rgba = vec![0u8; px * 4];
             match font_smoothing {
-                FontSmoothing::AntiAliased => {
+                // Subpixel renders are requested via `Format::Subpixel` and normally
+                // produce `Content::SubpixelMask`. If swash ever falls back to a grayscale
+                // mask for a given glyph (for example, a source that only has a plain
+                // outline on an emoji-style font), treat it as grayscale AA — still
+                // better than returning black pixels.
+                FontSmoothing::AntiAliased | FontSmoothing::SubpixelAntiAliased => {
                     for i in 0..px {
                         let a = image.data[i];
                         rgba[i * 4 + 0] = 255; // R

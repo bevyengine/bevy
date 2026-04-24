@@ -1083,9 +1083,11 @@ impl<T: Into<Color>> From<T> for UnderlineColor {
 }
 
 /// Determines which antialiasing method to use when rendering text. By default, text is
-/// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
+/// rendered with grayscale antialiasing, but this can be changed to a pixelated look
+/// or to RGB subpixel antialiasing for extra horizontal sharpness on LCD/OLED panels.
 ///
-/// **Note:** Subpixel antialiasing is not currently supported.
+/// See [`SubpixelAntiAliased`](Self::SubpixelAntiAliased) for details on subpixel
+/// rendering, including its runtime requirements.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 #[doc(alias = "antialiasing")]
@@ -1102,8 +1104,19 @@ pub enum FontSmoothing {
     /// even at small font sizes and low resolutions with modern vector fonts.
     #[default]
     AntiAliased,
-    // TODO: Add subpixel antialias support
-    // SubpixelAntiAliased,
+    /// Grayscale-plus-RGB subpixel coverage. Rasterises each glyph through
+    /// [`swash::zeno::Format::Subpixel`](swash::zeno::Format::Subpixel) so each
+    /// output pixel carries independent R / G / B coverage, and expects the
+    /// render pipeline to composite the result with a dual-source blend.
+    /// Produces noticeably crisper text at small body sizes (10-14pt) on LCD
+    /// and OLED panels at the cost of a subtle colour fringe on high-contrast
+    /// edges.
+    ///
+    /// Subpixel rendering requires
+    /// [`wgpu::Features::DUAL_SOURCE_BLENDING`](https://docs.rs/wgpu/latest/wgpu/struct.Features.html#associatedconstant.DUAL_SOURCE_BLENDING).
+    /// On adapters without that feature, subpixel text transparently
+    /// downgrades to [`AntiAliased`](Self::AntiAliased) with no errors.
+    SubpixelAntiAliased,
 }
 
 #[derive(Component, Debug, Copy, Clone, Default, Reflect, PartialEq, Hash, Eq)]
