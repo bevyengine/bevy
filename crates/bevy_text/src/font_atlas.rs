@@ -2,16 +2,89 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use swash::scale::Scaler;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
-/// Key identifying a glyph
+/// Horizontal subpixel quantisation bucket for
+/// [`FontSmoothing::SubpixelAntiAliased`].
+///
+/// Groups ranges of fractional glyph x-positions into four buckets plus a
+/// `NotApplicable` case for non-subpixel smoothing modes. Used inside
+/// [`GlyphCacheKey`] so the atlas holds four distinct rasterisations per
+/// glyph id at the appropriate horizontal subpixel offsets.
+///
+/// Four buckets is the quality / atlas-count sweet spot borrowed from the
+/// cosmic-text-era stack (which mirrored `cosmic_text::SubpixelBin`); parley
+/// does not expose its own bucketing, so this enum is purely internal to
+/// `bevy_text`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default, Reflect)]
+#[reflect(Hash, Default, PartialEq, Debug, Clone)]
+pub enum SubpixelBucket {
+    /// Non-subpixel smoothing (`None` / `AntiAliased`). A single atlas cell
+    /// per glyph id.
+    #[default]
+    NotApplicable,
+    /// Fractional x in `[0.0, 0.25)` — rasterised at swash offset `0.0`.
+    Zero,
+    /// Fractional x in `[0.25, 0.5)` — rasterised at swash offset `0.25`.
+    Quarter,
+    /// Fractional x in `[0.5, 0.75)` — rasterised at swash offset `0.5`.
+    Half,
+    /// Fractional x in `[0.75, 1.0)` — rasterised at swash offset `0.75`.
+    ThreeQuarter,
+}
+
+impl SubpixelBucket {
+    /// Derive a bucket from a fractional x-position and the current font
+    /// smoothing mode.
+    ///
+    /// Returns [`SubpixelBucket::NotApplicable`] for any smoothing mode other
+    /// than [`FontSmoothing::SubpixelAntiAliased`], collapsing grayscale /
+    /// `None` glyphs to a single atlas cell per glyph id.
+    pub fn from_fract(fract_x: f32, smoothing: FontSmoothing) -> Self {
+        if smoothing != FontSmoothing::SubpixelAntiAliased {
+            return Self::NotApplicable;
+        }
+        let frac = fract_x.rem_euclid(1.0);
+        if frac < 0.25 {
+            Self::Zero
+        } else if frac < 0.5 {
+            Self::Quarter
+        } else if frac < 0.75 {
+            Self::Half
+        } else {
+            Self::ThreeQuarter
+        }
+    }
+
+    /// The horizontal rasterisation offset for this bucket, intended to be
+    /// fed to [`swash::scale::Render::offset`] before `.render(...)`.
+    pub fn rasterise_offset_x(self) -> f32 {
+        match self {
+            Self::NotApplicable | Self::Zero => 0.0,
+            Self::Quarter => 0.25,
+            Self::Half => 0.5,
+            Self::ThreeQuarter => 0.75,
+        }
+    }
+}
+
+/// Key identifying a glyph entry inside a [`FontAtlas`].
+///
+/// Combines the glyph id with a [`SubpixelBucket`] so that
+/// [`FontSmoothing::SubpixelAntiAliased`] can cache four distinct subpixel
+/// rasterisations of the same glyph within a single atlas texture. Non-
+/// subpixel smoothing modes always use [`SubpixelBucket::NotApplicable`],
+/// giving a single atlas cell per glyph id.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GlyphCacheKey {
-    /// Id used to look up the glyph
+    /// Id used to look up the glyph.
     pub glyph_id: u16,
+    /// Horizontal subpixel bucket the glyph was rasterised for.
+    pub subpixel_bucket: SubpixelBucket,
 }
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
@@ -135,17 +208,17 @@ pub fn add_glyph_to_atlas(
     scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
     glyph_id: u16,
+    subpixel_bucket: SubpixelBucket,
+    subpixel_offset: Vec2,
 ) -> Result<GlyphAtlasInfo, TextError> {
     let (glyph_texture, offset, is_alpha_mask) =
-        get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
+        get_outlined_glyph_texture(scaler, glyph_id, font_smoothing, subpixel_offset)?;
+    let cache_key = GlyphCacheKey {
+        glyph_id,
+        subpixel_bucket,
+    };
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
-        atlas.add_glyph(
-            textures,
-            GlyphCacheKey { glyph_id },
-            &glyph_texture,
-            offset,
-            is_alpha_mask,
-        )
+        atlas.add_glyph(textures, cache_key, &glyph_texture, offset, is_alpha_mask)
     };
     if !font_atlases
         .iter_mut()
@@ -162,19 +235,12 @@ pub fn add_glyph_to_atlas(
 
         let mut new_atlas = FontAtlas::new(textures, UVec2::splat(containing), font_smoothing);
 
-        new_atlas.add_glyph(
-            textures,
-            GlyphCacheKey { glyph_id },
-            &glyph_texture,
-            offset,
-            is_alpha_mask,
-        )?;
+        new_atlas.add_glyph(textures, cache_key, &glyph_texture, offset, is_alpha_mask)?;
 
         font_atlases.push(new_atlas);
     }
 
-    get_glyph_atlas_info(font_atlases, GlyphCacheKey { glyph_id })
-        .ok_or(TextError::InconsistentAtlasState)
+    get_glyph_atlas_info(font_atlases, cache_key).ok_or(TextError::InconsistentAtlasState)
 }
 
 /// Get the texture of the glyph as a rendered image, and its offset
@@ -186,6 +252,7 @@ pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
     glyph_id: u16,
     font_smoothing: FontSmoothing,
+    subpixel_offset: Vec2,
 ) -> Result<(Image, Vec2, bool), TextError> {
     // `None` and `AntiAliased` both ask swash for a single-channel alpha mask
     // which the match below unpacks into an RGBA texture. `SubpixelAntiAliased`
@@ -195,22 +262,29 @@ pub fn get_outlined_glyph_texture(
     // that buffer through unchanged; the shader side of the subpixel path uses
     // the RGB channels as per-channel coverage in a dual-source blend.
     //
-    // Per-glyph fractional offsets (the actual point of subpixel rendering)
-    // are introduced in a follow-up change once the atlas gains per-bucket
-    // keys. Until then this path rasterises at offset zero, which is
-    // functionally correct but gives up the bucket-driven fringe reduction.
+    // `subpixel_offset` is fed to `swash::scale::Render::offset(...)` only on
+    // the subpixel path; the quantised horizontal value comes from
+    // [`SubpixelBucket::rasterise_offset_x`] at the atlas-lookup call site.
+    // Non-subpixel callers pass `Vec2::ZERO` and the offset is ignored.
     let format = match font_smoothing {
         FontSmoothing::None | FontSmoothing::AntiAliased => swash::zeno::Format::Alpha,
         FontSmoothing::SubpixelAntiAliased => swash::zeno::Format::Subpixel,
     };
-    let image = swash::scale::Render::new(&[
+    let mut render = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
         swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
         swash::scale::Source::Outline,
-    ])
-    .format(format)
-    .render(scaler, glyph_id)
-    .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
+    ]);
+    render.format(format);
+    if font_smoothing == FontSmoothing::SubpixelAntiAliased {
+        render.offset(swash::zeno::Vector::new(
+            subpixel_offset.x,
+            subpixel_offset.y,
+        ));
+    }
+    let image = render
+        .render(scaler, glyph_id)
+        .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
 
     let left = image.placement.left;
     let top = image.placement.top;

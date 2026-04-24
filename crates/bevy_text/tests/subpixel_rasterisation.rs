@@ -30,7 +30,7 @@ fn rasterise(
     let glyph_id = font.charmap().map(ch);
     assert!(glyph_id != 0, "font is missing a glyph for {ch:?}");
     let mut scaler = scale_cx.builder(font).size(font_size).hint(true).build();
-    get_outlined_glyph_texture(&mut scaler, glyph_id, font_smoothing)
+    get_outlined_glyph_texture(&mut scaler, glyph_id, font_smoothing, Vec2::ZERO)
 }
 
 #[test]

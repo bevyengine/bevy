@@ -122,6 +122,8 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .register_type::<FontSmoothing>()
+            .register_type::<SubpixelBucket>()
             .add_systems(
                 PostUpdate,
                 (

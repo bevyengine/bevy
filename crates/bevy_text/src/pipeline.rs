@@ -26,8 +26,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
-    TextFont, TextLayout,
+    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, SubpixelBucket, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 struct TextSectionView<'a> {
@@ -354,19 +354,27 @@ impl TextPipeline {
                             continue;
                         };
 
+                        let subpixel_bucket = SubpixelBucket::from_fract(glyph.x, font_smoothing);
+                        let subpixel_offset = Vec2::new(subpixel_bucket.rasterise_offset_x(), 0.0);
+                        let cache_key = crate::GlyphCacheKey {
+                            glyph_id,
+                            subpixel_bucket,
+                        };
+
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-                        let atlas_info =
-                            get_glyph_atlas_info(font_atlases, crate::GlyphCacheKey { glyph_id })
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures,
-                                        &mut scaler,
-                                        font_smoothing,
-                                        glyph_id,
-                                    )
-                                })?;
+                        let atlas_info = get_glyph_atlas_info(font_atlases, cache_key)
+                            .map(Ok)
+                            .unwrap_or_else(|| {
+                                add_glyph_to_atlas(
+                                    font_atlases,
+                                    textures,
+                                    &mut scaler,
+                                    font_smoothing,
+                                    glyph_id,
+                                    subpixel_bucket,
+                                    subpixel_offset,
+                                )
+                            })?;
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
                         let size = atlas_info.rect.size();

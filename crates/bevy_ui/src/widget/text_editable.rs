@@ -20,7 +20,7 @@ use bevy_text::{
     add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
     GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    SubpixelBucket, TextBrush, TextFont, TextLayout, TextLayoutInfo,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -335,35 +335,42 @@ pub fn update_editable_text_layout(
                             };
 
                             for glyph in glyph_run.positioned_glyphs() {
+                                let subpixel_bucket =
+                                    SubpixelBucket::from_fract(glyph.x, text_font.font_smoothing);
+                                let subpixel_offset =
+                                    Vec2::new(subpixel_bucket.rasterise_offset_x(), 0.0);
+                                let cache_key = GlyphCacheKey {
+                                    glyph_id: glyph.id as u16,
+                                    subpixel_bucket,
+                                };
+
                                 let font_atlases =
                                     font_atlas_set.entry(font_atlas_key).or_default();
-                                let Ok(atlas_info) = get_glyph_atlas_info(
-                                    font_atlases,
-                                    GlyphCacheKey {
-                                        glyph_id: glyph.id as u16,
-                                    },
-                                )
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    let font_ref = FontRef::from_index(
-                                        font_data.data.as_ref(),
-                                        font_data.index as usize,
-                                    )
-                                    .unwrap();
-                                    let mut scaler = scale_cx
-                                        .builder(font_ref)
-                                        .size(font_size)
-                                        .hint(matches!(*hinting, FontHinting::Enabled))
-                                        .normalized_coords(coords)
-                                        .build();
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures.as_mut(),
-                                        &mut scaler,
-                                        text_font.font_smoothing,
-                                        glyph.id as u16,
-                                    )
-                                }) else {
+                                let Ok(atlas_info) = get_glyph_atlas_info(font_atlases, cache_key)
+                                    .map(Ok)
+                                    .unwrap_or_else(|| {
+                                        let font_ref = FontRef::from_index(
+                                            font_data.data.as_ref(),
+                                            font_data.index as usize,
+                                        )
+                                        .unwrap();
+                                        let mut scaler = scale_cx
+                                            .builder(font_ref)
+                                            .size(font_size)
+                                            .hint(matches!(*hinting, FontHinting::Enabled))
+                                            .normalized_coords(coords)
+                                            .build();
+                                        add_glyph_to_atlas(
+                                            font_atlases,
+                                            textures.as_mut(),
+                                            &mut scaler,
+                                            text_font.font_smoothing,
+                                            glyph.id as u16,
+                                            subpixel_bucket,
+                                            subpixel_offset,
+                                        )
+                                    })
+                                else {
                                     continue;
                                 };
 
