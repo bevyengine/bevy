@@ -1182,7 +1182,7 @@ pub fn prepare_view_targets(
                 // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
                 Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
                 Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
-                _ => LinearRgba::from(color).into(),
+                Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
         let key: MainTextureKey = (
