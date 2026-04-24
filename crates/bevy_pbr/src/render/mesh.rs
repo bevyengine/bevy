@@ -552,6 +552,8 @@ pub struct MeshUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    pub _webgl2_padding: [u32; 2],
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -623,7 +625,9 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
-    /// Padding to preserve 16-byte alignment for POD casts.
+    /// Padding to preserve 16-byte alignment in WebGL2 for POD casts.
+    // This cannot be feature gated to WebGL2, or else the Pod derive complains
+    // about there being padding when combined with impl_atomic_pod!
     pub pad: [u32; 3],
 }
 
@@ -700,6 +704,8 @@ impl MeshUniform {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: [0; 2],
         }
     }
 }
@@ -3498,7 +3504,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        shader_defs.push("WEBGL2".into());
+        {
+            shader_defs.push("WEBGL2".into());
+            shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
 
         #[cfg(feature = "experimental_pbr_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());

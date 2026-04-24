@@ -26,6 +26,10 @@ struct Mesh {
     // User supplied index to identify the mesh instance
     tag: u32,
     morph_descriptor_index: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // WebGL2 structs must be 16 byte aligned.
+    _webgl2_padding: array<u32, 2>,
+#endif
 };
 
 #ifdef SKINNED
