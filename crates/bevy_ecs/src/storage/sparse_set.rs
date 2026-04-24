@@ -136,6 +136,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         }
     }
 
+    /* TODO: Maybe change the data structure in Components
     /// Returns an iterator over the non-empty values in the array.
     ///
     /// This must scan the entire array to find non-empty values,
@@ -148,6 +149,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
                 .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
         })
     }
+    */
 }
 
 /// A sparse data structure of [`Component`](crate::component::Component)s.

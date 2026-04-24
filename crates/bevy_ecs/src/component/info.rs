@@ -206,6 +206,12 @@ impl ComponentId {
     pub fn index(self) -> usize {
         self.0.index_u32() as usize
     }
+
+    /// Returns the inner entity from the ComponentId
+    #[inline]
+    pub fn entity(self) -> Entity {
+        self.0
+    }
 }
 
 // Identical implementation as Entity
