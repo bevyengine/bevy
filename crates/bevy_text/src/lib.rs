@@ -41,6 +41,7 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
+mod subpixel;
 mod text;
 mod text_access;
 mod text_edit;
@@ -56,6 +57,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use parley_context::*;
 pub use pipeline::*;
+pub use subpixel::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
@@ -68,8 +70,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
-        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
-        TextLayout, TextSpan, Underline, UnderlineColor,
+        Justify, LineBreak, Strikethrough, StrikethroughColor, SubpixelCapable, SubpixelLcdLayout,
+        SubpixelTextSettings, TextColor, TextError, TextFont, TextLayout, TextSpan, Underline,
+        UnderlineColor,
     };
 }
 
@@ -122,8 +125,13 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<SubpixelTextSettings>()
+            .init_resource::<SubpixelLcdLayout>()
             .register_type::<FontSmoothing>()
             .register_type::<SubpixelBucket>()
+            .register_type::<SubpixelTextSettings>()
+            .register_type::<SubpixelLcdLayout>()
+            .register_type::<SubpixelCapable>()
             .add_systems(
                 PostUpdate,
                 (

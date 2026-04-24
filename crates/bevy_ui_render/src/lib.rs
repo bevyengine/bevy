@@ -65,7 +65,8 @@ use gradient::GradientPlugin;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, FontSmoothing, PositionedGlyph, Strikethrough, StrikethroughColor,
-    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
+    SubpixelCapable, SubpixelLcdLayout, SubpixelTextSettings, TextBackgroundColor, TextColor,
+    TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -232,7 +233,10 @@ impl Plugin for UiRenderPlugin {
                 )
                     .chain(),
             )
-            .add_systems(RenderStartup, init_ui_pipeline)
+            .add_systems(
+                RenderStartup,
+                (init_ui_pipeline, init_ui_subpixel_capability),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
@@ -394,9 +398,13 @@ impl ExtractedUiNodes {
 /// every pipeline variant — the non-subpixel `fragment` entry point simply
 /// doesn't reference the binding, which keeps the bind group layout shared.
 ///
-/// Phase-04 hardcodes GPUI's default tuning values (below). Phase-05 will
-/// introduce `SubpixelTextSettings` / `SubpixelLcdLayout` resources in
-/// `bevy_text` and populate this uniform from them in an extract system.
+/// Populated each frame by [`prepare_uinodes`] from the main-world
+/// [`SubpixelTextSettings`] / [`SubpixelLcdLayout`] resources (both
+/// `init_resource`'d by `TextPlugin::build`). The [`Default`] impl on this
+/// struct matches `SubpixelTextSettings::default()` + `SubpixelLcdLayout::HorizontalRgb`
+/// so the uniform holds sensible values for the brief window before the
+/// first prepare-phase run (e.g. if a render sub-app queries the buffer
+/// during `RenderStartup`).
 ///
 /// Layout mirrors the WGSL `SubpixelSettings` struct. `enhanced_contrast`
 /// (4 bytes) + `layout_flags` (4 bytes) + `_pad: Vec2` (8 bytes) packs the
@@ -423,11 +431,12 @@ pub struct SubpixelTextUniforms {
 
 impl Default for SubpixelTextUniforms {
     fn default() -> Self {
-        // GPUI defaults. `enhanced_contrast = 0.5` is `RenderingParameters::new()`
-        // in GPUI's source; the gamma ratios are the gamma-1.8 row of
-        // `GAMMA_INCORRECT_TARGET_RATIOS` multiplied by the `NORM` constant
-        // GPUI applies at runtime. `layout_flags = 0` is `HorizontalRgb` —
-        // the identity swizzle in `swizzle_subpixel_atlas`.
+        // Must match `SubpixelTextSettings::default()` + `SubpixelLcdLayout::default()`
+        // so the initial bind-group value is consistent with the tuning
+        // resources. `enhanced_contrast = 0.5` is GPUI's
+        // `RenderingParameters::new()`; the gamma ratios are the gamma-1.8
+        // row of `GAMMA_INCORRECT_TARGET_RATIOS`. `layout_flags = 0` is
+        // `HorizontalRgb` — the identity swizzle in `swizzle_subpixel_atlas`.
         Self {
             enhanced_contrast: 0.5,
             layout_flags: 0,
@@ -1512,10 +1521,11 @@ pub struct UiMeta {
     view_bind_group: Option<BindGroup>,
     /// Uniform buffer for [`SubpixelTextUniforms`], bound at `@group(0)
     /// @binding(1)` alongside the view uniform for every UI pipeline variant.
-    /// Phase-04 seeds with [`SubpixelTextUniforms::default`] and never updates
-    /// it after construction; phase-05 adds an extract system that writes
-    /// frame-by-frame from the `SubpixelTextSettings` / `SubpixelLcdLayout`
-    /// resources.
+    /// Seeded with [`SubpixelTextUniforms::default`]; [`prepare_uinodes`]
+    /// overwrites the value each frame from the main-world
+    /// [`SubpixelTextSettings`] / [`SubpixelLcdLayout`] resources
+    /// (`TextPlugin::build` `init_resource`'s both with GPUI-derived
+    /// defaults, so the uniform always tracks app-level configuration).
     pub(crate) subpixel_settings: UniformBuffer<SubpixelTextUniforms>,
 }
 
@@ -1574,7 +1584,13 @@ pub fn queue_uinodes(
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
+    subpixel_capable: Option<Res<SubpixelCapable>>,
 ) {
+    // `SubpixelCapable` is inserted by `init_ui_subpixel_capability` at
+    // `RenderStartup`; any frame before that runs (or in headless contexts
+    // where the render plugin hasn't populated it) conservatively treats
+    // the adapter as non-capable so glyphs never hit the DSB path.
+    let subpixel_supported = subpixel_capable.as_deref().is_some_and(|c| c.0);
     let draw_function = draw_functions.read().id::<DrawUi>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
@@ -1602,18 +1618,22 @@ pub fn queue_uinodes(
         };
 
         // Glyph batches tagged `FontSmoothing::SubpixelAntiAliased` route to
-        // the dual-source-blend pipeline variant. Phase-04 unconditionally
-        // picks DSB when the batch is subpixel-smoothed; phase-05 will gate
-        // this on a `SubpixelCapable` resource populated from
-        // `wgpu::Features::DUAL_SOURCE_BLENDING` so adapters without DSB
-        // support fall back to the grayscale pipeline without panicking.
-        let subpixel = matches!(
-            extracted_uinode.item,
-            ExtractedUiItem::Glyphs {
-                font_smoothing: FontSmoothing::SubpixelAntiAliased,
-                ..
-            }
-        );
+        // the dual-source-blend pipeline variant — but only when the active
+        // adapter supports `wgpu::Features::DUAL_SOURCE_BLENDING`. If
+        // `SubpixelCapable(false)` (probed at `RenderStartup` by
+        // `init_ui_subpixel_capability`), the subpixel glyph batch is
+        // silently routed through the grayscale variant instead; the RGBA
+        // coverage atlas is still sampled, but the non-subpixel fragment
+        // only uses one channel as alpha — approximate grayscale AA,
+        // zero panics, zero shader errors.
+        let subpixel = subpixel_supported
+            && matches!(
+                extracted_uinode.item,
+                ExtractedUiItem::Glyphs {
+                    font_smoothing: FontSmoothing::SubpixelAntiAliased,
+                    ..
+                }
+            );
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
@@ -1658,6 +1678,8 @@ pub fn prepare_uinodes(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
+    subpixel_settings: Option<Res<SubpixelTextSettings>>,
+    subpixel_layout: Option<Res<SubpixelLcdLayout>>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -1671,6 +1693,20 @@ pub fn prepare_uinodes(
             }
         };
     }
+
+    // Drive the subpixel-text uniform from the main-world tuning resources.
+    // `TextPlugin::build` `init_resource`'s both with GPUI-derived defaults;
+    // a missing resource (headless / no `TextPlugin`) falls back to the
+    // same defaults so the bind group still populates correctly.
+    let settings = subpixel_settings.as_deref().copied().unwrap_or_default();
+    let layout = subpixel_layout.as_deref().copied().unwrap_or_default();
+    let uniforms = SubpixelTextUniforms {
+        enhanced_contrast: settings.enhanced_contrast,
+        layout_flags: layout.pack_u32(),
+        _pad: Vec2::ZERO,
+        gamma_ratios: settings.gamma_ratios,
+    };
+    ui_meta.subpixel_settings.set(uniforms);
 
     // Flush the subpixel-text uniform to the GPU before building the view
     // bind group below — `subpixel_settings.binding()` returns `None` until

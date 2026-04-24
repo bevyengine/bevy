@@ -7,9 +7,11 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
+    renderer::RenderDevice,
     view::ViewUniform,
 };
 use bevy_shader::Shader;
+use bevy_text::SubpixelCapable;
 use bevy_utils::default;
 
 #[derive(Resource)]
@@ -22,12 +24,12 @@ pub struct UiPipeline {
 pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Binding 1 is the `SubpixelTextUniforms` uniform (see
     // [`crate::SubpixelTextUniforms`]). It is declared on every UI pipeline
-    // variant — including the non-subpixel path — so the view bind group layout
-    // is a single shared definition. The non-subpixel WGSL entry points simply
-    // don't reference the binding; naga/wgpu are fine with unused bindings as
-    // long as the layout matches. Phase-05 will populate the buffer from the
-    // `SubpixelTextSettings` / `SubpixelLcdLayout` resources; phase-04 uses the
-    // hardcoded GPUI defaults emitted by `SubpixelTextUniforms::default`.
+    // variant — including the non-subpixel path — so the view bind group
+    // layout is a single shared definition. The non-subpixel WGSL entry
+    // points simply don't reference the binding; naga/wgpu are fine with
+    // unused bindings as long as the layout matches. The uniform buffer is
+    // populated by [`crate::prepare_uinodes`] from the main-world
+    // `SubpixelTextSettings` / `SubpixelLcdLayout` resources.
     let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",
         &BindGroupLayoutEntries::sequential(
@@ -57,6 +59,27 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
     });
 }
 
+/// Populate the [`SubpixelCapable`] resource from the active render adapter's
+/// wgpu feature set at `RenderStartup`. Reads
+/// [`WgpuFeatures::DUAL_SOURCE_BLENDING`] — the feature the subpixel UI
+/// fragment entry (`fragment_subpixel` in `ui.wgsl`) requires for its
+/// `@blend_src(1)` output.
+///
+/// On adapters without DSB support, [`crate::queue_uinodes`] downgrades
+/// glyph batches tagged [`bevy_text::FontSmoothing::SubpixelAntiAliased`] to
+/// the grayscale pipeline variant — no panic, no shader error, just a
+/// silent visual degradation to approximate grayscale AA.
+///
+/// `bevy_sprite_render` (phase-06) will add its own
+/// `init_sprite_subpixel_capability` system that writes the same resource
+/// from the same underlying feature set; the two systems are idempotent.
+pub fn init_ui_subpixel_capability(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let supported = render_device
+        .features()
+        .contains(WgpuFeatures::DUAL_SOURCE_BLENDING);
+    commands.insert_resource(SubpixelCapable(supported));
+}
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub target_format: TextureFormat,
@@ -67,10 +90,11 @@ pub struct UiPipelineKey {
     /// variant (`fragment_subpixel` entry point, `SUBPIXEL` shader def,
     /// `Src1` / `OneMinusSrc1` blend factors). Queue-side selection in
     /// [`crate::queue_uinodes`] sets this for glyph batches whose source
-    /// section used `FontSmoothing::SubpixelAntiAliased`. Adapter fallback
-    /// (via `wgpu::Features::DUAL_SOURCE_BLENDING`) is introduced in
-    /// phase-05; phase-04 always picks the DSB variant when the glyph is
-    /// subpixel-smoothed.
+    /// section used `FontSmoothing::SubpixelAntiAliased`, but only when
+    /// the [`bevy_text::SubpixelCapable`] resource reports `true` (the
+    /// active adapter advertises `wgpu::Features::DUAL_SOURCE_BLENDING`).
+    /// On non-DSB adapters the flag is always forced to `false` so glyphs
+    /// silently fall back to the grayscale pipeline.
     pub subpixel: bool,
 }
 
