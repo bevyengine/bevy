@@ -182,8 +182,8 @@ impl UiSurface {
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
                         // So this is setting width:100% and height:100%
                         size: taffy::geometry::Size {
-                            width: taffy::style_helpers::percent(1.0),
-                            height: taffy::style_helpers::percent(1.0),
+                            width: taffy::style_helpers::percent(1.0_f32),
+                            height: taffy::style_helpers::percent(1.0_f32),
                         },
                         align_items: Some(taffy::style::AlignItems::Start),
                         justify_items: Some(taffy::style::JustifyItems::Start),
