@@ -35,7 +35,7 @@ fn ui() -> impl Scene {
     }
 }
 
-fn button(label: &'static str) -> impl Scene {
+fn button(label: &str) -> impl Scene {
     bsn! {
         Button
         Node {

@@ -10,7 +10,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -46,7 +46,7 @@ pub fn pane_header() -> impl Scene {
         }
         ThemeBackgroundColor(tokens::PANE_HEADER_BG)
         ThemeBorderColor(tokens::PANE_HEADER_BORDER)
-        ThemeFontColor(tokens::PANE_HEADER_TEXT)
+        InheritableThemeTextColor(tokens::PANE_HEADER_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,

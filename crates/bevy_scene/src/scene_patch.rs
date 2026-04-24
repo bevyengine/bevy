@@ -1,6 +1,6 @@
 use crate::{
-    ApplySceneError, ResolveContext, ResolveSceneError, ResolvedScene, ResolvedSceneListRoot,
-    ResolvedSceneRoot, Scene, SceneDependencies, SceneList,
+    ApplySceneError, ResolveSceneError, ResolvedSceneListRoot, ResolvedSceneRoot, Scene,
+    SceneDependencies, SceneList,
 };
 use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
@@ -9,21 +9,21 @@ use bevy_ecs::{
     bundle::BundleScratch,
     component::Component,
     entity::Entity,
-    template::{EntityScopes, FromTemplate},
+    template::FromTemplate,
     world::{EntityWorldMut, World},
 };
 use bevy_reflect::TypePath;
 use thiserror::Error;
 
-/// An [`Asset`] that holds a [`Scene`], tracks its dependencies, and holds the [`ResolvedScene`] (after the [`Scene`] has been loaded and resolved).
+/// An [`Asset`] that holds a [`Scene`], tracks its dependencies, and holds the [`ResolvedSceneRoot`] (after the [`Scene`] has been loaded and resolved).
 #[derive(Asset, TypePath)]
 pub struct ScenePatch {
     /// A [`Scene`].
-    pub scene: Box<dyn Scene>,
+    pub scene: Option<Box<dyn Scene>>,
     /// The dependencies of `scene` (populated using [`Scene::register_dependencies`]). These are "asset dependencies" and will affect the load state.
     #[dependency]
     pub dependencies: Vec<UntypedHandle>,
-    /// The [`ResolvedScene`], if exists. This is populated after the [`Scene`] has been loaded and resolved
+    /// The [`ResolvedSceneRoot`], if exists. This is populated after the [`Scene`] has been loaded and resolved
     // TODO: consider breaking this out to prevent mutating asset events when resolved. Assets as Entities will enable this!
     // TODO: This Arc exists to allow nested ResolvedSceneRoot::apply when borrowing inherited ScenePatch assets (see the ResolvedSceneRoot::apply implementation).
     pub resolved: Option<Arc<ResolvedSceneRoot>>,
@@ -46,7 +46,7 @@ impl ScenePatch {
             .map(|i| load_from_path.load_from_path_erased(i.type_id, i.path.clone()))
             .collect::<Vec<_>>();
         ScenePatch {
-            scene: Box::new(scene),
+            scene: Some(Box::new(scene)),
             dependencies,
             resolved: None,
         }
@@ -59,33 +59,11 @@ impl ScenePatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let resolved = self.resolve_internal(assets, patches)?;
-        self.resolved = Some(Arc::new(resolved));
+        let scene = self.scene.take().ok_or(ResolveSceneError::MissingScene)?;
+        self.resolved = Some(Arc::new(ResolvedSceneRoot::resolve(
+            scene, assets, patches,
+        )?));
         Ok(())
-    }
-
-    pub(crate) fn resolve_internal(
-        &self,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
-    ) -> Result<ResolvedSceneRoot, ResolveSceneError> {
-        let mut scene = ResolvedScene::default();
-        let mut entity_scopes = EntityScopes::default();
-        self.scene.resolve(
-            &mut ResolveContext {
-                assets,
-                patches,
-                current_scope: 0,
-                entity_scopes: &mut entity_scopes,
-                inherited: None,
-            },
-            &mut scene,
-        )?;
-
-        Ok(ResolvedSceneRoot {
-            scene,
-            entity_scopes,
-        })
     }
 
     /// Spawns the scene in `world` as a new entity. This should only be called after [`ScenePatch::resolve`].
@@ -114,7 +92,9 @@ impl ScenePatch {
 /// An [`Error`] that occurs during scene spawning.
 #[derive(Error, Debug)]
 pub enum SpawnSceneError {
-    /// Failed to apply a [`ResolvedScene`]s.
+    /// Failed to apply a [`ResolvedScene`].
+    ///
+    /// [`ResolvedScene`]: crate::ResolvedScene
     #[error(transparent)]
     ApplySceneError(#[from] ApplySceneError),
     #[error(transparent)]
@@ -129,11 +109,11 @@ pub enum SpawnSceneError {
 #[derive(Component, FromTemplate, Deref, DerefMut)]
 pub struct ScenePatchInstance(pub Handle<ScenePatch>);
 
-/// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`Vec`] of [`ResolvedScene`] (after the [`SceneList`] has been loaded and resolved)
+/// An [`Asset`] that holds a [`SceneList`], tracks its dependencies, and holds a [`ResolvedSceneListRoot`] (after the [`SceneList`] has been loaded and resolved)
 #[derive(Asset, TypePath)]
 pub struct SceneListPatch {
     /// A [`SceneList`].
-    pub scene_list: Box<dyn SceneList>,
+    pub scene_list: Option<Box<dyn SceneList>>,
 
     /// The dependencies of `scene_list` (populated using [`SceneList::register_dependencies`]). These are "asset dependencies" and will affect the load state.
     #[dependency]
@@ -155,7 +135,7 @@ impl SceneListPatch {
             .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
             .collect::<Vec<_>>();
         SceneListPatch {
-            scene_list: Box::new(scene_list),
+            scene_list: Some(Box::new(scene_list)),
             dependencies,
             resolved: None,
         }
@@ -168,35 +148,12 @@ impl SceneListPatch {
         assets: &AssetServer,
         patches: &Assets<ScenePatch>,
     ) -> Result<(), ResolveSceneError> {
-        let resolved = self.resolve_internal(assets, patches)?;
-        self.resolved = Some(resolved);
+        let scene_list = self
+            .scene_list
+            .take()
+            .ok_or(ResolveSceneError::MissingScene)?;
+        self.resolved = Some(ResolvedSceneListRoot::resolve(scene_list, assets, patches)?);
         Ok(())
-    }
-
-    /// Resolves the current `scene` (using [`SceneList::resolve_list`]). This should only be called after every dependency has loaded from the `scene_list`'s
-    /// [`SceneList::register_dependencies`].
-    pub(crate) fn resolve_internal(
-        &self,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
-    ) -> Result<ResolvedSceneListRoot, ResolveSceneError> {
-        let mut scenes = Vec::new();
-        let mut entity_scopes = EntityScopes::default();
-        self.scene_list.resolve_list(
-            &mut ResolveContext {
-                assets,
-                patches,
-                current_scope: 0,
-                entity_scopes: &mut entity_scopes,
-                inherited: None,
-            },
-            &mut scenes,
-        )?;
-
-        Ok(ResolvedSceneListRoot {
-            scenes,
-            entity_scopes,
-        })
     }
 
     /// Spawns the scene list in `world` as new entities. This should only be called after [`SceneListPatch::resolve`].

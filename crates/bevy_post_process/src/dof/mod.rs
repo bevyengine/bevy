@@ -60,7 +60,7 @@ use tracing::{info, warn};
 
 use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
+    core_3d::DEPTH_PREPASS_TEXTURE_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
@@ -667,7 +667,7 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+    if !DEPTH_PREPASS_TEXTURE_SUPPORTED {
         once!(info!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         ));

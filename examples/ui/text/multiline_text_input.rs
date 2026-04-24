@@ -1,6 +1,7 @@
 //! Demonstrates a single, minimal multiline [`EditableText`] widget.
 
-use bevy::color::palettes::css::{DARK_SLATE_GRAY, YELLOW};
+use bevy::color::palettes::css::DARK_SLATE_GRAY;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin};
 use bevy::input_focus::{AutoFocus, FocusedInput};
@@ -73,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(DARK_SLATE_GRAY.into()),
-                            BorderColor::all(YELLOW),
+                            BorderColor::all(SLATE_300),
                             MultilineInput,
                             TabIndex(0),
                             AutoFocus,
@@ -134,7 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
-                                    BorderColor::all(YELLOW),
+                                    BorderColor::all(SLATE_300),
                                     EditableText::new("8"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit()),
                                     TextCursorStyle {
@@ -215,7 +216,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
-                                    BorderColor::all(YELLOW),
+                                    BorderColor::all(SLATE_300),
                                     EditableText::new("30"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit()),
                                     TextCursorStyle {

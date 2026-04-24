@@ -1481,6 +1481,20 @@ impl<'a> EntityCommands<'a> {
         }
     }
 
+    /// Adds a [`Component`] to the entity if the component is different or
+    /// missing.
+    #[track_caller]
+    pub fn insert_if_neq<T: Component + PartialEq>(&mut self, component: T) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            if entity
+                .get::<T>()
+                .is_none_or(|old_component| *old_component != component)
+            {
+                entity.insert(component);
+            }
+        })
+    }
+
     /// Adds a dynamic [`Component`] to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -2666,6 +2680,63 @@ mod tests {
             .despawn();
         command_queue2.apply(&mut world);
         command_queue1.apply(&mut world);
+    }
+
+    #[test]
+    fn insert_component_if_not_equal() {
+        use crate::query::Added;
+
+        #[derive(Component, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn(P(41u8))
+            .id();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 1);
+        assert_eq!(world.get::<P>(entity).unwrap().0, 42);
+
+        world.clear_trackers();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 0);
+        assert_eq!(world.get::<P>(entity).unwrap().0, 42);
+
+        world.clear_trackers();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        let entity2 = Commands::new(&mut command_queue, &world).spawn_empty().id();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity2)
+            .insert_if_neq(P(42u8));
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 1);
+        assert_eq!(world.get::<P>(entity2).unwrap().0, 42);
     }
 
     #[test]

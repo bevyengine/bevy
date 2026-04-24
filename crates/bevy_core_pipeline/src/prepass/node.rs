@@ -253,6 +253,7 @@ fn run_prepass_system(
     if deferred_prepass.is_none()
         && let Some(prepass_depth_texture) = &view_prepass_textures.depth
     {
+        // TODO: Copy depth texture fails for WebGL2, https://github.com/bevyengine/bevy/issues/9710
         ctx.command_encoder().copy_texture_to_texture(
             view_depth_texture.texture.as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),

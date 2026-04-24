@@ -26,7 +26,7 @@ use crate::{
 };
 use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
-use bevy_color::{LinearRgba, Oklaba};
+use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
@@ -1177,19 +1177,13 @@ pub fn prepare_view_targets(
         };
 
         // Convert clear color to the format expected by the main texture
-        let converted_clear_color: Option<WgpuColor> = clear_color.map(|color| {
-            let linear: LinearRgba = color.into();
-            if camera
-                .compositing_space
-                .is_some_and(|s| s == CompositingSpace::Oklab)
-            {
-                // Main texture stores Oklab; convert linear RGB to Oklab for correct clear
-                let oklab: Oklaba = linear.into();
-                oklab.into()
-            } else {
-                linear.into()
-            }
-        });
+        let converted_clear_color: Option<WgpuColor> =
+            clear_color.map(|color| match camera.compositing_space {
+                // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
+                Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
+                Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
+                Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
+            });
 
         let key: MainTextureKey = (
             camera.target.clone(),
