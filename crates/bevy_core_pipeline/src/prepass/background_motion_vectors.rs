@@ -153,7 +153,6 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
         let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
         if let Some(normal) = &mut targets[0] {
             // We don't write normal, set it empty to avoid WebGPU validation error.
-            // It's a bug that wgpu doesn't validate this, see https://github.com/gfx-rs/wgpu/issues/9147
             normal.write_mask = bevy_render::render_resource::ColorWrites::empty();
         }
         RenderPipelineDescriptor {
