@@ -3940,6 +3940,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_subpixel"
+path = "examples/ui/text_subpixel.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_subpixel]
+name = "Text Subpixel"
+description = "Compares FontSmoothing variants including RGB subpixel antialiasing"
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "text_background_colors"
 path = "examples/ui/text/text_background_colors.rs"
 doc-scrape-examples = true
