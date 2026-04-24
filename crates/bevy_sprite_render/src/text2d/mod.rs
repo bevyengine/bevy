@@ -7,15 +7,16 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
-    system::{Commands, Query, ResMut},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextBounds, TextColor, TextLayoutInfo, Underline, UnderlineColor,
+    ComputedTextBlock, FontSmoothing, PositionedGlyph, Strikethrough, StrikethroughColor,
+    SubpixelCapable, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo, Underline,
+    UnderlineColor,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -48,7 +49,17 @@ pub fn extract_text2d_sprite(
             Option<&UnderlineColor>,
         )>,
     >,
+    subpixel_capable: Option<Res<SubpixelCapable>>,
 ) {
+    // On adapters without `DUAL_SOURCE_BLENDING` we force the grayscale
+    // pipeline even for `SubpixelAntiAliased` glyphs — the RGB coverage
+    // atlas is still sampled, but only the `.r` channel is used as alpha.
+    // Matches the fallback path in `bevy_ui_render::queue_uinodes`.
+    // `SubpixelCapable` is inserted at `RenderStartup` by
+    // `init_sprite_subpixel_capability` (and/or `init_ui_subpixel_capability`
+    // when `UiRenderPlugin` is installed); the resource is `None` for the
+    // first frame before startup systems run or in headless contexts.
+    let subpixel_capable = subpixel_capable.as_deref().is_some_and(|c| c.0);
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
@@ -102,6 +113,9 @@ pub fn extract_text2d_sprite(
                     scaling_mode: None,
                     custom_size: Some(run.bounds.size()),
                 },
+                // Text background fills sample the default (1x1 white) atlas
+                // and never want the per-channel subpixel blend.
+                subpixel: false,
             });
         }
 
@@ -116,6 +130,7 @@ pub fn extract_text2d_sprite(
                 PositionedGlyph {
                     position,
                     atlas_info,
+                    section_index,
                     ..
                 },
             ) in text_layout_info.glyphs.iter().enumerate()
@@ -131,6 +146,22 @@ pub fn extract_text2d_sprite(
                     .get(i + 1)
                     .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
                 {
+                    // Glyphs in a single `Slices` batch share an atlas
+                    // texture. `FontAtlasKey` partitions atlases by
+                    // `FontSmoothing` (see `bevy_text::font_atlas_set`),
+                    // so all glyphs in this range share smoothing — picking
+                    // the current glyph's source section's smoothing is
+                    // correct by construction. Pick the DSB pipeline variant
+                    // when the section asked for `SubpixelAntiAliased` and
+                    // the adapter supports `DUAL_SOURCE_BLENDING`; fall
+                    // through to grayscale AA otherwise.
+                    let font_smoothing = computed_block
+                        .entities()
+                        .get(*section_index)
+                        .map(|t| t.font_smoothing)
+                        .unwrap_or_default();
+                    let subpixel =
+                        font_smoothing == FontSmoothing::SubpixelAntiAliased && subpixel_capable;
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
                     extracted_sprites.sprites.push(ExtractedSprite {
                         main_entity,
@@ -143,6 +174,7 @@ pub fn extract_text2d_sprite(
                         kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
                         },
+                        subpixel,
                     });
                     start = end;
                 }
@@ -177,6 +209,7 @@ pub fn extract_text2d_sprite(
                             scaling_mode: None,
                             custom_size: Some(run.strikethrough_size()),
                         },
+                        subpixel: false,
                     });
                 }
 
@@ -199,6 +232,7 @@ pub fn extract_text2d_sprite(
                             scaling_mode: None,
                             custom_size: Some(run.underline_size()),
                         },
+                        subpixel: false,
                     });
                 }
             }
@@ -242,6 +276,18 @@ pub fn extract_text2d_sprite(
                 info.section_index != current_section
                     || info.atlas_info.texture != atlas_info.texture
             }) {
+                // Glyphs in a single `Slices` batch share a
+                // `(section_index, atlas_texture)` pair, and
+                // `FontAtlasKey` partitions atlases by `FontSmoothing`, so
+                // the batch has homogeneous smoothing — looking it up on
+                // the current section suffices.
+                let font_smoothing = computed_block
+                    .entities()
+                    .get(current_section)
+                    .map(|t| t.font_smoothing)
+                    .unwrap_or_default();
+                let subpixel =
+                    font_smoothing == FontSmoothing::SubpixelAntiAliased && subpixel_capable;
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
                     main_entity,
@@ -254,6 +300,7 @@ pub fn extract_text2d_sprite(
                     kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
+                    subpixel,
                 });
                 start = end;
             }
@@ -298,6 +345,7 @@ pub fn extract_text2d_sprite(
                         scaling_mode: None,
                         custom_size: Some(run.strikethrough_size()),
                     },
+                    subpixel: false,
                 });
             }
 
@@ -326,6 +374,7 @@ pub fn extract_text2d_sprite(
                         scaling_mode: None,
                         custom_size: Some(run.underline_size()),
                     },
+                    subpixel: false,
                 });
             }
         }

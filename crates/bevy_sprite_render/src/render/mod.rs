@@ -46,6 +46,14 @@ use bevy_render::{
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_sprite::{Anchor, Sprite, SpriteScalingMode};
+// Subpixel text tuning resources live in `bevy_text` (consolidated in
+// phase-05 of spec/0013). `bevy_text` is an optional dependency of
+// `bevy_sprite_render`; the extraction system that copies the resources
+// into the uniform is feature-gated. The uniform struct itself and the
+// view bind-group layout entry are compiled unconditionally so the
+// `SpritePipelineKey::SUBPIXEL` variant always has a consistent layout.
+#[cfg(feature = "bevy_text")]
+use bevy_text::{SubpixelLcdLayout, SubpixelTextSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -53,13 +61,20 @@ use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
 pub struct SpritePipeline {
-    view_layout: BindGroupLayoutDescriptor,
-    material_layout: BindGroupLayoutDescriptor,
-    shader: Handle<Shader>,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub material_layout: BindGroupLayoutDescriptor,
+    pub shader: Handle<Shader>,
 }
 
 pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
+    // Binding 3 holds the `SubpixelTextUniforms` consumed by the
+    // `fragment_subpixel` entry point. Declared on every sprite pipeline
+    // variant so the view bind-group layout is shared between the standard
+    // sprite path and the subpixel text path. Non-subpixel fragment entries
+    // don't reference the binding; naga/wgpu tolerate unused bindings as
+    // long as the layout matches. Mirrors
+    // `bevy_ui_render::pipeline::init_ui_pipeline` (phase-04 of spec/0013).
     let view_layout = BindGroupLayoutDescriptor::new(
         "sprite_view_layout",
         &BindGroupLayoutEntries::sequential(
@@ -68,6 +83,7 @@ pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServe
                 uniform_buffer::<ViewUniform>(true),
                 tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
                 tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
+                uniform_buffer::<SubpixelTextUniforms>(false).visibility(ShaderStages::FRAGMENT),
             ),
         ),
     );
@@ -90,11 +106,113 @@ pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServe
     });
 }
 
+/// GPU-facing form of [`bevy_text::SubpixelTextSettings`] and
+/// [`bevy_text::SubpixelLcdLayout`], bound as `@group(0) @binding(3)` of the
+/// sprite view bind group on every pipeline variant.
+///
+/// Duplicated from `bevy_ui_render::SubpixelTextUniforms` — each render crate
+/// owns its own `ShaderType`-derived uniform struct because `ShaderType`
+/// lives in `bevy_render` (which `bevy_text` deliberately does not depend
+/// on), so the struct can't be hoisted to the shared crate. The layout is
+/// identical byte-for-byte; both structs serialise from the same
+/// [`SubpixelTextSettings`] + [`SubpixelLcdLayout`] inputs. A future
+/// consolidation spec can merge the two.
+///
+/// `std140` layout notes (match `bevy_ui_render::SubpixelTextUniforms`):
+/// - `enhanced_contrast: f32` (offset 0) + `layout_flags: u32` (offset 4)
+///   pack into the first 8 bytes of the leading 16-byte slot.
+/// - `_pad: Vec2` (offset 8) fills the rest of that 16-byte slot so the
+///   trailing `vec4<f32> gamma_ratios` lands on its required 16-byte
+///   boundary.
+///
+/// Total: 32 bytes.
+///
+/// Populated each frame by [`prepare_sprite_view_bind_groups`] from the
+/// main-world [`SubpixelTextSettings`] / [`SubpixelLcdLayout`] resources
+/// when the `bevy_text` feature is enabled. When the feature is off, the
+/// buffer holds [`SubpixelTextUniforms::default`] permanently — the
+/// subpixel fragment path still compiles but is never reached because no
+/// sprite sets [`ExtractedSprite::subpixel`] to `true`.
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct SubpixelTextUniforms {
+    /// Enhanced-contrast factor (GPUI default `0.5`). Scales Skia's light-
+    /// on-dark contrast ramp inside `fragment_subpixel`.
+    pub enhanced_contrast: f32,
+    /// LCD subpixel layout discriminant. Matches the constants in
+    /// `sprite.wgsl` (`SUBPIXEL_LAYOUT_HORIZONTAL_RGB = 0`, etc.) and
+    /// [`bevy_text::SubpixelLcdLayout::pack_u32`].
+    pub layout_flags: u32,
+    /// Explicit padding so `gamma_ratios` lands on a std140 16-byte
+    /// boundary. Must match the shader's `_pad: vec2<f32>`.
+    pub _pad: Vec2,
+    /// Four-element gamma-correction table row, precomputed from GPUI's
+    /// `GAMMA_INCORRECT_TARGET_RATIOS` at gamma = 1.8. See
+    /// `zed/crates/gpui/src/platform.rs::get_gamma_correction_ratios`.
+    pub gamma_ratios: Vec4,
+}
+
+impl Default for SubpixelTextUniforms {
+    fn default() -> Self {
+        // Must match `SubpixelTextSettings::default()` +
+        // `SubpixelLcdLayout::default()` so the initial bind-group value is
+        // consistent with the tuning resources before the first prepare
+        // system run. `enhanced_contrast = 0.5` is GPUI's
+        // `RenderingParameters::new()`; the gamma ratios are the gamma-1.8
+        // row of `GAMMA_INCORRECT_TARGET_RATIOS`. `layout_flags = 0` is
+        // `HorizontalRgb` — the identity swizzle in
+        // `swizzle_subpixel_atlas`.
+        Self {
+            enhanced_contrast: 0.5,
+            layout_flags: 0,
+            _pad: Vec2::ZERO,
+            gamma_ratios: Vec4::new(0.14746, -0.89481, 1.47021, -0.32474),
+        }
+    }
+}
+
+/// Populate the [`bevy_text::SubpixelCapable`] resource from the active
+/// render adapter's wgpu feature set at `RenderStartup`. Reads
+/// [`WgpuFeatures::DUAL_SOURCE_BLENDING`] — the feature the subpixel sprite
+/// fragment entry (`fragment_subpixel` in `sprite.wgsl`) requires for its
+/// `@blend_src(1)` output.
+///
+/// On adapters without DSB support, [`crate::extract_text2d_sprite`] forces
+/// subpixel-smoothed glyph batches to the grayscale pipeline variant — no
+/// panic, no shader error, just a silent visual degradation to approximate
+/// grayscale AA (only the `.r` channel of the RGBA coverage atlas is used).
+///
+/// Idempotent with `bevy_ui_render::init_ui_subpixel_capability`: both
+/// systems read the same underlying adapter feature set and therefore
+/// produce the same [`bevy_text::SubpixelCapable`] value, so last-writer-
+/// wins is correct regardless of the render sub-app startup order.
+///
+/// Only compiled when the `bevy_text` feature is enabled — without
+/// `Text2d` there are no subpixel-flagged sprites, so the capability flag
+/// isn't needed by any system in this crate.
+#[cfg(feature = "bevy_text")]
+pub fn init_sprite_subpixel_capability(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let supported = render_device
+        .features()
+        .contains(WgpuFeatures::DUAL_SOURCE_BLENDING);
+    commands.insert_resource(bevy_text::SubpixelCapable(supported));
+}
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
+    //
+    // Bit layout:
+    //   0        TONEMAP_IN_SHADER
+    //   1        DEBAND_DITHER
+    //   2        SRGB_COMPOSITING
+    //   3        OKLAB_COMPOSITING
+    //   4..=8    COLOR_TARGET_FORMAT  (5 bits, `COLOR_TARGET_FORMAT_MASK_BITS`)
+    //   9        SUBPIXEL             (first unused bit after the color target reserved range)
+    //   10..=24  (free for future use)
+    //   25..=28  TONEMAP_METHOD       (4 bits)
+    //   29..=31  MSAA                 (3 bits)
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
         const TONEMAP_IN_SHADER                 = 1 << 0;
@@ -102,6 +220,17 @@ bitflags::bitflags! {
         const SRGB_COMPOSITING                  = 1 << 2;
         const OKLAB_COMPOSITING                 = 1 << 3;
         const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        /// Selects the RGB subpixel text pipeline variant (phase-06 of
+        /// spec/0013). When set, [`SpritePipeline::specialize`] emits the
+        /// dual-source-blend variant (`fragment_subpixel` entry point,
+        /// `SUBPIXEL` `shader_def`, `Src1` / `OneMinusSrc1` color blend).
+        /// Only flipped by [`crate::extract_text2d_sprite`] for glyph
+        /// batches whose source section used
+        /// [`FontSmoothing::SubpixelAntiAliased`](bevy_text::FontSmoothing::SubpixelAntiAliased)
+        /// and only when the adapter advertises
+        /// [`wgpu::Features::DUAL_SOURCE_BLENDING`](https://docs.rs/wgpu/latest/wgpu/struct.Features.html#associatedconstant.DUAL_SOURCE_BLENDING)
+        /// (see [`bevy_text::SubpixelCapable`]).
+        const SUBPIXEL                          = 1 << 9;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -162,7 +291,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let subpixel = key.contains(SpritePipelineKey::SUBPIXEL);
         let mut shader_defs = Vec::new();
+        if subpixel {
+            shader_defs.push("SUBPIXEL".into());
+        }
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
@@ -249,6 +382,36 @@ impl SpecializedRenderPipeline for SpritePipeline {
             ],
         };
 
+        // Subpixel text renders via a dual-source-blend fragment shader so
+        // the framebuffer can consume per-channel alpha from `@blend_src(1)`.
+        // Color blend:
+        //   result.rgb = fg.rgb * alpha_per_channel
+        //              + dst.rgb * (1 - alpha_per_channel)
+        // which requires `Src1` / `OneMinusSrc1` (the per-channel alpha is
+        // the dual-source output). Alpha keeps conventional premultiplied
+        // behaviour so the framebuffer's own alpha stays sensible. Mirrors
+        // `bevy_ui_render::UiPipeline::specialize`'s subpixel branch
+        // (phase-04 of spec/0013) and GPUI's subpixel pipeline.
+        let (fragment_entry_point, blend) = if subpixel {
+            (
+                Some("fragment_subpixel".into()),
+                BlendState {
+                    color: BlendComponent {
+                        src_factor: BlendFactor::Src1,
+                        dst_factor: BlendFactor::OneMinusSrc1,
+                        operation: BlendOperation::Add,
+                    },
+                    alpha: BlendComponent {
+                        src_factor: BlendFactor::One,
+                        dst_factor: BlendFactor::OneMinusSrcAlpha,
+                        operation: BlendOperation::Add,
+                    },
+                },
+            )
+        } else {
+            (None, BlendState::ALPHA_BLENDING)
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
@@ -259,12 +422,12 @@ impl SpecializedRenderPipeline for SpritePipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
+                entry_point: fragment_entry_point,
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+                    blend: Some(blend),
                     write_mask: ColorWrites::ALL,
                 })],
-                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.material_layout.clone()],
             // Sprites are always alpha blended so they never need to write to depth.
@@ -291,7 +454,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("sprite_pipeline".into()),
+            label: Some(if subpixel {
+                "sprite_pipeline_subpixel".into()
+            } else {
+                "sprite_pipeline".into()
+            }),
             ..default()
         }
     }
@@ -315,6 +482,18 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub kind: ExtractedSpriteKind,
+    /// Whether this sprite renders through the RGB subpixel antialiased
+    /// text pipeline variant (`fragment_subpixel` in `sprite.wgsl`,
+    /// dual-source blend). Only set by [`crate::extract_text2d_sprite`] for
+    /// glyphs whose atlas was produced with
+    /// [`FontSmoothing::SubpixelAntiAliased`](bevy_text::FontSmoothing::SubpixelAntiAliased)
+    /// and when the adapter advertises
+    /// [`wgpu::Features::DUAL_SOURCE_BLENDING`](https://docs.rs/wgpu/latest/wgpu/struct.Features.html#associatedconstant.DUAL_SOURCE_BLENDING)
+    /// (see [`bevy_text::SubpixelCapable`]).
+    ///
+    /// Defaults to `false` for all non-text sprites and for grayscale
+    /// glyph batches — those use the standard alpha-blend path.
+    pub subpixel: bool,
 }
 
 pub enum ExtractedSpriteKind {
@@ -399,6 +578,7 @@ pub fn extract_sprites(
                 kind: ExtractedSpriteKind::Slices {
                     indices: start..end,
                 },
+                subpixel: false,
             });
         } else {
             let atlas_rect = sprite
@@ -432,6 +612,7 @@ pub fn extract_sprites(
                     // Pass the custom size
                     custom_size: sprite.custom_size,
                 },
+                subpixel: false,
             });
         }
     }
@@ -466,6 +647,16 @@ impl SpriteInstance {
 pub struct SpriteMeta {
     sprite_index_buffer: RawBufferVec<u32>,
     sprite_instance_buffer: RawBufferVec<SpriteInstance>,
+    /// Uniform buffer for [`SubpixelTextUniforms`]. Bound at `@group(0)
+    /// @binding(3)` alongside the view uniform for *all* sprite pipeline
+    /// variants — the non-subpixel fragment entry ignores it, but keeping
+    /// the bind-group layout stable avoids a separate `view_layout` per
+    /// variant. Seeded with [`SubpixelTextUniforms::default`];
+    /// [`prepare_sprite_view_bind_groups`] overwrites the value each frame
+    /// from the main-world [`bevy_text::SubpixelTextSettings`] /
+    /// [`bevy_text::SubpixelLcdLayout`] resources when the `bevy_text`
+    /// feature is enabled.
+    pub(crate) subpixel_settings: UniformBuffer<SubpixelTextUniforms>,
 }
 
 impl Default for SpriteMeta {
@@ -473,6 +664,7 @@ impl Default for SpriteMeta {
         Self {
             sprite_index_buffer: RawBufferVec::<u32>::new(BufferUsages::INDEX),
             sprite_instance_buffer: RawBufferVec::<SpriteInstance>::new(BufferUsages::VERTEX),
+            subpixel_settings: UniformBuffer::from(SubpixelTextUniforms::default()),
         }
     }
 }
@@ -561,6 +753,9 @@ pub fn queue_sprites(
             }
         }
 
+        // Base pipeline variant for non-subpixel sprites. The subpixel
+        // variant is specialised on-demand below per-sprite so pure
+        // grayscale workloads don't pay for a second pipeline compile.
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
@@ -586,10 +781,24 @@ pub fn queue_sprites(
             // These items will be sorted by depth with other phase items
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
+            // Mirrors the pattern in `bevy_ui_render::queue_uinodes`: the
+            // subpixel pipeline variant is selected per extracted sprite
+            // (not per view) because a single view can mix subpixel text
+            // sprites with regular sprites, and each needs its own pipeline.
+            let item_pipeline = if extracted_sprite.subpixel {
+                pipelines.specialize(
+                    &pipeline_cache,
+                    &sprite_pipeline,
+                    view_key | SpritePipelineKey::SUBPIXEL,
+                )
+            } else {
+                pipeline
+            };
+
             // Add the item to the render phase
             transparent_phase.add_transient(Transparent2d {
                 draw_function: draw_sprite_function,
-                pipeline,
+                pipeline: item_pipeline,
                 entity: (
                     extracted_sprite.render_entity,
                     extracted_sprite.main_entity.into(),
@@ -608,15 +817,47 @@ pub fn queue_sprites(
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
+    mut sprite_meta: ResMut<SpriteMeta>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
+    #[cfg(feature = "bevy_text")] subpixel_settings: Option<Res<SubpixelTextSettings>>,
+    #[cfg(feature = "bevy_text")] subpixel_layout: Option<Res<SubpixelLcdLayout>>,
 ) {
-    let Some(view_binding) = view_uniforms.uniforms.binding() else {
+    // Drive the subpixel-text uniform from the main-world tuning resources.
+    // `TextPlugin::build` `init_resource`'s both with GPUI-derived defaults;
+    // a missing resource (headless / no `TextPlugin` / `bevy_text` feature
+    // disabled) falls back to [`SubpixelTextUniforms::default`] so the bind
+    // group still populates correctly.
+    #[cfg(feature = "bevy_text")]
+    {
+        let settings = subpixel_settings.as_deref().copied().unwrap_or_default();
+        let layout = subpixel_layout.as_deref().copied().unwrap_or_default();
+        sprite_meta.subpixel_settings.set(SubpixelTextUniforms {
+            enhanced_contrast: settings.enhanced_contrast,
+            layout_flags: layout.pack_u32(),
+            _pad: Vec2::ZERO,
+            gamma_ratios: settings.gamma_ratios,
+        });
+    }
+
+    // Flush the subpixel-text uniform to the GPU before building the view
+    // bind group below — `subpixel_settings.binding()` returns `None` until
+    // the backing buffer has been written at least once. Mirrors the
+    // sequence in `bevy_ui_render::prepare_uinodes`.
+    sprite_meta
+        .subpixel_settings
+        .write_buffer(&render_device, &render_queue);
+
+    let (Some(view_binding), Some(subpixel_binding)) = (
+        view_uniforms.uniforms.binding(),
+        sprite_meta.subpixel_settings.binding(),
+    ) else {
         return;
     };
 
@@ -626,7 +867,12 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &pipeline_cache.get_bind_group_layout(&sprite_pipeline.view_layout),
-            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
+            &BindGroupEntries::sequential((
+                view_binding.clone(),
+                lut_bindings.0,
+                lut_bindings.1,
+                subpixel_binding.clone(),
+            )),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {

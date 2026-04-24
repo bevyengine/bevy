@@ -13,6 +13,11 @@ webgl = []
 webgpu = []
 bevy_text = ["dep:bevy_text", "bevy_sprite/bevy_text"]
 
+[dev-dependencies]
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }

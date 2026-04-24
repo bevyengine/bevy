@@ -98,7 +98,22 @@ impl Plugin for SpriteRenderPlugin {
                 .init_resource::<SpriteAssetEvents>()
                 .init_resource::<SpriteBatches>()
                 .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(RenderStartup, init_sprite_pipeline)
+                .add_systems(
+                    RenderStartup,
+                    (
+                        init_sprite_pipeline,
+                        // Idempotent with `bevy_ui_render::init_ui_subpixel_capability` —
+                        // both systems read the same adapter feature set and
+                        // produce the same `bevy_text::SubpixelCapable` value,
+                        // so their relative startup order does not matter.
+                        // Only installed when the `bevy_text` feature is
+                        // enabled; without `Text2d` there are no
+                        // subpixel-flagged sprites, so the capability flag is
+                        // unused.
+                        #[cfg(feature = "bevy_text")]
+                        init_sprite_subpixel_capability,
+                    ),
+                )
                 .add_systems(
                     ExtractSchedule,
                     (
