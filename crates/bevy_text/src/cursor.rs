@@ -1,5 +1,5 @@
 use bevy_color::{
-    palettes::tailwind::{SLATE_400, SLATE_700},
+    palettes::tailwind::{SKY_300, SKY_400, SLATE_700},
     Color,
 };
 use bevy_ecs::component::Component;
@@ -18,9 +18,8 @@ pub struct TextCursorStyle {
     pub selection_color: Color,
     /// Background color of unfocused selected text
     ///
-    /// By default, this is completely transparent.
-    /// This is a common choice in many applications,
-    /// in order to reduce visual clutter.
+    /// In many applications, this is completely transparent.
+    /// This reduces visual clutter of de-emphasized text inputs.
     pub unfocused_selection_color: Color,
     /// If some, overrides the color of selected text
     pub selected_text_color: Option<Color>,
@@ -30,8 +29,8 @@ impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
             color: Color::from(SLATE_700),
-            selection_color: Color::from(SLATE_400),
-            unfocused_selection_color: Color::srgba(0.0, 0.0, 0.0, 0.0),
+            selection_color: Color::from(SKY_300),
+            unfocused_selection_color: Color::from(SKY_400),
             selected_text_color: None,
         }
     }
