@@ -187,12 +187,28 @@ pub fn get_outlined_glyph_texture(
     glyph_id: u16,
     font_smoothing: FontSmoothing,
 ) -> Result<(Image, Vec2, bool), TextError> {
+    // `None` and `AntiAliased` both ask swash for a single-channel alpha mask
+    // which the match below unpacks into an RGBA texture. `SubpixelAntiAliased`
+    // asks for RGB subpixel coverage, which swash returns as a four-byte-per-
+    // pixel buffer (`[R_cov, G_cov, B_cov, 0]`) with `Content::SubpixelMask`.
+    // The existing `Content::Color | Content::SubpixelMask` arm below passes
+    // that buffer through unchanged; the shader side of the subpixel path uses
+    // the RGB channels as per-channel coverage in a dual-source blend.
+    //
+    // Per-glyph fractional offsets (the actual point of subpixel rendering)
+    // are introduced in a follow-up change once the atlas gains per-bucket
+    // keys. Until then this path rasterises at offset zero, which is
+    // functionally correct but gives up the bucket-driven fringe reduction.
+    let format = match font_smoothing {
+        FontSmoothing::None | FontSmoothing::AntiAliased => swash::zeno::Format::Alpha,
+        FontSmoothing::SubpixelAntiAliased => swash::zeno::Format::Subpixel,
+    };
     let image = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
         swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
         swash::scale::Source::Outline,
     ])
-    .format(swash::zeno::Format::Alpha)
+    .format(format)
     .render(scaler, glyph_id)
     .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
 
