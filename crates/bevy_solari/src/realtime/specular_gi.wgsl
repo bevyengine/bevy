@@ -129,7 +129,8 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 #endif
 
         // Terminate path in the world cache if the ray is long enough and the path spread is large enough
-        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position);
+        var rng_copy = *rng;
+        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position, &rng_copy);
         let ray_longer_than_cell = ray.t > sqrt(3.0) * world_cache_cell_size;
         let path_spread_large_enough = path_spread > world_cache_cell_size * world_cache_cell_size;
 
