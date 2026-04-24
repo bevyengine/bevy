@@ -100,11 +100,11 @@ fn main() {
     // Optional override of `SubpixelLcdLayout` for demonstrating the layout
     // knob. Parse `BEVY_TEXT_SUBPIXEL_LCD_LAYOUT` as one of
     // `horizontal-rgb` / `horizontal-bgr` (case-insensitive, `-` or `_`
-    // separator tolerated). Missing or unrecognised values fall back to the
+    // separator tolerated). Missing or unrecognized values fall back to the
     // default `HorizontalRgb`.
     if let Ok(raw) = std::env::var("BEVY_TEXT_SUBPIXEL_LCD_LAYOUT") {
-        let normalised = raw.trim().to_ascii_lowercase().replace('_', "-");
-        let layout = match normalised.as_str() {
+        let normalized = raw.trim().to_ascii_lowercase().replace('_', "-");
+        let layout = match normalized.as_str() {
             "horizontal-rgb" | "hrgb" | "rgb" => Some(SubpixelLcdLayout::HorizontalRgb),
             "horizontal-bgr" | "hbgr" | "bgr" => Some(SubpixelLcdLayout::HorizontalBgr),
             _ => None,

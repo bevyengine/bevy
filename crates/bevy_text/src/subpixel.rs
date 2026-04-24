@@ -121,7 +121,7 @@ impl Default for SubpixelTextSettings {
 ///
 /// For [`SubpixelLcdLayout::HorizontalRgb`] the shader samples and emits the
 /// atlas RGB as-is. For [`SubpixelLcdLayout::HorizontalBgr`] the shader
-/// swizzles to `.bgr`, which inverts the colour-fringe direction — on a
+/// swizzles to `.bgr`, which inverts the color-fringe direction — on a
 /// physically BGR panel this yields correct subpixel antialiasing.
 ///
 /// Vertical variants (red-at-top / blue-at-bottom, for rotated portrait

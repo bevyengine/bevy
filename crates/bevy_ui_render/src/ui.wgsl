@@ -275,10 +275,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 // The glyph atlas bound to `sprite_texture` stores *three per-channel
 // coverage values* per pixel (one for each of the LCD stripe's R / G / B
 // subpixels), produced by `swash`'s `Format::Subpixel` rasteriser in
-// `bevy_text`. The sample is therefore not a colour — each channel is an
+// `bevy_text`. The sample is therefore not a color — each channel is an
 // alpha for its matching subpixel. We emit dual-source fragments so the
 // hardware blender can consume per-channel alpha: `@blend_src(0)` carries
-// the foreground colour and `@blend_src(1)` carries the per-channel alpha
+// the foreground color and `@blend_src(1)` carries the per-channel alpha
 // that the destination factor `OneMinusSrc1` multiplies against the
 // existing framebuffer value.
 //
@@ -337,7 +337,7 @@ fn apply_contrast_and_gamma_correction3(
 // The swash rasteriser (`bevy_text::font_atlas::get_outlined_glyph_texture`)
 // emits the atlas with *horizontal RGB* pre-offset baked in: texel
 // `(x, y).r` is already the left subpixel's coverage at logical pixel
-// `(x, y)`, `.g` the centre, `.b` the right. We therefore only need to
+// `(x, y)`, `.g` the center, `.b` the right. We therefore only need to
 // swizzle — not resample at offset UVs — to support BGR panels.
 //
 // The vertical variants have no correct remap available from a

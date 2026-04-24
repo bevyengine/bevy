@@ -138,7 +138,7 @@ impl SpecializedRenderPipeline for UiPipeline {
         //              + dst.rgb * (1 - alpha_per_channel)
         // which requires `Src1` / `OneMinusSrc1` (the per-channel alpha is the
         // dual-source output). The alpha component keeps conventional
-        // premultiplied behaviour so the UI framebuffer's own alpha stays
+        // premultiplied behavior so the UI framebuffer's own alpha stays
         // sensible. Mirrors GPUI's subpixel pipeline
         // (`zed/crates/gpui/src/platform/blade/blade_renderer.rs`) and the
         // cosmic-era fork precedent (`subpixel-text-followups` commit

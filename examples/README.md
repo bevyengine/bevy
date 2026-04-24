@@ -131,6 +131,7 @@ Example | Description
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
+[Text 2D Subpixel](../examples/2d/text2d_subpixel.rs) | Compares FontSmoothing variants for Text2d, including RGB subpixel antialiasing
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
 [Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
@@ -632,6 +633,7 @@ Example | Description
 [Text Background Colors](../examples/ui/text/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text/text_debug.rs) | An example for debugging text layout
 [Text Input](../examples/ui/text/text_input.rs) | Demonstrates a simple, unstyled text input widget
+[Text Subpixel](../examples/ui/text_subpixel.rs) | Compares FontSmoothing variants including RGB subpixel antialiasing
 [Text Wrap Debug](../examples/ui/text/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes

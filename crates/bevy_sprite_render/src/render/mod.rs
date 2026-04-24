@@ -114,7 +114,7 @@ pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServe
 /// owns its own `ShaderType`-derived uniform struct because `ShaderType`
 /// lives in `bevy_render` (which `bevy_text` deliberately does not depend
 /// on), so the struct can't be hoisted to the shared crate. The layout is
-/// identical byte-for-byte; both structs serialise from the same
+/// identical byte-for-byte; both structs serialize from the same
 /// [`SubpixelTextSettings`] + [`SubpixelLcdLayout`] inputs. A future
 /// consolidation spec can merge the two.
 ///
@@ -389,7 +389,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
         //              + dst.rgb * (1 - alpha_per_channel)
         // which requires `Src1` / `OneMinusSrc1` (the per-channel alpha is
         // the dual-source output). Alpha keeps conventional premultiplied
-        // behaviour so the framebuffer's own alpha stays sensible. Mirrors
+        // behavior so the framebuffer's own alpha stays sensible. Mirrors
         // `bevy_ui_render::UiPipeline::specialize`'s subpixel branch
         // (phase-04 of spec/0013) and GPUI's subpixel pipeline.
         let (fragment_entry_point, blend) = if subpixel {
@@ -754,7 +754,7 @@ pub fn queue_sprites(
         }
 
         // Base pipeline variant for non-subpixel sprites. The subpixel
-        // variant is specialised on-demand below per-sprite so pure
+        // variant is specialized on-demand below per-sprite so pure
         // grayscale workloads don't pay for a second pipeline compile.
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 

@@ -8,7 +8,7 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
-/// Horizontal subpixel quantisation bucket for
+/// Horizontal subpixel quantization bucket for
 /// [`FontSmoothing::SubpixelAntiAliased`].
 ///
 /// Groups ranges of fractional glyph x-positions into four buckets plus a
@@ -263,7 +263,7 @@ pub fn get_outlined_glyph_texture(
     // the RGB channels as per-channel coverage in a dual-source blend.
     //
     // `subpixel_offset` is fed to `swash::scale::Render::offset(...)` only on
-    // the subpixel path; the quantised horizontal value comes from
+    // the subpixel path; the quantized horizontal value comes from
     // [`SubpixelBucket::rasterise_offset_x`] at the atlas-lookup call site.
     // Non-subpixel callers pass `Vec2::ZERO` and the offset is ignored.
     let format = match font_smoothing {

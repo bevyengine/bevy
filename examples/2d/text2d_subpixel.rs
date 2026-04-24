@@ -53,7 +53,7 @@ const CELL_GAP_X: f32 = 16.0;
 const ROW_GAP_Y: f32 = 12.0;
 // Horizontal inset from the cell edge to the text bounds. Mirrors the UI
 // sibling's 8px cell padding so body text wraps at the same column width
-// instead of overflowing into the neighbouring cell at 20pt / 32pt.
+// instead of overflowing into the neighboring cell at 20pt / 32pt.
 const CELL_PADDING_X: f32 = 8.0;
 const TEXT_BOUNDS_WIDTH: f32 = CELL_WIDTH - CELL_PADDING_X * 2.0;
 // Reserved vertical space for the fixed 11pt size badge at the top of each
@@ -105,8 +105,8 @@ fn main() {
 
     // Optional override of `SubpixelLcdLayout`.
     if let Ok(raw) = std::env::var("BEVY_TEXT_SUBPIXEL_LCD_LAYOUT") {
-        let normalised = raw.trim().to_ascii_lowercase().replace('_', "-");
-        let layout = match normalised.as_str() {
+        let normalized = raw.trim().to_ascii_lowercase().replace('_', "-");
+        let layout = match normalized.as_str() {
             "horizontal-rgb" | "hrgb" | "rgb" => Some(SubpixelLcdLayout::HorizontalRgb),
             "horizontal-bgr" | "hbgr" | "bgr" => Some(SubpixelLcdLayout::HorizontalBgr),
             _ => None,

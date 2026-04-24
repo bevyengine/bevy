@@ -12,7 +12,7 @@ modern code editors. Opt in per-`Text` (or `Text2d`) by setting
 Bevy's existing grayscale AA (`FontSmoothing::AntiAliased`, the default) has
 an effective horizontal resolution of one physical pixel — a glyph stem that
 falls between pixels gets softened into a two-pixel-wide gray blur. Subpixel
-AA treats each pixel as three horizontal colour sub-pixels (R, G, B, as
+AA treats each pixel as three horizontal color sub-pixels (R, G, B, as
 physically arranged on most LCD/OLED panels) and addresses them
 independently, roughly tripling the effective horizontal resolution. At 10pt
 and 14pt body text the difference is clearly visible: sharper vertical stems,
@@ -80,7 +80,7 @@ column. The extended `GlyphCacheKey` gives each of the four horizontal
 subpixel bins its own atlas cell, and the render pipelines select a
 dual-source-blend (DSB) shader variant that emits per-channel source and
 per-pixel alpha in a single pass — the GPU then blends against the
-framebuffer using `Src1 / OneMinusSrc1` colour and `One / OneMinusSrcAlpha`
+framebuffer using `Src1 / OneMinusSrc1` color and `One / OneMinusSrcAlpha`
 alpha. The WGSL helpers (`color_brightness`,
 `apply_contrast_and_gamma_correction3`, `swizzle_subpixel_atlas`, …) are
 ported directly from GPUI's Metal shader.

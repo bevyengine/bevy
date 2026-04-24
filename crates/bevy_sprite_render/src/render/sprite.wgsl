@@ -130,10 +130,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 // The glyph atlas bound to `sprite_texture` stores *three per-channel
 // coverage values* per pixel (one for each of the LCD stripe's R / G / B
 // subpixels), produced by `swash`'s `Format::Subpixel` rasteriser in
-// `bevy_text`. The sample is therefore not a colour — each channel is an
+// `bevy_text`. The sample is therefore not a color — each channel is an
 // alpha for its matching subpixel. We emit dual-source fragments so the
 // hardware blender can consume per-channel alpha: `@blend_src(0)` carries
-// the foreground colour, `@blend_src(1)` carries the per-channel alpha
+// the foreground color, `@blend_src(1)` carries the per-channel alpha
 // that the destination factor `OneMinusSrc1` multiplies against the
 // existing framebuffer value.
 //

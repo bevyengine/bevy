@@ -1109,7 +1109,7 @@ pub enum FontSmoothing {
     /// output pixel carries independent R / G / B coverage, and expects the
     /// render pipeline to composite the result with a dual-source blend.
     /// Produces noticeably crisper text at small body sizes (10-14pt) on LCD
-    /// and OLED panels at the cost of a subtle colour fringe on high-contrast
+    /// and OLED panels at the cost of a subtle color fringe on high-contrast
     /// edges.
     ///
     /// Subpixel rendering requires

@@ -2,7 +2,7 @@
 //! `queue_uinodes`. The full queue system pulls in a lot of ECS state
 //! (extracted nodes, specialized-pipelines cache, phases, ...) that is
 //! impractical to mock standalone; this test instead exercises the
-//! observable behavioural contract at the pipeline-key level:
+//! observable behavioral contract at the pipeline-key level:
 //!
 //! - When `SubpixelCapable(true)`, a subpixel-smoothed glyph batch
 //!   produces a `UiPipelineKey` with `subpixel: true` — which
