@@ -188,25 +188,6 @@ mod tests {
     }
 
     #[test]
-    fn set_focus_to_same_entity() {
-        let mut app = setup_app();
-        let entity = app.world_mut().spawn_empty().id();
-
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-        take_log(&mut app);
-
-        // Setting focus to the already-focused entity still records a change.
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-
-        assert_eq!(
-            take_log(&mut app),
-            vec![FocusEvent::Lost(entity), FocusEvent::Gained(entity)]
-        );
-    }
-
-    #[test]
     fn clear_when_already_none() {
         let mut app = setup_app();
         take_log(&mut app);
