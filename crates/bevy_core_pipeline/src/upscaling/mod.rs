@@ -83,7 +83,7 @@ fn prepare_view_upscaling_pipelines(
         };
 
         let key = BlitPipelineKey {
-            texture_format: view_target.out_texture_view_format(),
+            target_format: view_target.out_texture_view_format(),
             blend_state,
             samples: 1,
             source_space: view_target.compositing_space,

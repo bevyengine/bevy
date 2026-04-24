@@ -1,8 +1,8 @@
 use crate::cursor::CursorIcon;
 use alloc::string::String;
 use bevy_asset::Handle;
-use bevy_ecs::template::{FromTemplate, OptionTemplate};
-use bevy_image::{Image, TextureAtlas, TextureAtlasTemplate};
+use bevy_ecs::template::FromTemplate;
+use bevy_image::{Image, TextureAtlas};
 use bevy_math::URect;
 
 #[cfg(feature = "bevy_reflect")]
@@ -20,7 +20,7 @@ pub struct CustomCursorImage {
     /// or 32 bit float rgba. PNG images work well for this.
     pub handle: Handle<Image>,
     /// An optional texture atlas used to render the image.
-    #[template(OptionTemplate<TextureAtlasTemplate>)]
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     ///

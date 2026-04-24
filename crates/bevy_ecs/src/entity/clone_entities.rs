@@ -82,7 +82,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     target_component_written: bool,
     target_component_moved: bool,
-    bundle_scratch: &'a mut BundleScratch<'b>,
+    bundle_scratch: &'a mut BundleScratchSpace<'b>,
     bundle_scratch_allocator: &'b Bump,
     allocator: &'a EntityAllocator,
     source: Entity,
@@ -109,7 +109,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         source: Entity,
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
-        bundle_scratch: &'a mut BundleScratch<'b>,
+        bundle_scratch: &'a mut BundleScratchSpace<'b>,
         allocator: &'a EntityAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityClonerState,
@@ -378,12 +378,12 @@ pub struct EntityCloner {
 }
 
 /// An expandable scratch space for defining a dynamic bundle.
-struct BundleScratch<'a> {
+struct BundleScratchSpace<'a> {
     component_ids: Vec<ComponentId>,
     component_ptrs: Vec<PtrMut<'a>>,
 }
 
-impl<'a> BundleScratch<'a> {
+impl<'a> BundleScratchSpace<'a> {
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             component_ids: Vec::with_capacity(capacity),
@@ -575,7 +575,7 @@ impl EntityCloner {
 
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
-        let mut bundle_scratch: BundleScratch;
+        let mut bundle_scratch: BundleScratchSpace;
         let mut moved_components: Vec<ComponentId> = Vec::new();
         let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
         {
@@ -596,7 +596,7 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
+            bundle_scratch = BundleScratchSpace::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
                 world

@@ -1,5 +1,5 @@
 use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
@@ -18,9 +18,9 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -108,7 +108,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .init_gpu_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 RenderStartup,
-                init_deferred_lighting_layout.after(MeshPipelineSet),
+                init_deferred_lighting_layout.after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,
@@ -260,6 +260,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL {
+                shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -349,11 +351,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -418,8 +416,9 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<(
+    cameras: Query<(
         Entity,
+        &ExtractedCamera,
         &ExtractedView,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -443,6 +442,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ) {
     for (
         entity,
+        camera,
         view,
         tonemapping,
         dither,
@@ -453,7 +453,7 @@ pub fn prepare_deferred_lighting_pipelines(
         has_irradiance_volumes,
         skip_deferred_lighting,
         has_atmosphere,
-    ) in &views
+    ) in &cameras
     {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
         // remove the old pipeline if there was one. This handles the case in which a
@@ -463,7 +463,7 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -488,7 +488,7 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {
@@ -504,6 +504,7 @@ pub fn prepare_deferred_lighting_pipelines(
                     }
                     Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                    Tonemapping::PbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {

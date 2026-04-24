@@ -9,7 +9,7 @@ use bevy_sprite::TextureSlicer;
 use taffy::MaybeMath;
 
 /// A UI Node that renders an image.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Node, ImageNodeSize)]
 pub struct ImageNode {
@@ -23,6 +23,7 @@ pub struct ImageNode {
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the image.
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,

@@ -15,7 +15,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -24,7 +23,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{GpuResourceAppExt, RenderStartup};
@@ -111,11 +110,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -196,11 +191,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.target_format();
 
         let shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -317,7 +308,7 @@ fn queue_line_and_joint_gizmos_2d(
         };
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, config) in &line_gizmos {

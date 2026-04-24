@@ -27,10 +27,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -60,7 +60,7 @@ use tracing::{info, warn};
 
 use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
+    core_3d::DEPTH_PREPASS_TEXTURE_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
@@ -174,8 +174,7 @@ pub struct DepthOfFieldUniform {
 pub struct DepthOfFieldPipelineKey {
     /// Whether we're doing Gaussian or bokeh blur.
     pass: DofPass,
-    /// Whether we're using HDR.
-    hdr: bool,
+    target_format: TextureFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
 }
@@ -505,13 +504,16 @@ pub fn prepare_depth_of_field_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    view_targets: Query<(
-        Entity,
-        &ExtractedView,
-        &DepthOfField,
-        &ViewDepthOfFieldBindGroupLayouts,
-        &Msaa,
-    )>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &DepthOfField,
+            &ViewDepthOfFieldBindGroupLayouts,
+            &Msaa,
+        ),
+        With<ExtractedCamera>,
+    >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
@@ -524,7 +526,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -536,7 +538,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -545,7 +547,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -561,7 +563,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -570,7 +572,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },
@@ -588,11 +590,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         // Build up our pipeline layout.
         let (mut layout, mut shader_defs) = (vec![], vec![]);
         let mut targets = vec![Some(ColorTargetState {
-            format: if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            },
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         })];
@@ -664,7 +662,7 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+    if !DEPTH_PREPASS_TEXTURE_SUPPORTED {
         once!(info!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         ));

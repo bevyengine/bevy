@@ -18,7 +18,7 @@ use crate::theme::ThemedText;
 /// downward to any child text entity that has the [`ThemedText`] marker.
 #[derive(Component, Default, Clone, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Default)]
-#[require(ThemedText, PropagateOver::<TextFont>::default())]
+#[require(ThemedText, PropagateOver::<TextFont>)]
 pub struct InheritableFont {
     /// The font handle.
     pub font: Handle<Font>,

@@ -60,21 +60,21 @@ fn contiguous_item_struct(
     };
 
     match fields {
-        Fields::Named(_) => quote! {
+        Fields::Named(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state {
                 #(#(#field_attrs)* #field_visibilities #field_members: <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>,)*
             }
         },
-        Fields::Unnamed(_) => quote! {
+        Fields::Unnamed(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>, )*
             ) #user_where_clauses_with_world_and_state;
         },
-        Fields::Unit => quote! {
+        Fields::Unit | Fields::Named(_) | Fields::Unnamed(_) => quote! {
             #item_attrs
             #visibility type #item_struct_name #user_ty_generics_with_world_and_state = #struct_name #user_ty_generics;
         },
@@ -456,8 +456,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Option<Self::Item<'__w, '__s>> {
-                        Some(Self::Item {
+                    ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
+                        ::core::option::Option::Some(Self::Item {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
@@ -538,8 +538,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Option<Self::Item<'__w, '__s>> {
-                    Some(Self::Item {
+                ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
+                    ::core::option::Option::Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
                 }

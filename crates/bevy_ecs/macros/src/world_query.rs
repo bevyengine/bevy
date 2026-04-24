@@ -30,21 +30,21 @@ pub(crate) fn item_struct(
     };
 
     match fields {
-        Fields::Named(_) => quote! {
+        Fields::Named(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state {
                 #(#(#field_attrs)* #field_visibilities #field_members: <#field_types as #path::query::QueryData>::Item<'__w, '__s>,)*
             }
         },
-        Fields::Unnamed(_) => quote! {
+        Fields::Unnamed(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::QueryData>::Item<'__w, '__s>, )*
             ) #user_where_clauses_with_world_and_state;
         },
-        Fields::Unit => quote! {
+        Fields::Unit | Fields::Named(_) | Fields::Unnamed(_) => quote! {
             #item_attrs
             #visibility type #item_struct_name #user_ty_generics_with_world_and_state = #struct_name #user_ty_generics;
         },
@@ -82,7 +82,7 @@ pub(crate) fn world_query_impl(
             #marker_name: &'__w(),
         }
 
-        impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+        impl #user_impl_generics_with_world ::core::clone::Clone for #fetch_struct_name #user_ty_generics_with_world
             #user_where_clauses_with_world {
                 fn clone(&self) -> Self {
                     Self {
@@ -158,7 +158,7 @@ pub(crate) fn world_query_impl(
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
+                _system_name: ::core::option::Option<&str>,
                 _component_access_set: &mut #path::query::FilteredAccessSet,
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell,
             ) {
@@ -171,8 +171,8 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
-                Some(#state_struct_name {
+            fn get_state(components: &#path::component::Components) -> ::core::option::Option<#state_struct_name #user_ty_generics> {
+                ::core::option::Option::Some(#state_struct_name {
                     #(#field_aliases: <#field_types>::get_state(components)?,)*
                 })
             }
