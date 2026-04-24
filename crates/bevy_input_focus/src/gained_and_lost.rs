@@ -38,6 +38,10 @@ pub fn process_recorded_focus_changes(mut focus: ResMut<InputFocus>, mut command
     // so we can send the correct FocusLost events when focus changes.
     let mut previous_focus = focus.original_focus;
     for change in focus.bypass_change_detection().recorded_changes.drain(..) {
+        // Only send focus change events if the focused entity actually changed.
+        if change == previous_focus {
+            continue;
+        }
         match change {
             Some(new_focus) => {
                 if let Some(old_focus) = previous_focus {
