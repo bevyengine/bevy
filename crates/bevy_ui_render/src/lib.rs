@@ -42,7 +42,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -64,8 +64,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
+    ComputedTextBlock, FontSmoothing, PositionedGlyph, Strikethrough, StrikethroughColor,
+    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -362,6 +362,11 @@ pub enum ExtractedUiItem {
     Glyphs {
         /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
+        /// Antialiasing method of the source text section. Read by
+        /// [`queue_uinodes`] to pick the subpixel pipeline variant when
+        /// [`FontSmoothing::SubpixelAntiAliased`]. All other variants use the
+        /// default alpha-blend fragment entry.
+        font_smoothing: FontSmoothing,
     },
 }
 
@@ -381,6 +386,54 @@ impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
         self.glyphs.clear();
+    }
+}
+
+/// Render-world uniform backing the `fragment_subpixel` entry point in
+/// `ui.wgsl`. Bound at `@group(0) @binding(1)` on the UI view bind group for
+/// every pipeline variant — the non-subpixel `fragment` entry point simply
+/// doesn't reference the binding, which keeps the bind group layout shared.
+///
+/// Phase-04 hardcodes GPUI's default tuning values (below). Phase-05 will
+/// introduce `SubpixelTextSettings` / `SubpixelLcdLayout` resources in
+/// `bevy_text` and populate this uniform from them in an extract system.
+///
+/// Layout mirrors the WGSL `SubpixelSettings` struct. `enhanced_contrast`
+/// (4 bytes) + `layout_flags` (4 bytes) + `_pad: Vec2` (8 bytes) packs the
+/// leading 16-byte slot; `gamma_ratios` is a trailing `vec4<f32>` on its
+/// natural 16-byte boundary. Total 32 bytes.
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct SubpixelTextUniforms {
+    /// Enhanced-contrast factor (GPUI default `0.5`). Scales Skia's light-on-
+    /// dark contrast ramp inside `fragment_subpixel`.
+    pub enhanced_contrast: f32,
+    /// LCD subpixel layout discriminant. Matches the constants in
+    /// `ui.wgsl` (`SUBPIXEL_LAYOUT_HORIZONTAL_RGB = 0`, etc.). Phase-05
+    /// will map this from a `SubpixelLcdLayout` enum; phase-04 hardcodes
+    /// `HorizontalRgb` (`0`).
+    pub layout_flags: u32,
+    /// Explicit padding so `gamma_ratios` lands on a std140 16-byte
+    /// boundary. Must match the shader's `_pad: vec2<f32>`.
+    pub _pad: Vec2,
+    /// Four-element gamma-correction table row, precomputed from GPUI's
+    /// `GAMMA_INCORRECT_TARGET_RATIOS` at gamma = 1.8. See
+    /// `zed/crates/gpui/src/platform.rs::get_gamma_correction_ratios`.
+    pub gamma_ratios: Vec4,
+}
+
+impl Default for SubpixelTextUniforms {
+    fn default() -> Self {
+        // GPUI defaults. `enhanced_contrast = 0.5` is `RenderingParameters::new()`
+        // in GPUI's source; the gamma ratios are the gamma-1.8 row of
+        // `GAMMA_INCORRECT_TARGET_RATIOS` multiplied by the `NORM` constant
+        // GPUI applies at runtime. `layout_flags = 0` is `HorizontalRgb` —
+        // the identity swizzle in `swizzle_subpixel_atlas`.
+        Self {
+            enhanced_contrast: 0.5,
+            layout_flags: 0,
+            _pad: Vec2::ZERO,
+            gamma_ratios: Vec4::new(0.14746, -0.89481, 1.47021, -0.32474),
+        }
     }
 }
 
@@ -1050,13 +1103,28 @@ pub fn extract_text_sections(
                 .get(i + 1)
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
+                // Look up the source section's smoothing so `queue_uinodes`
+                // can pick the subpixel pipeline when appropriate. Batches
+                // are already flushed on atlas-texture boundaries, and every
+                // bucket of a subpixel-smoothed glyph ends up in a subpixel
+                // atlas distinct from other variants' atlases, so the
+                // per-batch smoothing value is uniform for all glyphs in the
+                // range.
+                let font_smoothing = computed_block
+                    .entities()
+                    .get(*section_index)
+                    .map(|t| t.font_smoothing)
+                    .unwrap_or_default();
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
                     clip,
                     extracted_camera_entity,
-                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    item: ExtractedUiItem::Glyphs {
+                        range: start..end,
+                        font_smoothing,
+                    },
                     main_entity: entity.into(),
                     transform,
                 });
@@ -1153,6 +1221,11 @@ pub fn extract_text_shadows(
                 info.section_index != *section_index
                     || info.atlas_info.texture != atlas_info.texture
             }) {
+                let font_smoothing = computed_block
+                    .entities()
+                    .get(*section_index)
+                    .map(|t| t.font_smoothing)
+                    .unwrap_or_default();
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
@@ -1160,7 +1233,10 @@ pub fn extract_text_shadows(
                     image: atlas_info.texture,
                     clip,
                     extracted_camera_entity,
-                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    item: ExtractedUiItem::Glyphs {
+                        range: start..end,
+                        font_smoothing,
+                    },
                     main_entity: entity.into(),
                 });
                 start = end;
@@ -1434,6 +1510,13 @@ pub struct UiMeta {
     vertices: RawBufferVec<UiVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
+    /// Uniform buffer for [`SubpixelTextUniforms`], bound at `@group(0)
+    /// @binding(1)` alongside the view uniform for every UI pipeline variant.
+    /// Phase-04 seeds with [`SubpixelTextUniforms::default`] and never updates
+    /// it after construction; phase-05 adds an extract system that writes
+    /// frame-by-frame from the `SubpixelTextSettings` / `SubpixelLcdLayout`
+    /// resources.
+    pub(crate) subpixel_settings: UniformBuffer<SubpixelTextUniforms>,
 }
 
 impl Default for UiMeta {
@@ -1442,6 +1525,7 @@ impl Default for UiMeta {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
+            subpixel_settings: UniformBuffer::from(SubpixelTextUniforms::default()),
         }
     }
 }
@@ -1517,12 +1601,27 @@ pub fn queue_uinodes(
             continue;
         };
 
+        // Glyph batches tagged `FontSmoothing::SubpixelAntiAliased` route to
+        // the dual-source-blend pipeline variant. Phase-04 unconditionally
+        // picks DSB when the batch is subpixel-smoothed; phase-05 will gate
+        // this on a `SubpixelCapable` resource populated from
+        // `wgpu::Features::DUAL_SOURCE_BLENDING` so adapters without DSB
+        // support fall back to the grayscale pipeline without panicking.
+        let subpixel = matches!(
+            extracted_uinode.item,
+            ExtractedUiItem::Glyphs {
+                font_smoothing: FontSmoothing::SubpixelAntiAliased,
+                ..
+            }
+        );
+
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
                 target_format: view.target_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                subpixel,
             },
         );
 
@@ -1573,16 +1672,31 @@ pub fn prepare_uinodes(
         };
     }
 
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    // Flush the subpixel-text uniform to the GPU before building the view
+    // bind group below — `subpixel_settings.binding()` returns `None` until
+    // the backing buffer has been written at least once.
+    ui_meta
+        .subpixel_settings
+        .write_buffer(&render_device, &render_queue);
+
+    let view_bind_group = match (
+        view_uniforms.uniforms.binding(),
+        ui_meta.subpixel_settings.binding(),
+    ) {
+        (Some(view_binding), Some(subpixel_binding)) => Some(render_device.create_bind_group(
+            "ui_view_bind_group",
+            &pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
+            &BindGroupEntries::sequential((view_binding, subpixel_binding)),
+        )),
+        _ => None,
+    };
+
+    if let Some(view_bind_group) = view_bind_group {
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            "ui_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
-            &BindGroupEntries::single(view_binding),
-        ));
+        ui_meta.view_bind_group = Some(view_bind_group);
 
         // Buffer indexes
         let mut vertices_index = 0;
@@ -1833,7 +1947,7 @@ pub fn prepare_uinodes(
                         vertices_index += 6;
                         indices_index += 4;
                     }
-                    ExtractedUiItem::Glyphs { range } => {
+                    ExtractedUiItem::Glyphs { range, .. } => {
                         let image = gpu_images
                             .get(extracted_uinode.image)
                             .expect("Image was checked during batching and should still exist");

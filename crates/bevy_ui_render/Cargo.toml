@@ -42,6 +42,11 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 indexmap = { version = "2" }
 
+[dev-dependencies]
+bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
+
 [features]
 default = ["bevy_ui_debug"]
 serialize = ["bevy_math/serialize", "bevy_platform/serialize"]

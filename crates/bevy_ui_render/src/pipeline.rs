@@ -1,3 +1,4 @@
+use crate::SubpixelTextUniforms;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
 use bevy_mesh::VertexBufferLayout;
@@ -19,11 +20,22 @@ pub struct UiPipeline {
 }
 
 pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Binding 1 is the `SubpixelTextUniforms` uniform (see
+    // [`crate::SubpixelTextUniforms`]). It is declared on every UI pipeline
+    // variant — including the non-subpixel path — so the view bind group layout
+    // is a single shared definition. The non-subpixel WGSL entry points simply
+    // don't reference the binding; naga/wgpu are fine with unused bindings as
+    // long as the layout matches. Phase-05 will populate the buffer from the
+    // `SubpixelTextSettings` / `SubpixelLcdLayout` resources; phase-04 uses the
+    // hardcoded GPUI defaults emitted by `SubpixelTextUniforms::default`.
     let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",
-        &BindGroupLayoutEntries::single(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
-            uniform_buffer::<ViewUniform>(true),
+            (
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<SubpixelTextUniforms>(false),
+            ),
         ),
     );
 
@@ -45,10 +57,21 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
     });
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub target_format: TextureFormat,
     pub anti_alias: bool,
+    /// Whether this pipeline variant targets RGB subpixel text glyphs.
+    ///
+    /// When `true`, [`UiPipeline::specialize`] emits the dual-source-blend
+    /// variant (`fragment_subpixel` entry point, `SUBPIXEL` shader def,
+    /// `Src1` / `OneMinusSrc1` blend factors). Queue-side selection in
+    /// [`crate::queue_uinodes`] sets this for glyph batches whose source
+    /// section used `FontSmoothing::SubpixelAntiAliased`. Adapter fallback
+    /// (via `wgpu::Features::DUAL_SOURCE_BLENDING`) is introduced in
+    /// phase-05; phase-04 always picks the DSB variant when the glyph is
+    /// subpixel-smoothed.
+    pub subpixel: bool,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -76,10 +99,44 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = if key.anti_alias {
-            vec!["ANTI_ALIAS".into()]
+        let mut shader_defs = Vec::new();
+        if key.anti_alias {
+            shader_defs.push("ANTI_ALIAS".into());
+        }
+        if key.subpixel {
+            shader_defs.push("SUBPIXEL".into());
+        }
+
+        // Subpixel text renders via a dual-source-blend fragment shader so the
+        // framebuffer can consume a per-channel alpha from `@blend_src(1)`.
+        // The color blend is
+        //   result.rgb = fg.rgb * alpha_per_channel
+        //              + dst.rgb * (1 - alpha_per_channel)
+        // which requires `Src1` / `OneMinusSrc1` (the per-channel alpha is the
+        // dual-source output). The alpha component keeps conventional
+        // premultiplied behaviour so the UI framebuffer's own alpha stays
+        // sensible. Mirrors GPUI's subpixel pipeline
+        // (`zed/crates/gpui/src/platform/blade/blade_renderer.rs`) and the
+        // cosmic-era fork precedent (`subpixel-text-followups` commit
+        // `aeb7aadfb`).
+        let (fragment_entry_point, blend) = if key.subpixel {
+            (
+                Some("fragment_subpixel".into()),
+                BlendState {
+                    color: BlendComponent {
+                        src_factor: BlendFactor::Src1,
+                        dst_factor: BlendFactor::OneMinusSrc1,
+                        operation: BlendOperation::Add,
+                    },
+                    alpha: BlendComponent {
+                        src_factor: BlendFactor::One,
+                        dst_factor: BlendFactor::OneMinusSrcAlpha,
+                        operation: BlendOperation::Add,
+                    },
+                },
+            )
         } else {
-            Vec::new()
+            (None, BlendState::ALPHA_BLENDING)
         };
 
         RenderPipelineDescriptor {
@@ -92,15 +149,19 @@ impl SpecializedRenderPipeline for UiPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
+                entry_point: fragment_entry_point,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+                    blend: Some(blend),
                     write_mask: ColorWrites::ALL,
                 })],
-                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.image_layout.clone()],
-            label: Some("ui_pipeline".into()),
+            label: Some(if key.subpixel {
+                "ui_pipeline_subpixel".into()
+            } else {
+                "ui_pipeline".into()
+            }),
             ..default()
         }
     }

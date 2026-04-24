@@ -1,3 +1,14 @@
+// `enable dual_source_blending;` must appear before any other global
+// declaration per the WGSL spec. We keep it unconditional (rather than
+// gating it on `#ifdef SUBPIXEL`) because naga_oil's preprocessor expands
+// `#define_import_path` / `#import` as leading globals, which makes a
+// `#ifdef`-wrapped `enable` land "after" them and trips a parse error.
+// The directive is harmless when the SUBPIXEL path is inactive — naga only
+// requires the corresponding DSB capability at compile time on pipelines
+// that actually use `@blend_src`. See `crates/bevy_pbr/src/atmosphere/
+// render_sky.wgsl` for the same pattern.
+enable dual_source_blending;
+
 #define_import_path bevy_ui::ui_node
 
 #import bevy_render::view::View
@@ -18,6 +29,37 @@ fn enabled(flags: u32, mask: u32) -> bool {
 }
 
 @group(0) @binding(0) var<uniform> view: View;
+
+// Tuning parameters for `fragment_subpixel`. Declared on every UI pipeline
+// variant — even the non-subpixel entry points — so the view bind group
+// layout is shared. The non-subpixel `fragment` entry simply doesn't
+// reference this. Phase-05 will populate from the user-facing
+// `SubpixelTextSettings` / `SubpixelLcdLayout` resources; phase-04 carries
+// GPUI-default values baked in at [`SubpixelTextUniforms::default`] in
+// `bevy_ui_render::lib.rs`.
+//
+// `layout_flags` discriminant (keep in sync with `SubpixelLcdLayout` in
+// `bevy_text` once phase-05 adds it):
+//   0 = HorizontalRgb  (atlas R, G, B in that order — identity swizzle)
+//   1 = HorizontalBgr  (swap R/B — text on a BGR panel)
+//   2 = VerticalRgb    (proof-of-wiring; see vertical-limitation note below)
+//   3 = VerticalBgr    (proof-of-wiring)
+struct SubpixelSettings {
+    enhanced_contrast: f32,
+    layout_flags: u32,
+    // Explicit padding matches the Rust `SubpixelTextUniforms::_pad` so the
+    // trailing `vec4<f32>` below lands on a 16-byte boundary per std140
+    // rules. `enhanced_contrast` (4 bytes) + `layout_flags` (4 bytes) +
+    // `_pad` (8 bytes) fills the leading 16-byte slot.
+    _pad: vec2<f32>,
+    gamma_ratios: vec4<f32>,
+}
+@group(0) @binding(1) var<uniform> subpixel_settings: SubpixelSettings;
+
+const SUBPIXEL_LAYOUT_HORIZONTAL_RGB: u32 = 0u;
+const SUBPIXEL_LAYOUT_HORIZONTAL_BGR: u32 = 1u;
+const SUBPIXEL_LAYOUT_VERTICAL_RGB: u32 = 2u;
+const SUBPIXEL_LAYOUT_VERTICAL_BGR: u32 = 3u;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
@@ -226,3 +268,122 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         return draw_uinode_background(color, in.point, in.size, in.radius, in.border, in.flags);
     }
 }
+
+#ifdef SUBPIXEL
+// RGB subpixel text fragment path.
+//
+// The glyph atlas bound to `sprite_texture` stores *three per-channel
+// coverage values* per pixel (one for each of the LCD stripe's R / G / B
+// subpixels), produced by `swash`'s `Format::Subpixel` rasteriser in
+// `bevy_text`. The sample is therefore not a colour — each channel is an
+// alpha for its matching subpixel. We emit dual-source fragments so the
+// hardware blender can consume per-channel alpha: `@blend_src(0)` carries
+// the foreground colour and `@blend_src(1)` carries the per-channel alpha
+// that the destination factor `OneMinusSrc1` multiplies against the
+// existing framebuffer value.
+//
+// The contrast + gamma math is ported verbatim from Zed's GPUI subpixel
+// shader, which in turn follows Skia's LCD text correction. Enhanced-
+// contrast is luminance-adapted ("light-on-dark") so dark-mode text
+// doesn't bloom; the gamma ratios are a lookup-driven adjustment around a
+// target gamma (GPUI's default is 1.8).
+//
+// The tuning values (`enhanced_contrast`, `gamma_ratios`) are read from
+// the `SubpixelSettings` uniform bound at `@group(0) @binding(1)`. The
+// defaults (GPUI's `RenderingParameters::new()`) are baked into
+// `SubpixelTextUniforms::default` in `bevy_ui_render::lib.rs`; phase-05
+// plumbs a `SubpixelTextSettings` / `SubpixelLcdLayout` resource pair to
+// override them at runtime.
+struct SubpixelOutput {
+    @location(0) @blend_src(0) color: vec4<f32>,
+    @location(0) @blend_src(1) alpha_mask: vec4<f32>,
+}
+
+fn color_brightness(color: vec3<f32>) -> f32 {
+    return dot(color, vec3<f32>(0.30, 0.59, 0.11));
+}
+
+fn light_on_dark_contrast(enhanced_contrast: f32, color: vec3<f32>) -> f32 {
+    let brightness = color_brightness(color);
+    let multiplier = saturate(4.0 * (0.75 - brightness));
+    return enhanced_contrast * multiplier;
+}
+
+fn enhance_contrast3(alpha: vec3<f32>, k: f32) -> vec3<f32> {
+    return alpha * (k + 1.0) / (alpha * k + 1.0);
+}
+
+fn apply_alpha_correction3(a: vec3<f32>, b: vec3<f32>, g: vec4<f32>) -> vec3<f32> {
+    let brightness_adjustment = g.x * b + g.y;
+    let correction = brightness_adjustment * a + (g.z * b + g.w);
+    return a + a * (1.0 - a) * correction;
+}
+
+fn apply_contrast_and_gamma_correction3(
+    sample: vec3<f32>,
+    fg: vec3<f32>,
+    enhanced_contrast_factor: f32,
+    gamma_ratios: vec4<f32>,
+) -> vec3<f32> {
+    let enhanced_contrast = light_on_dark_contrast(enhanced_contrast_factor, fg);
+    let contrasted = enhance_contrast3(sample, enhanced_contrast);
+    return apply_alpha_correction3(contrasted, fg, gamma_ratios);
+}
+
+// Remap the atlas's three per-channel coverage values to match the target
+// panel's physical subpixel arrangement (see `SubpixelLcdLayout` once
+// introduced in phase-05).
+//
+// The swash rasteriser (`bevy_text::font_atlas::get_outlined_glyph_texture`)
+// emits the atlas with *horizontal RGB* pre-offset baked in: texel
+// `(x, y).r` is already the left subpixel's coverage at logical pixel
+// `(x, y)`, `.g` the centre, `.b` the right. We therefore only need to
+// swizzle — not resample at offset UVs — to support BGR panels.
+//
+// The vertical variants have no correct remap available from a
+// horizontally-offset atlas. They currently swap R/B (mirroring the
+// horizontal BGR/RGB distinction) so the setting visibly affects output,
+// but the result is *not* a correct vertical-subpixel antialiasing; a
+// follow-up spec will add vertical-subpixel rasterisation and re-wire
+// these variants.
+fn swizzle_subpixel_atlas(atlas_rgb: vec3<f32>, layout_flags: u32) -> vec3<f32> {
+    if layout_flags == SUBPIXEL_LAYOUT_HORIZONTAL_BGR
+        || layout_flags == SUBPIXEL_LAYOUT_VERTICAL_BGR
+    {
+        return atlas_rgb.bgr;
+    }
+    return atlas_rgb;
+}
+
+@fragment
+fn fragment_subpixel(in: VertexOutput) -> SubpixelOutput {
+    // Sample three per-channel alpha coverages from the RGB subpixel atlas,
+    // then swizzle by the panel's subpixel layout. The swash rasteriser has
+    // already baked in horizontal per-channel UV offsets, so a single sample
+    // plus a swizzle is both correct and optimal for `HorizontalRgb` /
+    // `HorizontalBgr`. See `swizzle_subpixel_atlas` for the vertical caveat.
+    let atlas_rgb = textureSample(sprite_texture, sprite_sampler, in.uv).rgb;
+    let sample_rgb = swizzle_subpixel_atlas(atlas_rgb, subpixel_settings.layout_flags);
+
+    let enhanced_contrast = subpixel_settings.enhanced_contrast;
+    let gamma_ratios = subpixel_settings.gamma_ratios;
+
+    let alpha_corrected = apply_contrast_and_gamma_correction3(
+        sample_rgb,
+        in.color.rgb,
+        enhanced_contrast,
+        gamma_ratios,
+    );
+
+    // Matches GPUI's `fs_subpixel_sprite`. With pipeline blend state
+    //   color: { src = Src1, dst = OneMinusSrc1 }
+    // this yields:
+    //   result.rgb = fg.rgb * (color.a * alpha_corrected)
+    //              + dst.rgb * (1 - color.a * alpha_corrected)
+    // i.e. per-channel coverage of the foreground over the existing pixel.
+    var out: SubpixelOutput;
+    out.color = vec4<f32>(in.color.rgb, 1.0);
+    out.alpha_mask = vec4<f32>(in.color.a * alpha_corrected, 1.0);
+    return out;
+}
+#endif
