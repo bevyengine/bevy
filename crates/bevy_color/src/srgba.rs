@@ -415,7 +415,6 @@ impl From<Srgba> for Xyza {
     }
 }
 
-
 #[cfg(feature = "wgpu-types")]
 impl From<Srgba> for wgpu_types::Color {
     fn from(color: Srgba) -> Self {
