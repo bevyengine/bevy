@@ -106,7 +106,7 @@ fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
-    return floor(world_normal + 0.0001);
+    return floor(world_normal * 2.0 + 0.0001);
 }
 
 // TODO: Clustering
