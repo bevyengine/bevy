@@ -19,7 +19,7 @@ use bevy_text::{
     EditableText, EditableTextFilter, FontSource, FontWeight, TextEdit, TextEditChange, TextFont,
 };
 use bevy_ui::{px, widget::Text, AlignItems, AlignSelf, Display, JustifyContent, Node, UiRect};
-use bevy_ui_widgets::ValueChange;
+use bevy_ui_widgets::{SelectAllOnFocus, ValueChange};
 
 use crate::{
     constants::{fonts, size},
@@ -162,6 +162,7 @@ pub fn number_input(props: NumberInputProps) -> impl Scene {
                 visible_width: None,
                 max_characters: Some(20),
             })
+            SelectAllOnFocus,
             on(number_input_on_text_change)
             on(number_input_on_enter_key)
             on(number_input_on_focus_loss)

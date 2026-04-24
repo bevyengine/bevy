@@ -136,6 +136,11 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to select-all commands such as Ctrl + A or Cmd + A.
     SelectAll,
+    /// Selects all text if the current selection is collapsed.
+    ///
+    /// Typically generated in response to a chain of focus gained by pointer press into
+    /// pointer release events.
+    SelectAllIfCollapsed,
     /// Moves the cursor to the given point.
     ///
     /// Typically generated in response to a pointer press within the text area.
@@ -259,6 +264,11 @@ impl TextEdit {
             TextEdit::LineEnd(true) => driver.select_to_line_end(),
             TextEdit::CollapseSelection => driver.collapse_selection(),
             TextEdit::SelectAll => driver.select_all(),
+            TextEdit::SelectAllIfCollapsed => {
+                if driver.editor.raw_selection().is_collapsed() {
+                    driver.select_all();
+                }
+            }
             TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
             TextEdit::ExtendSelectionToPoint(point) => {
                 driver.extend_selection_to_point(point.x, point.y);
