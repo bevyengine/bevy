@@ -388,10 +388,12 @@ impl TextPipeline {
                     layout_info.run_geometry.push(RunGeometry {
                         section_index,
                         bounds: Rect::new(
-                            glyph_run.offset(),
-                            line.metrics().min_coord,
-                            glyph_run.offset() + glyph_run.advance(),
-                            line.metrics().max_coord,
+                            line.metrics().inline_min_coord + glyph_run.offset(),
+                            line.metrics().block_min_coord,
+                            line.metrics().inline_min_coord
+                                + glyph_run.offset()
+                                + glyph_run.advance(),
+                            line.metrics().block_max_coord,
                         ),
                         strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
                         strikethrough_thickness: run.metrics().strikethrough_size,
@@ -421,19 +423,30 @@ pub fn resolve_font_source<'a>(
             )))
         }
         FontSource::Family(family) => FontFamily::named(family.as_str()),
-        FontSource::Serif => parley::GenericFamily::Serif.into(),
-        FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-        FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-        FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-        FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-        FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-        FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-        FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-        FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-        FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-        FontSource::Math => parley::GenericFamily::Math.into(),
-        FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+        generic => {
+            #[cfg(not(feature = "system_font_discovery"))]
+            bevy_log::error_once!(
+                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
+                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                to discover system fonts."
+            );
+            match generic {
+                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
+                FontSource::Serif => parley::GenericFamily::Serif.into(),
+                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
+                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
+                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
+                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
+                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
+                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
+                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
+                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
+                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
+                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
+                FontSource::Math => parley::GenericFamily::Math.into(),
+                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
+            }
+        }
     })
 }
 
@@ -460,6 +473,9 @@ pub struct TextLayoutInfo {
     pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
+    /// Underline rects for the active IME preedit/compose region.
+    /// Should only have values when composition is in progress.
+    pub preedit_underline_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
@@ -471,6 +487,7 @@ impl TextLayoutInfo {
         self.size = Vec2::ZERO;
         self.cursor = None;
         self.selection_rects.clear();
+        self.preedit_underline_rects.clear();
     }
 }
 
@@ -546,21 +563,14 @@ impl TextMeasureInfo {
         // whenever a canonical state is required.
         let layout = &mut computed.layout;
         layout.break_all_lines(bounds.width);
-        layout.align(bounds.width, Alignment::Start, AlignmentOptions::default());
+        layout.align(Alignment::Start, AlignmentOptions::default());
         buffer_dimensions(layout)
     }
 }
 
 fn layout_with_bounds(layout: &mut Layout<TextBrush>, bounds: TextBounds, justify: Justify) {
     layout.break_all_lines(bounds.width);
-
-    let container_width = if bounds.width.is_none() && justify != Justify::Left {
-        Some(layout.width())
-    } else {
-        bounds.width
-    };
-
-    layout.align(container_width, justify.into(), AlignmentOptions::default());
+    layout.align(justify.into(), AlignmentOptions::default());
 }
 
 /// Calculate the size of the text area for the given buffer.

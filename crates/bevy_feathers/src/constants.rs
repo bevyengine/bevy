@@ -55,4 +55,7 @@ pub mod size {
 
     /// Small font size
     pub const SMALL_FONT: FontSize = FontSize::Px(12.0);
+
+    /// Extra-small font size
+    pub const EXTRA_SMALL_FONT: FontSize = FontSize::Px(11.0);
 }

@@ -108,7 +108,7 @@ pub fn ui_stack_system(
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut stack_index) = update_query.get_mut(*entity) {
-            stack_index.0 = i as u32;
+            stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
 }

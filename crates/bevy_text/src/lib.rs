@@ -85,6 +85,18 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
+///
+/// ## Clipboard support
+///
+/// [`EditableText`] supports copy, cut, and paste via [`bevy_clipboard::Clipboard`].
+/// By default, clipboard operations use an in-process fallback buffer rather than the OS clipboard.
+/// To enable OS clipboard integration, activate the `system_clipboard` feature on this crate:
+///
+/// ```toml
+/// bevy_text = { version = "...", features = ["system_clipboard"] }
+/// ```
+///
+/// When using the top-level `bevy` crate, `bevy/system_clipboard` enables this transitively.
 #[derive(Default)]
 pub struct TextPlugin;
 
@@ -98,6 +110,9 @@ pub struct EditableTextSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<bevy_clipboard::ClipboardPlugin>() {
+            app.add_plugins(bevy_clipboard::ClipboardPlugin);
+        }
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
@@ -107,7 +122,6 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
-            .init_resource::<Clipboard>()
             .add_systems(
                 PostUpdate,
                 (

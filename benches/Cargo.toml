@@ -26,6 +26,7 @@ bevy_asset = { path = "../crates/bevy_asset" }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_scene = { path = "../crates/bevy_scene" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_transform = { path = "../crates/bevy_transform" }
 bevy_ui = { path = "../crates/bevy_ui" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
@@ -109,4 +110,9 @@ harness = false
 [[bench]]
 name = "tasks"
 path = "benches/bevy_tasks/main.rs"
+harness = false
+
+[[bench]]
+name = "transform"
+path = "benches/bevy_transform/main.rs"
 harness = false

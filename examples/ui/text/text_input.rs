@@ -4,8 +4,26 @@
 //! In most cases, this should be combined with other entities to create a compound widget
 //! that includes e.g. a background, border, and text label.
 //!
+//! Note that while Bevy does offer clipboard support, access to the system clipboard is gated
+//! behind an off-by-default feature (`system_clipboard` on `bevy_clipboard`).
+//! When this is disabled, clipboard operations (copy, cut, paste) will operate on a simple in-memory buffer
+//! that is not shared with the operating system.
+//! This means that, unless you enable this feature,
+//! you will not be able to copy text from your application and paste it into another application, or vice versa.
+//!
+//! Most applications that use text input will want to enable system clipboard support to meet user expectations for copy/paste behavior.
+//! It is off by default to avoid forcing clipboard permissions on applications that do not need it but wish to use Bevy's UI solution for other widgets,
+//! and to avoid including the `arboard` dependency on platforms where it is not supported or where clipboard access is not desired.
+//! While desktop platforms generally support clipboard access without special permissions, some platforms (notably web and mobile)
+//! may require additional permissions or user gestures to allow clipboard access;
+//! this approach allows developers to opt in to full clipboard support only when they genuinely need it.
+//!
+//! To test this example using the system feature, run `cargo run --example text_input --features="system_clipboard"`.
+//! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
+//!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
 use bevy::color::palettes::css::{DARK_GREY, YELLOW};
+use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
@@ -25,11 +43,7 @@ fn main() {
 #[derive(Component)]
 struct TextOutput;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut input_focus: ResMut<InputFocus>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Set up a camera
     // We need a camera to see the UI
     commands.spawn(Camera2d);
@@ -42,9 +56,6 @@ fn setup(
         })
         .id();
 
-    let font: FontSource = asset_server.load("fonts/FiraMono-Medium.ttf").into();
-
-    // Instructions
     let text_instructions = commands
         .spawn((
             Node {
@@ -63,12 +74,8 @@ fn setup(
         ))
         .id();
 
-    // Set up an EditableText widget
-    let text_input_left = build_input_text(&mut commands, &font, true, 30.0);
-    let text_input_right = build_input_text(&mut commands, &font, false, 50.0);
-
-    // Set the focus to our text input so we can start typing right away
-    input_focus.set(text_input_left);
+    let text_input_left = build_input_text(&mut commands, true, 30.0);
+    let text_input_right = build_input_text(&mut commands, false, 50.0);
 
     let input_container = commands
         .spawn((
@@ -77,6 +84,7 @@ fn setup(
                 align_items: AlignItems::Start,
                 ..default()
             },
+            AutoFocus,
             TabGroup::new(0),
         ))
         .id();
@@ -94,7 +102,6 @@ fn setup(
             Text::new("testing"),
             TextOutput,
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: FontSize::Px(70.0),
                 ..default()
             },
@@ -112,12 +119,7 @@ fn setup(
         .add_children(&[text_instructions, input_container, text_output]);
 }
 
-fn build_input_text(
-    commands: &mut Commands,
-    font: &FontSource,
-    is_left: bool,
-    font_size: f32,
-) -> Entity {
+fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> Entity {
     commands
         .spawn((
             Node {
@@ -133,7 +135,6 @@ fn build_input_text(
                 ..Default::default()
             },
             TextFont {
-                font: font.clone(),
                 font_size: FontSize::Px(font_size),
                 ..default()
             },

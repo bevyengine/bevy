@@ -30,7 +30,7 @@ use crate::{
     cursor::EntityCursor,
     focus::FocusIndicator,
     font_styles::InheritableFont,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -84,7 +84,7 @@ pub fn checkbox(props: CheckboxProps) -> impl Scene {
         Hovered
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
-        ThemeFontColor(tokens::CHECKBOX_TEXT)
+        InheritableThemeTextColor(tokens::CHECKBOX_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
@@ -150,7 +150,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        ThemeFontColor(tokens::CHECKBOX_TEXT),
+        InheritableThemeTextColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
@@ -204,7 +204,7 @@ fn update_checkbox_styles(
             Has<Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         (
             With<CheckboxFrame>,
@@ -265,7 +265,7 @@ fn update_checkbox_styles_remove(
             Has<Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         With<CheckboxFrame>,
     >,
@@ -339,7 +339,7 @@ fn set_checkbox_styles(
     outline_bg: &ThemeBackgroundColor,
     outline_border: &ThemeBorderColor,
     mark_color: &ThemeBorderColor,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let outline_border_token = if checked {
@@ -432,7 +432,7 @@ fn set_checkbox_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(checkbox_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape

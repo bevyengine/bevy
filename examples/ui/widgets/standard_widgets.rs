@@ -18,9 +18,9 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, observe,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuButton, MenuEvent,
-        MenuItem, MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb,
-        SliderValue, TrackClick, ValueChange,
+        Activate, Button, Checkbox, MenuAction, MenuButton, MenuEvent, MenuItem, MenuPopup,
+        RadioButton, RadioGroup, Slider, SliderDragState, SliderRange, SliderThumb, SliderValue,
+        TrackClick, ValueChange,
     },
 };
 
@@ -453,7 +453,7 @@ fn update_slider_style(
             &SliderValue,
             &SliderRange,
             &Hovered,
-            &CoreSliderDragState,
+            &SliderDragState,
             Has<InteractionDisabled>,
         ),
         (
@@ -461,7 +461,7 @@ fn update_slider_style(
                 Changed<SliderValue>,
                 Changed<SliderRange>,
                 Changed<Hovered>,
-                Changed<CoreSliderDragState>,
+                Changed<SliderDragState>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoSlider>,
@@ -484,12 +484,7 @@ fn update_slider_style(
 
 fn update_slider_style2(
     sliders: Query<
-        (
-            Entity,
-            &Hovered,
-            &CoreSliderDragState,
-            Has<InteractionDisabled>,
-        ),
+        (Entity, &Hovered, &SliderDragState, Has<InteractionDisabled>),
         With<DemoSlider>,
     >,
     children: Query<&Children>,
