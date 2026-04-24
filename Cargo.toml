@@ -1007,6 +1007,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "text2d_subpixel"
+path = "examples/2d/text2d_subpixel.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text2d_subpixel]
+name = "Text 2D Subpixel"
+description = "Compares FontSmoothing variants for Text2d, including RGB subpixel antialiasing"
+category = "2D Rendering"
+wasm = false
+
+[[example]]
 name = "multi_window_text"
 path = "examples/window/multi_window_text.rs"
 doc-scrape-examples = true
