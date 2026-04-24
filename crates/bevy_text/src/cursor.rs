@@ -18,7 +18,8 @@ pub struct TextCursorStyle {
     pub selection_color: Color,
     /// Background color of unfocused selected text
     ///
-    /// In many applications, this is completely transparent,
+    /// By default, this is completely transparent.
+    /// This is a common choice in many applications,
     /// in order to reduce visual clutter.
     pub unfocused_selection_color: Color,
     /// If some, overrides the color of selected text
@@ -30,7 +31,7 @@ impl Default for TextCursorStyle {
         Self {
             color: Color::from(SLATE_600),
             selection_color: Color::from(SKY_200),
-            unfocused_selection_color: Color::from(SLATE_200),
+            unfocused_selection_color: Color::srgba(0.0, 0.0, 0.0, 0.0),
             selected_text_color: None,
         }
     }
