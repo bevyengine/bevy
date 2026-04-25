@@ -3,7 +3,7 @@ use core::mem;
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_resource::{extract_resource, ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::TextureView,
     sync_component::SyncComponent,
@@ -23,14 +23,14 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
+    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    entity::{ContainsEntity, Entity},
+    entity::{ContainsEntity, Entity, EntityHashMap, EntityHashSet},
     error::BevyError,
     lifecycle::HookContext,
     message::MessageReader,
@@ -52,6 +52,10 @@ use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use itertools::Either;
 use wgpu::TextureFormat;
+
+/// Main-pass color [`TextureFormat`] keyed by camera render entity.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct CameraMainPassTextureFormats(pub EntityHashMap<TextureFormat>);
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -80,6 +84,7 @@ impl Plugin for CameraPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<CameraMainPassTextureFormats>()
                 .init_resource::<SortedCameras>()
                 .init_resource::<DirtySpecializations>()
                 .init_resource::<DirtyWireframeSpecializations>()
@@ -97,7 +102,7 @@ impl Plugin for CameraPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_cameras,
+                        extract_cameras.after(extract_resource::<ManualTextureViews, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -126,12 +131,13 @@ impl ExtractResource for ClearColor {
 }
 
 impl SyncComponent for CameraMainTextureUsages {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
@@ -139,12 +145,13 @@ impl ExtractComponent for CameraMainTextureUsages {
 }
 
 impl SyncComponent for Camera2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
@@ -152,12 +159,13 @@ impl ExtractComponent for Camera2d {
 }
 
 impl SyncComponent for Camera3d {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
@@ -210,7 +218,7 @@ pub trait NormalizedRenderTargetExt {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &HashSet<Entity>,
+        changed_window_ids: &EntityHashSet,
         changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool;
 }
@@ -300,7 +308,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &HashSet<Entity>,
+        changed_window_ids: &EntityHashSet,
         changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
@@ -353,10 +361,10 @@ pub fn camera_system(
 ) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = <HashSet<_>>::default();
+    let mut changed_window_ids = EntityHashSet::default();
     changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_reader
+    let scale_factor_changed_window_ids: EntityHashSet = window_scale_factor_changed_reader
         .read()
         .map(|event| event.window)
         .collect();
@@ -437,6 +445,11 @@ pub fn camera_system(
     Ok(())
 }
 
+/// Describes a [`Camera`] in the render world.
+///
+/// Every `ExtractedCamera` also has an [`ExtractedView`], but not every
+/// view comes from a camera. For example, views can come from lights,
+/// for drawing shadow maps.
 #[derive(Component, Debug)]
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
@@ -452,10 +465,14 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
+    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
+    /// and shaders output sRGB-encoded values for gamma-encoded blending.
+    pub compositing_space: Option<CompositingSpace>,
 }
 
 pub fn extract_cameras(
     mut commands: Commands,
+    mut main_pass_formats: ResMut<CameraMainPassTextureFormats>,
     query: Extract<
         Query<(
             Entity,
@@ -468,6 +485,7 @@ pub fn extract_cameras(
             &Frustum,
             (
                 Has<Hdr>,
+                Option<&CompositingSpace>,
                 Option<&ColorGrading>,
                 Option<&Exposure>,
                 Option<&TemporalJitter>,
@@ -479,6 +497,9 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    extracted_windows: Res<ExtractedWindows>,
+    manual_texture_views: Res<ManualTextureViews>,
+    images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
         &mut RenderExtractedVisibleEntities,
         With<RenderVisibleEntities>,
@@ -486,6 +507,7 @@ pub fn extract_cameras(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
 ) {
+    main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
         ExtractedCamera,
@@ -509,6 +531,7 @@ pub fn extract_cameras(
         frustum,
         (
             hdr,
+            compositing_space,
             color_grading,
             exposure,
             temporal_jitter,
@@ -578,10 +601,28 @@ pub fn extract_cameras(
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
 
+            let target = render_target.normalize(primary_window);
+            let output_texture_format = target
+                .as_ref()
+                .and_then(|target| {
+                    target
+                        .get_texture_view_format(&extracted_windows, &images, &manual_texture_views)
+                        .map(|format| normalize_bgra8(target, format))
+                })
+                .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+            let target_format = if hdr {
+                TextureFormat::Rgba16Float
+            } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
+                TextureFormat::Rgba8Unorm
+            } else {
+                output_texture_format
+            };
+            main_pass_formats.insert(render_entity, target_format);
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
-                    target: render_target.normalize(primary_window),
+                    target,
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
@@ -596,13 +637,14 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
+                    compositing_space: compositing_space.copied(),
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr,
+                    target_format,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,
@@ -652,6 +694,20 @@ pub fn extract_cameras(
             }
         };
     }
+}
+
+/// Bgra8 needs an optional feature to support storage binding, and only supports write-only.
+/// We force Rgba8 so that we can always use storage bindings, and rely on the final blit to
+/// convert at the end if needed. See <https://github.com/gpuweb/gpuweb/issues/2748>
+/// Checking just `Bgra8UnormSrgb` and not `Bgra8Unorm` is fine here, because this is the texture
+/// view we already guaranteed to be srgb space if possible. See `ExtractedWindow::set_swapchain_texture`
+fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> TextureFormat {
+    if matches!(target, NormalizedRenderTarget::Window(_))
+        && format == TextureFormat::Bgra8UnormSrgb
+    {
+        return TextureFormat::Rgba8UnormSrgb;
+    }
+    format
 }
 
 /// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.

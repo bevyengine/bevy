@@ -17,6 +17,14 @@
 //! state (as well as any other related game state) in response to a change event emitted by the
 //! widget. The primary motivation for this is to avoid two-way data binding in scenarios where the
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
+//!
+//! ## Best practices for event propagation
+//!
+//! Generally, when a widget handles an event,
+//! propagation of that event to parent entities should be stopped.
+//! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
+//!
+//! For more guidance on this, see the documentation for [`EntityEvent`].
 
 mod button;
 mod checkbox;
@@ -44,6 +52,7 @@ use crate::popover::PopoverPlugin;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
+#[derive(Default)]
 pub struct UiWidgetsPlugins;
 
 impl PluginGroup for UiWidgetsPlugins {
@@ -75,4 +84,8 @@ pub struct ValueChange<T> {
     pub source: Entity,
     /// The new value.
     pub value: T,
+    /// If false, it means that we are in the middle of an interaction (slider being dragged,
+    /// user typing), while if true it means that the user's interaction is finished (mouse button
+    /// released, drag ended, input lost focus).
+    pub is_final: bool,
 }

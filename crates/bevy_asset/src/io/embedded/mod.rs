@@ -172,8 +172,9 @@ impl GetAssetServer for AssetServer {
 /// This macro takes two arguments and an optional third one:
 /// 1. The asset source. It may be `AssetServer`, `World` or `App`.
 /// 2. The path to the asset to embed, as a string literal.
-/// 3. Optionally, a closure of the same type as in [`AssetServer::load_with_settings`].
-///    Consider explicitly typing the closure argument in case of type error.
+/// 3. Optionally, a closure of the same type as in
+///    [`LoadBuilder::with_settings`](crate::LoadBuilder::with_settings). Consider explicitly typing
+///    the closure argument in case of type error.
 ///
 /// # Usage
 ///
@@ -196,7 +197,7 @@ macro_rules! load_embedded_asset {
     }};
     ($provider: expr, $path: literal, $settings: expr) => {{
         let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
-        asset_server.load_with_settings(path, $settings)
+        asset_server.load_builder().with_settings($settings).load(path)
     }};
     ($provider: expr, $path: literal) => {{
         let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
@@ -419,7 +420,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
+    use super::{_embedded_asset_path, EmbeddedAssetRegistry};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.

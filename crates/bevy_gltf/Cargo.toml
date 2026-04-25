@@ -33,7 +33,7 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
-bevy_scene = { path = "../bevy_scene", version = "0.19.0-dev" }
+bevy_world_serialization = { path = "../bevy_world_serialization", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
@@ -65,7 +65,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 smallvec = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-wgpu-types = { version = "28", default-features = false }
+wgpu-types = { version = "29.0.1", default-features = false }
 
 [dev-dependencies]
 bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }

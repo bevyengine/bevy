@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
         Skybox {
-            image: skybox_handle.clone(),
+            image: Some(skybox_handle.clone()),
             brightness: 1000.0,
             ..default()
         },
@@ -168,7 +168,7 @@ fn asset_loaded(
         }
 
         for mut skybox in &mut skyboxes {
-            skybox.image = cubemap.image_handle.clone();
+            skybox.image = Some(cubemap.image_handle.clone());
         }
 
         cubemap.is_loaded = true;

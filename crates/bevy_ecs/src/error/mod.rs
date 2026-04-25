@@ -8,7 +8,7 @@
 //! [`match_severity`] error handler function is used, which defers to an error's [`Severity`].
 //!
 //! You can change the default behavior by registering a custom error handler:
-//! Use [`DefaultErrorHandler`] to set a custom error handler function for a world,
+//! Use [`FallbackErrorHandler`] to set a custom error handler function for a world,
 //! or `App::set_error_handler` for a whole app.
 //! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
 //! and quietly logging or ignoring them in production to avoid crashing the app.
@@ -36,7 +36,7 @@
 //! context surrounding the error – such as the system's [`name`] – in your error messages.
 //!
 //! ```rust, ignore
-//! use bevy_ecs::error::{BevyError, ErrorContext, DefaultErrorHandler};
+//! use bevy_ecs::error::{BevyError, ErrorContext, FallbackErrorHandler};
 //! use log::trace;
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
@@ -49,7 +49,7 @@
 //!
 //! fn main() {
 //!     let mut world = World::new();
-//!     world.insert_resource(DefaultErrorHandler(my_error_handler));
+//!     world.insert_resource(FallbackErrorHandler(my_error_handler));
 //!     // Use your world here
 //! }
 //! ```
@@ -57,7 +57,8 @@
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping
 //! feature`] to capture the [`Result`] output of the system and handle it accordingly.
 //!
-//! When working with commands, you can handle the result of each command separately using the [`HandleError::handle_error_with`] method.
+//! When working with commands, you can handle the result of each command separately
+//! using the [`Command::handle_error_with`] method.
 //!
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()
@@ -65,6 +66,7 @@
 //! [`System`]: crate::system::System
 //! [`name`]: crate::system::System::name
 //! [`system piping feature`]: crate::system::In
+//! [`Command::handle_error_with`]: crate::system::Command::handle_error_with
 
 mod bevy_error;
 mod command_handling;

@@ -16,8 +16,9 @@ use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -183,12 +184,9 @@ impl<A: Asset> LoadedAsset<A> {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
+    pub fn get_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedLoadedAsset> {
         self.label_to_asset_index
-            .get(&label.into())
+            .get(label.as_ref())
             .map(|index| self.labeled_assets.get(*index).unwrap())
             .map(|a| &a.asset)
     }
@@ -267,12 +265,9 @@ impl ErasedLoadedAsset {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
+    pub fn get_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedLoadedAsset> {
         self.label_to_asset_index
-            .get(&label.into())
+            .get(label.as_ref())
             .map(|index| self.labeled_assets.get(*index).unwrap())
             .map(|a| &a.asset)
     }
@@ -345,6 +340,8 @@ impl<A: Asset> AssetContainer for A {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
     #[error("Failed to load dependency {dependency:?} {error}")]
@@ -572,6 +569,11 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
+        if path.path() == Path::new("") {
+            error!("Attempted to load an asset with an empty path \"{path}\"!");
+            return Err(ReadAssetBytesError::EmptyPath(path.into_owned()));
+        }
+
         let source = self.asset_server.get_source(path.source())?;
         let asset_reader = match self.asset_server.mode() {
             AssetServerMode::Unprocessed => source.reader(),
@@ -611,7 +613,7 @@ impl<'a> LoadContext<'a> {
         label: impl Into<CowArc<'b, str>>,
     ) -> Handle<A> {
         let path = self.asset_path.clone().with_label(label);
-        let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
+        let handle = self.asset_server.get_or_create_path_handle(path, None);
         // `get_or_create_path_handle` always returns a Strong variant, so we are safe to unwrap.
         let index = (&handle).try_into().unwrap();
         self.dependencies.insert(index);
@@ -685,6 +687,8 @@ impl<'a> LoadContext<'a> {
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
 #[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
+    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    EmptyPath(AssetPath<'static>),
     #[error(transparent)]
     DeserializeMetaError(#[from] DeserializeMetaError),
     #[error(transparent)]

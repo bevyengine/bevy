@@ -19,15 +19,17 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, ComponentCloneBehavior, ComponentId, Components, Mutable},
     entity::{ComponentCloneCtx, Entity},
-    error::CommandWithEntity,
     lifecycle::HookContext,
+    system::EntityCommand,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
 
 /// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
 /// has a corresponding [`RelationshipTarget`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
-/// "source" entities that relate to the given "target"
+/// "source" entities that relate to the given "target".
+///
+/// A [`Relationship`] may only be one-to-many (or one-to-one): an [`Entity`] may point to at most one [`Entity`] through the [`Relationship`] component.
 ///
 /// The [`Relationship`] component is the "source of truth" and the [`RelationshipTarget`] component reflects that source of truth. When a [`Relationship`]
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does

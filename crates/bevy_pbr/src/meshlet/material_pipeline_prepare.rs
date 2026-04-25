@@ -17,7 +17,7 @@ use bevy_material::{
 use bevy_mesh::VertexBufferLayout;
 use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
 use bevy_utils::default;
 use core::any::{Any, TypeId};
@@ -43,6 +43,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
+            &ExtractedCamera,
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
@@ -66,6 +67,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
 
     for (
         mut materials,
+        camera,
         view,
         tonemapping,
         dither,
@@ -78,8 +80,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         has_irradiance_volumes,
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -126,7 +128,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !view.hdr {
+        if !camera.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -143,7 +145,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -207,8 +212,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
@@ -291,8 +296,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_target_format(view.target_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -301,7 +306,10 @@ pub fn prepare_material_meshlet_meshes_prepass(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
+        view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+            PrimitiveTopology::TriangleList,
+            None,
+        );
 
         for material_id in render_material_instances
             .instances
@@ -399,8 +407,8 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: false,
-                    depth_compare: CompareFunction::Equal,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(CompareFunction::Equal),
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),

@@ -165,8 +165,8 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        asset_value, Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer,
+        Assets, DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
@@ -185,7 +185,7 @@ mod render_asset;
 mod server;
 
 pub use assets::*;
-pub use bevy_asset_macros::Asset;
+pub use bevy_asset_macros::{Asset, VisitAssetDependencies};
 use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
 pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
@@ -220,7 +220,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
@@ -277,8 +277,8 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is unapproved, unless an override method is used, like
-    /// [`AssetServer::load_override`].
+    /// Fails to load any asset that is unapproved, unless [`LoadBuilder::override_unapproved`] is
+    /// used.
     Deny,
     /// Fails to load any asset that is unapproved.
     #[default]
@@ -498,6 +498,12 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
     }
 }
 
+impl VisitAssetDependencies for UntypedAssetId {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        visit(*self);
+    }
+}
+
 impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
@@ -514,33 +520,33 @@ impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
     }
 }
 
-impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Vec<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for HashSet<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
             visit(dependency.id().untyped());
         }
     }
 }
 
-impl VisitAssetDependencies for Vec<UntypedHandle> {
+impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id());
-        }
-    }
-}
-
-impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id().untyped());
-        }
-    }
-}
-
-impl VisitAssetDependencies for HashSet<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
+        for dependency in self.values() {
             visit(dependency.id());
         }
     }
@@ -676,8 +682,11 @@ impl AssetApp for App {
 
             type_registry.register::<A>();
             type_registry.register::<Handle<A>>();
+            type_registry.register::<HandleTemplate<A>>();
             type_registry.register_type_data::<A, ReflectAsset>();
             type_registry.register_type_data::<Handle<A>, ReflectHandle>();
+            type_registry
+                .register_type_conversion::<String, HandleTemplate<A>, _>(|s| Ok(s.into()));
         }
 
         self
@@ -715,7 +724,7 @@ mod tests {
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
+        UnapprovedPathMode, UntypedHandle, VisitAssetDependencies, WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -738,6 +747,7 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::{Reflect, TypePath};
+    use bevy_tasks::block_on;
     use core::{any::TypeId, time::Duration};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
@@ -2012,6 +2022,12 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
+    // Test that `VisitAssetDependencies` can be derived without deriving
+    // `Asset`, and that the type can be used as a `#[dependency]` within an
+    // asset.
+    #[derive(VisitAssetDependencies)]
+    pub struct TestNonAssetType(#[dependency] Handle<TestAsset>);
+
     #[derive(Asset, TypePath)]
     #[expect(
         dead_code,
@@ -2030,6 +2046,12 @@ mod tests {
             set_handles: HashSet<Handle<TestAsset>>,
             #[dependency]
             untyped_set_handles: HashSet<UntypedHandle>,
+            #[dependency]
+            map_handles: HashMap<String, Handle<TestAsset>>,
+            #[dependency]
+            untyped_map_handles: HashMap<String, UntypedHandle>,
+            #[dependency]
+            non_asset_type: TestNonAssetType,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -2053,6 +2075,12 @@ mod tests {
         set_handles: HashSet<Handle<TestAsset>>,
         #[dependency]
         untyped_set_handles: HashSet<UntypedHandle>,
+        #[dependency]
+        map_handles: HashMap<String, Handle<TestAsset>>,
+        #[dependency]
+        untyped_map_handles: HashMap<String, UntypedHandle>,
+        #[dependency]
+        non_asset_type: TestNonAssetType,
     }
 
     #[expect(
@@ -2102,7 +2130,10 @@ mod tests {
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         assert_eq!(
-            asset_server.load_override::<CoolText>("../a.cool.ron"),
+            asset_server
+                .load_builder()
+                .override_unapproved()
+                .load::<CoolText>("../a.cool.ron"),
             Handle::default()
         );
     }
@@ -2123,7 +2154,10 @@ mod tests {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load_override::<CoolText>("../a.cool.ron");
+        let handle = asset_server
+            .load_builder()
+            .override_unapproved()
+            .load::<CoolText>("../a.cool.ron");
         assert_ne!(handle, Handle::default());
 
         // Make sure this asset actually loads.
@@ -2515,10 +2549,10 @@ mod tests {
         // Load the test asset twice but with different settings.
 
         fn load(asset_server: &AssetServer, path: &'static str, value: u8) -> Handle<U8Asset> {
-            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
-                path,
-                move |s: &mut U8LoaderSettings| s.0 = value,
-            )
+            asset_server
+                .load_builder()
+                .with_settings(move |s: &mut U8LoaderSettings| s.0 = value)
+                .load::<U8Asset>(path)
         }
 
         let handle_1 = load(asset_server, "test.u8", 1);
@@ -2787,8 +2821,7 @@ mod tests {
         source.insert_asset_text(Path::new(ASSET_PATH), "blah");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
-        bevy_tasks::block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH))
-            .unwrap();
+        block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)).unwrap();
 
         assert_eq!(
             read_meta_as_string(&source, Path::new(ASSET_PATH)),
@@ -2815,7 +2848,7 @@ mod tests {
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         assert!(matches!(
-            bevy_tasks::block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)),
+            block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)),
             Err(WriteDefaultMetaError::MetaAlreadyExists)
         ));
 
@@ -3067,6 +3100,121 @@ mod tests {
             "root asset has no loader",
             "loaderless",
             TestLoadState::Failed(TestAssetLoadError::MissingAssetLoader),
+        );
+    }
+
+    #[test]
+    fn load_empty_path_returns_default() {
+        let mut app = create_app().0;
+
+        // Not necessary but better to make things more realistic to ensure we hit the right error
+        // case.
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        const TYPE_ID: TypeId = TypeId::of::<TestAsset>();
+
+        fn boring_settings(_: &mut ()) {}
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        for path in ["", "no_path://#WithALabel"] {
+            // TODO: We have way too many "load" variants. We **need** to simplify this.
+            assert_eq!(asset_server.load(path), Handle::<TestAsset>::default());
+            assert_eq!(
+                asset_server.load_builder().with_guard(()).load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .override_unapproved()
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .with_settings(boring_settings)
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().load_erased(TYPE_ID, path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().override_unapproved().load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().load_untyped(path),
+                Handle::default()
+            );
+            assert!(matches!(
+                block_on(asset_server.load_builder().load_untyped_async(path)),
+                Err(AssetLoadError::EmptyPath(reported_path)) if AssetPath::from(path) == reported_path
+            ));
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .override_unapproved()
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+        }
+    }
+
+    #[test]
+    fn resource_are_dependencies_loaded() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset_text(Path::new("abc.txt"), "");
+        dir.insert_asset_text(Path::new("def.txt"), "");
+        dir.insert_asset_text(Path::new("ghi.txt"), "");
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        #[derive(Resource, VisitAssetDependencies)]
+        struct MyAssetHolder {
+            #[dependency]
+            abc: Handle<TestAsset>,
+            #[dependency]
+            def: Handle<TestAsset>,
+            #[dependency]
+            ghi: Handle<TestAsset>,
+        }
+
+        app.insert_resource(MyAssetHolder {
+            abc: asset_server.load("abc.txt"),
+            def: asset_server.load("def.txt"),
+            ghi: asset_server.load("ghi.txt"),
+        });
+
+        assert!(!asset_server.are_dependencies_loaded(app.world().resource::<MyAssetHolder>()));
+        assert!(
+            !asset_server.are_direct_dependencies_loaded(app.world().resource::<MyAssetHolder>())
+        );
+
+        run_app_until(&mut app, |world| {
+            asset_server
+                .are_dependencies_loaded(world.resource::<MyAssetHolder>())
+                .then_some(())
+        });
+        assert!(
+            asset_server.are_direct_dependencies_loaded(app.world().resource::<MyAssetHolder>())
         );
     }
 }

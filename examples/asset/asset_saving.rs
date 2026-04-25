@@ -104,10 +104,12 @@ F5 - Save image"
             .into(),
     ));
 
-    let handle =
-        asset_server.load_with_settings(ASSET_PATH, |settings: &mut ImageLoaderSettings| {
+    let handle = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
             settings.sampler = ImageSampler::nearest();
-        });
+        })
+        .load(ASSET_PATH);
     commands.spawn((
         Sprite {
             image: handle.clone(),

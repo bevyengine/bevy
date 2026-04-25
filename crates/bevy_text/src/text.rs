@@ -8,6 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
+use parley::setting::Tag;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -263,7 +264,7 @@ impl From<Justify> for parley::Alignment {
     }
 }
 
-#[derive(Clone, Debug, Reflect, PartialEq)]
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
@@ -286,6 +287,7 @@ pub enum FontSource {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
+    #[default]
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
@@ -369,7 +371,7 @@ impl From<&str> for FontSource {
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// Specifies the font face used for this text section.
@@ -898,14 +900,14 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
                 })
                 .collect(),

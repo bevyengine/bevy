@@ -17,12 +17,16 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
-use bevy_ui_widgets::Checkbox;
+use bevy_scene::prelude::*;
+use bevy_ui::{
+    BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect, Val,
+};
+use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
 use crate::{
     constants::size,
     cursor::EntityCursor,
+    focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -37,6 +41,46 @@ struct ToggleSwitchOutline;
 #[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
 
+/// Scene function to spawn a toggle switch.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
+///
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
+pub fn toggle_switch() -> impl Scene {
+    bsn! {
+        Node {
+            width: size::TOGGLE_WIDTH,
+            height: size::TOGGLE_HEIGHT,
+            border: UiRect::all(Val::Px(2.0)),
+            border_radius: BorderRadius::all(Val::Px(5.0)),
+        }
+        Checkbox
+        ToggleSwitchOutline
+        ThemeBackgroundColor(tokens::SWITCH_BG)
+        ThemeBorderColor(tokens::SWITCH_BORDER)
+        AccessibilityNode(accesskit::Node::new(Role::Switch))
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        FocusIndicator
+        Children [(
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.),
+                width: Val::Percent(50.),
+                border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(3.0)),
+            }
+            ToggleSwitchSlide
+            ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
+            ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
+        )]
+    }
+}
+
 /// Template function to spawn a toggle switch.
 ///
 /// # Arguments
@@ -47,7 +91,8 @@ struct ToggleSwitchSlide;
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the toggle_switch() BSN function")]
+pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
             width: size::TOGGLE_WIDTH,
@@ -64,6 +109,7 @@ pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![(
             Node {
@@ -72,11 +118,13 @@ pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
                 top: Val::Px(0.),
                 bottom: Val::Px(0.),
                 width: Val::Percent(50.),
+                border: UiRect::all(Val::Px(2.0)),
                 border_radius: BorderRadius::all(Val::Px(3.0)),
                 ..Default::default()
             },
             ToggleSwitchSlide,
-            ThemeBackgroundColor(tokens::SWITCH_SLIDE),
+            ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG),
+            ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
         )],
     )
 }
@@ -87,20 +135,40 @@ fn update_switch_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeBackgroundColor,
             &ThemeBorderColor,
         ),
         (
             With<ToggleSwitchOutline>,
-            Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
+            Or<(
+                Changed<Hovered>,
+                Added<Checked>,
+                Added<Pressed>,
+                Added<InteractionDisabled>,
+            )>,
         ),
     >,
     q_children: Query<&Children>,
-    mut q_slide: Query<(&mut Node, &ThemeBackgroundColor), With<ToggleSwitchSlide>>,
+    mut q_slide: Query<
+        (&mut Node, &ThemeBackgroundColor, &ThemeBorderColor),
+        With<ToggleSwitchSlide>,
+    >,
     mut commands: Commands,
 ) {
-    for (switch_ent, disabled, checked, hovered, outline_bg, outline_border) in q_switches.iter() {
+    for (
+        switch_ent,
+        disabled,
+        checked,
+        pressed,
+        activate_on_press,
+        hovered,
+        outline_bg,
+        outline_border,
+    ) in q_switches.iter()
+    {
         let Some(slide_ent) = q_children
             .iter_descendants(switch_ent)
             .find(|en| q_slide.contains(*en))
@@ -108,17 +176,21 @@ fn update_switch_styles(
             continue;
         };
         // Safety: since we just checked the query, should always work.
-        let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
+        let (ref mut slide_style, slide_bg_color, slide_border_color) =
+            q_slide.get_mut(slide_ent).unwrap();
         set_switch_styles(
             switch_ent,
             slide_ent,
             disabled,
             checked,
+            pressed,
             hovered.0,
+            activate_on_press,
             outline_bg,
             outline_border,
             slide_style,
-            slide_color,
+            slide_bg_color,
+            slide_border_color,
             &mut commands,
         );
     }
@@ -130,6 +202,8 @@ fn update_switch_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
             &ThemeBackgroundColor,
             &ThemeBorderColor,
@@ -137,17 +211,32 @@ fn update_switch_styles_remove(
         With<ToggleSwitchOutline>,
     >,
     q_children: Query<&Children>,
-    mut q_slide: Query<(&mut Node, &ThemeBackgroundColor), With<ToggleSwitchSlide>>,
+    mut q_slide: Query<
+        (&mut Node, &ThemeBackgroundColor, &ThemeBorderColor),
+        With<ToggleSwitchSlide>,
+    >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
+    mut remove_pressed: RemovedComponents<Pressed>,
+    mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
+        .chain(remove_pressed.read())
+        .chain(remove_activate_on_press.read())
         .for_each(|ent| {
-            if let Ok((switch_ent, disabled, checked, hovered, outline_bg, outline_border)) =
-                q_switches.get(ent)
+            if let Ok((
+                switch_ent,
+                disabled,
+                checked,
+                pressed,
+                activate_on_press,
+                hovered,
+                outline_bg,
+                outline_border,
+            )) = q_switches.get(ent)
             {
                 let Some(slide_ent) = q_children
                     .iter_descendants(switch_ent)
@@ -156,17 +245,21 @@ fn update_switch_styles_remove(
                     return;
                 };
                 // Safety: since we just checked the query, should always work.
-                let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
+                let (ref mut slide_style, slide_bg_color, slide_border_color) =
+                    q_slide.get_mut(slide_ent).unwrap();
                 set_switch_styles(
                     switch_ent,
                     slide_ent,
                     disabled,
                     checked,
+                    pressed,
                     hovered.0,
+                    activate_on_press,
                     outline_bg,
                     outline_border,
                     slide_style,
-                    slide_color,
+                    slide_bg_color,
+                    slide_border_color,
                     &mut commands,
                 );
             }
@@ -178,29 +271,102 @@ fn set_switch_styles(
     slide_ent: Entity,
     disabled: bool,
     checked: bool,
+    pressed: bool,
     hovered: bool,
+    activate_on_press: bool,
     outline_bg: &ThemeBackgroundColor,
     outline_border: &ThemeBorderColor,
     slide_style: &mut Mut<Node>,
-    slide_color: &ThemeBackgroundColor,
+    slide_bg_color: &ThemeBackgroundColor,
+    slide_border_color: &ThemeBorderColor,
     commands: &mut Commands,
 ) {
-    let outline_border_token = match (disabled, hovered) {
-        (true, _) => tokens::SWITCH_BORDER_DISABLED,
-        (false, true) => tokens::SWITCH_BORDER_HOVER,
-        _ => tokens::SWITCH_BORDER,
+    let outline_border_token = if checked {
+        if disabled {
+            tokens::SWITCH_BORDER_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_BORDER_CHECKED_PRESSED
+        } else if hovered {
+            tokens::SWITCH_BORDER_CHECKED_HOVER
+        } else {
+            tokens::SWITCH_BORDER_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::SWITCH_BORDER_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_BORDER_PRESSED
+        } else if hovered {
+            tokens::SWITCH_BORDER_HOVER
+        } else {
+            tokens::SWITCH_BORDER
+        }
     };
 
-    let outline_bg_token = match (disabled, checked) {
-        (true, true) => tokens::SWITCH_BG_CHECKED_DISABLED,
-        (true, false) => tokens::SWITCH_BG_DISABLED,
-        (false, true) => tokens::SWITCH_BG_CHECKED,
-        (false, false) => tokens::SWITCH_BG,
+    let outline_bg_token = if checked {
+        if disabled {
+            tokens::SWITCH_BG_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_BG_CHECKED_PRESSED
+        } else if hovered {
+            tokens::SWITCH_BG_CHECKED_HOVER
+        } else {
+            tokens::SWITCH_BG_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::SWITCH_BG_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_BG_PRESSED
+        } else if hovered {
+            tokens::SWITCH_BG_HOVER
+        } else {
+            tokens::SWITCH_BG
+        }
     };
 
-    let slide_token = match disabled {
-        true => tokens::SWITCH_SLIDE_DISABLED,
-        false => tokens::SWITCH_SLIDE,
+    let slide_border_token = if checked {
+        if disabled {
+            tokens::SWITCH_SLIDE_BORDER_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_SLIDE_BORDER_CHECKED_PRESSED
+        } else if hovered {
+            tokens::SWITCH_SLIDE_BORDER_CHECKED_HOVER
+        } else {
+            tokens::SWITCH_SLIDE_BORDER_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::SWITCH_SLIDE_BORDER_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_SLIDE_BORDER_PRESSED
+        } else if hovered {
+            tokens::SWITCH_SLIDE_BORDER_HOVER
+        } else {
+            tokens::SWITCH_SLIDE_BORDER
+        }
+    };
+
+    let slide_bg_token = if checked {
+        if disabled {
+            tokens::SWITCH_SLIDE_BG_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_SLIDE_BG_CHECKED_PRESSED
+        } else if hovered {
+            tokens::SWITCH_SLIDE_BG_CHECKED_HOVER
+        } else {
+            tokens::SWITCH_SLIDE_BG_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::SWITCH_SLIDE_BG_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::SWITCH_SLIDE_BG_PRESSED
+        } else if hovered {
+            tokens::SWITCH_SLIDE_BG_HOVER
+        } else {
+            tokens::SWITCH_SLIDE_BG
+        }
     };
 
     let slide_pos = match checked {
@@ -227,11 +393,18 @@ fn set_switch_styles(
             .insert(ThemeBorderColor(outline_border_token));
     }
 
-    // Change slide color
-    if slide_color.0 != slide_token {
+    // Change slide background color
+    if slide_bg_color.0 != slide_bg_token {
         commands
             .entity(slide_ent)
-            .insert(ThemeBackgroundColor(slide_token));
+            .insert(ThemeBackgroundColor(slide_bg_token));
+    }
+
+    // Change slide border color
+    if slide_border_color.0 != slide_border_token {
+        commands
+            .entity(slide_ent)
+            .insert(ThemeBorderColor(slide_border_token));
     }
 
     // Change slide position

@@ -15,7 +15,7 @@
 // respectively.
 
 #import bevy_pbr::mesh_preprocess_types::{
-    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput
+    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput, PreprocessWorkItem
 }
 #import bevy_pbr::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
@@ -41,17 +41,6 @@ struct MeshCullingData {
     // The 3D extents of the AABB in model space, divided by two, padded with
     // an extra unused float value.
     aabb_half_extents: vec4<f32>,
-}
-
-// One invocation of this compute shader: i.e. one mesh instance in a view.
-struct PreprocessWorkItem {
-    // The index of the `MeshInput` in the `current_input` buffer that we read
-    // from.
-    input_index: u32,
-    // In direct mode, the index of the `Mesh` in `output` that we write to. In
-    // indirect mode, the index of the `IndirectParameters` in
-    // `indirect_parameters` that we write to.
-    output_or_indirect_parameters_index: u32,
 }
 
 // The parameters for the indirect compute dispatch for the late mesh

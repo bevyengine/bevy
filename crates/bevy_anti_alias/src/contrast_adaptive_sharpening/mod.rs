@@ -7,7 +7,6 @@ use bevy_core_pipeline::{
     FullscreenShader,
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -17,7 +16,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -77,12 +76,13 @@ pub struct CasUniform {
 }
 
 impl SyncComponent for ContrastAdaptiveSharpening {
-    type Out = (DenoiseCas, CasUniform);
+    type Target = (DenoiseCas, CasUniform);
 }
 
 impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
+    type Out = (DenoiseCas, CasUniform);
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
@@ -178,7 +178,7 @@ pub fn init_cas_pipeline(
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
 pub struct CasPipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     denoise: bool,
 }
 
@@ -201,7 +201,7 @@ impl Specializer<RenderPipeline> for CasPipelineSpecializer {
         fragment.set_target(
             0,
             ColorTargetState {
-                format: key.texture_format,
+                format: key.target_format,
                 blend: None,
                 write_mask: ColorWrites::ALL,
             },
@@ -215,7 +215,7 @@ fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut sharpening_pipeline: ResMut<CasPipeline>,
-    views: Query<
+    cameras: Query<
         (Entity, &ExtractedView, &DenoiseCas),
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
@@ -225,16 +225,12 @@ fn prepare_cas_pipelines(
         commands.entity(entity).remove::<ViewCasPipeline>();
     }
 
-    for (entity, view, denoise_cas) in &views {
+    for (entity, view, denoise_cas) in &cameras {
         let pipeline_id = sharpening_pipeline.variants.specialize(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                target_format: view.target_format,
             },
         )?;
 

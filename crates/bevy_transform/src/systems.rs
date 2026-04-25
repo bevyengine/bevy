@@ -1,10 +1,38 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
+use crate::{
+    components::{GlobalTransform, Transform, TransformTreeChanged},
+    helper::TransformHelper,
+};
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryFilter};
 
-#[cfg(feature = "std")]
+/// Generic system that propagates transforms,
+/// using [`TransformHelper`] for any entity matching the filter `F`.
+/// Useful for moving and rendering in the same frame.
+pub fn propagate_transforms_for<F: QueryFilter + 'static>(
+    tf_helper: TransformHelper,
+    mut query: Query<(Entity, &mut GlobalTransform), F>,
+) {
+    for (entity, mut gtf) in query.iter_mut() {
+        let result = tf_helper
+            .compute_global_transform(entity)
+            .inspect_err(|_err| {
+                #[cfg(feature = "trace")]
+                bevy_utils::once!(tracing::warn!(
+                    "Failed to compute GlobalTransform for entity {:?}: {:?}",
+                    entity,
+                    _err
+                ));
+            });
+
+        if let Ok(computed) = result {
+            *gtf = computed;
+        }
+    }
+}
+
+#[cfg(feature = "multi_threaded")]
 pub use parallel::propagate_parent_transforms;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -26,9 +54,17 @@ pub fn sync_simple_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
+    #[cfg(feature = "multi_threaded")]
     query
         .p0()
         .par_iter_mut()
+        .for_each(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
+    #[cfg(not(feature = "multi_threaded"))]
+    query
+        .p0()
+        .iter_mut()
         .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
@@ -78,20 +114,26 @@ pub fn mark_dirty_trees(
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     static_optimizations: Res<StaticTransformOptimizations>,
-    // Cached allocations for std-only parallel implementation
-    #[cfg(feature = "std")] mut shared_bitset: Local<
+    // Cached allocations for multi-threaded parallel implementation
+    #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
     >,
-    #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<alloc::vec::Vec<u64>>>,
-    #[cfg(feature = "std")] mut consumer_channels: Local<bevy_utils::BufferedChannel<Entity>>,
-    #[cfg(feature = "std")] mut traversal_channels: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "multi_threaded")] mut local_bitset: Local<
+        bevy_utils::Parallel<alloc::vec::Vec<u64>>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut consumer_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut traversal_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
 ) {
     if !static_optimizations.is_enabled() {
         return;
     }
 
     // Simple serial implementation that iterates changed entities and traverses the tree.
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(feature = "multi_threaded"))]
     for entity in changed.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok(mut tree) = transforms.get_mut(next) {
@@ -120,12 +162,12 @@ pub fn mark_dirty_trees(
     // of the scope and asynchronously await incoming batches of work. This allows the entire
     // pipeline to start working as soon as there is available work to process, instead of running
     // each stage serially with inner parallelism.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "multi_threaded")]
     {
-        use bevy_log::info_span;
-        use bevy_log::tracing::Instrument;
         use bevy_tasks::ComputeTaskPool;
         use core::sync::atomic::Ordering;
+        #[cfg(feature = "trace")]
+        use tracing::{info_span, Instrument};
 
         ComputeTaskPool::get().scope(|scope| {
             traversal_channels.chunk_size = 1024;
@@ -137,8 +179,8 @@ pub fn mark_dirty_trees(
             let parents_ref = &parents;
 
             // Consumer: drain the channel of moved entities and call set_changed() on the marker.
-            scope.spawn(
-                async move {
+            scope.spawn({
+                let fut = async move {
                     while let Ok(mut chunk) = consumer_rx.recv().await {
                         for entity in chunk.drain() {
                             if let Ok(mut tree) = transforms.get_mut(entity) {
@@ -146,17 +188,19 @@ pub fn mark_dirty_trees(
                             }
                         }
                     }
-                }
-                .instrument(info_span!("consumer_mark_dirty")),
-            );
+                };
+                #[cfg(feature = "trace")]
+                let fut = fut.instrument(info_span!("consumer_mark_dirty"));
+                fut
+            });
 
             // Traversal: each task loops until the producer channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
             for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
                 let traversal_rx = traversal_rx.clone();
                 let mut consumer_tx = consumer_tx.clone();
-                scope.spawn(
-                    async move {
+                scope.spawn({
+                    let fut = async move {
                         while let Ok(mut chunk) = traversal_rx.recv().await {
                             for mut entity in chunk.drain() {
                                 let mut first_iteration = true;
@@ -207,9 +251,11 @@ pub fn mark_dirty_trees(
                                 }
                             }
                         }
-                    }
-                    .instrument(info_span!("par_traversal_mark_dirty")),
-                );
+                    };
+                    #[cfg(feature = "trace")]
+                    let fut = fut.instrument(info_span!("par_traversal_mark_dirty"));
+                    fut
+                });
             }
 
             // Producer: Feed changed entities and orphans into producer tasks. The senders are
@@ -219,7 +265,7 @@ pub fn mark_dirty_trees(
             // Note that we send the entity directly to the consumer as well, we do this to start
             // feeding it work as soon as possible. The traversal worker should skip sending these
             // leaves to the consumer because it has already been sent here.
-            info_span!("producer_mark_dirty").in_scope(move || {
+            let mut producer = move || {
                 for entity in orphaned.read() {
                     let _ = traversal_tx.send_blocking(entity);
                     let _ = consumer_tx.send_blocking(entity);
@@ -232,7 +278,11 @@ pub fn mark_dirty_trees(
                         let _ = consumer_tx.send_blocking(entity);
                     },
                 );
-            });
+            };
+            #[cfg(feature = "trace")]
+            info_span!("producer_mark_dirty").in_scope(&mut producer);
+            #[cfg(not(feature = "trace"))]
+            producer();
         });
 
         // Merge thread-local bitsets into the shared bitset, growing it to accommodate the largest
@@ -270,7 +320,7 @@ pub fn mark_dirty_trees(
 // module, and make the multithreaded module no_std compatible.
 //
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
@@ -432,7 +482,7 @@ mod serial {
 //
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-#[cfg(feature = "std")]
+#[cfg(feature = "multi_threaded")]
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
@@ -538,8 +588,8 @@ mod parallel {
         nodes: &NodeQuery,
         static_optimizations: &StaticTransformOptimizations,
     ) {
-        #[cfg(feature = "std")]
-        let _span = bevy_log::info_span!("transform propagation worker").entered();
+        #[cfg(feature = "trace")]
+        let _span = tracing::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {

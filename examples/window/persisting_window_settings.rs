@@ -138,6 +138,8 @@ fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands:
 struct ExitAfterSave;
 
 impl Command for ExitAfterSave {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         world.write_message(AppExit::Success);
     }

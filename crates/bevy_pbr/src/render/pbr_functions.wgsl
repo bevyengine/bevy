@@ -282,7 +282,7 @@ fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
 }
 
 // Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }
@@ -639,6 +639,20 @@ fn apply_pbr_lighting(
             lighting::directional_light(i, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
+    }
+
+    // Rect lights
+    let n_rect_lights = view_bindings::lights.n_rect_lights;
+    for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
+        let enable_diffuse = true;
+        let light_contrib = lighting::rect_light(i, &lighting_input, enable_diffuse);
+        direct_light += light_contrib;
+
+    #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+        let transmitted_light_contrib =
+            lighting::rect_light(i, &transmissive_lighting_input, enable_diffuse);
+        transmitted_light += transmitted_light_contrib;
+    #endif
     }
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
