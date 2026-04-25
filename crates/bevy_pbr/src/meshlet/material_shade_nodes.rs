@@ -26,6 +26,7 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     view::{ViewTarget, ViewUniformOffset},
 };
+use smallvec::{smallvec, SmallVec};
 
 ///
 /// Fullscreen shading pass based on the visibility buffer generated from rasterizing meshlets.
@@ -38,9 +39,9 @@ pub fn meshlet_main_opaque_pass(
         &ViewLightsUniformOffset,
         &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
+        Option<&ViewScreenSpaceReflectionsUniformOffset>,
+        Option<&ViewContactShadowsUniformOffset>,
+        Option<&ViewEnvironmentMapUniformOffset>,
         Option<&MainPassResolutionOverride>,
         &MeshletViewMaterialsMainOpaquePass,
         &MeshletViewBindGroups,
@@ -99,20 +100,22 @@ pub fn meshlet_main_opaque_pass(
     {
         render_pass.set_camera_viewport(&viewport);
     }
-
-    render_pass.set_bind_group(
-        0,
-        &mesh_view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
-    );
+    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+        view_uniform_offset.offset,
+        view_lights_offset.offset,
+        view_fog_offset.offset,
+        **view_light_probes_offset,
+    ];
+    if let Some(view_ssr) = view_ssr_offset {
+        offsets.push(**view_ssr);
+    }
+    if let Some(view_contact_shadows) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows);
+    }
+    if let Some(view_environment_map) = view_environment_map_offset {
+        offsets.push(**view_environment_map);
+    }
+    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 

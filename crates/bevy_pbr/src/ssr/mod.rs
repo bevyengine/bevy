@@ -43,6 +43,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
+use smallvec::{smallvec, SmallVec};
 use tracing::info;
 
 use crate::{
@@ -256,8 +257,8 @@ pub fn screen_space_reflections(
         &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
         &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
+        Option<&ViewContactShadowsUniformOffset>,
+        Option<&ViewEnvironmentMapUniformOffset>,
         &MeshViewBindGroup,
         &ScreenSpaceReflectionsPipelineId,
     )>,
@@ -332,19 +333,20 @@ pub fn screen_space_reflections(
 
     // Set bind groups.
     render_pass.set_render_pipeline(render_pipeline);
-    render_pass.set_bind_group(
-        0,
-        &view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
-    );
+    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+        view_uniform_offset.offset,
+        view_lights_offset.offset,
+        view_fog_offset.offset,
+        **view_light_probes_offset,
+        **view_ssr_offset,
+    ];
+    if let Some(view_contact_shadows) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows);
+    }
+    if let Some(view_environment_map) = view_environment_map_offset {
+        offsets.push(**view_environment_map);
+    }
+    render_pass.set_bind_group(0, &view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
     // Perform the SSR render pass.
@@ -492,7 +494,7 @@ pub fn prepare_ssr_pipelines(
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
+    views: Query<(Entity, &ScreenSpaceReflectionsUniform), With<ExtractedView>>,
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -504,10 +506,7 @@ pub fn prepare_ssr_settings(
     };
 
     for (view, ssr_uniform) in views.iter() {
-        let uniform_offset = match ssr_uniform {
-            None => 0,
-            Some(ssr_uniform) => writer.write(ssr_uniform),
-        };
+        let uniform_offset = writer.write(ssr_uniform);
         commands
             .entity(view)
             .insert(ViewScreenSpaceReflectionsUniformOffset(uniform_offset));

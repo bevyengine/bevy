@@ -20,7 +20,6 @@ use bevy_render::{
     view::ExtractedView,
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
-use bevy_utils::default;
 
 /// Enables contact shadows for a camera.
 pub struct ContactShadowsPlugin;
@@ -118,21 +117,14 @@ impl Plugin for ContactShadowsPlugin {
 
 fn prepare_contact_shadows_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ContactShadows>), With<ExtractedView>>,
+    views: Query<(Entity, &ContactShadows), With<ExtractedView>>,
     mut contact_shadows_buffer: ResMut<ContactShadowsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
     contact_shadows_buffer.0.clear();
     for (entity, settings) in &views {
-        let uniform = if let Some(settings) = settings {
-            ContactShadowsUniform::from(*settings)
-        } else {
-            ContactShadowsUniform {
-                linear_steps: 0,
-                ..default()
-            }
-        };
+        let uniform = ContactShadowsUniform::from(*settings);
         let offset = contact_shadows_buffer.0.push(&uniform);
         commands
             .entity(entity)

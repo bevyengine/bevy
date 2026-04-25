@@ -519,7 +519,7 @@ fn gather_light_probes<C>(
 /// writes them into a GPU buffer.
 pub fn prepare_environment_uniform_buffer(
     mut commands: Commands,
-    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    views: Query<(Entity, &EnvironmentMapUniform), With<ExtractedView>>,
     mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -531,10 +531,7 @@ pub fn prepare_environment_uniform_buffer(
     };
 
     for (view, environment_uniform) in views.iter() {
-        let uniform_offset = match environment_uniform {
-            None => 0,
-            Some(environment_uniform) => writer.write(environment_uniform),
-        };
+        let uniform_offset = writer.write(environment_uniform);
         commands
             .entity(view)
             .insert(ViewEnvironmentMapUniformOffset(uniform_offset));

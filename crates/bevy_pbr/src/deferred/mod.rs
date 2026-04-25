@@ -32,6 +32,7 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
+use smallvec::{smallvec, SmallVec};
 
 pub struct DeferredPbrLightingPlugin;
 
@@ -129,9 +130,9 @@ pub fn deferred_lighting(
         &ViewLightsUniformOffset,
         &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
+        Option<&ViewScreenSpaceReflectionsUniformOffset>,
+        Option<&ViewContactShadowsUniformOffset>,
+        Option<&ViewEnvironmentMapUniformOffset>,
         &MeshViewBindGroup,
         &ViewTarget,
         &DeferredLightingIdDepthTexture,
@@ -189,19 +190,23 @@ pub fn deferred_lighting(
     });
 
     render_pass.set_render_pipeline(pipeline);
-    render_pass.set_bind_group(
-        0,
-        &mesh_view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
-    );
+    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+        view_uniform_offset.offset,
+        view_lights_offset.offset,
+        view_fog_offset.offset,
+        **view_light_probes_offset,
+    ];
+    if let Some(view_ssr) = view_ssr_offset {
+        offsets.push(**view_ssr);
+    }
+    if let Some(view_contact_shadows) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows);
+    }
+    if let Some(view_environment_map) = view_environment_map_offset {
+        offsets.push(**view_environment_map);
+    }
+
+    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
     render_pass.draw(0..3, 0..1);

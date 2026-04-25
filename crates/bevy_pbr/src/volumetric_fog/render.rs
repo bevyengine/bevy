@@ -45,6 +45,7 @@ use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
     ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
@@ -297,10 +298,10 @@ pub fn volumetric_fog(
         &ViewLightProbesUniformOffset,
         &ViewVolumetricFog,
         &MeshViewBindGroup,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
+        Option<&ViewScreenSpaceReflectionsUniformOffset>,
+        Option<&ViewContactShadowsUniformOffset>,
         &Msaa,
-        &ViewEnvironmentMapUniformOffset,
+        Option<&ViewEnvironmentMapUniformOffset>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
@@ -431,19 +432,22 @@ pub fn volumetric_fog(
 
         render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(
-            0,
-            &view_bind_group.main,
-            &[
-                view_uniform_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-                **view_light_probes_offset,
-                **view_ssr_offset,
-                **view_contact_shadows_offset,
-                **view_environment_map_offset,
-            ],
-        );
+        let mut offsets: SmallVec<[u32; 7]> = smallvec![
+            view_uniform_offset.offset,
+            view_lights_offset.offset,
+            view_fog_offset.offset,
+            **view_light_probes_offset,
+        ];
+        if let Some(view_ssr) = view_ssr_offset {
+            offsets.push(**view_ssr);
+        }
+        if let Some(view_contact_shadows) = view_contact_shadows_offset {
+            offsets.push(**view_contact_shadows);
+        }
+        if let Some(view_environment_map) = view_environment_map_offset {
+            offsets.push(**view_environment_map);
+        }
+        render_pass.set_bind_group(0, &view_bind_group.main, &offsets);
         render_pass.set_bind_group(
             1,
             &volumetric_view_bind_group,

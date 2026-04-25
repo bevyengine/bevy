@@ -4190,9 +4190,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
+        Option<Read<ViewScreenSpaceReflectionsUniformOffset>>,
+        Option<Read<ViewContactShadowsUniformOffset>>,
+        Option<Read<ViewEnvironmentMapUniformOffset>>,
         Read<MeshViewBindGroup>,
         Option<Read<OrderIndependentTransparencySettingsOffset>>,
     );
@@ -4206,9 +4206,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_lights,
             view_fog,
             view_light_probes,
-            view_ssr,
-            view_contact_shadows,
-            view_environment_map,
+            maybe_view_ssr,
+            maybe_view_contact_shadows,
+            maybe_view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
         ): ROQueryItem<'w, '_, Self::ViewQuery>,
@@ -4220,11 +4220,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_uniform.offset,
             view_lights.offset,
             view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_contact_shadows,
-            **view_environment_map,
+            **view_light_probes
         ];
+        if let Some(view_ssr) = maybe_view_ssr {
+            offsets.push(**view_ssr);
+        }
+        if let Some(view_contact_shadows) = maybe_view_contact_shadows {
+            offsets.push(**view_contact_shadows);
+        }
+        if let Some(view_environment_map) = maybe_view_environment_map {
+            offsets.push(**view_environment_map);
+        }
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
             offsets.push(layers_count_offset.offset);
         }

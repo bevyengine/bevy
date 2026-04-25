@@ -323,8 +323,6 @@ pub fn layout_entries(
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
-            // Contact shadows settings
-            (16, uniform_buffer::<ContactShadowsUniform>(true)),
         ),
     );
 
@@ -334,7 +332,12 @@ pub fn layout_entries(
             (15, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
         ));
     }
-
+    if layout_key.contains(MeshPipelineViewLayoutKey::CONTACT_SHADOWS) {
+        entries = entries.extend_with_indices((
+            // Contact shadows settings
+            (16, uniform_buffer::<ContactShadowsUniform>(true)),
+        ));
+    }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
         entries = entries.extend_with_indices((
             // Screen space ambient occlusion texture
