@@ -712,6 +712,230 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     result_path
 }
 
+pub const PATH_SEPARATOR: char = '/';
+
+/// Splits `path` into its directory and basename.
+///
+/// This assumes the given path uses `/` has its path delimiter. If the path ends in a slash, the
+/// basename will be [`None`]. If the path is absolute (starts with a slash), the directory may be
+/// [`None`].
+///
+/// ```rust
+/// # use bevy_asset::split_path;
+/// assert_eq!(split_path(""), (None, None));
+/// assert_eq!(split_path("foo"), (None, Some("foo")));
+/// assert_eq!(split_path("foo/bar"), (Some("foo"), Some("bar")));
+/// assert_eq!(split_path("/foo/bar"), (Some("/foo"), Some("bar")));
+/// assert_eq!(split_path("/foo/"), (Some("/foo"), None));
+/// ```
+pub fn split_path<'a>(path: &'a str) -> (Option<&'a str>, Option<&'a str>) {
+    let (parent, basename) = match path.rfind(PATH_SEPARATOR) {
+        Some(slash) => (&path[..slash], &path[(slash + 1)..]),
+        None => ("", path),
+    };
+    (
+        (!parent.is_empty()).then_some(parent),
+        (!basename.is_empty()).then_some(basename),
+    )
+}
+
+/// Returns the directory of `path`.
+///
+/// This assumes the given path uses `/` has its path delimiter. If the path ends in a slash, the
+/// basename will be the empty string. If the path is absolute (starts with a slash), and the path
+/// has only one components (e.g., `/blah.txt`), [`None`] is returned.
+///
+/// ```rust
+/// # use bevy_asset::path_parent;
+/// assert_eq!(path_parent(""), None);
+/// assert_eq!(path_parent("foo"), Some(""));
+/// assert_eq!(path_parent("foo/bar"), Some("foo"));
+/// assert_eq!(path_parent("/foo/bar"), Some("/foo"));
+/// assert_eq!(path_parent("/foo/"), Some("/foo"));
+/// ```
+pub fn path_parent<'a>(path: &'a str) -> Option<&'a str> {
+    let (parent, basename) = split_path(path);
+    parent.or_else(|| basename.map(|_| ""))
+}
+
+/// Returns the basename of `path`.
+///
+/// This assumes the given path uses `/` as its path delimiter. If the path ends in a slash,
+/// [`None`] is returned.
+///
+/// ```rust
+/// # use bevy_asset::path_basename;
+/// assert_eq!(path_basename(""), None);
+/// assert_eq!(path_basename("foo"), Some("foo"));
+/// assert_eq!(path_basename("foo/bar"), Some("bar"));
+/// assert_eq!(path_basename("/foo/bar"), Some("bar"));
+/// assert_eq!(path_basename("/foo/"), None);
+/// ```
+pub fn path_basename<'a>(path: &'a str) -> Option<&'a str> {
+    split_path(path).1
+}
+
+/// Returns the individual components of `path`.
+///
+/// This assumes the given path uses `/` as its path delimiter.
+///
+/// ```rust
+/// # use bevy_asset::path_components;
+/// let mut components = path_components("/foo/bar");
+/// assert_eq!(components.next(), Some("foo"));
+/// assert_eq!(components.next(), Some("bar"));
+/// assert_eq!(components.next(), None);
+/// ```
+pub fn path_components<'a>(mut path: &'a str) -> impl Iterator<Item = &'a str> {
+    path = path.strip_prefix(PATH_SEPARATOR).unwrap_or(path);
+    path = path.strip_suffix(PATH_SEPARATOR).unwrap_or(path);
+    path.split(PATH_SEPARATOR)
+        .filter(|component| !component.is_empty())
+}
+
+/// Returns the ancestors of `path` (including `path`).
+///
+/// This assumes the given path uses `/` as its path delimiter.
+///
+/// ```rust
+/// # use bevy_asset::path_ancestors;
+/// let mut ancestors = path_ancestors("/foo/bar");
+/// assert_eq!(ancestors.next(), Some("/foo/bar"));
+/// assert_eq!(ancestors.next(), Some("/foo"));
+/// assert_eq!(ancestors.next(), Some("/"));
+/// assert_eq!(ancestors.next(), None);
+///
+/// let mut ancestors = path_ancestors("../foo/bar");
+/// assert_eq!(ancestors.next(), Some("../foo/bar"));
+/// assert_eq!(ancestors.next(), Some("../foo"));
+/// assert_eq!(ancestors.next(), Some(".."));
+/// assert_eq!(ancestors.next(), None);
+/// ```
+pub fn path_ancestors<'a>(mut path: &'a str) -> impl Iterator<Item = &'a str> {
+    if path != "/" {
+        path = path.strip_suffix(PATH_SEPARATOR).unwrap_or(path);
+    }
+    AncestorIter { path: Some(path) }
+}
+
+/// Cleans the given path into a "platform agnostic" path.
+///
+/// Different platforms have different semantics for their file paths. In particular, Windows allows
+/// users to use `\` as a path separator. To address this, we convert the path to a common
+/// unambiguous representation - paths are separated by `/`. Since we don't know whether a path was
+/// created on Windows or not, we must replace all `\` with `/`. As a consequence, paths on all
+/// platforms cannot include `\`.
+///
+/// ```rust
+/// # use bevy_asset::clean_path;
+/// # use atomicow::CowArc;
+/// assert_eq!(clean_path("/foo/bar"), CowArc::Static("/foo/bar"));
+/// assert_eq!(clean_path("C:\\foo\\bar"), CowArc::Owned("C:/foo/bar".into()));
+/// assert_eq!(clean_path("/foo\\bar"), CowArc::Owned("/foo/bar".into()));
+/// ```
+pub fn clean_path<'a>(raw_path: &'a str) -> CowArc<'a, str> {
+    if raw_path.find('\\').is_none() {
+        return CowArc::Borrowed(raw_path);
+    }
+    CowArc::Owned(raw_path.replace('\\', "/").into())
+}
+
+/// Joins the two paths together into a single path.
+///
+/// If `rpath` is an absolute path, it is used entirely (`lpath` is ignored).
+///
+/// ```rust
+/// # use bevy_asset::join_paths;
+/// assert_eq!(join_paths("foo/bar", "baz/quox"), "foo/bar/baz/quox");
+/// assert_eq!(join_paths("foo/bar/", "baz/quox"), "foo/bar/baz/quox");
+/// assert_eq!(join_paths("foo/bar", "/baz/quox"), "/baz/quox");
+/// assert_eq!(join_paths("", "baz/quox"), "baz/quox");
+/// ```
+pub fn join_paths(lpath: &str, rpath: &str) -> String {
+    if lpath.is_empty() {
+        return rpath.to_string();
+    }
+
+    if rpath.starts_with(PATH_SEPARATOR) {
+        return rpath.to_string();
+    }
+
+    if lpath.ends_with(PATH_SEPARATOR) {
+        format!("{lpath}{rpath}")
+    } else {
+        format!("{lpath}/{rpath}")
+    }
+}
+
+/// Returns whether the path is an absolute path (starts with '/').
+///
+/// ```rust
+/// # use bevy_asset::is_absolute_path;
+/// assert!(!is_absolute_path("foo/bar"));
+/// assert!(is_absolute_path("/foo/bar"));
+/// ```
+pub fn is_absolute_path(path: &str) -> bool {
+    path.starts_with(PATH_SEPARATOR)
+}
+
+/// Returns the file extension for the given path.
+///
+/// The file extension is defined as the string after the last `.` in the last path component.
+/// Returns [`None`] if the last component does not contain a dot (or the dot is at the end of the
+/// path).
+///
+/// ```rust
+/// # use bevy_asset::path_file_extension;
+/// assert_eq!(path_file_extension("foo/bar.png"), Some("png"));
+/// assert_eq!(path_file_extension("foo/bar."), None);
+/// assert_eq!(path_file_extension("foo/.png"), Some("png"));
+/// assert_eq!(path_file_extension("foo.png"), Some("png"));
+/// assert_eq!(path_file_extension("foo.png/ok_thats_odd"), None);
+/// ```
+pub fn path_file_extension(path: &str) -> Option<&str> {
+    let path = path_basename(path).unwrap_or(path);
+    let dot = path.rfind('.')?;
+
+    if dot + 1 == path.len() {
+        // The dot is the last character, so there's nothing in the extension.
+        return None;
+    }
+
+    // TODO: Should we strip off query parameters like `get_full_extension`?
+
+    Some(&path[(dot + 1)..])
+}
+
+/// Iterator for the ancestors of a file path - including the path itself.
+struct AncestorIter<'a> {
+    /// The path for which to get the ancestors.
+    ///
+    /// This is [`None`] if the path has no more ancestors.
+    path: Option<&'a str>,
+}
+
+impl<'a> Iterator for AncestorIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let path = self.path?;
+        if let Some(slash) = path.rfind(PATH_SEPARATOR) {
+            self.path = if slash == 0 {
+                if path == "/" {
+                    None
+                } else {
+                    Some("/")
+                }
+            } else {
+                Some(&path[..slash])
+            };
+        } else {
+            self.path = None;
+        }
+        Some(path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
