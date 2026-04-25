@@ -719,19 +719,22 @@ fn render_debug_overlay(
 
     render_pass.set_pipeline(pipeline);
 
-    let mut offsets: SmallVec<[u32; 8]> =
-        smallvec![view_uniform.offset, view_lights.offset, **view_light_probes];
-    if let Some(view_fog) = view_fog {
-        offsets.push(view_fog.offset);
+    let mut offsets: SmallVec<[u32; 8]> = smallvec![
+        view_uniform_offset.offset,
+        view_lights_offset.offset,
+        **view_light_probes_offset
+    ];
+    if let Some(view_fog_offset) = view_fog_offset {
+        offsets.push(view_fog_offset.offset);
     }
-    if let Some(view_ssr) = view_ssr {
-        offsets.push(**view_ssr);
+    if let Some(view_ssr_offset) = view_ssr_offset {
+        offsets.push(**view_ssr_offset);
     }
-    if let Some(view_contact_shadows) = view_contact_shadows {
-        offsets.push(**view_contact_shadows);
+    if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows_offset);
     }
-    if let Some(view_environment_map) = view_environment_map {
-        offsets.push(**view_environment_map);
+    if let Some(view_environment_map_offset) = view_environment_map_offset {
+        offsets.push(**view_environment_map_offset);
     }
     if let Some(view_oit_settings_offset) = view_oit_settings_offset {
         offsets.push(view_oit_settings_offset.offset);

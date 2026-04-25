@@ -123,7 +123,9 @@ fn prepare_contact_shadows_settings(
     render_queue: Res<RenderQueue>,
 ) {
     let Some(mut writer) =
-        contact_shadows_buffer.0.get_writer(views.iter().len(), &render_device, &render_queue)
+        contact_shadows_buffer
+            .0
+            .get_writer(views.iter().len(), &render_device, &render_queue)
     else {
         return;
     };

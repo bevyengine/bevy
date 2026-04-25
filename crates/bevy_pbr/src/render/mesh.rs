@@ -448,7 +448,7 @@ pub fn check_views_need_specialization(
         }
 
         if has_contact_shadows {
-            view_key |= MeshPipelineKey::CONTACT_SHADOWS
+            view_key |= MeshPipelineKey::CONTACT_SHADOWS;
         }
 
         if view.invert_culling {
