@@ -656,6 +656,12 @@ mod tests {
             }
         }
 
+        #[derive(Component, Default, Clone)]
+        #[component(scene = "a.bsn")]
+        struct AWidget {
+            value: usize,
+        }
+
         let mut app = App::new();
         let dir = Dir::default();
         let dir_clone = dir.clone();
@@ -728,6 +734,27 @@ mod tests {
         let y = world.entity(children[1]);
         let name = y.get::<Name>().unwrap();
         assert_eq!(name.as_str(), "Y");
+
+        // "a.bsn" as AWidget's "component scene"
+        let id = world
+            .spawn_scene(bsn! {:AWidget { value: 2 }})
+            .unwrap()
+            .id();
+        let root = world.entity(id);
+
+        let a_widget = root.get::<AWidget>().unwrap();
+        assert_eq!(a_widget.value, 2);
+        let position = root.get::<Position>().unwrap();
+        assert_eq!(position.x, 0.);
+        assert_eq!(position.y, 2.);
+        assert_eq!(position.z, 0.);
+
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+
+        let x = world.entity(children[0]);
+        let name = x.get::<Name>().unwrap();
+        assert_eq!(name.as_str(), "X");
     }
 
     #[test]
@@ -1401,6 +1428,111 @@ mod tests {
         world.queue_spawn_scene(scene1());
 
         app.update();
+    }
+
+    #[test]
+    fn component_scene() {
+        #[derive(Component, Default, Clone)]
+        #[component(scene)]
+        struct Widget;
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {Name("widget")}
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
+        assert!(entity.contains::<Widget>());
+
+        #[derive(Component, Default, Clone)]
+        #[component(scene = Widget::scene)]
+        struct OtherWidget;
+        let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
+        assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
+        assert!(entity.contains::<OtherWidget>());
+        assert!(
+            !entity.contains::<Widget>(),
+            "This reuses the Widget::scene function, but that scene does not explicitly add Widget"
+        );
+    }
+
+    #[test]
+    fn component_scene_props() {
+        #[derive(Component, Default, Clone)]
+        #[component(scene_props = WidgetProps)]
+        struct Widget {
+            value: usize,
+        }
+
+        #[derive(Default)]
+        struct WidgetProps {
+            children: usize,
+        }
+
+        impl Widget {
+            fn scene(props: WidgetProps) -> impl Scene {
+                let children = (0..props.children)
+                    .map(|i| {
+                        bsn! {
+                            Name({format!("Child{i}")})
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                bsn! {
+                    Children [
+                        {children}
+                    ]
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {:Widget {
+                @children: 2,
+                value: 10,
+            }})
+            .unwrap();
+        assert_eq!(entity.get::<Widget>().unwrap().value, 10);
+        assert_eq!(entity.get::<Children>().unwrap().len(), 2);
+
+        #[derive(Component, Default, Clone)]
+        #[component(scene = Widget::scene, scene_props = WidgetProps)]
+        struct OtherWidget {
+            value: usize,
+        }
+
+        let entity = world
+            .spawn_scene(bsn! {:OtherWidget {
+                @children: 2,
+                value: 10,
+            }})
+            .unwrap();
+        assert_eq!(entity.get::<OtherWidget>().unwrap().value, 10);
+        assert_eq!(entity.get::<Children>().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn scene_without_explicit_component_still_spawns_component() {
+        #[derive(Component, Default, Clone)]
+        #[component(scene)]
+        struct Widget;
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! {:Widget}).unwrap();
+        assert!(entity.contains::<Widget>());
     }
 
     #[test]

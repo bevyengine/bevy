@@ -324,6 +324,37 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         quote! {::core::option::Option::None}
     };
 
+    #[cfg(feature = "scene")]
+    let scene_constructor = {
+        if attrs.scene.is_some() || attrs.scene_props.is_some() {
+            use crate::scene::Scene;
+
+            let (scene, scene_props) = match (attrs.scene, attrs.scene_props) {
+                (None, Some(props)) => (Scene::default_scene_function(), Some(props)),
+                (Some(scene), None) => (scene, None),
+                (Some(scene), Some(props)) => (scene, Some(props)),
+                (None, None) => unreachable!(),
+            };
+
+            let bevy_scene =
+                bevy_macro_utils::BevyManifest::shared(|manifest| manifest.get_path("bevy_scene"));
+            register_required.push(quote! {
+                required_components.register_required(|| #bevy_scene::SceneComponent::new::<#struct_name #type_generics>(false));
+            });
+            crate::scene::derive_scene_constructor(
+                &ast,
+                &bevy_ecs_path,
+                &bevy_scene,
+                scene,
+                scene_props,
+            )
+        } else {
+            proc_macro2::TokenStream::new()
+        }
+    };
+    #[cfg(not(feature = "scene"))]
+    let scene_constructor = proc_macro2::TokenStream::new();
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -358,6 +389,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         #relationship
 
         #relationship_target
+
+        #scene_constructor
     })
 }
 
@@ -593,6 +626,10 @@ struct Attrs {
     immutable: bool,
     clone_behavior: Option<Expr>,
     map_entities: Option<MapEntitiesAttributeKind>,
+    #[cfg(feature = "scene")]
+    scene: Option<crate::scene::Scene>,
+    #[cfg(feature = "scene")]
+    scene_props: Option<Path>,
 }
 
 #[derive(Clone, Copy)]
@@ -634,6 +671,10 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
         clone_behavior: None,
         map_entities: None,
+        #[cfg(feature = "scene")]
+        scene: None,
+        #[cfg(feature = "scene")]
+        scene_props: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -686,6 +727,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
                     Ok(())
                 } else {
+                    #[cfg(feature = "scene")]
+                    {
+                        if nested.path.is_ident("scene") {
+                            attrs.scene = Some(nested.input.parse::<crate::scene::Scene>()?);
+                            return Ok(());
+                        } else if nested.path.is_ident("scene_props") {
+                            nested.input.parse::<Token![=]>()?;
+                            attrs.scene_props = Some(nested.input.parse::<Path>()?);
+                            return Ok(());
+                        }
+                    }
                     Err(nested.error("Unsupported attribute"))
                 }
             })?;

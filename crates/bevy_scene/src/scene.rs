@@ -5,12 +5,14 @@ use bevy_ecs::{
     component::Component,
     error::Result,
     event::EntityEvent,
+    lifecycle::HookContext,
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
     template::{
         EntityScopes, FnTemplate, FromTemplate, ScopedEntityIndex, Template, TemplateContext,
     },
+    world::DeferredWorld,
 };
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
@@ -539,4 +541,95 @@ pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>
     observer: I,
 ) -> OnTemplate<I, E, B, M> {
     OnTemplate(observer, PhantomData)
+}
+
+/// Implemented for [`Component`]s that have an associated [`Scene`], which can be constructed
+/// with [`Self::Props`].
+///
+/// In general, developers should not implement this manually. Instead, they should specify `#[component(scene)]`
+/// in the [`Component`] derive, which will derive this trait and add additional protections and assurances.
+///
+/// See the "Scene Components" sections of the [`Scene`] docs to see how this is used in practice.
+pub trait SceneConstructor: FromTemplate<Template: Default>
+where
+    <Self::Template as Template>::Output: Component,
+{
+    /// The "properties" passed into [`Self::scene`] to build the final scene.
+    type Props: Default;
+
+    /// A function that uses the given `props` to produce a [`Scene`]
+    fn scene(props: Self::Props) -> impl Scene;
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+/// A [`Scene`] that initializes a template if it doesn't yet exist.
+#[derive(Default)]
+pub struct InitTemplate<T>(PhantomData<T>);
+
+impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for InitTemplate<T> {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        let _ = scene.get_or_insert_template::<T>(context);
+        Ok(())
+    }
+}
+
+/// A [`Component`] that must always be spawned with a [`Scene`].
+#[derive(Component, Default, Clone)]
+#[cfg_attr(debug_assertions, component(on_add))]
+pub struct SceneComponent {
+    spawned_from_scene: bool,
+    #[cfg(debug_assertions)]
+    component_name: &'static str,
+}
+
+impl SceneComponent {
+    /// Creates a new [`SceneComponent`] for the given type `C`.
+    pub fn new<C: Component>(spawned_from_scene: bool) -> Self {
+        SceneComponent {
+            spawned_from_scene,
+            #[cfg(debug_assertions)]
+            component_name: core::any::type_name::<C>(),
+        }
+    }
+}
+
+impl SceneComponent {
+    #[cfg(debug_assertions)]
+    fn on_add(world: DeferredWorld, context: HookContext) {
+        if let Ok(entity) = world.get_entity(context.entity)
+            && let Some(component) = entity.get::<SceneComponent>()
+            && !component.spawned_from_scene
+        {
+            tracing::error!(
+                "Entity {} was spawned with the \"scene component\" {}, but without its scene. \
+                Scene components should not be spawned directly as components. Instead, they \
+                should be spawned as \"scenes\" using world.spawn_scene or commands.spawn_scene. \
+                Scene components should be inherited using `:{}` syntax in BSN.",
+                context.entity,
+                component.component_name,
+                component.component_name
+            );
+        }
+    }
 }

@@ -9,6 +9,8 @@ mod event;
 mod message;
 mod query_data;
 mod query_filter;
+#[cfg(feature = "scene")]
+mod scene;
 mod template;
 mod variant_defaults;
 mod world_query;

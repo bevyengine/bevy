@@ -223,16 +223,30 @@ impl BsnInheritedScene {
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
             BsnInheritedScene::Asset(path)
+        } else if input.peek(Brace) {
+            BsnInheritedScene::Expression(braced_tokens(input)?)
         } else {
-            let function = input.parse::<Path>()?;
-            let args = if input.peek(Paren) {
-                let content;
-                parenthesized!(content in input);
-                Some(content.parse_terminated(Expr::parse, Token![,])?)
-            } else {
-                None
-            };
-            BsnInheritedScene::Fn { function, args }
+            // PERF: do we really need this fork here?
+            let path = input.fork().parse::<Path>()?;
+            match PathType::new(&path) {
+                PathType::Type | PathType::Enum => {
+                    BsnInheritedScene::Type(input.parse::<BsnType>()?)
+                }
+                PathType::Function => {
+                    let path = input.parse::<Path>()?;
+                    let args = if input.peek(Paren) {
+                        let content;
+                        parenthesized!(content in input);
+                        Some(content.parse_terminated(Expr::parse, Token![,])?)
+                    } else {
+                        None
+                    };
+                    BsnInheritedScene::Fn { path, args }
+                }
+                _ => {
+                    todo!()
+                }
+            }
         })
     }
 }
@@ -301,6 +315,12 @@ impl Parse for BsnFields {
 
 impl Parse for BsnNamedField {
     fn parse(input: ParseStream) -> Result<Self> {
+        let is_prop = if input.peek(At) {
+            input.parse::<At>()?;
+            true
+        } else {
+            false
+        };
         let name = input.parse::<Ident>()?;
         let value = if input.peek(Colon) {
             input.parse::<Colon>()?;
@@ -313,7 +333,11 @@ impl Parse for BsnNamedField {
         } else {
             None
         };
-        Ok(BsnNamedField { name, value })
+        Ok(BsnNamedField {
+            name,
+            value,
+            is_prop,
+        })
     }
 }
 
