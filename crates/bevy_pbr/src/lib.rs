@@ -421,7 +421,6 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
-        render_app.world_mut().add_observer(extracted_light_removed);
 
         render_app.add_systems(
             Core3d,
@@ -485,9 +484,13 @@ impl SyncComponent<PbrPlugin> for DirectionalLight {
         ExtractedDirectionalLight,
         RenderExtractedShadowMapVisibleEntities,
         RenderShadowMapVisibleEntities,
+        DirectionalLightViewEntities,
     );
 }
 impl SyncComponent<PbrPlugin> for PointLight {
+    // PointAndSpotLightViewEntities is currently not part of this list
+    // because it seems to corrupt the shadows in the pcss example
+    // for Point/SpotLights when toggling between the different types of lights
     type Target = (
         Self,
         ExtractedPointLight,
@@ -496,6 +499,9 @@ impl SyncComponent<PbrPlugin> for PointLight {
     );
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
+    // PointAndSpotLightViewEntities is currently not part of this list
+    // because it seems to corrupt the shadows in the pcss example
+    // for Point/SpotLights when toggling between the different types of lights
     type Target = (
         Self,
         ExtractedPointLight,
