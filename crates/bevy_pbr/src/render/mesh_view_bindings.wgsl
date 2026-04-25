@@ -49,14 +49,27 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(14) var<uniform> visibility_ranges: array<vec4<f32>, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE>;
 #endif
 
+#ifdef SCREEN_SPACE_REFLECTIONS
 @group(0) @binding(15) var<uniform> ssr_settings: types::ScreenSpaceReflectionsSettings;
-@group(0) @binding(16) var<uniform> contact_shadows_settings: types::ContactShadowsSettings;
-@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
-@group(0) @binding(18) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
+#endif
 
+#ifdef CONTACT_SHADOWS
+@group(0) @binding(16) var<uniform> contact_shadows_settings: types::ContactShadowsSettings;
+#endif
+
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+#endif
+
+#ifdef ENVIRONMENT_MAP
+@group(0) @binding(18) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
+#endif
+
+#ifdef TONEMAP_IN_SHADER
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
 @group(0) @binding(19) var dt_lut_texture: texture_3d<f32>;
 @group(0) @binding(20) var dt_lut_sampler: sampler;
+#endif
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
@@ -87,8 +100,10 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(24) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
+#ifdef SCREEN_SPACE_TRANSMISSION
 @group(0) @binding(25) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(26) var view_transmission_sampler: sampler;
+#endif
 
 #ifdef OIT_ENABLED
 @group(0) @binding(27) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
@@ -115,6 +130,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(40) var dfg_lut_sampler: sampler;
 #endif // DFG_LUT
 
+#ifdef ENVIRONMENT_MAP
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
 @group(1) @binding(1) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
@@ -123,7 +139,9 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(1) @binding(1) var specular_environment_map: texture_cube<f32>;
 #endif
 @group(1) @binding(2) var environment_map_sampler: sampler;
+#endif
 
+#ifdef IRRADIANCE_VOLUME
 #ifdef IRRADIANCE_VOLUMES_ARE_USABLE
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(3) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
@@ -131,6 +149,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(1) @binding(3) var irradiance_volume: texture_3d<f32>;
 #endif
 @group(1) @binding(4) var irradiance_volume_sampler: sampler;
+#endif
 #endif
 
 #ifdef CLUSTERED_DECALS_ARE_USABLE

@@ -1,13 +1,11 @@
-use crate::{DfgLut, LtcLuts};
-use alloc::sync::Arc;
+use crate::{DfgLut, LtcLuts, ScreenSpaceTransmission};
 use bevy_core_pipeline::{
-    oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
+    oit::{OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -17,18 +15,20 @@ use bevy_ecs::{
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
+use bevy_platform::sync::Arc;
 use bevy_render::{
+    camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderAdapter, RenderDevice},
-    texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
+    texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
-use core::{array, num::NonZero};
+use core::num::NonZero;
 
 use crate::{
     contact_shadows::{
@@ -65,9 +65,6 @@ pub struct MeshPipelineViewLayout {
     pub main_layout: BindGroupLayoutDescriptor,
     pub binding_array_layout: BindGroupLayoutDescriptor,
     pub empty_layout: BindGroupLayoutDescriptor,
-
-    #[cfg(debug_assertions)]
-    pub texture_count: usize,
 }
 
 bitflags::bitflags! {
@@ -79,68 +76,28 @@ bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     pub struct MeshPipelineViewLayoutKey: u32 {
-        const MULTISAMPLED                = 1 << 0;
-        const DEPTH_PREPASS               = 1 << 1;
-        const NORMAL_PREPASS              = 1 << 2;
-        const MOTION_VECTOR_PREPASS       = 1 << 3;
-        const DEFERRED_PREPASS            = 1 << 4;
-        const OIT_ENABLED                 = 1 << 5;
-        const ATMOSPHERE                  = 1 << 6;
-        const STBN                        = 1 << 7;
+        const MULTISAMPLED                     = 1 << 0;
+        const DEPTH_PREPASS                    = 1 << 1;
+        const NORMAL_PREPASS                   = 1 << 2;
+        const MOTION_VECTOR_PREPASS            = 1 << 3;
+        const DEFERRED_PREPASS                 = 1 << 4;
+        const OIT_ENABLED                      = 1 << 5;
+        const ATMOSPHERE                       = 1 << 6;
+        const STBN                             = 1 << 7;
+        const TONEMAP_IN_SHADER                = 1 << 8;
+        const ENVIRONMENT_MAP                  = 1 << 9;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION   = 1 << 10;
+        const IRRADIANCE_VOLUME                = 1 << 11;
+        const SCREEN_SPACE_REFLECTIONS         = 1 << 12;
+        const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
+        const CONTACT_SHADOWS                  = 1 << 14;
     }
 }
 
 impl MeshPipelineViewLayoutKey {
-    // The number of possible layouts
-    pub const COUNT: usize = Self::all().bits() as usize + 1;
-
     /// Builds a unique label for each layout based on the flags
     pub fn label(&self) -> String {
-        use MeshPipelineViewLayoutKey as Key;
-
-        format!(
-            "mesh_view_layout{}{}{}{}{}{}{}{}",
-            if self.contains(Key::MULTISAMPLED) {
-                "_multisampled"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::DEPTH_PREPASS) {
-                "_depth"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::NORMAL_PREPASS) {
-                "_normal"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::MOTION_VECTOR_PREPASS) {
-                "_motion"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::DEFERRED_PREPASS) {
-                "_deferred"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::OIT_ENABLED) {
-                "_oit"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::ATMOSPHERE) {
-                "_atmosphere"
-            } else {
-                Default::default()
-            },
-            if self.contains(Key::STBN) {
-                "_stbn"
-            } else {
-                Default::default()
-            },
-        )
+        format!("mesh_view_layout{:b}", self.bits())
     }
 }
 
@@ -172,6 +129,28 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
 
         if cfg!(feature = "bluenoise_texture") {
             result |= MeshPipelineViewLayoutKey::STBN;
+        }
+
+        if value.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
+            result |= MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER;
+        }
+        if value.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            result |= MeshPipelineViewLayoutKey::ENVIRONMENT_MAP;
+        }
+        if value.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if value.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+            result |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+        }
+        if value.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
+            result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
+        }
+        if value.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
+            result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
+        }
+        if value.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            result |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
         }
 
         result
@@ -232,16 +211,14 @@ pub(crate) fn buffer_layout(
 
 /// Returns the appropriate bind group layout vec based on the parameters
 pub fn layout_entries(
+    layout_key: MeshPipelineViewLayoutKey,
     clustered_forward_buffer_binding_type: BufferBindingType,
     visibility_ranges_buffer_binding_type: BufferBindingType,
-    layout_key: MeshPipelineViewLayoutKey,
-    render_device: &RenderDevice,
-    render_adapter: &RenderAdapter,
+    environment_map_entries: [BindGroupLayoutEntryBuilder; 4],
+    irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
+    clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
+    is_oit_supported: bool,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
-    // EnvironmentMapLight
-    let environment_map_entries =
-        environment_map::get_bind_group_layout_entries(render_device, render_adapter);
-
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
@@ -346,25 +323,40 @@ pub fn layout_entries(
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
-            // Screen space reflection settings
-            (15, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
             // Contact shadows settings
             (16, uniform_buffer::<ContactShadowsUniform>(true)),
+        ),
+    );
+
+    if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS) {
+        entries = entries.extend_with_indices((
+            // Screen space reflection settings
+            (15, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
+        ));
+    }
+
+    if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+        entries = entries.extend_with_indices((
             // Screen space ambient occlusion texture
             (
                 17,
                 texture_2d(TextureSampleType::Float { filterable: false }),
             ),
-            (18, environment_map_entries[3]),
-        ),
-    );
+        ));
+    }
 
-    // Tonemapping
-    let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    entries = entries.extend_with_indices((
-        (19, tonemapping_lut_entries[0]),
-        (20, tonemapping_lut_entries[1]),
-    ));
+    if layout_key.contains(MeshPipelineViewLayoutKey::ENVIRONMENT_MAP) {
+        entries = entries.extend_with_indices(((18, environment_map_entries[3]),));
+    }
+
+    if layout_key.contains(MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER) {
+        // Tonemapping
+        let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
+        entries = entries.extend_with_indices((
+            (19, tonemapping_lut_entries[0]),
+            (20, tonemapping_lut_entries[1]),
+        ));
+    }
 
     // Prepass
     if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
@@ -380,21 +372,23 @@ pub fn layout_entries(
         }
     }
 
-    // View Transmission Texture
-    entries = entries.extend_with_indices((
-        (
-            25,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (26, sampler(SamplerBindingType::Filtering)),
-    ));
+    if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION) {
+        // View Transmission Texture
+        entries = entries.extend_with_indices((
+            (
+                25,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (26, sampler(SamplerBindingType::Filtering)),
+        ));
+    }
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
         // Check if we can use OIT. This is a hack to avoid errors on webgl --
         // the OIT plugin will warn the user that OIT is not supported on their
         // platform, so we don't need to do it here.
-        if is_oit_supported(render_adapter, render_device, false) {
+        if is_oit_supported {
             entries = entries.extend_with_indices((
                 (
                     27,
@@ -458,27 +452,28 @@ pub fn layout_entries(
             (40, sampler(SamplerBindingType::Filtering)),
         ));
     }
-    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
-    binding_array_entries = binding_array_entries.extend_with_indices((
-        (0, environment_map_entries[0]),
-        (1, environment_map_entries[1]),
-        (2, environment_map_entries[2]),
-    ));
 
-    // Irradiance volumes
-    if IRRADIANCE_VOLUMES_ARE_USABLE {
-        let irradiance_volume_entries =
-            irradiance_volume::get_bind_group_layout_entries(render_device, render_adapter);
+    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
+    if layout_key.contains(MeshPipelineViewLayoutKey::ENVIRONMENT_MAP) {
         binding_array_entries = binding_array_entries.extend_with_indices((
-            (3, irradiance_volume_entries[0]),
-            (4, irradiance_volume_entries[1]),
+            (0, environment_map_entries[0]),
+            (1, environment_map_entries[1]),
+            (2, environment_map_entries[2]),
         ));
     }
 
+    if layout_key.contains(MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME) {
+        // Irradiance volumes
+        if IRRADIANCE_VOLUMES_ARE_USABLE {
+            binding_array_entries = binding_array_entries.extend_with_indices((
+                (3, irradiance_volume_entries[0]),
+                (4, irradiance_volume_entries[1]),
+            ));
+        }
+    }
+
     // Clustered decals
-    if let Some(clustered_decal_entries) =
-        decal::clustered::get_bind_group_layout_entries(render_device, render_adapter)
-    {
+    if let Some(clustered_decal_entries) = clustered_decal_entries {
         binding_array_entries = binding_array_entries.extend_with_indices((
             (5, clustered_decal_entries[0]),
             (6, clustered_decal_entries[1]),
@@ -489,14 +484,20 @@ pub fn layout_entries(
     [entries.to_vec(), binding_array_entries.to_vec()]
 }
 
-/// Stores the view layouts for every combination of pipeline keys.
-///
-/// This is wrapped in an [`Arc`] so that it can be efficiently cloned and
-/// placed inside specializable pipeline types.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct MeshPipelineViewLayouts(
-    pub Arc<[MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT]>,
-);
+struct MeshPipelineViewLayoutEntries {
+    clustered_forward_buffer_binding_type: BufferBindingType,
+    visibility_ranges_buffer_binding_type: BufferBindingType,
+    environment_map_entries: [BindGroupLayoutEntryBuilder; 4],
+    irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
+    clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
+    is_oit_supported: bool,
+}
+
+/// Stores the view layouts entries for creating bind group layouts of pipeline keys.
+#[derive(Resource, Clone)]
+pub struct MeshPipelineViewLayouts {
+    entries: Arc<MeshPipelineViewLayoutEntries>,
+}
 
 pub fn init_mesh_pipeline_view_layouts(
     mut commands: Commands,
@@ -511,74 +512,43 @@ pub fn init_mesh_pipeline_view_layouts(
     let visibility_ranges_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-    let res = MeshPipelineViewLayouts(Arc::new(array::from_fn(|i| {
-        let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-        let entries = layout_entries(
+    let res = MeshPipelineViewLayouts {
+        entries: Arc::new(MeshPipelineViewLayoutEntries {
             clustered_forward_buffer_binding_type,
             visibility_ranges_buffer_binding_type,
-            key,
-            &render_device,
-            &render_adapter,
-        );
-        #[cfg(debug_assertions)]
-        let texture_count: usize = entries
-            .iter()
-            .flat_map(|e| {
-                e.iter()
-                    .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
-            })
-            .count();
-
-        MeshPipelineViewLayout {
-            main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
-            binding_array_layout: BindGroupLayoutDescriptor::new(
-                format!("{}_binding_array", key.label()),
-                &entries[1],
+            environment_map_entries: environment_map::get_bind_group_layout_entries(
+                &render_device,
+                &render_adapter,
             ),
-            empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
-            #[cfg(debug_assertions)]
-            texture_count,
-        }
-    })));
+            irradiance_volume_entries: irradiance_volume::get_bind_group_layout_entries(
+                &render_device,
+                &render_adapter,
+            ),
+            clustered_decal_entries: decal::clustered::get_bind_group_layout_entries(
+                &render_device,
+                &render_adapter,
+            ),
+            is_oit_supported: bevy_core_pipeline::oit::resolve::is_oit_supported(
+                &render_adapter,
+                &render_device,
+                false,
+            ),
+        }),
+    };
 
     commands.insert_resource(res);
 }
 
 impl MeshPipelineViewLayouts {
-    pub fn get_view_layout(
-        &self,
-        layout_key: MeshPipelineViewLayoutKey,
-    ) -> &MeshPipelineViewLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            once!(warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments."));
-        }
-
-        layout
-    }
-}
-
-/// Generates all possible view layouts for the mesh pipeline, based on all combinations of
-/// [`MeshPipelineViewLayoutKey`] flags.
-#[deprecated(since = "0.19.0", note = "Use `layout_entries` instead")]
-pub fn generate_view_layouts(
-    render_device: &RenderDevice,
-    render_adapter: &RenderAdapter,
-    clustered_forward_buffer_binding_type: BufferBindingType,
-    visibility_ranges_buffer_binding_type: BufferBindingType,
-) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
-    array::from_fn(|i| {
-        let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-        let entries = layout_entries(
-            clustered_forward_buffer_binding_type,
-            visibility_ranges_buffer_binding_type,
-            key,
-            render_device,
-            render_adapter,
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
+        let mut entries = layout_entries(
+            layout_key,
+            self.entries.clustered_forward_buffer_binding_type,
+            self.entries.visibility_ranges_buffer_binding_type,
+            self.entries.environment_map_entries,
+            self.entries.irradiance_volume_entries,
+            self.entries.clustered_decal_entries,
+            self.entries.is_oit_supported,
         );
 
         #[cfg(debug_assertions)]
@@ -590,17 +560,30 @@ pub fn generate_view_layouts(
             })
             .count();
 
-        MeshPipelineViewLayout {
-            main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
-            binding_array_layout: BindGroupLayoutDescriptor::new(
-                format!("{}_binding_array", key.label()),
-                &entries[1],
-            ),
-            empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
-            #[cfg(debug_assertions)]
-            texture_count,
+        #[cfg(debug_assertions)]
+        if texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
+            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
+            once!(warn!(
+                "Too many textures in mesh pipeline view layout, this might cause us \
+            to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments."
+            ));
         }
-    })
+
+        MeshPipelineViewLayout {
+            main_layout: BindGroupLayoutDescriptor {
+                label: layout_key.label().into(),
+                entries: core::mem::take(&mut entries[0]),
+            },
+            binding_array_layout: BindGroupLayoutDescriptor {
+                label: format!("{}_binding_array", layout_key.label()).into(),
+                entries: core::mem::take(&mut entries[1]),
+            },
+            empty_layout: BindGroupLayoutDescriptor {
+                label: format!("{}_empty", layout_key.label()).into(),
+                entries: vec![],
+            },
+        }
+    }
 }
 
 #[derive(Component)]
@@ -627,6 +610,7 @@ pub fn prepare_mesh_view_bind_groups(
     (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
     views: Query<(
         Entity,
+        &ExtractedCamera,
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
@@ -634,16 +618,23 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         &Tonemapping,
-        Option<&RenderViewLightProbes<EnvironmentMapLight>>,
-        Option<&RenderViewLightProbes<IrradianceVolume>>,
-        Has<OrderIndependentTransparencySettings>,
-        Option<&AtmosphereTextures>,
-        Has<ExtractedAtmosphere>,
-        Option<&ViewContactShadowsUniformOffset>,
+        (
+            Option<&RenderViewLightProbes<EnvironmentMapLight>>,
+            Option<&RenderViewLightProbes<IrradianceVolume>>,
+        ),
+        (
+            Has<OrderIndependentTransparencySettings>,
+            Option<&AtmosphereTextures>,
+            Has<ExtractedAtmosphere>,
+        ),
+        (
+            Has<ScreenSpaceTransmission>,
+            Has<ViewContactShadowsUniformOffset>,
+            Has<ScreenSpaceReflectionsUniform>,
+        ),
     )>,
-    (images, mut fallback_images, fallback_image, fallback_image_zero): (
+    (images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
-        FallbackImageMsaa,
         Res<FallbackImage>,
         Res<FallbackImageZero>,
     ),
@@ -701,6 +692,7 @@ pub fn prepare_mesh_view_bind_groups(
     ) {
         for (
             entity,
+            camera,
             shadow_bindings,
             cluster_bindings,
             msaa,
@@ -708,22 +700,13 @@ pub fn prepare_mesh_view_bind_groups(
             prepass_textures,
             transmission_texture,
             tonemapping,
-            render_view_environment_maps,
-            render_view_irradiance_volumes,
-            has_oit,
-            atmosphere_textures,
-            has_atmosphere,
-            _contact_shadows_offset,
+            (render_view_environment_maps, render_view_irradiance_volumes),
+            (has_oit, atmosphere_textures, has_atmosphere),
+            (has_transmission, has_contact_shadows, has_ssr),
         ) in &views
         {
-            let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::Rgba8UnormSrgb)
-                .texture_view
-                .clone();
-            let ssao_view = ssao_resources
-                .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                .unwrap_or(&fallback_ssao);
-
+            let tonemap_in_shader = !camera.hdr;
+            let has_ssao = ssao_resources.is_some();
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             if has_oit {
@@ -735,8 +718,27 @@ pub fn prepare_mesh_view_bind_groups(
             if cfg!(feature = "bluenoise_texture") {
                 layout_key |= MeshPipelineViewLayoutKey::STBN;
             }
-
-            let layout = mesh_pipeline.get_view_layout(layout_key);
+            if tonemap_in_shader {
+                layout_key |= MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER;
+            }
+            if render_view_environment_maps.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::ENVIRONMENT_MAP;
+            }
+            if has_ssao {
+                layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+            }
+            if render_view_irradiance_volumes.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+            }
+            if has_ssr {
+                layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
+            }
+            if has_transmission {
+                layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
+            }
+            if has_contact_shadows {
+                layout_key |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
+            }
 
             let mut entries = DynamicBindGroupEntries::new_with_indices((
                 (0, view_binding.clone()),
@@ -761,16 +763,29 @@ pub fn prepare_mesh_view_bind_groups(
                 (12, fog_binding.clone()),
                 (13, light_probes_binding.clone()),
                 (14, visibility_ranges_buffer.as_entire_binding()),
-                (15, ssr_binding.clone()),
                 (16, contact_shadows_binding.clone()),
-                (17, ssao_view),
             ));
 
-            entries = entries.extend_with_indices(((18, environment_map_binding.clone()),));
+            if has_ssr {
+                entries = entries.extend_with_indices(((15, ssr_binding.clone()),));
+            }
 
-            let lut_bindings =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
-            entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
+            if has_ssao {
+                let ssao_view = ssao_resources
+                    .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                    .unwrap();
+                entries = entries.extend_with_indices(((17, ssao_view),));
+            }
+
+            if render_view_environment_maps.is_some() {
+                entries = entries.extend_with_indices(((18, environment_map_binding.clone()),));
+            }
+
+            if tonemap_in_shader {
+                let lut_bindings =
+                    get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+                entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
+            }
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263
@@ -787,16 +802,18 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             };
 
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
+            if has_transmission {
+                let transmission_view = transmission_texture
+                    .map(|transmission| &transmission.view)
+                    .unwrap_or(&fallback_image_zero.texture_view);
 
-            let transmission_sampler = transmission_texture
-                .map(|transmission| &transmission.sampler)
-                .unwrap_or(&fallback_image_zero.sampler);
+                let transmission_sampler = transmission_texture
+                    .map(|transmission| &transmission.sampler)
+                    .unwrap_or(&fallback_image_zero.sampler);
 
-            entries =
-                entries.extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
+                entries = entries
+                    .extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
+            }
 
             if has_oit
                 && let (
@@ -866,49 +883,54 @@ pub fn prepare_mesh_view_bind_groups(
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
 
-            let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
-                render_view_environment_maps,
-                &images,
-                &fallback_image,
-                &render_device,
-                &render_adapter,
-            );
+            let environment_map_bind_group_entries =
+                render_view_environment_maps.map(|render_view_environment_maps| {
+                    RenderViewEnvironmentMapBindGroupEntries::get(
+                        Some(render_view_environment_maps),
+                        &images,
+                        &fallback_image,
+                        &render_device,
+                        &render_adapter,
+                    )
+                });
             match environment_map_bind_group_entries {
-                RenderViewEnvironmentMapBindGroupEntries::Single {
+                Some(RenderViewEnvironmentMapBindGroupEntries::Single {
                     diffuse_texture_view,
                     specular_texture_view,
                     sampler,
-                } => {
+                }) => {
                     entries_binding_array = entries_binding_array.extend_with_indices((
                         (0, diffuse_texture_view),
                         (1, specular_texture_view),
                         (2, sampler),
                     ));
                 }
-                RenderViewEnvironmentMapBindGroupEntries::Multiple {
+                Some(RenderViewEnvironmentMapBindGroupEntries::Multiple {
                     ref diffuse_texture_views,
                     ref specular_texture_views,
                     sampler,
-                } => {
+                }) => {
                     entries_binding_array = entries_binding_array.extend_with_indices((
                         (0, diffuse_texture_views.as_slice()),
                         (1, specular_texture_views.as_slice()),
                         (2, sampler),
                     ));
                 }
+                None => {}
             }
 
-            let irradiance_volume_bind_group_entries = if IRRADIANCE_VOLUMES_ARE_USABLE {
-                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
-                    render_view_irradiance_volumes,
-                    &images,
-                    &fallback_image,
-                    &render_device,
-                    &render_adapter,
-                ))
-            } else {
-                None
-            };
+            let irradiance_volume_bind_group_entries =
+                if render_view_irradiance_volumes.is_some() && IRRADIANCE_VOLUMES_ARE_USABLE {
+                    Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+                        render_view_irradiance_volumes,
+                        &images,
+                        &fallback_image,
+                        &render_device,
+                        &render_adapter,
+                    ))
+                } else {
+                    None
+                };
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single {
@@ -959,6 +981,7 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
+            let layout = mesh_pipeline.get_view_layout(layout_key);
             commands.entity(entity).insert(MeshViewBindGroup {
                 main: render_device.create_bind_group(
                     "mesh_view_bind_group",

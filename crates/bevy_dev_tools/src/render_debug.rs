@@ -503,8 +503,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
         let mesh_view_layout_descriptor = self
             .mesh_view_layouts
             .get_view_layout(key.view_layout_key)
-            .main_layout
-            .clone();
+            .main_layout;
 
         RenderPipelineDescriptor {
             label: Some("debug_overlay_pipeline".into()),

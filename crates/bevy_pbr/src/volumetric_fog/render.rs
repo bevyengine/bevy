@@ -532,7 +532,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             .mesh_view_layouts
             .get_view_layout(key.mesh_pipeline_view_key);
         let layout = vec![
-            layout.main_layout.clone(),
+            layout.main_layout,
             volumetric_view_bind_group_layout.clone(),
         ];
 
