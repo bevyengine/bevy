@@ -1,7 +1,7 @@
 use crate::{
     DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
+    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, ViewContactShadowsUniformOffset,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
     TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
@@ -325,6 +325,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
+        if key.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
+            shader_defs.push("SCREEN_SPACE_TRANSMISSION".into());
+        }
         shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline
@@ -449,6 +452,8 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Option<&ScreenSpaceTransmission>,
+        Has<OrderIndependentTransparencySettingsOffset>,
         Has<SkipDeferredLighting>,
         Has<ExtractedAtmosphere>,
     )>,
@@ -464,6 +469,8 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        transmission,
+        has_oit,
         skip_deferred_lighting,
         has_atmosphere,
     ) in &cameras
@@ -492,6 +499,14 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if let Some(transmission) = transmission {
+            view_key |= transmission.quality.pipeline_key();
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if view.invert_culling {

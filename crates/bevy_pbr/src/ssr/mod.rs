@@ -21,9 +21,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -51,8 +52,8 @@ use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
     deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSystems,
     MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    ScreenSpaceAmbientOcclusionResources, ScreenSpaceTransmission, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -439,11 +440,20 @@ pub fn prepare_ssr_pipelines(
     views: Query<
         (
             Entity,
+            Option<&ExtractedCamera>,
             &ExtractedView,
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
-            Has<ExtractedAtmosphere>,
+            (
+                Has<ScreenSpaceTransmission>,
+                Has<ExtractedAtmosphere>,
+                Has<ScreenSpaceAmbientOcclusionResources>,
+                Has<RenderViewLightProbes<EnvironmentMapLight>>,
+                Has<RenderViewLightProbes<IrradianceVolume>>,
+                Has<ViewContactShadowsUniformOffset>,
+                Has<ViewFogUniformOffset>,
+                Has<OrderIndependentTransparencySettingsOffset>,
+            ),
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
@@ -454,13 +464,23 @@ pub fn prepare_ssr_pipelines(
 ) {
     for (
         entity,
+        camera,
         extracted_view,
-        has_environment_maps,
         has_normal_prepass,
         has_motion_vector_prepass,
-        has_atmosphere,
+        (
+            has_transmission,
+            has_atmosphere,
+            has_ssao,
+            render_view_environment_maps,
+            render_view_irradiance_volumes,
+            has_contact_shadows,
+            has_distance_fog,
+            has_oit,
+        ),
     ) in &views
     {
+        let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
         // SSR is only supported in the deferred pipeline, which has no MSAA
         // support. Thus we can assume MSAA is off.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
@@ -475,13 +495,35 @@ pub fn prepare_ssr_pipelines(
             MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
             has_motion_vector_prepass,
         );
-        mesh_pipeline_view_key.set(
-            MeshPipelineViewLayoutKey::ENVIRONMENT_MAP,
-            has_environment_maps,
-        );
-        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
+        if has_oit {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+        }
+        if has_atmosphere {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
+        }
         if cfg!(feature = "bluenoise_texture") {
             mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
+        if tonemap_in_shader {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER;
+        }
+        if render_view_environment_maps {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::ENVIRONMENT_MAP;
+        }
+        if has_ssao {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if render_view_irradiance_volumes {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+        }
+        if has_transmission {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
+        }
+        if has_contact_shadows {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
+        }
+        if has_distance_fog {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
         }
 
         // Build the pipeline.
@@ -491,7 +533,7 @@ pub fn prepare_ssr_pipelines(
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key,
                 target_format: extracted_view.target_format,
-                has_environment_maps,
+                has_environment_maps: render_view_environment_maps,
                 has_atmosphere,
             },
         );
