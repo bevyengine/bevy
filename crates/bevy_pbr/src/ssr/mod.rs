@@ -6,6 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
+    oit::OrderIndependentTransparencySettingsOffset,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
@@ -254,11 +255,12 @@ pub fn screen_space_reflections(
         &ViewTarget,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
+        Option<&ViewFogUniformOffset>,
         &ViewScreenSpaceReflectionsUniformOffset,
         Option<&ViewContactShadowsUniformOffset>,
         Option<&ViewEnvironmentMapUniformOffset>,
+        Option<&OrderIndependentTransparencySettingsOffset>,
         &MeshViewBindGroup,
         &ScreenSpaceReflectionsPipelineId,
     )>,
@@ -272,11 +274,12 @@ pub fn screen_space_reflections(
         view_target,
         view_uniform_offset,
         view_lights_offset,
-        view_fog_offset,
         view_light_probes_offset,
+        view_fog_offset,
         view_ssr_offset,
         view_contact_shadows_offset,
         view_environment_map_offset,
+        view_oit_settings_offset,
         view_bind_group,
         ssr_pipeline_id,
     ) = view.into_inner();
@@ -333,18 +336,23 @@ pub fn screen_space_reflections(
 
     // Set bind groups.
     render_pass.set_render_pipeline(render_pipeline);
-    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+    let mut offsets: SmallVec<[u32; 8]> = smallvec![
         view_uniform_offset.offset,
         view_lights_offset.offset,
-        view_fog_offset.offset,
-        **view_light_probes_offset,
-        **view_ssr_offset,
+        **view_light_probes_offset
     ];
-    if let Some(view_contact_shadows) = view_contact_shadows_offset {
-        offsets.push(**view_contact_shadows);
+    if let Some(view_fog_offset) = view_fog_offset {
+        offsets.push(view_fog_offset.offset);
     }
-    if let Some(view_environment_map) = view_environment_map_offset {
-        offsets.push(**view_environment_map);
+    offsets.push(**view_ssr_offset);
+    if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows_offset);
+    }
+    if let Some(view_environment_map_offset) = view_environment_map_offset {
+        offsets.push(**view_environment_map_offset);
+    }
+    if let Some(view_oit_settings_offset) = view_oit_settings_offset {
+        offsets.push(view_oit_settings_offset.offset);
     }
     render_pass.set_bind_group(0, &view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
@@ -457,7 +465,8 @@ pub fn prepare_ssr_pipelines(
         // support. Thus we can assume MSAA is off.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
             | MeshPipelineViewLayoutKey::DEPTH_PREPASS
-            | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+            | MeshPipelineViewLayoutKey::DEFERRED_PREPASS
+            | MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
         mesh_pipeline_view_key.set(
             MeshPipelineViewLayoutKey::NORMAL_PREPASS,
             has_normal_prepass,
@@ -465,6 +474,10 @@ pub fn prepare_ssr_pipelines(
         mesh_pipeline_view_key.set(
             MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
             has_motion_vector_prepass,
+        );
+        mesh_pipeline_view_key.set(
+            MeshPipelineViewLayoutKey::ENVIRONMENT_MAP,
+            has_environment_maps,
         );
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
         if cfg!(feature = "bluenoise_texture") {

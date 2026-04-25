@@ -122,17 +122,18 @@ fn prepare_contact_shadows_settings(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    contact_shadows_buffer.0.clear();
+    let Some(mut writer) =
+        contact_shadows_buffer.0.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
     for (entity, settings) in &views {
         let uniform = ContactShadowsUniform::from(*settings);
-        let offset = contact_shadows_buffer.0.push(&uniform);
+        let offset = writer.write(&uniform);
         commands
             .entity(entity)
             .insert(ViewContactShadowsUniformOffset(offset));
     }
-    contact_shadows_buffer
-        .0
-        .write_buffer(&render_device, &render_queue);
 }
 
 /// A component that stores the offset within the [`ContactShadowsBuffer`] for

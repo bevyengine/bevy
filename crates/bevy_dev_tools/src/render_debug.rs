@@ -48,6 +48,7 @@ use bevy_pbr::{
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
 };
+use smallvec::{smallvec, SmallVec};
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 #[derive(Default)]
@@ -632,8 +633,8 @@ fn render_debug_overlay(
         &MeshViewBindGroup,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
+        Option<&ViewFogUniformOffset>,
         Option<&ViewScreenSpaceReflectionsUniformOffset>,
         Option<&ViewContactShadowsUniformOffset>,
         Option<&ViewEnvironmentMapUniformOffset>,
@@ -655,13 +656,13 @@ fn render_debug_overlay(
         mesh_view_bind_group,
         view_uniform_offset,
         view_lights_offset,
-        view_fog_offset,
         view_light_probes_offset,
+        view_fog_offset,
         view_ssr_offset,
         view_contact_shadows_offset,
         view_environment_map_offset,
         has_oit,
-        view_oit_offset,
+        view_oit_settings_offset,
         depth_pyramid,
     ) = view.into_inner();
 
@@ -718,26 +719,25 @@ fn render_debug_overlay(
 
     render_pass.set_pipeline(pipeline);
 
-    let mut dynamic_offsets = vec![
-        view_uniform_offset.offset,
-        view_lights_offset.offset,
-        view_fog_offset.offset,
-        **view_light_probes_offset,
-    ];
+    let mut offsets: SmallVec<[u32; 8]> =
+        smallvec![view_uniform.offset, view_lights.offset, **view_light_probes];
+    if let Some(view_fog) = view_fog {
+        offsets.push(view_fog.offset);
+    }
     if let Some(view_ssr) = view_ssr {
-        dynamic_offsets.push(**view_ssr);
+        offsets.push(**view_ssr);
     }
     if let Some(view_contact_shadows) = view_contact_shadows {
-        dynamic_offsets.push(**view_contact_shadows);
+        offsets.push(**view_contact_shadows);
     }
     if let Some(view_environment_map) = view_environment_map {
-        dynamic_offsets.push(**view_environment_map);
+        offsets.push(**view_environment_map);
     }
-    if has_oit && let Some(view_oit_offset) = view_oit_offset {
-        dynamic_offsets.push(view_oit_offset.offset);
+    if let Some(view_oit_settings_offset) = view_oit_settings_offset {
+        offsets.push(view_oit_settings_offset.offset);
     }
 
-    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &dynamic_offsets);
+    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
 
     render_pass.draw(0..3, 0..1);

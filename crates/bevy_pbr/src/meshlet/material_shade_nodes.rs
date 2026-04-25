@@ -13,8 +13,9 @@ use crate::{
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_camera::Viewport;
-use bevy_core_pipeline::prepass::{
-    MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
+use bevy_core_pipeline::{
+    oit::OrderIndependentTransparencySettingsOffset,
+    prepass::{MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures},
 };
 use bevy_ecs::{prelude::*, query::Has};
 use bevy_render::{
@@ -37,11 +38,12 @@ pub fn meshlet_main_opaque_pass(
         &MeshViewBindGroup,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
+        Option<&ViewFogUniformOffset>,
         Option<&ViewScreenSpaceReflectionsUniformOffset>,
         Option<&ViewContactShadowsUniformOffset>,
         Option<&ViewEnvironmentMapUniformOffset>,
+        Option<&OrderIndependentTransparencySettingsOffset>,
         Option<&MainPassResolutionOverride>,
         &MeshletViewMaterialsMainOpaquePass,
         &MeshletViewBindGroups,
@@ -57,11 +59,12 @@ pub fn meshlet_main_opaque_pass(
         mesh_view_bind_group,
         view_uniform_offset,
         view_lights_offset,
-        view_fog_offset,
         view_light_probes_offset,
+        view_fog_offset,
         view_ssr_offset,
         view_contact_shadows_offset,
         view_environment_map_offset,
+        view_oit_settings_offset,
         resolution_override,
         meshlet_view_materials,
         meshlet_view_bind_groups,
@@ -100,20 +103,25 @@ pub fn meshlet_main_opaque_pass(
     {
         render_pass.set_camera_viewport(&viewport);
     }
-    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+    let mut offsets: SmallVec<[u32; 8]> = smallvec![
         view_uniform_offset.offset,
         view_lights_offset.offset,
-        view_fog_offset.offset,
-        **view_light_probes_offset,
+        **view_light_probes_offset
     ];
-    if let Some(view_ssr) = view_ssr_offset {
-        offsets.push(**view_ssr);
+    if let Some(view_fog_offset) = view_fog_offset {
+        offsets.push(view_fog_offset.offset);
     }
-    if let Some(view_contact_shadows) = view_contact_shadows_offset {
-        offsets.push(**view_contact_shadows);
+    if let Some(view_ssr_offset) = view_ssr_offset {
+        offsets.push(**view_ssr_offset);
     }
-    if let Some(view_environment_map) = view_environment_map_offset {
-        offsets.push(**view_environment_map);
+    if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows_offset);
+    }
+    if let Some(view_environment_map_offset) = view_environment_map_offset {
+        offsets.push(**view_environment_map_offset);
+    }
+    if let Some(view_oit_settings_offset) = view_oit_settings_offset {
+        offsets.push(view_oit_settings_offset.offset);
     }
     render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);

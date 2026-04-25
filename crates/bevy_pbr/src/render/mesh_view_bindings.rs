@@ -1,4 +1,7 @@
-use crate::{DfgLut, LtcLuts, ScreenSpaceTransmission};
+use crate::{
+    DfgLut, LtcLuts, ScreenSpaceTransmission, ViewFogUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
+};
 use bevy_core_pipeline::{
     oit::{OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
@@ -91,6 +94,7 @@ bitflags::bitflags! {
         const SCREEN_SPACE_REFLECTIONS         = 1 << 12;
         const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
         const CONTACT_SHADOWS                  = 1 << 14;
+        const DISTANCE_FOG                     = 1 << 15;
     }
 }
 
@@ -151,6 +155,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             result |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
+        }
+        if value.contains(MeshPipelineKey::DISTANCE_FOG) {
+            result |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
         }
 
         result
@@ -309,10 +316,8 @@ pub fn layout_entries(
                 11,
                 uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
-            // Fog
-            (12, uniform_buffer::<GpuFog>(true)),
             // Light probes
-            (13, uniform_buffer::<LightProbesUniform>(true)),
+            (12, uniform_buffer::<LightProbesUniform>(true)),
             // Visibility ranges
             (
                 14,
@@ -326,6 +331,12 @@ pub fn layout_entries(
         ),
     );
 
+    if layout_key.contains(MeshPipelineViewLayoutKey::DISTANCE_FOG) {
+        entries = entries.extend_with_indices((
+            // Fog
+            (13, uniform_buffer::<GpuFog>(true)),
+        ));
+    }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS) {
         entries = entries.extend_with_indices((
             // Screen space reflection settings
@@ -613,7 +624,7 @@ pub fn prepare_mesh_view_bind_groups(
     (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
     views: Query<(
         Entity,
-        &ExtractedCamera,
+        Option<&ExtractedCamera>,
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
@@ -633,7 +644,8 @@ pub fn prepare_mesh_view_bind_groups(
         (
             Has<ScreenSpaceTransmission>,
             Has<ViewContactShadowsUniformOffset>,
-            Has<ScreenSpaceReflectionsUniform>,
+            Has<ViewScreenSpaceReflectionsUniformOffset>,
+            Has<ViewFogUniformOffset>,
         ),
     )>,
     (images, fallback_image, fallback_image_zero): (
@@ -673,12 +685,8 @@ pub fn prepare_mesh_view_bind_groups(
         Some(light_binding),
         Some(clusterable_objects_binding),
         Some(globals),
-        Some(fog_binding),
         Some(light_probes_binding),
         Some(visibility_ranges_buffer),
-        Some(ssr_binding),
-        Some(contact_shadows_binding),
-        Some(environment_map_binding),
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
@@ -686,12 +694,8 @@ pub fn prepare_mesh_view_bind_groups(
             .gpu_clustered_lights
             .binding(),
         globals_buffer.buffer.binding(),
-        fog_meta.gpu_fogs.binding(),
         light_probes_buffer.binding(),
         visibility_ranges.buffer().buffer(),
-        ssr_buffer.binding(),
-        contact_shadows_buffer.0.binding(),
-        environment_map_uniform.binding(),
     ) {
         for (
             entity,
@@ -705,10 +709,10 @@ pub fn prepare_mesh_view_bind_groups(
             tonemapping,
             (render_view_environment_maps, render_view_irradiance_volumes),
             (has_oit, atmosphere_textures, has_atmosphere),
-            (has_transmission, has_contact_shadows, has_ssr),
+            (has_transmission, has_contact_shadows, has_ssr, has_distance_fog),
         ) in &views
         {
-            let tonemap_in_shader = !camera.hdr;
+            let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
             let has_ssao = ssao_resources.is_some();
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
@@ -742,6 +746,9 @@ pub fn prepare_mesh_view_bind_groups(
             if has_contact_shadows {
                 layout_key |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
             }
+            if has_distance_fog {
+                layout_key |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
+            }
 
             let mut entries = DynamicBindGroupEntries::new_with_indices((
                 (0, view_binding.clone()),
@@ -763,14 +770,22 @@ pub fn prepare_mesh_view_bind_groups(
                 ),
                 (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
                 (11, globals.clone()),
-                (12, fog_binding.clone()),
-                (13, light_probes_binding.clone()),
+                (12, light_probes_binding.clone()),
                 (14, visibility_ranges_buffer.as_entire_binding()),
-                (16, contact_shadows_binding.clone()),
             ));
 
-            if has_ssr {
+            if has_distance_fog && let Some(fog_binding) = fog_meta.gpu_fogs.binding() {
+                entries = entries.extend_with_indices(((13, fog_binding.clone()),));
+            }
+
+            if has_ssr && let Some(ssr_binding) = ssr_buffer.binding() {
                 entries = entries.extend_with_indices(((15, ssr_binding.clone()),));
+            }
+
+            if has_contact_shadows
+                && let Some(contact_shadows_binding) = contact_shadows_buffer.0.binding()
+            {
+                entries = entries.extend_with_indices(((16, contact_shadows_binding.clone()),));
             }
 
             if has_ssao {
@@ -780,7 +795,9 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            if render_view_environment_maps.is_some() {
+            if render_view_environment_maps.is_some()
+                && let Some(environment_map_binding) = environment_map_uniform.binding()
+            {
                 entries = entries.extend_with_indices(((18, environment_map_binding.clone()),));
             }
 

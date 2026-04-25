@@ -13,6 +13,7 @@ use bevy_core_pipeline::{
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
+    oit::OrderIndependentTransparencySettingsOffset,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
     tonemapping::{DebandDither, Tonemapping},
@@ -128,11 +129,12 @@ pub fn deferred_lighting(
     view: ViewQuery<(
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
         &ViewLightProbesUniformOffset,
+        Option<&ViewFogUniformOffset>,
         Option<&ViewScreenSpaceReflectionsUniformOffset>,
         Option<&ViewContactShadowsUniformOffset>,
         Option<&ViewEnvironmentMapUniformOffset>,
+        Option<&OrderIndependentTransparencySettingsOffset>,
         &MeshViewBindGroup,
         &ViewTarget,
         &DeferredLightingIdDepthTexture,
@@ -146,11 +148,12 @@ pub fn deferred_lighting(
     let (
         view_uniform_offset,
         view_lights_offset,
-        view_fog_offset,
         view_light_probes_offset,
+        view_fog_offset,
         view_ssr_offset,
         view_contact_shadows_offset,
         view_environment_map_offset,
+        view_oit_settings_offset,
         mesh_view_bind_group,
         target,
         deferred_lighting_id_depth_texture,
@@ -190,20 +193,25 @@ pub fn deferred_lighting(
     });
 
     render_pass.set_render_pipeline(pipeline);
-    let mut offsets: SmallVec<[u32; 7]> = smallvec![
+    let mut offsets: SmallVec<[u32; 8]> = smallvec![
         view_uniform_offset.offset,
         view_lights_offset.offset,
-        view_fog_offset.offset,
-        **view_light_probes_offset,
+        **view_light_probes_offset
     ];
-    if let Some(view_ssr) = view_ssr_offset {
-        offsets.push(**view_ssr);
+    if let Some(view_fog_offset) = view_fog_offset {
+        offsets.push(view_fog_offset.offset);
     }
-    if let Some(view_contact_shadows) = view_contact_shadows_offset {
-        offsets.push(**view_contact_shadows);
+    if let Some(view_ssr_offset) = view_ssr_offset {
+        offsets.push(**view_ssr_offset);
     }
-    if let Some(view_environment_map) = view_environment_map_offset {
-        offsets.push(**view_environment_map);
+    if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
+        offsets.push(**view_contact_shadows_offset);
+    }
+    if let Some(view_environment_map_offset) = view_environment_map_offset {
+        offsets.push(**view_environment_map_offset);
+    }
+    if let Some(view_oit_settings_offset) = view_oit_settings_offset {
+        offsets.push(view_oit_settings_offset.offset);
     }
 
     render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);

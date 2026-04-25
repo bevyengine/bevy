@@ -39,8 +39,8 @@
 #endif
 
 @group(0) @binding(11) var<uniform> globals: Globals;
-@group(0) @binding(12) var<uniform> fog: types::Fog;
-@group(0) @binding(13) var<uniform> light_probes: types::LightProbes;
+@group(0) @binding(12) var<uniform> light_probes: types::LightProbes;
+@group(0) @binding(13) var<uniform> fog: types::Fog;
 
 const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6

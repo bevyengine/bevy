@@ -4186,14 +4186,14 @@ pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
     type ViewQuery = (
+        Read<MeshViewBindGroup>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
+        Option<Read<ViewFogUniformOffset>>,
         Option<Read<ViewScreenSpaceReflectionsUniformOffset>>,
         Option<Read<ViewContactShadowsUniformOffset>>,
         Option<Read<ViewEnvironmentMapUniformOffset>>,
-        Read<MeshViewBindGroup>,
         Option<Read<OrderIndependentTransparencySettingsOffset>>,
     );
     type ItemQuery = ();
@@ -4202,37 +4202,39 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     fn render<'w>(
         _item: &P,
         (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            maybe_view_ssr,
-            maybe_view_contact_shadows,
-            maybe_view_environment_map,
             mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
+            view_uniform_offset,
+            view_lights_offset,
+            view_light_probes_offset,
+            view_fog_offset,
+            view_ssr_offset,
+            view_contact_shadows_offset,
+            view_environment_map_offset,
+            view_oit_settings_offset,
         ): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes
+            view_uniform_offset.offset,
+            view_lights_offset.offset,
+            **view_light_probes_offset
         ];
-        if let Some(view_ssr) = maybe_view_ssr {
-            offsets.push(**view_ssr);
+        if let Some(view_fog_offset) = view_fog_offset {
+            offsets.push(view_fog_offset.offset);
         }
-        if let Some(view_contact_shadows) = maybe_view_contact_shadows {
-            offsets.push(**view_contact_shadows);
+        if let Some(view_ssr_offset) = view_ssr_offset {
+            offsets.push(**view_ssr_offset);
         }
-        if let Some(view_environment_map) = maybe_view_environment_map {
-            offsets.push(**view_environment_map);
+        if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
+            offsets.push(**view_contact_shadows_offset);
         }
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
+        if let Some(view_environment_map_offset) = view_environment_map_offset {
+            offsets.push(**view_environment_map_offset);
+        }
+        if let Some(view_oit_settings_offset) = view_oit_settings_offset {
+            offsets.push(view_oit_settings_offset.offset);
         }
         pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
 
