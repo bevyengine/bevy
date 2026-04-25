@@ -242,7 +242,9 @@ mod tests {
             let resources = query.iter(&world).collect::<Vec<_>>();
             assert_eq!(resources.len(), 1);
             let (entity, _test_resource, is_resource) = resources[0];
-            assert_eq!(is_resource.resource_component_id(), id);
+            let resource_id = is_resource.resource_component_id();
+            assert_eq!(resource_id, id);
+            assert_eq!(resource_id.entity(), entity);
             entity
         };
 
@@ -261,13 +263,15 @@ mod tests {
             let resources = query.iter(&world).collect::<Vec<_>>();
             assert_eq!(resources.len(), 1);
             let (entity, _test_resource, is_resource) = resources[0];
-            assert_eq!(is_resource.resource_component_id(), id);
+            let resource_id = is_resource.resource_component_id();
+            assert_eq!(resource_id, id);
+            assert_eq!(resource_id.entity(), entity);
             entity
         };
 
-        assert_ne!(
+        assert_eq!(
             first_entity, second_entity,
-            "The first resource entity was invalidated, so the second initialization should be new"
+            "The entity on which a resource is spawned is always the same."
         );
 
         let id = world.spawn(TestResource).id();

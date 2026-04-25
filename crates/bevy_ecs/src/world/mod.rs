@@ -3498,17 +3498,15 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        /*
-        self.resource_entities
-            .iter()
-            .filter_map(|(component_id, entity)| {
+        self.components
+            .iter_registered_ids()
+            .filter_map(|component_id| {
+                let entity = component_id.entity();
                 let component_info = self.components().get_info(component_id)?;
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(component_id).ok()?;
                 Some((component_info, resource))
             })
-        */
-        core::iter::empty() // TODO: Fix iter_resources
     }
 
     /// Mutably iterates over all resources in the world.
@@ -4126,11 +4124,7 @@ mod tests {
 
         let mut iter = world.iter_resources();
 
-        let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
-
+        // The resources are given back in reverse order of component registration
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
@@ -4138,6 +4132,11 @@ mod tests {
             unsafe { &ptr.deref::<TestResource2>().0 },
             &"Hello, world!".to_string()
         );
+
+        let (info, ptr) = iter.next().unwrap();
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
+        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         assert!(iter.next().is_none());
     }

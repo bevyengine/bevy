@@ -204,7 +204,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(&id.0)
+                .get_mut(&id)
                 .debug_checked_unwrap()
         };
 

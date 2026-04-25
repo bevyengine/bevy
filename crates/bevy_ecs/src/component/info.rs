@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 use bevy_ecs_macros::MapEntities;
-use bevy_platform::{hash::FixedHasher, sync::PoisonError};
+use bevy_platform::{collections::HashMap, hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -19,7 +19,7 @@ use crate::{
         Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
     },
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     relationship::{
@@ -373,7 +373,7 @@ impl ComponentDescriptor {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
-    pub(super) components: EntityHashMap<ComponentInfo>,
+    pub(super) components: HashMap<ComponentId, ComponentInfo>,
     pub(super) indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
@@ -395,7 +395,7 @@ impl Components {
         let info = ComponentInfo::new(id, descriptor);
         // SAFETY: The id has never been registered before.
         unsafe {
-            self.components.insert_unique_unchecked(id.0, info);
+            self.components.insert_unique_unchecked(id, info);
         }
     }
 
@@ -458,7 +458,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(&id.0).and_then(|info| Some(info))
+        self.components.get(&id).and_then(|info| Some(info))
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
@@ -470,7 +470,7 @@ impl Components {
     #[inline]
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
-            .get(&id.0)
+            .get(&id)
             .and_then(|info| Some(Cow::Borrowed(&info.descriptor)))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
@@ -491,7 +491,7 @@ impl Components {
     #[inline]
     pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
-            .get(&id.0)
+            .get(&id)
             .and_then(|info| Some(info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
@@ -512,20 +512,20 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         // SAFETY: The caller ensures `id` is valid.
-        unsafe { self.components.get(&id.0).debug_checked_unwrap() }
+        unsafe { self.components.get(&id).debug_checked_unwrap() }
     }
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
         self.components
-            .get_mut(&id.0)
+            .get_mut(&id)
             .and_then(|info| Some(&mut info.hooks))
     }
 
     #[inline]
     pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
         self.components
-            .get(&id.0)
+            .get(&id)
             .and_then(|info| Some(&info.required_components))
     }
 
@@ -535,7 +535,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
         self.components
-            .get_mut(&id.0)
+            .get_mut(&id)
             .and_then(|info| Some(&mut info.required_components))
     }
 
@@ -545,7 +545,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
         self.components
-            .get(&id.0)
+            .get(&id)
             .and_then(|info| Some(&info.required_by))
     }
 
@@ -555,7 +555,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
-            .get_mut(&id.0)
+            .get_mut(&id)
             .and_then(|info| Some(&mut info.required_by))
     }
 
@@ -564,7 +564,7 @@ impl Components {
     /// Those ids are still correct, but they are not usable in every context yet.
     #[inline]
     pub fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.get(&id.0).is_some()
+        self.components.get(&id).is_some()
     }
 
     /// Type-erased equivalent of [`Components::valid_component_id()`].
@@ -749,12 +749,17 @@ impl Components {
         self.components.values()
     }
 
+    /// Gets an iterator over all component ids fully registered with this instance.
+    pub(crate) fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components.keys().copied()
+    }
+
     pub(crate) fn get_relationship_accessor_mut(
         &mut self,
         component_id: ComponentId,
     ) -> Option<&mut MaybeRelationshipAccessor> {
         self.components
-            .get_mut(&component_id.0)
+            .get_mut(&component_id)
             .and_then(|info| Some(&mut info.descriptor.relationship_accessor))
     }
 }

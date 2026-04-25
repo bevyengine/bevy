@@ -939,7 +939,7 @@ mod tests {
         collected_sets.sort();
         assert_eq!(
             collected_sets,
-            vec![(ComponentId::from_u32(1), 0), (ComponentId::from_u32(2), 0),]
+            vec![(ComponentId::from_u32(2), 0), (ComponentId::from_u32(1), 0),]
         );
 
         fn register_component<T: Component>(sets: &mut SparseSets, id: u32) {
