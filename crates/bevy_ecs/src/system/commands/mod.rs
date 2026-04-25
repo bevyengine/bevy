@@ -2492,7 +2492,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::MaybeLocation,
         component::Component,
         resource::Resource,
         system::Commands,
@@ -2749,8 +2748,8 @@ mod tests {
         assert_eq!(world.get::<P>(entity2).unwrap().0, 42);
     }
 
+    #[cfg(feature = "track_location")]
     #[test]
-    #[track_caller]
     fn insert_component_if_not_equal_tracks_caller() {
         use core::panic::Location;
 
@@ -2766,14 +2765,27 @@ mod tests {
         command_queue.apply(&mut world);
         world.clear_trackers();
 
-        Commands::new(&mut command_queue, &world)
-            .entity(entity)
-            .insert_if_neq(P(42u8));
+        macro_rules! insert_if_neq_with_expected_caller {
+            ($commands:expr, $entity:expr, $component:expr) => {{
+                $commands.entity($entity).insert_if_neq($component);
+                Location::caller()
+            }};
+        }
+
+        let expected = insert_if_neq_with_expected_caller!(
+            Commands::new(&mut command_queue, &world),
+            entity,
+            P(42u8)
+        );
         command_queue.apply(&mut world);
 
         assert_eq!(
-            world.entity(entity).get_changed_by::<P>().unwrap(),
-            MaybeLocation::new(Location::caller())
+            world
+                .entity(entity)
+                .get_changed_by::<P>()
+                .unwrap()
+                .into_option(),
+            Some(expected)
         );
     }
 
