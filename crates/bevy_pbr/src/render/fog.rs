@@ -33,7 +33,7 @@ pub struct GpuFog {
 }
 
 // Important: These must be kept in sync with `mesh_view_types.wgsl`
-const GPU_FOG_MODE_OFF: u32 = 0;
+// const GPU_FOG_MODE_OFF: u32 = 0;
 const GPU_FOG_MODE_LINEAR: u32 = 1;
 const GPU_FOG_MODE_EXPONENTIAL: u32 = 2;
 const GPU_FOG_MODE_EXPONENTIAL_SQUARED: u32 = 3;
@@ -51,7 +51,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
+    views: Query<(Entity, &DistanceFog), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -62,7 +62,7 @@ pub fn prepare_fog(
         return;
     };
     for (entity, fog) in views_iter {
-        let gpu_fog = if let Some(fog) = fog {
+        let gpu_fog = {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
@@ -103,12 +103,6 @@ pub fn prepare_fog(
                     be: *extinction,
                     bi: *inscattering,
                 },
-            }
-        } else {
-            // If no fog is added to a camera, by default it's off
-            GpuFog {
-                mode: GPU_FOG_MODE_OFF,
-                ..Default::default()
             }
         };
 
