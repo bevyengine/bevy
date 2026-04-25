@@ -1,8 +1,18 @@
-use crate::io::{
-    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
-    ReaderNotSeekableError, SeekableReader,
+use crate::{
+    io::{
+        AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
+        ReaderNotSeekableError, SeekableReader,
+    },
+    join_paths, path_components, split_path,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+    vec,
+    vec::Vec,
+};
 use bevy_platform::{
     collections::HashMap,
     sync::{PoisonError, RwLock},
@@ -10,10 +20,7 @@ use bevy_platform::{
 use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
-use std::{
-    io::{Error, ErrorKind, SeekFrom},
-    path::{Path, PathBuf},
-};
+use std::io::{Error, ErrorKind, SeekFrom};
 
 use super::AsyncSeek;
 
@@ -22,7 +29,7 @@ struct DirInternal {
     assets: HashMap<Box<str>, Data>,
     metadata: HashMap<Box<str>, Data>,
     dirs: HashMap<Box<str>, Dir>,
-    path: PathBuf,
+    path: String,
 }
 
 /// A clone-able (internally Arc-ed) / thread-safe "in memory" filesystem.
@@ -32,24 +39,25 @@ pub struct Dir(Arc<RwLock<DirInternal>>);
 
 impl Dir {
     /// Creates a new [`Dir`] for the given `path`.
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: String) -> Self {
         Self(Arc::new(RwLock::new(DirInternal {
             path,
             ..Default::default()
         })))
     }
 
-    pub fn insert_asset_text(&self, path: &Path, asset: &str) {
+    pub fn insert_asset_text(&self, path: &str, asset: &str) {
         self.insert_asset(path, asset.as_bytes().to_vec());
     }
 
-    pub fn insert_meta_text(&self, path: &Path, asset: &str) {
+    pub fn insert_meta_text(&self, path: &str, asset: &str) {
         self.insert_meta(path, asset.as_bytes().to_vec());
     }
 
-    pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
+    pub fn insert_asset(&self, path: &str, value: impl Into<Value>) {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0
@@ -57,10 +65,10 @@ impl Dir {
             .unwrap_or_else(PoisonError::into_inner)
             .assets
             .insert(
-                path.file_name().unwrap().to_string_lossy().into(),
+                basename.unwrap().into(),
                 Data {
                     value: value.into(),
-                    path: path.to_owned(),
+                    path: path.to_string(),
                 },
             );
     }
@@ -68,12 +76,13 @@ impl Dir {
     /// Removes the stored asset at `path`.
     ///
     /// Returns the [`Data`] stored if found, [`None`] otherwise.
-    pub fn remove_asset(&self, path: &Path) -> Option<Data> {
+    pub fn remove_asset(&self, path: &str) -> Option<Data> {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = self.get_or_insert_dir(parent);
         }
-        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        let key: Box<str> = basename.unwrap().into();
         dir.0
             .write()
             .unwrap_or_else(PoisonError::into_inner)
@@ -81,9 +90,10 @@ impl Dir {
             .remove(&key)
     }
 
-    pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
+    pub fn insert_meta(&self, path: &str, value: impl Into<Value>) {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0
@@ -91,10 +101,10 @@ impl Dir {
             .unwrap_or_else(PoisonError::into_inner)
             .metadata
             .insert(
-                path.file_name().unwrap().to_string_lossy().into(),
+                basename.unwrap().into(),
                 Data {
                     value: value.into(),
-                    path: path.to_owned(),
+                    path: path.to_string(),
                 },
             );
     }
@@ -102,12 +112,13 @@ impl Dir {
     /// Removes the stored metadata at `path`.
     ///
     /// Returns the [`Data`] stored if found, [`None`] otherwise.
-    pub fn remove_metadata(&self, path: &Path) -> Option<Data> {
+    pub fn remove_metadata(&self, path: &str) -> Option<Data> {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = self.get_or_insert_dir(parent);
         }
-        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        let key: Box<str> = basename.unwrap().into();
         dir.0
             .write()
             .unwrap_or_else(PoisonError::into_inner)
@@ -115,15 +126,15 @@ impl Dir {
             .remove(&key)
     }
 
-    pub fn get_or_insert_dir(&self, path: &Path) -> Dir {
+    pub fn get_or_insert_dir(&self, path: &str) -> Dir {
         let mut dir = self.clone();
-        let mut full_path = PathBuf::new();
-        for c in path.components() {
-            full_path.push(c);
-            let name = c.as_os_str().to_string_lossy().into();
+        let mut full_path = String::new();
+        for name in path_components(path) {
+            full_path.push('/');
+            full_path.push_str(name);
             dir = {
                 let dirs = &mut dir.0.write().unwrap_or_else(PoisonError::into_inner).dirs;
-                dirs.entry(name)
+                dirs.entry(name.into())
                     .or_insert_with(|| Dir::new(full_path.clone()))
                     .clone()
             };
@@ -135,12 +146,13 @@ impl Dir {
     /// Removes the dir at `path`.
     ///
     /// Returns the [`Dir`] stored if found, [`None`] otherwise.
-    pub fn remove_dir(&self, path: &Path) -> Option<Dir> {
+    pub fn remove_dir(&self, path: &str) -> Option<Dir> {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = self.get_or_insert_dir(parent);
         }
-        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        let key: Box<str> = basename.unwrap().into();
         dir.0
             .write()
             .unwrap_or_else(PoisonError::into_inner)
@@ -148,60 +160,61 @@ impl Dir {
             .remove(&key)
     }
 
-    pub fn get_dir(&self, path: &Path) -> Option<Dir> {
+    pub fn get_dir(&self, path: &str) -> Option<Dir> {
         let mut dir = self.clone();
-        for p in path.components() {
-            let component = p.as_os_str().to_str().unwrap();
+        for name in path_components(path) {
             let next_dir = dir
                 .0
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .dirs
-                .get(component)?
+                .get(name)?
                 .clone();
             dir = next_dir;
         }
         Some(dir)
     }
 
-    pub fn get_asset(&self, path: &Path) -> Option<Data> {
+    pub fn get_asset(&self, path: &str) -> Option<Data> {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = dir.get_dir(parent)?;
         }
 
-        path.file_name().and_then(|f| {
+        basename.and_then(|f| {
             dir.0
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .assets
-                .get(f.to_str().unwrap())
+                .get(f)
                 .cloned()
         })
     }
 
-    pub fn get_metadata(&self, path: &Path) -> Option<Data> {
+    pub fn get_metadata(&self, path: &str) -> Option<Data> {
         let mut dir = self.clone();
-        if let Some(parent) = path.parent() {
+        let (parent, basename) = split_path(path);
+        if let Some(parent) = parent {
             dir = dir.get_dir(parent)?;
         }
 
-        path.file_name().and_then(|f| {
+        basename.and_then(|f| {
             dir.0
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .metadata
-                .get(f.to_str().unwrap())
+                .get(f)
                 .cloned()
         })
     }
 
-    pub fn path(&self) -> PathBuf {
+    pub fn path(&self) -> String {
         self.0
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .path
-            .to_owned()
+            .to_string()
     }
 }
 
@@ -222,7 +235,7 @@ impl DirStream {
 }
 
 impl Stream for DirStream {
-    type Item = PathBuf;
+    type Item = String;
 
     fn poll_next(
         self: Pin<&mut Self>,
@@ -236,7 +249,7 @@ impl Stream for DirStream {
             .dirs
             .keys()
             .nth(dir_index)
-            .map(|d| dir.path.join(d.as_ref()))
+            .map(|d| join_paths(&dir.path, d.as_ref()))
         {
             this.dir_index += 1;
             Poll::Ready(Some(dir_path))
@@ -266,7 +279,7 @@ pub struct MemoryAssetWriter {
 /// Asset data stored in a [`Dir`].
 #[derive(Clone, Debug)]
 pub struct Data {
-    path: PathBuf,
+    path: String,
     value: Value,
 }
 
@@ -279,7 +292,7 @@ pub enum Value {
 
 impl Data {
     /// The path that this data was written to.
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &str {
         &self.path
     }
 
@@ -361,29 +374,29 @@ impl Reader for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
             .map(|data| DataReader {
                 data,
                 bytes_read: 0,
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_string()))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_metadata(path)
             .map(|data| DataReader {
                 data,
                 bytes_read: 0,
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_string()))
     }
 
     async fn read_directory<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         self.root
             .get_dir(path)
@@ -391,10 +404,10 @@ impl AssetReader for MemoryAssetReader {
                 let stream: Box<PathStream> = Box::new(DirStream::new(dir));
                 stream
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_string()))
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, path: &'a str) -> Result<bool, AssetReaderError> {
         Ok(self.root.get_dir(path).is_some())
     }
 }
@@ -404,7 +417,7 @@ struct DataWriter {
     /// The dir to write to.
     dir: Dir,
     /// The path to write to.
-    path: PathBuf,
+    path: String,
     /// The current buffer of data.
     ///
     /// This will include data that has been flushed already.
@@ -446,7 +459,7 @@ impl AsyncWrite for DataWriter {
 }
 
 impl AssetWriter for MemoryAssetWriter {
-    async fn write<'a>(&'a self, path: &'a Path) -> Result<Box<super::Writer>, AssetWriterError> {
+    async fn write<'a>(&'a self, path: &'a str) -> Result<Box<super::Writer>, AssetWriterError> {
         Ok(Box::new(DataWriter {
             dir: self.root.clone(),
             path: path.to_owned(),
@@ -457,7 +470,7 @@ impl AssetWriter for MemoryAssetWriter {
 
     async fn write_meta<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> Result<Box<super::Writer>, AssetWriterError> {
         Ok(Box::new(DataWriter {
             dir: self.root.clone(),
@@ -467,7 +480,7 @@ impl AssetWriter for MemoryAssetWriter {
         }))
     }
 
-    async fn remove<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+    async fn remove<'a>(&'a self, path: &'a str) -> Result<(), AssetWriterError> {
         if self.root.remove_asset(path).is_none() {
             return Err(AssetWriterError::Io(Error::new(
                 ErrorKind::NotFound,
@@ -477,15 +490,15 @@ impl AssetWriter for MemoryAssetWriter {
         Ok(())
     }
 
-    async fn remove_meta<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+    async fn remove_meta<'a>(&'a self, path: &'a str) -> Result<(), AssetWriterError> {
         self.root.remove_metadata(path);
         Ok(())
     }
 
     async fn rename<'a>(
         &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
+        old_path: &'a str,
+        new_path: &'a str,
     ) -> Result<(), AssetWriterError> {
         let Some(old_asset) = self.root.get_asset(old_path) else {
             return Err(AssetWriterError::Io(Error::new(
@@ -503,8 +516,8 @@ impl AssetWriter for MemoryAssetWriter {
 
     async fn rename_meta<'a>(
         &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
+        old_path: &'a str,
+        new_path: &'a str,
     ) -> Result<(), AssetWriterError> {
         let Some(old_meta) = self.root.get_metadata(old_path) else {
             return Err(AssetWriterError::Io(Error::new(
@@ -520,14 +533,14 @@ impl AssetWriter for MemoryAssetWriter {
         Ok(())
     }
 
-    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+    async fn create_directory<'a>(&'a self, path: &'a str) -> Result<(), AssetWriterError> {
         // Just pretend we're on a file system that doesn't consider directory re-creation a
         // failure.
         self.root.get_or_insert_dir(path);
         Ok(())
     }
 
-    async fn remove_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+    async fn remove_directory<'a>(&'a self, path: &'a str) -> Result<(), AssetWriterError> {
         if self.root.remove_dir(path).is_none() {
             return Err(AssetWriterError::Io(Error::new(
                 ErrorKind::NotFound,
@@ -537,7 +550,7 @@ impl AssetWriter for MemoryAssetWriter {
         Ok(())
     }
 
-    async fn remove_empty_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+    async fn remove_empty_directory<'a>(&'a self, path: &'a str) -> Result<(), AssetWriterError> {
         let Some(dir) = self.root.get_dir(path) else {
             return Err(AssetWriterError::Io(Error::new(
                 ErrorKind::NotFound,
@@ -559,7 +572,7 @@ impl AssetWriter for MemoryAssetWriter {
 
     async fn remove_assets_in_directory<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> Result<(), AssetWriterError> {
         let Some(dir) = self.root.get_dir(path) else {
             return Err(AssetWriterError::Io(Error::new(
@@ -579,12 +592,11 @@ impl AssetWriter for MemoryAssetWriter {
 #[cfg(test)]
 pub mod test {
     use super::Dir;
-    use std::path::Path;
 
     #[test]
     fn memory_dir() {
         let dir = Dir::default();
-        let a_path = Path::new("a.txt");
+        let a_path = "a.txt";
         let a_data = "a".as_bytes().to_vec();
         let a_meta = "ameta".as_bytes().to_vec();
 
@@ -598,7 +610,7 @@ pub mod test {
         assert_eq!(meta.path(), a_path);
         assert_eq!(meta.value(), a_meta);
 
-        let b_path = Path::new("x/y/b.txt");
+        let b_path = "x/y/b.txt";
         let b_data = "b".as_bytes().to_vec();
         let b_meta = "meta".as_bytes().to_vec();
         dir.insert_asset(b_path, b_data.clone());

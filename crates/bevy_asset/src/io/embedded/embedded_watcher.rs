@@ -3,7 +3,7 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_platform::sync::{PoisonError, RwLock};
 use core::time::Duration;
@@ -27,7 +27,7 @@ impl EmbeddedWatcher {
     /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
     pub fn new(
         dir: Dir,
-        root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
+        root_paths: Arc<RwLock<HashMap<Box<str>, String>>>,
         sender: async_channel::Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Self {
@@ -51,7 +51,7 @@ impl AssetWatcher for EmbeddedWatcher {}
 /// the initial static bytes from the file embedded in the binary.
 pub(crate) struct EmbeddedEventHandler {
     sender: async_channel::Sender<AssetSourceEvent>,
-    root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
+    root_paths: Arc<RwLock<HashMap<Box<str>, String>>>,
     root: PathBuf,
     dir: Dir,
     last_event: Option<AssetSourceEvent>,
@@ -62,13 +62,13 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
         self.last_event = None;
     }
 
-    fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
+    fn get_path(&self, absolute_path: &Path) -> Option<(String, bool)> {
         let (local_path, is_meta) = get_asset_path(&self.root, absolute_path);
         let final_path = self
             .root_paths
             .read()
             .unwrap_or_else(PoisonError::into_inner)
-            .get(local_path.as_path())?
+            .get(local_path.as_str())?
             .clone();
         if is_meta {
             warn!("Meta file asset hot-reloading is not supported yet: {final_path:?}");

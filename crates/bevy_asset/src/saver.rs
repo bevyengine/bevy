@@ -618,7 +618,7 @@ pub(crate) mod tests {
                     .dependencies
                     .iter()
                     .map(|handle| handle.path().unwrap().path())
-                    .map(|path| path.to_str().unwrap().to_string())
+                    .map(ToString::to_string)
                     .collect(),
                 embedded_dependencies: vec![],
             };

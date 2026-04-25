@@ -2,7 +2,11 @@ use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
 };
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{
+    borrow::Cow,
+    string::{String, ToString},
+    vec::Vec,
+};
 use async_channel::Sender;
 use core::time::Duration;
 use notify_debouncer_full::{
@@ -56,10 +60,17 @@ fn make_absolute_path(path: &Path) -> Result<PathBuf, std::io::Error> {
     // We use `normalize` + `absolute` instead of `canonicalize` to avoid reading the filesystem to
     // resolve the path. This also means that paths that no longer exist can still become absolute
     // (e.g., a file that was renamed will have the "old" path no longer exist).
-    Ok(normalize_path(&std::path::absolute(path)?))
+    Ok(PathBuf::from(normalize_path(
+        std::path::absolute(path)?.to_str().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidFilename,
+                "Cannot convert path to absolute path",
+            )
+        })?,
+    )))
 }
 
-pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
+pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (String, bool) {
     let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
         panic!(
             "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={}, root={}",
@@ -69,11 +80,11 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, boo
     });
     let is_meta = relative_path.extension().is_some_and(|e| e == "meta");
     let asset_path = if is_meta {
-        relative_path.with_extension("")
+        Cow::Owned(relative_path.with_extension(""))
     } else {
-        relative_path.to_owned()
+        Cow::Borrowed(relative_path)
     };
-    (asset_path, is_meta)
+    (asset_path.to_string_lossy().to_string(), is_meta)
 }
 
 /// This is a bit more abstracted than it normally would be because we want to try _very hard_ not to duplicate this
@@ -259,7 +270,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn begin(&mut self) {
         self.last_event = None;
     }
-    fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
+    fn get_path(&self, absolute_path: &Path) -> Option<(String, bool)> {
         Some(get_asset_path(&self.root, absolute_path))
     }
 
@@ -276,7 +287,7 @@ pub(crate) trait FilesystemEventHandler: Send + Sync + 'static {
     fn begin(&mut self);
     /// Returns an actual asset path (if one exists for the given `absolute_path`), as well as a [`bool`] that is
     /// true if the `absolute_path` corresponds to a meta file.
-    fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)>;
+    fn get_path(&self, absolute_path: &Path) -> Option<(String, bool)>;
     /// Handle the given event
     fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetSourceEvent);
 }

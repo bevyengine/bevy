@@ -1,6 +1,7 @@
 use crate::io::AssetSourceId;
 use alloc::{
     borrow::ToOwned,
+    format,
     string::{String, ToString},
 };
 use atomicow::CowArc;
@@ -11,7 +12,6 @@ use core::{
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
@@ -56,7 +56,7 @@ use thiserror::Error;
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
-    path: CowArc<'a, Path>,
+    path: CowArc<'a, str>,
     label: Option<CowArc<'a, str>>,
 }
 
@@ -71,7 +71,7 @@ impl<'a> Display for AssetPath<'a> {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
         }
-        write!(f, "{}", self.path.display())?;
+        write!(f, "{}", self.path)?;
         if let Some(label) = &self.label {
             write!(f, "#{label}")?;
         }
@@ -129,7 +129,7 @@ impl<'a> AssetPath<'a> {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
                 None => AssetSourceId::Default,
             },
-            path: CowArc::Borrowed(path),
+            path: clean_path(path),
             label: label.map(CowArc::Borrowed),
         })
     }
@@ -137,7 +137,7 @@ impl<'a> AssetPath<'a> {
     // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
-    ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
+    ) -> Result<(Option<&str>, &str, Option<&str>), ParseAssetPathError> {
         let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
@@ -158,7 +158,7 @@ impl<'a> AssetPath<'a> {
                 ':' => {
                     source_delimiter_chars_matched = 1;
                 }
-                '/' => {
+                PATH_SEPARATOR => {
                     match source_delimiter_chars_matched {
                         1 => {
                             source_delimiter_chars_matched = 2;
@@ -219,25 +219,31 @@ impl<'a> AssetPath<'a> {
             None => None,
         };
 
-        let path = Path::new(&asset_path[path_range]);
+        let path = &asset_path[path_range];
         Ok((source, path, label))
     }
 
-    /// Creates a new [`AssetPath`] from a [`PathBuf`].
+    /// Creates a new [`AssetPath`] from a [`String`] path.
+    ///
+    /// Unlike [`Self::parse`], this **does not** interpret the string: the string is used as the
+    /// path unconditionally. Prefer [`Self::parse`] where possible.
     #[inline]
-    pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
+    pub fn from_string_path(string: String) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::Owned(path_buf.into()),
+            path: CowArc::Owned(string.into()),
             source: AssetSourceId::Default,
             label: None,
         }
     }
 
-    /// Creates a new [`AssetPath`] from a [`Path`].
+    /// Creates a new [`AssetPath`] from a [`str`] path.
+    ///
+    /// Unlike [`Self::parse`], this **does not** interpret the string: the string is used as the
+    /// path unconditionally. Prefer [`Self::parse`] where possible.
     #[inline]
-    pub fn from_path(path: &'a Path) -> AssetPath<'a> {
+    pub fn from_str_path(s: &'a str) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::Borrowed(path),
+            path: CowArc::Borrowed(s),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -264,7 +270,7 @@ impl<'a> AssetPath<'a> {
 
     /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &str {
         self.path.deref()
     }
 
@@ -314,11 +320,18 @@ impl<'a> AssetPath<'a> {
 
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
     pub fn parent(&self) -> Option<AssetPath<'a>> {
+        // The root directory doesn't have a parent, so return None.
+        if self.path.as_ref() == "" {
+            return None;
+        }
         let path = match &self.path {
-            CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
-            CowArc::Static(path) => CowArc::Static(path.parent()?),
-            CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
+            CowArc::Borrowed(path) => path_parent(path).map(CowArc::Borrowed),
+            CowArc::Static(path) => path_parent(path).map(CowArc::Static),
+            CowArc::Owned(path) => path_parent(path).map(ToString::to_string).map(Into::into),
         };
+        // If there isn't a parent, then the path refers to an entry in the root directory. So the
+        // parent of that *is* the root directory.
+        let path = path.unwrap_or("".into());
         Some(AssetPath {
             source: self.source.clone(),
             label: None,
@@ -372,7 +385,7 @@ impl<'a> AssetPath<'a> {
     /// See also [`AssetPath::resolve_str`].
     pub fn resolve(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
-            && path.path().as_os_str().is_empty()
+            && path.path().is_empty()
             && path.label().is_some();
 
         if is_label_only {
@@ -409,7 +422,7 @@ impl<'a> AssetPath<'a> {
     /// See also [`AssetPath::resolve_embed_str`].
     pub fn resolve_embed(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
         let is_label_only = matches!(path.source(), AssetSourceId::Default)
-            && path.path().as_os_str().is_empty()
+            && path.path().is_empty()
             && path.label().is_some();
 
         if is_label_only {
@@ -448,32 +461,35 @@ impl<'a> AssetPath<'a> {
         &self,
         replace: bool,
         source: Option<&str>,
-        rpath: &Path,
+        rpath: &str,
         rlabel: Option<&str>,
     ) -> AssetPath<'static> {
-        let mut base_path = PathBuf::from(self.path());
-        if replace && !self.path.to_str().unwrap().ends_with('/') {
+        let base_path = if replace
+            && !self.path.ends_with(PATH_SEPARATOR)
+            && let Some(parent) = path_parent(self.path.as_ref())
+        {
             // No error if base is empty (per RFC 1808).
-            base_path.pop();
-        }
+            parent.to_string()
+        } else {
+            self.path.to_string()
+        };
 
         // Strip off leading slash
         let mut is_absolute = false;
-        let rpath = match rpath.strip_prefix("/") {
-            Ok(p) => {
+        let rpath = match rpath.strip_prefix(PATH_SEPARATOR) {
+            Some(p) => {
                 is_absolute = true;
                 p
             }
-            _ => rpath,
+            None => rpath,
         };
 
         let mut result_path = if !is_absolute && source.is_none() {
-            base_path
+            join_paths(&base_path, rpath)
         } else {
-            PathBuf::new()
+            String::from(rpath)
         };
-        result_path.push(rpath);
-        result_path = normalize_path(result_path.as_path());
+        result_path = normalize_path(&result_path);
 
         AssetPath {
             source: match source {
@@ -504,7 +520,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// Also strips out anything following a `?` to handle query parameters in URIs
     pub fn get_full_extension(&self) -> Option<&str> {
-        let file_name = self.path().file_name()?.to_str()?;
+        let file_name = path_basename(self.path())?;
         let index = file_name.find('.')?;
         let mut extension = &file_name[index + 1..];
 
@@ -567,18 +583,22 @@ impl<'a> AssetPath<'a> {
     /// assert!(path.is_unapproved());
     /// ```
     pub fn is_unapproved(&self) -> bool {
-        use std::path::Component;
-        let mut simplified = PathBuf::new();
-        for component in self.path.components() {
+        let mut depth = 0;
+        if self.path.starts_with(PATH_SEPARATOR) {
+            return true;
+        }
+        for component in path_components(self.path.as_ref()) {
             match component {
-                Component::Prefix(_) | Component::RootDir => return true,
-                Component::CurDir => {}
-                Component::ParentDir => {
-                    if !simplified.pop() {
+                "." => {}
+                ".." => {
+                    if depth == 0 {
                         return true;
                     }
+                    depth -= 1;
                 }
-                Component::Normal(os_str) => simplified.push(os_str),
+                _ => {
+                    depth += 1;
+                }
             }
         }
 
@@ -595,7 +615,11 @@ impl From<&'static str> for AssetPath<'static> {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
             source: source.into(),
-            path: CowArc::Static(path),
+            path: if path.contains('\\') {
+                clean_path(path)
+            } else {
+                CowArc::Static(path)
+            },
             label: label.map(CowArc::Static),
         }
     }
@@ -615,37 +639,9 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl From<&'static Path> for AssetPath<'static> {
-    #[inline]
-    fn from(path: &'static Path) -> Self {
-        Self {
-            source: AssetSourceId::Default,
-            path: CowArc::Static(path),
-            label: None,
-        }
-    }
-}
-
-impl From<PathBuf> for AssetPath<'static> {
-    #[inline]
-    fn from(path: PathBuf) -> Self {
-        Self {
-            source: AssetSourceId::Default,
-            path: path.into(),
-            label: None,
-        }
-    }
-}
-
 impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPath<'b> {
     fn from(value: &'a AssetPath<'b>) -> Self {
         value.clone()
-    }
-}
-
-impl<'a> From<AssetPath<'a>> for PathBuf {
-    fn from(value: AssetPath<'a>) -> Self {
-        value.path().to_path_buf()
     }
 }
 
@@ -689,24 +685,30 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-pub(crate) fn normalize_path(path: &Path) -> PathBuf {
-    let mut result_path = PathBuf::new();
-    for elt in path.iter() {
+pub(crate) fn normalize_path(path: &str) -> String {
+    let mut result_path = String::new();
+    for elt in path_components(path) {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            // Note: If the result_path ends in `..`, Path::file_name returns None, so we'll end up
-            // preserving it.
-            if result_path.file_name().is_some() {
-                // This assert is just a sanity check - we already know the path has a file_name, so
-                // we know there is something to pop.
-                assert!(result_path.pop());
+            let (index, basename) = match result_path.rfind(PATH_SEPARATOR) {
+                None => (0, result_path.as_str()),
+                Some(index) => (index, &result_path[(index + 1)..]),
+            };
+            if basename != ".." && !basename.is_empty() {
+                result_path.drain(index..);
             } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
-                result_path.push(elt);
+                if !result_path.is_empty() {
+                    result_path.push(PATH_SEPARATOR);
+                }
+                result_path.push_str(elt);
             }
         } else {
-            result_path.push(elt);
+            if !result_path.is_empty() {
+                result_path.push(PATH_SEPARATOR);
+            }
+            result_path.push_str(elt);
         }
     }
     result_path
@@ -939,35 +941,28 @@ impl<'a> Iterator for AncestorIter<'a> {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
-    use std::path::Path;
 
     #[test]
     fn parse_asset_path() {
         let result = AssetPath::parse_internal("a/b.test");
-        assert_eq!(result, Ok((None, Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((None, "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test");
-        assert_eq!(result, Ok((Some("http"), Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((Some("http"), "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test#Foo");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
-        );
+        assert_eq!(result, Ok((Some("http"), "a/b.test", Some("Foo"))));
 
         let result = AssetPath::parse_internal("localhost:80/b.test");
-        assert_eq!(result, Ok((None, Path::new("localhost:80/b.test"), None)));
+        assert_eq!(result, Ok((None, "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), None))
-        );
+        assert_eq!(result, Ok((Some("http"), "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test#Foo");
         assert_eq!(
             result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), Some("Foo")))
+            Ok((Some("http"), "localhost:80/b.test", Some("Foo")))
         );
 
         let result = AssetPath::parse_internal("#insource://a/b.test");
@@ -983,7 +978,7 @@ mod tests {
         );
 
         let result = AssetPath::parse_internal("http://");
-        assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
+        assert_eq!(result, Ok((Some("http"), "", None)));
 
         let result = AssetPath::parse_internal("://x");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));
@@ -1364,19 +1359,19 @@ mod tests {
         );
         assert_eq!(
             base.resolve_str("/martin/stephan#dave").unwrap(),
-            AssetPath::from("martin/stephan/#dave")
+            AssetPath::from("martin/stephan#dave")
         );
         assert_eq!(
             base.resolve(&AssetPath::parse("/martin/stephan#dave")),
-            AssetPath::from("martin/stephan/#dave")
+            AssetPath::from("martin/stephan#dave")
         );
         assert_eq!(
             base.resolve_embed_str("/martin/stephan#dave").unwrap(),
-            AssetPath::from("martin/stephan/#dave")
+            AssetPath::from("martin/stephan#dave")
         );
         assert_eq!(
             base.resolve_embed(&AssetPath::parse("/martin/stephan#dave")),
-            AssetPath::from("martin/stephan/#dave")
+            AssetPath::from("martin/stephan#dave")
         );
     }
 
@@ -1402,20 +1397,20 @@ mod tests {
         );
         assert_eq!(
             base.resolve_str("source://martin/stephan#dave").unwrap(),
-            AssetPath::from("source://martin/stephan/#dave")
+            AssetPath::from("source://martin/stephan#dave")
         );
         assert_eq!(
             base.resolve(&AssetPath::parse("source://martin/stephan#dave")),
-            AssetPath::from("source://martin/stephan/#dave")
+            AssetPath::from("source://martin/stephan#dave")
         );
         assert_eq!(
             base.resolve_embed_str("source://martin/stephan#dave")
                 .unwrap(),
-            AssetPath::from("source://martin/stephan/#dave")
+            AssetPath::from("source://martin/stephan#dave")
         );
         assert_eq!(
             base.resolve_embed(&AssetPath::parse("source://martin/stephan#dave")),
-            AssetPath::from("source://martin/stephan/#dave")
+            AssetPath::from("source://martin/stephan#dave")
         );
     }
 

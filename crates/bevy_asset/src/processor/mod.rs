@@ -49,12 +49,14 @@ use crate::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
     },
+    is_absolute_path,
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
+    path_parent, AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode,
+    DeserializeMetaError, MissingAssetLoaderForExtensionError, UnapprovedPathMode,
+    WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
@@ -66,10 +68,7 @@ use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncWriteExt, StreamExt};
 use futures_util::{select_biased, FutureExt};
-use std::{
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
+use std::sync::Mutex;
 use thiserror::Error;
 use tracing::{debug, error, trace, warn};
 
@@ -292,10 +291,10 @@ impl AssetProcessor {
     /// Sends start task events for all assets in all processed sources into `sender`.
     async fn queue_initial_processing_tasks(
         &self,
-        sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         for source in self.sources().iter_processed() {
-            self.queue_processing_tasks_for_folder(source, PathBuf::from(""), sender)
+            self.queue_processing_tasks_for_folder(source, String::from(""), sender)
                 .await
                 .unwrap();
         }
@@ -305,7 +304,7 @@ impl AssetProcessor {
     /// response.
     fn spawn_source_change_event_listeners(
         &self,
-        sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         for source in self.data.sources.iter_processed() {
             let Some(receiver) = source.event_receiver().cloned() else {
@@ -337,8 +336,8 @@ impl AssetProcessor {
     /// the initial tasks are processed.
     async fn execute_processing_tasks(
         &self,
-        new_task_sender: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
-        new_task_receiver: async_channel::Receiver<(AssetSourceId<'static>, PathBuf)>,
+        new_task_sender: async_channel::Sender<(AssetSourceId<'static>, String)>,
+        new_task_receiver: async_channel::Receiver<(AssetSourceId<'static>, String)>,
     ) {
         // Convert the Sender into a WeakSender so that once all task producers terminate (and drop
         // their sender), this task doesn't keep itself alive. We still however need a way to get
@@ -359,7 +358,7 @@ impl AssetProcessor {
                 .await;
         }
         enum ProcessorTaskEvent {
-            Start(AssetSourceId<'static>, PathBuf),
+            Start(AssetSourceId<'static>, String),
             Finished,
         }
         let (task_finished_sender, task_finished_receiver) = async_channel::unbounded::<()>();
@@ -487,7 +486,7 @@ impl AssetProcessor {
         &self,
         source: &AssetSource,
         event: AssetSourceEvent,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         trace!("{event:?}");
         match event {
@@ -571,14 +570,14 @@ impl AssetProcessor {
                                 error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to the following error: {err}",
-                                    AssetPath::from_path(&path).with_source(source.id())
+                                    AssetPath::from_str_path(&path).with_source(source.id())
                                 );
                             }
                             AssetReaderError::HttpError(status) => {
                                 error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to receiving an unexpected HTTP Status {status}",
-                                    AssetPath::from_path(&path).with_source(source.id())
+                                    AssetPath::from_str_path(&path).with_source(source.id())
                                 );
                             }
                         }
@@ -591,12 +590,12 @@ impl AssetProcessor {
     async fn handle_added_folder(
         &self,
         source: &AssetSource,
-        path: PathBuf,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        path: String,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         debug!(
             "Folder {} was added. Attempting to re-process",
-            AssetPath::from_path(&path).with_source(source.id())
+            AssetPath::from_str_path(&path).with_source(source.id())
         );
         self.queue_processing_tasks_for_folder(source, path, new_task_sender)
             .await
@@ -607,8 +606,8 @@ impl AssetProcessor {
     async fn handle_removed_meta(
         &self,
         source: &AssetSource,
-        path: PathBuf,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        path: String,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         // If meta was removed, we might need to regenerate it.
         // Likewise, the user might be manually re-adding the asset.
@@ -616,17 +615,14 @@ impl AssetProcessor {
         // user-initiated action.
         debug!(
             "Meta for asset {} was removed. Attempting to re-process",
-            AssetPath::from_path(&path).with_source(source.id())
+            AssetPath::from_str_path(&path).with_source(source.id())
         );
         let _ = new_task_sender.send((source.id(), path)).await;
     }
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
-    async fn handle_removed_folder(&self, source: &AssetSource, path: &Path) {
-        debug!(
-            "Removing folder {} because source was removed",
-            path.display()
-        );
+    async fn handle_removed_folder(&self, source: &AssetSource, path: &str) {
+        debug!("Removing folder {path} because source was removed",);
         let processed_reader = source.ungated_processed_reader().unwrap();
         match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
@@ -661,7 +657,7 @@ impl AssetProcessor {
                     // we can ignore NotFound because if the "final" file in a folder was removed
                     // then we automatically clean up this folder
                     if err.kind() != ErrorKind::NotFound {
-                        let asset_path = AssetPath::from_path(path).with_source(source.id());
+                        let asset_path = AssetPath::from_str_path(path).with_source(source.id());
                         error!("Failed to remove destination folder that no longer exists in {asset_path}: {err}");
                     }
                 }
@@ -671,7 +667,7 @@ impl AssetProcessor {
 
     /// Removes the processed version of an asset and associated in-memory metadata. This will block until all existing reads/writes to the
     /// asset have finished, thanks to the `file_transaction_lock`.
-    async fn handle_removed_asset(&self, source: &AssetSource, path: PathBuf) {
+    async fn handle_removed_asset(&self, source: &AssetSource, path: String) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         debug!("Removing processed {asset_path} because source was removed");
         let lock = {
@@ -695,9 +691,9 @@ impl AssetProcessor {
     async fn handle_renamed_asset(
         &self,
         source: &AssetSource,
-        old: PathBuf,
-        new: PathBuf,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        old: String,
+        new: String,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         let old = AssetPath::from(old).with_source(source.id());
         let new = AssetPath::from(new).with_source(source.id());
@@ -727,8 +723,8 @@ impl AssetProcessor {
     async fn queue_processing_tasks_for_folder(
         &self,
         source: &AssetSource,
-        path: PathBuf,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        path: String,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) -> Result<(), AssetReaderError> {
         if source.reader().is_directory(&path).await? {
             let mut path_stream = source.reader().read_directory(&path).await?;
@@ -842,9 +838,9 @@ impl AssetProcessor {
         /// folders when they are discovered.
         async fn get_asset_paths(
             reader: &dyn ErasedAssetReader,
-            path: PathBuf,
-            paths: &mut Vec<PathBuf>,
-            mut empty_dirs: Option<&mut Vec<PathBuf>>,
+            path: String,
+            paths: &mut Vec<String>,
+            mut empty_dirs: Option<&mut Vec<String>>,
         ) -> Result<bool, AssetReaderError> {
             if reader.is_directory(&path).await? {
                 let mut path_stream = reader.read_directory(&path).await?;
@@ -862,7 +858,7 @@ impl AssetProcessor {
                 // Add the current directory after all its subdirectories so we delete any empty
                 // subdirectories before the current directory.
                 if !contains_files
-                    && path.parent().is_some()
+                    && path_parent(&path).is_some()
                     && let Some(empty_dirs) = empty_dirs
                 {
                     empty_dirs.push(path);
@@ -884,7 +880,7 @@ impl AssetProcessor {
             let mut unprocessed_paths = Vec::new();
             get_asset_paths(
                 source.reader(),
-                PathBuf::from(""),
+                String::from(""),
                 &mut unprocessed_paths,
                 None,
             )
@@ -895,7 +891,7 @@ impl AssetProcessor {
             let mut empty_dirs = Vec::new();
             get_asset_paths(
                 processed_reader,
-                PathBuf::from(""),
+                String::from(""),
                 &mut processed_paths,
                 Some(&mut empty_dirs),
             )
@@ -971,7 +967,7 @@ impl AssetProcessor {
 
     /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
     /// does it remove existing in-memory metadata.
-    async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
+    async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &str) {
         if let Err(err) = source.processed_writer().unwrap().remove(path).await {
             warn!("Failed to remove non-existent asset {path:?}: {err}");
         }
@@ -984,15 +980,15 @@ impl AssetProcessor {
             .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &str) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
-        if path.is_absolute() {
+        if is_absolute_path(path) {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
-        while let Some(parent) = path.parent() {
+        while let Some(parent) = path_parent(path) {
             path = parent;
-            if parent == Path::new("") {
+            if parent.is_empty() {
                 break;
             }
             if source
@@ -1018,8 +1014,8 @@ impl AssetProcessor {
     async fn process_asset(
         &self,
         source: &AssetSource,
-        path: PathBuf,
-        processor_task_event: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        path: String,
+        processor_task_event: async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         let result = self.process_asset_internal(source, &asset_path).await;
@@ -1321,10 +1317,7 @@ impl AssetProcessor {
                     let Ok(processed_writer) = source.processed_writer() else {
                         continue;
                     };
-                    if let Err(err) = processed_writer
-                        .remove_assets_in_directory(Path::new(""))
-                        .await
-                    {
+                    if let Err(err) = processed_writer.remove_assets_in_directory("").await {
                         panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
                     }
                 }
@@ -1616,7 +1609,7 @@ impl ProcessorAssetInfos {
         &mut self,
         asset_path: AssetPath<'static>,
         result: Result<ProcessResult, ProcessError>,
-        reprocess_sender: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        reprocess_sender: async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
@@ -1727,7 +1720,7 @@ impl ProcessorAssetInfos {
         &mut self,
         old: &AssetPath<'static>,
         new: &AssetPath<'static>,
-        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, String)>,
     ) -> Option<(Arc<async_lock::RwLock<()>>, Arc<async_lock::RwLock<()>>)> {
         let mut info = self.infos.remove(old)?;
         if !info.dependents.is_empty() {

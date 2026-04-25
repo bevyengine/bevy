@@ -517,7 +517,6 @@ mod tests {
     use core::any::TypeId;
     use ron::ser::PrettyConfig;
     use serde::de::DeserializeSeed;
-    use std::path::Path;
     use uuid::Uuid;
 
     use crate::{
@@ -619,8 +618,8 @@ mod tests {
                 .register_type::<Stuff>()
                 .register_asset_loader(CoolTextLoader);
 
-            dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("hello"));
-            dir.insert_asset_text(Path::new("def.cool.ron"), &serialize_as_cool_text("world"));
+            dir.insert_asset_text("abc.cool.ron", &serialize_as_cool_text("hello"));
+            dir.insert_asset_text("def.cool.ron", &serialize_as_cool_text("world"));
 
             let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
             let asset_server = app.world().resource::<AssetServer>().clone();
@@ -664,8 +663,8 @@ mod tests {
             .register_type::<Stuff>()
             .register_asset_loader(CoolTextLoader);
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("hello"));
-        dir.insert_asset_text(Path::new("def.cool.ron"), &serialize_as_cool_text("world"));
+        dir.insert_asset_text("abc.cool.ron", &serialize_as_cool_text("hello"));
+        dir.insert_asset_text("def.cool.ron", &serialize_as_cool_text("world"));
 
         let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
         let mut asset_server = app.world().resource::<AssetServer>().clone();

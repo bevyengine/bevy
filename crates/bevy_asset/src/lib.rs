@@ -752,7 +752,6 @@ mod tests {
     use futures_lite::AsyncReadExt;
     use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
-    use std::path::{Path, PathBuf};
     use thiserror::Error;
 
     #[derive(Asset, Debug, Default, Reflect)]
@@ -844,7 +843,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<Mutex<HashMap<Box<Path>, usize>>>,
+        pub attempt_counters: Arc<Mutex<HashMap<String, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -862,29 +861,29 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
-        async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        async fn is_directory<'a>(&'a self, path: &'a str) -> Result<bool, AssetReaderError> {
             self.memory_reader.is_directory(path).await
         }
         async fn read_directory<'a>(
             &'a self,
-            path: &'a Path,
+            path: &'a str,
         ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
             self.memory_reader.read_directory(path).await
         }
         async fn read_meta<'a>(
             &'a self,
-            path: &'a Path,
+            path: &'a str,
         ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        async fn read<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(path.into(), 1);
+                    attempt_counters.insert(path.to_string(), 1);
                     1
                 }
             };
@@ -1052,10 +1051,10 @@ mod tests {
     sub_texts: [],
 )"#;
 
-        dir.insert_asset_text(Path::new(a_path), a_ron);
-        dir.insert_asset_text(Path::new(b_path), b_ron);
-        dir.insert_asset_text(Path::new(c_path), c_ron);
-        dir.insert_asset_text(Path::new(d_path), d_ron);
+        dir.insert_asset_text(a_path, a_ron);
+        dir.insert_asset_text(b_path, b_ron);
+        dir.insert_asset_text(c_path, c_ron);
+        dir.insert_asset_text(d_path, d_ron);
 
         #[derive(Resource)]
         struct IdResults {
@@ -1364,10 +1363,10 @@ mod tests {
     sub_texts: []
 )"#;
 
-        dir.insert_asset_text(Path::new(a_path), a_ron);
-        dir.insert_asset_text(Path::new(b_path), b_ron);
-        dir.insert_asset_text(Path::new(c_path), c_ron);
-        dir.insert_asset_text(Path::new(d_path), d_ron);
+        dir.insert_asset_text(a_path, a_ron);
+        dir.insert_asset_text(b_path, b_ron);
+        dir.insert_asset_text(c_path, c_ron);
+        dir.insert_asset_text(d_path, d_ron);
 
         let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
@@ -1490,9 +1489,9 @@ mod tests {
 )"#;
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(a_path), a_ron);
-        dir.insert_asset_text(Path::new(b_path), b_ron);
-        dir.insert_asset_text(Path::new(c_path), c_ron);
+        dir.insert_asset_text(a_path, a_ron);
+        dir.insert_asset_text(b_path, b_ron);
+        dir.insert_asset_text(c_path, c_ron);
 
         let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
@@ -1569,7 +1568,7 @@ mod tests {
     #[test]
     fn keep_gotten_strong_handles() {
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+        dir.insert_asset_text("dep.cool.ron", SIMPLE_TEXT);
 
         let (mut app, _) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
@@ -1606,7 +1605,7 @@ mod tests {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
 
-        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
+        dir.insert_asset_text(dep_path, SIMPLE_TEXT);
 
         let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
@@ -1745,9 +1744,9 @@ mod tests {
     embedded_dependencies: [],
     sub_texts: [],
 )"#;
-        dir.insert_asset_text(Path::new(a_path), a_ron);
-        dir.insert_asset_text(Path::new(b_path), b_ron);
-        dir.insert_asset_text(Path::new(c_path), c_ron);
+        dir.insert_asset_text(a_path, a_ron);
+        dir.insert_asset_text(b_path, b_ron);
+        dir.insert_asset_text(c_path, c_ron);
 
         let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
@@ -1896,7 +1895,7 @@ mod tests {
 )"#;
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(a_path, a_ron);
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
         let mut app = App::new();
@@ -1974,7 +1973,7 @@ mod tests {
     fn error_on_nested_immediate_load_of_subasset() {
         let (mut app, dir) = create_app();
         dir.insert_asset_text(
-            Path::new("a.cool.ron"),
+            "a.cool.ron",
             r#"(
     text: "b",
     dependencies: [],
@@ -1982,7 +1981,7 @@ mod tests {
     sub_texts: ["A"],
 )"#,
         );
-        dir.insert_asset_text(Path::new("empty.txt"), "");
+        dir.insert_asset_text("empty.txt", "");
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
@@ -2116,7 +2115,7 @@ mod tests {
     sub_texts: [],
 )"#;
 
-        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(a_path, a_ron);
 
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
@@ -2265,7 +2264,7 @@ mod tests {
                 gate_receiver,
             });
 
-        let path = Path::new("abc.ron");
+        let path = "abc.ron";
         dir.insert_asset_text(path, "blah");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2314,7 +2313,7 @@ mod tests {
                 gate_receiver,
             });
 
-        let path = Path::new("abc.ron");
+        let path = "abc.ron";
         dir.insert_asset_text(path, "blah");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2410,7 +2409,7 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
 
         dir.insert_asset_text(
-            Path::new("abc.cool.ron"),
+            "abc.cool.ron",
             r#"(
     text: "a",
     dependencies: [],
@@ -2442,9 +2441,7 @@ mod tests {
         // Sending an asset event should result in the asset being reloaded - resulting in a
         // "Modified" message.
         source_events
-            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
-                "abc.cool.ron",
-            )))
+            .send_blocking(AssetSourceEvent::ModifiedAsset("abc.cool.ron".to_string()))
             .unwrap();
 
         run_app_until(&mut app, |world| {
@@ -2488,7 +2485,7 @@ mod tests {
         // The asset has already been considered as failed to load. Now we add the asset data, and
         // send an AddedAsset event.
         dir.insert_asset_text(
-            Path::new("abc.cool.ron"),
+            "abc.cool.ron",
             r#"(
     text: "a",
     dependencies: [],
@@ -2497,7 +2494,7 @@ mod tests {
 )"#,
         );
         source_events
-            .send_blocking(AssetSourceEvent::AddedAsset(PathBuf::from("abc.cool.ron")))
+            .send_blocking(AssetSourceEvent::AddedAsset("abc.cool.ron".to_string()))
             .unwrap();
 
         run_app_until(&mut app, |world| {
@@ -2555,7 +2552,7 @@ mod tests {
         // Create a test asset and setup the app.
 
         let (mut app, dir) = create_app();
-        dir.insert_asset(Path::new("test.u8"), &[]);
+        dir.insert_asset("test.u8", &[]);
 
         app.init_asset::<U8Asset>().register_asset_loader(U8Loader);
 
@@ -2607,7 +2604,7 @@ mod tests {
     #[test]
     fn loading_two_subassets_does_not_start_two_loads() {
         let (mut app, dir) = create_app();
-        dir.insert_asset(Path::new("test.txt"), &[]);
+        dir.insert_asset("test.txt", &[]);
 
         #[derive(TypePath)]
         struct TwoSubassetLoader;
@@ -2675,7 +2672,7 @@ mod tests {
     #[test]
     fn get_strong_handle_prevents_reload_when_asset_still_alive() {
         let (mut app, dir) = create_app();
-        dir.insert_asset(Path::new("test.txt"), &[]);
+        dir.insert_asset("test.txt", &[]);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(TrivialLoader);
@@ -2794,9 +2791,9 @@ mod tests {
             .register_asset_loader(DeferredNestedLoader)
             .register_asset_loader(ImmediateNestedLoader);
 
-        dir.insert_asset_text(Path::new("a.immediate"), "b.defer");
-        dir.insert_asset_text(Path::new("b.defer"), "c.txt");
-        dir.insert_asset_text(Path::new("c.txt"), "hiya");
+        dir.insert_asset_text("a.immediate", "b.defer");
+        dir.insert_asset_text("b.defer", "c.txt");
+        dir.insert_asset_text("c.txt", "hiya");
 
         let server = app.world().resource::<AssetServer>().clone();
         let immediate_handle: Handle<ImmediateNested> = server.load("a.immediate");
@@ -2816,12 +2813,12 @@ mod tests {
         });
     }
 
-    pub(crate) fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
+    pub(crate) fn read_asset_as_string(dir: &Dir, path: &str) -> String {
         let bytes = dir.get_asset(path).unwrap();
         str::from_utf8(bytes.value()).unwrap().to_string()
     }
 
-    pub(crate) fn read_meta_as_string(dir: &Dir, path: &Path) -> String {
+    pub(crate) fn read_meta_as_string(dir: &Dir, path: &str) -> String {
         let bytes = dir.get_metadata(path).unwrap();
         str::from_utf8(bytes.value()).unwrap().to_string()
     }
@@ -2833,13 +2830,13 @@ mod tests {
         app.register_asset_loader(CoolTextLoader);
 
         const ASSET_PATH: &str = "abc.cool.ron";
-        source.insert_asset_text(Path::new(ASSET_PATH), "blah");
+        source.insert_asset_text(ASSET_PATH, "blah");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)).unwrap();
 
         assert_eq!(
-            read_meta_as_string(&source, Path::new(ASSET_PATH)),
+            read_meta_as_string(&source, ASSET_PATH),
             r#"(
     meta_format_version: "1.0",
     asset: Load(
@@ -2857,9 +2854,9 @@ mod tests {
         app.register_asset_loader(CoolTextLoader);
 
         const ASSET_PATH: &str = "abc.cool.ron";
-        source.insert_asset_text(Path::new(ASSET_PATH), "blah");
+        source.insert_asset_text(ASSET_PATH, "blah");
         const META_TEXT: &str = "hey i'm walkin here!";
-        source.insert_meta_text(Path::new(ASSET_PATH), META_TEXT);
+        source.insert_meta_text(ASSET_PATH, META_TEXT);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         assert!(matches!(
@@ -2867,10 +2864,7 @@ mod tests {
             Err(WriteDefaultMetaError::MetaAlreadyExists)
         ));
 
-        assert_eq!(
-            read_meta_as_string(&source, Path::new(ASSET_PATH)),
-            META_TEXT
-        );
+        assert_eq!(read_meta_as_string(&source, ASSET_PATH), META_TEXT);
     }
 
     #[test]
@@ -2911,8 +2905,8 @@ mod tests {
 
         // Write some data so the loaders have something to load (even though they don't use the
         // data).
-        dir.insert_asset_text(Path::new("abc.ron"), "");
-        dir.insert_asset_text(Path::new("blah.with_deps"), "");
+        dir.insert_asset_text("abc.ron", "");
+        dir.insert_asset_text("blah.with_deps", "");
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
@@ -3027,7 +3021,7 @@ mod tests {
             .register_asset_loader(CoolTextLoader);
 
         dir.insert_asset_text(
-            Path::new("test.cool.ron"),
+            "test.cool.ron",
             r#"
 (
     text: "test",
@@ -3037,7 +3031,7 @@ mod tests {
 )"#,
         );
 
-        dir.insert_asset_text(Path::new("malformed.cool.ron"), "MALFORMED");
+        dir.insert_asset_text("malformed.cool.ron", "MALFORMED");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load::<A>(path);
@@ -3193,9 +3187,9 @@ mod tests {
     #[test]
     fn resource_are_dependencies_loaded() {
         let (mut app, dir) = create_app();
-        dir.insert_asset_text(Path::new("abc.txt"), "");
-        dir.insert_asset_text(Path::new("def.txt"), "");
-        dir.insert_asset_text(Path::new("ghi.txt"), "");
+        dir.insert_asset_text("abc.txt", "");
+        dir.insert_asset_text("def.txt", "");
+        dir.insert_asset_text("ghi.txt", "");
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(TrivialLoader);
@@ -3241,8 +3235,8 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
-        let abc_path = Path::new("dir/abc.cool.ron");
-        let def_path = Path::new("dir/def.cool.ron");
+        let abc_path = "dir/abc.cool.ron";
+        let def_path = "dir/def.cool.ron";
         dir.insert_asset_text(abc_path, &serialize_as_cool_text("abc"));
         dir.insert_asset_text(def_path, &serialize_as_cool_text("def"));
 
@@ -3268,7 +3262,7 @@ mod tests {
             .map(UntypedHandle::typed::<CoolText>)
             .collect::<Vec<_>>();
         // Sort the handles so we know abc is first and def is second.
-        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_string());
 
         let abc_handle = handles[0].clone();
         let def_handle = handles[1].clone();
@@ -3283,10 +3277,10 @@ mod tests {
             .clear();
 
         // Add a new asset to the folder, and send an event to trigger hot-reloading.
-        let ghi_path = Path::new("dir/ghi.cool.ron");
+        let ghi_path = "dir/ghi.cool.ron";
         dir.insert_asset_text(ghi_path, &serialize_as_cool_text("ghi"));
         event_sender
-            .send_blocking(AssetSourceEvent::AddedAsset(ghi_path.to_path_buf()))
+            .send_blocking(AssetSourceEvent::AddedAsset(ghi_path.to_string()))
             .unwrap();
 
         run_app_until(&mut app, |world| {
@@ -3316,7 +3310,7 @@ mod tests {
             .map(UntypedHandle::typed::<CoolText>)
             .collect::<Vec<_>>();
         // Sort the handles so we know the order is abc, def, and ghi.
-        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_string());
 
         let new_abc_handle = handles[0].clone();
         let new_def_handle = handles[1].clone();

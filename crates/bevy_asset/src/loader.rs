@@ -6,7 +6,11 @@ use crate::{
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
     Handle, UntypedAssetId, UntypedHandle,
 };
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
@@ -16,7 +20,6 @@ use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::error;
 
@@ -569,7 +572,7 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
-        if path.path() == Path::new("") {
+        if path.path() == "" {
             error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Err(ReadAssetBytesError::EmptyPath(path.into_owned()));
         }
@@ -598,7 +601,7 @@ impl<'a> LoadContext<'a> {
             .read_to_end(&mut bytes)
             .await
             .map_err(|source| ReadAssetBytesError::Io {
-                path: path.path().to_path_buf(),
+                path: path.path().to_string(),
                 source,
             })?;
         self.loader_dependencies.insert(path.clone_owned(), hash);
@@ -698,9 +701,9 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
+    #[error("Encountered an io error while loading asset at `{path}`: {source}")]
     Io {
-        path: PathBuf,
+        path: String,
         source: std::io::Error,
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]

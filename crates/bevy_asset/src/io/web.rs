@@ -1,9 +1,8 @@
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
-use crate::{AssetApp, AssetPlugin};
-use alloc::boxed::Box;
+use crate::{join_paths, AssetApp, AssetPlugin};
+use alloc::{boxed::Box, string::String};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
-use std::path::{Path, PathBuf};
 use tracing::warn;
 
 /// Adds the `http` and `https` asset sources to the app.
@@ -94,23 +93,28 @@ pub enum WebAssetReader {
 }
 
 impl WebAssetReader {
-    fn make_uri(&self, path: &Path) -> PathBuf {
+    fn make_uri(&self, path: &str) -> String {
         let prefix = match self {
             Self::Http => "http://",
             Self::Https => "https://",
         };
-        PathBuf::from(prefix).join(path)
+        join_paths(prefix, path)
     }
 
     /// See [`io::get_meta_path`](`crate::io::get_meta_path`)
-    fn make_meta_uri(&self, path: &Path) -> PathBuf {
-        let meta_path = crate::io::get_meta_path(path);
-        self.make_uri(&meta_path)
+    fn make_meta_uri(&self, path: &str) -> String {
+        let path = if let Some(index) = path.rfind("?") {
+            let (path, query) = path.split_at(index);
+            alloc::format!("{path}.meta{query}")
+        } else {
+            alloc::format!("{path}.meta")
+        };
+        self.make_uri(path.as_ref())
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
+async fn get<'a>(path: String) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::wasm::HttpWasmAssetReader;
 
     HttpWasmAssetReader::new("")
@@ -120,24 +124,15 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
+async fn get(path: String) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+    use alloc::{boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
     use blocking::unblock;
     use std::io::{self, BufReader, Read};
 
-    let str_path = path.to_str().ok_or_else(|| {
-        AssetReaderError::Io(
-            io::Error::other(std::format!("non-utf8 path: {}", path.display())).into(),
-        )
-    })?;
-
-    #[cfg(target_os = "windows")]
-    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
-
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-    if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
+    if let Some(data) = web_asset_cache::try_load_from_cache(&path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
     use ureq::tls::{RootCerts, TlsConfig};
@@ -154,7 +149,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             .new_agent()
     });
 
-    let uri = str_path.to_owned();
+    let uri = path.clone();
     // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
     // async executor.
     let response = unblock(|| AGENT.get(uri).call()).await;
@@ -167,7 +162,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             reader.read_to_end(&mut buffer)?;
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-            web_asset_cache::save_to_cache(str_path, &buffer).await?;
+            web_asset_cache::save_to_cache(&path, &buffer).await?;
 
             Ok(Box::new(VecReader::new(buffer)))
         }
@@ -181,9 +176,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         }
         Err(err) => Err(AssetReaderError::Io(
             io::Error::other(std::format!(
-                "unexpected error while loading asset {}: {}",
-                path.display(),
-                err
+                "unexpected error while loading asset {path}: {err}",
             ))
             .into(),
         )),
@@ -193,23 +186,23 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> impl ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>> {
         get(self.make_uri(path))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<dyn Reader>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a str) -> Result<Box<dyn Reader>, AssetReaderError> {
         let uri = self.make_meta_uri(path);
         get(uri).await
     }
 
-    async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, _path: &'a str) -> Result<bool, AssetReaderError> {
         Ok(false)
     }
 
     async fn read_directory<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         Err(AssetReaderError::NotFound(self.make_uri(path)))
     }
@@ -277,10 +270,7 @@ mod tests {
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            WebAssetReader::Http
-                .make_uri(Path::new("example.com/favicon.png"))
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Http.make_uri("example.com/favicon.png"),
             "http://example.com/favicon.png"
         );
     }
@@ -288,10 +278,7 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            WebAssetReader::Https
-                .make_uri(Path::new("example.com/favicon.png"))
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https.make_uri("example.com/favicon.png"),
             "https://example.com/favicon.png"
         );
     }
@@ -299,10 +286,7 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            WebAssetReader::Http
-                .make_meta_uri(Path::new("example.com/favicon.png"))
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Http.make_meta_uri("example.com/favicon.png"),
             "http://example.com/favicon.png.meta"
         );
     }
@@ -310,10 +294,7 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https
-                .make_meta_uri(Path::new("example.com/favicon.png"))
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https.make_meta_uri("example.com/favicon.png"),
             "https://example.com/favicon.png.meta"
         );
     }
@@ -321,10 +302,7 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https
-                .make_meta_uri(Path::new("example.com/favicon"))
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https.make_meta_uri("example.com/favicon"),
             "https://example.com/favicon.meta"
         );
     }

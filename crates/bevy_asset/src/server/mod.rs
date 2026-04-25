@@ -14,10 +14,10 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetIndex, AssetLoadFailedEvent,
-    AssetMetaCheck, Assets, DeserializeMetaError, ErasedAssetIndex, ErasedLoadedAsset, Handle,
-    LoadedUntypedAsset, UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent,
-    UntypedHandle, VisitAssetDependencies,
+    path_ancestors, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetIndex,
+    AssetLoadFailedEvent, AssetMetaCheck, Assets, DeserializeMetaError, ErasedAssetIndex,
+    ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode, UntypedAssetId,
+    UntypedAssetLoadFailedEvent, UntypedHandle, VisitAssetDependencies,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -43,7 +43,6 @@ use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
-use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info, warn};
 
@@ -324,14 +323,13 @@ impl AssetServer {
     /// Note that if the asset at this path is already loaded, this function will return the existing handle,
     /// and will not waste work spawning a new load task.
     ///
-    /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
-    /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
-    /// the file path and the label. For example:
+    /// In case the file path contains a hashtag (`#`), the `path` must be specified using
+    /// [`AssetPath::from_str_path`] because otherwise the hashtag would be interpreted as separator
+    /// between the file path and the label. For example:
     ///
     /// ```no_run
-    /// # use bevy_asset::{AssetServer, Handle, LoadedUntypedAsset};
+    /// # use bevy_asset::{AssetServer, Handle, LoadedUntypedAsset, AssetPath};
     /// # use bevy_ecs::prelude::Res;
-    /// # use std::path::Path;
     /// // `#path` is a label.
     /// # fn setup(asset_server: Res<AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
@@ -339,7 +337,7 @@ impl AssetServer {
     ///
     /// // `#path` is part of the file name.
     /// # let handle: Handle<LoadedUntypedAsset> =
-    /// asset_server.load(Path::new("some/file#path"));
+    /// asset_server.load(AssetPath::from_str_path("some/file#path"));
     /// # }
     /// ```
     ///
@@ -349,10 +347,9 @@ impl AssetServer {
     /// ```no_run
     /// # use bevy_asset::{AssetPath, AssetServer, Handle, LoadedUntypedAsset};
     /// # use bevy_ecs::prelude::Res;
-    /// # use std::path::Path;
     /// # fn setup(asset_server: Res<AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
-    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
+    /// asset_server.load(AssetPath::from_str_path("some/file#path").with_label("subasset"));
     /// # }
     /// ```
     ///
@@ -554,7 +551,7 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
+        if path.path() == "" {
             error!("Attempted to load an asset with an empty path \"{path}\"!");
             return UntypedHandle::default_for_type(type_id);
         }
@@ -645,7 +642,7 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
+        if path.path() == "" {
             error!("Attempted to load an asset with an empty path \"{path}\"!");
             return Handle::default();
         }
@@ -1151,7 +1148,7 @@ impl AssetServer {
     pub(crate) fn load_folder_internal(&self, index: ErasedAssetIndex, path: AssetPath) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
-            path: &'a Path,
+            path: &'a str,
             reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
@@ -1170,8 +1167,7 @@ impl AssetServer {
                         ))
                         .await?;
                     } else {
-                        let path = child_path.to_str().expect("Path should be a valid string.");
-                        let asset_path = AssetPath::parse(path).with_source(source.clone());
+                        let asset_path = AssetPath::parse(&child_path).with_source(source.clone());
                         match server.load_builder().load_untyped_async(asset_path).await {
                             Ok(handle) => handles.push(handle),
                             // skip assets that cannot be loaded
@@ -2049,7 +2045,7 @@ impl<'a> LoadBuilder<'a> {
         asset_path: impl Into<AssetPath<'b>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = asset_path.into();
-        if path.path() == Path::new("") {
+        if path.path() == "" {
             return Err(AssetLoadError::EmptyPath(path.into_owned()));
         }
 
@@ -2156,11 +2152,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         let mut folders_to_reload = Vec::default();
         let mut reload_parent_folders =
-            |path: &PathBuf, source: &AssetSourceId<'static>, infos: &mut AssetInfos| {
+            |path: &str, source: &AssetSourceId<'static>, infos: &mut AssetInfos| {
                 let mut new_loads = 0;
-                for parent in path.ancestors().skip(1) {
+                for parent in path_ancestors(path).skip(1) {
                     let parent_asset_path =
-                        AssetPath::from(parent.to_path_buf()).with_source(source.clone());
+                        AssetPath::from_string_path(parent.to_string()).with_source(source.clone());
                     for folder_handle in infos.get_path_handles(&parent_asset_path) {
                         info!(
                             "Reloading folder {parent_asset_path} because the content has changed"
@@ -2174,8 +2170,8 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         let mut paths_to_reload = <HashSet<_>>::default();
         let mut reload_path =
-            |path: PathBuf, source: &AssetSourceId<'static>, infos: &AssetInfos| {
-                let path = AssetPath::from(path).with_source(source);
+            |path: String, source: &AssetSourceId<'static>, infos: &AssetInfos| {
+                let path = AssetPath::from_string_path(path).with_source(source);
                 queue_ancestors(&path, infos, &mut paths_to_reload);
                 paths_to_reload.insert(path);
             };

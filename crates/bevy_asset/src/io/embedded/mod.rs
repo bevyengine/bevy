@@ -4,17 +4,23 @@ mod embedded_watcher;
 #[cfg(feature = "embedded_watcher")]
 pub use embedded_watcher::*;
 
-use crate::io::{
-    memory::{Dir, MemoryAssetReader, Value},
-    AssetSourceBuilder, AssetSourceBuilders,
+use crate::{
+    clean_path,
+    io::{
+        memory::{Dir, MemoryAssetReader, Value},
+        AssetSourceBuilder, AssetSourceBuilders,
+    },
+    path_parent,
 };
-use crate::AssetServer;
-use alloc::boxed::Box;
+use crate::{join_paths, AssetServer};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
 use bevy_app::App;
 use bevy_ecs::{resource::Resource, world::World};
 #[cfg(feature = "embedded_watcher")]
 use bevy_platform::sync::{Arc, PoisonError, RwLock};
-use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
 use alloc::borrow::ToOwned;
@@ -32,7 +38,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: Arc<RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>>,
+    root_paths: Arc<RwLock<bevy_platform::collections::HashMap<Box<str>, String>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -47,12 +53,12 @@ impl EmbeddedAssetRegistry {
             reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
         )
     )]
-    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+    pub fn insert_asset(&self, full_path: String, asset_path: &str, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
             .unwrap_or_else(PoisonError::into_inner)
-            .insert(full_path.into(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_string());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -67,7 +73,7 @@ impl EmbeddedAssetRegistry {
             reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
         )
     )]
-    pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
+    pub fn insert_meta(&self, full_path: &str, asset_path: &str, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
@@ -79,7 +85,7 @@ impl EmbeddedAssetRegistry {
     /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). If no asset is stored with at `full_path` its a no-op.
     /// It returning `Option` contains the originally stored `Data` or `None`.
-    pub fn remove_asset(&self, full_path: &Path) -> Option<super::memory::Data> {
+    pub fn remove_asset(&self, full_path: &str) -> Option<super::memory::Data> {
         self.dir.remove_asset(full_path)
     }
 
@@ -191,7 +197,7 @@ impl GetAssetServer for AssetServer {
 macro_rules! load_embedded_asset {
     (@get: $path: literal, $provider: expr) => {{
         let path = $crate::embedded_path!($path);
-        let path = $crate::AssetPath::from_path_buf(path).with_source("embedded");
+        let path = $crate::AssetPath::from_string_path(path).with_source("embedded");
         let asset_server = $crate::io::embedded::GetAssetServer::get_asset_server($provider);
         (path, asset_server)
     }};
@@ -205,8 +211,8 @@ macro_rules! load_embedded_asset {
     }};
 }
 
-/// Returns the [`Path`] for a given `embedded` asset.
-/// This is used internally by [`embedded_asset`] and can be used to get a [`Path`]
+/// Returns the [`String`] path for a given `embedded` asset.
+/// This is used internally by [`embedded_asset`] and can be used to get a [`String`] path
 /// that matches the [`AssetPath`](crate::AssetPath) used by that asset.
 ///
 /// [`embedded_asset`]: crate::embedded_asset
@@ -218,12 +224,7 @@ macro_rules! embedded_path {
 
     ($source_path: expr, $path_str: expr) => {{
         let crate_name = module_path!().split(':').next().unwrap();
-        $crate::io::embedded::_embedded_asset_path(
-            crate_name,
-            $source_path.as_ref(),
-            file!().as_ref(),
-            $path_str.as_ref(),
-        )
+        $crate::io::embedded::_embedded_asset_path(crate_name, $source_path, file!(), $path_str)
     }};
 }
 
@@ -237,29 +238,27 @@ macro_rules! embedded_path {
 #[doc(hidden)]
 pub fn _embedded_asset_path(
     crate_name: &str,
-    src_prefix: &Path,
-    file_path: &Path,
-    asset_path: &Path,
-) -> PathBuf {
-    let file_path = if cfg!(not(target_family = "windows")) {
-        // Work around bug: https://github.com/bevyengine/bevy/issues/14246
-        // Note, this will break any paths on Linux/Mac containing "\"
-        PathBuf::from(file_path.to_str().unwrap().replace("\\", "/"))
-    } else {
-        PathBuf::from(file_path)
-    };
-    let mut maybe_parent = file_path.parent();
+    src_prefix: &str,
+    file_path: &str,
+    asset_path: &str,
+) -> String {
+    let file_path = clean_path(file_path);
+    let mut maybe_parent = path_parent(&file_path);
     let after_src = loop {
         let Some(parent) = maybe_parent else {
             panic!("Failed to find src_prefix {src_prefix:?} in {file_path:?}")
         };
         if parent.ends_with(src_prefix) {
-            break file_path.strip_prefix(parent).unwrap();
+            let relative_path = file_path.strip_prefix(parent).unwrap();
+            // Also remove the slash for the parent.
+            break &relative_path[1..];
         }
-        maybe_parent = parent.parent();
+        maybe_parent = path_parent(parent);
     };
-    let asset_path = after_src.parent().unwrap().join(asset_path);
-    Path::new(crate_name).join(asset_path)
+    let asset_path = path_parent(after_src)
+        .map(|parent| join_paths(parent, asset_path))
+        .unwrap_or_else(|| asset_path.to_string());
+    join_paths(crate_name, &asset_path)
 }
 
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
@@ -353,18 +352,18 @@ macro_rules! embedded_asset {
 /// Returns the path used by the watcher.
 #[doc(hidden)]
 #[cfg(feature = "embedded_watcher")]
-pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
-    PathBuf::from(source_file_path)
-        .parent()
-        .unwrap()
-        .join(asset_path)
+pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> String {
+    join_paths(
+        path_parent(&clean_path(source_file_path)).unwrap(),
+        asset_path,
+    )
 }
 
 /// Returns an empty PathBuf.
 #[doc(hidden)]
 #[cfg(not(feature = "embedded_watcher"))]
-pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) -> PathBuf {
-    PathBuf::from("")
+pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) -> String {
+    String::new()
 }
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
@@ -421,7 +420,7 @@ macro_rules! load_internal_binary_asset {
 #[cfg(test)]
 mod tests {
     use super::{_embedded_asset_path, EmbeddedAssetRegistry};
-    use std::path::Path;
+    use alloc::string::ToString;
 
     // Relative paths show up if this macro is being invoked by a local crate.
     // In this case we know the relative path is a sub- path of the workspace
@@ -429,13 +428,9 @@ mod tests {
 
     #[test]
     fn embedded_asset_path_from_local_crate() {
-        let asset_path = _embedded_asset_path(
-            "my_crate",
-            "src".as_ref(),
-            "src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+        let asset_path =
+            _embedded_asset_path("my_crate", "src", "src/foo/plugin.rs", "the/asset.png");
+        assert_eq!(asset_path, "my_crate/foo/the/asset.png");
     }
 
     // A blank src_path removes the embedded's file path altogether only the
@@ -444,11 +439,11 @@ mod tests {
     fn embedded_asset_path_from_local_crate_blank_src_path_questionable() {
         let asset_path = _embedded_asset_path(
             "my_crate",
-            "".as_ref(),
-            "src/foo/some/deep/path/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "",
+            "src/foo/some/deep/path/plugin.rs",
+            "the/asset.png",
         );
-        assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+        assert_eq!(asset_path, "my_crate/the/asset.png");
     }
 
     #[test]
@@ -456,9 +451,9 @@ mod tests {
     fn embedded_asset_path_from_local_crate_bad_src() {
         let _asset_path = _embedded_asset_path(
             "my_crate",
-            "NOT-THERE".as_ref(),
-            "src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "NOT-THERE",
+            "src/foo/plugin.rs",
+            "the/asset.png",
         );
     }
 
@@ -466,11 +461,11 @@ mod tests {
     fn embedded_asset_path_from_local_example_crate() {
         let asset_path = _embedded_asset_path(
             "example_name",
-            "examples/foo".as_ref(),
-            "examples/foo/example.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "examples/foo",
+            "examples/foo/example.rs",
+            "the/asset.png",
         );
-        assert_eq!(asset_path, Path::new("example_name/the/asset.png"));
+        assert_eq!(asset_path, "example_name/the/asset.png");
     }
 
     // Absolute paths show up if this macro is being invoked by an external
@@ -479,22 +474,22 @@ mod tests {
     fn embedded_asset_path_from_external_crate() {
         let asset_path = _embedded_asset_path(
             "my_crate",
-            "src".as_ref(),
-            "/path/to/crate/src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "src",
+            "/path/to/crate/src/foo/plugin.rs",
+            "the/asset.png",
         );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+        assert_eq!(asset_path, "my_crate/foo/the/asset.png");
     }
 
     #[test]
     fn embedded_asset_path_from_external_crate_root_src_path() {
         let asset_path = _embedded_asset_path(
             "my_crate",
-            "/path/to/crate/src".as_ref(),
-            "/path/to/crate/src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "/path/to/crate/src",
+            "/path/to/crate/src/foo/plugin.rs",
+            "the/asset.png",
         );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+        assert_eq!(asset_path, "my_crate/foo/the/asset.png");
     }
 
     // Although extraneous slashes are permitted at the end, e.g., "src////",
@@ -504,11 +499,11 @@ mod tests {
     fn embedded_asset_path_from_external_crate_extraneous_beginning_slashes() {
         let asset_path = _embedded_asset_path(
             "my_crate",
-            "////src".as_ref(),
-            "/path/to/crate/src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "////src",
+            "/path/to/crate/src/foo/plugin.rs",
+            "the/asset.png",
         );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+        assert_eq!(asset_path, "my_crate/foo/the/asset.png");
     }
 
     // We don't handle this edge case because it is ambiguous with the
@@ -517,22 +512,22 @@ mod tests {
     fn embedded_asset_path_from_external_crate_is_ambiguous() {
         let asset_path = _embedded_asset_path(
             "my_crate",
-            "src".as_ref(),
-            "/path/to/.cargo/registry/src/crate/src/src/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
+            "src",
+            "/path/to/.cargo/registry/src/crate/src/src/plugin.rs",
+            "the/asset.png",
         );
         // Really, should be "my_crate/src/the/asset.png"
-        assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+        assert_eq!(asset_path, "my_crate/the/asset.png");
     }
 
     #[test]
     fn remove_embedded_asset() {
         let reg = EmbeddedAssetRegistry::default();
-        let path = std::path::PathBuf::from("a/b/asset.png");
-        reg.insert_asset(path.clone(), &path, &[]);
-        assert!(reg.dir.get_asset(&path).is_some());
-        assert!(reg.remove_asset(&path).is_some());
-        assert!(reg.dir.get_asset(&path).is_none());
-        assert!(reg.remove_asset(&path).is_none());
+        let path = "a/b/asset.png";
+        reg.insert_asset(path.to_string(), &path, &[]);
+        assert!(reg.dir.get_asset(path).is_some());
+        assert!(reg.remove_asset(path).is_some());
+        assert!(reg.dir.get_asset(path).is_none());
+        assert!(reg.remove_asset(path).is_none());
     }
 }

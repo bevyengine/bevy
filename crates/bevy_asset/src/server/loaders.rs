@@ -306,10 +306,7 @@ impl MaybeAssetLoader {
 mod tests {
     use alloc::{format, string::String};
     use core::marker::PhantomData;
-    use std::{
-        path::Path,
-        sync::mpsc::{channel, Receiver, Sender},
-    };
+    use std::sync::mpsc::{channel, Receiver, Sender};
 
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
@@ -536,7 +533,7 @@ mod tests {
         assert!(rx_b1.try_recv().is_ok());
         assert!(rx_c1.try_recv().is_ok());
 
-        let path = AssetPath::from_path(Path::new("asset.a"));
+        let path = AssetPath::from_str_path("asset.a");
 
         let loader = block_on(loaders.get_by_path(&path).unwrap().get()).unwrap();
 
@@ -546,7 +543,7 @@ mod tests {
         assert!(rx_b1.try_recv().is_err());
         assert!(rx_c1.try_recv().is_err());
 
-        let path = AssetPath::from_path(Path::new("asset.b"));
+        let path = AssetPath::from_str_path("asset.b");
 
         let loader = block_on(loaders.get_by_path(&path).unwrap().get()).unwrap();
 
@@ -556,7 +553,7 @@ mod tests {
         assert!(rx_b1.try_recv().is_ok());
         assert!(rx_c1.try_recv().is_err());
 
-        let path = AssetPath::from_path(Path::new("asset.c"));
+        let path = AssetPath::from_str_path("asset.c");
 
         let loader = block_on(loaders.get_by_path(&path).unwrap().get()).unwrap();
 
@@ -600,7 +597,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.a"))),
+                    Some(&AssetPath::from_str_path("asset.a")),
                 )
                 .unwrap()
                 .get(),
@@ -621,7 +618,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<B>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.b"))),
+                    Some(&AssetPath::from_str_path("asset.b")),
                 )
                 .unwrap()
                 .get(),
@@ -642,7 +639,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<C>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.c"))),
+                    Some(&AssetPath::from_str_path("asset.c")),
                 )
                 .unwrap()
                 .get(),
@@ -665,7 +662,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<C>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.a"))),
+                    Some(&AssetPath::from_str_path("asset.a")),
                 )
                 .unwrap()
                 .get(),
@@ -686,7 +683,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<C>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.b"))),
+                    Some(&AssetPath::from_str_path("asset.b")),
                 )
                 .unwrap()
                 .get(),
@@ -709,7 +706,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.x"))),
+                    Some(&AssetPath::from_str_path("asset.x")),
                 )
                 .unwrap()
                 .get(),
@@ -730,7 +727,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset"))),
+                    Some(&AssetPath::from_str_path("asset")),
                 )
                 .unwrap()
                 .get(),
@@ -769,7 +766,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.a"))),
+                    Some(&AssetPath::from_str_path("asset.a")),
                 )
                 .unwrap()
                 .get(),
@@ -788,7 +785,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset.x"))),
+                    Some(&AssetPath::from_str_path("asset.x")),
                 )
                 .unwrap()
                 .get(),
@@ -807,7 +804,7 @@ mod tests {
                     None,
                     Some(TypeId::of::<A>()),
                     None,
-                    Some(&AssetPath::from_path(Path::new("asset"))),
+                    Some(&AssetPath::from_str_path("asset")),
                 )
                 .unwrap()
                 .get(),

@@ -1,13 +1,8 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    boxed::Box,
-    format,
-};
+use alloc::{borrow::Cow, boxed::Box, format, string::String};
 use js_sys::{Uint8Array, JSON};
-use std::path::{Path, PathBuf};
 use tracing::error;
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -30,15 +25,15 @@ extern "C" {
 
 /// Reader implementation for loading assets via HTTP in Wasm.
 pub struct HttpWasmAssetReader {
-    root_path: PathBuf,
+    root_path: String,
     request_mapper: Option<Box<dyn Fn(&str) -> Cow<str> + Send + Sync + 'static>>,
 }
 
 impl HttpWasmAssetReader {
     /// Creates a new `WasmAssetReader`. The path provided will be used to build URLs to query for assets.
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+    pub fn new(path: String) -> Self {
         Self {
-            root_path: path.as_ref().to_owned(),
+            root_path: path,
             request_mapper: None,
         }
     }
@@ -71,9 +66,9 @@ impl HttpWasmAssetReader {
     // Also used by [`WebAssetReader`](crate::web::WebAssetReader)
     pub(crate) async fn fetch_bytes(
         &self,
-        path: PathBuf,
+        path: String,
     ) -> Result<impl Reader + use<>, AssetReaderError> {
-        let path = path.to_str().unwrap();
+        let path = path.as_str();
         let fetch_path = self
             .request_mapper
             .as_ref()
@@ -114,26 +109,32 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
         let path = self.root_path.join(path);
         self.fetch_bytes(path).await
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
+        let path = if let Some(index) = path.rfind("?") {
+            let (path, query) = path.split_at(index);
+            alloc::format!("{path}.meta{query}")
+        } else {
+            alloc::format!("{path}.meta")
+        };
         let meta_path = get_meta_path(&self.root_path.join(path));
         self.fetch_bytes(meta_path).await
     }
 
     async fn read_directory<'a>(
         &'a self,
-        _path: &'a Path,
+        _path: &'a str,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         let stream: Box<PathStream> = Box::new(EmptyPathStream);
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(stream)
     }
 
-    async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, _path: &'a str) -> Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(false)
     }
