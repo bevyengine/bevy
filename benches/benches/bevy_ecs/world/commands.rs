@@ -51,9 +51,9 @@ pub fn spawn_commands(criterion: &mut Criterion) {
                 for i in 0..entity_count {
                     let mut entity = commands.spawn_empty();
                     entity
-                        .insert_if(A, || black_box(i % 2 == 0))
-                        .insert_if(B, || black_box(i % 3 == 0))
-                        .insert_if(C, || black_box(i % 4 == 0));
+                        .insert_if(A, black_box(i % 2 == 0))
+                        .insert_if(B, black_box(i % 3 == 0))
+                        .insert_if(C, black_box(i % 4 == 0));
 
                     if black_box(i % 5 == 0) {
                         entity.despawn();
