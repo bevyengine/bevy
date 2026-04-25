@@ -1,4 +1,10 @@
-//! A procedurally generated city
+//! A procedurally generated city.
+//!
+//! This scene is intended to be an attractive, fairly realistic stress test of Bevy's capacity
+//! to model extremely large scenes.
+//! As a result, the complexity is higher than in most examples or benchmarks —
+//! we want to use a large number of features so that pathological paths
+//! are caught during development, rather than by end users.
 
 use argh::FromArgs;
 use assets::{load_assets, CityAssets};
@@ -8,7 +14,10 @@ use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
-    light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
+    light::{
+        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        Atmosphere, AtmosphereEnvironmentMapLight,
+    },
     pbr::{
         wireframe::{WireframeConfig, WireframePlugin},
         AtmosphereSettings, ContactShadows,
@@ -81,7 +90,7 @@ fn main() {
         .add_message::<CityAssetsLoaded>()
         .add_message::<CityAssetsReady>()
         .add_message::<CitySpawned>()
-        .add_systems(Startup, (setup, load_assets))
+        .add_systems(Startup, (setup, spawn_atmosphere, load_assets))
         .add_systems(
             Update,
             (
@@ -97,21 +106,23 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
-    commands.spawn(Atmosphere::earth(
-        scattering_mediums.add(ScatteringMedium::default()),
-    ));
-
+fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
-        AtmosphereSettings::default(),
+        AtmosphereSettings {
+            // Reduce the default max distance in the aerial view LUT
+            // to 16km to approximately fit the size of the city. This way the aerial perspective
+            // gets more detail and has less banding artifacts compared to the 32km default.
+            aerial_view_lut_max_distance: 1.6e4,
+            ..default()
+        },
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 13.0 },
+        Exposure::OVERCAST,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
@@ -171,6 +182,50 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
                 ),
             ]
         )],
+    ));
+}
+
+/// Spawns the earth atmosphere plus an extra near-ground fog term.
+fn spawn_atmosphere(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
+    let mut earth_medium = ScatteringMedium::default();
+
+    // Same 60 km atmosphere height as `ScatteringMedium::earth`
+    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+
+    // The scale height of haze is set to 100 meters providing a low-lying dense fog layer.
+    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+
+    // Fog has high albedo and very low absorption resulting in a white color.
+    const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
+
+    // Distance at which contrast falls low enough to be indistinguishable from the sky.
+    // known as Meteorological Optical Range
+    const HAZE_VISIBILITY_KM: f32 = 12.0;
+
+    // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
+    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+
+    // Add the fog to the earth medium as an additional scattering term.
+    earth_medium.terms.push(ScatteringTerm {
+        absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
+        scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
+        falloff: Falloff::Exponential {
+            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+        },
+        // Fog is approximated as a mie scatterer with this asymmetry factor
+        phase: PhaseFunction::Mie { asymmetry: 0.76 },
+    });
+    let earth_atmosphere = Atmosphere::earth(scattering_mediums.add(earth_medium));
+
+    // This scale means that 1 city block in this scene will be roughly 100 meters relative to the atmosphere.
+    let scale = 1.0 / 20.0;
+    commands.spawn((
+        earth_atmosphere.clone(),
+        Transform::from_scale(Vec3::splat(scale))
+            .with_translation(-Vec3::Y * earth_atmosphere.inner_radius * scale),
     ));
 }
 

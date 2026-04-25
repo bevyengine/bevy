@@ -28,10 +28,20 @@ pub struct FocusLost {
 ///
 /// This system is part of [`InputFocusPlugin`](super::InputFocusPlugin).
 pub fn process_recorded_focus_changes(mut focus: ResMut<InputFocus>, mut commands: Commands) {
+    // This function does not actually mutate the `focus.current_focus`, which is
+    // what is exposed to the user via `InputFocus::get`. Other fields are not exposed.
+    // So, we `bypass_change_detection` when accessing `focus` to avoid false signaling
+    // that we changed the `current_focus`. That is what users would care about if
+    // they were to be checking `focus.is_changed()`.
+
     // We need to track the previous focus as we go,
     // so we can send the correct FocusLost events when focus changes.
     let mut previous_focus = focus.original_focus;
-    for change in focus.recorded_changes.drain(..) {
+    for change in focus.bypass_change_detection().recorded_changes.drain(..) {
+        // Only send focus change events if the focused entity actually changed.
+        if change == previous_focus {
+            continue;
+        }
         match change {
             Some(new_focus) => {
                 if let Some(old_focus) = previous_focus {
@@ -49,7 +59,7 @@ pub fn process_recorded_focus_changes(mut focus: ResMut<InputFocus>, mut command
         }
     }
 
-    focus.original_focus = focus.current_focus;
+    focus.bypass_change_detection().original_focus = focus.current_focus;
 }
 
 #[cfg(test)]
@@ -174,25 +184,6 @@ mod tests {
                 FocusEvent::Lost(b),
                 FocusEvent::Gained(c),
             ]
-        );
-    }
-
-    #[test]
-    fn set_focus_to_same_entity() {
-        let mut app = setup_app();
-        let entity = app.world_mut().spawn_empty().id();
-
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-        take_log(&mut app);
-
-        // Setting focus to the already-focused entity still records a change.
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-
-        assert_eq!(
-            take_log(&mut app),
-            vec![FocusEvent::Lost(entity), FocusEvent::Gained(entity)]
         );
     }
 
