@@ -3575,19 +3575,13 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
-        /*
         let unsafe_world = self.as_unsafe_world_cell();
-        // SAFETY: exclusive world access to all resources
-        let resource_entities = unsafe { unsafe_world.resource_entities() };
         let components = unsafe_world.components();
 
-        resource_entities
-            .iter()
-            .filter_map(move |(component_id, entity)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info =
-                    unsafe { components.get_info(component_id).debug_checked_unwrap() };
-
+        components
+            .iter_registered_pairs()
+            .filter_map(move |(component_id, component_info)| {
+                let entity = component_id.entity();
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 
                 // SAFETY:
@@ -3596,12 +3590,10 @@ impl World {
                 // or resource_entities mutably
                 // - `resource_entities` doesn't contain duplicate entities, so
                 // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(*component_id).ok()? };
 
                 Some((component_info, mut_untyped))
             })
-        */
-        core::iter::empty() // TODO: Fix iter_resources_mut
     }
 
     /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
@@ -4154,17 +4146,17 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
-        };
-
-        let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
+        };
+
+        let (info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
+        unsafe {
+            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         assert!(iter.next().is_none());

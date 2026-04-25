@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::Tick,
+    component::ComponentId,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Command, Commands, Res, ResMut},
@@ -341,9 +342,7 @@ fn resources_to_toml(
             continue;
         };
 
-        let Some(res_entity) = world.resource_entities().get(component_id) else {
-            continue;
-        };
+        let res_entity = component_id.entity();
         let res_entity_ref = world.entity(res_entity);
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
@@ -470,7 +469,7 @@ fn apply_settings_to_world(
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
         let component_id = world.components().get_id(*tid);
-        let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
+        let res_entity = component_id.map(ComponentId::entity);
 
         if let Some(res_entity) = res_entity {
             // Resource already exists, so apply toml properties to it.

@@ -750,8 +750,14 @@ impl Components {
     }
 
     /// Gets an iterator over all component ids fully registered with this instance.
-    pub(crate) fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components.keys().copied()
+    }
+
+    pub(crate) fn iter_registered_pairs(
+        &self,
+    ) -> impl Iterator<Item = (&ComponentId, &ComponentInfo)> + '_ {
+        self.components.iter()
     }
 
     pub(crate) fn get_relationship_accessor_mut(
