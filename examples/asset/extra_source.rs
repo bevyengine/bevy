@@ -8,7 +8,6 @@ use bevy::{
     },
     prelude::*,
 };
-use std::path::Path;
 
 fn main() {
     App::new()
@@ -34,9 +33,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     //
     // The actual file path relative to workspace root is
     // "examples/asset/files/bevy_pixel_light.png".
-    let path = Path::new("bevy_pixel_light.png");
+    let path = "bevy_pixel_light.png";
     let source = AssetSourceId::from("example_files");
-    let asset_path = AssetPath::from_path(path).with_source(source);
+    let asset_path = AssetPath::from_str_path(path).with_source(source);
 
     // You could also parse this URL-like string representation for the asset
     // path.

@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        path_basename, AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -47,11 +47,8 @@ impl AssetLoader for GzAssetLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let compressed_path = load_context.path();
-        let file_name = compressed_path
-            .path()
-            .file_name()
-            .ok_or(GzAssetLoaderError::IndeterminateFilePath)?
-            .to_string_lossy();
+        let file_name = path_basename(compressed_path.path())
+            .ok_or(GzAssetLoaderError::IndeterminateFilePath)?;
         let uncompressed_file_name = file_name
             .strip_suffix(".gz")
             .ok_or(GzAssetLoaderError::IndeterminateFilePath)?;

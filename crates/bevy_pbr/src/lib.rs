@@ -118,10 +118,8 @@ use bevy_render::{
     RenderSystems,
 };
 
-use std::path::PathBuf;
-
-fn shader_ref(path: PathBuf) -> ShaderRef {
-    ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
+fn shader_ref(path: String) -> ShaderRef {
+    ShaderRef::Path(AssetPath::from_string_path(path).with_source("embedded"))
 }
 
 pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 19;

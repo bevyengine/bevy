@@ -39,7 +39,7 @@ pub struct TilemapChunkMaterial {
 impl Material2d for TilemapChunkMaterial {
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("tilemap_chunk_material.wgsl"))
+            AssetPath::from_string_path(embedded_path!("tilemap_chunk_material.wgsl"))
                 .with_source("embedded"),
         )
     }

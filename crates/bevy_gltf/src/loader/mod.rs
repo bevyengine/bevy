@@ -259,15 +259,6 @@ impl GltfLoader {
             extension.on_root(load_context, &gltf, settings);
         }
 
-        let file_name = load_context
-            .path()
-            .path()
-            .to_str()
-            .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Gltf file name invalid",
-            ))))?
-            .to_string();
         let buffer_data = load_buffers(&gltf, load_context).await?;
 
         let linear_textures = get_linear_textures(&gltf.document);
@@ -840,10 +831,11 @@ impl GltfLoader {
                     && needs_tangents(&primitive.material())
                 {
                     tracing::debug!(
-                        "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
+                        "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", load_context.path()
                     );
 
-                    let generate_tangents_span = info_span!("generate_tangents", name = file_name);
+                    let generate_tangents_span =
+                        info_span!("generate_tangents", name = %load_context.path());
 
                     generate_tangents_span.in_scope(|| {
                         if let Err(err) = mesh.generate_tangents() {
@@ -2102,8 +2094,6 @@ pub struct MorphTargetNames {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
     use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
@@ -2165,7 +2155,7 @@ mod test {
         struct GltfHandle(Handle<Gltf>);
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(gltf_path), gltf);
+        dir.insert_asset_text(gltf_path, gltf);
         let mut app = test_app(dir);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2397,7 +2387,7 @@ mod test {
 "#;
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(gltf_path), gltf_str);
+        dir.insert_asset_text(gltf_path, gltf_str);
         let mut app = test_app(dir);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2439,7 +2429,7 @@ mod test {
 "#;
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(gltf_path), gltf_str);
+        dir.insert_asset_text(gltf_path, gltf_str);
         let mut app = test_app(dir);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2575,7 +2565,7 @@ mod test {
         let (mut app, dir) = test_app_custom_asset_source();
 
         dir.insert_asset_text(
-            Path::new("abc.gltf"),
+            "abc.gltf",
             r#"
 {
     "asset": {
@@ -2591,7 +2581,7 @@ mod test {
 "#,
         );
         // We don't care that the buffer contains reasonable info since we won't actually use it.
-        dir.insert_asset_text(Path::new("abc.bin"), "Sup");
+        dir.insert_asset_text("abc.bin", "Sup");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
@@ -2615,7 +2605,7 @@ mod test {
         // can result in the image getting dropped leading to the gltf never being loaded with
         // dependencies.
         dir.insert_asset_text(
-            Path::new("abc.gltf"),
+            "abc.gltf",
             r#"
 {
     "asset": {
@@ -2652,7 +2642,7 @@ mod test {
 "#,
         );
         // We don't care that the image contains reasonable info since we won't actually use it.
-        dir.insert_asset_text(Path::new("abc.png"), "Sup");
+        dir.insert_asset_text("abc.png", "Sup");
 
         /// A fake loader to avoid actually loading any image data and just return an image.
         #[derive(TypePath)]
@@ -2696,7 +2686,7 @@ mod test {
         let (mut app, dir) = test_app_custom_asset_source();
 
         dir.insert_asset_text(
-            Path::new("abc.gltf"),
+            "abc.gltf",
             r#"
 {
     "asset": {

@@ -9,28 +9,27 @@ use bevy::{
     },
     prelude::*,
 };
-use std::path::Path;
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
 impl AssetReader for CustomAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        info!("Reading {}", path.display());
+    async fn read<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
+        info!("Reading {path}");
         self.0.read(path).await
     }
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
         self.0.read_meta(path).await
     }
 
     async fn read_directory<'a>(
         &'a self,
-        path: &'a Path,
+        path: &'a str,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         self.0.read_directory(path).await
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, path: &'a str) -> Result<bool, AssetReaderError> {
         self.0.is_directory(path).await
     }
 }

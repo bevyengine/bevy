@@ -767,7 +767,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
         shader_defs: &[ShaderDefVal],
     ) -> String {
         let source = match shader.path() {
-            Some(path) => path.path().to_string_lossy().to_string(),
+            Some(path) => path.path().to_string(),
             None => String::new(),
         };
         let entry = match entry {

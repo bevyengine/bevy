@@ -1,6 +1,8 @@
 use super::ShaderDefVal;
 use alloc::borrow::Cow;
-use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{
+    io::Reader, path_file_extension, Asset, AssetLoader, AssetPath, Handle, LoadContext,
+};
 use bevy_reflect::TypePath;
 use bevy_utils::define_atomic_id;
 use thiserror::Error;
@@ -330,17 +332,8 @@ impl AssetLoader for ShaderLoader {
         settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
-        let ext = load_context
-            .path()
-            .path()
-            .extension()
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let ext = path_file_extension(load_context.path().path()).unwrap();
         let path = load_context.path().to_string();
-        // On windows, the path will inconsistently use \ or /.
-        // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
-        let path = path.replace(std::path::MAIN_SEPARATOR, "/");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         if ext != "wgsl" && !settings.shader_defs.is_empty() {
@@ -350,7 +343,8 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
-            "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
+            // TODO: Should this just pass `load_context.path()` instead?
+            "spv" => Shader::from_spirv(bytes, load_context.path().path()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
                 path,

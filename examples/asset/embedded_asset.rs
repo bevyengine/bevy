@@ -7,10 +7,9 @@
 //! One common use case for embedded assets is including them directly within the executable during its creation. By embedding an asset at build time rather than runtime
 //! the program never needs to go to disk for the asset at all, since it is already located in the program's binary executable.
 use bevy::{
-    asset::{embedded_asset, io::AssetSourceId, AssetPath},
+    asset::{embedded_asset, io::AssetSourceId, join_paths, AssetPath},
     prelude::*,
 };
-use std::path::Path;
 
 fn main() {
     App::new()
@@ -43,9 +42,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     //
     // We omit the "examples/asset" from the embedded_asset! call and replace it
     // with the crate name.
-    let path = Path::new(crate_name).join("files/bevy_pixel_light.png");
+    let path = join_paths(crate_name, "files/bevy_pixel_light.png");
     let source = AssetSourceId::from("embedded");
-    let asset_path = AssetPath::from_path(&path).with_source(source);
+    let asset_path = AssetPath::from_string_path(path).with_source(source);
 
     // You could also parse this URL-like string representation for the asset
     // path.

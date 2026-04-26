@@ -153,8 +153,6 @@ pub enum SaveImageError {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -225,7 +223,7 @@ mod tests {
         let (mut app, dir) = create_app();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        let asset_path = AssetPath::from_path(Path::new(file_name));
+        let asset_path = AssetPath::from_str_path(file_name);
 
         const WIDTH: u32 = 5;
         let mut image = Image::new(

@@ -572,7 +572,6 @@ mod tests {
     use bevy_ecs::relationship::Relationship;
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
-    use std::path::Path;
     use std::sync::Mutex;
 
     fn test_app() -> App {
@@ -697,7 +696,7 @@ mod tests {
         }
 
         // Insert an asset that the fake loader can fake read.
-        dir.insert_asset_text(Path::new("a.bsn"), "");
+        dir.insert_asset_text("a.bsn", "");
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load("a.bsn");
         assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());

@@ -147,7 +147,8 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("color_material.wgsl")).with_source("embedded"),
+            AssetPath::from_string_path(embedded_path!("color_material.wgsl"))
+                .with_source("embedded"),
         )
     }
 

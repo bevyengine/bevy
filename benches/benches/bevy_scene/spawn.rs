@@ -1,7 +1,7 @@
 use bevy_reflect::TypePath;
 use criterion::{criterion_group, Criterion};
 use glam::Mat4;
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use bevy_app::App;
 use bevy_asset::{
@@ -40,7 +40,7 @@ fn spawn(c: &mut Criterion) {
         );
 
         // Insert an asset that the fake loader can fake read.
-        dir.insert_asset_text(Path::new("button.bsn"), "");
+        dir.insert_asset_text("button.bsn", "");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load("button.bsn");
@@ -84,7 +84,7 @@ fn spawn(c: &mut Criterion) {
             },
         );
 
-        dir.insert_asset_text(Path::new("a.bsn"), "");
+        dir.insert_asset_text("a.bsn", "");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load::<ScenePatch>("a.bsn");
@@ -111,7 +111,7 @@ fn spawn(c: &mut Criterion) {
             },
         );
 
-        dir.insert_asset_text(Path::new("a.bsn"), "");
+        dir.insert_asset_text("a.bsn", "");
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle = asset_server.load::<ScenePatch>("a.bsn");

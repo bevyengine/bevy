@@ -313,14 +313,14 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 impl Material2d for SpriteMaterial {
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("sprite_material.wgsl"))
+            AssetPath::from_string_path(embedded_path!("sprite_material.wgsl"))
                 .with_source("embedded"),
         )
     }
 
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("sprite_material.wgsl"))
+            AssetPath::from_string_path(embedded_path!("sprite_material.wgsl"))
                 .with_source("embedded"),
         )
     }
