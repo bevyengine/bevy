@@ -235,12 +235,14 @@ pub(crate) fn buffer_layout(
 /// Returns the appropriate bind group layout vec based on the parameters
 fn layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
-    clustered_forward_buffer_binding_type: BufferBindingType,
-    visibility_ranges_buffer_binding_type: BufferBindingType,
-    environment_map_entries: [BindGroupLayoutEntryBuilder; 4],
-    irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
-    clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
-    is_oit_supported: bool,
+    &MeshPipelineViewLayoutParams {
+        clustered_forward_buffer_binding_type,
+        visibility_ranges_buffer_binding_type,
+        environment_map_entries,
+        irradiance_volume_entries,
+        clustered_decal_entries,
+        is_oit_supported,
+    }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
@@ -514,7 +516,9 @@ fn layout_entries(
     [entries.to_vec(), binding_array_entries.to_vec()]
 }
 
-struct MeshPipelineViewLayoutEntries {
+/// Parameters needed by [`layout_entries`].
+#[derive(Clone, Copy)]
+struct MeshPipelineViewLayoutParams {
     clustered_forward_buffer_binding_type: BufferBindingType,
     visibility_ranges_buffer_binding_type: BufferBindingType,
     environment_map_entries: [BindGroupLayoutEntryBuilder; 4],
@@ -526,7 +530,7 @@ struct MeshPipelineViewLayoutEntries {
 /// Stores the view layouts entries for creating bind group layouts of pipeline keys.
 #[derive(Resource, Clone)]
 pub struct MeshPipelineViewLayouts {
-    entries: Arc<MeshPipelineViewLayoutEntries>,
+    params: Arc<MeshPipelineViewLayoutParams>,
 }
 
 pub fn init_mesh_pipeline_view_layouts(
@@ -540,7 +544,7 @@ pub fn init_mesh_pipeline_view_layouts(
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
     let res = MeshPipelineViewLayouts {
-        entries: Arc::new(MeshPipelineViewLayoutEntries {
+        params: Arc::new(MeshPipelineViewLayoutParams {
             clustered_forward_buffer_binding_type,
             visibility_ranges_buffer_binding_type,
             environment_map_entries: environment_map::get_bind_group_layout_entries(
@@ -569,15 +573,7 @@ pub fn init_mesh_pipeline_view_layouts(
 impl MeshPipelineViewLayouts {
     /// Get view bind group layout for the given key.
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
-        let mut entries = layout_entries(
-            layout_key,
-            self.entries.clustered_forward_buffer_binding_type,
-            self.entries.visibility_ranges_buffer_binding_type,
-            self.entries.environment_map_entries,
-            self.entries.irradiance_volume_entries,
-            self.entries.clustered_decal_entries,
-            self.entries.is_oit_supported,
-        );
+        let mut entries = layout_entries(layout_key, &*self.params);
 
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
@@ -808,7 +804,9 @@ pub fn prepare_mesh_view_bind_groups(
                     .extend_with_indices(((16, contact_shadows_buffer.0.binding().unwrap()),));
             }
 
-            if let Some(view_environment_map_offset) = view_environment_map_offset {
+            if let Some(view_environment_map_offset) = view_environment_map_offset
+                && render_view_environment_maps.is_some()
+            {
                 layout_key |= MeshPipelineViewLayoutKey::ENVIRONMENT_MAP;
                 offsets.push(**view_environment_map_offset);
                 entries = entries

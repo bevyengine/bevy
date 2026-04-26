@@ -41,8 +41,8 @@ use bevy_shader::Shader;
 use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    MeshViewLayoutKey,
+    prepare_mesh_view_bind_groups, MeshPipelineSystems, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, MeshViewLayoutKey,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -84,7 +84,9 @@ impl Plugin for RenderDebugOverlayPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_debug_overlay_pipelines
+                        .in_set(RenderSystems::Prepare)
+                        .after(prepare_mesh_view_bind_groups),
                     prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
             )

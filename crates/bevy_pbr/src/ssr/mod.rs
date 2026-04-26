@@ -45,8 +45,9 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, deferred::deferred_lighting, Bluenoise, MeshPipelineSystems,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, MeshViewLayoutKey,
+    binding_arrays_are_usable, deferred::deferred_lighting, prepare_mesh_view_bind_groups,
+    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, MeshViewLayoutKey,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -208,7 +209,12 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 RenderStartup,
                 init_screen_space_reflections_pipeline.after(MeshPipelineSystems),
             )
-            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
+            .add_systems(
+                Render,
+                prepare_ssr_pipelines
+                    .in_set(RenderSystems::Prepare)
+                    .after(prepare_mesh_view_bind_groups),
+            )
             .add_systems(
                 Render,
                 prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
