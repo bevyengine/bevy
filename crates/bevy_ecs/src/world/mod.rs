@@ -3499,10 +3499,10 @@ impl World {
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
         self.components
-            .iter_registered_ids()
-            .filter_map(|component_id| {
+            .iter_registered()
+            .filter_map(|component_info| {
+                let component_id = component_info.id();
                 let entity = component_id.entity();
-                let component_info = self.components().get_info(component_id)?;
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(component_id).ok()?;
                 Some((component_info, resource))
@@ -3579,8 +3579,9 @@ impl World {
         let components = unsafe_world.components();
 
         components
-            .iter_registered_pairs()
-            .filter_map(move |(component_id, component_info)| {
+            .iter_registered()
+            .filter_map(move |component_info| {
+                let component_id = component_info.id();
                 let entity = component_id.entity();
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 
@@ -3590,7 +3591,7 @@ impl World {
                 // or resource_entities mutably
                 // - `resource_entities` doesn't contain duplicate entities, so
                 // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(*component_id).ok()? };
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
                 Some((component_info, mut_untyped))
             })

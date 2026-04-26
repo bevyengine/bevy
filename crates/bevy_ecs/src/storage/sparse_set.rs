@@ -136,12 +136,12 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         }
     }
 
-    /* TODO: Maybe change the data structure in Components
     /// Returns an iterator over the non-empty values in the array.
     ///
     /// This must scan the entire array to find non-empty values,
     /// which may be slow even if the array is sparsely populated.
     #[inline]
+    #[expect(dead_code)]
     pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
         self.values.iter().enumerate().filter_map(|(index, value)| {
             value
@@ -149,7 +149,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
                 .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
         })
     }
-    */
 }
 
 /// A sparse data structure of [`Component`](crate::component::Component)s.

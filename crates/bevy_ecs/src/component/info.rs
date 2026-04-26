@@ -19,7 +19,7 @@ use crate::{
         Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
     },
-    entity::Entity,
+    entity::{Entity, EntityHash},
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     relationship::{
@@ -218,7 +218,7 @@ impl ComponentId {
 impl SparseSetIndex for ComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.0.index().sparse_set_index()
+        self.0.sparse_set_index()
     }
 
     #[inline]
@@ -373,7 +373,7 @@ impl ComponentDescriptor {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
-    pub(super) components: HashMap<ComponentId, ComponentInfo>,
+    pub(super) components: HashMap<ComponentId, ComponentInfo, EntityHash>,
     pub(super) indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
@@ -393,6 +393,7 @@ impl Components {
     ) {
         descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
+        debug_assert!(!self.components.contains_key(&id));
         // SAFETY: The id has never been registered before.
         unsafe {
             self.components.insert_unique_unchecked(id, info);
@@ -458,7 +459,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(&id).and_then(|info| Some(info))
+        self.components.get(&id)
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
@@ -747,17 +748,6 @@ impl Components {
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.values()
-    }
-
-    /// Gets an iterator over all component ids fully registered with this instance.
-    pub fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components.keys().copied()
-    }
-
-    pub(crate) fn iter_registered_pairs(
-        &self,
-    ) -> impl Iterator<Item = (&ComponentId, &ComponentInfo)> + '_ {
-        self.components.iter()
     }
 
     pub(crate) fn get_relationship_accessor_mut(
