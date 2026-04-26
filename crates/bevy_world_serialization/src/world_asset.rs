@@ -5,7 +5,7 @@ use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
-    component::ComponentCloneBehavior,
+    component::{ComponentCloneBehavior, ComponentInfo},
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -75,7 +75,12 @@ impl WorldAsset {
             .get_id(TypeId::of::<DefaultQueryFilters>());
 
         // Resources archetype
-        for component_id in self.world.components().iter_registered_ids() {
+        for component_id in self
+            .world
+            .components()
+            .iter_registered()
+            .map(ComponentInfo::id)
+        {
             let source_entity = component_id.entity();
             if Some(component_id) == self_dqf_id
                 || !self.world.entities().contains_spawned(source_entity)

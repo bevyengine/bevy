@@ -496,7 +496,8 @@ fn apply_settings_to_world(
             // The resource does not exist, so create a default.
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();
-            let mut res_entity = world.spawn_empty();
+            let new_component_id = reflect_component.register_component(world);
+            let mut res_entity = world.spawn_empty_at(new_component_id.entity()).unwrap();
 
             if let Some(toml) = toml
                 && let Some(value) = toml.get(settings_group)
