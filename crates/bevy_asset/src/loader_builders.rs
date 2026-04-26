@@ -192,7 +192,6 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
     /// This load is async and therefore needs to be awaited before returning the loaded data. The
     /// provided path determines the path used for handles of subassets, as well as any relative
     /// paths of assets used by the nested loader.
-    /// that path as a dependency of this asset.
     pub async fn load_erased_async_from_reader<'a>(
         self,
         type_id: TypeId,
