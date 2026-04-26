@@ -151,7 +151,7 @@ impl AssetLoader for CoolTextLoader {
         for embedded in ron.embedded_dependencies {
             let loaded = load_context
                 .load_builder()
-                .load_async::<Text>(&embedded)
+                .load_value::<Text>(&embedded)
                 .await?;
             base_text.push_str(&loaded.get().0);
         }
@@ -161,7 +161,7 @@ impl AssetLoader for CoolTextLoader {
                 .with_settings(move |settings| {
                     *settings = settings_override.clone();
                 })
-                .load_async::<Text>(&path)
+                .load_value::<Text>(&path)
                 .await?;
             base_text.push_str(&loaded.get().0);
         }

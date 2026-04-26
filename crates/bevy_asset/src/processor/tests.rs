@@ -758,7 +758,7 @@ impl AssetLoader for FakeBsnLoader {
         let parent_bsn = bsn.parent_bsn.unwrap();
         let parent_bsn = load_context
             .load_builder()
-            .load_async(parent_bsn)
+            .load_value(parent_bsn)
             .await
             .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
         let mut new_bsn: FakeBsn = parent_bsn.take();
@@ -950,7 +950,7 @@ fn asset_processor_loading_can_read_source_assets() {
                 // Bevy, so it needs to load the source assets to make sense.
                 let gltf = load_context
                     .load_builder()
-                    .load_async(gltf)
+                    .load_value(gltf)
                     .await
                     .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
                 gltfs.push(gltf.take());
@@ -1259,7 +1259,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
             Ok(match serialized {
                 NesterSerialized::Leaf(value) => Nester { value },
                 NesterSerialized::Path(path) => {
-                    let loaded_asset = load_context.load_builder().load_async(path).await.unwrap();
+                    let loaded_asset = load_context.load_builder().load_value(path).await.unwrap();
                     loaded_asset.take()
                 }
             })

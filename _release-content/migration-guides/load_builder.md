@@ -38,9 +38,9 @@ To match this change, `NestedLoader` has been replaced with
 - `context.loader().load(path)` -> `context.load_builder().load(path)`
 - `context.loader().with_dynamic_type(type_id).load(path)` -> `context.load_builder().load_erased(type_id, path)`
 - `context.loader().with_unknown_type().load(path)` -> `context.load_builder().load_untyped(path)`
-- `context.loader().immediate().load(path)` -> `context.load_builder().load_async(path)`
-- `context.loader().immediate().with_dynamic_type(type_id).load(path)` -> `context.load_builder().load_erased_async(type_id, path)`
-- `context.loader().immediate().with_unknown_type().load(path)` -> `context.load_builder().load_untyped_async(path)`
-- `context.loader().immediate().with_reader(reader).load(path)` -> `context.load_builder().load_async_from_reader(path, reader)`
-- `context.loader().immediate().with_reader(reader).with_dynamic_type(type_id).load(path)` -> `context.load_builder().load_erased_async_from_reader(type_id, path, reader)`
-- `context.loader().immediate().with_reader(reader).with_unknown_type().load(path)` -> `context.load_builder().load_untyped_async_from_reader(path, reader)`
+- `context.loader().immediate().load(path)` -> `context.load_builder().load_value(path)`
+- `context.loader().immediate().with_dynamic_type(type_id).load(path)` -> `context.load_builder().load_erased_value(type_id, path)`
+- `context.loader().immediate().with_unknown_type().load(path)` -> `context.load_builder().load_untyped_value(path)`
+- `context.loader().immediate().with_reader(reader).load(path)` -> `context.load_builder().load_value_from_reader(path, reader)`
+- `context.loader().immediate().with_reader(reader).with_dynamic_type(type_id).load(path)` -> `context.load_builder().load_erased_value_from_reader(type_id, path, reader)`
+- `context.loader().immediate().with_reader(reader).with_unknown_type().load(path)` -> `context.load_builder().load_untyped_value_from_reader(path, reader)`
