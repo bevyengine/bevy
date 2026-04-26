@@ -6,7 +6,7 @@ pull_requests: [23629]
 `MeshPipelineViewLayouts` no longer stores all possible view layouts. Now it only stores necessary parameters for creating bind group layouts on demand. And `MeshPipelineViewLayouts::get_view_layout` returns `MeshPipelineViewLayout`
 by value instead of by reference.
 
-`generate_view_layouts` function is removed in favor of `MeshPipelineViewLayouts::get_view_layout`.
+`generate_view_layouts` is removed and `layout_entries` is private now. Please use `MeshPipelineViewLayouts::get_view_layout`.
 
 Mesh view bind group layout has more variants now and some dynamic uniforms such as distance fog, ssr, contact shadows,
 environment map are no longer necessarily exist. Please use `MeshViewBindGroup::main_offsets` to get the dynamic offsets.
