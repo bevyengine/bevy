@@ -920,12 +920,6 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((39, dfg_view), (40, dfg_sampler)));
             }
 
-            let mut entries_binding_array = DynamicBindGroupEntries::new();
-            entries_binding_array.entries = core::mem::take(&mut *entries_binding_array_cache)
-                .into_iter()
-                .map(|_| -> BindGroupEntry { unreachable!() })
-                .collect();
-
             let environment_map_bind_group_entries =
                 render_view_environment_maps.map(|render_view_environment_maps| {
                     RenderViewEnvironmentMapBindGroupEntries::get(
