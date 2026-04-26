@@ -15,7 +15,7 @@ use bevy_camera::{
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -64,9 +64,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -108,7 +106,6 @@ use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -4185,58 +4182,22 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<MeshViewBindGroup>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Option<Read<ViewFogUniformOffset>>,
-        Option<Read<ViewScreenSpaceReflectionsUniformOffset>>,
-        Option<Read<ViewContactShadowsUniformOffset>>,
-        Option<Read<ViewEnvironmentMapUniformOffset>>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            mesh_view_bind_group,
-            view_uniform_offset,
-            view_lights_offset,
-            view_light_probes_offset,
-            view_fog_offset,
-            view_ssr_offset,
-            view_contact_shadows_offset,
-            view_environment_map_offset,
-            view_oit_settings_offset,
-        ): ROQueryItem<'w, '_, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            **view_light_probes_offset
-        ];
-        if let Some(view_fog_offset) = view_fog_offset {
-            offsets.push(view_fog_offset.offset);
-        }
-        if let Some(view_ssr_offset) = view_ssr_offset {
-            offsets.push(**view_ssr_offset);
-        }
-        if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
-            offsets.push(**view_contact_shadows_offset);
-        }
-        if let Some(view_environment_map_offset) = view_environment_map_offset {
-            offsets.push(**view_environment_map_offset);
-        }
-        if let Some(view_oit_settings_offset) = view_oit_settings_offset {
-            offsets.push(view_oit_settings_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.main,
+            &mesh_view_bind_group.main_offsets,
+        );
 
         RenderCommandResult::Success
     }

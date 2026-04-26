@@ -58,7 +58,7 @@ impl Default for ContactShadows {
 }
 
 /// A version of [`ContactShadows`] for upload to the GPU.
-#[derive(Clone, Copy, Component, ShaderType, Default)]
+#[derive(Clone, Copy, ShaderType, Default)]
 pub struct ContactShadowsUniform {
     pub linear_steps: u32,
     pub thickness: f32,
@@ -80,7 +80,7 @@ impl From<ContactShadows> for ContactShadowsUniform {
 }
 
 impl SyncComponent for ContactShadows {
-    type Target = Self;
+    type Target = (Self, ViewContactShadowsUniformOffset);
 }
 
 impl ExtractComponent for ContactShadows {

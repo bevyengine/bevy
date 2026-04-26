@@ -1,10 +1,8 @@
 use crate::{
     DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, ViewContactShadowsUniformOffset,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -27,13 +25,12 @@ use bevy_render::{
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
-use smallvec::{smallvec, SmallVec};
 
 pub struct DeferredPbrLightingPlugin;
 
@@ -127,14 +124,6 @@ impl Plugin for DeferredPbrLightingPlugin {
 
 pub fn deferred_lighting(
     view: ViewQuery<(
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewLightProbesUniformOffset,
-        Option<&ViewFogUniformOffset>,
-        Option<&ViewScreenSpaceReflectionsUniformOffset>,
-        Option<&ViewContactShadowsUniformOffset>,
-        Option<&ViewEnvironmentMapUniformOffset>,
-        Option<&OrderIndependentTransparencySettingsOffset>,
         &MeshViewBindGroup,
         &ViewTarget,
         &DeferredLightingIdDepthTexture,
@@ -146,14 +135,6 @@ pub fn deferred_lighting(
     mut ctx: RenderContext,
 ) {
     let (
-        view_uniform_offset,
-        view_lights_offset,
-        view_light_probes_offset,
-        view_fog_offset,
-        view_ssr_offset,
-        view_contact_shadows_offset,
-        view_environment_map_offset,
-        view_oit_settings_offset,
         mesh_view_bind_group,
         target,
         deferred_lighting_id_depth_texture,
@@ -193,28 +174,12 @@ pub fn deferred_lighting(
     });
 
     render_pass.set_render_pipeline(pipeline);
-    let mut offsets: SmallVec<[u32; 8]> = smallvec![
-        view_uniform_offset.offset,
-        view_lights_offset.offset,
-        **view_light_probes_offset
-    ];
-    if let Some(view_fog_offset) = view_fog_offset {
-        offsets.push(view_fog_offset.offset);
-    }
-    if let Some(view_ssr_offset) = view_ssr_offset {
-        offsets.push(**view_ssr_offset);
-    }
-    if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
-        offsets.push(**view_contact_shadows_offset);
-    }
-    if let Some(view_environment_map_offset) = view_environment_map_offset {
-        offsets.push(**view_environment_map_offset);
-    }
-    if let Some(view_oit_settings_offset) = view_oit_settings_offset {
-        offsets.push(view_oit_settings_offset.offset);
-    }
 
-    render_pass.set_bind_group(0, &mesh_view_bind_group.main, &offsets);
+    render_pass.set_bind_group(
+        0,
+        &mesh_view_bind_group.main,
+        &mesh_view_bind_group.main_offsets,
+    );
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
     render_pass.draw(0..3, 0..1);

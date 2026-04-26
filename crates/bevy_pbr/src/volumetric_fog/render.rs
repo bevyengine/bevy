@@ -38,19 +38,16 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
     Extract,
 };
 use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
-use smallvec::{smallvec, SmallVec};
 
 use crate::{
     ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -292,16 +289,9 @@ pub fn volumetric_fog(
         &ViewTarget,
         &ViewDepthTexture,
         &ViewVolumetricFogPipelines,
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
-        &ViewLightProbesUniformOffset,
         &ViewVolumetricFog,
         &MeshViewBindGroup,
-        Option<&ViewScreenSpaceReflectionsUniformOffset>,
-        Option<&ViewContactShadowsUniformOffset>,
         &Msaa,
-        Option<&ViewEnvironmentMapUniformOffset>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
@@ -316,16 +306,9 @@ pub fn volumetric_fog(
         view_target,
         view_depth_texture,
         view_volumetric_lighting_pipelines,
-        view_uniform_offset,
-        view_lights_offset,
-        view_fog_offset,
-        view_light_probes_offset,
         view_fog_volumes,
         view_bind_group,
-        view_ssr_offset,
-        view_contact_shadows_offset,
         msaa,
-        view_environment_map_offset,
     ) = view.into_inner();
 
     // Fetch the uniform buffer and binding.
@@ -432,22 +415,8 @@ pub fn volumetric_fog(
 
         render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
         render_pass.set_pipeline(pipeline);
-        let mut offsets: SmallVec<[u32; 7]> = smallvec![
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-        ];
-        if let Some(view_ssr_offset) = view_ssr_offset {
-            offsets.push(**view_ssr_offset);
-        }
-        if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
-            offsets.push(**view_contact_shadows_offset);
-        }
-        if let Some(view_environment_map_offset) = view_environment_map_offset {
-            offsets.push(**view_environment_map_offset);
-        }
-        render_pass.set_bind_group(0, &view_bind_group.main, &offsets);
+
+        render_pass.set_bind_group(0, &view_bind_group.main, &view_bind_group.main_offsets);
         render_pass.set_bind_group(
             1,
             &volumetric_view_bind_group,
