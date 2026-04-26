@@ -573,7 +573,7 @@ pub fn init_mesh_pipeline_view_layouts(
 impl MeshPipelineViewLayouts {
     /// Get view bind group layout for the given key.
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
-        let mut entries = layout_entries(layout_key, &*self.params);
+        let mut entries = layout_entries(layout_key, &self.params);
 
         #[cfg(debug_assertions)]
         let texture_count: usize = entries

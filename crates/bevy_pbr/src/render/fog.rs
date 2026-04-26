@@ -33,7 +33,8 @@ pub struct GpuFog {
 }
 
 // Important: These must be kept in sync with `mesh_view_types.wgsl`
-// const GPU_FOG_MODE_OFF: u32 = 0;
+#[expect(unused, reason = "Kept in sync with `mesh_view_types.wgsl`")]
+const GPU_FOG_MODE_OFF: u32 = 0;
 const GPU_FOG_MODE_LINEAR: u32 = 1;
 const GPU_FOG_MODE_EXPONENTIAL: u32 = 2;
 const GPU_FOG_MODE_EXPONENTIAL_SQUARED: u32 = 3;
