@@ -1020,10 +1020,9 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
-            commands
-                .entity(entity)
-                .insert(MeshViewLayoutKey(layout_key))
-                .insert(MeshViewBindGroup {
+            commands.entity(entity).insert((
+                MeshViewLayoutKey(layout_key),
+                MeshViewBindGroup {
                     main_offsets: offsets,
                     main: render_device.create_bind_group(
                         "mesh_view_bind_group",
@@ -1040,7 +1039,8 @@ pub fn prepare_mesh_view_bind_groups(
                         &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
                         &[],
                     ),
-                });
+                },
+            ));
 
             entries.entries.clear();
             entries_binding_array.entries.clear();

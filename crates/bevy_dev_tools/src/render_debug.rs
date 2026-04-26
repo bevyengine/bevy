@@ -34,7 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::FallbackImage,
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -85,7 +85,7 @@ impl Plugin for RenderDebugOverlayPlugin {
                 Render,
                 (
                     prepare_debug_overlay_pipelines
-                        .in_set(RenderSystems::Prepare)
+                        .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_mesh_view_bind_groups),
                     prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
@@ -534,9 +534,14 @@ fn prepare_debug_overlay_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
     pipeline: Res<RenderDebugOverlayPipeline>,
-    views: Query<(Entity, &ViewTarget, &RenderDebugOverlay, &MeshViewLayoutKey)>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        &RenderDebugOverlay,
+        &MeshViewLayoutKey,
+    )>,
 ) {
-    for (entity, target, config, view_layout_key) in &views {
+    for (entity, view, config, view_layout_key) in &views {
         if !config.enabled {
             continue;
         }
@@ -547,7 +552,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key: **view_layout_key,
-                target_format: target.main_texture_format(),
+                target_format: view.target_format,
             },
         );
 

@@ -212,7 +212,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
             .add_systems(
                 Render,
                 prepare_ssr_pipelines
-                    .in_set(RenderSystems::Prepare)
+                    .in_set(RenderSystems::PrepareBindGroups)
                     .after(prepare_mesh_view_bind_groups),
             )
             .add_systems(
