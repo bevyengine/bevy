@@ -1,6 +1,6 @@
 ---
 title: Mesh view bind group layout is changed
-pull_requests: [23629]
+pull_requests: [23982]
 ---
 
 `MeshPipelineViewLayouts` no longer stores all possible view layouts. Now it only stores necessary parameters for creating bind group layouts on demand. And `MeshPipelineViewLayouts::get_view_layout` returns `MeshPipelineViewLayout`

@@ -67,8 +67,8 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
 /// An alternative that doesn't suffer from this problem is the combination of
-/// a [`LightProbe`](bevy_light::LightProbe) and [`EnvironmentMapLight`]. The advantage of SSR is
-/// that it can reflect all objects, not just static ones.
+/// a [`LightProbe`](bevy_light::LightProbe) and [`EnvironmentMapLight`](bevy_light::EnvironmentMapLight).
+/// The advantage of SSR is that it can reflect all objects, not just static ones.
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
