@@ -15,8 +15,8 @@ mod enum_variant_meta;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
-use quote::format_ident;
-
+use quote::{format_ident, quote, quote_spanned};
+use syn::spanned::Spanned;
 /// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
 ///
 /// For single-field structs, the implementation automatically uses that field.
@@ -222,16 +222,52 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     enum_variant_meta::derive_enum_variant_meta(input)
 }
 
-/// Generates an impl of the `AppLabelInterior` trait.
+/// Generates an impl of the `AppLabel` trait.
 ///
 /// This does not work for unions.
-#[proc_macro_derive(AppLabelInterior)]
-pub fn derive_app_label_label(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(AppLabel)]
+pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    if let syn::Data::Union(_) = &input.data {
+        let message = "Cannot derive AppLabel for unions.";
+        return quote_spanned! {
+            input.span() => compile_error!(#message);
+        }
+        .into();
+    }
 
-    let mut trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
-    trait_path
+    // First, implement the AppLabelInterior trait.
+    let mut interior_trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
+    interior_trait_path
         .segments
         .push(format_ident!("AppLabelInterior").into());
-    derive_label(input, "AppLabelInterior", &trait_path)
+    let interior_derive_label =
+        derive_label(input.clone(), "AppLabelInterior", &interior_trait_path);
+
+    // Then, implement the AppLabel trait.
+    let mut app_label_trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
+    app_label_trait_path
+        .segments
+        .push(format_ident!("AppLabel").into());
+    let ident = input.ident.clone();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut app_label_where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+    app_label_where_clause.predicates.push(
+        syn::parse2(quote! {
+            // AppLabel has additional constraints of Default + Copy
+            Self: #interior_trait_path + Copy + Default
+        })
+        .unwrap(),
+    );
+    let app_label_impl = TokenStream::from(quote! {
+        impl #impl_generics #app_label_trait_path for #ident #ty_generics #app_label_where_clause {}
+    });
+
+    interior_derive_label
+        .into_iter()
+        .chain(app_label_impl)
+        .collect()
 }

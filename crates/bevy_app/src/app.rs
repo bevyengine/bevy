@@ -7,7 +7,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-pub use bevy_derive::AppLabelInterior;
+pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{ErrorHandler, FallbackErrorHandler},
@@ -38,8 +38,9 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    /// Use this type to access `intern()` on an [`AppLabel`].
     #[diagnostic::on_unimplemented(
-        note = "consider annotating `{Self}` with `#[derive(AppLabelInterior)]`"
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabelInterior,
     APP_LABEL_INTERIOR_INTERNER
@@ -1739,13 +1740,13 @@ mod tests {
 
     #[test]
     fn test_derive_app_label() {
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct TupleLabel(u32, u32);
 
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct StructLabel {
             a: u32,
             b: u32,
@@ -1755,17 +1756,17 @@ mod tests {
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
         #[expect(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         enum EnumLabel {
             #[default]
             Unit,
@@ -1776,8 +1777,8 @@ mod tests {
             },
         }
 
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-        struct GenericLabel<T>(PhantomData<T>);
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T: Eq>(PhantomData<T>);
 
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
         assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
@@ -1876,10 +1877,8 @@ mod tests {
 
     #[test]
     fn test_extract_sees_changes() {
-        #[derive(AppLabelInterior, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct MySubApp;
-
-        impl AppLabel for MySubApp {}
 
         #[derive(Resource)]
         struct Foo(usize);
