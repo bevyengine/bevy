@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
@@ -414,6 +414,30 @@ impl Val {
                 Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
             }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+}
+
+impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// # use bevy_math::TryStableInterpolate;
+    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
+    /// ```
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }
@@ -1095,6 +1119,11 @@ mod tests {
         let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
+
+        let result = Val::Px(10.).resolve(3., size, viewport_size).unwrap();
+        assert_eq!(result, 30.);
+        let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
+        assert_eq!(result, 2.5);
     }
 
     #[test]

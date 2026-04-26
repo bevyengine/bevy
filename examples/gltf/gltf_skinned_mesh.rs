@@ -8,7 +8,7 @@ use bevy::{math::ops, mesh::skinning::SkinnedMesh, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 750.0,
             ..default()
         })
@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
     )));
 }

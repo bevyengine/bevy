@@ -173,7 +173,7 @@ impl<T: EntityEquivalent> Default for UniqueEntityEquivalentArray<T, 0> {
     #[inline]
     fn default() -> Self {
         // SAFETY: An empty array cannot contain duplicates.
-        unsafe { Self::from_array_unchecked(Default::default()) }
+        unsafe { Self::from_array_unchecked([]) }
     }
 }
 

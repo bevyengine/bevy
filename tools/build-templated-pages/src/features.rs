@@ -40,7 +40,13 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
             let key = key[0];
 
             if key == "default" {
-                let values = value.as_array().unwrap().iter().flat_map(|v| v.as_str()).collect::<Vec<_>>().join(", ");
+                let values = value
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .flat_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 let description = format!("The full default Bevy experience. This is a combination of the following profiles: {values}");
 
                 Some(Feature {
@@ -81,6 +87,18 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
                         } else {
                             false
                         };
+
+                    if is_collection {
+                        let features = value
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .flat_map(|v| v.as_str().map(|s| format!("`{}`", s)))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        description.push_str(&format!(" **Feature set:** {}.", &features));
+                    }
+
                     Some(Feature {
                         is_profile,
                         is_collection,

@@ -1,6 +1,6 @@
 use bevy_macro_utils::{
     fq_std::{FQDefault, FQResult},
-    get_struct_fields,
+    get_struct_fields, require_named,
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -227,6 +227,7 @@ pub fn impl_specializer(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let targets = guard!(get_specialize_targets(&ast, "Specializer"));
     let fields = guard!(get_struct_fields(&ast.data, "Specializer"));
+    let fields = guard!(require_named(fields));
     let field_info = guard!(get_field_info(fields, &targets));
 
     let key_idents: Vec<Option<Ident>> = field_info

@@ -17,9 +17,10 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     system::{Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -130,7 +131,9 @@ pub struct AnimationGraph {
 }
 
 /// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From, FromTemplate,
+)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
 
@@ -238,7 +241,7 @@ pub enum AnimationNodeType {
 ///
 /// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
 /// `.animgraph` is supported as well.
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct AnimationGraphAssetLoader;
 
 /// Errors that can occur when serializing animation graphs to RON.

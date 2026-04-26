@@ -46,28 +46,33 @@ pub(super) fn ray_intersection_over_mesh(
         return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
     // Vertex positions are required
-    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+    let positions = mesh
+        .try_attribute(Mesh::ATTRIBUTE_POSITION)
+        .ok()?
+        .as_float3()?;
 
     // Normals are optional
     let normals = mesh
-        .attribute(Mesh::ATTRIBUTE_NORMAL)
+        .try_attribute(Mesh::ATTRIBUTE_NORMAL)
+        .ok()
         .and_then(|normal_values| normal_values.as_float3());
 
     let uvs = mesh
-        .attribute(Mesh::ATTRIBUTE_UV_0)
+        .try_attribute(Mesh::ATTRIBUTE_UV_0)
+        .ok()
         .and_then(|uvs| match uvs {
             VertexAttributeValues::Float32x2(uvs) => Some(uvs.as_slice()),
             _ => None,
         });
 
-    match mesh.indices() {
+    match mesh.try_indices().ok() {
         Some(Indices::U16(indices)) => {
             ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
         Some(Indices::U32(indices)) => {
             ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
-        None => ray_mesh_intersection::<usize>(ray, transform, positions, normals, None, uvs, cull),
+        None => ray_mesh_intersection::<u32>(ray, transform, positions, normals, None, uvs, cull),
     }
 }
 

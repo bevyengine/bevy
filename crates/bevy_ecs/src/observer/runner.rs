@@ -53,6 +53,20 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     }
     state.last_trigger_id = last_trigger;
 
+    // SAFETY:
+    // - Conditions are initialized during observer registration (hook_on_add)
+    // - Conditions are ReadOnlySystem (enforced by SystemCondition trait)
+    // - No aliasing: we hold &mut Observer, but conditions only read world state
+    let mut should_run = true;
+    for condition in state.conditions.iter_mut() {
+        // SAFETY: See the safety comment above.
+        should_run &= unsafe { condition.check(world) };
+    }
+
+    if !should_run {
+        return;
+    }
+
     // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger<'_>`
     // The soundness story here is complicated: This casts to &'a mut E::Trigger<'a> which notably
     // casts the _arbitrary lifetimes_ of the passed in `trigger_ptr` (&'w E::Trigger<'t>, which are
@@ -88,23 +102,15 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
         #[cfg(feature = "hotpatching")]
         if world
             .get_resource_ref::<crate::HotPatchChanges>()
-            .map(|r| {
-                r.last_changed()
-                    .is_newer_than((*system).get_last_run(), world.change_tick())
-            })
-            .unwrap_or(true)
+            .is_none_or(|r| r.is_changed_after((*system).get_last_run()))
         {
             (*system).refresh_hotpatch();
         };
 
-        if let Err(RunSystemError::Failed(err)) = (*system)
-            .validate_param_unsafe(world)
-            .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(on, world))
-        {
+        if let Err(RunSystemError::Failed(err)) = (*system).run_unsafe(on, world) {
             let handler = state
                 .error_handler
-                .unwrap_or_else(|| world.default_error_handler());
+                .unwrap_or_else(|| world.fallback_error_handler());
             handler(
                 err,
                 ErrorContext::Observer {
@@ -121,7 +127,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
 mod tests {
     use super::*;
     use crate::{
-        error::{ignore, DefaultErrorHandler},
+        error::{ignore, FallbackErrorHandler},
         event::Event,
         observer::On,
     };
@@ -164,8 +170,8 @@ mod tests {
         world.init_resource::<Ran>();
         world.spawn(Observer::new(system));
         // Test that the correct handler is used when the observer was added
-        // before the default handler
-        world.insert_resource(DefaultErrorHandler(ignore));
+        // before the fallback handler
+        world.insert_resource(FallbackErrorHandler(ignore));
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
     }

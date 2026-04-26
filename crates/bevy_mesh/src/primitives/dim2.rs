@@ -431,9 +431,24 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
         let len = self.vertices.len();
         let mut indices = Vec::with_capacity((len - 2) * 3);
         let mut positions = Vec::with_capacity(len);
+        let normals = vec![[0.0, 0.0, 1.0]; len];
+        let mut uvs = Vec::with_capacity(len);
+
+        let mut min = Vec2::splat(f32::INFINITY);
+        let mut max = Vec2::splat(f32::NEG_INFINITY);
+
+        for vertex in &self.vertices {
+            min = min.min(*vertex);
+            max = max.max(*vertex);
+        }
+
+        let size = (max - min).max(Vec2::splat(f32::EPSILON));
 
         for vertex in &self.vertices {
             positions.push([vertex.x, vertex.y, 0.0]);
+            let uv = (*vertex - min) / size;
+            // Map each axis independently into [0, 1] over the polygon's AABB.
+            uvs.push([uv.x, uv.y]);
         }
         for i in 2..len as u32 {
             indices.extend_from_slice(&[0, i - 1, i]);
@@ -443,6 +458,8 @@ impl MeshBuilder for ConvexPolygonMeshBuilder {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
     }
 }
@@ -906,7 +923,7 @@ impl MeshBuilder for RhombusMeshBuilder {
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
         let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
-        let indices = Indices::U32(vec![0, 1, 2, 2, 3, 0]);
+        let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -1526,7 +1543,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
+    use bevy_math::{
+        prelude::Annulus,
+        primitives::{ConvexPolygon, RegularPolygon},
+        FloatOrd, Vec2,
+    };
     use bevy_platform::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
@@ -1602,6 +1623,55 @@ mod tests {
 
         // Note V coordinate increases in the opposite direction to the Y coordinate.
         assert_eq!([[0.5, 0.0], [0.0, 0.5], [0.5, 1.0], [1.0, 0.5],], &uvs[..]);
+
+        assert_eq!(&[[0.0, 0.0, 1.0]; 4], &normals[..]);
+    }
+
+    #[test]
+    fn test_convex_polygon() {
+        let polygon = ConvexPolygon::new(vec![
+            Vec2::new(-2.0, -1.0),
+            Vec2::new(2.0, -1.0),
+            Vec2::new(1.0, 3.0),
+            Vec2::new(-1.0, 2.0),
+        ])
+        .unwrap();
+
+        let mut mesh = Mesh::from(polygon);
+
+        let Some(VertexAttributeValues::Float32x3(mut positions)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Expected positions f32x3");
+        };
+        let Some(VertexAttributeValues::Float32x2(mut uvs)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0)
+        else {
+            panic!("Expected uvs f32x2");
+        };
+        let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("Expected normals f32x3");
+        };
+
+        fix_floats(&mut positions);
+        fix_floats(&mut uvs);
+
+        assert_eq!(
+            [
+                [-2.0, -1.0, 0.0],
+                [2.0, -1.0, 0.0],
+                [1.0, 3.0, 0.0],
+                [-1.0, 2.0, 0.0],
+            ],
+            &positions[..]
+        );
+
+        assert_eq!(
+            [[0.0, 0.0], [1.0, 0.0], [0.75, 1.0], [0.25, 0.75]],
+            &uvs[..]
+        );
 
         assert_eq!(&[[0.0, 0.0, 1.0]; 4], &normals[..]);
     }

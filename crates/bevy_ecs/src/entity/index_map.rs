@@ -664,7 +664,7 @@ impl<V> Slice<V> {
         IntoKeys(self.into_boxed_inner().into_keys(), PhantomData)
     }
 
-    /// Return an iterator over mutable references to the the values of the map slice.
+    /// Return an iterator over mutable references to the values of the map slice.
     ///
     /// Equivalent to [`map::Slice::values_mut`].
     #[inline]
@@ -983,6 +983,10 @@ impl<'a, V> Iterator for Iter<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for Iter<'_, V> {
@@ -1079,6 +1083,10 @@ impl<'a, V> Iterator for IterMut<'a, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IterMut<'_, V> {
@@ -1170,6 +1178,10 @@ impl<V> Iterator for IntoIter<V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for IntoIter<V> {
@@ -1260,6 +1272,10 @@ impl<V> Iterator for Drain<'_, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<V> DoubleEndedIterator for Drain<'_, V> {
@@ -1322,6 +1338,10 @@ impl<'a, V> Iterator for Keys<'a, V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1412,6 +1432,10 @@ impl<V> Iterator for IntoKeys<V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
