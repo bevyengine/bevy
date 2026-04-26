@@ -207,7 +207,7 @@ impl ComponentId {
         self.0.index_u32() as usize
     }
 
-    /// Returns the inner entity from the ComponentId
+    /// Returns the inner entity from the `ComponentId`
     #[inline]
     pub fn entity(self) -> Entity {
         self.0
@@ -472,7 +472,7 @@ impl Components {
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
             .get(&id)
-            .and_then(|info| Some(Cow::Borrowed(&info.descriptor)))
+            .map(|info| Cow::Borrowed(&info.descriptor))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -493,7 +493,7 @@ impl Components {
     pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
             .get(&id)
-            .and_then(|info| Some(info.descriptor.name()))
+            .map(|info| info.descriptor.name())
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -518,16 +518,14 @@ impl Components {
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components
-            .get_mut(&id)
-            .and_then(|info| Some(&mut info.hooks))
+        self.components.get_mut(&id).map(|info| &mut info.hooks)
     }
 
     #[inline]
     pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
         self.components
             .get(&id)
-            .and_then(|info| Some(&info.required_components))
+            .map(|info| &info.required_components)
     }
 
     #[inline]
@@ -537,7 +535,7 @@ impl Components {
     ) -> Option<&mut RequiredComponents> {
         self.components
             .get_mut(&id)
-            .and_then(|info| Some(&mut info.required_components))
+            .map(|info| &mut info.required_components)
     }
 
     #[inline]
@@ -545,9 +543,7 @@ impl Components {
         &self,
         id: ComponentId,
     ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
-        self.components
-            .get(&id)
-            .and_then(|info| Some(&info.required_by))
+        self.components.get(&id).map(|info| &info.required_by)
     }
 
     #[inline]
@@ -557,7 +553,7 @@ impl Components {
     ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get_mut(&id)
-            .and_then(|info| Some(&mut info.required_by))
+            .map(|info| &mut info.required_by)
     }
 
     /// Returns true if the [`ComponentId`] is fully registered and valid.
@@ -756,6 +752,6 @@ impl Components {
     ) -> Option<&mut MaybeRelationshipAccessor> {
         self.components
             .get_mut(&component_id)
-            .and_then(|info| Some(&mut info.descriptor.relationship_accessor))
+            .map(|info| &mut info.descriptor.relationship_accessor)
     }
 }
