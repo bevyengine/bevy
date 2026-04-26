@@ -22,6 +22,8 @@ pub struct StrokeFont<'a> {
     pub strokes: &'a [Range<usize>],
     /// Glyph advances and stroke ranges.
     pub glyphs: &'a [(i8, Range<usize>); 95],
+    /// Extended glyphs
+    pub extended: &'a [(char, i8, Range<usize>)],
 }
 
 impl<'a> StrokeFont<'a> {
@@ -35,14 +37,12 @@ impl<'a> StrokeFont<'a> {
         let glyph_height = SIMPLEX_HEIGHT * scale;
         let line_height = LINE_HEIGHT * glyph_height;
         let margin_top = line_height - glyph_height;
-        let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
         StrokeTextLayout {
             font: self,
             sections,
             scale,
             line_height,
             margin_top,
-            space_advance,
         }
     }
 
@@ -57,12 +57,23 @@ impl<'a> StrokeFont<'a> {
 
     /// Get the advance and stroke point ranges for a glyph.
     pub fn get_glyph(&self, c: char) -> Option<(i8, Range<usize>)> {
-        Some(self.glyphs[self.get_glyph_index(c)?].clone())
+        if let Some(idx) = self.get_glyph_index(c) {
+            Some(self.glyphs[idx].clone())
+        } else {
+            self.extended
+                .binary_search_by_key(&c, |entry| entry.0)
+                .ok()
+                .map(|i| (self.extended[i].1, self.extended[i].2.clone()))
+        }
     }
 
     /// Get the advance for a glyph.
     pub fn get_glyph_advance(&self, c: char) -> Option<i8> {
-        Some(self.glyphs[self.get_glyph_index(c)?].0)
+        self.get_glyph(c).map(|(advance, _)| advance)
+    }
+
+    fn fallback_glyph(&self) -> (i8, Range<usize>) {
+        self.glyphs['?' as usize - 0x20].clone()
     }
 }
 
@@ -78,8 +89,6 @@ pub struct StrokeTextLayout<'a> {
     line_height: f32,
     /// Space between top of line and cap height.
     margin_top: f32,
-    /// Width of a space.
-    space_advance: f32,
 }
 
 impl<'a> StrokeTextLayout<'a> {
@@ -98,11 +107,11 @@ impl<'a> StrokeTextLayout<'a> {
                 continue;
             }
 
-            line_width += self
+            let advance = self
                 .font
                 .get_glyph_advance(c)
-                .map(|advance| advance as f32 * self.scale)
-                .unwrap_or(self.space_advance);
+                .unwrap_or_else(|| self.font.fallback_glyph().0);
+            line_width += advance as f32 * self.scale;
         }
 
         layout_size.x = layout_size.x.max(line_width);
@@ -151,15 +160,13 @@ impl<'a> StrokeTextLayout<'a> {
                 y -= self.line_height;
                 continue;
             }
-
-            let Some((advance, strokes)) = self.font.get_glyph(c) else {
-                x += self.space_advance;
-                continue;
-            };
+            let (advance, strokes) = self
+                .font
+                .get_glyph(c)
+                .unwrap_or_else(|| self.font.fallback_glyph());
             current_color = char_color;
             current_strokes = strokes;
             current_x = x;
-
             x += advance as f32 * self.scale;
         })
     }
@@ -173,7 +180,7 @@ where
     /// Draw text using a stroke font with the given isometry applied.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -210,7 +217,7 @@ where
     /// independently.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -257,7 +264,7 @@ where
     /// Draw text using a stroke font in 2d with the given isometry applied.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -294,7 +301,7 @@ where
     /// independently.
     ///
     /// Only ASCII characters in the range 32–126 are supported.
-    ///
+    /// Unsupported characters will be rendered as '?'.
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
