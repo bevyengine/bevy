@@ -174,7 +174,8 @@ pub struct Bluenoise {
 /// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
 ///
 /// Index 2: The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
-/// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
+///
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the DFG LUT was generated.
 #[derive(Resource, Clone)]
 pub struct LtcDfgLuts {
     pub image: Handle<Image>,

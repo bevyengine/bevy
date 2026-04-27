@@ -268,18 +268,19 @@ pub fn prepare_raytracing_scene_bindings(
     command_encoder.build_acceleration_structures(&[], [&tlas]);
     render_queue.submit([command_encoder.finish()]);
 
-    let (dfg_view, dfg_sampler) = texture_assets
-        .get(&ltc_dfg_luts.image)
-        .map(|img| {
-            (
-                &img.texture.create_view(&TextureViewDescriptor {
-                    dimension: Some(TextureViewDimension::D2),
-                    base_array_layer: 2,
-                    ..Default::default()
-                }),
-                &img.sampler,
-            )
-        })
+    let dfg_lut = texture_assets.get(&ltc_dfg_luts.image).map(|img| {
+        (
+            img.texture.create_view(&TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::D2),
+                base_array_layer: 2,
+                ..Default::default()
+            }),
+            &img.sampler,
+        )
+    });
+    let (dfg_view, dfg_sampler) = dfg_lut
+        .as_ref()
+        .map(|(dfg_view, sampler)| (dfg_view, *sampler))
         .unwrap_or((
             &fallback_texture.d2.texture_view,
             &fallback_texture.d2.sampler,
