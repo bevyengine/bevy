@@ -310,6 +310,8 @@ fn toggle_tonemapping_method(
         **tonemapping = Tonemapping::TonyMcMapface;
     } else if keys.just_pressed(KeyCode::Digit8) {
         **tonemapping = Tonemapping::BlenderFilmic;
+    } else if keys.just_pressed(KeyCode::Digit9) {
+        **tonemapping = Tonemapping::PbrNeutral;
     }
 
     **color_grading = (*per_method_settings
@@ -497,6 +499,14 @@ fn update_ui(
             ""
         }
     ));
+    text.push_str(&format!(
+        "(9) {} PBR Neutral\n",
+        if tonemapping == Tonemapping::PbrNeutral {
+            ">"
+        } else {
+            ""
+        }
+    ));
 
     text.push_str("\n\nColor Grading:\n");
     text.push_str("(arrow keys)\n");
@@ -588,6 +598,7 @@ impl Default for PerMethodSettings {
             Tonemapping::SomewhatBoringDisplayTransform,
             Tonemapping::TonyMcMapface,
             Tonemapping::BlenderFilmic,
+            Tonemapping::PbrNeutral,
         ] {
             settings.insert(
                 method,

@@ -317,6 +317,7 @@ fn on_pointer_press(
             commands.trigger(ValueChange {
                 source: parent.0,
                 value: new_value,
+                is_final: false,
             });
         }
     }
@@ -368,6 +369,7 @@ fn on_drag(
             commands.trigger(ValueChange {
                 source: parent.0,
                 value: new_value,
+                is_final: false,
             });
         }
     }
@@ -375,13 +377,38 @@ fn on_drag(
 
 fn on_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_color_planes: Query<&mut ColorPlaneDragState, With<ColorPlane>>,
-    q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
+    mut q_color_planes: Query<
+        (&mut ColorPlaneDragState, Has<InteractionDisabled>),
+        With<ColorPlane>,
+    >,
+    q_color_plane_inner: Query<
+        (
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+            &ChildOf,
+        ),
+        With<ColorPlaneInner>,
+    >,
+    ui_scale: Res<UiScale>,
+    mut commands: Commands,
 ) {
-    if let Ok(parent) = q_color_plane_inner.get(drag_end.entity)
-        && let Ok(mut state) = q_color_planes.get_mut(parent.0)
+    if let Ok((node, node_target, transform, parent)) = q_color_plane_inner.get(drag_end.entity)
+        && let Ok((mut state, disabled)) = q_color_planes.get_mut(parent.0)
     {
         drag_end.propagate(false);
+        if state.0 && !disabled {
+            let local_pos = transform.try_inverse().unwrap().transform_point2(
+                drag_end.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            );
+            let pos = local_pos / node.size() + Vec2::splat(0.5);
+            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
+            commands.trigger(ValueChange {
+                source: parent.0,
+                value: new_value,
+                is_final: true,
+            });
+        }
         state.0 = false;
     }
 }

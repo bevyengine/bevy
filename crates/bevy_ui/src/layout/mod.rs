@@ -298,7 +298,9 @@ pub fn ui_layout_system(
                         target_size,
                     )
                     .unwrap_or(0.)
-                    .max(0.);
+                    // Clamp outline offsets to at least the length of the node's shorter side
+                    // Negative offset outlines can be useful to create thing like in-set focus indicators
+                    .max(-0.5 * node.size.min_element());
             }
 
             node.bypass_change_detection().scrollbar_size =
@@ -1341,5 +1343,137 @@ mod tests {
             .resource_mut::<UiSurface>()
             .root_entity_to_viewport_node
             .contains_key(&ui_root_entity_1));
+    }
+
+    #[cfg(feature = "ghost_nodes")]
+    mod ghost_node_tests {
+        use super::*;
+        use crate::experimental::GhostNode;
+
+        fn compare_taffy_children(
+            ui_surface: &UiSurface,
+            parent: Entity,
+            children: &[Entity],
+        ) -> bool {
+            let parent_to_taffy_children = ui_surface
+                .taffy
+                .children(ui_surface.entity_to_taffy[&parent].id)
+                .unwrap();
+            let children_to_taffy_children = children
+                .iter()
+                .map(|entity| ui_surface.entity_to_taffy[entity].id)
+                .collect::<Vec<_>>();
+
+            parent_to_taffy_children == children_to_taffy_children
+        }
+
+        fn compare_taffy_parent(
+            ui_surface: &UiSurface,
+            child: Entity,
+            parent: Option<Entity>,
+        ) -> bool {
+            let child_to_taffy_parent = ui_surface
+                .taffy
+                .parent(ui_surface.entity_to_taffy[&child].id);
+            let parent_to_taffy_parent =
+                parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+
+            child_to_taffy_parent == parent_to_taffy_parent
+        }
+
+        #[test]
+        #[ignore = "known ghost nodes bug"]
+        fn unparenting_ghost_child_should_unparent_taffy_child() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let child = world.spawn(Node::default()).id();
+            let ghost = world.spawn(GhostNode).add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(ghost).id();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+            assert!(compare_taffy_children(ui_surface, root, &[child]));
+            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+
+            world.entity_mut(ghost).detach_all_children();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            // Unparenting child from ghost should unparent the corresponding child taffy node from the
+            // root taffy node.
+            assert!(compare_taffy_children(ui_surface, root, &[]));
+
+            let viewport_node = ui_surface
+                .root_entity_to_viewport_node
+                .get(&child)
+                .copied()
+                .expect(
+                    "detached child should become a UI root and have an associated viewport node",
+                );
+            let taffy_child = ui_surface.entity_to_taffy[&child].id;
+            assert_eq!(ui_surface.taffy.parent(taffy_child), Some(viewport_node));
+        }
+
+        #[test]
+        #[ignore = "known ghost nodes bug"]
+        fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let child = world.spawn(Node::default()).id();
+            let mid = world.spawn_empty().add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(mid).id();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+            assert!(compare_taffy_children(ui_surface, root, &[]));
+            assert!(compare_taffy_parent(ui_surface, child, None));
+
+            world.entity_mut(mid).insert(GhostNode);
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+            assert!(compare_taffy_children(ui_surface, root, &[child]));
+            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+        }
+
+        #[test]
+        #[ignore = "known ghost nodes bug"]
+        fn removing_intermeditate_ghost_node_detaches_taffy_nodes() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let child = world.spawn(Node::default()).id();
+            let mid = world.spawn(GhostNode).add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(mid).id();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+            assert!(compare_taffy_children(ui_surface, root, &[child]));
+            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+
+            world.entity_mut(mid).remove::<GhostNode>();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+            assert!(compare_taffy_children(ui_surface, root, &[]));
+            assert!(compare_taffy_parent(ui_surface, child, None));
+            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+        }
     }
 }

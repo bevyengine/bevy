@@ -43,7 +43,7 @@ use bevy_shader::Shader;
 use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
     MeshViewBindGroup, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
@@ -73,7 +73,7 @@ impl Plugin for RenderDebugOverlayPlugin {
 
         render_app.add_systems(
             RenderStartup,
-            init_render_debug_overlay_pipeline.after(MeshPipelineSet),
+            init_render_debug_overlay_pipeline.after(MeshPipelineSystems),
         );
     }
 
@@ -406,7 +406,7 @@ fn init_render_debug_overlay_pipeline(
 struct RenderDebugOverlayPipelineKey {
     mode: RenderDebugMode,
     view_layout_key: MeshPipelineViewLayoutKey,
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
@@ -518,7 +518,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                 shader_defs,
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -576,7 +576,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key,
-                texture_format: target.main_texture_format(),
+                target_format: target.main_texture_format(),
             },
         );
 

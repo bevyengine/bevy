@@ -1461,7 +1461,7 @@ impl ProcessScheduleConfig for InternedSystemSet {
 }
 
 /// Policy to use when removing systems.
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScheduleCleanupPolicy {
     /// Remove the referenced set and any systems in the set.
     /// Attempts to maintain the order between the transitive dependencies by adding new edges

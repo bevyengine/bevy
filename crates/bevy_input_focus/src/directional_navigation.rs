@@ -56,7 +56,7 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
-use crate::{navigator::find_best_candidate, InputFocus};
+use crate::{navigator::find_best_candidate, FocusCause, InputFocus};
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -423,7 +423,7 @@ impl<'w> DirectionalNavigation<'w> {
                     direction,
                 }),
                 NavNeighbor::Set(new_focus) => {
-                    self.focus.set(new_focus);
+                    self.focus.set(new_focus, FocusCause::Navigated);
                     Ok(new_focus)
                 }
             }
@@ -502,7 +502,7 @@ pub trait Navigable {
 /// # Example
 ///
 /// ```rust
-/// # use bevy_input_focus::directional_navigation::*;
+/// # use bevy_input_focus::{directional_navigation::*, FocusCause};
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_math::Vec2;
 /// let mut nav_map = DirectionalNavigationMap::default();
@@ -755,7 +755,7 @@ mod tests {
         world.insert_resource(map);
 
         let mut focus = InputFocus::default();
-        focus.set(a);
+        focus.set(a, FocusCause::Navigated);
         world.insert_resource(focus);
 
         let config = AutoNavigationConfig::default();

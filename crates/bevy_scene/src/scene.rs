@@ -2,6 +2,7 @@ use crate::{InheritSceneError, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     error::Result,
     event::EntityEvent,
     name::Name,
@@ -36,7 +37,7 @@ use variadics_please::all_tuples;
 ///
 /// See [`ResolvedScene`] for more information on how it can be composed.
 ///
-/// A [`Scene`] can have dependencies (defined with [`Scene::register_dependencies`]), which _must_ be loaded before calling [`Scene::resolve`], or it
+/// A [`Scene`] can have dependencies (defined in [`Scene::register_dependencies`]), which _must_ be loaded before calling [`Scene::resolve`], or it
 /// might return a [`ResolveSceneError`].
 ///
 /// You generally don't need to resolve [`Scene`]s yourself. Instead use APIs like [`World::spawn_scene`] or [`World::queue_spawn_scene`]
@@ -46,24 +47,80 @@ use variadics_please::all_tuples;
 /// [`World::queue_spawn_scene`]: crate::WorldSceneExt::queue_spawn_scene
 /// [`Entity`]: bevy_ecs::entity::Entity
 /// [`Component`]: bevy_ecs::component::Component
-pub trait Scene: Send + Sync + 'static {
+pub trait Scene: SceneBox {
     /// This will apply the changes described in this [`Scene`] to the given [`ResolvedScene`]. This should not be called until all of the dependencies
     /// in [`Scene::register_dependencies`] have been loaded. The scene system will generally call this method on behalf of developers.
     ///
     /// [`Scene`]s are free to modify [`ResolvedScene`] in arbitrary ways. In the context of related entities, in general they should just be pushing new
     /// entities to the back of the list.
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError>;
 
-    /// [`Scene`] can have [`Asset`] dependencies, which _must_ be loaded before calling [`Scene::resolve`] or it might return a [`ResolveSceneError`]!
+    /// [`Scene`] can have [`Asset`] dependencies, which _must_ be loaded before calling [`Scene::resolve`] / [`SceneList::resolve_list`] or it might return a [`ResolveSceneError`]!
     ///
-    /// In most cases, the scene system will ensure [`Scene::resolve`] is called _after_ these dependencies have been loaded.
+    /// In most cases, the scene system will ensure [`Scene::resolve`] / [`SceneList::resolve_list`] is called _after_ these dependencies have been loaded.
     ///
     /// [`Asset`]: bevy_asset::Asset
     fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
+}
+
+/// Boxed version of [`Scene`], which enables implementing [`Scene`] for [`Box<dyn Scene>`]. Most
+/// developers do not need to think about or use this trait.
+///
+/// Related: [`SceneListBox`].
+///
+/// ## Why does this exist?
+///
+/// [`Scene::resolve`] consumes `self`, which by default is not something that [`Box<dyn Scene>`]
+/// can do in Rust, as `dyn Scene` is "unsized". The "way out" is to have every [`Scene`] type
+/// _also_ know how to resolve itself for `self: Box<Self>`. [`SceneBox`] has a blanket impl
+/// for `Scene + Sized` (which can just rely on the [`Scene`] impl). Then [`Box<dyn Scene>`] has a
+/// manual [`SceneBox`] impl that relies on the _stored_ [`SceneBox::resolve_box`] impl.
+///
+/// [`SceneListBox`]: crate::SceneListBox
+pub trait SceneBox: Send + Sync + 'static {
+    /// See [`Scene::resolve`].
+    fn resolve_box(
+        self: Box<Self>,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError>;
+
+    /// See [`Scene::register_dependencies`].
+    fn register_dependencies_box(&self, _dependencies: &mut SceneDependencies);
+}
+
+impl<S: Scene + Sized> SceneBox for S {
+    #[inline]
+    fn resolve_box(
+        self: Box<Self>,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        (*self).resolve(context, scene)
+    }
+
+    #[inline]
+    fn register_dependencies_box(&self, dependencies: &mut SceneDependencies) {
+        self.register_dependencies(dependencies);
+    }
+}
+
+impl<T: ?Sized + SceneBox> Scene for Box<T> {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.resolve_box(context, scene)
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        (**self).register_dependencies_box(dependencies);
+    }
 }
 
 /// A collection of asset dependencies required by a [`Scene`].
@@ -106,6 +163,9 @@ pub enum ResolveSceneError {
     /// Caused when inheriting a scene during [`Scene::resolve`] fails.
     #[error(transparent)]
     InheritSceneError(#[from] InheritSceneError),
+    /// Caused when a Scene/SceneList is not present on the scene asset.
+    #[error("The Scene/SceneList is not present on the scene asset. This is likely because the scene has already been resolved, which consumed the source scene")]
+    MissingScene,
 }
 
 /// Context used by [`Scene`] implementations during [`Scene::resolve`].
@@ -145,7 +205,7 @@ impl<'a> ResolveContext<'a> {
 macro_rules! scene_impl {
     ($($patch: ident),*) => {
         impl<$($patch: Scene),*> Scene for ($($patch,)*) {
-            fn resolve(&self, _context: &mut ResolveContext, _scene: &mut ResolvedScene) -> Result<(), ResolveSceneError> {
+            fn resolve(self, _context: &mut ResolveContext, _scene: &mut ResolvedScene) -> Result<(), ResolveSceneError> {
                 #[expect(
                     clippy::allow_attributes,
                     reason = "This is inside a macro, and as such, may not trigger in all cases."
@@ -177,33 +237,6 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
-impl Scene for Box<dyn Scene> {
-    fn resolve(
-        &self,
-        context: &mut ResolveContext,
-        scene: &mut ResolvedScene,
-    ) -> Result<(), ResolveSceneError> {
-        (**self).resolve(context, scene)
-    }
-    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
-        (**self).register_dependencies(dependencies);
-    }
-}
-
-impl SceneList for Box<dyn SceneList> {
-    fn resolve_list(
-        &self,
-        context: &mut ResolveContext,
-        scenes: &mut Vec<ResolvedScene>,
-    ) -> Result<(), ResolveSceneError> {
-        (**self).resolve_list(context, scenes)
-    }
-
-    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
-        (**self).register_dependencies(dependencies);
-    }
-}
-
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
 /// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched
@@ -230,16 +263,16 @@ impl SceneList for Box<dyn SceneList> {
 /// let position = Position { x: 0, y: 0};
 /// // applying patch to position would result in { x: 10, y: 0 }
 /// ```
-pub struct TemplatePatch<F: Fn(&mut T, &mut ResolveContext), T>(pub F, pub PhantomData<T>);
+pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub PhantomData<T>);
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
-pub fn template_value<T: Template + Clone>(
+pub fn template_value<T: Template>(
     value: T,
-) -> TemplatePatch<impl Fn(&mut T, &mut ResolveContext), T> {
+) -> TemplatePatch<impl FnOnce(&mut T, &mut ResolveContext), T> {
     TemplatePatch(
         move |input: &mut T, _context: &mut ResolveContext| {
-            *input = value.clone();
+            *input = value;
         },
         PhantomData,
     )
@@ -252,14 +285,14 @@ pub trait PatchFromTemplate {
     type Template;
 
     /// Takes a "patch function" `func`, and turns it into a [`TemplatePatch`].
-    fn patch<F: Fn(&mut Self::Template, &mut ResolveContext)>(
+    fn patch<F: FnOnce(&mut Self::Template, &mut ResolveContext)>(
         func: F,
     ) -> TemplatePatch<F, Self::Template>;
 }
 
 impl<G: FromTemplate> PatchFromTemplate for G {
     type Template = G::Template;
-    fn patch<F: Fn(&mut Self::Template, &mut ResolveContext)>(
+    fn patch<F: FnOnce(&mut Self::Template, &mut ResolveContext)>(
         func: F,
     ) -> TemplatePatch<F, Self::Template> {
         TemplatePatch(func, PhantomData)
@@ -269,22 +302,25 @@ impl<G: FromTemplate> PatchFromTemplate for G {
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`Template`].
 pub trait PatchTemplate: Sized {
     /// Takes a "patch function" `func` that patches this [`Template`], and turns it into a [`TemplatePatch`].
-    fn patch_template<F: Fn(&mut Self, &mut ResolveContext)>(func: F) -> TemplatePatch<F, Self>;
+    fn patch_template<F: FnOnce(&mut Self, &mut ResolveContext)>(func: F)
+        -> TemplatePatch<F, Self>;
 }
 
 impl<T: Template> PatchTemplate for T {
-    fn patch_template<F: Fn(&mut Self, &mut ResolveContext)>(func: F) -> TemplatePatch<F, Self> {
+    fn patch_template<F: FnOnce(&mut Self, &mut ResolveContext)>(
+        func: F,
+    ) -> TemplatePatch<F, Self> {
         TemplatePatch(func, PhantomData)
     }
 }
 
 impl<
-        F: Fn(&mut T, &mut ResolveContext) + Send + Sync + 'static,
-        T: Template<Output: Bundle> + Send + Sync + Default + 'static,
+        F: FnOnce(&mut T, &mut ResolveContext) + Send + Sync + 'static,
+        T: Template<Output: Component> + Send + Sync + Default + 'static,
     > Scene for TemplatePatch<F, T>
 {
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -316,7 +352,7 @@ impl<R: Relationship, L: SceneList> RelatedScenes<R, L> {
 
 impl<R: Relationship, L: SceneList> Scene for RelatedScenes<R, L> {
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -351,7 +387,7 @@ impl<I: Into<AssetPath<'static>>> From<I> for InheritSceneAsset {
 
 impl Scene for InheritSceneAsset {
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -371,11 +407,11 @@ impl Scene for InheritSceneAsset {
     }
 }
 
-impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static, O: Bundle> Scene
+impl<F: (Fn(&mut TemplateContext) -> Result<O>) + Clone + Send + Sync + 'static, O: Component> Scene
     for FnTemplate<F, O>
 {
     fn resolve(
-        &self,
+        self,
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -401,7 +437,7 @@ pub struct NameEntityReference {
 
 impl Scene for NameEntityReference {
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -428,7 +464,7 @@ pub struct SceneScope<S: Scene>(pub S);
 
 impl<S: Scene> Scene for SceneScope<S> {
     fn resolve(
-        &self,
+        self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
@@ -446,7 +482,7 @@ pub struct SceneListScope<L: SceneList>(pub L);
 
 impl<L: SceneList> SceneList for SceneListScope<L> {
     fn resolve_list(
-        &self,
+        self,
         context: &mut ResolveContext,
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError> {
@@ -487,11 +523,11 @@ impl<
     > Scene for OnTemplate<I, E, B, M>
 {
     fn resolve(
-        &self,
+        self,
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_template(OnTemplate(self.0.clone(), PhantomData));
+        scene.push_bundle_template(OnTemplate(self.0.clone(), PhantomData));
         Ok(())
     }
 }

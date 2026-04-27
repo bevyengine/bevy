@@ -224,7 +224,7 @@ impl BsnInheritedScene {
             let path = input.parse::<LitStr>()?;
             BsnInheritedScene::Asset(path)
         } else {
-            let function = input.parse::<Ident>()?;
+            let function = input.parse::<Path>()?;
             let args = if input.peek(Paren) {
                 let content;
                 parenthesized!(content in input);

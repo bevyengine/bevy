@@ -748,10 +748,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_platform::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_platform::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -781,7 +781,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain() {
+        for (key, _) in self.type_ids.drain(..) {
             (visit)(EvaluatorId::Type(key))?;
         }
 
