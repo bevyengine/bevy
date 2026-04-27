@@ -160,14 +160,6 @@ fn run_prepass_system(
         return;
     };
 
-    // Skip starting a render pass if there's nothing to draw
-    if opaque_prepass_phase.is_empty()
-        && alpha_mask_prepass_phase.is_empty()
-        && background_motion_vectors_pipeline.is_none()
-    {
-        return;
-    }
-
     #[cfg(feature = "trace")]
     let _prepass_span = info_span!("prepass").entered();
 
