@@ -196,7 +196,7 @@ impl ComponentId {
     ///
     /// Panics if the index is `u32::MAX`.
     #[inline]
-    pub(crate) const fn from_u32(index: u32) -> ComponentId {
+    pub const fn from_u32(index: u32) -> ComponentId {
         ComponentId(Entity::from_raw_u32(index).unwrap())
     }
 
