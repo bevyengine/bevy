@@ -205,29 +205,29 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         if (!view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents)) {
             return;
         }
-    }
+    
+        // Visibility range cull if necessary.
+        let visibility_buffer_array_len = arrayLength(&visibility_ranges);
+        let visibility_buffer_index =
+            current_input[input_index].flags & MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS;
+        if (visibility_buffer_index < visibility_buffer_array_len) {
+            let lod_range = visibility_ranges[visibility_buffer_index];
 
-    // Visibility range cull if necessary.
-    let visibility_buffer_array_len = arrayLength(&visibility_ranges);
-    let visibility_buffer_index =
-        current_input[input_index].flags & MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS;
-    if (visibility_buffer_index < visibility_buffer_array_len) {
-        let lod_range = visibility_ranges[visibility_buffer_index];
+            // If we're using the AABB as the mesh center, determine its world space position.
+            // Otherwise, just use the center of the transform.
+            var world_pos: vec3<f32>;
+            if ((current_input[input_index].flags & MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT) != 0u) {
+                let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+                world_pos = (world_from_local * vec4(aabb_center, 1.0)).xyz;
+            } else {
+                world_pos = world_from_local[3].xyz;
+            }
 
-        // If we're using the AABB as the mesh center, determine its world space position.
-        // Otherwise, just use the center of the transform.
-        var world_pos: vec3<f32>;
-        if ((current_input[input_index].flags & MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT) != 0u) {
-            let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
-            world_pos = (world_from_local * vec4(aabb_center, 1.0)).xyz;
-        } else {
-            world_pos = world_from_local[3].xyz;
-        }
-
-        let camera_distance = length(position_world_to_view(world_pos));
-        // `x` is the minimum range; `w` is the largest range.
-        if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
-            return;
+            let camera_distance = length(position_world_to_view(world_pos));
+            // `x` is the minimum range; `w` is the largest range.
+            if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
+                return;
+            }
         }
     }
 #endif  // FRUSTUM_CULLING

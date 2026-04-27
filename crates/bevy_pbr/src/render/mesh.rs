@@ -730,6 +730,7 @@ impl MeshFlags {
         lod_index: Option<NonMaxU16>,
         visibility_range: Option<&VisibilityRange>,
         no_frustum_culling: bool,
+        no_cpu_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
     ) -> MeshFlags {
@@ -741,7 +742,7 @@ impl MeshFlags {
         if visibility_range.is_some_and(|visibility_range| visibility_range.use_aabb) {
             mesh_flags |= MeshFlags::AABB_BASED_VISIBILITY_RANGE;
         }
-        if no_frustum_culling {
+        if no_frustum_culling || !no_cpu_culling {
             mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
         }
         if transmitted_receiver {
@@ -1765,7 +1766,7 @@ pub fn extract_meshes_for_cpu_building(
             Option<&PreviousGlobalTransform>,
             &Mesh3d,
             Option<&MeshTag>,
-            Has<NoFrustumCulling>,
+            (Has<NoFrustumCulling>, Has<NoCpuCulling>),
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
@@ -1785,7 +1786,7 @@ pub fn extract_meshes_for_cpu_building(
             previous_transform,
             mesh,
             tag,
-            no_frustum_culling,
+            (no_frustum_culling, no_cpu_culling),
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -1807,6 +1808,7 @@ pub fn extract_meshes_for_cpu_building(
                 lod_index,
                 visibility_range,
                 no_frustum_culling,
+                no_cpu_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
             );
@@ -2121,6 +2123,7 @@ fn extract_mesh_for_gpu_building(
         lod_index,
         visibility_range,
         no_frustum_culling,
+        no_cpu_culling,
         not_shadow_receiver,
         transmitted_receiver,
     );
