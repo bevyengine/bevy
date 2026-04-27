@@ -49,22 +49,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
 
-    let on_add_path = vec![];
-    let on_remove_path = vec![];
-    let on_insert_path = vec![];
-    let on_replace_path = vec![];
-    let on_despawn_path = vec![];
-
-    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, &on_add_path);
-    let on_remove =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, &on_remove_path);
-    let on_insert =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, &on_insert_path);
-    let on_replace =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, &on_replace_path);
-    let on_despawn =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, &on_despawn_path);
-
     ast.generics
         .make_where_clause()
         .predicates
@@ -96,12 +80,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
             ) {
                 #(#register_required)*
             }
-
-            #on_add
-            #on_insert
-            #on_replace
-            #on_remove
-            #on_despawn
 
             fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
                 #bevy_ecs_path::component::ComponentCloneBehavior::Default
@@ -178,37 +156,34 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .on_insert
             .map(|path| path.to_token_stream(&bevy_ecs_path)),
     );
-    if relationship.is_some() {
-        on_insert_path
-            .push(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert));
-    }
 
     let mut on_discard_path = Vec::from_iter(
         attrs
             .on_discard
             .map(|path| path.to_token_stream(&bevy_ecs_path)),
     );
-    if relationship.is_some() {
-        on_discard_path
-            .push(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_discard));
-    }
-    if attrs.relationship_target.is_some() {
-        on_discard_path
-            .push(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_discard));
-    }
 
     let mut on_despawn_path = Vec::from_iter(
         attrs
             .on_despawn
             .map(|path| path.to_token_stream(&bevy_ecs_path)),
     );
-    if attrs
-        .relationship_target
-        .is_some_and(|target| target.linked_spawn)
-    {
-        on_despawn_path
-            .push(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn));
-    };
+
+    if relationship.is_some() {
+        on_insert_path
+            .push(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert));
+        on_discard_path
+            .push(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_discard));
+    }
+    if let Some(target) = attrs.relationship_target {
+        on_discard_path
+            .push(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_discard));
+        if target.linked_spawn {
+            on_despawn_path.push(
+                quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn),
+            );
+        }
+    }
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, &on_add_path);
     let on_insert =
