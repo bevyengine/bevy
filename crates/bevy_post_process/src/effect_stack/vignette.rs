@@ -12,21 +12,6 @@ use bevy_render::{
     extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
 };
 
-/// The default vignette intensity amount.
-const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.0;
-
-/// The default vignette radius amount.
-const DEFAULT_VIGNETTE_RADIUS: f32 = 0.75;
-
-/// The default vignette smoothness amount.
-const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 5.0;
-
-/// The default vignette roundness amount.
-const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.0;
-
-/// The default vignette edge compensation
-const DEFAULT_VIGNETTE_EDGE_COMPENSATION: f32 = 1.0;
-
 /// Adds a gradual shading effect to the edges of the screen, drawing focus
 /// towards the center.
 ///
@@ -91,12 +76,12 @@ pub struct Vignette {
 impl Default for Vignette {
     fn default() -> Self {
         Self {
-            intensity: DEFAULT_VIGNETTE_INTENSITY,
-            radius: DEFAULT_VIGNETTE_RADIUS,
-            smoothness: DEFAULT_VIGNETTE_SMOOTHNESS,
-            roundness: DEFAULT_VIGNETTE_ROUNDNESS,
+            intensity: 1.0,
+            radius: 0.75,
+            smoothness: 5.0,
+            roundness: 1.0,
             color: Color::BLACK,
-            edge_compensation: DEFAULT_VIGNETTE_EDGE_COMPENSATION,
+            edge_compensation: 1.0,
             center: Vec2::new(0.5, 0.5),
         }
     }
@@ -112,8 +97,8 @@ impl ExtractComponent for Vignette {
     type Out = Self;
 
     fn extract_component(vignette: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        // Skip the postprocessing phase entirely if the intensity is zero.
-        if vignette.intensity > 0.0 {
+        // Skip the postprocessing phase entirely if the intensity is negligible.
+        if vignette.intensity > 1e-4 {
             Some(vignette.clone())
         } else {
             None
@@ -121,22 +106,18 @@ impl ExtractComponent for Vignette {
     }
 }
 
+/// The on-GPU version of the [`Vignette`] settings.
+///
+/// See the documentation for [`Vignette`] for more information on
+/// each of these fields.
 #[derive(ShaderType, Default)]
 pub struct VignetteUniform {
-    /// Controls the strength of the darkening effect.
     pub(super) intensity: f32,
-    /// The size of the unvignetted center area.
     pub(super) radius: f32,
-    /// The softness of the edge between the clear and dark areas.
     pub(super) smoothness: f32,
-    /// The shape of the vignette.
     pub(super) roundness: f32,
-    /// The center of the vignette.
     pub(super) center: Vec2,
-    /// The edge compensation of the vignette.
     pub(super) edge_compensation: f32,
-    /// Padding data.
     pub(super) unused: u32,
-    /// The color of the vignette.
     pub(super) color: Vec4,
 }

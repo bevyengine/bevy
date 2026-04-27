@@ -2,7 +2,9 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::specular_gi
 
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::utils::rand_f
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
@@ -81,7 +83,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
 
-    var ray_origin = primary_surface.world_position;
+    var ray_origin = primary_surface.world_position + (primary_surface.world_normal * RAY_T_MIN);
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
     var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
@@ -98,7 +100,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+        let TBN = orthonormalize(ray_hit.world_normal);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
@@ -147,7 +149,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
         if ggx_vndf_sample_invalid(wi_tangent) { break; }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
-        ray_origin = ray_hit.world_position;
+        ray_origin = ray_hit.world_position + (ray_hit.geometric_world_normal * RAY_T_MIN);
 
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
@@ -155,6 +157,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
             throughput /= p_bounce;
         }
+
+        // Russian roulette for early termination
+        let p = luminance(throughput);
+        if rand_f(rng) > p { break; }
+        throughput /= p;
 
         // Path spread increase
         path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);

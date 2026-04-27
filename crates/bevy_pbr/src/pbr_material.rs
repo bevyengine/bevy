@@ -396,12 +396,12 @@ pub struct StandardMaterial {
     /// # use bevy_image::{Image, ImageLoaderSettings};
     /// #
     /// fn load_normal_map(asset_server: Res<AssetServer>) {
-    ///     let normal_handle: Handle<Image> = asset_server.load_with_settings(
-    ///         "textures/parallax_example/cube_normal.png",
-    ///         // The normal map texture is in linear color space. Lighting won't look correct
-    ///         // if `is_srgb` is `true`, which is the default.
-    ///         |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    ///     );
+    ///     let normal_handle: Handle<Image> = asset_server.load_builder().with_settings(
+    ///             // The normal map texture is in linear color space. Lighting won't look correct
+    ///             // if `is_srgb` is `true`, which is the default.
+    ///             |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    ///         )
+    ///         .load("textures/parallax_example/cube_normal.png");
     /// }
     /// ```
     #[texture(9)]

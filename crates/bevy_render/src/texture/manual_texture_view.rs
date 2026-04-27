@@ -1,6 +1,5 @@
 use bevy_camera::ManualTextureViewHandle;
 use bevy_ecs::resource::Resource;
-use bevy_image::BevyDefault;
 use bevy_math::UVec2;
 use bevy_platform::collections::HashMap;
 use bevy_render_macros::ExtractResource;
@@ -21,7 +20,7 @@ impl ManualTextureView {
         Self {
             texture_view,
             size,
-            view_format: TextureFormat::bevy_default(),
+            view_format: TextureFormat::Rgba8UnormSrgb,
         }
     }
 }

@@ -82,6 +82,9 @@ smaa_luts = ["bevy_anti_alias?/smaa_luts", "ktx2", "bevy_image/zstd"]
 # Include Bluenoise texture for environment map generation.
 bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
+# Include a preintegrated BRDF Look Up Table for more accurate specular shading.
+dfg_lut = ["bevy_pbr?/dfg_lut", "ktx2", "bevy_image/zstd"]
+
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]
 
@@ -135,6 +138,7 @@ multi_threaded = [
   "bevy_ecs/multi_threaded",
   "bevy_render?/multi_threaded",
   "bevy_tasks/multi_threaded",
+  "bevy_transform/multi_threaded",
 ]
 async-io = ["std", "bevy_tasks/async-io"]
 
@@ -455,6 +459,15 @@ gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
 touch = ["bevy_input/touch"]
 gestures = ["bevy_input/gestures"]
 
+# Clipboard support
+bevy_clipboard = ["dep:bevy_clipboard"]
+system_clipboard = [
+  "dep:bevy_clipboard",
+  "bevy_clipboard/system_clipboard",
+  "bevy_text?/system_clipboard",
+]
+clipboard_image = ["dep:bevy_clipboard", "bevy_clipboard/image"]
+
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render?/debug"]
@@ -553,6 +566,7 @@ bevy_ui_render = { path = "../bevy_ui_render", optional = true, version = "0.19.
 bevy_window = { path = "../bevy_window", optional = true, version = "0.19.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_clipboard = { path = "../bevy_clipboard", optional = true, version = "0.19.0-dev", default-features = false }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.19.0-dev", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]

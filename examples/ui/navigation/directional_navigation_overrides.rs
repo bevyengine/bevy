@@ -25,7 +25,7 @@ use bevy::{
         directional_navigation::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
         },
-        InputFocus, InputFocusVisible,
+        FocusCause, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
     picking::{
@@ -377,7 +377,7 @@ fn setup_paged_ui(
     );
 
     // Set initial focus
-    input_focus.set(pages_entities[0][0]);
+    input_focus.set(pages_entities[0][0], FocusCause::Navigated);
 }
 
 /// Creates the buttons and text for a grid page and places the ids into their
@@ -855,6 +855,7 @@ fn interact_with_focused_button(
                     depth: 0.0,
                     position: None,
                     normal: None,
+                    extra: None,
                 },
                 duration: Duration::from_secs_f32(0.1),
             },

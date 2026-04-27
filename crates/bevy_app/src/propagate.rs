@@ -74,12 +74,12 @@ pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
