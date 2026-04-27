@@ -1778,7 +1778,7 @@ mod tests {
         }
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-        struct GenericLabel<T: Eq>(PhantomData<T>);
+        struct GenericLabel<T>(PhantomData<T>);
 
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
         assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());

@@ -258,7 +258,7 @@ pub fn derive_app_label(input: TokenStream) -> TokenStream {
     app_label_where_clause.predicates.push(
         syn::parse2(quote! {
             // AppLabel has additional constraints of Default + Copy
-            Self: #interior_trait_path + Copy + Default
+            Self: #interior_trait_path + Clone + Copy + Default + PartialEq + Eq
         })
         .unwrap(),
     );
