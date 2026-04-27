@@ -81,7 +81,7 @@ impl WorldAsset {
             .iter_registered()
             .map(ComponentInfo::id)
         {
-            let source_entity = component_id.entity();
+            let source_entity = component_id.id();
             if Some(component_id) == self_dqf_id
                 || !self.world.entities().contains_spawned(source_entity)
             {
@@ -121,7 +121,7 @@ impl WorldAsset {
                 .expect("ReflectComponent is depended on ReflectResource");
 
             // check if the resource already exists in the other world, if not spawn it
-            let destination_entity = component_id.entity();
+            let destination_entity = component_id.id();
             if !world.entities().contains_spawned(destination_entity) {
                 let _ = world.spawn_empty_at(destination_entity);
             }

@@ -209,7 +209,7 @@ impl ComponentId {
 
     /// Returns the inner entity from the `ComponentId`
     #[inline]
-    pub fn entity(self) -> Entity {
+    pub fn id(self) -> Entity {
         self.0
     }
 }

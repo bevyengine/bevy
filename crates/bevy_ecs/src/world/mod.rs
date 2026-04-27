@@ -1849,7 +1849,7 @@ impl World {
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
         let resource_id: ComponentId = self.register_resource::<R>();
-        let entity = resource_id.entity();
+        let entity = resource_id.id();
 
         if let Ok(entity_ref) = self.get_entity(entity) {
             if !entity_ref.contains_id(resource_id) {
@@ -1986,7 +1986,7 @@ impl World {
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let resource_id = self.component_id::<R>()?;
         let value = self
-            .get_entity_mut(resource_id.entity())
+            .get_entity_mut(resource_id.id())
             .expect("ResourceCache is in sync")
             .take::<R>()?;
         Some(value)
@@ -2028,7 +2028,7 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Ok(entity_ref) = self.get_entity(component_id.entity()) {
+        if let Ok(entity_ref) = self.get_entity(component_id.id()) {
             return entity_ref.contains_id(component_id);
         }
         false
@@ -2116,7 +2116,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity_ref = self.get_entity(component_id.entity()).ok()?;
+        let entity_ref = self.get_entity(component_id.id()).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
 
@@ -2767,7 +2767,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_component_id::<R>()?;
-        let entity = component_id.entity();
+        let entity = component_id.id();
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -2958,7 +2958,7 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        let entity = component_id.entity();
+        let entity = component_id.id();
         // if the resource already exists, we replace it on the same entity
         let mut entity_mut = if let Ok(entity_mut) = self.get_entity_mut(entity) {
             entity_mut
@@ -3296,7 +3296,7 @@ impl World {
             .map(ComponentInfo::id)
             .collect();
         for component_id in ids {
-            let entity = component_id.entity();
+            let entity = component_id.id();
             if let Ok(mut entity_mut) = self.get_entity_mut(entity) {
                 entity_mut.remove_by_id(component_id);
             }
@@ -3502,7 +3502,7 @@ impl World {
             .iter_registered()
             .filter_map(|component_info| {
                 let component_id = component_info.id();
-                let entity = component_id.entity();
+                let entity = component_id.id();
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(component_id).ok()?;
                 Some((component_info, resource))
@@ -3582,7 +3582,7 @@ impl World {
             .iter_registered()
             .filter_map(move |component_info| {
                 let component_id = component_info.id();
-                let entity = component_id.entity();
+                let entity = component_id.id();
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 
                 // SAFETY:
@@ -3644,7 +3644,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        let entity = component_id.entity();
+        let entity = component_id.id();
         if let Ok(mut entity_mut) = self.get_entity_mut(entity)
             && entity_mut.contains_id(component_id)
         {

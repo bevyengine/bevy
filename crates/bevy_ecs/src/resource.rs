@@ -106,7 +106,7 @@ impl IsResource {
             .get::<Self>()
             .unwrap()
             .resource_component_id();
-        let original_entity = resource_component_id.entity();
+        let original_entity = resource_component_id.id();
 
         if !world.entities().contains(original_entity) {
             let name = world
@@ -145,7 +145,7 @@ impl IsResource {
             .get::<Self>()
             .unwrap()
             .resource_component_id();
-        let original_entity = resource_component_id.entity();
+        let original_entity = resource_component_id.id();
 
         if original_entity == context.entity {
             world
@@ -205,7 +205,7 @@ mod tests {
             }
         });
         assert_eq!(world.entities().count_spawned(), start + 3);
-        let e3 = id3.entity();
+        let e3 = id3.id();
         assert!(world.remove_resource_by_id(id3));
         // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         assert_eq!(world.entities().count_spawned(), start + 3);
@@ -215,13 +215,13 @@ mod tests {
                 world.insert_resource_by_id(id3, ptr, MaybeLocation::caller());
             }
         });
-        assert_eq!(e3, id3.entity());
+        assert_eq!(e3, id3.id());
         // again, the entity is stable: see previous explanation
-        let e1 = id1.entity();
+        let e1 = id1.id();
         world.remove_resource::<TestResource1>();
         assert_eq!(world.entities().count_spawned(), start + 3);
         world.init_resource::<TestResource1>();
-        assert_eq!(e1, id1.entity());
+        assert_eq!(e1, id1.id());
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
         assert_eq!(world.entities().count_spawned(), start + 3);
@@ -244,7 +244,7 @@ mod tests {
             let (entity, _test_resource, is_resource) = resources[0];
             let resource_id = is_resource.resource_component_id();
             assert_eq!(resource_id, id);
-            assert_eq!(resource_id.entity(), entity);
+            assert_eq!(resource_id.id(), entity);
             entity
         };
 
@@ -265,7 +265,7 @@ mod tests {
             let (entity, _test_resource, is_resource) = resources[0];
             let resource_id = is_resource.resource_component_id();
             assert_eq!(resource_id, id);
-            assert_eq!(resource_id.entity(), entity);
+            assert_eq!(resource_id.id(), entity);
             entity
         };
 

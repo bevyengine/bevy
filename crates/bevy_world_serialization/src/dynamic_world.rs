@@ -181,7 +181,7 @@ impl DynamicWorld {
                 .expect("ReflectComponent is depended on ReflectResource");
 
             let resource_id = reflect_component.register_component(world);
-            let entity = resource_id.entity();
+            let entity = resource_id.id();
             if !world.entities().contains_spawned(entity) {
                 let _ = world.spawn_empty_at(entity);
             }

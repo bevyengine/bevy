@@ -454,7 +454,7 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have permission to access the resource of `component_id`.
-        let entity = component_id.entity();
+        let entity = component_id.id();
         let entity_cell = self.get_entity(entity).ok()?;
         entity_cell.get_by_id(component_id)
     }
@@ -563,7 +563,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<MutUntyped<'w>> {
         self.assert_allows_mutable_access();
         // SAFETY: We have permission to access the resource of `component_id`.
-        let entity = component_id.entity();
+        let entity = component_id.id();
         let entity_cell = self.get_entity(entity).ok()?;
         entity_cell.get_mut_by_id(component_id).ok()
     }
@@ -667,7 +667,7 @@ impl<'w> UnsafeWorldCell<'w> {
         component_id: ComponentId,
     ) -> Option<(Ptr<'w>, ComponentTickCells<'w>)> {
         // SAFETY: We have permission to access the resource of `component_id`.
-        let entity = component_id.entity();
+        let entity = component_id.id();
         let storage_type = self.components().get_info(component_id)?.storage_type();
         let location = self.get_entity(entity).ok()?.location();
         // SAFETY:

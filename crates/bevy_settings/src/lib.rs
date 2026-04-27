@@ -342,7 +342,7 @@ fn resources_to_toml(
             continue;
         };
 
-        let res_entity = component_id.entity();
+        let res_entity = component_id.id();
         let res_entity_ref = world.entity(res_entity);
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
@@ -469,7 +469,7 @@ fn apply_settings_to_world(
 
         let reflect_component = ty.data::<ReflectComponent>().unwrap();
         let component_id = world.components().get_id(*tid);
-        let res_entity = component_id.map(ComponentId::entity);
+        let res_entity = component_id.map(ComponentId::id);
 
         if let Some(res_entity) = res_entity {
             // Resource already exists, so apply toml properties to it.
@@ -497,7 +497,7 @@ fn apply_settings_to_world(
             let reflect_default = ty.data::<ReflectDefault>().unwrap();
             let mut default_value = reflect_default.default();
             let new_component_id = reflect_component.register_component(world);
-            let mut res_entity = world.spawn_empty_at(new_component_id.entity()).unwrap();
+            let mut res_entity = world.spawn_empty_at(new_component_id.id()).unwrap();
 
             if let Some(toml) = toml
                 && let Some(value) = toml.get(settings_group)

@@ -383,7 +383,7 @@ impl<'w> DynamicWorldBuilder<'w> {
             .iter_registered()
             .map(ComponentInfo::id)
         {
-            let entity = component_id.entity();
+            let entity = component_id.id();
             if Some(component_id) == original_world_dqf_id
                 || !self.original_world.entities().contains_spawned(entity)
             {
