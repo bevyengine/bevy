@@ -185,7 +185,7 @@ fn init_pipeline<T: FullscreenMaterial>(
 }
 
 #[derive(Component)]
-struct FullscreenMaterialPipelineId(CachedRenderPipelineId);
+pub struct FullscreenMaterialPipelineId(pub CachedRenderPipelineId);
 
 fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut commands: Commands,
