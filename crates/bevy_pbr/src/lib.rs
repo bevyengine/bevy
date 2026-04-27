@@ -164,23 +164,20 @@ pub struct Bluenoise {
     pub texture: Handle<Image>,
 }
 
-/// LTC (Linearly Transformed Cosines) LUT textures for area light shading.
+/// A texture array with 2 LTC LUT and 1 DFG LUT
+///
+/// Index 0 and 1: LTC (Linearly Transformed Cosines) LUT textures for area light shading.
 ///
 /// `ltc_1` encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
 /// `ltc_2` encodes amplitude and Fresnel-related weights.
 ///
 /// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
+///
+/// Index 2: The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+/// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
 #[derive(Resource, Clone)]
-pub struct LtcLuts {
-    pub ltc_1: Handle<Image>,
-    pub ltc_2: Handle<Image>,
-}
-
-// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
-/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
-#[derive(Resource, Clone)]
-pub struct DfgLut {
-    pub texture: Handle<Image>,
+pub struct LtcDfgLuts {
+    pub image: Handle<Image>,
 }
 
 impl Plugin for PbrPlugin {
@@ -301,64 +298,28 @@ impl Plugin for PbrPlugin {
             }
         }
 
-        let has_ltc_luts = app
+        let has_ltc_dfg_luts = app
             .get_sub_app(RenderApp)
-            .is_some_and(|render_app| render_app.world().is_resource_added::<LtcLuts>());
+            .is_some_and(|render_app| render_app.world().is_resource_added::<LtcDfgLuts>());
 
-        if !has_ltc_luts {
+        if !has_ltc_dfg_luts {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-            let ltc_luts = LtcLuts {
-                ltc_1: images.add(
+            let ltc_dfg_luts = LtcDfgLuts {
+                image: images.add(
                     Image::from_buffer(
-                        include_bytes!("ltc/ltc1.ktx2"),
+                        include_bytes!("ltc_dfg/ltc_dfg.ktx2"),
                         ImageType::Extension("ktx2"),
                         CompressedImageFormats::NONE,
                         false,
                         ImageSampler::linear(),
                         RenderAssetUsages::RENDER_WORLD,
                     )
-                    .expect("Failed to decode embedded LTC LUT 1"),
-                ),
-                ltc_2: images.add(
-                    Image::from_buffer(
-                        include_bytes!("ltc/ltc2.ktx2"),
-                        ImageType::Extension("ktx2"),
-                        CompressedImageFormats::NONE,
-                        false,
-                        ImageSampler::linear(),
-                        RenderAssetUsages::RENDER_WORLD,
-                    )
-                    .expect("Failed to decode embedded LTC LUT 2"),
+                    .expect("Failed to decode embedded LTC DFG LUT"),
                 ),
             };
 
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-                render_app.world_mut().insert_resource(ltc_luts);
-            }
-        }
-
-        let has_dfg_lut = app
-            .get_sub_app(RenderApp)
-            .is_some_and(|render_app| render_app.world().is_resource_added::<DfgLut>());
-
-        if !has_dfg_lut {
-            #[cfg(feature = "dfg_lut")]
-            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
-                Image::from_buffer(
-                    include_bytes!("environment_map/dfg.ktx2"),
-                    ImageType::Extension("ktx2"),
-                    CompressedImageFormats::NONE,
-                    false,
-                    ImageSampler::linear(),
-                    RenderAssetUsages::RENDER_WORLD,
-                )
-                .expect("Failed to decode embedded DFG LUT"),
-            );
-            #[cfg(not(feature = "dfg_lut"))]
-            let texture = Handle::default();
-
-            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-                render_app.world_mut().insert_resource(DfgLut { texture });
+                render_app.world_mut().insert_resource(ltc_dfg_luts);
             }
         }
 

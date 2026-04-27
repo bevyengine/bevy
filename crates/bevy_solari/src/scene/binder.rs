@@ -8,7 +8,8 @@ use bevy_ecs::{
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{
-    DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
+    ExtractedDirectionalLight, LtcDfgLuts, MeshMaterial3d, PreviousGlobalTransform,
+    StandardMaterial,
 };
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
@@ -48,7 +49,7 @@ pub fn prepare_raytracing_scene_bindings(
     material_assets: Res<StandardMaterialAssets>,
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
-    dfg_lut: Res<DfgLut>,
+    ltc_dfg_luts: Res<LtcDfgLuts>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
@@ -268,8 +269,17 @@ pub fn prepare_raytracing_scene_bindings(
     render_queue.submit([command_encoder.finish()]);
 
     let (dfg_view, dfg_sampler) = texture_assets
-        .get(&dfg_lut.texture)
-        .map(|img| (&img.texture_view, &img.sampler))
+        .get(&ltc_dfg_luts.image)
+        .map(|img| {
+            (
+                &img.texture.create_view(&TextureViewDescriptor {
+                    dimension: Some(TextureViewDimension::D2),
+                    base_array_layer: 2,
+                    ..Default::default()
+                }),
+                &img.sampler,
+            )
+        })
         .unwrap_or((
             &fallback_texture.d2.texture_view,
             &fallback_texture.d2.sampler,

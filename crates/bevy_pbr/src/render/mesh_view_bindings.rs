@@ -1,4 +1,4 @@
-use crate::{DfgLut, LtcLuts};
+use crate::LtcDfgLuts;
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
@@ -436,28 +436,14 @@ pub fn layout_entries(
             texture_2d_array(TextureSampleType::Float { filterable: false }),
         ),));
     }
-    // LTC LUTs for area lights
+    // LTC LUTs for area lights and DFG LUT
     entries = entries.extend_with_indices((
         (
             36,
-            texture_2d(TextureSampleType::Float { filterable: true }),
+            texture_2d_array(TextureSampleType::Float { filterable: true }),
         ),
-        (
-            37,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (38, sampler(SamplerBindingType::Filtering)),
+        (37, sampler(SamplerBindingType::Filtering)),
     ));
-    // DFG LUT
-    if cfg!(feature = "dfg_lut") {
-        entries = entries.extend_with_indices((
-            (
-                39,
-                texture_2d(TextureSampleType::Float { filterable: true }),
-            ),
-            (40, sampler(SamplerBindingType::Filtering)),
-        ));
-    }
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
         (0, environment_map_entries[0]),
@@ -662,16 +648,14 @@ pub fn prepare_mesh_view_bind_groups(
         atmosphere_buffer,
         atmosphere_sampler,
         blue_noise,
-        ltc_luts,
-        dfg_lut,
+        ltc_dfg_luts,
     ): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
-        Res<LtcLuts>,
-        Res<DfgLut>,
+        Res<LtcDfgLuts>,
     ),
 ) {
     if let (
@@ -843,26 +827,15 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((35, stbn_view),));
             }
 
-            // LTC LUTs for area lights
-            let (ltc1_view, ltc_sampler) = images
-                .get(&ltc_luts.ltc_1)
+            // LTC LUTs for area lights and DFG LUT.
+            let (ltc_dfg_view, ltc_dfg_sampler) = images
+                .get(&ltc_dfg_luts.image)
                 .map(|img| (&img.texture_view, &img.sampler))
-                .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-            let ltc2_view = images
-                .get(&ltc_luts.ltc_2)
-                .map(|img| &img.texture_view)
-                .unwrap_or(&fallback_image.d2.texture_view);
-            entries =
-                entries.extend_with_indices(((36, ltc1_view), (37, ltc2_view), (38, ltc_sampler)));
-
-            // DFG LUT
-            if cfg!(feature = "dfg_lut") {
-                let (dfg_view, dfg_sampler) = images
-                    .get(&dfg_lut.texture)
-                    .map(|img| (&img.texture_view, &img.sampler))
-                    .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-                entries = entries.extend_with_indices(((39, dfg_view), (40, dfg_sampler)));
-            }
+                .unwrap_or((
+                    &fallback_image.d2_array.texture_view,
+                    &fallback_image.d2_array.sampler,
+                ));
+            entries = entries.extend_with_indices(((36, ltc_dfg_view), (37, ltc_dfg_sampler)));
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
 

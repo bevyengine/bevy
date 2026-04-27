@@ -21,7 +21,6 @@ experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
 pbr_clustered_decals = []
 pbr_light_textures = []
 bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
-dfg_lut = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
@@ -47,7 +46,10 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
 bevy_gltf = { path = "../bevy_gltf", version = "0.19.0-dev", optional = true }
 bevy_light = { path = "../bevy_light", version = "0.19.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.19.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.19.0-dev", features = [
+  "ktx2",
+  "zstd",
+] }
 bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
   "morph",
   "bevy_mikktspace",
