@@ -157,7 +157,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             targets
                 .iter_mut()
                 .enumerate()
-                .filter_map(|(i, t)| if i != 1 { None } else { t.as_mut() })
+                .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
         {
             target.write_mask = bevy_render::render_resource::ColorWrites::empty();
         }
