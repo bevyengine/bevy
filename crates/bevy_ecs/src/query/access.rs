@@ -1,7 +1,10 @@
+use crate::entity::EntityHash;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
+use bevy_platform::collections::HashSet;
 use core::iter::FusedIterator;
+use core::ops::{BitAndAssign, BitOrAssign, SubAssign};
 use core::{fmt, fmt::Debug};
 use derive_more::From;
 use fixedbitset::{Difference, FixedBitSet, Intersection, IntoOnes, Ones, Union};
@@ -11,14 +14,14 @@ use thiserror::Error;
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Eq, PartialEq, Default, Hash, Debug)]
+#[derive(Eq, PartialEq, Default, Debug)]
 pub struct Access {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
-    read_and_writes: ComponentIdSet,
+    read_and_writes: HashSet<ComponentId, EntityHash>,
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::component_writes_inverted` is set.
-    writes: ComponentIdSet,
+    writes: HashSet<ComponentId, EntityHash>,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::read_and_writes`.
     read_and_writes_inverted: bool,
@@ -26,7 +29,7 @@ pub struct Access {
     /// present in `Self::writes`.
     writes_inverted: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
-    archetypal: ComponentIdSet,
+    archetypal: HashSet<ComponentId, EntityHash>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -56,9 +59,9 @@ impl Access {
         Self {
             read_and_writes_inverted: false,
             writes_inverted: false,
-            read_and_writes: ComponentIdSet::new(),
-            writes: ComponentIdSet::new(),
-            archetypal: ComponentIdSet::new(),
+            read_and_writes: HashSet::with_hasher(EntityHash),
+            writes: HashSet::with_hasher(EntityHash),
+            archetypal: HashSet::with_hasher(EntityHash),
         }
     }
 
@@ -96,7 +99,7 @@ impl Access {
         if !self.read_and_writes_inverted {
             self.read_and_writes.insert(index);
         } else {
-            self.read_and_writes.remove(index);
+            self.read_and_writes.remove(&index);
         }
     }
 
@@ -112,7 +115,7 @@ impl Access {
         if !self.writes_inverted {
             self.writes.insert(index);
         } else {
-            self.writes.remove(index);
+            self.writes.remove(&index);
         }
     }
 
@@ -153,7 +156,7 @@ impl Access {
         if self.read_and_writes_inverted {
             self.read_and_writes.insert(index);
         } else {
-            self.read_and_writes.remove(index);
+            self.read_and_writes.remove(&index);
         }
     }
 
@@ -175,7 +178,7 @@ impl Access {
         if self.writes_inverted {
             self.writes.insert(index);
         } else {
-            self.writes.remove(index);
+            self.writes.remove(&index);
         }
     }
 
@@ -200,7 +203,7 @@ impl Access {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
-        self.read_and_writes_inverted ^ self.read_and_writes.contains(index)
+        self.read_and_writes_inverted ^ self.read_and_writes.contains(&index)
     }
 
     /// Returns `true` if this can access any component.
@@ -211,7 +214,7 @@ impl Access {
 
     /// Returns `true` if this can access any component.
     pub fn has_any_read(&self) -> bool {
-        self.read_and_writes_inverted || !self.read_and_writes.is_clear()
+        self.read_and_writes_inverted || !self.read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
@@ -222,7 +225,7 @@ impl Access {
 
     /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_write(&self, index: ComponentId) -> bool {
-        self.writes_inverted ^ self.writes.contains(index)
+        self.writes_inverted ^ self.writes.contains(&index)
     }
 
     /// Returns `true` if this accesses any component mutably.
@@ -233,7 +236,7 @@ impl Access {
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_write(&self) -> bool {
-        self.writes_inverted || !self.writes.is_clear()
+        self.writes_inverted || !self.writes.is_empty()
     }
 
     /// Returns `true` if this can access the resource given by `index`.
@@ -269,7 +272,7 @@ impl Access {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn has_archetypal(&self, index: ComponentId) -> bool {
-        self.archetypal.contains(index)
+        self.archetypal.contains(&index)
     }
 
     /// Sets this as having access to all components (i.e. `EntityRef`).
@@ -308,7 +311,7 @@ impl Access {
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.read_and_writes_inverted && self.read_and_writes.is_clear()
+        self.read_and_writes_inverted && self.read_and_writes.is_empty()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
@@ -320,7 +323,7 @@ impl Access {
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
     #[inline]
     pub fn has_write_all(&self) -> bool {
-        self.writes_inverted && self.writes.is_clear()
+        self.writes_inverted && self.writes.is_empty()
     }
 
     /// Removes all writes.
@@ -351,7 +354,7 @@ impl Access {
             &other.writes,
             other.writes_inverted,
         );
-        self.archetypal.union_with(&other.archetypal);
+        self.archetypal.bitor_assign(&other.archetypal);
     }
 
     /// Removes any access from `self` that would conflict with `other`.
@@ -512,9 +515,18 @@ impl Access {
             let temp_conflicts: ComponentIdSet =
                 match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
                     (true, true) => return AccessConflicts::All,
-                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
-                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
-                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).collect(),
+                    (false, true) => lhs_writes
+                        .difference(rhs_reads_and_writes)
+                        .copied()
+                        .collect(),
+                    (true, false) => rhs_reads_and_writes
+                        .difference(lhs_writes)
+                        .copied()
+                        .collect(),
+                    (false, false) => lhs_writes
+                        .intersection(rhs_reads_and_writes)
+                        .copied()
+                        .collect(),
                 };
             conflicts.union_with(&temp_conflicts);
         }
@@ -530,13 +542,15 @@ impl Access {
     /// Currently, this is only used for [`Has<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
-    pub fn archetypal(&self) -> &ComponentIdSet {
+    pub fn archetypal(&self) -> &HashSet<ComponentId, EntityHash> {
         &self.archetypal
     }
 
     /// Returns the set of components with read or write access,
     /// or an error if the access is unbounded.
-    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+    pub fn try_reads_and_writes(
+        &self,
+    ) -> Result<&HashSet<ComponentId, EntityHash>, UnboundedAccessError> {
         // writes_inverted is only ever true when read_and_writes_inverted is
         // also true. Therefore it is sufficient to check just read_and_writes_inverted.
         if self.read_and_writes_inverted {
@@ -550,7 +564,7 @@ impl Access {
 
     /// Returns the set of components with write access,
     /// or an error if the access is unbounded.
-    pub fn try_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+    pub fn try_writes(&self) -> Result<&HashSet<ComponentId, EntityHash>, UnboundedAccessError> {
         if self.writes_inverted {
             return Err(UnboundedAccessError {
                 writes_inverted: self.writes_inverted,
@@ -603,16 +617,16 @@ impl Access {
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
         let reads_and_writes = self.try_reads_and_writes()?.iter().map(|index| {
             if self.writes.contains(index) {
-                ComponentAccessKind::Exclusive(index)
+                ComponentAccessKind::Exclusive(*index)
             } else {
-                ComponentAccessKind::Shared(index)
+                ComponentAccessKind::Shared(*index)
             }
         });
 
         let archetypal = self
             .archetypal
             .difference(&self.read_and_writes)
-            .map(ComponentAccessKind::Archetypal);
+            .map(|id| ComponentAccessKind::Archetypal(*id));
 
         Ok(reads_and_writes.chain(archetypal))
     }
@@ -627,19 +641,19 @@ impl Access {
 /// Note that this may change `self_inverted` to `true` if we add an infinite
 /// set to a finite one, resulting in a new infinite set.
 fn invertible_union_with(
-    self_set: &mut ComponentIdSet,
+    self_set: &mut HashSet<ComponentId, EntityHash>,
     self_inverted: &mut bool,
-    other_set: &ComponentIdSet,
+    other_set: &HashSet<ComponentId, EntityHash>,
     other_inverted: bool,
 ) {
     match (*self_inverted, other_inverted) {
-        (true, true) => self_set.intersect_with(other_set),
-        (true, false) => self_set.difference_with(other_set),
+        (true, true) => self_set.bitand_assign(other_set),
+        (true, false) => self_set.sub_assign(other_set),
         (false, true) => {
             *self_inverted = true;
-            self_set.difference_from(other_set);
+            self_set.clone_from(&(other_set - self_set));
         }
-        (false, false) => self_set.union_with(other_set),
+        (false, false) => self_set.bitor_assign(other_set),
     }
 }
 
@@ -652,9 +666,9 @@ fn invertible_union_with(
 /// Note that this may change `self_inverted` to `false` if we remove an
 /// infinite set from another infinite one, resulting in a finite difference.
 fn invertible_difference_with(
-    self_set: &mut ComponentIdSet,
+    self_set: &mut HashSet<ComponentId, EntityHash>,
     self_inverted: &mut bool,
-    other_set: &ComponentIdSet,
+    other_set: &HashSet<ComponentId, EntityHash>,
     other_inverted: bool,
 ) {
     // We can share the implementation of `invertible_union_with` with some algebra:
@@ -1501,12 +1515,14 @@ mod tests {
     use super::{invertible_difference_with, invertible_union_with};
     use crate::{
         component::ComponentId,
+        entity::EntityHash,
         query::{
             access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, ComponentIdSet,
             FilteredAccess, FilteredAccessSet, UnboundedAccessError,
         },
     };
     use alloc::{vec, vec::Vec};
+    use bevy_platform::collections::HashSet;
     use fixedbitset::FixedBitSet;
 
     fn create_sample_access() -> Access {
@@ -1799,9 +1815,9 @@ mod tests {
         assert_eq!(
             result,
             Ok(vec![
-                ComponentAccessKind::Shared(ComponentId::from_u32(1)),
-                ComponentAccessKind::Shared(ComponentId::from_u32(2)),
                 ComponentAccessKind::Exclusive(ComponentId::from_u32(3)),
+                ComponentAccessKind::Shared(ComponentId::from_u32(2)),
+                ComponentAccessKind::Shared(ComponentId::from_u32(1)),
                 ComponentAccessKind::Archetypal(ComponentId::from_u32(5)),
             ]),
         );
@@ -1845,20 +1861,21 @@ mod tests {
         );
     }
 
-    /// Create a `ComponentIdSet` with a given number of total bits and a given list of bits to set.
-    /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
-    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> ComponentIdSet {
-        let mut result = FixedBitSet::with_capacity(bits);
-        result.extend(iter);
-        ComponentIdSet::from_bits(result)
+    /// Create a `HashSet<ComponentId, EntityHash>` with a given list of `ComponentId`s to set.
+    fn hashset_from_u32s<const N: usize>(array: [u32; N]) -> HashSet<ComponentId, EntityHash> {
+        let mut set = HashSet::with_hasher(EntityHash);
+        for index in array {
+            set.insert(ComponentId::from_u32(index));
+        }
+        set
     }
 
     #[test]
     fn invertible_union_with_tests() {
         let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
+            let mut self_set = hashset_from_u32s([0, 1]);
+            let other_set = hashset_from_u32s([0, 2]);
             invertible_union_with(
                 &mut self_set,
                 &mut self_inverted,
@@ -1871,19 +1888,19 @@ mod tests {
         // Check each combination of `inverted` flags
         let (s, i) = invertible_union(false, false);
         // [0, 1] | [0, 2] = [0, 1, 2]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), false));
+        assert_eq!((s, i), (hashset_from_u32s([0, 1, 2]), false));
 
         let (s, i) = invertible_union(false, true);
         // [0, 1] | [1, 3, ...] = [0, 1, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [2]), true));
+        assert_eq!((s, i), (hashset_from_u32s([2]), true));
 
         let (s, i) = invertible_union(true, false);
         // [2, 3, ...] | [0, 2] = [0, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [1]), true));
+        assert_eq!((s, i), (hashset_from_u32s([1]), true));
 
         let (s, i) = invertible_union(true, true);
         // [2, 3, ...] | [1, 3, ...] = [1, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [0]), true));
+        assert_eq!((s, i), (hashset_from_u32s([0]), true));
     }
 
     #[test]
@@ -1892,9 +1909,9 @@ mod tests {
         // make sure we invert the bits beyond the original length.
         // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
         // which would incorrectly treat it as included in the output set.
-        let mut self_set = bit_set(1, [0]);
+        let mut self_set = hashset_from_u32s([0]);
         let mut self_inverted = false;
-        let other_set = bit_set(3, [0, 1]);
+        let other_set = hashset_from_u32s([0, 1]);
         let other_inverted = true;
         invertible_union_with(
             &mut self_set,
@@ -1904,15 +1921,15 @@ mod tests {
         );
 
         // [0] | [2, ...] = [0, 2, ...]
-        assert_eq!((self_set, self_inverted), (bit_set(3, [1]), true));
+        assert_eq!((self_set, self_inverted), (hashset_from_u32s([1]), true));
     }
 
     #[test]
     fn invertible_difference_with_tests() {
         let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
             // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
+            let mut self_set = hashset_from_u32s([0, 1]);
+            let other_set = hashset_from_u32s([0, 2]);
             invertible_difference_with(
                 &mut self_set,
                 &mut self_inverted,
@@ -1925,19 +1942,19 @@ mod tests {
         // Check each combination of `inverted` flags
         let (s, i) = invertible_difference(false, false);
         // [0, 1] - [0, 2] = [1]
-        assert_eq!((s, i), (bit_set(4, [1]), false));
+        assert_eq!((s, i), (hashset_from_u32s([1]), false));
 
         let (s, i) = invertible_difference(false, true);
         // [0, 1] - [1, 3, ...] = [0]
-        assert_eq!((s, i), (bit_set(4, [0]), false));
+        assert_eq!((s, i), (hashset_from_u32s([0]), false));
 
         let (s, i) = invertible_difference(true, false);
         // [2, 3, ...] - [0, 2] = [3, ...]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), true));
+        assert_eq!((s, i), (hashset_from_u32s([0, 1, 2]), true));
 
         let (s, i) = invertible_difference(true, true);
         // [2, 3, ...] - [1, 3, ...] = [2]
-        assert_eq!((s, i), (bit_set(4, [2]), false));
+        assert_eq!((s, i), (hashset_from_u32s([2]), false));
     }
 
     #[test]
