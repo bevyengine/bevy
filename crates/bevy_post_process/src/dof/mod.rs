@@ -637,6 +637,8 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
+                    // Entry point names that end with number don't work on wasm. Perhaps `naga_oil` bug.
+                    // See <https://github.com/bevyengine/bevy/pull/23629>
                     DofPass::BokehPass0 => "bokeh_pass_a".into(),
                     DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
