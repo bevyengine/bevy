@@ -780,10 +780,12 @@ impl<C> ComponentRelationshipAccessor<C> {
 #[cfg(test)]
 mod tests {
     use core::marker::PhantomData;
+    use core::sync::atomic::AtomicBool;
 
+    use crate::lifecycle::HookContext;
     use crate::prelude::{ChildOf, Children};
     use crate::relationship::{Relationship, RelationshipAccessor};
-    use crate::world::World;
+    use crate::world::{DeferredWorld, World};
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
 
@@ -1185,5 +1187,30 @@ mod tests {
             .unwrap();
         assert!(rel_target_accessor.linked_spawn());
         assert!(rel_target_accessor.allow_self_referential());
+    }
+
+    #[test]
+    fn component_hooks_compatibility() {
+        static CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        #[component(on_add = on_add)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        fn on_add(world: DeferredWorld, context: HookContext) {
+            assert!(!world.entity(context.entity).contains::<RelTarget>());
+            CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+        }
+
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        world.spawn(Rel(target));
+        assert!(world.entity(target).contains::<RelTarget>());
+        assert!(CALLED.load(core::sync::atomic::Ordering::Relaxed));
     }
 }
