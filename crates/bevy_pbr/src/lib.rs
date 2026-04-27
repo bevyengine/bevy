@@ -276,7 +276,7 @@ impl Plugin for PbrPlugin {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             #[cfg(feature = "bluenoise_texture")]
             let handle = {
-                let image = Image::from_buffer(
+                let mut image = Image::from_buffer(
                     include_bytes!("bluenoise/stbn.ktx2"),
                     ImageType::Extension("ktx2"),
                     CompressedImageFormats::NONE,
@@ -285,6 +285,7 @@ impl Plugin for PbrPlugin {
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
+                image.texture_descriptor.label = Some("bluenoise_texture");
                 images.add(image)
             };
 
@@ -305,8 +306,8 @@ impl Plugin for PbrPlugin {
         if !has_ltc_dfg_luts {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             let ltc_dfg_luts = LtcDfgLuts {
-                image: images.add(
-                    Image::from_buffer(
+                image: images.add({
+                    let mut img = Image::from_buffer(
                         include_bytes!("ltc_dfg/ltc_dfg.ktx2"),
                         ImageType::Extension("ktx2"),
                         CompressedImageFormats::NONE,
@@ -314,8 +315,10 @@ impl Plugin for PbrPlugin {
                         ImageSampler::linear(),
                         RenderAssetUsages::RENDER_WORLD,
                     )
-                    .expect("Failed to decode embedded LTC DFG LUT"),
-                ),
+                    .expect("Failed to decode embedded LTC DFG LUT");
+                    img.texture_descriptor.label = Some("ltc_dfg_luts");
+                    img
+                }),
             };
 
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
