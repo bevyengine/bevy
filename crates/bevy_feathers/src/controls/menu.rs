@@ -132,13 +132,14 @@ fn on_menu_event(
 }
 
 /// A menu button widget. This produces a button that has a dropdown arrow.
-/// This can be spawned as a "scene component" with [`MenuButtonProps`].
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuButtonProps`].
 #[derive(Component, Default, Clone)]
-#[component(scene_props = MenuButtonProps)]
+#[component(scene_props = FeathersMenuButtonProps)]
 pub struct FeathersMenuButton;
 
-/// Parameters for the menu button template, passed to [`menu_button`] function.
-pub struct MenuButtonProps {
+/// Props used to construct a [`FeathersMenuButton`] scene.
+pub struct FeathersMenuButtonProps {
     /// Label for this menu button
     pub caption: Box<dyn SceneList>,
     /// Rounded corners options
@@ -147,7 +148,7 @@ pub struct MenuButtonProps {
     pub arrow: bool,
 }
 
-impl Default for MenuButtonProps {
+impl Default for FeathersMenuButtonProps {
     fn default() -> Self {
         Self {
             caption: Box::new(bsn_list!()),
@@ -157,7 +158,7 @@ impl Default for MenuButtonProps {
     }
 }
 impl FeathersMenuButton {
-    fn scene(props: MenuButtonProps) -> impl Scene {
+    fn scene(props: FeathersMenuButtonProps) -> impl Scene {
         bsn! {
             :FeathersButton {
                 @caption: {props.caption},
@@ -240,17 +241,19 @@ impl FeathersMenuPopup {
 }
 
 /// A menu item widget.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuItemProps`].
 #[derive(Component, Default, Clone)]
-#[component(scene_props = MenuItemProps )]
+#[component(scene_props = FeathersMenuItemProps )]
 pub struct FeathersMenuItem;
 
-/// Parameters for the menu button template, passed to [`menu_button`] function.
-pub struct MenuItemProps {
+/// Props used to construct a [`FeathersMenuItem`] scene.
+pub struct FeathersMenuItemProps {
     /// Label for this menu item
     pub caption: Box<dyn SceneList>,
 }
 
-impl Default for MenuItemProps {
+impl Default for FeathersMenuItemProps {
     fn default() -> Self {
         Self {
             caption: Box::new(bsn_list!()),
@@ -259,7 +262,7 @@ impl Default for MenuItemProps {
 }
 
 impl FeathersMenuItem {
-    fn scene(props: MenuItemProps) -> impl Scene {
+    fn scene(props: FeathersMenuItemProps) -> impl Scene {
         bsn! {
             Node {
                 height: size::ROW_HEIGHT,
