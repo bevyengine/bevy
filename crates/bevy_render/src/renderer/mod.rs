@@ -87,6 +87,7 @@ pub fn render_system(
     }
 
     {
+        #[cfg(feature = "trace")]
         let _span = info_span!("present_frames").entered();
 
         world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {

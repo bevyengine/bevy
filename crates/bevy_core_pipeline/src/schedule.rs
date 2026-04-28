@@ -230,6 +230,7 @@ pub(crate) fn submit_pending_command_buffers(world: &mut World) {
     let buffers = pending.take();
 
     if !buffers.is_empty() {
+        #[cfg(feature = "trace")]
         let _span = info_span!("queue_submit", count = buffer_count).entered();
         let queue = world.resource::<RenderQueue>();
         queue.submit(buffers);

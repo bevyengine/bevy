@@ -2341,12 +2341,14 @@ pub fn write_batched_instance_buffers<GFBD>(
 
     ComputeTaskPool::get().scope(|scope| {
         scope.spawn(async {
+            #[cfg(feature = "trace")]
             let _span = bevy_log::info_span!("write_current_input_buffers").entered();
             current_input_buffer
                 .buffer
                 .write_buffers(render_device, render_queue);
         });
         scope.spawn(async {
+            #[cfg(feature = "trace")]
             let _span = bevy_log::info_span!("write_previous_input_buffers").entered();
             previous_input_buffer.write_buffer(render_device, render_queue);
         });
@@ -2360,6 +2362,7 @@ pub fn write_batched_instance_buffers<GFBD>(
             } = *phase_instance_buffers;
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("write_phase_instance_buffers").entered();
                 data_buffer.write_buffer(render_device);
                 late_indexed_indirect_parameters_buffer.write_buffer(render_device, render_queue);
@@ -2369,6 +2372,7 @@ pub fn write_batched_instance_buffers<GFBD>(
 
             for phase_work_item_buffers in work_item_buffers.values_mut() {
                 scope.spawn(async {
+                    #[cfg(feature = "trace")]
                     let _span = bevy_log::info_span!("write_work_item_buffers").entered();
                     match *phase_work_item_buffers {
                         PreprocessWorkItemBuffers::Direct(ref mut buffer_vec) => {
@@ -2640,6 +2644,7 @@ pub fn write_indirect_parameters_buffers(
     ComputeTaskPool::get().scope(|scope| {
         for phase_indirect_parameters_buffers in indirect_parameters_buffers.values_mut() {
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_data").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2647,6 +2652,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_data").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed
@@ -2655,6 +2661,7 @@ pub fn write_indirect_parameters_buffers(
             });
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_cpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2662,6 +2669,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device, render_queue);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_cpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed
@@ -2670,6 +2678,7 @@ pub fn write_indirect_parameters_buffers(
             });
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_gpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed
@@ -2677,6 +2686,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_gpu_metadata").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2685,6 +2695,7 @@ pub fn write_indirect_parameters_buffers(
             });
 
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("indexed_batch_sets").entered();
                 phase_indirect_parameters_buffers
                     .indexed
@@ -2692,6 +2703,7 @@ pub fn write_indirect_parameters_buffers(
                     .write_buffer(render_device, render_queue);
             });
             scope.spawn(async {
+                #[cfg(feature = "trace")]
                 let _span = bevy_log::info_span!("non_indexed_batch_sets").entered();
                 phase_indirect_parameters_buffers
                     .non_indexed

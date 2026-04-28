@@ -194,6 +194,7 @@ impl RenderVisibleEntitiesClass {
         &mut self,
         visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)],
     ) {
+        #[cfg(feature = "trace")]
         let _update_from = info_span!("update_from", name = "update_from").entered();
 
         let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);
@@ -203,6 +204,7 @@ impl RenderVisibleEntitiesClass {
         // entities. The lists must be sorted.
         let mut old_entity_cpu_culling_iter = old_entities_cpu_culling.iter().peekable();
         {
+            #[cfg(feature = "trace")]
             let _old_entity_cpu_culling_span =
                 info_span!("old_entity_cpu_culling", name = "old_entity_cpu_culling").entered();
             for (render_entity, visible_main_entity) in visible_mesh_entities_cpu_culling {
@@ -236,6 +238,7 @@ impl RenderVisibleEntitiesClass {
         // Any entities that do CPU culling and that we didn't see yet are
         // removed, so drain them.
         {
+            #[cfg(feature = "trace")]
             let _old_entity_cpu_culling_removal_span = info_span!(
                 "old_entity_cpu_culling_removal",
                 name = "old_entity_cpu_culling_removal"
