@@ -107,7 +107,8 @@ impl RenderContextState {
 impl SystemBuffer for RenderContextState {
     fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
         #[cfg(feature = "trace")]
-        let _span = info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
+        let _span =
+            info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
 
         let inner = &mut *self.0;
 
