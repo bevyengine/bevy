@@ -131,6 +131,9 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
+    #[cfg(target_os = "windows")]
+    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
+
     // When the "web_asset_cache" feature is enabled, use http-cache's ureq integration.
     #[cfg(feature = "web_asset_cache")]
     {

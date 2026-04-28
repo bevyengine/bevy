@@ -19,8 +19,8 @@ mod case2 {
     use super::*;
 
     #[derive(Component, Debug)]
-    #[component(on_replace = foo_hook)]
-    //~^ ERROR: Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook
+    #[component(on_discard = foo_hook)]
+    //~^ ERROR: Custom on_discard hooks are not supported as RelationshipTarget already defines an on_discard hook
     #[relationship_target(relationship = FooTargetOf)]
     pub struct FooTargetsFail(Vec<Entity>);
 
@@ -34,8 +34,8 @@ mod case3 {
     use super::*;
 
     #[derive(Component, Debug)]
-    #[component(on_replace = foo_hook)]
-    //~^ ERROR: Custom on_replace hooks are not supported as Relationships already define an on_replace hook
+    #[component(on_discard = foo_hook)]
+    //~^ ERROR: Custom on_discard hooks are not supported as Relationships already define an on_discard hook
     #[relationship(relationship_target = BarTargets)]
     pub struct BarTargetOfFail(Entity);
 

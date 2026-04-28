@@ -58,6 +58,8 @@ pub mod prelude {
 }
 
 mod atomic_id;
+mod bloom_filter;
+pub use bloom_filter::*;
 mod debug_info;
 mod default;
 mod once;
@@ -65,6 +67,7 @@ mod once;
 #[doc(hidden)]
 pub use once::OnceFlag;
 
+pub use debug_info::DebugName;
 pub use default::default;
 
 use core::mem::ManuallyDrop;

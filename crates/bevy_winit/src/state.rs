@@ -39,7 +39,8 @@ use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
-    converters, create_windows,
+    converters::{self, convert_touch_phase},
+    create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, RawWinitWindowEvent, UpdateMode,
     WinitSettings, WinitUserEvent, WINIT_WINDOWS,
@@ -163,12 +164,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
-                requested_resume: Some(resume),
-                ..
+                requested_resume, ..
             } => {
                 // If the resume time is not after now, it means that at least the wait timeout
-                // has elapsed.
-                resume <= Instant::now()
+                // has elapsed. Alternatively, if the resume time is unset, the wait never elapses.
+                requested_resume
+                    .map(|resume| resume <= Instant::now())
+                    .unwrap_or_default()
             }
             _ => true,
         };
@@ -181,7 +183,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         // Create the initial window if needed
         let mut create_window = SystemState::<CreateWindowParams>::from_world(self.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.world_mut()));
+        create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
         create_window.apply(self.world_mut());
     }
 
@@ -195,7 +197,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
             WinitUserEvent::WindowAdded => {
                 let mut create_window =
                     SystemState::<CreateWindowParams>::from_world(self.world_mut());
-                create_windows(event_loop, create_window.get_mut(self.world_mut()));
+                create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
                 create_window.apply(self.world_mut());
             }
         }
@@ -224,7 +226,8 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                     mut windows,
                 ) = self
                     .message_writer_system_state
-                    .get_mut(self.app.world_mut());
+                    .get_mut(self.app.world_mut())
+                    .unwrap();
 
                 let Some(window) = winit_windows.get_window_entity(window_id) else {
                     warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -334,24 +337,29 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                             y: delta.y,
                         }));
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                                window,
-                            });
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
+                        let phase = convert_touch_phase(phase);
+                        match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                    window,
+                                    phase,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                    window,
+                                    phase,
+                                });
+                            }
                         }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                                window,
-                            });
-                        }
-                    },
+                    }
                     WindowEvent::Touch(touch) => {
                         let location = touch
                             .location
@@ -459,7 +467,10 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
-        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
+        create_monitors(
+            event_loop,
+            create_monitor.get_mut(self.world_mut()).unwrap(),
+        );
         create_monitor.apply(self.world_mut());
 
         // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488
@@ -516,7 +527,7 @@ impl WinitAppRunnerState {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        let (config, windows) = focused_windows_state.get(self.world());
+        let (config, windows) = focused_windows_state.get(self.world()).unwrap();
         let focused = windows.iter().any(|(_, window)| window.focused);
 
         let mut update_mode = config.update_mode(focused);
@@ -541,10 +552,11 @@ impl WinitAppRunnerState {
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&self.world()).unwrap();
-                self.world_mut()
-                    .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
+                if let Ok(entity) = query.single(&self.world()) {
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .remove::<RawHandleWrapper>();
+                }
             }
         }
 
@@ -572,7 +584,7 @@ impl WinitAppRunnerState {
                                 SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
                             let (.., mut handlers, accessibility_requested, monitors) =
-                                create_window.get_mut(self.world_mut());
+                                create_window.get_mut(self.world_mut()).unwrap();
 
                             let winit_window = winit_windows.create_window(
                                 event_loop,
@@ -605,7 +617,7 @@ impl WinitAppRunnerState {
         let begin_frame_time = Instant::now();
 
         if should_update {
-            let (_, windows) = focused_windows_state.get(self.world());
+            let (_, windows) = focused_windows_state.get(self.world()).unwrap();
             // If no windows exist, this will evaluate to `true`.
             let all_invisible = windows.iter().all(|w| !w.1.visible);
 
@@ -648,7 +660,7 @@ impl WinitAppRunnerState {
             }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
+            let (config, windows) = focused_windows_state.get(self.world()).unwrap();
             let focused = windows.iter().any(|(_, window)| window.focused);
             update_mode = config.update_mode(focused);
         }
@@ -670,13 +682,13 @@ impl WinitAppRunnerState {
                 // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                 // we cannot use the visibility to drive rendering on these platforms
                 // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
+                cfg_select! {
+                    not(any(
                         target_arch = "wasm32",
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
+                    )) =>
                     {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
                             winit_windows.windows.iter().any(|(_, w)| {
@@ -690,7 +702,7 @@ impl WinitAppRunnerState {
                             ControlFlow::Poll
                         });
                     }
-                    else {
+                    _ => {
                         event_loop.set_control_flow(ControlFlow::Wait);
                     }
                 }
@@ -891,11 +903,12 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
     trace!("starting winit event loop");
     // The winit docs mention using `spawn` instead of `run` on Wasm.
     // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+    cfg_select! {
+        target_arch = "wasm32" => {
             event_loop.spawn_app(runner_state);
             AppExit::Success
-        } else {
+        }
+        _ => {
             let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
                 bevy_log::error!("winit event loop returned an error: {err}");

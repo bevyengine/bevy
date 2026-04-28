@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::lighting::D_GGX
@@ -10,14 +12,15 @@ fn power_heuristic(f: f32, g: f32) -> f32 {
 }
 
 fn balance_heuristic(f: f32, g: f32) -> f32 {
-    let sum = f + g;
-    if sum == 0.0 {
+    // Need to guard against NaNs since ReSTIR reservoirs can have UCW=0
+    if f == 0.0 {
         return 0.0;
     }
-    return max(0.0, f / sum);
+    return max(0.0, 1.0 / (1.0 + (g / f)));
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+// Result is invalid when output.z <= 0.0, and must be discarded
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
@@ -42,12 +45,20 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
     return 2.0 * dot(i, m) * m - i;
 }
 
+fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
+    return !(ray_tangent.z > 0.0);
+}
+
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
-        return f32(all(abs(mirror_wo - wo_tangent) < vec3(0.0001)));
+        if all(abs(mirror_wo - wo_tangent) < vec3(0.0001)) {
+            return bitcast<f32>(0x7F800000u); // INF
+        } else {
+            return 0.0;
+        }
     }
 
     let i = wi_tangent;
@@ -57,16 +68,26 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     let ai = roughness * i.xy;
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);
+    var pdf: f32;
     if i.z >= 0.0 {
         let a = roughness;
         let s = 1.0 + length(i.xy);
         let a2 = a * a;
         let s2 = s * s;
         let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
-        return ndf / (2.0 * (k * i.z + t));
+        pdf = ndf / (2.0 * (k * i.z + t));
+    } else {
+        pdf = ndf * (t - i.z) / (2.0 * len2);
     }
-    return ndf * (t - i.z) / (2.0 * len2);
+
+    return select(pdf, 0.0, isnan(pdf));
 }
+
+fn isnan(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
+}
+
+const NULL_LIGHT_ID = 0xFFFFFFFFu;
 
 struct LightSample {
     light_id: u32,
@@ -148,17 +169,16 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 
         // Rotate the ray so that the cone it was sampled from is aligned with the light direction
         direction_to_light = orthonormalize(directional_light.direction_to_light) * direction_to_light;
-#else
-        let direction_to_light = directional_light.direction_to_light;
+# else let direction_to_light = directional_light.direction_to_light;
 #endif
 
         return ResolvedLightSample(
-            vec4(direction_to_light, 0.0),
-            -direction_to_light,
-            directional_light.luminance,
-            directional_light.inverse_pdf,
-        );
-    } else {
+        vec4(direction_to_light, 0.0),
+        -direction_to_light,
+        directional_light.luminance,
+        directional_light.inverse_pdf,
+    );
+} else {
         let triangle_count = light_source.kind >> 1u;
         let triangle_id = light_sample.light_id & 0xFFFFu;
         let barycentrics = triangle_barycentrics(light_sample.seed);
@@ -200,7 +220,7 @@ fn trace_light_visibility(ray_origin: vec3<f32>, light_sample_world_position: ve
         let ray = ray_direction - ray_origin;
         let dist = length(ray);
         ray_direction = ray / dist;
-        ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
+        ray_t_max = dist - RAY_T_MIN;
     }
 
     if ray_t_max < RAY_T_MIN { return 0.0; }
@@ -214,7 +234,7 @@ fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
     let dist = length(ray);
     let ray_direction = ray / dist;
 
-    let ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
+    let ray_t_max = dist - RAY_T_MIN;
     if ray_t_max < RAY_T_MIN { return 0.0; }
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);

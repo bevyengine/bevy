@@ -18,6 +18,8 @@ pub enum GizmoRenderSystems {
 }
 
 pub mod retained;
+#[cfg(feature = "bevy_pbr")]
+pub mod transform_gizmo_render;
 
 #[cfg(feature = "bevy_sprite_render")]
 mod pipeline_2d;
@@ -26,10 +28,14 @@ mod pipeline_3d;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    name::Name,
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::Res,
+    world::{FromWorld, World},
 };
+use bevy_math::Affine3Ext;
+use bevy_reflect::Reflect;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
@@ -39,6 +45,7 @@ use {
     bevy_ecs::{
         component::Component,
         entity::Entity,
+        prelude::ReflectResource,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
@@ -61,8 +68,9 @@ use {
     bytemuck::cast_slice,
 };
 
-use bevy_render::render_resource::{
-    BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode,
+use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode},
 };
 
 use bevy_gizmos::{
@@ -85,7 +93,9 @@ impl Plugin for GizmoRenderPlugin {
         }
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
+            .add_plugins(ExtractResourcePlugin::<LineGizmoEntities>::default())
+            .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
@@ -106,6 +116,7 @@ impl Plugin for GizmoRenderPlugin {
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+                app.add_plugins(transform_gizmo_render::TransformGizmoRenderPlugin);
             } else {
                 tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }
@@ -183,7 +194,7 @@ fn extract_gizmo_data(
 
         commands.spawn((
             LineGizmoUniform {
-                world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
+                world_from_local: Affine3::from(Affine3A::IDENTITY).to_transpose(),
                 line_width: config.line.width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
@@ -600,4 +611,35 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         },
         color_layout.clone(),
     ]
+}
+
+/// Holds entities that the gizmo render phase items are associated with.
+///
+/// Sorted render phases require each phase item to be associated with an entity
+/// in the main world. Immediate mode gizmos don't have entities normally, so we
+/// need to create entities for them. There are three potential phase items that
+/// can be added and therefore three potential entities.
+#[derive(Clone, Reflect, Resource, ExtractResource)]
+#[reflect(Clone, Resource)]
+pub struct LineGizmoEntities {
+    /// An entity that regular line phase items are associated with.
+    pub line_gizmo_renderer: MainEntity,
+    /// An entity that line strip phase items are associated with.
+    pub line_strip_gizmo_renderer: MainEntity,
+    /// An entity that line joint phase items are associated with.
+    pub line_joint_gizmo_renderer: MainEntity,
+}
+
+impl FromWorld for LineGizmoEntities {
+    fn from_world(world: &mut World) -> LineGizmoEntities {
+        // Create the entities for line gizmo phase items to be associated with.
+        let line_gizmo_renderer = world.spawn(Name::new("LineGizmoRenderer")).id();
+        let line_strip_gizmo_renderer = world.spawn(Name::new("LineStripGizmoRenderer")).id();
+        let line_joint_gizmo_renderer = world.spawn(Name::new("LineJointGizmoRenderer")).id();
+        LineGizmoEntities {
+            line_gizmo_renderer: MainEntity::from(line_gizmo_renderer),
+            line_strip_gizmo_renderer: MainEntity::from(line_strip_gizmo_renderer),
+            line_joint_gizmo_renderer: MainEntity::from(line_joint_gizmo_renderer),
+        }
+    }
 }

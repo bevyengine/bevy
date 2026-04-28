@@ -64,6 +64,16 @@
 # checking, and more. We currently set `threads=0`, which defaults to the amount of cores in your CPU.
 #
 # For more information, see the blog post at <https://blog.rust-lang.org/2023/11/09/parallel-rustc.html>.
+#
+# ## `no-embed-metadata`
+#
+# This options avoids unnecessary metadata duplication and can reduce the size of the `target` directory by
+# around 5% on dev builds, potentially more on release builds.
+#
+# Note: Unlike other flags in this file, `no-embed-metadata` is a Cargo flag, not a rustc flag, and is at the
+# bottom of this file.
+#
+# For more information, see the blog post at <https://kobzol.github.io/rust/rustc/2025/06/02/reduce-cargo-target-dir-size-with-z-no-embed-metadata.html>.
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = [
@@ -142,3 +152,7 @@ rustflags = [
 # In most cases the gains are negligible, but if you are on macOS and have slow compile times you should see significant gains.
 # [profile.dev]
 # debug = 1
+
+# Nightly
+# [unstable]
+# no-embed-metadata = true

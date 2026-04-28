@@ -10,11 +10,8 @@ use bevy::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
-    core_pipeline::{
-        prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
-    },
-    light::ShadowFilteringMethod,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    light::{ShadowFilteringMethod, Skybox},
     math::vec3,
     prelude::*,
     render::camera::TemporalJitter,
@@ -180,7 +177,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(MotionVectorPrepass)
         // Add a nice skybox.
         .insert(Skybox {
-            image: asset_server.load("environment_maps/sky_skybox.ktx2"),
+            image: Some(asset_server.load("environment_maps/sky_skybox.ktx2")),
             brightness: 500.0,
             rotation: Quat::IDENTITY,
         });
@@ -212,7 +209,7 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
     ));
 }

@@ -3,7 +3,8 @@
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
+    core_pipeline::tonemapping::Tonemapping,
+    light::Skybox,
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
     post_process::bloom::Bloom,
@@ -59,7 +60,7 @@ fn main() {
 /// Initializes the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
     )));
 
@@ -72,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             Bloom::default(),
         ))
         .insert(Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 1000.0,
             ..default()
         })
