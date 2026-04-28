@@ -35,7 +35,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// # Safety
     ///
-    /// The [`Components`] and [`ComponentIds`] must match.
+    /// The [`Components`] and [`ComponentId`]s must match.
     /// For example, they must be from the same world.
     pub unsafe fn new(components: &'w mut Components, ids: &'w mut EntityAllocator) -> Self {
         Self {
@@ -415,7 +415,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     ///
     /// # Safety
     ///
-    /// The [`Components`] and [`ComponentIds`] must match.
+    /// The [`Components`] and [`ComponentId`]s must match.
     /// For example, they must be from the same world.
     pub unsafe fn new(components: &'w Components, ids: &'w EntityAllocator) -> Self {
         Self { components, ids }
