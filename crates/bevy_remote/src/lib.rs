@@ -539,8 +539,12 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    observer::On,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    schedule::{
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
+        ScheduleLabel, SystemSet,
+    },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
@@ -761,6 +765,11 @@ impl RemotePlugin {
             builtin_methods::process_remote_write_message_request,
             to_main,
         )
+        .with_watching_method(
+            builtin_methods::BRP_OBSERVE_METHOD,
+            builtin_methods::process_remote_observe_watching_request,
+            to_main,
+        )
         .with_method(
             builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
             builtin_methods::export_registry_types,
@@ -812,6 +821,14 @@ impl Plugin for RemotePlugin {
             );
         }
 
+        if remote_methods
+            .0
+            .contains_key(builtin_methods::BRP_SCHEDULE_GRAPH)
+        {
+            app.init_resource::<PreviousScheduleBuildMetadata>()
+                .add_observer(cache_schedule_build_metadata);
+        }
+
         app.init_schedule(RemoteLast)
             .world_mut()
             .resource_mut::<MainScheduleOrder>()
@@ -820,6 +837,7 @@ impl Plugin for RemotePlugin {
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
+            .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
@@ -1126,8 +1144,8 @@ impl<'de> Deserialize<'de> for BrpRequest {
                     return Err(de::Error::missing_field("jsonrpc"));
                 }
                 let method = method.ok_or_else(|| de::Error::missing_field("method"))?;
-                let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
-                let params = params.ok_or_else(|| de::Error::missing_field("params"))?;
+                let id = id.flatten();
+                let params = params.flatten();
                 Ok(BrpRequest { method, id, params })
             }
         }
@@ -1447,5 +1465,62 @@ fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>)
         if message.sender.is_closed() {
             requests.0.swap_remove(i);
         }
+    }
+}
+
+/// Resource tracking the last [`ScheduleBuildMetadata`] of each schedule as it is built.
+///
+/// This allows the `schedule.graph` endpoint to return better results for schedules.
+#[derive(Resource, Default)]
+struct PreviousScheduleBuildMetadata(HashMap<InternedScheduleLabel, ScheduleBuildMetadata>);
+
+fn cache_schedule_build_metadata(
+    event: On<ScheduleBuilt>,
+    mut metadata: ResMut<PreviousScheduleBuildMetadata>,
+) {
+    let new_metadata = ScheduleBuildMetadata {
+        // We intentionally don't bother cloning the warnings, since they aren't used by the
+        // `ScheduleData`.
+        warnings: vec![],
+        edges_added_by_build_passes: event.build_metadata.edges_added_by_build_passes.clone(),
+    };
+    metadata.0.insert(event.label, new_metadata);
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::BrpRequest;
+    use serde_json::json;
+
+    #[test]
+    fn deserialize_brp_request_params_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "id": 1
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, Some(json!(1)));
+        assert_eq!(request.params, None);
+    }
+
+    #[test]
+    fn deserialize_brp_request_id_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "params": {
+                "number": 5
+            }
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, None);
+        assert_eq!(request.params, Some(json!({ "number": 5 })));
     }
 }

@@ -16,20 +16,20 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene2::prelude::*;
-use bevy_text::{FontSize, FontWeight};
+use bevy_scene::prelude::*;
+use bevy_text::FontWeight;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, UiRect, Val,
+    Node, Pressed, UiRect, Val,
 };
-use bevy_ui_widgets::RadioButton;
+use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     focus::FocusIndicator,
     font_styles::InheritableFont,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
@@ -43,6 +43,21 @@ struct RadioOutline;
 #[reflect(Component, Clone, Default)]
 struct RadioMark;
 
+/// Parameters for the radio button template, passed to [`radio`] function.
+pub struct RadioProps {
+    /// Label for this radio button. This can contain multiple entities, which will be contained
+    /// in a flexbox.
+    pub caption: Box<dyn SceneList>,
+}
+
+impl Default for RadioProps {
+    fn default() -> Self {
+        Self {
+            caption: Box::new(bsn_list!()),
+        }
+    }
+}
+
 /// Scene function to spawn a radio.
 ///
 /// # Emitted events
@@ -50,7 +65,7 @@ struct RadioMark;
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn radio() -> impl Scene {
+pub fn radio(props: RadioProps) -> impl Scene {
     bsn! {
         Node {
             display: Display::Flex,
@@ -63,10 +78,10 @@ pub fn radio() -> impl Scene {
         Hovered
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
-        ThemeFontColor(tokens::RADIO_TEXT)
+        InheritableThemeTextColor(tokens::RADIO_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
         Children [(
@@ -91,17 +106,15 @@ pub fn radio() -> impl Scene {
                 }
                 RadioMark
                 ThemeBackgroundColor(tokens::RADIO_MARK)
-            )]
-        )]
+            )]),
+            {props.caption}
+        ]
     }
 }
 
 /// Template function to spawn a radio.
 ///
-/// # Arguments
-/// * `props` - construction properties for the radio.
-/// * `overrides` - a bundle of components that are merged in with the normal radio components.
-/// * `label` - the label of the radio.
+/// This version does not take any props. A caption can be set by appending a child entity.
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
@@ -126,9 +139,9 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        ThemeFontColor(tokens::RADIO_TEXT),
+        InheritableThemeTextColor(tokens::RADIO_TEXT),
         InheritableFont {
-            font_size: FontSize::Px(14.0),
+            font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
             ..Default::default()
         },
@@ -171,12 +184,19 @@ fn update_radio_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         (
             With<RadioButton>,
-            Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
+            Or<(
+                Changed<Hovered>,
+                Added<Checked>,
+                Added<Pressed>,
+                Added<InteractionDisabled>,
+            )>,
         ),
     >,
     q_children: Query<&Children>,
@@ -184,7 +204,9 @@ fn update_radio_styles(
     mut q_mark: Query<&ThemeBackgroundColor, With<RadioMark>>,
     mut commands: Commands,
 ) {
-    for (radio_ent, disabled, checked, hovered, font_color) in q_radioes.iter() {
+    for (radio_ent, disabled, checked, pressed, activate_on_press, hovered, font_color) in
+        q_radioes.iter()
+    {
         let Some(outline_ent) = q_children
             .iter_descendants(radio_ent)
             .find(|en| q_outline.contains(*en))
@@ -205,7 +227,9 @@ fn update_radio_styles(
             mark_ent,
             disabled,
             checked,
+            pressed,
             hovered.0,
+            activate_on_press,
             outline_border,
             mark_color,
             font_color,
@@ -220,8 +244,10 @@ fn update_radio_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
             &Hovered,
-            &ThemeFontColor,
+            &InheritableThemeTextColor,
         ),
         With<RadioButton>,
     >,
@@ -230,13 +256,26 @@ fn update_radio_styles_remove(
     mut q_mark: Query<&ThemeBackgroundColor, With<RadioMark>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
+    mut remove_pressed: RemovedComponents<Pressed>,
+    mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
+        .chain(remove_pressed.read())
+        .chain(remove_activate_on_press.read())
         .for_each(|ent| {
-            if let Ok((radio_ent, disabled, checked, hovered, font_color)) = q_radioes.get(ent) {
+            if let Ok((
+                radio_ent,
+                disabled,
+                checked,
+                pressed,
+                activate_on_press,
+                hovered,
+                font_color,
+            )) = q_radioes.get(ent)
+            {
                 let Some(outline_ent) = q_children
                     .iter_descendants(radio_ent)
                     .find(|en| q_outline.contains(*en))
@@ -257,7 +296,9 @@ fn update_radio_styles_remove(
                     mark_ent,
                     disabled,
                     checked,
+                    pressed,
                     hovered.0,
+                    activate_on_press,
                     outline_border,
                     mark_color,
                     font_color,
@@ -273,21 +314,44 @@ fn set_radio_styles(
     mark_ent: Entity,
     disabled: bool,
     checked: bool,
+    pressed: bool,
     hovered: bool,
+    activate_on_press: bool,
     outline_border: &ThemeBorderColor,
     mark_color: &ThemeBackgroundColor,
-    font_color: &ThemeFontColor,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
-    let outline_border_token = match (disabled, hovered) {
-        (true, _) => tokens::RADIO_BORDER_DISABLED,
-        (false, true) => tokens::RADIO_BORDER_HOVER,
-        _ => tokens::RADIO_BORDER,
+    let outline_border_token = if checked {
+        if disabled {
+            tokens::RADIO_BORDER_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BORDER_CHECKED_PRESSED
+        } else if hovered {
+            tokens::RADIO_BORDER_CHECKED_HOVER
+        } else {
+            tokens::RADIO_BORDER_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::RADIO_BORDER_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BORDER_PRESSED
+        } else if hovered {
+            tokens::RADIO_BORDER_HOVER
+        } else {
+            tokens::RADIO_BORDER
+        }
     };
 
-    let mark_token = match disabled {
-        true => tokens::RADIO_MARK_DISABLED,
-        false => tokens::RADIO_MARK,
+    let mark_token = if disabled {
+        tokens::RADIO_MARK_DISABLED
+    } else if pressed && !activate_on_press {
+        tokens::RADIO_MARK_PRESSED
+    } else if hovered {
+        tokens::RADIO_MARK_HOVER
+    } else {
+        tokens::RADIO_MARK
     };
 
     let font_color_token = match disabled {
@@ -311,7 +375,7 @@ fn set_radio_styles(
     if mark_color.0 != mark_token {
         commands
             .entity(mark_ent)
-            .insert(ThemeBorderColor(mark_token));
+            .insert(ThemeBackgroundColor(mark_token));
     }
 
     // Change mark visibility
@@ -324,7 +388,7 @@ fn set_radio_styles(
     if font_color.0 != font_color_token {
         commands
             .entity(radio_ent)
-            .insert(ThemeFontColor(font_color_token));
+            .insert(InheritableThemeTextColor(font_color_token));
     }
 
     // Change cursor shape

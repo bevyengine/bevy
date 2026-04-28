@@ -21,10 +21,6 @@ pub struct PositionedGlyph {
     pub section_index: usize,
     /// The index of the glyph's line.
     pub line_index: usize,
-    /// The byte index of the glyph in its line.
-    pub byte_index: usize,
-    /// The byte length of the glyph.
-    pub byte_length: usize,
 }
 
 /// Information about a glyph in an atlas.
@@ -44,6 +40,8 @@ pub struct GlyphAtlasInfo {
     pub rect: Rect,
     /// The required offset (relative positioning) when placed
     pub offset: Vec2,
+    /// True if this glyph is stored as a tintable alpha mask
+    pub is_alpha_mask: bool,
 }
 
 /// The location of a glyph in an atlas,
@@ -57,4 +55,6 @@ pub struct GlyphAtlasLocation {
     pub glyph_index: usize,
     /// The required offset (relative positioning) when placed
     pub offset: Vec2,
+    /// True if this glyph is stored as a tintable alpha mask
+    pub is_alpha_mask: bool,
 }

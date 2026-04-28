@@ -16,9 +16,8 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_pbr::{
-    MeshPipeline, MeshPipelineKey, MeshPipelineSet, SetMeshViewBindGroup, ViewKeyCache,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, SetMeshViewBindGroup, ViewKeyCache,
 };
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -27,7 +26,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
@@ -55,7 +54,7 @@ impl Plugin for LineGizmo3dPlugin {
                 RenderStartup,
                 init_line_gizmo_pipelines
                     .after(init_line_gizmo_uniform_bind_group_layout)
-                    .after(MeshPipelineSet),
+                    .after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,
@@ -155,11 +154,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
             fragment.shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_key.target_format();
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -210,11 +205,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_key.target_format();
 
         let view_layout = self
             .mesh_pipeline

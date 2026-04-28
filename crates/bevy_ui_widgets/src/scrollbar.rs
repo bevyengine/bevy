@@ -10,6 +10,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
+    template::FromTemplate,
 };
 use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
@@ -53,7 +54,7 @@ pub enum ControlOrientation {
 /// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
 /// the content to make room for the scrollbars.
-#[derive(Component, Debug, Reflect, Clone, PartialEq)]
+#[derive(Component, FromTemplate, Debug, Reflect, Clone, PartialEq)]
 #[reflect(Component)]
 pub struct Scrollbar {
     /// Entity being scrolled.
@@ -73,9 +74,9 @@ pub struct Scrollbar {
 /// A `ScrollbarThumb` UI node does not have a `Node` component. It only has `Border` and `BorderRadius` styling properties.
 /// Its layout is handled after `ui_layout_system` in `update_scroll_thumb` so that its size and position can be set relative to the scrolling area's
 /// size and scroll position.
-#[derive(Component, Debug, Default)]
+#[derive(Component, FromTemplate, Debug, Default)]
 #[require(
-    CoreScrollbarDragState,
+    ScrollbarDragState,
     ComputedNode,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
@@ -118,7 +119,7 @@ impl Scrollbar {
 /// inserted on the thumb entity.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
-pub struct CoreScrollbarDragState {
+pub struct ScrollbarDragState {
     /// Whether the scrollbar is currently being dragged.
     pub dragging: bool,
     /// The value of the scrollbar when dragging started.
@@ -186,7 +187,7 @@ fn scrollbar_on_pointer_down(
 
 fn scrollbar_on_drag_start(
     mut ev: On<Pointer<DragStart>>,
-    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<ScrollbarThumb>>,
+    mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     q_scrollbar: Query<&Scrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
 ) {
@@ -206,7 +207,7 @@ fn scrollbar_on_drag_start(
 
 fn scrollbar_on_drag(
     mut ev: On<Pointer<Drag>>,
-    mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<ScrollbarThumb>>,
+    mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     mut q_scrollbar: Query<(&ComputedNode, &Scrollbar)>,
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     ui_scale: Res<UiScale>,
@@ -248,7 +249,7 @@ fn scrollbar_on_drag(
 
 fn scrollbar_on_drag_end(
     mut ev: On<Pointer<DragEnd>>,
-    mut q_thumb: Query<&mut CoreScrollbarDragState, With<ScrollbarThumb>>,
+    mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
@@ -260,7 +261,7 @@ fn scrollbar_on_drag_end(
 
 fn scrollbar_on_drag_cancel(
     mut ev: On<Pointer<Cancel>>,
-    mut q_thumb: Query<&mut CoreScrollbarDragState, With<ScrollbarThumb>>,
+    mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);

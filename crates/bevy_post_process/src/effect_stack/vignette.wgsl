@@ -17,21 +17,20 @@ struct VignetteSettings {
     color: vec4<f32>
 }
 
-const EPSILON: f32 = 1.19209290e-07;
+const VISUAL_THRESHOLD: f32 = 1e-4;
 
 // The settings supplied by the developer.
-@group(0) @binding(5) var<uniform> vignette_settings: VignetteSettings;
+@group(0) @binding(4) var<uniform> vignette_settings: VignetteSettings;
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
-    if (vignette_settings.intensity < EPSILON) {
+    let intensity = vignette_settings.intensity;
+    if (intensity < VISUAL_THRESHOLD) {
         return color;
     }
-
-    let intensity = saturate(vignette_settings.intensity);
-    let radius = max(vignette_settings.radius, 0.0);
-    let smoothness = max(vignette_settings.smoothness, 0.0);
-    let roundness = clamp(vignette_settings.roundness, EPSILON, 2.0-EPSILON);
-    let edge_comp = saturate(vignette_settings.edge_compensation);
+    let radius = vignette_settings.radius;
+    let smoothness = vignette_settings.smoothness;
+    let roundness = vignette_settings.roundness;
+    let edge_comp = vignette_settings.edge_compensation;
 
     // Get the screen resolution.
     let dims = textureDimensions(source_texture);

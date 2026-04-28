@@ -66,7 +66,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
+        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -74,7 +74,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut register_required = Vec::with_capacity(1);
     // We add the component_id existence check here to avoid recursive init during required components initialization.
     register_required.push(quote! {
-        let resource_component_id = if let Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
+        let resource_component_id = if let ::core::option::Option::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
             id
         } else {
             required_components.components_registrator().register_component::<#struct_name #type_generics>()
@@ -107,8 +107,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
             #map_entities
 
-            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
-                None
+            fn relationship_accessor() -> ::core::option::Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                ::core::option::Option::None
             }
         }
     });
@@ -243,7 +243,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
+        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
 
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
@@ -252,7 +252,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             let ident = &require.path;
             let constructor = match &require.func {
                 Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
-                None => quote! { <#ident as Default>::default },
+                None => quote! { <#ident as ::core::default::Default>::default },
             };
             register_required.push(quote! {
                 required_components.register_required::<#ident>(#constructor);
@@ -306,7 +306,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
         if relationship.is_some() {
             quote! {
-                Some(
+                ::core::option::Option::Some(
                     // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
                     unsafe {
                         #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
@@ -317,11 +317,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
         } else {
             quote! {
-                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+                ::core::option::Option::Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
             }
         }
     } else {
-        quote! {None}
+        quote! {::core::option::Option::None}
     };
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
@@ -350,7 +350,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
             #map_entities
 
-            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+            fn relationship_accessor() -> ::core::option::Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
                 #relationship_accessor
             }
         }

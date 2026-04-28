@@ -139,14 +139,10 @@ impl<A: Asset> TransformedAsset<A> {
     ///
     /// This can be used to get the asset from its handle since `&Handle` implements
     /// [`Into<AssetId<B>>`].
-    pub fn get_labeled_by_id<B: Asset, Q>(
+    pub fn get_labeled_by_id<B: Asset>(
         &mut self,
         id: impl Into<AssetId<B>>,
-    ) -> Option<TransformedSubAsset<'_, B>>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
         let value = labeled.asset.value.downcast_mut::<B>()?;
@@ -162,14 +158,10 @@ impl<A: Asset> TransformedAsset<A> {
     ///
     /// This can be used to get the asset from its handle since `&UntypedHandle` implements
     /// [`Into<UntypedAssetId>`].
-    pub fn get_erased_labeled_by_id<Q>(
+    pub fn get_erased_labeled_by_id(
         &self,
         id: impl Into<UntypedAssetId>,
-    ) -> Option<&ErasedLoadedAsset>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    ) -> Option<&ErasedLoadedAsset> {
         let index = self.asset_id_to_asset_index.get(&id.into())?;
         let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
@@ -318,14 +310,10 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     ///
     /// This can be used to get the asset from its handle since `&Handle` implements
     /// [`Into<AssetId<B>>`].
-    pub fn get_labeled_by_id<B: Asset, Q>(
+    pub fn get_labeled_by_id<B: Asset>(
         &mut self,
         id: impl Into<AssetId<B>>,
-    ) -> Option<TransformedSubAsset<'_, B>>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
         let value = labeled.asset.value.downcast_mut::<B>()?;
@@ -341,14 +329,10 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     ///
     /// This can be used to get the asset from its handle since `&UntypedHandle` implements
     /// [`Into<UntypedAssetId>`].
-    pub fn get_erased_labeled_by_id<Q>(
+    pub fn get_erased_labeled_by_id(
         &self,
         id: impl Into<UntypedAssetId>,
-    ) -> Option<&ErasedLoadedAsset>
-    where
-        CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq,
-    {
+    ) -> Option<&ErasedLoadedAsset> {
         let index = self.asset_id_to_asset_index.get(&id.into())?;
         let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)

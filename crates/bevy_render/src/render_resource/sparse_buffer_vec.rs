@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_log::error;
+use bevy_log::{error, info};
 use bevy_material::{
     bind_group_layout_entries::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
@@ -116,9 +116,9 @@ pub struct SparseBufferUpdatePipelines {
     ///
     /// We only have one bind group layout shared among all sparse buffer
     /// vectors.
-    bind_group_layout: BindGroupLayoutDescriptor,
+    bind_group_layout: Option<BindGroupLayoutDescriptor>,
     /// The shader that performs the scatter operation.
-    shader: Handle<Shader>,
+    shader: Option<Handle<Shader>>,
 }
 
 /// A resource, part of the render world, that stores the bind groups for each
@@ -276,6 +276,21 @@ fn clear_sparse_buffer_jobs(mut sparse_buffer_update_jobs: ResMut<SparseBufferUp
 
 impl FromWorld for SparseBufferUpdatePipelines {
     fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let limit = render_device.limits().max_storage_buffers_per_shader_stage;
+
+        if limit < 3 {
+            info!(
+                "Sparse buffer updates disabled. RenderDevice lacks support: max_storage_buffers_per_shader_stage ({}) < 3.",
+                limit
+            );
+
+            return SparseBufferUpdatePipelines {
+                bind_group_layout: None,
+                shader: None,
+            };
+        }
+
         let bind_group_layout = BindGroupLayoutDescriptor::new(
             "sparse buffer update bind group layout",
             &BindGroupLayoutEntries::sequential(
@@ -295,8 +310,8 @@ impl FromWorld for SparseBufferUpdatePipelines {
         );
 
         SparseBufferUpdatePipelines {
-            bind_group_layout,
-            shader: load_embedded_asset!(world, "sparse_buffer_update.wgsl"),
+            bind_group_layout: Some(bind_group_layout),
+            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wgsl")),
         }
     }
 }
@@ -307,8 +322,8 @@ impl SpecializedComputePipeline for SparseBufferUpdatePipelines {
     fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
         ComputePipelineDescriptor {
             label: Some("sparse buffer update pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
-            shader: self.shader.clone(),
+            layout: self.bind_group_layout.clone().into_iter().collect(),
+            shader: self.shader.clone().unwrap_or_default(),
             shader_defs: vec![],
             ..ComputePipelineDescriptor::default()
         }
@@ -656,7 +671,7 @@ where
         let good_size = calculate_allocation_size(self.values.len());
         self.reserve(good_size, render_device);
 
-        if self.should_perform_full_reupload() {
+        if self.should_perform_full_reupload(render_device) {
             self.write_entire_buffer(render_queue);
         } else {
             self.prepare_sparse_upload(render_device, render_queue);
@@ -666,8 +681,12 @@ where
     /// Returns true if the sparse buffer should perform a full reupload, either
     /// because it was resized or because too much data changed for a sparse
     /// update to be worthwhile.
-    fn should_perform_full_reupload(&self) -> bool {
+    fn should_perform_full_reupload(&self, render_device: &RenderDevice) -> bool {
         if self.needs_full_reupload {
+            return true;
+        }
+
+        if render_device.limits().max_storage_buffers_per_shader_stage < 3 {
             return true;
         }
 
@@ -862,6 +881,10 @@ fn prepare_to_populate_buffers(
         return;
     };
 
+    let Some(bind_group_layout) = &sparse_buffer_update_pipelines.bind_group_layout else {
+        return;
+    };
+
     // Record the update job.
     sparse_buffer_update_jobs.push(SparseBufferUpdateJob {
         sparse_buffer_handle: sparse_buffer_handle.clone(),
@@ -874,7 +897,7 @@ fn prepare_to_populate_buffers(
     // Create the bind group.
     let bind_group = render_device.create_bind_group(
         Some(&*format!("{} bind group", label)),
-        &pipeline_cache.get_bind_group_layout(&sparse_buffer_update_pipelines.bind_group_layout),
+        &pipeline_cache.get_bind_group_layout(bind_group_layout),
         &BindGroupEntries::sequential((
             // @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
             data_buffer.as_entire_binding(),

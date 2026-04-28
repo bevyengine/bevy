@@ -1,7 +1,8 @@
-use bevy_asset::{Assets, Handle, RenderAssetUsages};
+use bevy_asset::{Assets, Handle, HandleTemplate, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
-use bevy_color::{Color, ColorToComponents, Srgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
+use bevy_ecs::template::{FromTemplate, OptionTemplate};
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -101,7 +102,7 @@ impl LightProbe {
 /// area in space.
 ///
 /// See `bevy_pbr::environment_map` for detailed information.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Component, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
@@ -159,6 +160,7 @@ impl EnvironmentMapLight {
         Self {
             diffuse_map: handle.clone(),
             specular_map: handle,
+            intensity: 1.0,
             ..Default::default()
         }
     }
@@ -168,9 +170,9 @@ impl EnvironmentMapLight {
         mid_color: Color,
         bottom_color: Color,
     ) -> Image {
-        let top_color: Srgba = top_color.into();
-        let mid_color: Srgba = mid_color.into();
-        let bottom_color: Srgba = bottom_color.into();
+        let top_color: LinearRgba = top_color.into();
+        let mid_color: LinearRgba = mid_color.into();
+        let bottom_color: LinearRgba = bottom_color.into();
         Image {
             texture_view_descriptor: Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
@@ -220,11 +222,16 @@ impl Default for EnvironmentMapLight {
 /// To do so, use [`EnvironmentMapLight`] alongside this component.
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct Skybox {
     /// The cubemap to use.
-    pub image: Handle<Image>,
+    ///
+    /// If this is [`None`], the skybox will not be rendered, as if it does not exist.
+    /// This allows `Skybox` to implement [`Default`].
+    #[template(OptionTemplate<HandleTemplate<Image>>)]
+    pub image: Option<Handle<Image>>,
+
     /// Scale factor applied to the skybox image.
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
@@ -239,7 +246,7 @@ pub struct Skybox {
 impl Default for Skybox {
     fn default() -> Self {
         Skybox {
-            image: Handle::default(),
+            image: None,
             brightness: 0.0,
             rotation: Quat::IDENTITY,
         }
@@ -249,7 +256,7 @@ impl Default for Skybox {
 /// A generated environment map that is filtered at runtime.
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Component, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct GeneratedEnvironmentMapLight {
     /// Source cubemap to be filtered on the GPU, size must be a power of two.
@@ -317,7 +324,7 @@ impl Default for AtmosphereEnvironmentMapLight {
 ///
 /// This component requires the [`LightProbe`] component, and is typically used with
 /// [`bevy_transform::components::Transform`] to place the volume appropriately.
-#[derive(Clone, Reflect, Component, Debug)]
+#[derive(Clone, Reflect, Component, Debug, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(LightProbe)]
 pub struct IrradianceVolume {

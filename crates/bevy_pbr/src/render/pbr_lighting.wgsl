@@ -129,10 +129,14 @@ struct DerivedLightingInput {
 // light radius is a non-physical construct for efficiency purposes,
 // because otherwise every light affects every fragment in the scene
 fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
+    return getRangeFalloff(distanceSquare, inverseRangeSquared) * 1.0 / max(distanceSquare, 0.0001);
+}
+
+// Falloff without the distance attenuation, for lights that have it baked-in (eg LTC lights)
+fn getRangeFalloff(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
     let factor = distanceSquare * inverseRangeSquared;
     let smoothFactor = saturate(1.0 - factor * factor);
-    let attenuation = smoothFactor * smoothFactor;
-    return attenuation * 1.0 / max(distanceSquare, 0.0001);
+    return smoothFactor * smoothFactor;
 }
 
 // Normal distribution function (specular D)
@@ -522,9 +526,11 @@ fn Fd_Burley(
 }
 
 // Scale/bias approximation
-// https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
-// TODO: Use a LUT (more accurate)
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
+#ifdef DFG_LUT
+    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+#else
+    // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
     let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
     let r = perceptual_roughness * c0 + c1;
@@ -532,6 +538,7 @@ fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
     let f_ab_epsilon = 0.00005;
     return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
+#endif
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
@@ -911,10 +918,10 @@ color *= (*light).color.rgb * texture_sample;
 
 #ifdef ATMOSPHERE
     let P = (*input).P;
-    let atmosphere = view_bindings::atmosphere_data.atmosphere;
-    let O = vec3(0.0, atmosphere.bottom_radius, 0.0);
-    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
-    let P_as = P_scaled + O;
+    let atmosphere = view_bindings::atmosphere;
+    let P_as = (
+        view_bindings::atmosphere.world_to_atmosphere * vec4(P, 1.0)
+    ).xyz;
     let P_clamped = clamp_to_surface(atmosphere, P_as);
     let r = length(P_clamped);
     let local_up = normalize(P_clamped);
@@ -931,9 +938,170 @@ color *= (*light).color.rgb * texture_sample;
     return color;
 }
 
+// Linearly Transformed Cosines (LTC) area light evaluation.
+// Based on: Heitz et al. 2016, "Real-Time Polygonal-Light Shading with Linearly Transformed Cosines"
+
+// Integrate one edge of the spherical polygon formed by the LTC-transformed quad.
+// Implements Eq. 11 using a polynomial approximation based on https://advances.realtimerendering.com/s2016/s2016_ltc_rnd.pdf
+// Using the equation as-is produces visible artifacts.
+fn ltc_integrate_edge(v1: vec3<f32>, v2: vec3<f32>) -> f32 {
+    let x = dot(v1, v2);
+    let y = abs(x);
+    let a = 0.8543985 + (0.4965155 + 0.0145206 * y) * y;
+    let b = 3.4175940 + (4.1616724 + y) * y;
+    let v = a / b;
+    let theta_sintheta = select(0.5 * inverseSqrt(max(1.0 - x * x, 1e-7)) - v, v, x > 0.0);
+    return cross(v1, v2).z * theta_sintheta;
+}
+
+fn ltc_integrate_quad(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    P: vec3<f32>,
+    Minv: mat3x3<f32>,
+    points: array<vec3<f32>, 4>
+) -> f32 {
+    let T1 = normalize(V - N * dot(V, N));
+    let T2 = -cross(N, T1);
+
+    let Minv_local = Minv * transpose(mat3x3<f32>(T1, T2, N));
+
+    // Transform quad vertices into LTC-distorted space
+    var L: array<vec3<f32>, 4>;
+    L[0] = Minv_local * (points[0] - P);
+    L[1] = Minv_local * (points[1] - P);
+    L[2] = Minv_local * (points[2] - P);
+    L[3] = Minv_local * (points[3] - P);
+
+    // Clip against z >= 0 hemisphere (at most 5 verts output for a quad)
+
+    // TODO: clipping could be made cheaper with a spherical proxy, see https://advances.realtimerendering.com/s2016/s2016_ltc_rnd.pdf slides 87-102
+    var clipped: array<vec3<f32>, 5>;
+    var n_clipped: i32 = 0;
+
+    for (var i = 0i; i < 4i; i++) {
+        let a = L[i];
+        let b = L[(i + 1) % 4];
+        if (a.z >= 0.0) {
+            clipped[n_clipped] = a; 
+            n_clipped++;
+        }
+        if ((a.z >= 0.0) != (b.z >= 0.0)) {
+            let t = a.z / (a.z - b.z);
+            clipped[n_clipped] = mix(a, b, t);  
+            n_clipped++;
+        }
+    }
+
+    if (n_clipped == 0) {
+        return 0.0;
+    }
+
+    for (var i = 0i; i < n_clipped; i++) {
+        clipped[i] = normalize(clipped[i]);
+    }
+
+    // Sum edge integrals over clipped polygon
+    var sum = 0.0;
+    for (var i = 0i; i < n_clipped; i++) {
+        sum += ltc_integrate_edge(clipped[i], clipped[(i + 1) % n_clipped]);
+    }
+
+    return sum;
+}
+
+fn rect_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool,
+) -> vec3<f32> {
+    // Unpack
+    let diffuse_color = (*input).diffuse_color;
+    let P = (*input).P;
+    let N = (*input).layers[LAYER_BASE].N;
+    let V = (*input).V;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
+    let perceptual_roughness = (*input).layers[LAYER_BASE].perceptual_roughness;
+
+    let light = &view_bindings::lights.rect_lights[light_id];
+    let light_to_frag = (*light).position - P;
+    let distance_square = dot(light_to_frag, light_to_frag);
+    let inverse_range_squared = 1.0 / max((*light).range * (*light).range, 0.0001);
+    let range_falloff = getRangeFalloff(distance_square, inverse_range_squared);
+
+    let light_normal = cross((*light).up, (*light).right);
+    let hw = (*light).right * (*light).width  * 0.5;
+    let hh = (*light).up   * (*light).height * 0.5;
+    var corners: array<vec3<f32>, 4>;
+    corners[0] = (*light).position + hw - hh;
+    corners[1] = (*light).position - hw - hh;
+    corners[2] = (*light).position - hw + hh;
+    corners[3] = (*light).position + hw + hh;
+
+    // Backface test
+    if dot(light_normal, P - corners[0]) <= 0.0 {
+        return vec3<f32>(0.0);
+    }
+
+    let LUT_SCALE = 63.0 / 64.0;
+    let LUT_BIAS  =  0.5 / 64.0;
+    let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
+    let t1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut_sampler, uv, 0.0);
+    let t2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut_sampler, uv, 0.0);
+
+    // Reconstruct the GGX inverse-LTC matrix
+    let Minv = mat3x3<f32>(
+        vec3<f32>(t1.x, 0.0, t1.y),
+        vec3<f32>(0.0,  1.0, 0.0),
+        vec3<f32>(t1.z, 0.0, t1.w),
+    );
+    let spec = ltc_integrate_quad(N, V, P, Minv, corners);
+
+    // Use Lambertian diffuse, Burley would require a second LUT
+    let identity = mat3x3<f32>(
+        vec3<f32>(1.0, 0.0, 0.0),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(0.0, 0.0, 1.0),
+    );
+    let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse);
+
+    // t2.x encodes the bsdf magnitude and t2.y the fresnel direction
+    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
+    let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+    let clearcoat_strength = (*input).clearcoat_strength;
+    let clearcoat_perceptual_roughness = (*input).layers[LAYER_CLEARCOAT].perceptual_roughness;
+    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
+
+    // Sample LUTs for clearcoat layer
+    let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
+    let tc1 = textureSampleLevel(view_bindings::ltc_lut1, view_bindings::ltc_lut_sampler, cc_uv, 0.0);
+    let tc2 = textureSampleLevel(view_bindings::ltc_lut2, view_bindings::ltc_lut_sampler, cc_uv, 0.0);
+    let Minv_cc = mat3x3<f32>(
+        vec3<f32>(tc1.x, 0.0, tc1.y),
+        vec3<f32>(0.0,   1.0, 0.0),
+        vec3<f32>(tc1.z, 0.0, tc1.w),
+    );
+    let spec_cc = ltc_integrate_quad(clearcoat_N, V, P, Minv_cc, corners);
+
+    // Clearcoat has F0=0.04
+    let spec_weight_cc = 0.04 * tc2.x + (1.0 - 0.04) * tc2.y;
+    let Fc = clearcoat_strength * spec_weight_cc;
+    let inv_Fc = 1.0 - Fc;
+
+    return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
+        + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb * range_falloff;
+#else
+    return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
+#endif
+}
+
+
 #ifdef ATMOSPHERE
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere_data.atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
     return textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture, 
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;

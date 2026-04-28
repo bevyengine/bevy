@@ -18,8 +18,6 @@
 
 extern crate alloc;
 
-use core::error::Error;
-
 #[cfg(target_os = "android")]
 mod android_tracing;
 mod once;
@@ -54,13 +52,7 @@ pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
-use tracing_subscriber::{
-    filter::{FromEnvError, ParseError},
-    layer::Layered,
-    prelude::*,
-    registry::Registry,
-    EnvFilter, Layer,
-};
+use tracing_subscriber::{layer::Layered, prelude::*, registry::Registry, EnvFilter, Layer};
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
@@ -286,6 +278,7 @@ pub const DEFAULT_FILTER: &str = concat!(
     "symphonia_format_riff::demuxer=warn,",
     "symphonia_format_wav::demuxer=warn,",
     "calloop::loop_logic=error,",
+    "calloop::sources=debug,",
 );
 
 impl Default for LogPlugin {
@@ -317,21 +310,7 @@ impl Plugin for LogPlugin {
         // add optional layer provided by user
         let subscriber = subscriber.with((self.custom_layer)(app));
 
-        let default_filter = { format!("{},{}", self.level, self.filter) };
-        let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|from_env_error| {
-                _ = from_env_error
-                    .source()
-                    .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
-                    });
-
-                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
-            })
-            .unwrap();
-        let subscriber = subscriber.with(filter_layer);
+        let subscriber = subscriber.with(self.build_filter_layer());
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -417,6 +396,38 @@ impl Plugin for LogPlugin {
             (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
+        }
+    }
+}
+
+impl LogPlugin {
+    fn build_filter_layer(&self) -> EnvFilter {
+        // Start with the default filters, then add the env filters afterwards, so that the env filters
+        // can be used to selectively override the default filters
+        let default_filters =
+            EnvFilter::builder().parse_lossy(format!("{},{}", self.level, self.filter));
+        // We must manually parse and add the directives individually because `EnvFilter` has no helper methods for adding
+        // multiple directives at once.
+        let env_filters = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_default();
+        let result = env_filters
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .try_fold(default_filters.clone(), |filters, directive| {
+                directive.parse().map(|d| filters.add_directive(d))
+            });
+        // Fall back to just the default filters if the env filters are malformed
+        match result {
+            Ok(combined_filters) => combined_filters,
+            Err(e) => {
+                #[expect(
+                    clippy::print_stderr,
+                    reason = "We cannot use the `error!` macro here because the logger is not ready yet."
+                )]
+                {
+                    eprintln!("LogPlugin failed to parse filter from env: {e}");
+                }
+                default_filters
+            }
         }
     }
 }

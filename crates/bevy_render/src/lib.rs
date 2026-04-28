@@ -8,7 +8,7 @@
 //! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering. This typically matches what is used in CI.
 //! - `WGPU_ADAPTER_NAME` allows selecting a specific adapter by name.
 //! - `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits.
-//! - `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits.
+//! - `WGPU_SETTINGS_PRIO=webgpu` uses webgpu limits.
 //! - `VERBOSE_SHADER_ERROR=1` prints more detailed information about WGSL compilation errors, such as shader defs and shader entrypoint.
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
