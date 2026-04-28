@@ -53,3 +53,24 @@ world.add_observer(|on: On<Foo<Bar>>| {
     // ...
 });
 ```
+
+For lifecycle observers watching dynamic components, you now need to modify
+`On<Add>` to `On<Add<()>>`:
+
+```rust
+// Bevy 0.19
+world.spawn(
+    Observer::new(|_: On<Add>| {
+        // ...
+    })
+    .with_component(component_id),
+);
+
+// Bevy 0.20
+world.spawn(
+    Observer::new(|_: On<Add<()>>| {
+        // ...
+    })
+    .with_component(component_id),
+);
+```
