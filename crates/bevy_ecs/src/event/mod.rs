@@ -5,6 +5,7 @@ pub use bevy_ecs_macros::{EntityEvent, Event};
 pub use trigger::*;
 
 use crate::{
+    bundle::Bundle,
     component::{Component, ComponentId},
     entity::Entity,
     world::World,
@@ -88,6 +89,47 @@ use core::marker::PhantomData;
 pub trait Event: Send + Sync + Sized + 'static {
     /// Defines which observers will run, what data will be passed to them, and the order they will be run in. See [`Trigger`] for more info.
     type Trigger<'a>: Trigger<Self>;
+}
+
+/// Trait for types that can be 'matched' on by [`Observer`]s to register additional
+/// metadata for an [`Event`] trigger. All [`Event`]s are also implicitly
+/// [`EventMatcher`]s, but this trait can be manually implemented.
+///
+/// The following are lifecycle [`EventMatcher`]s that register components
+/// to watch for via their generic [`Bundle`] type parameter:
+///
+/// - [`Add`]
+/// - [`Insert`]
+/// - [`Discard`]
+/// - [`Remove`]
+/// - [`Despawn`]
+///
+/// [`Observer`]: crate::observer::Observer
+/// [`Add`]: crate::lifecycle::Add
+/// [`Insert`]: crate::lifecycle::Insert
+/// [`Discard`]: crate::lifecycle::Discard
+/// [`Remove`]: crate::lifecycle::Remove
+/// [`Despawn`]: crate::lifecycle::Despawn
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Event` or `EventMatcher`",
+    label = "invalid `EventMatcher`",
+    note = "consider annotating `{Self}` with `#[derive(Event)]` or implementing `EventMatcher` manually"
+)]
+pub trait EventMatcher: 'static {
+    /// The event type being observed.
+    type Event: Event;
+
+    /// Components to watch for this event. This is used by [`EntityComponentsTrigger`]
+    /// to determine which entities to run observers for.
+    ///
+    /// See [`EntityComponentsTrigger`] for more info.
+    type Components: Bundle;
+}
+
+// All events are implicitly EventMatchers, with no additional components.
+impl<E: Event> EventMatcher for E {
+    type Event = Self;
+    type Components = ();
 }
 
 /// An [`EntityEvent`] is an [`Event`] that is triggered for a specific [`EntityEvent::event_target`] entity:

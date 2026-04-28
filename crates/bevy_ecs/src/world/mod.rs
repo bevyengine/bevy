@@ -51,10 +51,13 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
+    lifecycle::{
+        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, RemoveEvent,
+        RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
+    },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
+    prelude::DetectChangesMut,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -160,19 +163,19 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = self.register_event_key::<Add>();
+        let on_add = self.register_event_key::<AddEvent>();
         assert_eq!(ADD, on_add);
 
-        let on_insert = self.register_event_key::<Insert>();
+        let on_insert = self.register_event_key::<InsertEvent>();
         assert_eq!(INSERT, on_insert);
 
-        let on_discard = self.register_event_key::<Discard>();
+        let on_discard = self.register_event_key::<DiscardEvent>();
         assert_eq!(DISCARD, on_discard);
 
-        let on_remove = self.register_event_key::<Remove>();
+        let on_remove = self.register_event_key::<RemoveEvent>();
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = self.register_event_key::<Despawn>();
+        let on_despawn = self.register_event_key::<DespawnEvent>();
         assert_eq!(DESPAWN, on_despawn);
 
         let is_resource = self.register_component::<IsResource>();

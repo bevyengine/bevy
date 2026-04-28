@@ -4,7 +4,7 @@ use core::any::Any;
 
 use crate::{
     error::ErrorContext,
-    event::Event,
+    event::{EventMatcher, EventMatcherTrigger},
     observer::TriggerContext,
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -32,7 +32,7 @@ pub type ObserverRunner =
 // NOTE: The way `Trigger` and `On` interact in this implementation is _subtle_ and _easily invalidated_
 // from a soundness perspective. Please read and understand the safety comments before making any changes,
 // either here or in `On`.
-pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+pub(super) unsafe fn observer_system_runner<E: EventMatcher, S: ObserverSystem<E>>(
     mut world: DeferredWorld,
     observer: Entity,
     trigger_context: &TriggerContext,
@@ -74,9 +74,9 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     // This becomes On<'a, 'a> in practice. This is why `On<'w, 't>` has the strict constraint that
     // the 'w lifetime can never be exposed. To do so would make it possible to introduce use-after-free bugs.
     // See this thread for more details: <https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935>
-    let trigger: &mut E::Trigger<'_> = unsafe { trigger_ptr.deref_mut() };
+    let trigger: &mut EventMatcherTrigger<'_, E> = unsafe { trigger_ptr.deref_mut() };
 
-    let on: On<E, B> = On::new(
+    let on: On<E> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut E`
         unsafe { event_ptr.deref_mut() },
         observer,
@@ -87,7 +87,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     // SAFETY:
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
-    let system: *mut dyn ObserverSystem<E, B> = unsafe {
+    let system: *mut dyn ObserverSystem<E> = unsafe {
         let system: &mut dyn Any = state.system.as_mut();
         let system = system.downcast_mut::<S>().debug_checked_unwrap();
         &mut *system

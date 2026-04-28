@@ -16,7 +16,7 @@ use core::marker::PhantomData;
 use crate::{
     component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
-    event::EventKey,
+    event::{EventKey, EventMatcher},
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
@@ -221,7 +221,7 @@ impl Observer {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+    pub fn new<E: EventMatcher, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
         assert!(
             !system.is_exclusive(),
@@ -234,9 +234,9 @@ impl Observer {
         Self {
             system,
             descriptor: Default::default(),
-            hook_on_add: hook_on_add::<E, B, I::System>,
+            hook_on_add: hook_on_add::<E, I::System>,
             error_handler: None,
-            runner: observer_system_runner::<E, B, I::System>,
+            runner: observer_system_runner::<E, I::System>,
             despawned_watched_entities: 0,
             last_trigger_id: 0,
             conditions: Vec::new(),
@@ -453,15 +453,15 @@ impl ObserverDescriptor {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn hook_on_add<E: EventMatcher, S: ObserverSystem<E>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_key = world.register_event_key::<E>();
-        let components = B::component_ids(&mut world.components_registrator());
+        let event_key = world.register_event_key::<E::Event>();
+        let components = E::Components::component_ids(&mut world.components_registrator());
 
-        let system_ptr: *mut dyn ObserverSystem<E, B> = {
+        let system_ptr: *mut dyn ObserverSystem<E> = {
             let Some(mut observer) = world.get_mut::<Observer>(entity) else {
                 return;
             };
@@ -569,14 +569,14 @@ impl IntoObserver<()> for Observer {
     }
 }
 
-impl<E: Event, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoObserver<(E, B, M)> for T {
+impl<E: EventMatcher, M, T: IntoObserverSystem<E, M>> IntoObserver<(E, M)> for T {
     fn into_observer(self) -> Observer {
         Observer::new(self)
     }
 }
 
-impl<E: Event, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
-    IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, B, M, S>
+impl<E: EventMatcher, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer(self) -> Observer {
         let (system, conditions) = self.take_conditions();
@@ -598,7 +598,7 @@ pub trait IntoEntityObserver<Marker>: Send + 'static {
     fn into_observer_for_entity(self, entity: Entity) -> Observer;
 }
 
-impl<E: EntityEvent, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoEntityObserver<(E, B, M)>
+impl<E: EventMatcher<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEntityObserver<(E, M)>
     for T
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
@@ -606,8 +606,8 @@ impl<E: EntityEvent, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoEntityObs
     }
 }
 
-impl<E: EntityEvent, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
-    IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, B, M, S>
+impl<E: EventMatcher<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
         let (system, conditions) = self.take_conditions();
@@ -618,12 +618,12 @@ impl<E: EntityEvent, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
 }
 
 /// Extension trait for adding run conditions to observer systems.
-pub trait ObserverSystemExt<E: Event, B: Bundle, M>: IntoObserverSystem<E, B, M> + Sized {
+pub trait ObserverSystemExt<E: EventMatcher, M>: IntoObserverSystem<E, M> + Sized {
     /// Adds a run condition to this observer system.
     ///
     /// The observer will only run if the condition returns `true`.
     /// Multiple conditions can be chained (AND semantics).
-    fn run_if<C, CM>(self, condition: C) -> ObserverWithCondition<E, B, M, Self>
+    fn run_if<C, CM>(self, condition: C) -> ObserverWithCondition<E, M, Self>
     where
         C: SystemCondition<CM>,
     {
@@ -635,4 +635,4 @@ pub trait ObserverSystemExt<E: Event, B: Bundle, M>: IntoObserverSystem<E, B, M>
     }
 }
 
-impl<E: Event, B: Bundle, M, T: IntoObserverSystem<E, B, M>> ObserverSystemExt<E, B, M> for T {}
+impl<E: EventMatcher, M, T: IntoObserverSystem<E, M>> ObserverSystemExt<E, M> for T {}
