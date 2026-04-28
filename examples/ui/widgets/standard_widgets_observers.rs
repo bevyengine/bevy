@@ -16,27 +16,28 @@ use bevy::{
         SliderThumb, SliderValue, ValueChange,
     },
 };
+use bevy_ecs::{event::EventMatcher, lifecycle::RemoveEvent};
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
         .add_systems(Startup, setup)
-        .add_observer(button_on_interaction::<Add, Pressed>)
-        .add_observer(button_on_interaction::<Remove, Pressed>)
-        .add_observer(button_on_interaction::<Add, InteractionDisabled>)
-        .add_observer(button_on_interaction::<Remove, InteractionDisabled>)
-        .add_observer(button_on_interaction::<Insert, Hovered>)
-        .add_observer(slider_on_interaction::<Add, InteractionDisabled>)
-        .add_observer(slider_on_interaction::<Remove, InteractionDisabled>)
-        .add_observer(slider_on_interaction::<Insert, Hovered>)
+        .add_observer(button_on_interaction::<Add<Pressed>>)
+        .add_observer(button_on_interaction::<Remove<Pressed>>)
+        .add_observer(button_on_interaction::<Add<InteractionDisabled>>)
+        .add_observer(button_on_interaction::<Remove<InteractionDisabled>>)
+        .add_observer(button_on_interaction::<Insert<Hovered>>)
+        .add_observer(slider_on_interaction::<Add<InteractionDisabled>>)
+        .add_observer(slider_on_interaction::<Remove<InteractionDisabled>>)
+        .add_observer(slider_on_interaction::<Insert<Hovered>>)
         .add_observer(slider_on_change_value::<SliderValue>)
         .add_observer(slider_on_change_value::<SliderRange>)
-        .add_observer(checkbox_on_interaction::<Add, InteractionDisabled>)
-        .add_observer(checkbox_on_interaction::<Remove, InteractionDisabled>)
-        .add_observer(checkbox_on_interaction::<Insert, Hovered>)
-        .add_observer(checkbox_on_interaction::<Add, Checked>)
-        .add_observer(checkbox_on_interaction::<Remove, Checked>)
+        .add_observer(checkbox_on_interaction::<Add<InteractionDisabled>>)
+        .add_observer(checkbox_on_interaction::<Remove<InteractionDisabled>>)
+        .add_observer(checkbox_on_interaction::<Insert<Hovered>>)
+        .add_observer(checkbox_on_interaction::<Add<Checked>>)
+        .add_observer(checkbox_on_interaction::<Remove<Checked>>)
         .add_systems(Update, (update_widget_values, toggle_disabled))
         .run();
 }
@@ -150,8 +151,8 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
     )
 }
 
-fn button_on_interaction<E: EntityEvent, C: Component>(
-    event: On<E, C>,
+fn button_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+    event: On<E>,
     mut buttons: Query<
         (
             &Hovered,
@@ -177,8 +178,9 @@ fn button_on_interaction<E: EntityEvent, C: Component>(
         let hovered = hovered.get();
         // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
         // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
-        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
-        let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
+        let pressed = pressed && !(E::Event::is::<RemoveEvent>() && E::Components::is::<Pressed>());
+        let disabled = disabled
+            && !(E::Event::is::<RemoveEvent>() && E::Components::is::<InteractionDisabled>());
         match (disabled, hovered, pressed) {
             // Disabled button
             (true, _, _) => {
@@ -276,8 +278,8 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
     )
 }
 
-fn slider_on_interaction<E: EntityEvent, C: Component>(
-    event: On<E, C>,
+fn slider_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+    event: On<E>,
     sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -285,7 +287,8 @@ fn slider_on_interaction<E: EntityEvent, C: Component>(
     if let Ok((slider_ent, hovered, disabled)) = sliders.get(event.event_target()) {
         // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
         // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
-        let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
+        let disabled = disabled
+            && !(E::Event::is::<RemoveEvent>() && E::Components::is::<InteractionDisabled>());
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
                 && is_thumb
@@ -297,7 +300,7 @@ fn slider_on_interaction<E: EntityEvent, C: Component>(
 }
 
 fn slider_on_change_value<C: Component>(
-    insert: On<Insert, C>,
+    insert: On<Insert<C>>,
     sliders: Query<(Entity, &SliderValue, &SliderRange), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -380,8 +383,8 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
     )
 }
 
-fn checkbox_on_interaction<E: EntityEvent, C: Component>(
-    event: On<E, C>,
+fn checkbox_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+    event: On<E>,
     checkboxes: Query<
         (&Hovered, Has<InteractionDisabled>, Has<Checked>, &Children),
         With<DemoCheckbox>,
@@ -393,8 +396,9 @@ fn checkbox_on_interaction<E: EntityEvent, C: Component>(
         let hovered = hovered.get();
         // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
         // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
-        let checked = checked && !(E::is::<Remove>() && C::is::<Checked>());
-        let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
+        let checked = checked && !(E::Event::is::<RemoveEvent>() && E::Components::is::<Checked>());
+        let disabled = disabled
+            && !(E::Event::is::<RemoveEvent>() && E::Components::is::<InteractionDisabled>());
 
         let Some(border_id) = children.first() else {
             return;

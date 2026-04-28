@@ -11,23 +11,19 @@ use bevy_ecs::{
 };
 
 /// Helper struct that adds an observer when inserted as a [`Bundle`].
-pub struct AddObserver<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> {
+pub struct AddObserver<E: EntityEvent, M, I: IntoObserverSystem<E, M>> {
     observer: I,
-    marker: PhantomData<(E, B, M)>,
+    marker: PhantomData<(E, M)>,
 }
 
 // SAFETY: Empty method bodies.
-unsafe impl<
-        E: EntityEvent,
-        B: Bundle,
-        M: Send + Sync + 'static,
-        I: IntoObserverSystem<E, B, M> + Send + Sync,
-    > Bundle for AddObserver<E, B, M, I>
+unsafe impl<E: EntityEvent, M: Send + Sync + 'static, I: IntoObserverSystem<E, M> + Send + Sync>
+    Bundle for AddObserver<E, M, I>
 {
     #[inline]
     fn component_ids(
         _components: &mut bevy_ecs::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, M, I> {
         // SAFETY: Empty iterator
         core::iter::empty()
     }
@@ -41,9 +37,7 @@ unsafe impl<
     }
 }
 
-impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
-    for AddObserver<E, B, M, I>
-{
+impl<E: EntityEvent, M, I: IntoObserverSystem<E, M>> DynamicBundle for AddObserver<E, M, I> {
     type Effect = Self;
 
     #[inline]
@@ -74,9 +68,9 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 }
 
 /// Adds an observer as a bundle effect.
-pub fn observe<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
+pub fn observe<E: EntityEvent, M, I: IntoObserverSystem<E, M>>(
     observer: I,
-) -> AddObserver<E, B, M, I> {
+) -> AddObserver<E, M, I> {
     AddObserver {
         observer,
         marker: PhantomData,

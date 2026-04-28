@@ -957,7 +957,7 @@ pub struct DirectionalLightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    add: On<Add, ExtractedDirectionalLight>,
+    add: On<Add<ExtractedDirectionalLight>>,
     mut commands: Commands,
 ) {
     if let Ok(mut v) = commands.get_entity(add.entity) {
@@ -968,7 +968,7 @@ pub(crate) fn add_light_view_entities(
 /// Removes [`DirectionalLightViewEntities`] when light is removed. See
 /// [`add_light_view_entities`].
 pub(crate) fn extracted_light_removed(
-    remove: On<Remove, ExtractedDirectionalLight>,
+    remove: On<Remove<ExtractedDirectionalLight>>,
     mut commands: Commands,
 ) {
     if let Ok(mut v) = commands.get_entity(remove.entity) {
@@ -977,7 +977,7 @@ pub(crate) fn extracted_light_removed(
 }
 
 pub(crate) fn remove_light_view_entities(
-    remove: On<Remove, DirectionalLightViewEntities>,
+    remove: On<Remove<DirectionalLightViewEntities>>,
     query: Query<&DirectionalLightViewEntities>,
     mut commands: Commands,
 ) {

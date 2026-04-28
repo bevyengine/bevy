@@ -93,12 +93,12 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |add: On<Add<SyncToRenderWorld>>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );
         app.add_observer(
-            |remove: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove<SyncToRenderWorld>>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(remove.entity) {
@@ -554,12 +554,12 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |add: On<Add<SyncToRenderWorld>>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |remove: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove<SyncToRenderWorld>>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(remove.entity) {
