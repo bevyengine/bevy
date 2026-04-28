@@ -37,10 +37,10 @@ impl World {
     /// struct A;
     ///
     /// # let mut world = World::new();
-    /// world.add_observer(|_: On<Add, A>| {
+    /// world.add_observer(|_: On<Add<A>>| {
     ///     // ...
     /// });
-    /// world.add_observer(|_: On<Remove, A>| {
+    /// world.add_observer(|_: On<Remove<A>>| {
     ///     // ...
     /// });
     /// ```

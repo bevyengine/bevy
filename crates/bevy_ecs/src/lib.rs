@@ -75,7 +75,7 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result, ResultSeverityExt, Severity},
-        event::{EntityEvent, Event},
+        event::{EntityEvent, Event, EventMatcher},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{

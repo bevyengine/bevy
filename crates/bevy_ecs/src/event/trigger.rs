@@ -369,7 +369,7 @@ pub struct EntityComponentsTrigger<'a> {
     /// # let mut world = World::new();
     /// #
     /// fn on_add_disable(
-    ///     on: On<Add, Disabled>,
+    ///     on: On<Add<Disabled>>,
     ///     mut cache: ResMut<EntitiesWithA>,
     ///     a_component: ComponentIdFor<A>,
     /// ) {
@@ -408,7 +408,7 @@ pub struct EntityComponentsTrigger<'a> {
     /// # let mut world = World::new();
     /// #
     /// fn on_remove_disable(
-    ///     on: On<Remove, Disabled>,
+    ///     on: On<Remove<Disabled>>,
     ///     mut cache: ResMut<EntitiesWithA>,
     ///     a_component: ComponentIdFor<A>,
     /// ) {

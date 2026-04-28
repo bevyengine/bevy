@@ -6,6 +6,7 @@
 
 use bevy::{
     color::palettes::basic::*,
+    ecs::{event::EventMatcher, lifecycle::RemoveEvent},
     input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
@@ -16,7 +17,6 @@ use bevy::{
         SliderThumb, SliderValue, ValueChange,
     },
 };
-use bevy_ecs::{event::EventMatcher, lifecycle::RemoveEvent};
 
 fn main() {
     App::new()
