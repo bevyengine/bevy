@@ -474,6 +474,11 @@
 //! commands.spawn_scene(unit_with_armor(my_unit));
 //! ```
 //!
+//! ## BSN syntax reference
+//!
+//! For a quick rundown on how to read and write BSN syntax,
+//! see the docs for [`bsn!`].
+//!
 //! ## .bsn Asset Format
 //!
 //! In future releases, Bevy intends to offer a `.bsn` asset format.
