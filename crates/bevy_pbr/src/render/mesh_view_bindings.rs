@@ -13,7 +13,6 @@ use bevy_core_pipeline::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
-use bevy_derive::Deref;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -610,9 +609,6 @@ impl MeshPipelineViewLayouts {
     }
 }
 
-#[derive(Component, Deref)]
-pub struct MeshViewLayoutKey(MeshPipelineViewLayoutKey);
-
 #[derive(Component)]
 pub struct MeshViewBindGroup {
     pub main: BindGroup,
@@ -1021,27 +1017,24 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
-            commands.entity(entity).insert((
-                MeshViewLayoutKey(layout_key),
-                MeshViewBindGroup {
-                    main_offsets: offsets,
-                    main: render_device.create_bind_group(
-                        "mesh_view_bind_group",
-                        &pipeline_cache.get_bind_group_layout(&layout.main_layout),
-                        &entries,
-                    ),
-                    binding_array: render_device.create_bind_group(
-                        "mesh_view_bind_group_binding_array",
-                        &pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
-                        &entries_binding_array,
-                    ),
-                    empty: render_device.create_bind_group(
-                        "mesh_view_bind_group_empty",
-                        &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
-                        &[],
-                    ),
-                },
-            ));
+            commands.entity(entity).insert((MeshViewBindGroup {
+                main_offsets: offsets,
+                main: render_device.create_bind_group(
+                    "mesh_view_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layout.main_layout),
+                    &entries,
+                ),
+                binding_array: render_device.create_bind_group(
+                    "mesh_view_bind_group_binding_array",
+                    &pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
+                    &entries_binding_array,
+                ),
+                empty: render_device.create_bind_group(
+                    "mesh_view_bind_group_empty",
+                    &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
+                    &[],
+                ),
+            },));
 
             #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             {

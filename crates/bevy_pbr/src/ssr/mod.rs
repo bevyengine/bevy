@@ -45,9 +45,8 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, deferred::deferred_lighting, prepare_mesh_view_bind_groups,
-    Bluenoise, MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
-    MeshViewBindGroup, MeshViewLayoutKey,
+    binding_arrays_are_usable, deferred::deferred_lighting, Bluenoise, MeshPipelineSystems,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -209,12 +208,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 RenderStartup,
                 init_screen_space_reflections_pipeline.after(MeshPipelineSystems),
             )
-            .add_systems(
-                Render,
-                prepare_ssr_pipelines
-                    .in_set(RenderSystems::PrepareBindGroups)
-                    .after(prepare_mesh_view_bind_groups),
-            )
+            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
                 prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
@@ -395,10 +389,11 @@ pub fn init_screen_space_reflections_pipeline(
 pub fn prepare_ssr_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
     ssr_pipeline: Res<ScreenSpaceReflectionsPipeline>,
     views: Query<
-        (Entity, &ExtractedView, &MeshViewLayoutKey),
+        (Entity, &ExtractedView),
         (
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
@@ -406,13 +401,16 @@ pub fn prepare_ssr_pipelines(
         ),
     >,
 ) {
-    for (entity, extracted_view, mesh_view_key) in &views {
+    for (entity, extracted_view) in &views {
+        let Some(view_key) = view_key_cache.get(&extracted_view.retained_view_entity) else {
+            continue;
+        };
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
-                mesh_pipeline_view_key: **mesh_view_key,
+                mesh_pipeline_view_key: (*view_key).into(),
                 target_format: extracted_view.target_format,
             },
         );

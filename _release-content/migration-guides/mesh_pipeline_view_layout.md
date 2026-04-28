@@ -38,6 +38,3 @@ After:
         &mesh_view_bind_group.main_offsets,
     );
 ```
-
-Also please consider querying `MeshViewLayoutKey` component which is updated in `prepare_mesh_view_bind_groups` system
-to get the current mesh view layout key, Instead of querying used rendering features and setting `MeshPipelineViewLayoutKey` manually.

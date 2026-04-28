@@ -41,8 +41,8 @@ use bevy_shader::Shader;
 use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
-    prepare_mesh_view_bind_groups, MeshPipelineSystems, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, MeshViewLayoutKey,
+    MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ViewKeyCache,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -84,9 +84,7 @@ impl Plugin for RenderDebugOverlayPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_debug_overlay_pipelines
-                        .in_set(RenderSystems::PrepareBindGroups)
-                        .after(prepare_mesh_view_bind_groups),
+                    prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
                     prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
             )
@@ -532,26 +530,25 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
 fn prepare_debug_overlay_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
     pipeline: Res<RenderDebugOverlayPipeline>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &RenderDebugOverlay,
-        &MeshViewLayoutKey,
-    )>,
+    views: Query<(Entity, &ExtractedView, &RenderDebugOverlay)>,
 ) {
-    for (entity, view, config, view_layout_key) in &views {
+    for (entity, view, config) in &views {
         if !config.enabled {
             continue;
         }
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
-                view_layout_key: **view_layout_key,
+                view_layout_key: (*view_key).into(),
                 target_format: view.target_format,
             },
         );
