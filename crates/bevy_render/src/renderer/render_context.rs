@@ -13,9 +13,11 @@ use bevy_ecs::system::{
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
-use bevy_log::info_span;
 use core::marker::PhantomData;
 use wgpu::CommandBuffer;
+
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 
 #[derive(Default)]
 struct PendingCommandBuffersInner {
@@ -103,9 +105,9 @@ impl RenderContextState {
 }
 
 impl SystemBuffer for RenderContextState {
-    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
         #[cfg(feature = "trace")]
-        let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
+        let _span = info_span!("RenderContextState::apply", system = %_system_meta.name()).entered();
 
         let inner = &mut *self.0;
 

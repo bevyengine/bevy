@@ -10,7 +10,6 @@ use bevy_ecs::{
         Local, Query, SystemParam,
     },
 };
-use bevy_log::info_span;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::TypeIdMap;
@@ -20,6 +19,9 @@ use crate::{
     view::RetainedViewEntity,
     Extract,
 };
+
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 
 mod range;
 use bevy_camera::visibility::*;

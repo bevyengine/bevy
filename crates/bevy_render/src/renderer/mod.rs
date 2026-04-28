@@ -19,13 +19,16 @@ use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_log::{debug, info, info_span, warn};
+use bevy_log::{debug, info, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, ForceShaderModelToken, Instance, Queue,
     RequestAdapterOptions, Trace,
 };
+
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
 /// in the [`render_system`] system and is responsible for driving the entire rendering process.
