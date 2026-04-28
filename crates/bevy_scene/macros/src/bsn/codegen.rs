@@ -411,7 +411,7 @@ impl BsnType {
                                      . If you would like to set a component scene's prop field, it \
                                      should be set using \"scene inheritance\": \
                                      bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
-                                     type_path.to_token_stream().to_string()
+                                     type_path.to_token_stream()
                                 ),
                             ));
                         }
