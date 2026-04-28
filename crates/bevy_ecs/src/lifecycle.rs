@@ -401,7 +401,7 @@ pub struct DiscardEvent {
 ///
 /// All components specified in the [`Bundle`] are treated as an `OR` filter
 /// **not** an `AND` filter. For example, `Discard<(A, B)>` will trigger if
-/// either component `A` or component `B` is removed from an entity.
+/// either component `A` or component `B` are discarded from an entity.
 #[doc(alias = "OnDiscard")]
 #[doc(alias = "OnReplace")]
 #[doc(alias = "Replace")]
@@ -430,7 +430,7 @@ pub struct RemoveEvent {
 ///
 /// All components specified in the [`Bundle`] are treated as an `OR` filter
 /// **not** an `AND` filter. For example, `Remove<(A, B)>` will trigger if
-/// either component `A` or component `B` is removed from an entity.
+/// either component `A` or component `B` are removed from an entity.
 #[doc(alias = "OnRemove")]
 pub struct Remove<B: Bundle>(PhantomData<B>);
 
@@ -456,7 +456,7 @@ pub struct DespawnEvent {
 ///
 /// All components specified in the [`Bundle`] are treated as an `OR` filter
 /// **not** an `AND` filter. For example, `Despawn<(A, B)>` will trigger if
-/// either component `A` or component `B` is removed from an entity.
+/// either component `A` or component `B` are present on an entity that is despawned.
 #[doc(alias = "OnDespawn")]
 pub struct Despawn<B: Bundle>(PhantomData<B>);
 
