@@ -606,8 +606,8 @@ impl Access {
     /// assert_eq!(
     ///     result,
     ///     Ok(vec![
-    ///         ComponentAccessKind::Shared(ComponentId::from_u32(1)),
     ///         ComponentAccessKind::Exclusive(ComponentId::from_u32(2)),
+    ///         ComponentAccessKind::Shared(ComponentId::from_u32(1)),
     ///         ComponentAccessKind::Archetypal(ComponentId::from_u32(3)),
     ///     ]),
     /// );
