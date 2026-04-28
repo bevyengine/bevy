@@ -4,7 +4,7 @@ use bevy::{
     asset::{
         embedded_asset,
         io::{Reader, Writer},
-        processor::LoadTransformAndSave,
+        make_load_transform_and_save_processor,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
@@ -47,9 +47,8 @@ fn main() {
 /// * [`CoolText`]: a custom RON text format that supports dependencies and embedded dependencies
 /// * [`Text`]: a "normal" plain text file
 ///
-/// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
-/// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.
-/// This illustrates that when you process an asset, you can change its type! However you don't _need_ to change the type.
+/// It also registers the [`CoolTextProcessor`] to process our [`CoolText`] assets into [`Text`]
+/// assets.
 struct TextPlugin;
 
 impl Plugin for TextPlugin {
@@ -59,11 +58,25 @@ impl Plugin for TextPlugin {
             .init_asset::<Text>()
             .register_asset_loader(CoolTextLoader)
             .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
-                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
-            )
-            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
+            .register_asset_processor(CoolTextProcessor::new(CoolTextTransformer, CoolTextSaver))
+            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
     }
+}
+
+make_load_transform_and_save_processor! {
+    /// This processor loads the [`CoolText`], resolves embedded dependencies, and writes the
+    /// resulting output to "normal" plain text file. When the processed asset is loaded, it is
+    /// loaded as a [`Text`] asset.
+    ///
+    /// This illustrates that when you process an asset, you can change its type! However you don't
+    /// _need_ to change the type.
+    struct CoolTextProcessor {
+        loader: CoolTextLoader,
+        transformer: CoolTextTransformer,
+        saver: CoolTextSaver,
+    }
+
+    struct CoolTextProcessorSettings { .. }
 }
 
 #[derive(Asset, TypePath, Debug)]
