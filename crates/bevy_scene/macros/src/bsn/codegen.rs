@@ -146,7 +146,11 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     }
 }
 
-fn from_template_patch(ctx: &mut BsnCodegenCtx, ty: &BsnType) -> syn::Result<TokenStream> {
+fn from_template_patch(
+    ctx: &mut BsnCodegenCtx,
+    ty: &BsnType,
+    is_scene_component: bool,
+) -> syn::Result<TokenStream> {
     let mut assigns = Vec::new();
     let target = PatchTarget {
         path: &[Member::Named(Ident::new(
@@ -155,7 +159,7 @@ fn from_template_patch(ctx: &mut BsnCodegenCtx, ty: &BsnType) -> syn::Result<Tok
         ))],
         is_ref: true,
     };
-    ty.to_patch_tokens(ctx, &mut assigns, true, target, false)?;
+    ty.to_patch_tokens(ctx, &mut assigns, true, false, is_scene_component, target)?;
     let path = &ty.path;
     let bevy_scene = ctx.bevy_scene;
     Ok(quote! {
@@ -179,7 +183,7 @@ impl BsnEntry {
                     ))],
                     is_ref: true,
                 };
-                ty.to_patch_tokens(ctx, &mut assigns, true, target, false)?;
+                ty.to_patch_tokens(ctx, &mut assigns, true, false, true, target)?;
                 let path = &ty.path;
                 let bevy_scene = ctx.bevy_scene;
                 Ok(quote! {
@@ -188,7 +192,7 @@ impl BsnEntry {
                     })
                 })
             }
-            BsnEntry::FromTemplatePatch(ty) => from_template_patch(ctx, ty),
+            BsnEntry::FromTemplatePatch(ty) => from_template_patch(ctx, ty, false),
             BsnEntry::TemplateConst {
                 type_path,
                 const_ident,
@@ -244,14 +248,15 @@ impl BsnEntry {
                         ctx,
                         &mut assignments,
                         false,
+                        true,
+                        true,
                         PatchTarget {
                             path: &[Member::Named(props_ref.clone())],
                             is_ref: true,
                         },
-                        true,
                     )?;
                     let type_path = &bsn_type.path;
-                    let from_template_patch = from_template_patch(ctx, bsn_type)?;
+                    let from_template_patch = from_template_patch(ctx, bsn_type, true)?;
                     quote! {{
                         let mut #props = <<#type_path as #bevy_scene::SceneConstructor>::Props as Default>::default();
                         let #props_ref = &mut #props;
@@ -285,8 +290,9 @@ impl BsnType {
         ctx: &mut BsnCodegenCtx,
         assignments: &mut Vec<TokenStream>,
         is_root: bool,
-        target: PatchTarget,
         is_props: bool,
+        is_scene_component: bool,
+        target: PatchTarget,
     ) -> syn::Result<()> {
         if !is_root {
             let (path, bevy_scene) = (&self.path, ctx.bevy_scene);
@@ -295,12 +301,12 @@ impl BsnType {
 
         if let Some(variant) = &self.enum_variant {
             if is_props {
-                self.push_struct_patch(ctx, assignments, target, true)?;
+                self.push_struct_patch(ctx, assignments, true, is_scene_component, target)?;
             } else {
                 self.push_enum_patch(ctx, variant, assignments, target)?;
             }
         } else {
-            self.push_struct_patch(ctx, assignments, target, is_props)?;
+            self.push_struct_patch(ctx, assignments, is_props, is_scene_component, target)?;
         }
 
         Ok(())
@@ -385,18 +391,32 @@ impl BsnType {
         &self,
         ctx: &mut BsnCodegenCtx,
         assignments: &mut Vec<TokenStream>,
-        target: PatchTarget,
         is_props: bool,
+        is_scene_component: bool,
+        target: PatchTarget,
     ) -> syn::Result<()> {
         match &self.fields {
             BsnFields::Named(fields) => {
                 let mut seen = HashSet::with_capacity(fields.len());
 
                 for field in fields {
+                    let field_name = &field.name;
                     if is_props != field.is_prop {
+                        if !is_scene_component && field.is_prop {
+                            let type_path = &self.path;
+                            ctx.errors.push(syn::Error::new_spanned(
+                                field_name,
+                                format!(
+                                    "Scene prop fields are not supported in normal component patches\
+                                     . If you would like to set a component scene's prop field, it \
+                                     should be set using \"scene inheritance\": \
+                                     bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
+                                     type_path.to_token_stream().to_string()
+                                ),
+                            ));
+                        }
                         continue;
                     }
-                    let field_name = &field.name;
                     if !seen.insert(field_name.to_string()) {
                         ctx.errors.push(syn::Error::new_spanned(
                             field_name,
@@ -497,11 +517,12 @@ impl BsnType {
                     ctx,
                     assignments,
                     false,
+                    false,
+                    false,
                     PatchTarget {
                         path: &new_path,
                         is_ref: false,
                     },
-                    false,
                 )?;
             }
         }
@@ -529,11 +550,12 @@ impl BsnType {
                 ctx,
                 &mut type_assigns,
                 false,
+                false,
+                false,
                 PatchTarget {
                     path: &[Member::Named(bind_name.clone())],
                     is_ref: true,
                 },
-                false,
             )?;
             return Ok(quote! {#(#type_assigns)*});
         }
@@ -672,11 +694,12 @@ mod tests {
         let res = duplicate.push_struct_patch(
             &mut ctx,
             &mut assignments,
+            false,
+            false,
             PatchTarget {
                 path: &[],
                 is_ref: false,
             },
-            false,
         );
 
         assert!(res.is_ok());
@@ -722,11 +745,12 @@ mod tests {
             &mut ctx,
             &mut assignments,
             true,
+            false,
+            false,
             PatchTarget {
                 path: &[],
                 is_ref: false,
             },
-            false,
         );
 
         assert!(res.is_ok());
@@ -756,11 +780,12 @@ mod tests {
         let res = missing.push_struct_patch(
             &mut ctx,
             &mut assignments,
+            false,
+            false,
             PatchTarget {
                 path: &[Member::Named(parse_quote!(value))],
                 is_ref: false,
             },
-            false,
         );
 
         assert!(res.is_ok());
