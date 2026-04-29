@@ -374,6 +374,8 @@ pub enum StorageKind {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
+    /// Used by resources to guarantee uniqueness.
+    Resource,
 }
 
 impl From<StorageType> for StorageKind {
@@ -381,6 +383,7 @@ impl From<StorageType> for StorageKind {
         match value {
             StorageType::Table => StorageKind::Table,
             StorageType::SparseSet => StorageKind::SparseSet,
+            StorageType::Resource => StorageKind::Resource,
         }
     }
 }

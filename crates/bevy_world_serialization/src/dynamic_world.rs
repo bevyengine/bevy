@@ -1,6 +1,7 @@
 use crate::{DynamicWorldBuilder, WorldAsset, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::storage::ResourceStorage;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
@@ -183,7 +184,12 @@ impl DynamicWorld {
             let resource_id = reflect_component.register_component(world);
 
             // check if the resource already exists, if not spawn it, otherwise override the value
-            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
+            let entity = if let Some(entity) = world
+                .storages()
+                .resources
+                .get(resource_id)
+                .and_then(ResourceStorage::entity)
+            {
                 entity
             } else {
                 world.spawn_empty().id()

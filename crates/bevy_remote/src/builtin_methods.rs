@@ -2013,11 +2013,19 @@ fn get_resource_entity_pair(
     let component_id = world
         .components()
         .get_id(type_id)
-        .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
+        .ok_or_else(|| anyhow!("Resource not registered: `{}`", resource_path))?;
     let entity = world
-        .resource_entities()
+        .storages()
+        .resources
         .get(component_id)
-        .ok_or(anyhow!("Resource entity does not exist."))?;
+        .and_then(|storage| {
+            if storage.populated() {
+                storage.entity()
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| anyhow!("Resource entity does not exist."))?;
     Ok((entity, component_id))
 }
 

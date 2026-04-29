@@ -8,7 +8,7 @@ use thiserror::Error;
 use bevy_reflect::{PartialReflect, Reflect, ReflectFromPtr};
 use bevy_utils::prelude::DebugName;
 
-use crate::{prelude::*, world::ComponentId};
+use crate::{prelude::*, storage::ResourceStorage, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
@@ -199,7 +199,12 @@ impl World {
         resource_id: ComponentId,
         reflected_resource: Box<dyn PartialReflect>,
     ) {
-        if let Some(entity) = self.resource_entities().get(resource_id) {
+        if let Some(entity) = self
+            .storages
+            .resources
+            .get(resource_id)
+            .and_then(ResourceStorage::entity)
+        {
             self.entity_mut(entity).insert_reflect(reflected_resource);
         } else {
             self.spawn_empty().insert_reflect(reflected_resource);

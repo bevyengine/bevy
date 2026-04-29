@@ -732,6 +732,17 @@ pub enum StorageType {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
+    /// Provides fast addition and removal, but only allows one entity.
+    Resource,
+}
+
+impl StorageType {
+    pub(crate) const fn is_dense(self) -> bool {
+        match self {
+            StorageType::Table => true,
+            StorageType::SparseSet | StorageType::Resource => false,
+        }
+    }
 }
 
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.

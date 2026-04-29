@@ -17,7 +17,7 @@ use crate::{
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
-    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    storage::{ResourceStorages, SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
@@ -240,6 +240,7 @@ impl BundleInfo {
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        resource_storages: &mut ResourceStorages,
         bundle_component_status: &S,
         required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
         entity: Entity,
@@ -294,6 +295,22 @@ impl BundleInfo {
                         }
                     }
                 }
+                StorageType::Resource => {
+                    let resource_storage =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
+                        // a resource storage exists for the component.
+                        unsafe { resource_storages.get_mut(component_id).debug_checked_unwrap() };
+                    match (status, insert_mode) {
+                        (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
+                            resource_storage.insert(entity, component_ptr, change_tick, caller);
+                        }
+                        (ComponentStatus::Existing, InsertMode::Keep) => {
+                            if let Some(drop_fn) = resource_storage.get_drop() {
+                                drop_fn(component_ptr);
+                            }
+                        }
+                    }
+                }
             }
             bundle_component += 1;
         });
@@ -302,6 +319,7 @@ impl BundleInfo {
             required_component.initialize(
                 table,
                 sparse_sets,
+                resource_storages,
                 change_tick,
                 table_row,
                 entity,
@@ -325,6 +343,7 @@ impl BundleInfo {
     pub(crate) unsafe fn initialize_required_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        resource_storages: &mut ResourceStorages,
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
@@ -348,6 +367,13 @@ impl BundleInfo {
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(entity, component_ptr, change_tick, caller);
+                }
+                StorageType::Resource => {
+                    let resource_storage=
+                        // SAFETY: If component_id is in required_components, BundleInfo::new requires that
+                        // a sparse set exists for the component.
+                        unsafe { resource_storages.get_mut(component_id).debug_checked_unwrap() };
+                    resource_storage.insert(entity, component_ptr, change_tick, caller);
                 }
             }
         }

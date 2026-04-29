@@ -390,7 +390,7 @@ pub struct Archetype {
 }
 
 impl Archetype {
-    /// `table_components` and `sparse_set_components` must be sorted
+    /// `table_components` must be sorted
     pub(crate) fn new(
         components: &Components,
         component_index: &mut ComponentIndex,
@@ -399,6 +399,7 @@ impl Archetype {
         table_id: TableId,
         table_components: impl Iterator<Item = ComponentId>,
         sparse_set_components: impl Iterator<Item = ComponentId>,
+        resource_components: impl Iterator<Item = ComponentId>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -424,7 +425,7 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
-        for component_id in sparse_set_components {
+        for component_id in sparse_set_components.chain(resource_components) {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -432,7 +433,7 @@ impl Archetype {
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
-                    storage_type: StorageType::SparseSet,
+                    storage_type: info.storage_type(),
                 },
             );
             component_index
@@ -440,6 +441,7 @@ impl Archetype {
                 .or_default()
                 .insert(id, ArchetypeRecord { column: None });
         }
+
         Self {
             id,
             table_id,
@@ -520,6 +522,19 @@ impl Archetype {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
+            .map(|(id, _)| *id)
+    }
+
+    /// Gets an iterator of all of the components stored in [`ResourceStorages`].
+    ///
+    /// All of the IDs are unique.
+    ///
+    /// [`ResourceStorages`]: crate::storage::ResourceStorages
+    #[inline]
+    pub fn resource_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::Resource)
             .map(|(id, _)| *id)
     }
 
@@ -754,10 +769,13 @@ impl ArchetypeGeneration {
     }
 }
 
+/// Components must be sorted
+/// (which allows `ArchetypeComponents` to be used as an archetype's identity).
 #[derive(Hash, PartialEq, Eq)]
 struct ArchetypeComponents {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
+    resource_components: Box<[ComponentId]>,
 }
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
@@ -802,6 +820,7 @@ impl Archetypes {
                 &Components::default(),
                 &Observers::default(),
                 TableId::empty(),
+                Vec::new(),
                 Vec::new(),
                 Vec::new(),
             );
@@ -896,11 +915,11 @@ impl Archetypes {
     /// Specifically, it returns a tuple where the first element
     /// is the [`ArchetypeId`] that the given inputs belong to, and the second element is a boolean indicating whether a new archetype was created.
     ///
-    /// `table_components` and `sparse_set_components` must be sorted
+    /// `table_components`, `sparse_set_components` and `resource_components` must be sorted
     ///
     /// # Safety
     /// [`TableId`] must exist in tables
-    /// `table_components` and `sparse_set_components` must exist in `components`
+    /// `table_components`, `sparse_set_components` and `resource_components` must exist in `components`
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
@@ -908,10 +927,12 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
+        resource_components: Vec<ComponentId>,
     ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
             table_components: table_components.into_boxed_slice(),
+            resource_components: resource_components.into_boxed_slice(),
         };
 
         let archetypes = &mut self.archetypes;
@@ -922,6 +943,7 @@ impl Archetypes {
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
+                    resource_components,
                 } = vacant.key();
                 let id = ArchetypeId::new(archetypes.len());
                 archetypes.push(Archetype::new(
@@ -932,6 +954,7 @@ impl Archetypes {
                     table_id,
                     table_components.iter().copied(),
                     sparse_set_components.iter().copied(),
+                    resource_components.iter().copied(),
                 ));
                 vacant.insert(id);
                 (id, true)

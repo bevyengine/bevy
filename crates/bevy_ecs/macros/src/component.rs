@@ -47,7 +47,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
-    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+    let storage = storage_path(&bevy_ecs_path, StorageTy::Resource);
 
     ast.generics
         .make_where_clause()
@@ -554,6 +554,7 @@ struct Attrs {
 enum StorageTy {
     Table,
     SparseSet,
+    Resource,
 }
 
 struct Require {
@@ -747,6 +748,7 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let storage_type = match ty {
         StorageTy::Table => Ident::new("Table", Span::call_site()),
         StorageTy::SparseSet => Ident::new("SparseSet", Span::call_site()),
+        StorageTy::Resource => Ident::new("Resource", Span::call_site()),
     };
 
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }

@@ -12,7 +12,7 @@ use crate::{
     lifecycle::{Discard, Remove, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
-    storage::{SparseSets, Storages, Table, TableId},
+    storage::{ResourceStorages, SparseSets, Storages, Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -107,6 +107,7 @@ impl<'w> BundleRemover<'w> {
     /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
     pub fn empty_pre_remove(
         _: &mut SparseSets,
+        _: &mut ResourceStorages,
         _: Option<&mut Table>,
         _: &Components,
         _: &[ComponentId],
@@ -129,6 +130,7 @@ impl<'w> BundleRemover<'w> {
         caller: MaybeLocation,
         pre_remove: impl FnOnce(
             &mut SparseSets,
+            &mut ResourceStorages,
             Option<&mut Table>,
             &Components,
             &[ComponentId],
@@ -193,6 +195,7 @@ impl<'w> BundleRemover<'w> {
 
         let (needs_drop, pre_remove_result) = pre_remove(
             &mut world.storages.sparse_sets,
+            &mut world.storages.resources,
             // SAFETY:
             // - The `TableId`s in `old_and_new_table` were retrieved from valid `Archetype`s.
             self.old_and_new_table.map(|old_and_new_table| unsafe {
@@ -202,24 +205,34 @@ impl<'w> BundleRemover<'w> {
             self.bundle_info.as_ref().explicit_components(),
         );
 
-        // Handle sparse set removes
+        // Handle sparse set/resource removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
                 world.removed_components.write(component_id, entity);
 
-                // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) =
-                    self.old_archetype.as_ref().get_storage_type(component_id)
-                {
-                    world
-                        .storages
-                        .sparse_sets
-                        .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
-                        // If it was already forgotten, it would not be in the set.
-                        .remove(entity);
+                match self.old_archetype.as_ref().get_storage_type(component_id) {
+                    Some(StorageType::SparseSet) => {
+                        world
+                            .storages
+                            .sparse_sets
+                            .get_mut(component_id)
+                            // Set exists because the component existed on the entity
+                            .unwrap()
+                            // If it was already forgotten, it would not be in the set.
+                            .remove(entity);
+                    }
+                    Some(StorageType::Resource) => {
+                        world
+                            .storages
+                            .resources
+                            .get_mut(component_id)
+                            // Storage exists because the component existed on the entity
+                            .unwrap()
+                            // If it was already forgotten, it would not be in the set.
+                            .remove(entity);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -362,21 +375,23 @@ impl BundleInfo {
         } else {
             let mut next_table_components;
             let mut next_sparse_set_components;
+            let mut next_resource_components;
             let next_table_id;
             {
                 let current_archetype = &mut archetypes[archetype_id];
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
+                let mut removed_resource_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
                     if current_archetype.contains(component_id) {
                         // SAFETY: bundle components were already initialized by bundles.get_info
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
-                            StorageType::Table => removed_table_components.push(component_id),
-                            StorageType::SparseSet => {
-                                removed_sparse_set_components.push(component_id);
-                            }
+                            StorageType::Table => &mut removed_table_components,
+                            StorageType::SparseSet => &mut removed_sparse_set_components,
+                            StorageType::Resource => &mut removed_resource_components,
                         }
+                        .push(component_id);
                     } else if !intersection {
                         // A component in the bundle was not present in the entity's archetype, so this
                         // removal is invalid. Cache the result in the archetype graph.
@@ -393,11 +408,13 @@ impl BundleInfo {
                 removed_sparse_set_components.sort_unstable();
                 next_table_components = current_archetype.table_components().collect();
                 next_sparse_set_components = current_archetype.sparse_set_components().collect();
+                next_resource_components = current_archetype.resource_components().collect();
                 sorted_remove(&mut next_table_components, &removed_table_components);
                 sorted_remove(
                     &mut next_sparse_set_components,
                     &removed_sparse_set_components,
                 );
+                sorted_remove(&mut next_resource_components, &removed_resource_components);
 
                 next_table_id = if removed_table_components.is_empty() {
                     current_archetype.table_id()
@@ -417,6 +434,7 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+                next_resource_components,
             );
             (Some(new_archetype_id), is_new_created)
         };

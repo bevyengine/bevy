@@ -15,7 +15,7 @@ use crate::{
     },
     relationship::RelationshipHookMode,
     resource::Resource,
-    storage::{SparseSets, Table},
+    storage::{ResourceStorages, SparseSets, Table},
     template::{EntityScopes, ScopedEntities, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
@@ -1243,30 +1243,38 @@ impl<'w> EntityWorldMut<'w> {
                 entity,
                 location,
                 MaybeLocation::caller(),
-                |sets, table, components, bundle_components| {
+                |sets, resources, table, components, bundle_components| {
                     let mut bundle_components = bundle_components.iter().copied();
                     (
                         false,
-                        T::from_components(&mut (sets, table), &mut |(sets, table)| {
-                            let component_id = bundle_components.next().unwrap();
-                            // SAFETY: the component existed to be removed, so its id must be valid.
-                            let component_info = components.get_info_unchecked(component_id);
-                            match component_info.storage_type() {
-                                StorageType::Table => {
-                                    table
-                                        .as_mut()
-                                        // SAFETY: The table must be valid if the component is in it.
-                                        .debug_checked_unwrap()
-                                        // SAFETY: The remover is cleaning this up.
-                                        .take_component(component_id, location.table_row)
+                        T::from_components(
+                            &mut (sets, resources, table),
+                            &mut |(sets, resources, table)| {
+                                let component_id = bundle_components.next().unwrap();
+                                // SAFETY: the component existed to be removed, so its id must be valid.
+                                let component_info = components.get_info_unchecked(component_id);
+                                match component_info.storage_type() {
+                                    StorageType::Table => {
+                                        table
+                                            .as_mut()
+                                            // SAFETY: The table must be valid if the component is in it.
+                                            .debug_checked_unwrap()
+                                            // SAFETY: The remover is cleaning this up.
+                                            .take_component(component_id, location.table_row)
+                                    }
+                                    StorageType::SparseSet => sets
+                                        .get_mut(component_id)
+                                        .unwrap()
+                                        .remove_and_forget(entity)
+                                        .unwrap(),
+                                    StorageType::Resource => resources
+                                        .get_mut(component_id)
+                                        .unwrap()
+                                        .remove_and_forget(entity)
+                                        .unwrap(),
                                 }
-                                StorageType::SparseSet => sets
-                                    .get_mut(component_id)
-                                    .unwrap()
-                                    .remove_and_forget(entity)
-                                    .unwrap(),
-                            }
-                        }),
+                            },
+                        ),
                     )
                 },
             )
@@ -1498,6 +1506,7 @@ impl<'w> EntityWorldMut<'w> {
         relationship_hook_mode: RelationshipHookMode,
         pre_remove: impl FnOnce(
             &mut SparseSets,
+            &mut ResourceStorages,
             Option<&mut Table>,
             &Components,
             &[ComponentId],
@@ -1746,6 +1755,11 @@ impl<'w> EntityWorldMut<'w> {
                     .get_mut(component_id)
                     .unwrap();
                 sparse_set.remove(self.entity);
+            }
+            for component_id in archetype.resource_components() {
+                // resource storage must have existed for the component to be added.
+                let resource_storage = self.world.storages.resources.get_mut(component_id).unwrap();
+                resource_storage.remove(self.entity);
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {

@@ -16,7 +16,7 @@ use crate::{
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
-    storage::{SparseSets, Storages, Table, TableRow},
+    storage::{ResourceStorages, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -136,6 +136,7 @@ impl<'w> BundleInserter<'w> {
         &'a Archetype,
         EntityLocation,
         &'a mut SparseSets,
+        &'a mut ResourceStorages,
         &'a mut Table,
         TableRow,
     ) {
@@ -184,10 +185,11 @@ impl<'w> BundleInserter<'w> {
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, table) = {
+                let (sparse_sets, resource_storages, table) = {
                     let world = world.world_mut();
                     (
                         &mut world.storages.sparse_sets,
+                        &mut world.storages.resources,
                         &mut world.storages.tables[archetype.table_id()],
                     )
                 };
@@ -196,6 +198,7 @@ impl<'w> BundleInserter<'w> {
                     &*archetype,
                     location,
                     sparse_sets,
+                    resource_storages,
                     table,
                     location.table_row,
                 )
@@ -204,10 +207,11 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, table, entities) = {
+                let (sparse_sets, resource_storages, table, entities) = {
                     let world = world.world_mut();
                     (
                         &mut world.storages.sparse_sets,
+                        &mut world.storages.resources,
                         &mut world.storages.tables[new_archetype.table_id()],
                         &mut world.entities,
                     )
@@ -235,6 +239,7 @@ impl<'w> BundleInserter<'w> {
                     &*new_archetype,
                     new_location,
                     sparse_sets,
+                    resource_storages,
                     table,
                     result.table_row,
                 )
@@ -243,13 +248,14 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (archetypes_ptr, tables, sparse_sets, entities) = {
+                let (archetypes_ptr, tables, sparse_sets, resource_storages, entities) = {
                     let world = world.world_mut();
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
                     (
                         archetype_ptr,
                         &mut world.storages.tables,
                         &mut world.storages.sparse_sets,
+                        &mut world.storages.resources,
                         &mut world.entities,
                     )
                 };
@@ -322,6 +328,7 @@ impl<'w> BundleInserter<'w> {
                     &*new_archetype,
                     new_location,
                     sparse_sets,
+                    resource_storages,
                     move_result.new_table,
                     move_result.new_row,
                 )
@@ -353,21 +360,23 @@ impl<'w> BundleInserter<'w> {
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
-                entity,
-                location,
-                insert_mode,
-                caller,
-                relationship_hook_mode,
-                self.archetype,
-                archetype_after_insert,
-                &self.world,
-                &mut self.archetype_move_type,
-            );
+            let (new_archetype, new_location, sparse_sets, resource_storages, table, table_row) =
+                Self::before_insert(
+                    entity,
+                    location,
+                    insert_mode,
+                    caller,
+                    relationship_hook_mode,
+                    self.archetype,
+                    archetype_after_insert,
+                    &self.world,
+                    &mut self.archetype_move_type,
+                );
 
             self.bundle_info.as_ref().write_components(
                 table,
                 sparse_sets,
+                resource_storages,
                 archetype_after_insert,
                 archetype_after_insert.required_components.iter(),
                 entity,
@@ -519,6 +528,7 @@ impl BundleInfo {
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
+        let mut new_resource_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
@@ -537,6 +547,7 @@ impl BundleInfo {
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    StorageType::Resource => new_resource_components.push(component_id),
                 }
             }
         }
@@ -554,11 +565,17 @@ impl BundleInfo {
                     StorageType::SparseSet => {
                         new_sparse_set_components.push(component_id);
                     }
+                    StorageType::Resource => {
+                        new_resource_components.push(component_id);
+                    }
                 }
             }
         }
 
-        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+        if new_table_components.is_empty()
+            && new_sparse_set_components.is_empty()
+            && new_resource_components.is_empty()
+        {
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
@@ -574,6 +591,7 @@ impl BundleInfo {
             let table_id;
             let table_components;
             let sparse_set_components;
+            let resource_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -603,6 +621,14 @@ impl BundleInfo {
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
+                resource_components = if new_resource_components.is_empty() {
+                    current_archetype.sparse_set_components().collect()
+                } else {
+                    new_resource_components.extend(current_archetype.resource_components());
+                    // Sort to ignore order while hashing.
+                    new_resource_components.sort_unstable();
+                    new_resource_components
+                };
             };
             // SAFETY: ids in self must be valid
             let (new_archetype_id, is_new_created) = unsafe {
@@ -612,6 +638,7 @@ impl BundleInfo {
                     table_id,
                     table_components,
                     sparse_set_components,
+                    resource_components,
                 )
             };
 

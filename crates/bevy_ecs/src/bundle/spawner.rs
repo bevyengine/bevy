@@ -101,15 +101,20 @@ impl<'w> BundleSpawner<'w> {
             let archetype = self.archetype.as_mut();
 
             // SAFETY: Mutable references do not alias and will be dropped after this block
-            let (sparse_sets, entities) = {
+            let (sparse_sets, resource_storages, entities) = {
                 let world = self.world.world_mut();
-                (&mut world.storages.sparse_sets, &mut world.entities)
+                (
+                    &mut world.storages.sparse_sets,
+                    &mut world.storages.resources,
+                    &mut world.entities,
+                )
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
             bundle_info.write_components(
                 table,
                 sparse_sets,
+                resource_storages,
                 &SpawnBundleStatus,
                 bundle_info.required_component_constructors.iter(),
                 entity,

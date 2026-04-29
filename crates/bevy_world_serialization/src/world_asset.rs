@@ -4,6 +4,7 @@ use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
+use bevy_ecs::storage::ResourceStorage;
 use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
@@ -75,7 +76,7 @@ impl WorldAsset {
             .get_id(TypeId::of::<DefaultQueryFilters>());
 
         // Resources archetype
-        for (component_id, source_entity) in self.world.resource_entities().iter() {
+        for (component_id, source_entity) in self.world.storages().resources.iter() {
             if Some(component_id) == self_dqf_id {
                 continue;
             }
@@ -113,12 +114,16 @@ impl WorldAsset {
                 .expect("ReflectComponent is depended on ReflectResource");
 
             // check if the resource already exists in the other world, if not spawn it
-            let destination_entity =
-                if let Some(entity) = world.resource_entities().get(component_id) {
-                    entity
-                } else {
-                    world.spawn_empty().id()
-                };
+            let destination_entity = if let Some(entity) = world
+                .storages()
+                .resources
+                .get(component_id)
+                .and_then(ResourceStorage::entity)
+            {
+                entity
+            } else {
+                world.spawn_empty().id()
+            };
 
             reflect_component.copy(
                 &self.world,

@@ -57,9 +57,9 @@ use crate::{
     prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
+    resource::{IsResource, Resource, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{NonSendData, Storages},
+    storage::{NonSendData, ResourceStorage, Storages},
     system::Commands,
     world::{
         command_queue::RawCommandQueue,
@@ -101,7 +101,6 @@ pub struct World {
     pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
-    pub(crate) resource_entities: ResourceEntities,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -121,7 +120,6 @@ impl Default for World {
             entities: Entities::new(),
             entity_allocator: EntityAllocator::default(),
             components: Default::default(),
-            resource_entities: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
@@ -257,12 +255,6 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
-    }
-
-    /// Retrieves this world's [`ResourceEntities`].
-    #[inline]
-    pub fn resource_entities(&self) -> &ResourceEntities {
-        &self.resource_entities
     }
 
     /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
@@ -1860,7 +1852,12 @@ impl World {
     ) -> (ComponentId, EntityWorldMut<'_>) {
         let resource_id = self.register_resource::<R>();
 
-        if let Some(entity) = self.resource_entities.get(resource_id) {
+        if let Some(entity) = self
+            .storages
+            .resources
+            .get(resource_id)
+            .and_then(ResourceStorage::entity)
+        {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
             if !entity_ref.contains_id(resource_id) {
                 let resource = func(self);
@@ -1872,13 +1869,13 @@ impl World {
                     RelationshipHookMode::Run,
                 );
             }
-            return (resource_id, self.entity_mut(entity));
+            (resource_id, self.entity_mut(entity))
+        } else {
+            let resource = func(self);
+            move_as_ptr!(resource);
+            let entity_mut = self.spawn_with_caller(resource, caller);
+            (resource_id, entity_mut)
         }
-
-        let resource = func(self);
-        move_as_ptr!(resource);
-        let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
-        (resource_id, entity_mut)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1995,10 +1992,10 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let resource_id = self.component_id::<R>()?;
-        let entity = self.resource_entities.get(resource_id)?;
+        let entity = self.storages.resources.get(resource_id)?.entity()?;
         let value = self
             .get_entity_mut(entity)
-            .expect("ResourceCache is in sync")
+            .expect("Despawning a resource should remove its resource storage entry")
             .take::<R>()?;
         Some(value)
     }
@@ -2039,12 +2036,10 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(entity_ref) = self.get_entity(entity)
-        {
-            return entity_ref.contains_id(component_id);
-        }
-        false
+        self.storages
+            .resources
+            .get(component_id)
+            .is_some_and(ResourceStorage::populated)
     }
 
     /// Returns `true` if `!Send` data of type `R` exists. Otherwise returns `false`.
@@ -2129,9 +2124,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity = self.resource_entities.get(component_id)?;
-        let entity_ref = self.get_entity(entity).ok()?;
-        entity_ref.get_change_ticks_by_id(component_id)
+        self.storages.resources.get(component_id)?.get_ticks()
     }
 
     /// Gets a reference to the resource of the given type
@@ -2781,7 +2774,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_component_id::<R>()?;
-        let entity = self.resource_entities.get(component_id)?;
+        let entity = self.storages.resources.get(component_id)?.entity()?;
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -2973,9 +2966,13 @@ impl World {
         caller: MaybeLocation,
     ) {
         // if the resource already exists, we replace it on the same entity
-        let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
-            self.get_entity_mut(entity)
-                .expect("ResourceCache is in sync")
+        let mut entity_mut = if let Some(entity) = self
+            .storages
+            .resources
+            .get(component_id)
+            .and_then(ResourceStorage::entity)
+        {
+            self.get_entity_mut(entity).unwrap()
         } else {
             self.spawn_empty()
         };
@@ -3249,6 +3246,7 @@ impl World {
         let Storages {
             ref mut tables,
             ref mut sparse_sets,
+            ref mut resources,
             ref mut non_sends,
         } = self.storages;
 
@@ -3256,6 +3254,7 @@ impl World {
         let _span = tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(check);
         sparse_sets.check_change_ticks(check);
+        resources.check_change_ticks(check);
         non_sends.check_change_ticks(check);
         self.entities.check_change_ticks(check);
 
@@ -3290,6 +3289,7 @@ impl World {
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
         self.storages.sparse_sets.clear_entities();
+        self.storages.resources.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
         self.entity_allocator.restart();
@@ -3303,7 +3303,7 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let pairs: Vec<(ComponentId, Entity)> = self.resource_entities().iter().collect();
+        let pairs: Vec<(ComponentId, Entity)> = self.storages.resources.iter().collect();
         for (component_id, entity) in pairs {
             self.entity_mut(entity).remove_by_id(component_id);
         }
@@ -3504,7 +3504,8 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        self.resource_entities
+        self.storages
+            .resources
             .iter()
             .filter_map(|(component_id, entity)| {
                 let component_info = self.components().get_info(component_id)?;
@@ -3581,28 +3582,31 @@ impl World {
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
-        // SAFETY: exclusive world access to all resources
-        let resource_entities = unsafe { unsafe_world.resource_entities() };
         let components = unsafe_world.components();
-
-        resource_entities
+        // SAFETY: We have exclusive world access
+        unsafe { unsafe_world.storages() }
+            .resources
             .iter()
-            .filter_map(move |(component_id, entity)| {
+            .map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info =
                     unsafe { components.get_info(component_id).debug_checked_unwrap() };
 
-                let entity_cell = unsafe_world.get_entity(entity).ok()?;
+                // SAFETY: Resource is present
+                let entity_cell = unsafe { unsafe_world.get_entity(entity).debug_checked_unwrap() };
 
                 // SAFETY:
                 // - We have exclusive world access
-                // - `UnsafeEntityCell::get_mut_by_id` doesn't access components
-                // or resource_entities mutably
-                // - `resource_entities` doesn't contain duplicate entities, so
-                // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
+                // - `UnsafeEntityCell::get_mut_by_id` doesn't access components/storage mutably
+                // - we iterate over storages, so no duplicate references are created and storage guarantees
+                //   that component is present
+                let mut_untyped = unsafe {
+                    entity_cell
+                        .get_mut_by_id(component_id)
+                        .debug_checked_unwrap()
+                };
 
-                Some((component_info, mut_untyped))
+                (component_info, mut_untyped)
             })
     }
 
@@ -3653,9 +3657,12 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(component_id)
+        if let Some(entity) = self
+            .storages
+            .resources
+            .get(component_id)
+            .and_then(ResourceStorage::entity)
             && let Ok(mut entity_mut) = self.get_entity_mut(entity)
-            && entity_mut.contains_id(component_id)
         {
             entity_mut.remove_by_id(component_id);
             true
