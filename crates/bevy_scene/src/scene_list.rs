@@ -1,4 +1,7 @@
-use crate::{ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies};
+use crate::{
+    macro_utils::EmptyTuple, ResolveContext, ResolveSceneError, ResolvedScene, Scene,
+    SceneDependencies,
+};
 use variadics_please::all_tuples;
 
 /// This behaves like a list of [`Scene`], where each entry in the list is a new entity (see [`Scene`] for more details).
@@ -134,8 +137,19 @@ macro_rules! scene_list_impl {
     }
 }
 
-all_tuples!(scene_list_impl, 0, 12, P);
+all_tuples!(scene_list_impl, 1, 12, P);
 
+impl SceneList for EmptyTuple {
+    fn resolve_list(
+        self,
+        _context: &mut ResolveContext,
+        _scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        Ok(())
+    }
+
+    fn register_dependencies(&self, _dependencies: &mut SceneDependencies) {}
+}
 impl<S: Scene> SceneList for Vec<S> {
     fn resolve_list(
         self,

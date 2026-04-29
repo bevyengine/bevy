@@ -235,7 +235,7 @@ macro_rules! scene_impl {
     }
 }
 
-all_tuples!(scene_impl, 0, 12, P);
+all_tuples!(scene_impl, 1, 12, P);
 
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
