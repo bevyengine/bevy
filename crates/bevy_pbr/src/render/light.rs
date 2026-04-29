@@ -1702,23 +1702,23 @@ pub fn prepare_lights(
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
-            for view_light_entity in point_and_spot_light_view_entities.0.iter() {
-                commands.entity(*view_light_entity).insert(ExtractedView {
-                    retained_view_entity,
-                    viewport: UVec4::new(
-                        0,
-                        0,
-                        directional_light_shadow_map.size as u32,
-                        directional_light_shadow_map.size as u32,
-                    ),
-                    world_from_view: spot_world_from_view,
-                    clip_from_view: spot_projection,
-                    clip_from_world: None,
-                    target_format: CORE_3D_DEPTH_FORMAT,
-                    color_grading: Default::default(),
-                    invert_culling: false,
-                });
-            }
+            // There should be only one `view_light_entity` for spotlights.
+            let view_light_entity = point_and_spot_light_view_entities.0[0];
+            commands.entity(view_light_entity).insert(ExtractedView {
+                retained_view_entity,
+                viewport: UVec4::new(
+                    0,
+                    0,
+                    directional_light_shadow_map.size as u32,
+                    directional_light_shadow_map.size as u32,
+                ),
+                world_from_view: spot_world_from_view,
+                clip_from_view: spot_projection,
+                clip_from_world: None,
+                target_format: CORE_3D_DEPTH_FORMAT,
+                color_grading: Default::default(),
+                invert_culling: false,
+            });
         }
 
         shadow_render_phases.prepare_for_new_frame(
