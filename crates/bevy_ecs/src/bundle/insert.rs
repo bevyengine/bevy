@@ -609,6 +609,8 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
+
+            // TODO: memory leak, this `empty table` cannot be dropped because missing remove method
             // SAFETY: ids in self must be valid
             let (new_archetype_id, is_new_created) = unsafe {
                 archetypes.get_id_or_insert(
