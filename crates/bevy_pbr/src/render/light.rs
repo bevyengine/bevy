@@ -895,6 +895,20 @@ pub(crate) fn remove_light_view_entities(
     }
 }
 
+pub(crate) fn remove_point_and_spot_light_view_entities(
+    remove: On<Remove, PointAndSpotLightViewEntities>,
+    query: Query<&PointAndSpotLightViewEntities>,
+    mut commands: Commands,
+) {
+    if let Ok(entities) = query.get(remove.entity) {
+        for e in entities.0.iter().copied() {
+            if let Ok(mut v) = commands.get_entity(e) {
+                v.despawn();
+            }
+        }
+    }
+}
+
 /// A component that stores the shadow maps associated with a point or spot
 /// light.
 ///
