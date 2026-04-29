@@ -128,7 +128,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!     #Child1
 //!     ComponentA
@@ -149,7 +149,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!      (
 //!        #Child1
