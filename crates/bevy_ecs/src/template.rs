@@ -1,14 +1,15 @@
 //! Functionality that relates to the [`Template`] trait.
 
+use alloc::{boxed::Box, sync::{Arc}};
+use bevy_platform::sync::Mutex;
+
 pub use bevy_ecs_macros::FromTemplate;
 
 use crate::{
-    component::Mutable,
-    entity::Entity,
-    error::{BevyError, Result},
-    resource::Resource,
-    world::{EntityWorldMut, Mut, World},
+
+    component::Mutable, entity::Entity, error::{BevyError, Result}, resource::Resource, system::{BoxedSystem, IntoSystem}, world::{EntityWorldMut, Mut, World}
 };
+use crate::system::SystemId;
 use alloc::{vec, vec::Vec};
 use variadics_please::all_tuples;
 
@@ -464,6 +465,50 @@ impl Template for EntityTemplate {
 
 impl FromTemplate for Entity {
     type Template = EntityTemplate;
+}
+
+pub enum SystemIdTemplate {
+    BoxedSystem(Arc<Mutex<Option<BoxedSystem<(), ()>>>>),
+    SystemId(SystemId<(), ()>),
+}
+
+impl Default for SystemIdTemplate {
+    fn default() -> Self {
+        Self::BoxedSystem(Arc::new(Mutex::new(Some(Box::new(IntoSystem::into_system(|| {}))))))
+    }
+}
+
+impl Template for SystemIdTemplate {
+    type Output = SystemId<(), ()>;
+
+    fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
+        Ok(match self {
+            Self::BoxedSystem(system) =>{
+                let system = system.lock().unwrap().take().unwrap();
+                
+                // SAFETY: this is ok because only spawning new system entity.?
+                unsafe {
+                    _context.entity.world_mut().register_boxed_system(system)
+                }
+            },
+            Self::SystemId(system_id) => *system_id,
+        })
+    }
+
+    fn clone_template(&self) -> Self {
+        match self {
+            Self::BoxedSystem(system) => Self::BoxedSystem(Arc::clone(system)),
+            Self::SystemId(system_id) => Self::SystemId(*system_id),
+        }
+    }
+}
+
+impl FromTemplate for SystemId<(), ()> {
+    type Template = SystemIdTemplate;
+}
+
+pub fn system_value<M>(system: impl IntoSystem<(), (),M>) -> SystemIdTemplate {
+    SystemIdTemplate::BoxedSystem(Arc::new(Mutex::new(Some(Box::new(IntoSystem::into_system(system))))))
 }
 
 /// A [`Template`] driven by a function that returns an output. This is used to create "free floating" templates without
