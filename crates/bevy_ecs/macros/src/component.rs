@@ -339,7 +339,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             let bevy_scene =
                 bevy_macro_utils::BevyManifest::shared(|manifest| manifest.get_path("bevy_scene"));
             register_required.push(quote! {
-                required_components.register_required(|| #bevy_scene::SceneComponent::new::<#struct_name #type_generics>(false));
+                required_components.register_required(|| #bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(false));
             });
             crate::scene::derive_scene_constructor(
                 &ast,

@@ -64,7 +64,7 @@ pub(crate) fn derive_scene_constructor(
                 (
                     #scene_impl,
                     #bevy_scene::InitTemplate::<<#struct_name #type_generics as #bevy_ecs::template::FromTemplate>::Template>::default(),
-                    #bevy_scene::template_value(#bevy_scene::SceneComponent::new::<#struct_name #type_generics>(true)),
+                    #bevy_scene::template_value(#bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(true)),
                 )
             }
         }

@@ -600,16 +600,16 @@ impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[cfg_attr(debug_assertions, component(on_add))]
 #[reflect(Component)]
-pub struct SceneComponent {
+pub struct SceneComponentInfo {
     spawned_from_scene: bool,
     #[cfg(debug_assertions)]
     component_name: &'static str,
 }
 
-impl SceneComponent {
-    /// Creates a new [`SceneComponent`] for the given type `C`.
+impl SceneComponentInfo {
+    /// Creates a new [`SceneComponentInfo`] for the given type `C`.
     pub fn new<C: Component>(spawned_from_scene: bool) -> Self {
-        SceneComponent {
+        SceneComponentInfo {
             spawned_from_scene,
             #[cfg(debug_assertions)]
             component_name: core::any::type_name::<C>(),
@@ -617,11 +617,11 @@ impl SceneComponent {
     }
 }
 
-impl SceneComponent {
+impl SceneComponentInfo {
     #[cfg(debug_assertions)]
     fn on_add(world: DeferredWorld, context: HookContext) {
         if let Ok(entity) = world.get_entity(context.entity)
-            && let Some(component) = entity.get::<SceneComponent>()
+            && let Some(component) = entity.get::<SceneComponentInfo>()
             && !component.spawned_from_scene
         {
             tracing::error!(
