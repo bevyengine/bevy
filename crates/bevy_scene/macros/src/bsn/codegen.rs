@@ -2,6 +2,7 @@ use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
     BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
+use bevy_macro_utils::path_to_string;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -411,7 +412,7 @@ impl BsnType {
                                      . If you would like to set a component scene's prop field, it \
                                      should be set using \"scene inheritance\": \
                                      bsn! {{ :{} {{ @{field_name}: VALUE }} }}",
-                                     type_path.to_token_stream()
+                                     path_to_string(type_path)
                                 ),
                             ));
                         }

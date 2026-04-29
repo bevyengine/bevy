@@ -3,6 +3,7 @@ use crate::bsn::types::{
     BsnRelatedSceneList, BsnRoot, BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnTuple,
     BsnType, BsnUnnamedField, BsnValue,
 };
+use bevy_macro_utils::path_to_string;
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use quote::quote;
 use syn::{
@@ -232,7 +233,7 @@ impl BsnInheritedScene {
                 PathType::Type | PathType::Enum => {
                     BsnInheritedScene::Type(input.parse::<BsnType>()?)
                 }
-                PathType::Function => {
+                PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
                     let args = if input.peek(Paren) {
                         let content;
@@ -243,8 +244,15 @@ impl BsnInheritedScene {
                     };
                     BsnInheritedScene::Fn { path, args }
                 }
-                _ => {
-                    todo!()
+                path_type => {
+                    return Err(syn::Error::new(
+                        path.span(),
+                        format!(
+                            "Cannot inherit from path {} of type {:?}",
+                            path_to_string(&path),
+                            path_type,
+                        ),
+                    ))
                 }
             }
         })
