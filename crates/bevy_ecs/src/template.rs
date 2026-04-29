@@ -8,7 +8,7 @@ use crate::{
     resource::Resource,
     world::{EntityWorldMut, Mut, World},
 };
-use alloc::{string::String, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use variadics_please::all_tuples;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
@@ -405,8 +405,6 @@ pub trait SpecializeFromTemplate: Sized {}
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
     Entity(Entity),
-    /// A path to a specific [`Entity`]. Resolved via [`World::get_entity_from_path::<ChildOf, Name>`]
-    EntityPath(String),
     /// A reference to an entity via a [`ScopedEntityIndex`]
     ScopedEntityIndex(ScopedEntityIndex),
 }
@@ -437,25 +435,12 @@ impl From<Entity> for EntityTemplate {
     }
 }
 
-impl From<String> for EntityTemplate {
-    fn from(path: String) -> Self {
-        Self::EntityPath(path)
-    }
-}
-
-impl From<&'static str> for EntityTemplate {
-    fn from(path: &'static str) -> Self {
-        Self::EntityPath(path.into())
-    }
-}
-
 impl Template for EntityTemplate {
     type Output = Entity;
 
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         Ok(match self {
             Self::Entity(entity) => *entity,
-            Self::EntityPath(path) => context.entity.world().get_entity_from_path(path, None)?,
             Self::ScopedEntityIndex(scoped_entity_index) => {
                 context.get_scoped_entity(*scoped_entity_index)
             }
@@ -465,7 +450,6 @@ impl Template for EntityTemplate {
     fn clone_template(&self) -> Self {
         match self {
             Self::Entity(entity) => Self::Entity(*entity),
-            Self::EntityPath(path) => Self::EntityPath(path.clone()),
             Self::ScopedEntityIndex(scoped_entity_index) => {
                 Self::ScopedEntityIndex(*scoped_entity_index)
             }
