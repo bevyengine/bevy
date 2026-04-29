@@ -2078,21 +2078,6 @@ pub fn prepare_lights(
             }
         }
 
-        commands.entity(entity).insert((
-            ViewShadowBindings {
-                point_light_depth_texture: point_light_depth_texture.texture.clone(),
-                point_light_depth_texture_view: point_light_depth_texture_view.clone(),
-                directional_light_depth_texture: directional_light_depth_texture.texture.clone(),
-                directional_light_depth_texture_view: directional_light_depth_texture_view.clone(),
-            },
-            ViewLightEntities {
-                lights: view_lights,
-            },
-            ViewLightsUniformOffset {
-                offset: view_gpu_lights_writer.write(&gpu_lights),
-            },
-        ));
-
         // Make a link from the camera to all shadow cascades with occlusion
         // culling enabled.
         if !view_occlusion_culling_lights.is_empty() {
@@ -2125,6 +2110,21 @@ pub fn prepare_lights(
             };
             gpu_lights.n_rect_lights += 1;
         }
+
+        commands.entity(entity).insert((
+            ViewShadowBindings {
+                point_light_depth_texture: point_light_depth_texture.texture.clone(),
+                point_light_depth_texture_view: point_light_depth_texture_view.clone(),
+                directional_light_depth_texture: directional_light_depth_texture.texture.clone(),
+                directional_light_depth_texture_view: directional_light_depth_texture_view.clone(),
+            },
+            ViewLightEntities {
+                lights: view_lights,
+            },
+            ViewLightsUniformOffset {
+                offset: view_gpu_lights_writer.write(&gpu_lights),
+            },
+        ));
     }
 
     // Mark the existing shadow maps as unused this frame so that the first
