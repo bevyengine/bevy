@@ -166,12 +166,12 @@ impl<S: Scene> SceneList for SceneScope<S> {
         scenes: &mut Vec<ResolvedScene>,
     ) -> Result<(), ResolveSceneError> {
         let mut resolved_scene = ResolvedScene::default();
-        self.0.resolve(context, &mut resolved_scene)?;
+        self.resolve(context, &mut resolved_scene)?;
         scenes.push(resolved_scene);
         Ok(())
     }
 
     fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
-        self.0.register_dependencies(dependencies);
+        Scene::register_dependencies(self, dependencies);
     }
 }
