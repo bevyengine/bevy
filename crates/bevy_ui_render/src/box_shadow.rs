@@ -154,7 +154,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
             ],
         );
         let shader_defs = vec![ShaderDefVal::UInt(
-            "SHADOW_SAMPLES".to_string(),
+            "SHADOW_SAMPLES".into(),
             key.samples,
         )];
 
