@@ -21,6 +21,7 @@ experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
 pbr_clustered_decals = []
 pbr_light_textures = []
 bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
+dfg_lut = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)

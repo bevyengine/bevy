@@ -68,7 +68,6 @@ accesskit_winit = { version = "0.32", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
-cfg-if = "1.0"
 accesskit = "0.24"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 

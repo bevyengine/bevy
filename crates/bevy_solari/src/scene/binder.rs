@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{
-    ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
+    DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
 };
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
@@ -48,6 +48,7 @@ pub fn prepare_raytracing_scene_bindings(
     material_assets: Res<StandardMaterialAssets>,
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
+    dfg_lut: Res<DfgLut>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
@@ -266,6 +267,14 @@ pub fn prepare_raytracing_scene_bindings(
     command_encoder.build_acceleration_structures(&[], [&tlas]);
     render_queue.submit([command_encoder.finish()]);
 
+    let (dfg_view, dfg_sampler) = texture_assets
+        .get(&dfg_lut.texture)
+        .map(|img| (&img.texture_view, &img.sampler))
+        .unwrap_or((
+            &fallback_texture.d2.texture_view,
+            &fallback_texture.d2.sampler,
+        ));
+
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
         &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
@@ -283,6 +292,8 @@ pub fn prepare_raytracing_scene_bindings(
             light_sources.binding().unwrap(),
             directional_lights.binding().unwrap(),
             previous_frame_light_id_translations.binding().unwrap(),
+            dfg_view,
+            dfg_sampler,
         )),
     ));
 }
@@ -310,6 +321,8 @@ impl RaytracingSceneBindings {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
                     ),
                 ),
             ),

@@ -150,6 +150,18 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
     type Key = BackgroundMotionVectorsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
+        // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
+        // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
+        for target in
+            targets
+                .iter_mut()
+                .enumerate()
+                .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
+        {
+            target.write_mask = bevy_render::render_resource::ColorWrites::empty();
+        }
+
         RenderPipelineDescriptor {
             label: Some("background_motion_vectors_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
@@ -168,7 +180,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                targets,
                 ..default()
             }),
             ..default()
