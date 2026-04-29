@@ -153,6 +153,10 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to shift-clicking within the text area.
     ShiftClickExtension(Vec2),
+    /// Select the word at the given point.
+    ///
+    /// Typically generated in response to a double click within the text area.
+    SelectWordAtPoint(Vec2),
     /// Set the IME preedit/composing text at the cursor, or clear it if `value` is empty.
     ///
     /// The preedit text is excluded from [`EditableText::value`](crate::EditableText::value).
@@ -274,6 +278,7 @@ impl TextEdit {
                 driver.extend_selection_to_point(point.x, point.y);
             }
             TextEdit::ShiftClickExtension(point) => driver.shift_click_extension(point.x, point.y),
+            TextEdit::SelectWordAtPoint(point) => driver.select_word_at_point(point.x, point.y),
             TextEdit::ImeSetCompose { value, cursor } => {
                 if value.is_empty() {
                     driver.clear_compose();
