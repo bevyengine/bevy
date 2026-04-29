@@ -1606,13 +1606,14 @@ impl Mesh {
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        self.try_indices()?
-            .iter()
-            .collect::<Vec<usize>>()
-            .as_chunks()
-            .0
-            .iter()
-            .for_each(|&faces| per_triangle(faces, positions, &mut normals));
+        match self.try_indices()? {
+            Indices::U16(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+            Indices::U32(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+        }
 
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
@@ -2218,14 +2219,16 @@ impl Mesh {
                 // This implicitly truncates the indices to a multiple of 3.
                 let iterator = match indices {
                     Indices::U16(vec) => FourIterators::First(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks::<3>()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks::<3>()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 
