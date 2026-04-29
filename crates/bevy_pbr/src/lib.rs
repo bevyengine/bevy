@@ -439,7 +439,7 @@ impl Plugin for PbrPlugin {
                 shared_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>),
                 shared_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
