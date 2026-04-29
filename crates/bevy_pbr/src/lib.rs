@@ -30,7 +30,10 @@ pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::sync_component::SyncComponent;
+use bevy_render::{
+    sync_component::SyncComponent,
+    view::{RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities},
+};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -174,6 +177,13 @@ pub struct Bluenoise {
 pub struct LtcLuts {
     pub ltc_1: Handle<Image>,
     pub ltc_2: Handle<Image>,
+}
+
+// See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
+/// The split-sum approximation LUT (`F_AB`) indexed by (`NdotV`, `perceptual_roughness`).
+#[derive(Resource, Clone)]
+pub struct DfgLut {
+    pub texture: Handle<Image>,
 }
 
 impl Plugin for PbrPlugin {
@@ -330,6 +340,31 @@ impl Plugin for PbrPlugin {
             }
         }
 
+        let has_dfg_lut = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<DfgLut>());
+
+        if !has_dfg_lut {
+            #[cfg(feature = "dfg_lut")]
+            let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
+                Image::from_buffer(
+                    include_bytes!("environment_map/dfg.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded DFG LUT"),
+            );
+            #[cfg(not(feature = "dfg_lut"))]
+            let texture = Handle::default();
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app.world_mut().insert_resource(DfgLut { texture });
+            }
+        }
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -386,16 +421,26 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
-        render_app.world_mut().add_observer(extracted_light_removed);
+        render_app
+            .world_mut()
+            .add_observer(remove_point_and_spot_light_view_entities);
 
         render_app.add_systems(
             Core3d,
             (
-                shadow_pass::<EARLY_SHADOW_PASS>
+                per_view_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(shadow_pass::<LATE_SHADOW_PASS>),
-                shadow_pass::<LATE_SHADOW_PASS>
+                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                per_view_shadow_pass::<LATE_SHADOW_PASS>
+                    .after(late_prepass_build_indirect_parameters)
+                    .before(main_build_indirect_parameters)
+                    .before(Core3dSystems::MainPass),
+                shared_shadow_pass::<EARLY_SHADOW_PASS>
+                    .after(early_prepass_build_indirect_parameters)
+                    .before(early_downsample_depth)
+                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                shared_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
                     .before(Core3dSystems::MainPass),
@@ -437,16 +482,34 @@ pub fn stbn_placeholder() -> Image {
 }
 
 impl SyncComponent<PbrPlugin> for DirectionalLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedDirectionalLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        DirectionalLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for PointLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for RectLight {
-    type Target = Self;
+    type Target = (Self, ExtractedRectLight);
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
     type Target = Self;

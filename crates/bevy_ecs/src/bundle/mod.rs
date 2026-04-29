@@ -14,6 +14,7 @@ mod remove;
 mod spawner;
 #[cfg(test)]
 mod tests;
+mod writer;
 
 pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
@@ -22,6 +23,7 @@ pub(crate) use spawner::BundleSpawner;
 use bevy_ptr::MovingPtr;
 use core::mem::MaybeUninit;
 pub use info::*;
+pub use writer::*;
 
 /// Derive the [`Bundle`] trait
 ///

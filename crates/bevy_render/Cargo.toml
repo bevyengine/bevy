@@ -21,7 +21,7 @@ keywords = ["bevy"]
 # wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 decoupled_naga = ["bevy_shader/decoupled_naga"]
 
-multi_threaded = ["bevy_tasks/multi_threaded"]
+multi_threaded = ["bevy_tasks/multi_threaded", "bevy_transform/multi_threaded"]
 
 morph = ["bevy_mesh/morph"]
 

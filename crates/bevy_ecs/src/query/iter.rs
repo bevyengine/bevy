@@ -3121,6 +3121,7 @@ mod tests {
     struct Marker;
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~70s on CI")]
     fn query_iter_sorts() {
         let mut world = World::new();
         for i in 0..100 {

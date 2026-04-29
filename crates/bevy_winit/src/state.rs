@@ -39,7 +39,8 @@ use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
-    converters, create_windows,
+    converters::{self, convert_touch_phase},
+    create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, RawWinitWindowEvent, UpdateMode,
     WinitSettings, WinitUserEvent, WINIT_WINDOWS,
@@ -163,12 +164,13 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
-                requested_resume: Some(resume),
-                ..
+                requested_resume, ..
             } => {
                 // If the resume time is not after now, it means that at least the wait timeout
-                // has elapsed.
-                resume <= Instant::now()
+                // has elapsed. Alternatively, if the resume time is unset, the wait never elapses.
+                requested_resume
+                    .map(|resume| resume <= Instant::now())
+                    .unwrap_or_default()
             }
             _ => true,
         };
@@ -335,24 +337,29 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                             y: delta.y,
                         }));
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                                window,
-                            });
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
+                        let phase = convert_touch_phase(phase);
+                        match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                    window,
+                                    phase,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                self.bevy_window_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                    window,
+                                    phase,
+                                });
+                            }
                         }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            self.bevy_window_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                                window,
-                            });
-                        }
-                    },
+                    }
                     WindowEvent::Touch(touch) => {
                         let location = touch
                             .location
@@ -675,13 +682,13 @@ impl WinitAppRunnerState {
                 // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                 // we cannot use the visibility to drive rendering on these platforms
                 // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
+                cfg_select! {
+                    not(any(
                         target_arch = "wasm32",
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
+                    )) =>
                     {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
                             winit_windows.windows.iter().any(|(_, w)| {
@@ -695,7 +702,7 @@ impl WinitAppRunnerState {
                             ControlFlow::Poll
                         });
                     }
-                    else {
+                    _ => {
                         event_loop.set_control_flow(ControlFlow::Wait);
                     }
                 }
@@ -896,11 +903,12 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
     trace!("starting winit event loop");
     // The winit docs mention using `spawn` instead of `run` on Wasm.
     // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+    cfg_select! {
+        target_arch = "wasm32" => {
             event_loop.spawn_app(runner_state);
             AppExit::Success
-        } else {
+        }
+        _ => {
             let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
                 bevy_log::error!("winit event loop returned an error: {err}");
