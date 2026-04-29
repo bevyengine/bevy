@@ -7,6 +7,7 @@ use bevy_ecs::{
     event::EntityEvent,
     lifecycle::HookContext,
     name::Name,
+    reflect::ReflectComponent,
     relationship::Relationship,
     system::IntoObserverSystem,
     template::{
@@ -14,6 +15,7 @@ use bevy_ecs::{
     },
     world::DeferredWorld,
 };
+use bevy_reflect::Reflect;
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 use variadics_please::all_tuples;
@@ -595,8 +597,9 @@ impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for
 }
 
 /// A [`Component`] that must always be spawned with a [`Scene`].
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Debug, Reflect)]
 #[cfg_attr(debug_assertions, component(on_add))]
+#[reflect(Component)]
 pub struct SceneComponent {
     spawned_from_scene: bool,
     #[cfg(debug_assertions)]
