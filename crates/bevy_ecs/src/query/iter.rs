@@ -344,7 +344,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
-        maybe_update_change_index::<D>(table, self.world.change_tick());
+        maybe_update_change_index::<D>(table, self.cursor.this_run);
 
         let entities = archetype.entities();
         for index in indices {
@@ -424,7 +424,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
-        maybe_update_change_index::<D>(table, self.world.change_tick());
+        maybe_update_change_index::<D>(table, self.cursor.this_run);
 
         let entities = table.entities();
         if !F::USES_INDEX
@@ -1388,7 +1388,8 @@ where
                 table,
             );
         }
-        maybe_update_change_index::<D>(table, self.query_state.this_run);
+        // TODO: update change index, where do we get `this_run`?
+        //maybe_update_change_index::<D>(table, self.cursor.this_run);
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
@@ -1572,7 +1573,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
             unsafe {
                 F::set_archetype(filter, &query_state.filter_state, archetype, table);
             }
-            maybe_update_change_index::<D>(table, query_state.this_run);
+            // TODO: update change index, where do we get `this_run`?
+            //maybe_update_change_index::<D>(table, cursor.this_run);
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
@@ -2398,7 +2400,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
                 table,
             );
         }
-        maybe_update_change_index::<D>(table, self.query_state.this_run);
+        // TODO: update change index, where do we get `this_run`?
+        //maybe_update_change_index::<D>(table, self.query_state.this_run);
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
@@ -2951,6 +2954,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         D::set_table(&mut self.fetch, &query_state.fetch_state, table);
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
                     }
+                    maybe_update_change_index::<D>(table, self.this_run);
                     self.table_entities = table.entities();
                     self.current_change_index = table.change_index();
                     self.current_len = table.entity_count();
@@ -3014,7 +3018,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             table,
                         );
                     }
-                    maybe_update_change_index::<D>(table, query_state.this_run);
+                    maybe_update_change_index::<D>(table, self.this_run);
 
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();

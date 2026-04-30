@@ -1,5 +1,4 @@
 use core::sync::atomic::{AtomicU32, Ordering};
-use std::println;
 
 use crate::change_detection::Tick;
 
@@ -24,9 +23,15 @@ impl ChangeIndex {
 
     pub(crate) fn note_changed(&self, tick: Tick) {
         let mut val = self.page_table.load(Ordering::Relaxed);
+        // FIXME: this CAS loop needs to be smarter and do the "is newer than" dance
         if val < tick.get() {
             loop {
-                match self.page_table.compare_exchange_weak(val, tick.get(), Ordering::Relaxed, Ordering::Relaxed) {
+                match self.page_table.compare_exchange_weak(
+                    val,
+                    tick.get(),
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                ) {
                     Ok(_) => break,
                     Err(old) => val = old,
                 }
@@ -35,6 +40,7 @@ impl ChangeIndex {
     }
 
     pub(crate) fn is_dirty(&self, since: Tick, now: Tick) -> bool {
-        Tick::new(self.page_table.load(Ordering::Relaxed)).is_newer_than(since, now)
+        let last_changed = Tick::new(self.page_table.load(Ordering::Relaxed));
+        last_changed.is_newer_than(since, now)
     }
 }
