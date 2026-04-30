@@ -500,13 +500,7 @@ impl Template for SystemIdTemplate {
     }
 
     fn clone_template(&self) -> Self {
-        let template_state = self.0.lock().unwrap();
-        let template_value = template_state.as_ref().unwrap();
-        
-        match template_value {
-            SystemOrId::BoxedSystem(_) => unreachable!("This variant should only exist during the build_template call, and should be replaced with the SystemId variant after."),
-            SystemOrId::SystemId(system_id) => system_id_value(*system_id),
-        }
+        SystemIdTemplate(self.0.clone())
     }
 }
 
