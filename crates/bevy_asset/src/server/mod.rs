@@ -30,6 +30,7 @@ use bevy_diagnostic::{DiagnosticPath, Diagnostics};
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::HashSet,
+    sync::atomic::AtomicUsize,
     sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use bevy_tasks::IoTaskPool;
@@ -77,6 +78,13 @@ pub(crate) struct AssetServerData {
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
+    stats: AssetServerStats,
+}
+
+/// Tracks statistics of the asset server.
+pub(crate) struct AssetServerStats {
+    /// The number of load tasks that have been started.
+    pub(crate) started_load_tasks: AtomicUsize,
 }
 
 /// The "asset mode" the server is currently in.
@@ -150,8 +158,16 @@ impl AssetServer {
                 loaders,
                 infos: RwLock::new(infos),
                 unapproved_path_mode,
+                stats: AssetServerStats {
+                    started_load_tasks: AtomicUsize::new(0),
+                },
             }),
         }
+    }
+
+    pub(crate) fn add_started_load_tasks(&self) {
+        use core::sync::atomic::Ordering::Relaxed;
+        self.data.stats.started_load_tasks.fetch_add(1, Relaxed);
     }
 
     pub(crate) fn read_infos(&self) -> RwLockReadGuard<'_, AssetInfos> {
@@ -574,10 +590,10 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        mut infos: RwLockWriteGuard<AssetInfos>,
+        infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
-        infos.stats.started_load_tasks += 1;
+        self.add_started_load_tasks();
 
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
@@ -660,7 +676,7 @@ impl AssetServer {
         }
         let index = (&handle).try_into().unwrap();
 
-        infos.stats.started_load_tasks += 1;
+        self.add_started_load_tasks();
 
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
@@ -970,7 +986,7 @@ impl AssetServer {
 
                 for result in requests {
                     // Count each reload as a started load.
-                    server.write_infos().stats.started_load_tasks += 1;
+                    server.add_started_load_tasks();
                     match result.await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -986,7 +1002,7 @@ impl AssetServer {
                 // TODO: Make sure we use the same loader as the original load (e.g., by storing a
                 // map from asset index to loader).
                 if !reloaded && server.read_infos().should_reload(&path) {
-                    server.write_infos().stats.started_load_tasks += 1;
+                    server.add_started_load_tasks();
                     match server.load_internal(None, path.clone(), true, None).await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -1124,7 +1140,6 @@ impl AssetServer {
         }
         // `get_or_create_path_handle` always returns a Strong variant, so this is safe.
         let index = (&handle).try_into().unwrap();
-        self.write_infos().stats.started_load_tasks += 1;
         self.load_folder_internal(index, path);
 
         handle
@@ -1169,6 +1184,7 @@ impl AssetServer {
             Ok(())
         }
 
+        self.add_started_load_tasks();
         let path = path.into_owned();
         let server = self.clone();
         IoTaskPool::get()
@@ -2035,7 +2051,7 @@ impl<'a> LoadBuilder<'a> {
             return Err(AssetLoadError::EmptyPath(path.into_owned()));
         }
 
-        self.asset_server.write_infos().stats.started_load_tasks += 1;
+        self.asset_server.add_started_load_tasks();
 
         self.asset_server
             .load_internal(None, path, false, None)
@@ -2139,7 +2155,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut folders_to_reload = Vec::default();
         let mut reload_parent_folders =
             |path: &PathBuf, source: &AssetSourceId<'static>, infos: &mut AssetInfos| {
-                let mut new_loads = 0;
                 for parent in path.ancestors().skip(1) {
                     let parent_asset_path =
                         AssetPath::from(parent.to_path_buf()).with_source(source.clone());
@@ -2147,11 +2162,9 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         info!(
                             "Reloading folder {parent_asset_path} because the content has changed"
                         );
-                        new_loads += 1;
                         folders_to_reload.push((folder_handle, parent_asset_path.clone()));
                     }
                 }
-                infos.stats.started_load_tasks += new_loads;
             };
 
         let mut paths_to_reload = <HashSet<_>>::default();
@@ -2231,9 +2244,10 @@ pub fn publish_asset_server_diagnostics(
     asset_server: Res<AssetServer>,
     mut diagnostics: Diagnostics,
 ) {
-    let infos = asset_server.read_infos();
+    use core::sync::atomic::Ordering::Relaxed;
+    let stats = &asset_server.data.stats;
     diagnostics.add_measurement(&AssetServer::STARTED_LOAD_COUNT, || {
-        infos.stats.started_load_tasks as _
+        stats.started_load_tasks.load(Relaxed) as _
     });
 }
 

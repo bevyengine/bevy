@@ -271,11 +271,9 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
         if path.label().is_some() {
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
-        self.load_context
-            .asset_server
-            .write_infos()
-            .stats
-            .started_load_tasks += 1;
+
+        self.load_context.asset_server.add_started_load_tasks();
+
         let (mut meta, loader, mut reader) = if let Some(reader) = reader {
             let loader = if let Some(type_id) = type_id {
                 self.load_context
