@@ -467,14 +467,16 @@ impl FromTemplate for Entity {
     type Template = EntityTemplate;
 }
 
-pub enum SystemIdTemplate {
-    BoxedSystem(Arc<Mutex<Option<BoxedSystem<(), ()>>>>),
+pub struct SystemIdTemplate(Arc<Mutex<Option<SystemOrId>>>);
+
+enum SystemOrId {
+    BoxedSystem(BoxedSystem<(), ()>),
     SystemId(SystemId<(), ()>),
 }
 
 impl Default for SystemIdTemplate {
     fn default() -> Self {
-        Self::BoxedSystem(Arc::new(Mutex::new(Some(Box::new(IntoSystem::into_system(|| {}))))))
+        system_value(|| {})
     }
 }
 
@@ -482,23 +484,28 @@ impl Template for SystemIdTemplate {
     type Output = SystemId<(), ()>;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
-        Ok(match self {
-            Self::BoxedSystem(system) =>{
-                let system = system.lock().unwrap().take().unwrap();
-                
-                // SAFETY: this is ok because only spawning new system entity.?
-                unsafe {
-                    _context.entity.world_mut().register_boxed_system(system)
-                }
+        let mut template_state = self.0.lock().unwrap();
+        let template_value = template_state.take().unwrap();
+
+        let system_id = match template_value {
+            SystemOrId::BoxedSystem(system) => {
+                _context.entity.world_scope(|world| world.register_boxed_system(system))
             },
-            Self::SystemId(system_id) => *system_id,
-        })
+            SystemOrId::SystemId(system_id) => system_id,
+        };
+
+        *template_state = Some(SystemOrId::SystemId(system_id));
+
+        Ok(system_id)
     }
 
     fn clone_template(&self) -> Self {
-        match self {
-            Self::BoxedSystem(system) => Self::BoxedSystem(Arc::clone(system)),
-            Self::SystemId(system_id) => Self::SystemId(*system_id),
+        let template_state = self.0.lock().unwrap();
+        let template_value = template_state.as_ref().unwrap();
+        
+        match template_value {
+            SystemOrId::BoxedSystem(_) => unreachable!("This variant should only exist during the build_template call, and should be replaced with the SystemId variant after."),
+            SystemOrId::SystemId(system_id) => system_id_value(*system_id),
         }
     }
 }
@@ -507,8 +514,12 @@ impl FromTemplate for SystemId<(), ()> {
     type Template = SystemIdTemplate;
 }
 
-pub fn system_value<M>(system: impl IntoSystem<(), (),M>) -> SystemIdTemplate {
-    SystemIdTemplate::BoxedSystem(Arc::new(Mutex::new(Some(Box::new(IntoSystem::into_system(system))))))
+pub fn system_value<M>(system: impl IntoSystem<(), (), M>) -> SystemIdTemplate {
+    SystemIdTemplate(Arc::new(Mutex::new(Some(SystemOrId::BoxedSystem(Box::new(IntoSystem::into_system(system)))))))
+}
+
+pub fn system_id_value(system_id: SystemId<(), ()>) -> SystemIdTemplate {
+    SystemIdTemplate(Arc::new(Mutex::new(Some(SystemOrId::SystemId(system_id)))))
 }
 
 /// A [`Template`] driven by a function that returns an output. This is used to create "free floating" templates without
