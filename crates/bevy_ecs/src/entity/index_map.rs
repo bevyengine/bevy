@@ -286,9 +286,7 @@ impl<K: EntityEquivalent + Hash, V> IndexMut<Range<usize>> for EntityEquivalentI
     }
 }
 
-impl<K: EntityEquivalent + Hash, V> IndexMut<RangeFrom<usize>>
-    for EntityEquivalentIndexMap<K, V>
-{
+impl<K: EntityEquivalent + Hash, V> IndexMut<RangeFrom<usize>> for EntityEquivalentIndexMap<K, V> {
     fn index_mut(&mut self, key: RangeFrom<usize>) -> &mut Self::Output {
         // SAFETY: The source IndexMap uses EntityHash.
         unsafe { Slice::from_slice_unchecked_mut(self.0.index_mut(key)) }
@@ -388,10 +386,7 @@ impl<K: EntityEquivalent + Hash, V: Eq> Eq for EntityEquivalentIndexMap<K, V> {}
 /// Equivalent to an [`indexmap::map::Slice<K, V>`] whose source [`IndexMap`]
 /// uses [`EntityHash`].
 #[repr(transparent)]
-pub struct Slice<K: EntityEquivalent + Hash, V, S = EntityHash>(
-    PhantomData<S>,
-    map::Slice<K, V>,
-);
+pub struct Slice<K: EntityEquivalent + Hash, V, S = EntityHash>(PhantomData<S>, map::Slice<K, V>);
 
 impl<K: EntityEquivalent + Hash, V> Slice<K, V> {
     /// Returns an empty slice.    

@@ -18,7 +18,7 @@ use core::{
 
 use indexmap::set::{self, IndexSet};
 
-use super::{Entity, EntityHash, EntitySetIterator, EntityEquivalent};
+use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
 use bevy_platform::prelude::Box;
 
@@ -29,9 +29,7 @@ use bevy_reflect::Reflect;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
-pub struct EntityEquivalentIndexSet<K: EntityEquivalent + Hash>(
-    pub(crate) IndexSet<K, EntityHash>,
-);
+pub struct EntityEquivalentIndexSet<K: EntityEquivalent + Hash>(pub(crate) IndexSet<K, EntityHash>);
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityIndexSet = EntityEquivalentIndexSet<Entity>;
@@ -562,10 +560,7 @@ impl<K: EntityEquivalent + Hash> Index<usize> for Slice<K> {
 /// This struct is created by the [`iter`] method on [`EntityEquivalentIndexSet`]. See its documentation for more.
 ///
 /// [`iter`]: EntityEquivalentIndexSet::iter
-pub struct Iter<'a, K: EntityEquivalent + Hash, S = EntityHash>(
-    set::Iter<'a, K>,
-    PhantomData<S>,
-);
+pub struct Iter<'a, K: EntityEquivalent + Hash, S = EntityHash>(set::Iter<'a, K>, PhantomData<S>);
 
 impl<'a, K: EntityEquivalent + Hash> Iter<'a, K> {
     /// Returns the inner [`Iter`](set::Iter).
@@ -638,10 +633,7 @@ unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for Iter<'_, K> {}
 /// This struct is created by the [`into_iter`] method on [`EntityEquivalentIndexSet`] (provided by the [`IntoIterator`] trait). See its documentation for more.
 ///
 /// [`into_iter`]: EntityEquivalentIndexSet::into_iter
-pub struct IntoIter<K: EntityEquivalent + Hash, S = EntityHash>(
-    set::IntoIter<K>,
-    PhantomData<S>,
-);
+pub struct IntoIter<K: EntityEquivalent + Hash, S = EntityHash>(set::IntoIter<K>, PhantomData<S>);
 
 impl<K: EntityEquivalent + Hash> IntoIter<K> {
     /// Returns the inner [`IntoIter`](set::IntoIter).
@@ -717,10 +709,7 @@ unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for IntoIter<K> {}
 /// This struct is created by the [`drain`] method on [`EntityEquivalentIndexSet`]. See its documentation for more.
 ///
 /// [`drain`]: EntityEquivalentIndexSet::drain
-pub struct Drain<'a, K: EntityEquivalent + Hash, S = EntityHash>(
-    set::Drain<'a, K>,
-    PhantomData<S>,
-);
+pub struct Drain<'a, K: EntityEquivalent + Hash, S = EntityHash>(set::Drain<'a, K>, PhantomData<S>);
 
 impl<'a, K: EntityEquivalent + Hash> Drain<'a, K> {
     /// Returns the inner [`Drain`](set::Drain).
@@ -780,16 +769,10 @@ impl<K: EntityEquivalent + Hash + Debug> Debug for Drain<'_, K> {
 unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for Drain<'_, K> {}
 
 // SAFETY: Difference stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
-    for set::Difference<'_, K, EntityHash>
-{
-}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for set::Difference<'_, K, EntityHash> {}
 
 // SAFETY: Intersection stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
-    for set::Intersection<'_, K, EntityHash>
-{
-}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for set::Intersection<'_, K, EntityHash> {}
 
 // SAFETY: SymmetricDifference stems from two correctly behaving `IndexSet<K, EntityHash>`s.
 unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator

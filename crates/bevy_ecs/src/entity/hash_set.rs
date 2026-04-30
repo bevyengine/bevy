@@ -18,16 +18,14 @@ use bevy_platform::collections::hash_set::{self, HashSet};
 use bevy_reflect::Reflect;
 
 use super::{
-    Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator, EntityEquivalent,
+    Entity, EntityEquivalent, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator,
 };
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityEquivalentHashSet<K: EntityEquivalent + Hash>(
-    pub(crate) HashSet<K, EntityHash>,
-);
+pub struct EntityEquivalentHashSet<K: EntityEquivalent + Hash>(pub(crate) HashSet<K, EntityHash>);
 
 /// An [`HashSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityHashSet = EntityEquivalentHashSet<Entity>;
@@ -476,7 +474,4 @@ unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
 }
 
 // SAFETY: Union stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
-unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
-    for hash_set::Union<'_, K, EntityHash>
-{
-}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for hash_set::Union<'_, K, EntityHash> {}
