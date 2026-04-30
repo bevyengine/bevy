@@ -14,7 +14,7 @@ use bevy_platform_support::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedBuildHasher, TrustedEntityBorrow};
+use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -22,17 +22,12 @@ use super::{Entity, EntityHash, EntitySetIterator, TrustedBuildHasher, TrustedEn
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityEquivalentHashMap<K: TrustedEntityBorrow + Hash, V>(
     pub(crate) HashMap<K, V, EntityHash>,
-)
-where
-    EntityHash: TrustedBuildHasher<K>;
+);
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityHashMap<V> = EntityEquivalentHashMap<Entity, V>;
 
-impl<K: TrustedEntityBorrow + Hash, V> EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> EntityEquivalentHashMap<K, V> {
     /// Creates an empty `EntityEquivalentHashMap`.
     ///
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
@@ -74,19 +69,13 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Default for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Default for EntityEquivalentHashMap<K, V> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Deref for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Deref for EntityEquivalentHashMap<K, V> {
     type Target = HashMap<K, V, EntityHash>;
 
     fn deref(&self) -> &Self::Target {
@@ -94,10 +83,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> DerefMut for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> DerefMut for EntityEquivalentHashMap<K, V> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -105,8 +91,6 @@ where
 
 impl<'a, K: TrustedEntityBorrow + Hash + Copy, V: Copy> Extend<&'a (K, V)>
     for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn extend<I: IntoIterator<Item = &'a (K, V)>>(&mut self, iter: I) {
         self.0.extend(iter);
@@ -115,18 +99,13 @@ where
 
 impl<'a, K: TrustedEntityBorrow + Hash + Copy, V: Copy> Extend<(&'a K, &'a V)>
     for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Extend<(K, V)> for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Extend<(K, V)> for EntityEquivalentHashMap<K, V> {
     fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
@@ -134,18 +113,13 @@ where
 
 impl<K: TrustedEntityBorrow + Hash, V, const N: usize> From<[(K, V); N]>
     for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn from(value: [(K, V); N]) -> Self {
         Self(HashMap::from_iter(value))
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> FromIterator<(K, V)> for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> FromIterator<(K, V)> for EntityEquivalentHashMap<K, V> {
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iterable: I) -> Self {
         Self(HashMap::from_iter(iterable))
     }
@@ -160,10 +134,7 @@ impl<V, Q: TrustedEntityBorrow + Hash + ?Sized> Index<&Q> for EntityHashMap<V> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, V> IntoIterator for &'a EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, V> IntoIterator for &'a EntityEquivalentHashMap<K, V> {
     type Item = (&'a K, &'a V);
     type IntoIter = hash_map::Iter<'a, K, V>;
 
@@ -172,10 +143,7 @@ where
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, V> IntoIterator for &'a mut EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, V> IntoIterator for &'a mut EntityEquivalentHashMap<K, V> {
     type Item = (&'a K, &'a mut V);
     type IntoIter = hash_map::IterMut<'a, K, V>;
 
@@ -184,10 +152,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> IntoIterator for EntityEquivalentHashMap<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> IntoIterator for EntityEquivalentHashMap<K, V> {
     type Item = (K, V);
     type IntoIter = hash_map::IntoIter<K, V>;
 
@@ -205,24 +170,16 @@ where
 pub struct Keys<'a, K: TrustedEntityBorrow + Hash, V, S = EntityHash>(
     hash_map::Keys<'a, K, V>,
     PhantomData<S>,
-)
-where
-    EntityHash: TrustedBuildHasher<K>;
+);
 
-impl<'a, K: TrustedEntityBorrow + Hash, V> Keys<'a, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, V> Keys<'a, K, V> {
     /// Returns the inner [`Keys`](hash_map::Keys).
     pub fn into_inner(self) -> hash_map::Keys<'a, K, V> {
         self.0
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, V> Deref for Keys<'a, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, V> Deref for Keys<'a, K, V> {
     type Target = hash_map::Keys<'a, K, V>;
 
     fn deref(&self) -> &Self::Target {
@@ -230,10 +187,7 @@ where
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, V> Iterator for Keys<'a, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, V> Iterator for Keys<'a, K, V> {
     type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -241,48 +195,30 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> ExactSizeIterator for Keys<'_, K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash, V> ExactSizeIterator for Keys<'_, K, V> {}
 
-impl<K: TrustedEntityBorrow + Hash, V> FusedIterator for Keys<'_, K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash, V> FusedIterator for Keys<'_, K, V> {}
 
-impl<K: TrustedEntityBorrow + Hash, V> Clone for Keys<'_, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Clone for Keys<'_, K, V> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Debug, V: Debug> Debug for Keys<'_, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Debug, V: Debug> Debug for Keys<'_, K, V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Keys").field(&self.0).field(&self.1).finish()
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Default for Keys<'_, K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Default for Keys<'_, K, V> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: Keys stems from a correctly behaving `HashMap<K, V, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash, V> EntitySetIterator for Keys<'_, K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+unsafe impl<K: TrustedEntityBorrow + Hash, V> EntitySetIterator for Keys<'_, K, V> {}
 
 /// An owning iterator over the keys of a [`EntityEquivalentHashMap`] in arbitrary order.
 /// The iterator element type is [`Entity`].
@@ -295,24 +231,16 @@ unsafe impl<K: TrustedEntityBorrow + Hash, V> EntitySetIterator for Keys<'_, K, 
 pub struct IntoKeys<K: TrustedEntityBorrow + Hash, V, S = EntityHash>(
     hash_map::IntoKeys<K, V>,
     PhantomData<S>,
-)
-where
-    EntityHash: TrustedBuildHasher<K>;
+);
 
-impl<K: TrustedEntityBorrow + Hash, V> IntoKeys<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> IntoKeys<K, V> {
     /// Returns the inner [`IntoKeys`](hash_map::IntoKeys).
     pub fn into_inner(self) -> hash_map::IntoKeys<K, V> {
         self.0
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Deref for IntoKeys<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Deref for IntoKeys<K, V> {
     type Target = hash_map::IntoKeys<K, V>;
 
     fn deref(&self) -> &Self::Target {
@@ -320,10 +248,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Iterator for IntoKeys<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Iterator for IntoKeys<K, V> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -331,20 +256,11 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> ExactSizeIterator for IntoKeys<K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash, V> ExactSizeIterator for IntoKeys<K, V> {}
 
-impl<K: TrustedEntityBorrow + Hash, V> FusedIterator for IntoKeys<K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash, V> FusedIterator for IntoKeys<K, V> {}
 
-impl<K: TrustedEntityBorrow + Hash + Debug, V: Debug> Debug for IntoKeys<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Debug, V: Debug> Debug for IntoKeys<K, V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("IntoKeys")
             .field(&self.0)
@@ -353,20 +269,14 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, V> Default for IntoKeys<K, V>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, V> Default for IntoKeys<K, V> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: IntoKeys stems from a correctly behaving `HashMap<K, V, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash, V> EntitySetIterator for IntoKeys<K, V> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+unsafe impl<K: TrustedEntityBorrow + Hash, V> EntitySetIterator for IntoKeys<K, V> {}
 
 #[cfg(test)]
 mod tests {

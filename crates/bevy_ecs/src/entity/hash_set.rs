@@ -18,8 +18,7 @@ use bevy_platform_support::collections::hash_set::{self, HashSet};
 use bevy_reflect::Reflect;
 
 use super::{
-    Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedBuildHasher,
-    TrustedEntityBorrow,
+    Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
 };
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
@@ -28,17 +27,12 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityEquivalentHashSet<K: TrustedEntityBorrow + Hash>(
     pub(crate) HashSet<K, EntityHash>,
-)
-where
-    EntityHash: TrustedBuildHasher<K>;
+);
 
 /// An [`HashSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityHashSet = EntityEquivalentHashSet<Entity>;
 
-impl<K: TrustedEntityBorrow + Hash> EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> EntityEquivalentHashSet<K> {
     /// Creates an empty `EntityEquivalentHashSet`.
     ///
     /// Equivalent to [`HashSet::with_hasher(EntityHash)`].
@@ -96,10 +90,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Deref for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Deref for EntityEquivalentHashSet<K> {
     type Target = HashSet<K, EntityHash>;
 
     fn deref(&self) -> &Self::Target {
@@ -107,19 +98,13 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> DerefMut for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> DerefMut for EntityEquivalentHashSet<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a EntityEquivalentHashSet<K> {
     type Item = &'a K;
 
     type IntoIter = Iter<'a, K>;
@@ -129,10 +114,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> IntoIterator for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> IntoIterator for EntityEquivalentHashSet<K> {
     type Item = K;
 
     type IntoIter = IntoIter<K>;
@@ -142,19 +124,13 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Default for EntityEquivalentHashSet<K> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitAnd for &EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Clone> BitAnd for &EntityEquivalentHashSet<K> {
     type Output = EntityEquivalentHashSet<K>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
@@ -164,18 +140,13 @@ where
 
 impl<K: TrustedEntityBorrow + Hash + Clone> BitAndAssign<&EntityEquivalentHashSet<K>>
     for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn bitand_assign(&mut self, rhs: &Self) {
         self.0.bitand_assign(&rhs.0);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitOr for &EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Clone> BitOr for &EntityEquivalentHashSet<K> {
     type Output = EntityEquivalentHashSet<K>;
 
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -185,18 +156,13 @@ where
 
 impl<K: TrustedEntityBorrow + Hash + Clone> BitOrAssign<&EntityEquivalentHashSet<K>>
     for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn bitor_assign(&mut self, rhs: &Self) {
         self.0.bitor_assign(&rhs.0);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitXor for &EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Clone> BitXor for &EntityEquivalentHashSet<K> {
     type Output = EntityEquivalentHashSet<K>;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
@@ -206,18 +172,13 @@ where
 
 impl<K: TrustedEntityBorrow + Hash + Clone> BitXorAssign<&EntityEquivalentHashSet<K>>
     for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn bitxor_assign(&mut self, rhs: &Self) {
         self.0.bitxor_assign(&rhs.0);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> Sub for &EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Clone> Sub for &EntityEquivalentHashSet<K> {
     type Output = EntityEquivalentHashSet<K>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -227,54 +188,37 @@ where
 
 impl<K: TrustedEntityBorrow + Hash + Clone> SubAssign<&EntityEquivalentHashSet<K>>
     for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
     fn sub_assign(&mut self, rhs: &Self) {
         self.0.sub_assign(&rhs.0);
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash + Copy> Extend<&'a K> for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash + Copy> Extend<&'a K> for EntityEquivalentHashSet<K> {
     fn extend<I: IntoIterator<Item = &'a K>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Extend<K> for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Extend<K> for EntityEquivalentHashSet<K> {
     fn extend<I: IntoIterator<Item = K>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, const N: usize> From<[K; N]> for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, const N: usize> From<[K; N]> for EntityEquivalentHashSet<K> {
     fn from(value: [K; N]) -> Self {
         Self(HashSet::from_iter(value))
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> FromIterator<K> for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> FromIterator<K> for EntityEquivalentHashSet<K> {
     fn from_iter<I: IntoIterator<Item = K>>(iterable: I) -> Self {
         Self(HashSet::from_iter(iterable))
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> FromEntitySetIterator<K> for EntityEquivalentHashSet<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> FromEntitySetIterator<K> for EntityEquivalentHashSet<K> {
     fn from_entity_set_iter<I: EntitySet<Item = K>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
         let set = EntityEquivalentHashSet::with_capacity(iter.size_hint().0);
@@ -351,25 +295,19 @@ unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Iter<'_, K> {}
 /// This struct is created by the [`into_iter`] method on [`EntityEquivalentHashSet`] (provided by the [`IntoIterator`] trait). See its documentation for more.
 ///
 /// [`into_iter`]: EntityEquivalentHashSet::into_iter
-pub struct IntoIter<K: TrustedEntityBorrow + Hash, S: TrustedBuildHasher<K> = EntityHash>(
+pub struct IntoIter<K: TrustedEntityBorrow + Hash, S = EntityHash>(
     hash_set::IntoIter<K>,
     PhantomData<S>,
 );
 
-impl<K: TrustedEntityBorrow + Hash> IntoIter<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> IntoIter<K> {
     /// Returns the inner [`IntoIter`](hash_set::IntoIter).
     pub fn into_inner(self) -> hash_set::IntoIter<K> {
         self.0
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Deref for IntoIter<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Deref for IntoIter<K> {
     type Target = hash_set::IntoIter<K>;
 
     fn deref(&self) -> &Self::Target {
@@ -377,10 +315,7 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -388,20 +323,11 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for IntoIter<K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for IntoIter<K> {}
 
-impl<K: TrustedEntityBorrow + Hash> FusedIterator for IntoIter<K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash> FusedIterator for IntoIter<K> {}
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for IntoIter<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Debug> Debug for IntoIter<K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("IntoIter")
             .field(&self.0)
@@ -410,45 +336,33 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for IntoIter<K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash> Default for IntoIter<K> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: IntoIter stems from a correctly behaving `HashSet<Entity, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for IntoIter<K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for IntoIter<K> {}
 
 /// A draining iterator over the items of an [`EntityEquivalentHashSet`].
 ///
 /// This struct is created by the [`drain`] method on [`EntityEquivalentHashSet`]. See its documentation for more.
 ///
 /// [`drain`]: EntityEquivalentHashSet::drain
-pub struct Drain<'a, K: TrustedEntityBorrow + Hash, S: TrustedBuildHasher<K> = EntityHash>(
+pub struct Drain<'a, K: TrustedEntityBorrow + Hash, S = EntityHash>(
     hash_set::Drain<'a, K>,
     PhantomData<S>,
 );
 
-impl<'a, K: TrustedEntityBorrow + Hash> Drain<'a, K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash> Drain<'a, K> {
     /// Returns the inner [`Drain`](hash_set::Drain).
     pub fn into_inner(self) -> hash_set::Drain<'a, K> {
         self.0
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Deref for Drain<'a, K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash> Deref for Drain<'a, K> {
     type Target = hash_set::Drain<'a, K>;
 
     fn deref(&self) -> &Self::Target {
@@ -456,10 +370,7 @@ where
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -467,20 +378,11 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Drain<'_, K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Drain<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash> FusedIterator for Drain<'_, K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash> FusedIterator for Drain<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Drain<'_, K>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Drain<'_, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain")
             .field(&self.0)
@@ -490,10 +392,7 @@ where
 }
 
 // SAFETY: Drain stems from a correctly behaving `HashSet<Entity, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Drain<'_, K> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Drain<'_, K> {}
 
 /// A draining iterator over entries of a [`EntityEquivalentHashSet`] which don't satisfy the predicate `f`.
 ///
@@ -503,24 +402,16 @@ unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Drain<'_, K> wh
 pub struct ExtractIf<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool, S = EntityHash>(
     hash_set::ExtractIf<'a, K, F>,
     PhantomData<S>,
-)
-where
-    EntityHash: TrustedBuildHasher<K>;
+);
 
-impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> ExtractIf<'a, K, F>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> ExtractIf<'a, K, F> {
     /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).
     pub fn into_inner(self) -> hash_set::ExtractIf<'a, K, F> {
         self.0
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Deref for ExtractIf<'a, K, F>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Deref for ExtractIf<'a, K, F> {
     type Target = hash_set::ExtractIf<'a, K, F>;
 
     fn deref(&self) -> &Self::Target {
@@ -528,10 +419,7 @@ where
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Iterator for ExtractIf<'a, K, F>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Iterator for ExtractIf<'a, K, F> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -539,15 +427,9 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> FusedIterator for ExtractIf<'_, K, F> where
-    EntityHash: TrustedBuildHasher<K>
-{
-}
+impl<K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> FusedIterator for ExtractIf<'_, K, F> {}
 
-impl<K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Debug for ExtractIf<'_, K, F>
-where
-    EntityHash: TrustedBuildHasher<K>,
-{
+impl<K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Debug for ExtractIf<'_, K, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("ExtractIf").finish()
     }
@@ -556,37 +438,29 @@ where
 // SAFETY: ExtractIf stems from a correctly behaving `HashSet<Entity, EntityHash>`.
 unsafe impl<K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> EntitySetIterator
     for ExtractIf<'_, K, F>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
 }
 
 // SAFETY: Difference stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
 unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
     for hash_set::Difference<'_, K, EntityHash>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
 }
 
 // SAFETY: Intersection stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
 unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
     for hash_set::Intersection<'_, K, EntityHash>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
 }
 
 // SAFETY: SymmetricDifference stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
 unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
     for hash_set::SymmetricDifference<'_, K, EntityHash>
-where
-    EntityHash: TrustedBuildHasher<K>,
 {
 }
 
 // SAFETY: Union stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for hash_set::Union<'_, K, EntityHash> where
-    EntityHash: TrustedBuildHasher<K>
+unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
+    for hash_set::Union<'_, K, EntityHash>
 {
 }

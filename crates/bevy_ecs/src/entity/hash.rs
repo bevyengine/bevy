@@ -3,23 +3,6 @@ use core::hash::{BuildHasher, Hash, Hasher};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use crate::{
-    bundle::Bundle,
-    world::{
-        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut,
-        FilteredEntityRef,
-    },
-};
-
-use super::Entity;
-
-/// A combination of [`BuildHasher`] and [`Hash`] that can be trusted to behave correctly.
-///
-/// # Safety
-/// When used together, the `Hasher` produced by `Self` and
-/// the `Hash` impl of `H` must produce deterministic hashes.
-pub unsafe trait TrustedBuildHasher<H: Hash>: BuildHasher {}
-
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Clone))]
@@ -32,27 +15,6 @@ impl BuildHasher for EntityHash {
         Self::Hasher::default()
     }
 }
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl TrustedBuildHasher<Entity> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl TrustedBuildHasher<EntityRef<'_>> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl TrustedBuildHasher<EntityMut<'_>> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl TrustedBuildHasher<FilteredEntityRef<'_>> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl TrustedBuildHasher<FilteredEntityMut<'_>> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl<B: Bundle> TrustedBuildHasher<EntityRefExcept<'_, B>> for EntityHash {}
-
-// SAFETY: EntityHasher hashes `Entity` deterministically.
-unsafe impl<B: Bundle> TrustedBuildHasher<EntityMutExcept<'_, B>> for EntityHash {}
 
 /// A very fast hash that is only designed to work on generational indices
 /// like [`Entity`]. It will panic if attempting to hash a type containing
