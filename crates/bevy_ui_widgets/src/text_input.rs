@@ -11,9 +11,11 @@ use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::{Key, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
+use bevy_input_focus::{
+    FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+};
 use bevy_math::Vec2;
-use bevy_picking::events::{Drag, Pointer, Press, Release};
+use bevy_picking::events::{Click, Drag, Pointer, Press, Release};
 use bevy_picking::pointer::PointerButton;
 use bevy_text::{EditableText, PreeditCursor, TextEdit};
 use bevy_ui::widget::{scroll_editable_text, update_editable_text_layout, TextScroll};
@@ -196,9 +198,61 @@ fn on_pointer_press(
             TextEdit::MoveToPoint
         }(local_pos));
 
-    input_focus.set(press.entity);
+    input_focus.set(press.entity, FocusCause::Pressed);
 
     press.propagate(false);
+}
+
+/// System that processes pointer click events into text edit actions for [`EditableText`] widgets.
+///
+/// `Click`s follow `Press`, so multi-click `TextEdit`s are queued after those from the corresponding `Press`.
+///
+/// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
+fn on_pointer_click(
+    mut click: On<Pointer<Click>>,
+    mut text_input_query: Query<(
+        &mut EditableText,
+        &ComputedNode,
+        &ComputedUiRenderTargetInfo,
+        &UiGlobalTransform,
+        &TextScroll,
+    )>,
+    ui_scale: Res<UiScale>,
+) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
+
+    let Ok((mut editable_text, node, target, transform, text_scroll)) =
+        text_input_query.get_mut(click.entity)
+    else {
+        return;
+    };
+
+    if editable_text.is_composing() {
+        // The IME is active; all input needs to be routed there, including pointer multi-clicks.
+        return;
+    }
+
+    let Some(local_pos) = transform.try_inverse().map(|inverse| {
+        inverse
+            .transform_point2(click.pointer_location.position * target.scale_factor() / ui_scale.0)
+            - node.content_box().min
+            + text_scroll.0
+    }) else {
+        return;
+    };
+
+    match click.count {
+        1 => {
+            // No special processing required for single clicks. Presses set the cursor position and are handled by `on_pointer_press`.
+        }
+        2 => editable_text.queue_edit(TextEdit::SelectWordAtPoint(local_pos)),
+        _ => editable_text.queue_edit(TextEdit::SelectAll),
+    }
+
+    click.propagate(false);
 }
 
 /// System that processes pointer drag events into text edit actions for [`EditableText`] widgets.
@@ -401,23 +455,29 @@ pub struct SelectAllOnFocus;
 /// Resource to track when a pointer press caused focus on an [`EditableText`].
 /// A corresponding pointer release will select all text if there is no other selection.
 #[derive(Resource, Default)]
-struct QueuedSelectAll(Option<(Entity, PointerButton)>);
+struct QueuedSelectAll(Option<Entity>);
 
 fn on_focus_select_all(
     focus_gained: On<FocusGained>,
-    mut pointer_presses: MessageReader<Pointer<Press>>,
-    mut q_text_input: Query<&mut EditableText, With<SelectAllOnFocus>>,
+    mut q_text_input: Query<(&mut EditableText, Has<SelectAllOnFocus>)>,
     mut queued_select_all: ResMut<QueuedSelectAll>,
 ) {
     let target = focus_gained.event_target();
-    if let Ok(mut editable_text) = q_text_input.get_mut(target) {
-        // Ideally, FocusGained would contain information on how it was gained instead.
-        let focus_gained_by_pointer_press =
-            pointer_presses.read().find(|press| press.entity == target);
-        if let Some(press) = focus_gained_by_pointer_press {
-            queued_select_all.0 = Some((target, press.button));
-        } else {
-            editable_text.queue_edit(TextEdit::SelectAll);
+    if let Ok((mut editable_text, select_all_on_focus)) = q_text_input.get_mut(target) {
+        match focus_gained.event().cause {
+            FocusCause::Pressed => {
+                if select_all_on_focus {
+                    queued_select_all.0 = Some(target);
+                }
+            }
+
+            // Navigating into a text input should always select all even without
+            // the `SelectAllOnFocus` marker, unless it is a multiline input.
+            FocusCause::Navigated => {
+                if select_all_on_focus || !editable_text.allow_newlines {
+                    editable_text.queue_edit(TextEdit::SelectAll);
+                }
+            }
         }
     }
 }
@@ -431,11 +491,11 @@ fn apply_queued_select_all(
     mut queued_select_all: ResMut<QueuedSelectAll>,
     mut q_text_input: Query<&mut EditableText, With<SelectAllOnFocus>>,
 ) {
-    let Some((target, button)) = queued_select_all.0 else {
+    let Some(target) = queued_select_all.0 else {
         return;
     };
     for pointer_release in pointer_releases.read() {
-        if pointer_release.button == button
+        if pointer_release.button == PointerButton::Primary
             && let Ok(mut editable_text) = q_text_input.get_mut(target)
         {
             editable_text.queue_edit(TextEdit::SelectAllIfCollapsed);
@@ -480,6 +540,7 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost_clear_ime)
             .add_observer(on_focus_select_all)
+            .add_observer(on_pointer_click)
             .add_systems(
                 PreUpdate,
                 (

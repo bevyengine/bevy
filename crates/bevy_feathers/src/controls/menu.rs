@@ -37,7 +37,7 @@ use crate::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabIndex},
-    InputFocus, InputFocusVisible,
+    FocusCause, InputFocus, InputFocusVisible,
 };
 
 /// Parameters for the menu button template, passed to [`menu_button`] function.
@@ -151,7 +151,7 @@ fn on_menu_event(
             for child in children.iter() {
                 if q_buttons.contains(*child) {
                     ev.propagate(false);
-                    focus.set(*child);
+                    focus.set(*child, FocusCause::Navigated);
                     break;
                 }
             }

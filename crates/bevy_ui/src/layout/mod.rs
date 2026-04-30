@@ -1,9 +1,13 @@
+#[cfg(feature = "ghost_nodes")]
+use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
 };
+#[cfg(feature = "ghost_nodes")]
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -95,6 +99,9 @@ pub fn ui_layout_system(
     mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_nodes: RemovedComponents<Node>,
+    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
+    #[cfg(feature = "ghost_nodes")] added_ghost_node_query: Query<Entity, Added<GhostNode>>,
+    #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
 ) {
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
@@ -114,8 +121,34 @@ pub fn ui_layout_system(
         });
 
     // update and remove children
-    for entity in removed_children.read() {
-        ui_surface.try_remove_children(entity);
+    #[cfg(not(feature = "ghost_nodes"))]
+    {
+        for entity in removed_children.read() {
+            ui_surface.try_remove_children(entity);
+        }
+    }
+
+    #[cfg(feature = "ghost_nodes")]
+    {
+        // Collect the closest non-ghost ancestors of entities that had `GhostNode` added or removed since last layout update.
+        ui_surface.dirty_ghost_children_scratch.clear();
+        for entity in added_ghost_node_query
+            .iter()
+            .chain(removed_ghost_nodes.read())
+        {
+            if let Some(parent) = ui_children.get_parent(entity) {
+                ui_surface.dirty_ghost_children_scratch.insert(parent);
+            }
+        }
+
+        for entity in removed_children.read() {
+            ui_surface.try_remove_children(entity);
+            if ghost_node_query.contains(entity)
+                && let Some(parent) = ui_children.get_parent(entity)
+            {
+                ui_surface.dirty_ghost_children_scratch.insert(parent);
+            }
+        }
     }
 
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
@@ -132,12 +165,16 @@ pub fn ui_layout_system(
             added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
         ) {
+            let children_changed = ui_children.is_changed(entity)
+                || ui_children
+                    .iter_ui_children(entity)
+                    .any(|child| added_node_query.contains(child));
+            #[cfg(feature = "ghost_nodes")]
+            let children_changed =
+                children_changed || ui_surface.dirty_ghost_children_scratch.contains(&entity);
+
             if ui_surface.entity_to_taffy.contains_key(&entity)
-                && (added_node_query.contains(entity)
-                    || ui_children.is_changed(entity)
-                    || ui_children
-                        .iter_ui_children(entity)
-                        .any(|child| added_node_query.contains(child)))
+                && (added_node_query.contains(entity) || children_changed)
             {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
@@ -1382,7 +1419,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "known ghost nodes bug"]
         fn unparenting_ghost_child_should_unparent_taffy_child() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
@@ -1422,7 +1458,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "known ghost nodes bug"]
         fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
@@ -1449,7 +1484,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "known ghost nodes bug"]
         fn removing_intermeditate_ghost_node_detaches_taffy_nodes() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();

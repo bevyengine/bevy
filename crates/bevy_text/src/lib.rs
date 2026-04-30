@@ -33,6 +33,7 @@ extern crate alloc;
 
 mod bounds;
 mod cursor;
+mod editing;
 mod error;
 mod font;
 mod font_atlas;
@@ -44,10 +45,10 @@ mod pipeline;
 mod text;
 mod text_access;
 mod text_edit;
-mod text_editable;
 
 pub use bounds::*;
 pub use cursor::*;
+pub use editing::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -59,7 +60,6 @@ pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
-pub use text_editable::*;
 
 /// The text prelude.
 ///

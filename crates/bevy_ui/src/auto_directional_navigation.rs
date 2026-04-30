@@ -27,6 +27,7 @@ use bevy_input_focus::{
         AutoNavigationConfig, DirectionalNavigation, DirectionalNavigationError, FocusableArea,
     },
     navigator::find_best_candidate,
+    FocusCause,
 };
 
 use bevy_reflect::{prelude::*, Reflect};
@@ -165,7 +166,9 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
             // Respect manual edges first
             match self.manual_directional_navigation.navigate(direction) {
                 Ok(new_focus) => {
-                    self.manual_directional_navigation.focus.set(new_focus);
+                    self.manual_directional_navigation
+                        .focus
+                        .set(new_focus, FocusCause::Navigated);
                     Ok(new_focus)
                 }
                 Err(DirectionalNavigationError::NoNeighborInDirection { .. }) => {
@@ -178,7 +181,9 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
                             &self.config,
                         )
                     {
-                        self.manual_directional_navigation.focus.set(new_focus);
+                        self.manual_directional_navigation
+                            .focus
+                            .set(new_focus, FocusCause::Navigated);
                         Ok(new_focus)
                     } else {
                         Err(DirectionalNavigationError::NoNeighborInDirection {
