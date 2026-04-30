@@ -140,44 +140,6 @@ pub enum Handle<A: Asset> {
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
-// Reference generated implementation:
-// impl<A: Asset> bevy_reflect::FromReflect for Handle<A>
-// where
-//     Handle<A>: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
-//     A: bevy_reflect::TypePath,
-// {
-//     fn from_reflect(__param0: &dyn bevy_reflect::PartialReflect) -> ::core::option::Option<Self> {
-//         if let bevy_reflect::ReflectRef::Enum(__param0) =
-//             bevy_reflect::PartialReflect::reflect_ref(__param0)
-//         {
-//             match bevy_reflect::enums::Enum::variant_name(__param0) {
-//                 "Strong" => ::core::option::Option::Some(Handle::Strong {
-//                     0: {
-//                         let __0 = __param0.field_at(0usize);
-//                         let __0 = __0?;
-//                         <Arc<StrongHandle> as bevy_reflect::FromReflect>::from_reflect(__0)?
-//                     },
-//                 }),
-//                 "Uuid" => ::core::option::Option::Some(Handle::Uuid {
-//                     0: {
-//                         let __0 = __param0.field_at(0usize);
-//                         let __0 = __0?;
-//                         <Uuid as bevy_reflect::FromReflect>::from_reflect(__0)?
-//                     },
-//                     1: ::core::default::Default::default(),
-//                 }),
-//                 name => panic!(
-//                     "variant with name `{}` does not exist on enum `{}`",
-//                     name,
-//                     <Self as bevy_reflect::TypePath>::type_path()
-//                 ),
-//             }
-//         } else {
-//             ::core::option::Option::None
-//         }
-//     }
-// }
-
 impl<A: Asset> bevy_reflect::FromReflect for Handle<A>
 where
     Handle<A>: Send + Sync,
