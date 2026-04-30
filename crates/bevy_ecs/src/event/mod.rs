@@ -115,7 +115,7 @@ pub trait Event: Send + Sync + Sized + 'static {
     label = "invalid `EventMatcher`",
     note = "consider annotating `{Self}` with `#[derive(Event)]` or implementing `EventMatcher` manually"
 )]
-pub trait EventMatcher: 'static {
+pub trait EventMatcher: Send + Sync + 'static {
     /// The event type being observed.
     type Event: Event;
 

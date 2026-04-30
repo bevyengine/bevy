@@ -112,8 +112,10 @@ impl<'w, 't, E: EventMatcher> On<'w, 't, E> {
 
 impl<'w, 't, const AUTO_PROPAGATE: bool, E, T> On<'w, 't, E>
 where
-    E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
-    T: Traversal<E>,
+    E: EventMatcher<
+        Event: EntityEvent<Trigger<'t> = PropagateEntityTrigger<AUTO_PROPAGATE, E::Event, T>>,
+    >,
+    T: Traversal<E::Event>,
 {
     /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
     /// prior to any propagation logic.
