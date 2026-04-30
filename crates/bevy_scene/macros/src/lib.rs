@@ -46,7 +46,7 @@ use proc_macro::TokenStream;
 ///
 /// You can add child entities with the `Children` component.
 /// To begin a new child entity, separate it from the previous one with a comma.
-/// Seperate components on the same entity with whitespace.
+/// Separate components on the same entity with whitespace.
 ///
 /// ```rust, ignore
 /// // ONE child entity with both the Head and Body components:
@@ -110,7 +110,7 @@ use proc_macro::TokenStream;
 /// ## Formatting BSN
 ///
 /// Whitespace, parentheses, and comments have no effect on the generated scene —
-/// they exist purely to help you organise and read your code.
+/// they exist purely to help you organize and read your code.
 ///
 /// **Whitespace** (spaces, newlines, tabs) separates items on the *same* entity.
 /// Use it freely for alignment and to make groupings of both components and entities clearer.
