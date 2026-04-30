@@ -80,7 +80,9 @@ use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
-use tracing::{error, info_span, warn};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -2482,6 +2484,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             changed
                                 .drain(..)
@@ -2520,6 +2523,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             for (entity, mesh_instance_builder, mesh_culling_builder) in
                                 changed_cpu_culling

@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::{Deferred, NestedLoader, StaticTyped},
+    loader_builders::NestedLoadBuilder,
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
@@ -333,11 +333,7 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`NestedLoader::load`] which
-/// is configured to work [immediately].
-///
-/// [`NestedLoader::load`]: crate::NestedLoader::load
-/// [immediately]: crate::Immediate
+/// An error that occurs when attempting an async load using [`NestedLoadBuilder`].
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
     #[error("Attempted to load an asset with an empty path \"{0}\"")]
@@ -629,7 +625,7 @@ impl<'a> LoadContext<'a> {
 
     /// Returns the labeled asset given its asset ID if it exists.
     ///
-    /// This can be used to get the asset from its handle since `&Handle` implemented
+    /// This can be used to get the asset from its handle since `&Handle` implements
     /// [`Into<UntypedAssetId>`].
     pub fn get_labeled_by_id(&self, id: impl Into<UntypedAssetId>) -> Option<&ErasedLoadedAsset> {
         let index = self.asset_id_to_asset_index.get(&id.into())?;
@@ -667,8 +663,8 @@ impl<'a> LoadContext<'a> {
 
     /// Create a builder for loading nested assets in this context.
     #[must_use]
-    pub fn loader(&mut self) -> NestedLoader<'a, '_, StaticTyped, Deferred> {
-        NestedLoader::new(self)
+    pub fn load_builder(&mut self) -> NestedLoadBuilder<'a, '_> {
+        NestedLoadBuilder::new(self)
     }
 
     /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
@@ -678,9 +674,9 @@ impl<'a> LoadContext<'a> {
     /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
     /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
     ///
-    /// If you need to override asset settings, asset type, or load directly, please see [`LoadContext::loader`].
+    /// If you need to override asset settings, asset type, or load directly, please see [`LoadContext::load_builder`].
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
-        self.loader().load(path)
+        self.load_builder().load(path)
     }
 }
 

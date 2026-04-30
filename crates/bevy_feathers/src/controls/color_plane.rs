@@ -289,6 +289,30 @@ fn update_plane_color(
     }
 }
 
+fn emit_color_plane_value_change(
+    commands: &mut Commands,
+    source: Entity,
+    node: &ComputedNode,
+    node_target: &ComputedUiRenderTargetInfo,
+    transform: &UiGlobalTransform,
+    pointer_position: Vec2,
+    ui_scale: f32,
+    is_final: bool,
+) {
+    let Some(pos) = node.normalize_point(
+        *transform,
+        pointer_position * node_target.scale_factor() / ui_scale,
+    ) else {
+        return;
+    };
+
+    commands.trigger(ValueChange {
+        source,
+        value: (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE),
+        is_final,
+    });
+}
+
 fn on_pointer_press(
     mut press: On<Pointer<Press>>,
     q_color_planes: Query<Has<InteractionDisabled>, With<ColorPlane>>,
@@ -309,16 +333,16 @@ fn on_pointer_press(
     {
         press.propagate(false);
         if !disabled {
-            let local_pos = transform.try_inverse().unwrap().transform_point2(
-                press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                press.pointer_location.position,
+                ui_scale.0,
+                false,
             );
-            let pos = local_pos / node.size() + Vec2::splat(0.5);
-            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
-            commands.trigger(ValueChange {
-                source: parent.0,
-                value: new_value,
-                is_final: false,
-            });
         }
     }
 }
@@ -361,16 +385,16 @@ fn on_drag(
     {
         drag.propagate(false);
         if state.0 && !disabled {
-            let local_pos = transform.try_inverse().unwrap().transform_point2(
-                drag.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                drag.pointer_location.position,
+                ui_scale.0,
+                false,
             );
-            let pos = local_pos / node.size() + Vec2::splat(0.5);
-            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
-            commands.trigger(ValueChange {
-                source: parent.0,
-                value: new_value,
-                is_final: false,
-            });
         }
     }
 }
@@ -398,16 +422,16 @@ fn on_drag_end(
     {
         drag_end.propagate(false);
         if state.0 && !disabled {
-            let local_pos = transform.try_inverse().unwrap().transform_point2(
-                drag_end.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                drag_end.pointer_location.position,
+                ui_scale.0,
+                true,
             );
-            let pos = local_pos / node.size() + Vec2::splat(0.5);
-            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
-            commands.trigger(ValueChange {
-                source: parent.0,
-                value: new_value,
-                is_final: true,
-            });
         }
         state.0 = false;
     }
