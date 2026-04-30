@@ -1010,6 +1010,30 @@ mod tests {
             })
         );
         assert_eq!(window_scale_factor_changed_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 2);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowScaleFactorChanged(
+                WindowScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     #[test]
@@ -1042,6 +1066,21 @@ mod tests {
         let window_scale_factor_changed_messages =
             app.world().resource::<Messages<WindowScaleFactorChanged>>();
         assert!(window_scale_factor_changed_messages.is_empty());
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 1.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     fn setup_react_to_scale_factor_change_test_app(
@@ -1051,6 +1090,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<WindowBackendScaleFactorChanged>();
         app.add_message::<WindowScaleFactorChanged>();
+        app.add_message::<BevyWindowEvent>();
         app.add_systems(
             Update,
             move |mut window: Single<(Entity, &mut Window)>,
@@ -1059,13 +1099,20 @@ mod tests {
             >,
                   mut window_scale_factor_changed_writer: MessageWriter<
                 WindowScaleFactorChanged,
-            >| {
+            >,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
                 let (window_backend_scale_factor_changed, window_scale_factor_changed) =
                     react_to_scale_factor_change(window.0, &mut window.1, changed_scale_factor);
                 window_backend_scale_factor_changed_writer
-                    .write(window_backend_scale_factor_changed);
+                    .write(window_backend_scale_factor_changed.clone());
+                window_event.write(BevyWindowEvent::WindowBackendScaleFactorChanged(
+                    window_backend_scale_factor_changed,
+                ));
                 if let Some(window_scale_factor_changed) = window_scale_factor_changed {
-                    window_scale_factor_changed_writer.write(window_scale_factor_changed);
+                    window_scale_factor_changed_writer.write(window_scale_factor_changed.clone());
+                    window_event.write(BevyWindowEvent::WindowScaleFactorChanged(
+                        window_scale_factor_changed,
+                    ));
                 }
             },
         );
