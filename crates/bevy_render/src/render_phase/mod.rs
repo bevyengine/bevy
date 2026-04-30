@@ -195,7 +195,7 @@ impl RenderMultidrawableBin {
     /// Creates a new, empty [`RenderMultidrawableBin`].
     fn new() -> RenderMultidrawableBin {
         RenderMultidrawableBin {
-            entity_to_binned_mesh_instance_index: HashMap::default(),
+            entity_to_binned_mesh_instance_index: MainEntityHashMap::default(),
         }
     }
 

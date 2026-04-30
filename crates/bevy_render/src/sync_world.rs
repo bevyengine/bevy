@@ -4,7 +4,7 @@ use bevy_ecs::entity::hash_map::EntityEquivalentHashMap;
 use bevy_ecs::entity::hash_set::EntityEquivalentHashSet;
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    entity::{ContainsEntity, Entity, EntityEquivalent},
     lifecycle::{Add, Remove},
     observer::On,
     query::With,
