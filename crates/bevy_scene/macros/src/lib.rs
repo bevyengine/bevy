@@ -9,7 +9,17 @@ use proc_macro::TokenStream;
 /// BSN has quite a few features; don't feel like you need to master all of it before you begin.
 /// Start simple and check back on the documentation as you run into problems.
 ///
-/// Trying to decipher a strange glyph? Jump to the **Syntax Reference** section below.
+/// BSN's syntax largely follows Rust, but there are four special syntactic elements to watch out for:
+///
+/// - **Commas** separate entities, while **whitespace** separates components on the same entity.
+/// - A **number sign** like `#Name` is used to define entity names
+/// - **Curly braces** `{...}` denote an expression that should be evaluated as Rust code.
+/// - **Colons** indicate inheritance:`:my_scene` can be nested and inherits from another scene.
+///
+/// The other differences from Rust are designed to encourage terse, implicit code:
+/// automatic defaults and type conversion are the key examples to be aware of.
+///
+/// Trying to decipher a strange combination of glyphs? Jump to the **Syntax Reference** section below.
 ///
 /// ## Basic usage
 ///
