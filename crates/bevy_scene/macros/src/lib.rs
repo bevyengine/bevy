@@ -185,22 +185,25 @@ use proc_macro::TokenStream;
 ///
 /// ## Defaults and patching
 ///
-/// BSN has two distinct behaviors depending on how a component type is defined:
+/// BSN supports *patching*: writing `Health { current: 100 }` creates a patch that sets only
+/// `current`. Unmentioned fields keep their values from earlier patches or the type's defaults,
+/// and multiple patches to the same component merge rather than overwrite. This works for both
+/// `Clone + Default` and `FromTemplate` types.
 ///
-/// - **`Clone + Default` types** (e.g. `#[derive(Component, Default, Clone)]`): writing the
-///   component in BSN replaces the *entire* value. `Score` with no arguments inserts
-///   `Score::default()`; `Score(5)` inserts `Score(5)`. There is no per-field merging.
+/// The difference between the two is about what values a field can hold at spawn time:
 ///
-/// - **`FromTemplate` types** (e.g. `#[derive(Component, FromTemplate)]`): writing
-///   `Health { current: 100 }` creates a *patch* that sets only `current`. Unmentioned fields
-///   keep their values from earlier patches or the template's defaults. Multiple patches to the
-///   same component merge rather than overwrite, which is what enables granular overrides when
-///   composing scenes.
+/// - **`Clone + Default` types** (e.g. `#[derive(Component, Default, Clone)]`): the simple
+///   case. This just works in BSN with no extra derives. All field values must be plain Rust values — the
+///   template cannot fill them in correctly based on world or context state.
+///
+/// - **`FromTemplate` types** (e.g. `#[derive(Component, FromTemplate)]`): needed when a field
+///   requires spawn-time context. Use this when a field's type itself implements `FromTemplate`
+///   — for example, `Handle<T>` fields that resolve asset path strings, or `Entity` fields that
+///   reference named entities in the scene.
 ///
 /// Because each approach generates a different `Template` implementation, `Clone + Default` and
-/// `FromTemplate` cannot both be derived on the same type. Use `FromTemplate` when you need
-/// per-field patching; use `Clone + Default` for simple value types where whole-value
-/// replacement is fine.
+/// `FromTemplate` cannot both be derived on the same type. This would create incoherent trait implementations!
+///  Use `Clone + Default` by default, and switch to `FromTemplate` only when you need the extra flexibility it provides.
 ///
 /// ## Expressions and dynamic values
 ///
