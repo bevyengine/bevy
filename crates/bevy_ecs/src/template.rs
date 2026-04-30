@@ -1,15 +1,20 @@
 //! Functionality that relates to the [`Template`] trait.
 
-use alloc::{boxed::Box, sync::{Arc}};
+use alloc::{boxed::Box, sync::Arc};
+use bevy_ecs_macros::Component;
 use bevy_platform::sync::Mutex;
 
 pub use bevy_ecs_macros::FromTemplate;
 
-use crate::{
-
-    component::Mutable, entity::Entity, error::{BevyError, Result}, resource::Resource, system::{BoxedSystem, IntoSystem}, world::{EntityWorldMut, Mut, World}
-};
 use crate::system::SystemId;
+use crate::{
+    component::Mutable,
+    entity::Entity,
+    error::{BevyError, Result},
+    resource::Resource,
+    system::{BoxedSystem, IntoSystem},
+    world::{EntityWorldMut, Mut, World},
+};
 use alloc::{vec, vec::Vec};
 use variadics_please::all_tuples;
 
@@ -480,21 +485,98 @@ impl Default for SystemIdTemplate {
     }
 }
 
+#[derive(Resource, Default)]
+struct SceneSystemRegistry {
+    type_map: bevy_platform::collections::HashMap<core::any::TypeId, Entity>,
+    id_map: bevy_platform::collections::HashMap<SystemId<(), ()>, Entity>,
+}
+
+#[derive(Component)]
+struct SystemIdRecorder {
+    type_id: core::any::TypeId,
+    system_id: SystemId<(), ()>,
+}
+
+// #[derive(Component)]
+// #[relationship(relationship_target = SystemRefs<T>)]
+// struct RefToSystem<T: Component + Send + Sync>(#[relationship] Entity, core::marker::PhantomData<T>);
+
+// #[derive(Component)]
+// #[relationship_target(relationship = RefToSystem<T>)]
+// struct SystemRefs<T: Component + Send + Sync>(#[relationship] Vec<Entity>, core::marker::PhantomData<T>);
+
+#[derive(Component)]
+#[relationship(relationship_target = SystemRefs)]
+struct RefToSystem(#[relationship] Entity);
+
+#[derive(Component)]
+#[relationship_target(relationship = RefToSystem)]
+struct SystemRefs(#[relationship] Vec<Entity>);
+// TODO: unregister system when ref collection is empty.
+
+#[derive(Component)]
+#[relationship(relationship_target = LinkedWith)]
+struct LinkLifetimeWith(Entity);
+
+#[derive(Component)]
+#[relationship_target(relationship = LinkLifetimeWith)]
+// TODO: #[Component(on_remove = remove all linked entities on despawn)]
+struct LinkedWith(Vec<Entity>);
+
 impl Template for SystemIdTemplate {
     type Output = SystemId<(), ()>;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
+        let template_item_entity = _context.entity.id();
+
         let mut template_state = self.0.lock().unwrap();
         let template_value = template_state.take().unwrap();
 
         let system_id = match template_value {
-            SystemOrId::BoxedSystem(system) => {
-                _context.entity.world_scope(|world| world.register_boxed_system(system))
-            },
+            SystemOrId::BoxedSystem(system) => _context.entity.world_scope(|world| {
+                let registry = world.get_resource_or_init::<SceneSystemRegistry>();
+
+                let type_id = system.system_type();
+                if let Some(&entity) = registry.type_map.get(&type_id) {
+                    let recorder = world.entity(entity).get::<SystemIdRecorder>().unwrap();
+                    recorder.system_id
+                } else {
+                    let id = world.register_boxed_system(system);
+                    let entity = world
+                        .spawn(
+                            (SystemIdRecorder {
+                                system_id: id,
+                                type_id,
+                            }),
+                        )
+                        .id();
+
+                    let mut registry = world.resource_mut::<SceneSystemRegistry>();
+
+                    registry.type_map.insert(type_id, entity);
+                    registry.id_map.insert(id, entity);
+
+                    id
+                }
+            }),
             SystemOrId::SystemId(system_id) => system_id,
         };
 
         *template_state = Some(SystemOrId::SystemId(system_id));
+
+        let system_entity = *_context
+            .entity
+            .resource::<SceneSystemRegistry>()
+            .id_map
+            .get(&system_id)
+            .unwrap();
+
+        _context.entity.world_scope(|world| {
+            world.spawn((
+                RefToSystem(system_entity),
+                LinkLifetimeWith(template_item_entity),
+            ));
+        });
 
         Ok(system_id)
     }
@@ -509,7 +591,9 @@ impl FromTemplate for SystemId<(), ()> {
 }
 
 pub fn system_value<M>(system: impl IntoSystem<(), (), M>) -> SystemIdTemplate {
-    SystemIdTemplate(Arc::new(Mutex::new(Some(SystemOrId::BoxedSystem(Box::new(IntoSystem::into_system(system)))))))
+    SystemIdTemplate(Arc::new(Mutex::new(Some(SystemOrId::BoxedSystem(
+        Box::new(IntoSystem::into_system(system)),
+    )))))
 }
 
 pub fn system_id_value(system_id: SystemId<(), ()>) -> SystemIdTemplate {

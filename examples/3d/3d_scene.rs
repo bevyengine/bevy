@@ -55,6 +55,6 @@ fn callback_scene() -> impl SceneList {
         Callback(system_value(callback_system)),
     }
 }
-fn callback_system(){
+fn callback_system() {
     println!("Hello from the system!");
 }
