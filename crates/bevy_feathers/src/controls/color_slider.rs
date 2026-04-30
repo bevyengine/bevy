@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
-use bevy_scene::{prelude::*, template_value};
+use bevy_scene::prelude::*;
 use bevy_ui::{
     AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
     FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
@@ -152,8 +152,8 @@ pub struct SliderBaseColor(pub Color);
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersColorSliderProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersColorSliderProps)]
 pub struct FeathersColorSlider;
 
 /// Props used to construct a [`FeathersColorSlider`] scene.

@@ -43,8 +43,8 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, FromTemplate)]
-#[component(scene_props = FeathersCheckboxProps)]
+#[derive(SceneComponent, FromTemplate)]
+#[scene(FeathersCheckboxProps)]
 pub struct FeathersCheckbox;
 
 /// Props used to construct a [`FeathersCheckbox`] scene.

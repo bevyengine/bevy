@@ -3,7 +3,6 @@ use bevy_camera::visibility::Visibility;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
@@ -43,8 +42,7 @@ use bevy_input_focus::{
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(Component, Clone, Default)]
-#[component(scene)]
+#[derive(SceneComponent, Clone, Default)]
 pub struct FeathersMenu;
 
 impl FeathersMenu {
@@ -134,8 +132,8 @@ fn on_menu_event(
 /// A menu button widget. This produces a button that has a dropdown arrow.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuButtonProps`].
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersMenuButtonProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersMenuButtonProps)]
 pub struct FeathersMenuButton;
 
 /// Props used to construct a [`FeathersMenuButton`] scene.
@@ -188,8 +186,7 @@ impl FeathersMenuButton {
 }
 
 /// A menu popup widget.
-#[derive(Component, Default, Clone)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone)]
 pub struct FeathersMenuPopup;
 
 impl FeathersMenuPopup {
@@ -243,8 +240,8 @@ impl FeathersMenuPopup {
 /// A menu item widget.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuItemProps`].
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersMenuItemProps )]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersMenuItemProps)]
 pub struct FeathersMenuItem;
 
 /// Props used to construct a [`FeathersMenuItem`] scene.
@@ -432,8 +429,7 @@ fn set_menuitem_colors(
 }
 
 /// A decorative divider between menu items
-#[derive(Component, Default, Clone)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone)]
 pub struct FeathersMenuDivider;
 
 impl FeathersMenuDivider {

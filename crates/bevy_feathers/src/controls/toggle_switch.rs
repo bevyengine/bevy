@@ -39,8 +39,7 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-#[derive(Component, Default, Clone, Reflect)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersToggleSwitch;
 

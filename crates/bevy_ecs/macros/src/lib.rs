@@ -4,21 +4,17 @@
 
 extern crate proc_macro;
 
-mod component;
 mod event;
 mod message;
 mod query_data;
 mod query_filter;
-#[cfg(feature = "scene")]
-mod scene;
+mod resource;
 mod template;
 mod variant_defaults;
 mod world_query;
 
-use crate::{
-    component::map_entities, query_data::derive_query_data_impl,
-    query_filter::derive_query_filter_impl,
-};
+use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use bevy_ecs_macro_logic::{component::DeriveComponent, map_entities::map_entities};
 use bevy_macro_utils::{
     derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
 };
@@ -563,7 +559,8 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 /// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
-    component::derive_resource(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(resource::derive_resource(&mut ast))
 }
 
 /// Cheat sheet for derive syntax,
@@ -804,7 +801,13 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
-    component::derive_component(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let derive_component = match DeriveComponent::parse(&ast) {
+        Ok(value) => value,
+        Err(e) => return e.into_compile_error().into(),
+    };
+    let bevy_ecs = bevy_ecs_path();
+    TokenStream::from(derive_component.impl_component(&mut ast, &bevy_ecs))
 }
 
 /// Implement the `FromWorld` trait.

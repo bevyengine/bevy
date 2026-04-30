@@ -508,7 +508,7 @@
 pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
-        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneList,
+        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
         ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
@@ -520,6 +520,7 @@ extern crate alloc;
 
 mod resolved_scene;
 mod scene;
+mod scene_component;
 mod scene_list;
 mod scene_patch;
 mod spawn;
@@ -528,6 +529,7 @@ mod spawn_system;
 pub use bevy_scene_macros::*;
 pub use resolved_scene::*;
 pub use scene::*;
+pub use scene_component::*;
 pub use scene_list::*;
 pub use scene_patch::*;
 pub use spawn::*;
@@ -572,6 +574,7 @@ mod tests {
     use bevy_ecs::relationship::Relationship;
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
+    use bevy_scene_macros::SceneComponent;
     use std::path::Path;
     use std::sync::Mutex;
 
@@ -656,8 +659,8 @@ mod tests {
             }
         }
 
-        #[derive(Component, Default, Clone)]
-        #[component(scene = "a.bsn")]
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene("a.bsn")]
         struct AWidget {
             value: usize,
         }
@@ -1432,8 +1435,7 @@ mod tests {
 
     #[test]
     fn component_scene() {
-        #[derive(Component, Default, Clone)]
-        #[component(scene)]
+        #[derive(SceneComponent, Default, Clone)]
         struct Widget;
 
         impl Widget {
@@ -1448,8 +1450,8 @@ mod tests {
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
         assert!(entity.contains::<Widget>());
 
-        #[derive(Component, Default, Clone)]
-        #[component(scene = Widget::scene)]
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(Widget::scene)]
         struct OtherWidget;
         let entity = world.spawn_scene(bsn! {:OtherWidget}).unwrap();
         assert_eq!(entity.get::<Name>().unwrap().as_str(), "widget");
@@ -1462,8 +1464,8 @@ mod tests {
 
     #[test]
     fn component_scene_props() {
-        #[derive(Component, Default, Clone)]
-        #[component(scene_props = WidgetProps)]
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(WidgetProps)]
         struct Widget {
             value: usize,
         }
@@ -1501,8 +1503,8 @@ mod tests {
         assert_eq!(entity.get::<Widget>().unwrap().value, 10);
         assert_eq!(entity.get::<Children>().unwrap().len(), 2);
 
-        #[derive(Component, Default, Clone)]
-        #[component(scene = Widget::scene, scene_props = WidgetProps)]
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(Widget::scene(WidgetProps))]
         struct OtherWidget {
             value: usize,
         }
@@ -1519,8 +1521,7 @@ mod tests {
 
     #[test]
     fn scene_without_explicit_component_still_spawns_component() {
-        #[derive(Component, Default, Clone)]
-        #[component(scene)]
+        #[derive(SceneComponent, Default, Clone)]
         struct Widget;
 
         impl Widget {

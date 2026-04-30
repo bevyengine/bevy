@@ -20,8 +20,8 @@ use crate::controls::FeathersButton;
 /// * [`crate::controls::VirtualKeyPressed<T>`] when a virtual key on the keyboard is un-pressed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, FromTemplate)]
-#[component(scene_props = VirtualKeyboardProps<T>)]
+#[derive(SceneComponent, FromTemplate)]
+#[scene(VirtualKeyboardProps<T>)]
 pub struct VirtualKeyboard<T: AsRef<str> + Clone + Send + Sync + 'static>(PhantomData<fn() -> T>);
 
 /// Props used to construct the [`VirtualKeyboard`] scene.

@@ -24,8 +24,7 @@ use crate::{
 /// A color swatch widget.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(Component, Default, Clone, Reflect)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersColorSwatch;
 

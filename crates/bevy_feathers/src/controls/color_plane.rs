@@ -43,8 +43,9 @@ use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
 /// implementing a color picker for cylindrical color spaces such as HSL.
-#[derive(Component, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone)]
-#[component(scene)]
+#[derive(
+    SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
+)]
 #[reflect(Component)]
 #[require(ColorPlaneDragState)]
 pub enum FeathersColorPlane {

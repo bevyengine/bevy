@@ -42,8 +42,8 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersRadioProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersRadioProps)]
 pub struct FeathersRadio;
 
 /// Props used to construct a [`FeathersRadio`] scene.

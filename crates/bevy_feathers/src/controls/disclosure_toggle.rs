@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
-    component::Component,
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
@@ -10,7 +9,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::PickingSystems;
-use bevy_scene::{bsn, Scene};
+use bevy_scene::{bsn, Scene, SceneComponent};
 use bevy_ui::{
     px, widget::ImageNode, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
     UiTransform,
@@ -28,8 +27,7 @@ use crate::{
 /// state.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(Component, Default, Clone)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone)]
 pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {

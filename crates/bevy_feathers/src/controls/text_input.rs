@@ -2,7 +2,6 @@ use bevy_app::{Plugin, PreUpdate, PropagateOver};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
@@ -33,8 +32,7 @@ use crate::{
 /// (such as "search" or "clear") to be inserted adjacent to the input.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(Component, Default, Clone)]
-#[component(scene)]
+#[derive(SceneComponent, Default, Clone)]
 pub struct FeathersTextInputContainer;
 
 impl FeathersTextInputContainer {
@@ -78,8 +76,8 @@ impl FeathersTextInputContainer {
 ///     :FeathersTextInput
 /// ]
 /// ```
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersTextInputProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersTextInputProps)]
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.

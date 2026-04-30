@@ -259,10 +259,10 @@ impl BsnEntry {
                     let type_path = &bsn_type.path;
                     let from_template_patch = from_template_patch(ctx, bsn_type, true)?;
                     quote! {{
-                        let mut #props = <<#type_path as #bevy_scene::SceneConstructor>::Props as Default>::default();
+                        let mut #props = <<#type_path as #bevy_scene::SceneComponent>::Props as Default>::default();
                         let #props_ref = &mut #props;
                         #(#assignments)*
-                        (<#type_path as #bevy_scene::SceneConstructor>::scene(#props), #from_template_patch)
+                        (<#type_path as #bevy_scene::SceneComponent>::scene(#props), #from_template_patch)
                     }}
                 }
                 BsnInheritedScene::Expression(tokens) => quote! {

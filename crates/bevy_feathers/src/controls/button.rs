@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{prelude::*, template_value};
+use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 use bevy_ui_widgets::Button;
@@ -54,8 +54,8 @@ pub enum ButtonVariant {
 ///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersButtonProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersButtonProps)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -119,8 +119,8 @@ impl FeathersButton {
 ///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersButtonProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersButtonProps)]
 pub struct ToolButton;
 
 impl ToolButton {

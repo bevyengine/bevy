@@ -25,9 +25,6 @@ serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
 
-## Enables support for deriving `bevy_scene` scenes for Components
-derive_scene = ["bevy_ecs_macros/scene"]
-
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 reflect_auto_register = ["bevy_reflect", "bevy_reflect/auto_register"]

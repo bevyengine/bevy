@@ -47,8 +47,8 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[derive(Component, Default, Clone, Reflect)]
-#[component(scene_props = FeathersSliderProps)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[scene(FeathersSliderProps)]
 #[require(Slider)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersSlider;

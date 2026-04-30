@@ -48,8 +48,8 @@ use crate::{
 ///   because of some other action, trigger an [`UpdateNumberInput`] entity event to update the
 ///   displayed value.
 // TODO: Add text_input field validation when it becomes available.
-#[derive(Component, Default, Clone)]
-#[component(scene_props = FeathersNumberInputProps)]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersNumberInputProps)]
 pub struct FeathersNumberInput;
 
 /// Props used to construct a [`FeathersNumberInput`] scene.
