@@ -20,9 +20,13 @@ use indexmap::set::{self, IndexSet};
 
 use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
 pub struct EntityEquivalentIndexSet<K: TrustedEntityBorrow + Hash>(
@@ -592,6 +596,10 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Iter<'a, K> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash> DoubleEndedIterator for Iter<'_, K> {
@@ -663,6 +671,10 @@ impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -738,6 +750,10 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

@@ -1,17 +1,19 @@
 //! Types and functions relating to bindless resources.
 
 use alloc::borrow::Cow;
-use core::num::{NonZeroU32, NonZeroU64};
+use core::{
+    num::{NonZeroU32, NonZeroU64},
+    ops::Range,
+};
 
 use bevy_derive::{Deref, DerefMut};
 use wgpu::{
     BindGroupLayoutEntry, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
 };
 
-use crate::render_resource::binding_types::storage_buffer_read_only_sized;
-
-use super::binding_types::{
-    sampler, texture_1d, texture_2d, texture_2d_array, texture_3d, texture_cube, texture_cube_array,
+use bevy_material::bind_group_layout_entries::binding_types::{
+    sampler, storage_buffer_read_only_sized, texture_1d, texture_2d, texture_2d_array, texture_3d,
+    texture_cube, texture_cube_array,
 };
 
 /// The default value for the number of resources that can be stored in a slab
@@ -102,6 +104,11 @@ pub struct BindlessDescriptor {
     ///
     /// The order of this array is irrelevant.
     pub buffers: Cow<'static, [BindlessBufferDescriptor]>,
+    /// The [`BindlessIndexTableDescriptor`]s describing each bindless index
+    /// table.
+    ///
+    /// This list must be sorted by the first bindless index.
+    pub index_tables: Cow<'static, [BindlessIndexTableDescriptor]>,
 }
 
 /// The type of potentially-bindless resource.
@@ -165,7 +172,7 @@ pub enum BindlessResourceType {
 /// `#[uniform(BINDLESS_INDEX, StandardMaterialUniform,
 /// bindless(BINDING_NUMBER)]`, the bindless index is `BINDLESS_INDEX`, and the
 /// binding number is `BINDING_NUMBER`. Note the order.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct BindlessBufferDescriptor {
     /// The actual binding number of the buffer.
     ///
@@ -185,6 +192,19 @@ pub struct BindlessBufferDescriptor {
     pub size: Option<usize>,
 }
 
+/// Describes the layout of the bindless index table, which maps bindless
+/// indices to indices within the binding arrays.
+#[derive(Clone)]
+pub struct BindlessIndexTableDescriptor {
+    /// The range of bindless indices that this descriptor covers.
+    pub indices: Range<BindlessIndex>,
+    /// The binding at which the index table itself will be bound.
+    ///
+    /// By default, this is binding 0, but it can be changed with the
+    /// `#[bindless(index_table(binding(B)))]` attribute.
+    pub binding_number: BindingNumber,
+}
+
 /// The index of the actual binding in the bind group.
 ///
 /// This is the value specified in WGSL as `@binding`.
@@ -194,63 +214,89 @@ pub struct BindingNumber(pub u32);
 /// The index in the bindless index table.
 ///
 /// This table is conventionally bound to binding number 0.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deref, DerefMut)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Debug, Deref, DerefMut)]
 pub struct BindlessIndex(pub u32);
 
 /// Creates the bind group layout entries common to all shaders that use
 /// bindless bind groups.
 ///
-/// `bindless_resource_count` specifies the total number of bindless resources.
-/// `bindless_slab_resource_limit` specifies the resolved
-/// [`BindlessSlabResourceLimit`] value.
+/// `used_resource_types` limits which binding arrays are created,
+/// reducing argument buffer slot usage on constrained platforms.
 pub fn create_bindless_bind_group_layout_entries(
-    bindless_resource_count: u32,
+    bindless_index_table_length: u32,
     bindless_slab_resource_limit: u32,
+    bindless_index_table_binding_number: BindingNumber,
+    used_resource_types: &[BindlessResourceType],
 ) -> Vec<BindGroupLayoutEntry> {
     let bindless_slab_resource_limit =
         NonZeroU32::new(bindless_slab_resource_limit).expect("Bindless slot count must be nonzero");
 
-    // The maximum size of a binding array is the
-    // `bindless_slab_resource_limit`, which would occur if all of the bindless
-    // resources were of the same type. So we create our binding arrays with
-    // that size.
+    let stages = ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE;
 
-    vec![
-        // Start with the bindless index table, bound to binding number 0.
+    // Start the bindless index table; remaining entries are added
+    // below based on which resource types the material actually uses.
+
+    let mut entries = vec![
+        // Start with the bindless index table.
         storage_buffer_read_only_sized(
             false,
-            NonZeroU64::new(bindless_resource_count as u64 * size_of::<u32>() as u64),
+            NonZeroU64::new(bindless_index_table_length as u64 * size_of::<u32>() as u64),
         )
-        .build(0, ShaderStages::all()),
-        // Continue with the common bindless buffers.
-        sampler(SamplerBindingType::Filtering)
-            .count(bindless_slab_resource_limit)
-            .build(1, ShaderStages::all()),
-        sampler(SamplerBindingType::NonFiltering)
-            .count(bindless_slab_resource_limit)
-            .build(2, ShaderStages::all()),
-        sampler(SamplerBindingType::Comparison)
-            .count(bindless_slab_resource_limit)
-            .build(3, ShaderStages::all()),
-        texture_1d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(4, ShaderStages::all()),
-        texture_2d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(5, ShaderStages::all()),
-        texture_2d_array(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(6, ShaderStages::all()),
-        texture_3d(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(7, ShaderStages::all()),
-        texture_cube(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(8, ShaderStages::all()),
-        texture_cube_array(TextureSampleType::Float { filterable: true })
-            .count(bindless_slab_resource_limit)
-            .build(9, ShaderStages::all()),
-    ]
+        .build(*bindless_index_table_binding_number, stages),
+    ];
+
+    // Create binding arrays only for types that this material uses.
+    // This is important for platforms like Metal where each binding array uses a buffer slot
+    // (limited to 31 per the Metal Feature Set Tables:
+    // https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)
+    for &(resource_type, ref binding_number) in BINDING_NUMBERS.iter() {
+        if !used_resource_types.contains(&resource_type) {
+            continue;
+        }
+        let Some(binding_type) = (match resource_type {
+            BindlessResourceType::SamplerFiltering => Some(sampler(SamplerBindingType::Filtering)),
+            BindlessResourceType::SamplerNonFiltering => {
+                Some(sampler(SamplerBindingType::NonFiltering))
+            }
+            BindlessResourceType::SamplerComparison => {
+                Some(sampler(SamplerBindingType::Comparison))
+            }
+            BindlessResourceType::Texture1d => {
+                Some(texture_1d(TextureSampleType::Float { filterable: true }))
+            }
+            BindlessResourceType::Texture2d => {
+                Some(texture_2d(TextureSampleType::Float { filterable: true }))
+            }
+            BindlessResourceType::Texture2dArray => {
+                Some(texture_2d_array(TextureSampleType::Float {
+                    filterable: true,
+                }))
+            }
+            BindlessResourceType::Texture3d => {
+                Some(texture_3d(TextureSampleType::Float { filterable: true }))
+            }
+            BindlessResourceType::TextureCube => {
+                Some(texture_cube(TextureSampleType::Float { filterable: true }))
+            }
+            BindlessResourceType::TextureCubeArray => {
+                Some(texture_cube_array(TextureSampleType::Float {
+                    filterable: true,
+                }))
+            }
+            BindlessResourceType::None
+            | BindlessResourceType::Buffer
+            | BindlessResourceType::DataBuffer => None,
+        }) else {
+            continue;
+        };
+        entries.push(
+            binding_type
+                .count(bindless_slab_resource_limit)
+                .build(**binding_number, stages),
+        );
+    }
+
+    entries
 }
 
 impl BindlessSlabResourceLimit {

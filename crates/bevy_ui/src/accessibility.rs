@@ -1,22 +1,24 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
+    ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
-    ComputedNode,
+    ComputedNode, UiSystems,
 };
-use bevy_a11y::AccessibilityNode;
+use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity},
-    query::{Changed, Without},
+    change_detection::DetectChanges,
+    hierarchy::ChildOf,
+    prelude::Entity,
+    query::{Changed, With, Without},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_transform::prelude::GlobalTransform;
+use bevy_math::Affine2;
 
-use accesskit::{Node, Rect, Role};
+use accesskit::{Affine, Node, Rect, Role};
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -26,7 +28,7 @@ fn calc_label(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _, _)| text.into())
             .collect::<Vec<String>>();
         if !values.is_empty() {
             name = Some(values.join(" "));
@@ -35,29 +37,43 @@ fn calc_label(
     name.map(String::into_boxed_str)
 }
 
-fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
-    mut nodes: Query<(
+fn sync_bounds_and_transforms(
+    mut accessible_nodes_query: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        Ref<UiGlobalTransform>,
+        Option<&ChildOf>,
     )>,
+    accessible_transform_query: Query<Ref<UiGlobalTransform>, With<AccessibilityNode>>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.single() {
-        for (mut accessible, node, transform) in &mut nodes {
-            if node.is_changed() || transform.is_changed() {
-                if let Ok(translation) =
-                    camera.world_to_viewport(camera_transform, transform.translation())
-                {
-                    let bounds = Rect::new(
-                        translation.x.into(),
-                        translation.y.into(),
-                        (translation.x + node.size.x).into(),
-                        (translation.y + node.size.y).into(),
-                    );
-                    accessible.set_bounds(bounds);
-                }
-            }
+    for (mut accessible, node, ui_transform, maybe_child_of) in &mut accessible_nodes_query {
+        let maybe_parent_transform = maybe_child_of
+            .and_then(|child_of| accessible_transform_query.get(child_of.parent()).ok());
+
+        if !(node.is_changed()
+            || ui_transform.is_changed()
+            || maybe_parent_transform.is_some_and(|transform| transform.is_changed()))
+        {
+            continue;
+        }
+
+        accessible.set_bounds(Rect::new(
+            -0.5 * node.size.x as f64,
+            -0.5 * node.size.y as f64,
+            0.5 * node.size.x as f64,
+            0.5 * node.size.y as f64,
+        ));
+
+        // If the node has an accessible parent, its transform in the accessibility tree must be relative to the parent.
+        let transform = maybe_parent_transform
+            .and_then(|transform| transform.try_inverse())
+            .unwrap_or_default()
+            * ui_transform.affine();
+
+        if transform.is_finite() && transform != Affine2::IDENTITY {
+            accessible.set_transform(Affine::new(transform.to_cols_array().map(f64::from)));
+        } else {
+            accessible.clear_transform();
         }
     }
 }
@@ -127,7 +143,7 @@ fn label_changed(
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _, _, _)| text.into())
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
@@ -157,15 +173,16 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
-                    // the listed systems do not affect calculated size
-                    .ambiguous_with(crate::ui_stack_system),
                 button_changed,
                 image_changed,
                 label_changed,
-            ),
+                sync_bounds_and_transforms
+                    .after(button_changed)
+                    .after(image_changed)
+                    .after(label_changed),
+            )
+                .in_set(UiSystems::PostLayout)
+                .before(AccessibilitySystems::Update),
         );
     }
 }

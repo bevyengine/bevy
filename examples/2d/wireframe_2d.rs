@@ -11,27 +11,26 @@
 use bevy::{
     color::palettes::basic::{GREEN, RED, WHITE},
     prelude::*,
-    render::{
-        render_resource::WgpuFeatures,
-        settings::{RenderCreation, WgpuSettings},
-        RenderPlugin,
+    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
+    sprite_render::{
+        NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin,
     },
-    sprite::{NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin},
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: WgpuSettings {
                     // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
-                }),
+                }
+                .into(),
                 ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
-            Wireframe2dPlugin,
+            Wireframe2dPlugin::default(),
         ))
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(Wireframe2dConfig {
@@ -91,8 +90,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

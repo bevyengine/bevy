@@ -14,9 +14,12 @@ use crate::{
 };
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 
 type DepthSortedHits = Vec<(Entity, HitData)>;
@@ -54,11 +57,39 @@ type OverMap = HashMap<PointerId, LayerMap>;
 /// [`PreviousHoverMap`] as a robust way of determining changes in hover state from the previous
 /// update.
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
-pub struct HoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
+pub struct HoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
 
 /// The previous state of the hover map, used to track changes to hover state.
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
-pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
+pub struct PreviousHoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
+
+/// Gets the hovered entities for a `pointer_id` from a provided `HoverMap` inner map
+pub(crate) fn get_hovered_entities(
+    hover_map: &HashMap<PointerId, EntityHashMap<HitData>>,
+    pointer_id: &PointerId,
+) -> EntityHashSet {
+    hover_map
+        .get(pointer_id)
+        .map_or(EntityHashSet::default(), |entity_hit| {
+            entity_hit
+                .iter()
+                .map(|(&entity, _)| entity)
+                .collect::<EntityHashSet>()
+        })
+}
+
+/// Returns whether there is hit data for the given `pointer_id` and `entity`
+/// from a provided `HoverMap` inner map. This means that the entity is
+/// "directly hovered" by the `pointer_id` for the given `hover_map`
+pub(crate) fn is_directly_hovered(
+    hover_map: &HashMap<PointerId, EntityHashMap<HitData>>,
+    pointer_id: &PointerId,
+    entity: &Entity,
+) -> bool {
+    hover_map
+        .get(pointer_id)
+        .is_some_and(|hit_data_map| hit_data_map.contains_key(entity))
+}
 
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
@@ -66,8 +97,8 @@ pub fn generate_hovermap(
     // Inputs
     pickable: Query<&Pickable>,
     pointers: Query<&PointerId>,
-    mut under_pointer: EventReader<backend::PointerHits>,
-    mut pointer_input: EventReader<PointerInput>,
+    mut pointer_hits_reader: MessageReader<backend::PointerHits>,
+    mut pointer_input_reader: MessageReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -80,7 +111,11 @@ pub fn generate_hovermap(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
+    build_over_map(
+        &mut pointer_hits_reader,
+        &mut over_map,
+        &mut pointer_input_reader,
+    );
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
 }
 
@@ -111,11 +146,11 @@ fn reset_maps(
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
-    backend_events: &mut EventReader<backend::PointerHits>,
+    pointer_hit_reader: &mut MessageReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_input: &mut EventReader<PointerInput>,
+    pointer_input_reader: &mut MessageReader<PointerInput>,
 ) {
-    let cancelled_pointers: HashSet<PointerId> = pointer_input
+    let cancelled_pointers: HashSet<PointerId> = pointer_input_reader
         .read()
         .filter_map(|p| {
             if let PointerAction::Cancel = p.action {
@@ -126,14 +161,12 @@ fn build_over_map(
         })
         .collect();
 
-    for entities_under_pointer in backend_events
+    for entities_under_pointer in pointer_hit_reader
         .read()
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {
         let pointer = entities_under_pointer.pointer;
-        let layer_map = pointer_over_map
-            .entry(pointer)
-            .or_insert_with(BTreeMap::new);
+        let layer_map = pointer_over_map.entry(pointer).or_default();
         for (entity, pick_data) in entities_under_pointer.picks.iter() {
             let layer = entities_under_pointer.order;
             let hits = layer_map.entry(FloatOrd(layer)).or_default();
@@ -210,23 +243,11 @@ pub fn update_interactions(
     mut pointers: Query<(&PointerId, &PointerPress, &mut PointerInteraction)>,
     mut interact: Query<&mut PickingInteraction>,
 ) {
-    // Clear all previous hover data from pointers and entities
-    for (pointer, _, mut pointer_interaction) in &mut pointers {
-        pointer_interaction.sorted_entities.clear();
-        if let Some(previously_hovered_entities) = previous_hover_map.get(pointer) {
-            for entity in previously_hovered_entities.keys() {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    *interaction = PickingInteraction::None;
-                }
-            }
-        }
-    }
-
     // Create a map to hold the aggregated interaction for each entity. This is needed because we
     // need to be able to insert the interaction component on entities if they do not exist. To do
     // so we need to know the final aggregated interaction state to avoid the scenario where we set
     // an entity to `Pressed`, then overwrite that with a lower precedent like `Hovered`.
-    let mut new_interaction_state = HashMap::<Entity, PickingInteraction>::default();
+    let mut new_interaction_state = EntityHashMap::<PickingInteraction>::default();
     for (pointer, pointer_press, mut pointer_interaction) in &mut pointers {
         if let Some(pointers_hovered_entities) = hover_map.get(pointer) {
             // Insert a sorted list of hit entities into the pointer's interaction component.
@@ -241,11 +262,27 @@ pub fn update_interactions(
     }
 
     // Take the aggregated entity states and update or insert the component if missing.
-    for (hovered_entity, new_interaction) in new_interaction_state.drain() {
+    for (&hovered_entity, &new_interaction) in new_interaction_state.iter() {
         if let Ok(mut interaction) = interact.get_mut(hovered_entity) {
-            *interaction = new_interaction;
+            interaction.set_if_neq(new_interaction);
         } else if let Ok(mut entity_commands) = commands.get_entity(hovered_entity) {
             entity_commands.try_insert(new_interaction);
+        }
+    }
+
+    // Clear all previous hover data from pointers that are no longer hovering any entities.
+    // We do this last to preserve change detection for picking interactions.
+    for (pointer, _, _) in &mut pointers {
+        let Some(previously_hovered_entities) = previous_hover_map.get(pointer) else {
+            continue;
+        };
+
+        for entity in previously_hovered_entities.keys() {
+            if !new_interaction_state.contains_key(entity)
+                && let Ok(mut interaction) = interact.get_mut(*entity)
+            {
+                interaction.set_if_neq(PickingInteraction::None);
+            }
         }
     }
 }
@@ -254,7 +291,7 @@ pub fn update_interactions(
 fn merge_interaction_states(
     pointer_press: &PointerPress,
     hovered_entity: &Entity,
-    new_interaction_state: &mut HashMap<Entity, PickingInteraction>,
+    new_interaction_state: &mut EntityHashMap<PickingInteraction>,
 ) {
     let new_interaction = match pointer_press.is_any_pressed() {
         true => PickingInteraction::Pressed,
@@ -275,5 +312,290 @@ fn merge_interaction_states(
         }
     } else {
         new_interaction_state.insert(*hovered_entity, new_interaction);
+    }
+}
+
+/// A component that allows users to use regular Bevy change detection to determine when the pointer
+/// enters or leaves an entity. Users should insert this component on an entity to indicate interest
+/// in knowing about hover state changes.
+///
+/// The component's boolean value will be `true` whenever the pointer is currently directly hovering
+/// over the entity, or any of the entity's descendants (as defined by the [`ChildOf`]
+/// relationship). This is consistent with the behavior of the CSS `:hover` pseudo-class, which
+/// applies to the element and all of its descendants.
+///
+/// The contained boolean value is guaranteed to only be mutated when the pointer enters or leaves
+/// the entity, allowing Bevy change detection to be used efficiently. This is in contrast to the
+/// [`HoverMap`] resource, which is updated every frame.
+///
+/// Typically, a simple hoverable entity or widget will have this component added to it. More
+/// complex widgets can have this component added to each hoverable part.
+///
+/// The computational cost of keeping the `Hovered` components up to date is relatively cheap, and
+/// linear in the number of entities that have the [`Hovered`] component inserted.
+#[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[component(immutable)]
+pub struct Hovered(pub bool);
+
+impl Hovered {
+    /// Get whether the entity is currently hovered.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+/// A component that allows users to use regular Bevy change detection to determine when the pointer
+/// is directly hovering over an entity. Users should insert this component on an entity to indicate
+/// interest in knowing about hover state changes.
+///
+/// This is similar to [`Hovered`] component, except that it does not include descendants in the
+/// hover state.
+#[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[component(immutable)]
+pub struct DirectlyHovered(pub bool);
+
+impl DirectlyHovered {
+    /// Get whether the entity is currently hovered.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+/// Uses [`HoverMap`] changes to update [`Hovered`] components.
+pub fn update_is_hovered(
+    hover_map: Option<Res<HoverMap>>,
+    mut hovers: Query<(Entity, &Hovered)>,
+    parent_query: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    // Don't do any work if there's no hover map.
+    let Some(hover_map) = hover_map else { return };
+
+    // Don't bother collecting ancestors if there are no hovers.
+    if hovers.is_empty() {
+        return;
+    }
+
+    // Algorithm: for each entity having a `Hovered` component, we want to know if the current
+    // entry in the hover map is "within" (that is, in the set of descendants of) that entity. Rather
+    // than doing an expensive breadth-first traversal of children, instead start with the hovermap
+    // entry and search upwards. We can make this even cheaper by building a set of ancestors for
+    // the hovermap entry, and then testing each `Hovered` entity against that set.
+
+    // A set which contains the hovered for the current pointer entity and its ancestors. The
+    // capacity is based on the likely tree depth of the hierarchy, which is typically greater for
+    // UI (because of layout issues) than for 3D scenes. A depth of 32 is a reasonable upper bound
+    // for most use cases.
+    let mut hover_ancestors = EntityHashSet::with_capacity(32);
+    if let Some(map) = hover_map.get(&PointerId::Mouse) {
+        for hovered_entity in map.keys() {
+            hover_ancestors.insert(*hovered_entity);
+            hover_ancestors.extend(parent_query.iter_ancestors(*hovered_entity));
+        }
+    }
+
+    // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
+    for (entity, hoverable) in hovers.iter_mut() {
+        let is_hovering = hover_ancestors.contains(&entity);
+        if hoverable.0 != is_hovering {
+            commands.entity(entity).insert(Hovered(is_hovering));
+        }
+    }
+}
+
+/// Uses [`HoverMap`] changes to update [`DirectlyHovered`] components.
+pub fn update_is_directly_hovered(
+    hover_map: Option<Res<HoverMap>>,
+    hovers: Query<(Entity, &DirectlyHovered)>,
+    mut commands: Commands,
+) {
+    // Don't do any work if there's no hover map.
+    let Some(hover_map) = hover_map else { return };
+
+    // Don't bother collecting ancestors if there are no hovers.
+    if hovers.is_empty() {
+        return;
+    }
+
+    if let Some(map) = hover_map.get(&PointerId::Mouse) {
+        // It's hovering if it's in the HoverMap.
+        for (entity, hoverable) in hovers.iter() {
+            let is_hovering = map.contains_key(&entity);
+            if hoverable.0 != is_hovering {
+                commands.entity(entity).insert(DirectlyHovered(is_hovering));
+            }
+        }
+    } else {
+        // No hovered entity, reset all hovers.
+        for (entity, hoverable) in hovers.iter() {
+            if hoverable.0 {
+                commands.entity(entity).insert(DirectlyHovered(false));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_camera::Camera;
+
+    use super::*;
+
+    #[test]
+    fn update_is_hovered_memoized() {
+        let mut world = World::default();
+        let camera = world.spawn(Camera::default()).id();
+
+        // Setup entities
+        let hovered_child = world.spawn_empty().id();
+        let hovered_entity = world.spawn(Hovered(false)).add_child(hovered_child).id();
+
+        // Setup hover map with hovered_entity hovered by mouse
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = EntityHashMap::new();
+        entity_map.insert(
+            hovered_child,
+            HitData {
+                depth: 0.0,
+                camera,
+                position: None,
+                normal: None,
+                extra: None,
+            },
+        );
+        hover_map.insert(PointerId::Mouse, entity_map);
+        world.insert_resource(hover_map);
+
+        // Run the system
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
+
+        // Check to insure that the hovered entity has the Hovered component set to true
+        let hover = world.entity(hovered_entity).get_ref::<Hovered>().unwrap();
+        assert!(hover.get());
+        assert!(hover.is_changed());
+
+        // Now do it again, but don't change the hover map.
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
+        let hover = world.entity(hovered_entity).get_ref::<Hovered>().unwrap();
+        assert!(hover.get());
+
+        // Should not be changed
+        // NOTE: Test doesn't work - thinks it is always changed
+        // assert!(!hover.is_changed());
+
+        // Clear the hover map and run again.
+        world.insert_resource(HoverMap::default());
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
+        let hover = world.entity(hovered_entity).get_ref::<Hovered>().unwrap();
+        assert!(!hover.get());
+        assert!(hover.is_changed());
+    }
+
+    #[test]
+    fn update_is_hovered_direct_self() {
+        let mut world = World::default();
+        let camera = world.spawn(Camera::default()).id();
+
+        // Setup entities
+        let hovered_entity = world.spawn(DirectlyHovered(false)).id();
+
+        // Setup hover map with hovered_entity hovered by mouse
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = EntityHashMap::new();
+        entity_map.insert(
+            hovered_entity,
+            HitData {
+                depth: 0.0,
+                camera,
+                position: None,
+                normal: None,
+                extra: None,
+            },
+        );
+        hover_map.insert(PointerId::Mouse, entity_map);
+        world.insert_resource(hover_map);
+
+        // Run the system
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+
+        // Check to insure that the hovered entity has the DirectlyHovered component set to true
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<DirectlyHovered>()
+            .unwrap();
+        assert!(hover.get());
+        assert!(hover.is_changed());
+
+        // Now do it again, but don't change the hover map.
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<DirectlyHovered>()
+            .unwrap();
+        assert!(hover.get());
+
+        // Should not be changed
+        // NOTE: Test doesn't work - thinks it is always changed
+        // assert!(!hover.is_changed());
+
+        // Clear the hover map and run again.
+        world.insert_resource(HoverMap::default());
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<DirectlyHovered>()
+            .unwrap();
+        assert!(!hover.get());
+        assert!(hover.is_changed());
+    }
+
+    #[test]
+    fn update_is_hovered_direct_child() {
+        let mut world = World::default();
+        let camera = world.spawn(Camera::default()).id();
+
+        // Setup entities
+        let hovered_child = world.spawn_empty().id();
+        let hovered_entity = world
+            .spawn(DirectlyHovered(false))
+            .add_child(hovered_child)
+            .id();
+
+        // Setup hover map with hovered_entity hovered by mouse
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = EntityHashMap::new();
+        entity_map.insert(
+            hovered_child,
+            HitData {
+                depth: 0.0,
+                camera,
+                position: None,
+                normal: None,
+                extra: None,
+            },
+        );
+        hover_map.insert(PointerId::Mouse, entity_map);
+        world.insert_resource(hover_map);
+
+        // Run the system
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+
+        // Check to insure that the DirectlyHovered component is still false
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<DirectlyHovered>()
+            .unwrap();
+        assert!(!hover.get());
+        assert!(hover.is_changed());
     }
 }

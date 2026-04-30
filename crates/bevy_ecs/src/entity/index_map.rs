@@ -17,11 +17,12 @@ use core::{
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+pub use indexmap::map::Entry;
 use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
+use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
 
 /// A [`IndexMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -185,9 +186,9 @@ impl<K: TrustedEntityBorrow + Hash, V> FromIterator<(K, V)> for EntityEquivalent
     }
 }
 
-// `TrustedEntityBorrow` does not guarantee maintained equality on conversions from one implementer to another,
+// `EntityEquivalent` does not guarantee maintained equality on conversions from one implementor to another,
 // so we restrict this impl to only keys of type `Entity`.
-impl<V, Q: TrustedEntityBorrow + ?Sized> Index<&Q> for EntityIndexMap<V> {
+impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityIndexMap<V> {
     type Output = V;
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
@@ -263,7 +264,7 @@ impl<K: TrustedEntityBorrow + Hash, V> Index<usize> for EntityEquivalentIndexMap
     }
 }
 
-impl<V, Q: TrustedEntityBorrow + ?Sized> IndexMut<&Q> for EntityEquivalentIndexMap<Entity, V> {
+impl<V, Q: EntityEquivalent + ?Sized> IndexMut<&Q> for EntityEquivalentIndexMap<Entity, V> {
     fn index_mut(&mut self, key: &Q) -> &mut V {
         self.0.index_mut(&key.entity())
     }
@@ -617,7 +618,7 @@ impl<K: TrustedEntityBorrow + Hash, V> Slice<K, V> {
         IntoKeys(self.into_boxed_inner().into_keys(), PhantomData)
     }
 
-    /// Return an iterator over mutable references to the the values of the map slice.
+    /// Return an iterator over mutable references to the values of the map slice.
     ///
     /// Equivalent to [`map::Slice::values_mut`].
     pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
@@ -893,6 +894,10 @@ impl<'a, K: TrustedEntityBorrow + Hash, V> Iterator for Iter<'a, K, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash, V> DoubleEndedIterator for Iter<'_, K, V> {
@@ -969,6 +974,10 @@ impl<'a, K: TrustedEntityBorrow + Hash, V> Iterator for IterMut<'a, K, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash, V> DoubleEndedIterator for IterMut<'_, K, V> {
@@ -1042,6 +1051,10 @@ impl<K: TrustedEntityBorrow + Hash, V> Iterator for IntoIter<K, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash, V> DoubleEndedIterator for IntoIter<K, V> {
@@ -1113,6 +1126,10 @@ impl<K: TrustedEntityBorrow + Hash, V> Iterator for Drain<'_, K, V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash, V> DoubleEndedIterator for Drain<'_, K, V> {
@@ -1163,6 +1180,10 @@ impl<'a, K: TrustedEntityBorrow + Hash, V> Iterator for Keys<'a, K, V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -1234,6 +1255,10 @@ impl<K: TrustedEntityBorrow + Hash, V> Iterator for IntoKeys<K, V> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

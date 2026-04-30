@@ -1,11 +1,20 @@
 //! Methods to access information from [`gltf`] types
 
+/// helpers for dealing with glTF material-related
+/// extensions like anisotropy, specular, and clearcoat
 pub mod material;
+/// helpers for dealing with glTF meshes, such as determining
+/// the proper Bevy `PrimitiveTopology` from a glTF mode
 pub mod mesh;
+/// helpers for dealing with glTF scenes, like collecting a
+/// tree of names from the scene hierarchy or checking for
+/// cycles.
 pub mod scene;
+/// helpers for dealing with glTF textures, like extracting
+/// the correct sampler settings
 pub mod texture;
 
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 use fixedbitset::FixedBitSet;
 use gltf::{Document, Gltf};
@@ -14,9 +23,12 @@ use super::GltfError;
 
 use self::{material::extension_texture_index, scene::check_is_part_of_cycle};
 
-#[expect(
-    clippy::result_large_err,
-    reason = "need to be signature compatible with `load_gltf`"
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "need to be signature compatible with `load_gltf`"
+    )
 )]
 /// Checks all glTF nodes for cycles, starting at the scene root.
 pub(crate) fn check_for_cycles(gltf: &Gltf) -> Result<(), GltfError> {

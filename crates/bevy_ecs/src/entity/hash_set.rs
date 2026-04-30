@@ -13,7 +13,7 @@ use core::{
     },
 };
 
-use bevy_platform_support::collections::hash_set::{self, HashSet};
+use bevy_platform::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
@@ -263,6 +263,10 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Iter<'a, K> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Iter<'_, K> {}
@@ -321,6 +325,10 @@ impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for IntoIter<K> {}
@@ -376,6 +384,10 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Drain<'_, K> {}
@@ -424,6 +436,10 @@ impl<'a, K: TrustedEntityBorrow + Hash, F: FnMut(&K) -> bool> Iterator for Extra
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 

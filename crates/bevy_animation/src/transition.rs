@@ -81,16 +81,15 @@ impl AnimationTransitions {
         new_animation: AnimationNodeIndex,
         transition_duration: Duration,
     ) -> &'p mut ActiveAnimation {
-        if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
-            if let Some(old_animation) = player.animation_mut(old_animation_index) {
-                if !old_animation.is_paused() {
-                    self.transitions.push(AnimationTransition {
-                        current_weight: old_animation.weight,
-                        weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                        animation: old_animation_index,
-                    });
-                }
-            }
+        if let Some(old_animation_index) = self.main_animation.replace(new_animation)
+            && let Some(old_animation) = player.animation_mut(old_animation_index)
+            && !old_animation.is_paused()
+        {
+            self.transitions.push(AnimationTransition {
+                current_weight: old_animation.weight,
+                weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+                animation: old_animation_index,
+            });
         }
 
         // If already transitioning away from this animation, cancel the transition.
@@ -118,8 +117,9 @@ pub fn advance_transitions(
     // is divided between all the other layers, eventually culminating in the
     // currently-playing animation receiving whatever's left. This results in a
     // nicely normalized weight.
-    let mut remaining_weight = 1.0;
     for (mut animation_transitions, mut player) in query.iter_mut() {
+        let mut remaining_weight = 1.0;
+
         for transition in &mut animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
@@ -134,10 +134,10 @@ pub fn advance_transitions(
             remaining_weight -= animation.weight;
         }
 
-        if let Some(main_animation_index) = animation_transitions.main_animation {
-            if let Some(ref mut animation) = player.animation_mut(main_animation_index) {
-                animation.weight = remaining_weight;
-            }
+        if let Some(main_animation_index) = animation_transitions.main_animation
+            && let Some(ref mut animation) = player.animation_mut(main_animation_index)
+        {
+            animation.weight = remaining_weight;
         }
     }
 }

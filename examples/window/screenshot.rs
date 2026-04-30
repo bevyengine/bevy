@@ -3,8 +3,7 @@
 use bevy::{
     prelude::*,
     render::view::screenshot::{save_to_disk, Capturing, Screenshot},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 
 fn main() {
@@ -67,7 +66,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -82,8 +81,8 @@ fn setup(
         Text::new("Press <spacebar> to save a screenshot to disk"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

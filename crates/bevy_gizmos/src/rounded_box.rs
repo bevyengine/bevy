@@ -185,7 +185,7 @@ where
             let transform = Transform::from_translation(config.isometry.translation.into())
                 .with_rotation(config.isometry.rotation)
                 .with_scale(self.size);
-            self.gizmos.cuboid(transform, config.color);
+            self.gizmos.cube(transform, config.color);
             return;
         }
 
@@ -232,8 +232,6 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Draw a wireframe rectangle with rounded corners in 3D.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
@@ -286,8 +284,6 @@ where
     }
 
     /// Draw a wireframe rectangle with rounded corners in 2D.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
@@ -343,8 +339,6 @@ where
     }
 
     /// Draw a wireframe cuboid with rounded corners in 3D.
-    ///
-    /// This should be called for each frame the cuboid needs to be rendered.
     ///
     /// # Arguments
     ///
