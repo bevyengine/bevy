@@ -209,6 +209,26 @@ impl<T: Asset> FromTemplate for Handle<T> {
 }
 
 /// A [`Template`] that produces a [`Handle`].
+///
+/// # How asset paths are resolved in templates
+///
+/// Because [`Handle<T>`] implements [`FromTemplate`], it is replaced by its template type,
+/// [`HandleTemplate<T>`] in the generated code.
+/// We can see that [`HandleTemplate<T>`] has the following trait impl block:
+///
+/// ```rust, ignore
+/// impl<I: Into<AssetPath<'static>>, T: Asset> From<I> for HandleTemplate<T> {
+///     fn from(value: I) -> Self {
+///         Self::Path(value.into())
+///     }
+/// }
+/// ```
+///
+/// Because [`AssetPath<'static>`] implements [`From<&'static str>`], this means that any string literal assigned to a `Handle<T>` field
+/// is automatically converted into a `HandleTemplate<T>::Path` with the given asset path string using the `.into()` machinery generated
+/// by Rust's blanket impl that converts [`From`] trait implementations into their [`Into`] equivalents.
+/// Finally, the `HandleTemplate<T>::Path` generated gets converted to a `Handle<T>` at spawn time,
+/// creating a component that points to the correct asset.
 #[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].

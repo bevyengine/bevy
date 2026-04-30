@@ -236,6 +236,36 @@ use proc_macro::TokenStream;
 /// **Note:** `.bsn` asset files will not support arbitrary Rust expressions,
 /// as we do not intend to require Bevy games to ship a Rust compiler.
 ///
+/// ## Automatic type conversion
+///
+/// BSN performs some automatic type conversion for you,
+/// reducing boilerplate when creating scenes.
+///
+/// The `bsn!` macro appends `.into()` to expressions (`{...}`), bare identifiers, closures, and string
+/// literals when they appear as field values. This means any field assignment that would be
+/// valid via Rust's standard [`From`]/[`Into`] traits works transparently in BSN — no explicit
+/// cast needed:
+///
+/// ```rust, ignore
+/// #[derive(Component, Default, Clone)]
+/// struct Label(String);
+///
+/// let greeting: &'static str = "Hello";
+/// bsn! {
+///     // &str → String via Into, no .to_string() required
+///     Label({greeting})
+/// }
+/// ```
+///
+/// A related, more advanced trick is what makes string literals work as asset paths for `Handle<T>` fields.
+/// See the docs on `HandleTemplate` for more information!
+///
+/// Note: non-string literals are used as-is. Only string literals get `.into()` appended;
+/// all other literals (integers, floats, booleans) are emitted directly,
+/// so `Health { current: 100 }` assigns `100` without any conversion.
+/// If the types don't match (e.g. you forgot to append a decimal point to a float),
+/// you'll get a normal Rust type error.
+///
 /// ## Asset loading
 ///
 /// When a component field is a `Handle<T>`, BSN accepts a string literal in its place.
@@ -387,13 +417,12 @@ use proc_macro::TokenStream;
 /// | `ChildOf(entity)` | Set parent | Makes **this** entity a child of `entity`; accepts a plain `Entity` or a `#Name` reference |
 /// | `MyRel [s1, s2]` | Custom relationship | Like `Children`, but uses any `RelationshipTarget` component |
 ///
-/// ### Dynamic values and assets
+/// ### Dynamic values
 ///
 /// | Syntax | Meaning | Explanation |
 /// |--------|---------|-------------|
 /// | `{ expr }` | Rust expression | Evaluated at spawn time; may be a component, `impl Scene`, or (inside `[…]`) `impl SceneList` |
 /// | `field: { expr }` | Expression in field | Embeds a Rust expression as the value of a named field |
-/// | `"path.png"` | Asset path | In a `Handle<T>` field position, resolves to an asset handle via the asset server |
 ///
 /// ### Composition and inheritance
 ///
