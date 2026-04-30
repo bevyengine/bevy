@@ -3,7 +3,7 @@ use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     component::Component,
     error::Result,
-    event::EntityEvent,
+    event::{EntityEvent, EventMatcher},
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
@@ -499,8 +499,11 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
 /// [`Observer`]: bevy_ecs::observer::Observer
 pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
-impl<I: IntoObserverSystem<E, M> + Clone, E: EntityEvent, M: 'static> Template
-    for OnTemplate<I, E, M>
+impl<I, E, M> Template for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventMatcher<Event: EntityEvent>,
+    M: 'static,
 {
     type Output = ();
 
@@ -514,8 +517,11 @@ impl<I: IntoObserverSystem<E, M> + Clone, E: EntityEvent, M: 'static> Template
     }
 }
 
-impl<I: IntoObserverSystem<E, M> + Clone + Send + Sync, E: EntityEvent, M: 'static> Scene
-    for OnTemplate<I, E, M>
+impl<I, E, M> Scene for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone + Send + Sync,
+    E: EventMatcher<Event: EntityEvent>,
+    M: 'static,
 {
     fn resolve(
         self,
@@ -530,8 +536,11 @@ impl<I: IntoObserverSystem<E, M> + Clone + Send + Sync, E: EntityEvent, M: 'stat
 /// Returns an [`OnTemplate`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity.
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub fn on<I: IntoObserverSystem<E, M>, E: EntityEvent, M: 'static>(
-    observer: I,
-) -> OnTemplate<I, E, M> {
+pub fn on<I, E, M>(observer: I) -> OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M>,
+    E: EventMatcher<Event: EntityEvent>,
+    M: 'static,
+{
     OnTemplate(observer, PhantomData)
 }
