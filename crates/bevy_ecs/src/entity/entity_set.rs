@@ -68,7 +68,6 @@ pub trait ContainsEntity {
 pub unsafe trait EntityEquivalent: ContainsEntity + Eq {}
 
 impl ContainsEntity for Entity {
-    #[inline]
     fn entity(&self) -> Entity {
         *self
     }
@@ -79,7 +78,6 @@ impl ContainsEntity for Entity {
 unsafe impl EntityEquivalent for Entity {}
 
 impl<T: ContainsEntity> ContainsEntity for &T {
-    #[inline]
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -92,7 +90,6 @@ impl<T: ContainsEntity> ContainsEntity for &T {
 unsafe impl<T: EntityEquivalent> EntityEquivalent for &T {}
 
 impl<T: ContainsEntity> ContainsEntity for &mut T {
-    #[inline]
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -105,7 +102,6 @@ impl<T: ContainsEntity> ContainsEntity for &mut T {
 unsafe impl<T: EntityEquivalent> EntityEquivalent for &mut T {}
 
 impl<T: ContainsEntity> ContainsEntity for Box<T> {
-    #[inline]
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -118,7 +114,6 @@ impl<T: ContainsEntity> ContainsEntity for Box<T> {
 unsafe impl<T: EntityEquivalent> EntityEquivalent for Box<T> {}
 
 impl<T: ContainsEntity> ContainsEntity for Rc<T> {
-    #[inline]
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -131,7 +126,6 @@ impl<T: ContainsEntity> ContainsEntity for Rc<T> {
 unsafe impl<T: EntityEquivalent> EntityEquivalent for Rc<T> {}
 
 impl<T: ContainsEntity> ContainsEntity for Arc<T> {
-    #[inline]
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -413,13 +407,11 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     }
 
     /// Returns the inner `I`.
-    #[inline]
     pub fn into_inner(self) -> I {
         self.iter
     }
 
     /// Returns a reference to the inner `I`.
-    #[inline]
     pub const fn as_inner(&self) -> &I {
         &self.iter
     }
@@ -430,7 +422,6 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     ///
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
-    #[inline]
     pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
@@ -439,12 +430,10 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
 impl<I: Iterator<Item: EntityEquivalent>> Iterator for UniqueEntityIter<I> {
     type Item = I::Item;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -465,7 +454,6 @@ impl<I: FusedIterator<Item: EntityEquivalent>> FusedIterator for UniqueEntityIte
 unsafe impl<I: Iterator<Item: EntityEquivalent>> EntitySetIterator for UniqueEntityIter<I> {}
 
 impl<T, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>> AsRef<[T]> for UniqueEntityIter<I> {
-    #[inline]
     fn as_ref(&self) -> &[T] {
         self.iter.as_ref()
     }
@@ -474,7 +462,6 @@ impl<T, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>> AsRef<[T]> for UniqueE
 impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>>
     AsRef<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    #[inline]
     fn as_ref(&self) -> &UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.iter.as_ref()) }
@@ -484,7 +471,6 @@ impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>>
 impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsMut<[T]>>
     AsMut<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    #[inline]
     fn as_mut(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.iter.as_mut()) }
@@ -493,7 +479,6 @@ impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsMut<[T]>>
 
 // Default does not guarantee uniqueness, meaning `I` needs to be EntitySetIterator.
 impl<I: EntitySetIterator + Default> Default for UniqueEntityIter<I> {
-    #[inline]
     fn default() -> Self {
         Self {
             iter: Default::default(),
@@ -503,7 +488,6 @@ impl<I: EntitySetIterator + Default> Default for UniqueEntityIter<I> {
 
 // Clone does not guarantee to maintain uniqueness, meaning `I` needs to be EntitySetIterator.
 impl<I: EntitySetIterator + Clone> Clone for UniqueEntityIter<I> {
-    #[inline]
     fn clone(&self) -> Self {
         Self {
             iter: self.iter.clone(),

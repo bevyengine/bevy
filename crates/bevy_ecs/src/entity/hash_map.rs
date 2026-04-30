@@ -27,7 +27,6 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
     ///
     /// [`HashMap::with_hasher(EntityHash)`]: HashMap::with_hasher
-    #[inline]
     pub const fn new() -> Self {
         Self(HashMap::with_hasher(EntityHash))
     }
@@ -37,19 +36,16 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
     /// [`HashMap::with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
-    #[inline]
     pub fn with_capacity(n: usize) -> Self {
         Self(HashMap::with_capacity_and_hasher(n, EntityHash))
     }
 
     /// Constructs an `EntityHashMap` from an [`HashMap`].
-    #[inline]
     pub const fn from_index_map(set: HashMap<Entity, V, EntityHash>) -> Self {
         Self(set)
     }
 
     /// Returns the inner [`HashMap`].
-    #[inline]
     pub fn into_inner(self) -> HashMap<Entity, V, EntityHash> {
         self.0
     }
@@ -58,7 +54,6 @@ impl<V> EntityHashMap<V> {
     /// The iterator element type is `&'a Entity`.
     ///
     /// Equivalent to [`HashMap::keys`].
-    #[inline]
     pub fn keys(&self) -> Keys<'_, V> {
         Keys(self.0.keys(), PhantomData)
     }
@@ -68,14 +63,12 @@ impl<V> EntityHashMap<V> {
     /// The iterator element type is [`Entity`].
     ///
     /// Equivalent to [`HashMap::into_keys`].
-    #[inline]
     pub fn into_keys(self) -> IntoKeys<V> {
         IntoKeys(self.0.into_keys(), PhantomData)
     }
 }
 
 impl<V> Default for EntityHashMap<V> {
-    #[inline]
     fn default() -> Self {
         Self(Default::default())
     }
@@ -84,56 +77,48 @@ impl<V> Default for EntityHashMap<V> {
 impl<V> Deref for EntityHashMap<V> {
     type Target = HashMap<Entity, V, EntityHash>;
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl<V> DerefMut for EntityHashMap<V> {
-    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
 impl<'a, V: Copy> Extend<&'a (Entity, V)> for EntityHashMap<V> {
-    #[inline]
     fn extend<T: IntoIterator<Item = &'a (Entity, V)>>(&mut self, iter: T) {
         self.0.extend(iter);
     }
 }
 
 impl<'a, V: Copy> Extend<(&'a Entity, &'a V)> for EntityHashMap<V> {
-    #[inline]
     fn extend<T: IntoIterator<Item = (&'a Entity, &'a V)>>(&mut self, iter: T) {
         self.0.extend(iter);
     }
 }
 
 impl<V> Extend<(Entity, V)> for EntityHashMap<V> {
-    #[inline]
     fn extend<T: IntoIterator<Item = (Entity, V)>>(&mut self, iter: T) {
         self.0.extend(iter);
     }
 }
 
 impl<V, const N: usize> From<[(Entity, V); N]> for EntityHashMap<V> {
-    #[inline]
     fn from(value: [(Entity, V); N]) -> Self {
         Self(HashMap::from_iter(value))
     }
 }
 
 impl<V> FromIterator<(Entity, V)> for EntityHashMap<V> {
-    #[inline]
     fn from_iter<I: IntoIterator<Item = (Entity, V)>>(iterable: I) -> Self {
         Self(HashMap::from_iter(iterable))
     }
 }
 
 impl<V> From<HashMap<Entity, V, EntityHash>> for EntityHashMap<V> {
-    #[inline]
     fn from(value: HashMap<Entity, V, EntityHash>) -> Self {
         Self(value)
     }
@@ -141,7 +126,7 @@ impl<V> From<HashMap<Entity, V, EntityHash>> for EntityHashMap<V> {
 
 impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityHashMap<V> {
     type Output = V;
-    #[inline]
+
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
     }
@@ -151,7 +136,6 @@ impl<'a, V> IntoIterator for &'a EntityHashMap<V> {
     type Item = (&'a Entity, &'a V);
     type IntoIter = hash_map::Iter<'a, Entity, V>;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
@@ -161,7 +145,6 @@ impl<'a, V> IntoIterator for &'a mut EntityHashMap<V> {
     type Item = (&'a Entity, &'a mut V);
     type IntoIter = hash_map::IterMut<'a, Entity, V>;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter_mut()
     }
@@ -171,7 +154,6 @@ impl<V> IntoIterator for EntityHashMap<V> {
     type Item = (Entity, V);
     type IntoIter = hash_map::IntoIter<Entity, V>;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -192,7 +174,6 @@ impl<'a, V> Keys<'a, V> {
     ///
     /// `keys` must either be empty, or have been obtained from a
     /// [`hash_map::HashMap`] using the `S` hasher.
-    #[inline]
     pub const unsafe fn from_keys_unchecked<S>(
         keys: hash_map::Keys<'a, Entity, V>,
     ) -> Keys<'a, V, S> {
@@ -200,7 +181,6 @@ impl<'a, V> Keys<'a, V> {
     }
 
     /// Returns the inner [`Keys`](hash_map::Keys).
-    #[inline]
     pub const fn into_inner(self) -> hash_map::Keys<'a, Entity, V> {
         self.0
     }
@@ -209,7 +189,6 @@ impl<'a, V> Keys<'a, V> {
 impl<'a, V> Deref for Keys<'a, V> {
     type Target = hash_map::Keys<'a, Entity, V>;
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -218,7 +197,6 @@ impl<'a, V> Deref for Keys<'a, V> {
 impl<'a, V> Iterator for Keys<'a, V> {
     type Item = &'a Entity;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
@@ -233,7 +211,6 @@ impl<V> ExactSizeIterator for Keys<'_, V> {}
 impl<V> FusedIterator for Keys<'_, V> {}
 
 impl<V> Clone for Keys<'_, V> {
-    #[inline]
     fn clone(&self) -> Self {
         // SAFETY: We are cloning an already valid `Keys`.
         unsafe { Self::from_keys_unchecked(self.0.clone()) }
@@ -247,7 +224,6 @@ impl<V: Debug> Debug for Keys<'_, V> {
 }
 
 impl<V> Default for Keys<'_, V> {
-    #[inline]
     fn default() -> Self {
         // SAFETY: `Keys` is empty.
         unsafe { Self::from_keys_unchecked(Default::default()) }
@@ -274,7 +250,6 @@ impl<V> IntoKeys<V> {
     ///
     /// `into_keys` must either be empty, or have been obtained from a
     /// [`hash_map::HashMap`] using the `S` hasher.
-    #[inline]
     pub const unsafe fn from_into_keys_unchecked<S>(
         into_keys: hash_map::IntoKeys<Entity, V>,
     ) -> IntoKeys<V, S> {
@@ -282,7 +257,6 @@ impl<V> IntoKeys<V> {
     }
 
     /// Returns the inner [`IntoKeys`](hash_map::IntoKeys).
-    #[inline]
     pub fn into_inner(self) -> hash_map::IntoKeys<Entity, V> {
         self.0
     }
@@ -291,7 +265,6 @@ impl<V> IntoKeys<V> {
 impl<V> Deref for IntoKeys<V> {
     type Target = hash_map::IntoKeys<Entity, V>;
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -300,7 +273,6 @@ impl<V> Deref for IntoKeys<V> {
 impl<V> Iterator for IntoKeys<V> {
     type Item = Entity;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
@@ -324,7 +296,6 @@ impl<V: Debug> Debug for IntoKeys<V> {
 }
 
 impl<V> Default for IntoKeys<V> {
-    #[inline]
     fn default() -> Self {
         // SAFETY: `IntoKeys` is empty.
         unsafe { Self::from_into_keys_unchecked(Default::default()) }
