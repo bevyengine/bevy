@@ -1018,7 +1018,14 @@ pub fn prepare_lights(
             &mut PointAndSpotLightViewEntities,
             AnyOf<(&CubemapFrusta, &Frustum)>,
         )>,
-        Query<(), Changed<ExtractedPointLight>>,
+        Query<
+            (),
+            Or<(
+                Changed<ExtractedPointLight>,
+                Changed<CubemapFrusta>,
+                Changed<Frustum>,
+            )>,
+        >,
         Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
         Query<(Entity, &MainEntity, &ExtractedRectLight)>,
         Query<&mut DirectionalLightViewEntities>,
@@ -1563,25 +1570,32 @@ pub fn prepare_lights(
                 1.0,
                 light.shadow_map_near_z,
             );
-            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
+            for (face_index, (view_rotation, frustum)) in cube_face_rotations
+                .iter()
+                .zip(&point_light_frusta.unwrap().frusta)
+                .enumerate()
+            {
                 let view_light_entity = point_and_spot_light_view_entities.0[face_index];
                 let retained_view_entity =
                     RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
-                commands.entity(view_light_entity).insert(ExtractedView {
-                    retained_view_entity,
-                    viewport: UVec4::new(
-                        0,
-                        0,
-                        point_light_shadow_map.size as u32,
-                        point_light_shadow_map.size as u32,
-                    ),
-                    world_from_view: view_translation * *view_rotation,
-                    clip_from_world: None,
-                    clip_from_view: cube_face_projection,
-                    target_format: CORE_3D_DEPTH_FORMAT,
-                    color_grading: Default::default(),
-                    invert_culling: false,
-                });
+                commands.entity(view_light_entity).insert((
+                    ExtractedView {
+                        retained_view_entity,
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: view_translation * *view_rotation,
+                        clip_from_world: None,
+                        clip_from_view: cube_face_projection,
+                        target_format: CORE_3D_DEPTH_FORMAT,
+                        color_grading: Default::default(),
+                        invert_culling: false,
+                    },
+                    *frustum,
+                ));
             }
         }
 
@@ -1704,21 +1718,24 @@ pub fn prepare_lights(
 
             // There should be only one `view_light_entity` for spotlights.
             let view_light_entity = point_and_spot_light_view_entities.0[0];
-            commands.entity(view_light_entity).insert(ExtractedView {
-                retained_view_entity,
-                viewport: UVec4::new(
-                    0,
-                    0,
-                    directional_light_shadow_map.size as u32,
-                    directional_light_shadow_map.size as u32,
-                ),
-                world_from_view: spot_world_from_view,
-                clip_from_view: spot_projection,
-                clip_from_world: None,
-                target_format: CORE_3D_DEPTH_FORMAT,
-                color_grading: Default::default(),
-                invert_culling: false,
-            });
+            commands.entity(view_light_entity).insert((
+                ExtractedView {
+                    retained_view_entity,
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        directional_light_shadow_map.size as u32,
+                        directional_light_shadow_map.size as u32,
+                    ),
+                    world_from_view: spot_world_from_view,
+                    clip_from_view: spot_projection,
+                    clip_from_world: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
+                    color_grading: Default::default(),
+                    invert_culling: false,
+                },
+                *spot_light_frustum.unwrap(),
+            ));
         }
 
         shadow_render_phases.prepare_for_new_frame(
