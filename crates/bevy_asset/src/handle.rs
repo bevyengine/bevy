@@ -130,7 +130,7 @@ impl core::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Debug, Hash, PartialEq, Clone, Handle)]
+#[reflect(Debug, Hash, PartialEq, Clone, Handle, from_reflect = false)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -138,6 +138,87 @@ pub enum Handle<A: Asset> {
     /// A reference to an [`Asset`] using a stable-across-runs / const identifier. Dropping this
     /// handle will not result in the asset being dropped.
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
+}
+
+// Reference generated implementation:
+// impl<A: Asset> bevy_reflect::FromReflect for Handle<A>
+// where
+//     Handle<A>: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+//     A: bevy_reflect::TypePath,
+// {
+//     fn from_reflect(__param0: &dyn bevy_reflect::PartialReflect) -> ::core::option::Option<Self> {
+//         if let bevy_reflect::ReflectRef::Enum(__param0) =
+//             bevy_reflect::PartialReflect::reflect_ref(__param0)
+//         {
+//             match bevy_reflect::enums::Enum::variant_name(__param0) {
+//                 "Strong" => ::core::option::Option::Some(Handle::Strong {
+//                     0: {
+//                         let __0 = __param0.field_at(0usize);
+//                         let __0 = __0?;
+//                         <Arc<StrongHandle> as bevy_reflect::FromReflect>::from_reflect(__0)?
+//                     },
+//                 }),
+//                 "Uuid" => ::core::option::Option::Some(Handle::Uuid {
+//                     0: {
+//                         let __0 = __param0.field_at(0usize);
+//                         let __0 = __0?;
+//                         <Uuid as bevy_reflect::FromReflect>::from_reflect(__0)?
+//                     },
+//                     1: ::core::default::Default::default(),
+//                 }),
+//                 name => panic!(
+//                     "variant with name `{}` does not exist on enum `{}`",
+//                     name,
+//                     <Self as bevy_reflect::TypePath>::type_path()
+//                 ),
+//             }
+//         } else {
+//             ::core::option::Option::None
+//         }
+//     }
+// }
+
+impl<A: Asset> bevy_reflect::FromReflect for Handle<A>
+where
+    Handle<A>: Send + Sync,
+    A: TypePath,
+{
+    fn from_reflect(
+        reflect_value: &dyn bevy_reflect::PartialReflect,
+    ) -> ::core::option::Option<Self> {
+        if let bevy_reflect::ReflectRef::Enum(enum_value) =
+            bevy_reflect::PartialReflect::reflect_ref(reflect_value)
+        {
+            match bevy_reflect::enums::Enum::variant_name(enum_value) {
+                "Strong" => {
+                    let strong_field = enum_value.field_at(0usize)?;
+                    let strong_handle =
+                        <Arc<StrongHandle> as bevy_reflect::FromReflect>::from_reflect(
+                            strong_field,
+                        )?;
+
+                    if strong_handle.type_id != TypeId::of::<A>() {
+                        return None;
+                    }
+
+                    Some(Handle::Strong(strong_handle))
+                }
+                "Uuid" => {
+                    let uuid_field = enum_value.field_at(0usize)?;
+                    let uuid = <Uuid as bevy_reflect::FromReflect>::from_reflect(uuid_field)?;
+
+                    Some(Handle::Uuid(uuid, Default::default()))
+                }
+                variant_name => panic!(
+                    "variant with name `{}` does not exist on enum `{}`",
+                    variant_name,
+                    Self::type_path()
+                ),
+            }
+        } else {
+            ::core::option::Option::None
+        }
+    }
 }
 
 impl<T: Asset> Clone for Handle<T> {
@@ -681,7 +762,7 @@ mod tests {
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
-    use crate::tests::create_app;
+    use crate::{tests::create_app, VisitAssetDependencies};
 
     use super::*;
 
@@ -840,5 +921,52 @@ mod tests {
             }
             _ => panic!("Expected a strong handle"),
         }
+    }
+
+    #[test]
+    fn handle_from_reflect_verifies_type_id() {
+        use crate::{AssetApp, Assets};
+        use bevy_reflect::FromReflect;
+
+        #[derive(Reflect)]
+        struct A;
+        #[derive(Reflect)]
+        struct B;
+        impl Asset for A {}
+        impl Asset for B {}
+        impl VisitAssetDependencies for A {
+            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+        }
+        impl VisitAssetDependencies for B {
+            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+        }
+
+        let mut app = create_app().0;
+        app.init_asset::<A>().init_asset::<B>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_a = assets.add(A);
+
+        let dynamic_handle_a = handle_a.to_dynamic();
+        let reflected_handle_a = handle_a.as_partial_reflect();
+
+        let handle_b_from_reflect_dynamic: Option<Handle<B>> =
+            FromReflect::from_reflect(&*dynamic_handle_a);
+        let handle_b_from_reflect: Option<Handle<B>> =
+            FromReflect::from_reflect(reflected_handle_a);
+        let handle_a_from_reflect: Option<Handle<A>> =
+            FromReflect::from_reflect(reflected_handle_a);
+        assert!(
+            handle_b_from_reflect.is_none(),
+            "Handle<B> should not be constructible from reflected Handle<A>"
+        );
+        assert!(
+            handle_b_from_reflect_dynamic.is_none(),
+            "Handle<B> should not be constructible from dynamic Handle<A>"
+        );
+        assert!(
+            handle_a_from_reflect.is_some(),
+            "Handle<A> should be constructible from reflected Handle<A>"
+        );
     }
 }
