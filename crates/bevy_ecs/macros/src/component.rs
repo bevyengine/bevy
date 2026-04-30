@@ -799,11 +799,8 @@ fn hook_register_function_call(
         [single] => single.clone(),
         multiple => {
             quote! {
-                {
-                    fn hook(world: #bevy_ecs_path::world::DeferredWorld, context: #bevy_ecs_path::lifecycle::HookContext) {
-                        quote! {#(#multiple(world.reborrow(), context.clone());)*}
-                    }
-                    hook
+                |mut world: #bevy_ecs_path::world::DeferredWorld, context: #bevy_ecs_path::lifecycle::HookContext| {
+                    #(#multiple(world.reborrow(), context.clone());)*
                 }
             }
         }

@@ -460,6 +460,7 @@ impl Scene for NameEntityReference {
 
 /// A [`Scene`] that will create a new "entity scope" and fully resolve the given scene `S` on top of the current [`ResolvedScene`] (using that scope).
 /// It is not "inherited" or cached.
+#[must_use]
 pub struct SceneScope<S: Scene>(pub S);
 
 impl<S: Scene> Scene for SceneScope<S> {
@@ -478,6 +479,7 @@ impl<S: Scene> Scene for SceneScope<S> {
 
 /// A [`SceneList`] that will create a new "entity scope" and fully resolve the given scene list `L` on top of the current [`Vec<ResolvedScene>`]
 /// (using that scope). It is not "inherited" or cached.
+#[must_use]
 pub struct SceneListScope<L: SceneList>(pub L);
 
 impl<L: SceneList> SceneList for SceneListScope<L> {
