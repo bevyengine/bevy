@@ -5,7 +5,7 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
 use bevy_platform::{collections::Equivalent, sync::Mutex};
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -140,45 +140,35 @@ pub enum Handle<A: Asset> {
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
-impl<A: Asset> bevy_reflect::FromReflect for Handle<A>
+impl<A: Asset> FromReflect for Handle<A>
 where
     Handle<A>: Send + Sync,
     A: TypePath,
 {
-    fn from_reflect(
-        reflect_value: &dyn bevy_reflect::PartialReflect,
-    ) -> ::core::option::Option<Self> {
-        if let bevy_reflect::ReflectRef::Enum(enum_value) =
-            bevy_reflect::PartialReflect::reflect_ref(reflect_value)
-        {
-            match bevy_reflect::enums::Enum::variant_name(enum_value) {
-                "Strong" => {
-                    let strong_field = enum_value.field_at(0usize)?;
-                    let strong_handle =
-                        <Arc<StrongHandle> as bevy_reflect::FromReflect>::from_reflect(
-                            strong_field,
-                        )?;
+    fn from_reflect(reflect_value: &dyn PartialReflect) -> Option<Self> {
+        let ReflectRef::Enum(enum_value) = PartialReflect::reflect_ref(reflect_value) else {
+            return None;
+        };
 
-                    if strong_handle.type_id != TypeId::of::<A>() {
-                        return None;
-                    }
+        match Enum::variant_name(enum_value) {
+            "Strong" => {
+                let strong_field = enum_value.field_at(0usize)?;
+                let strong_handle = Arc::<StrongHandle>::from_reflect(strong_field)?;
 
-                    Some(Handle::Strong(strong_handle))
+                // This is necessary as otherwise you could construct Handle<A> via Handle<B>
+                if strong_handle.type_id != TypeId::of::<A>() {
+                    return None;
                 }
-                "Uuid" => {
-                    let uuid_field = enum_value.field_at(0usize)?;
-                    let uuid = <Uuid as bevy_reflect::FromReflect>::from_reflect(uuid_field)?;
 
-                    Some(Handle::Uuid(uuid, Default::default()))
-                }
-                variant_name => panic!(
-                    "variant with name `{}` does not exist on enum `{}`",
-                    variant_name,
-                    Self::type_path()
-                ),
+                Some(Handle::Strong(strong_handle))
             }
-        } else {
-            ::core::option::Option::None
+            "Uuid" => {
+                let uuid_field = enum_value.field_at(0usize)?;
+                let uuid = Uuid::from_reflect(uuid_field)?;
+
+                Some(Handle::Uuid(uuid, Default::default()))
+            }
+            _ => None,
         }
     }
 }
@@ -724,7 +714,7 @@ mod tests {
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
-    use crate::{tests::create_app, VisitAssetDependencies};
+    use crate::tests::create_app;
 
     use super::*;
 
@@ -890,18 +880,10 @@ mod tests {
         use crate::{AssetApp, Assets};
         use bevy_reflect::FromReflect;
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Asset)]
         struct A;
-        #[derive(Reflect)]
+        #[derive(Reflect, Asset)]
         struct B;
-        impl Asset for A {}
-        impl Asset for B {}
-        impl VisitAssetDependencies for A {
-            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
-        }
-        impl VisitAssetDependencies for B {
-            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
-        }
 
         let mut app = create_app().0;
         app.init_asset::<A>().init_asset::<B>();
