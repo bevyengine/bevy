@@ -184,71 +184,41 @@ impl DeriveComponent {
 
         let storage = storage_path(bevy_ecs, self.storage);
 
-        let on_add_path = self.on_add.map(|path| path.to_token_stream(bevy_ecs));
-        let on_remove_path = self.on_remove.map(|path| path.to_token_stream(bevy_ecs));
+        let on_add_path = Vec::from_iter(self.on_add.map(|path| path.to_token_stream(bevy_ecs)));
+        let on_remove_path =
+            Vec::from_iter(self.on_remove.map(|path| path.to_token_stream(bevy_ecs)));
 
-        let on_insert_path = if relationship.is_some() {
-            if self.on_insert.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
-                )
-                .into_compile_error();
+        let mut on_insert_path =
+            Vec::from_iter(self.on_insert.map(|path| path.to_token_stream(bevy_ecs)));
+
+        let mut on_discard_path =
+            Vec::from_iter(self.on_discard.map(|path| path.to_token_stream(bevy_ecs)));
+
+        let mut on_despawn_path =
+            Vec::from_iter(self.on_despawn.map(|path| path.to_token_stream(bevy_ecs)));
+
+        if relationship.is_some() {
+            on_insert_path.push(quote!(<Self as #bevy_ecs::relationship::Relationship>::on_insert));
+            on_discard_path
+                .push(quote!(<Self as #bevy_ecs::relationship::Relationship>::on_discard));
+        }
+        if let Some(target) = self.relationship_target {
+            on_discard_path
+                .push(quote!(<Self as #bevy_ecs::relationship::RelationshipTarget>::on_discard));
+            if target.linked_spawn {
+                on_despawn_path.push(
+                    quote!(<Self as #bevy_ecs::relationship::RelationshipTarget>::on_despawn),
+                );
             }
+        }
 
-            Some(quote!(<Self as #bevy_ecs::relationship::Relationship>::on_insert))
-        } else {
-            self.on_insert.map(|path| path.to_token_stream(bevy_ecs))
-        };
-
-        let on_discard_path = if relationship.is_some() {
-            if self.on_discard.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_discard hooks are not supported as Relationships already define an on_discard hook",
-                )
-                .into_compile_error();
-            }
-
-            Some(quote!(<Self as #bevy_ecs::relationship::Relationship>::on_discard))
-        } else if self.relationship_target.is_some() {
-            if self.on_discard.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_discard hooks are not supported as RelationshipTarget already defines an on_discard hook",
-                )
-                .into_compile_error();
-            }
-
-            Some(quote!(<Self as #bevy_ecs::relationship::RelationshipTarget>::on_discard))
-        } else {
-            self.on_discard.map(|path| path.to_token_stream(bevy_ecs))
-        };
-
-        let on_despawn_path = if self
-            .relationship_target
-            .is_some_and(|target| target.linked_spawn)
-        {
-            if self.on_despawn.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute",
-                )
-                .into_compile_error();
-            }
-
-            Some(quote!(<Self as #bevy_ecs::relationship::RelationshipTarget>::on_despawn))
-        } else {
-            self.on_despawn.map(|path| path.to_token_stream(bevy_ecs))
-        };
-
-        let on_add = hook_register_function_call(bevy_ecs, quote! {on_add}, on_add_path);
-        let on_insert = hook_register_function_call(bevy_ecs, quote! {on_insert}, on_insert_path);
+        let on_add = hook_register_function_call(bevy_ecs, quote! {on_add}, &on_add_path);
+        let on_insert = hook_register_function_call(bevy_ecs, quote! {on_insert}, &on_insert_path);
         let on_discard =
-            hook_register_function_call(bevy_ecs, quote! {on_discard}, on_discard_path);
-        let on_remove = hook_register_function_call(bevy_ecs, quote! {on_remove}, on_remove_path);
+            hook_register_function_call(bevy_ecs, quote! {on_discard}, &on_discard_path);
+        let on_remove = hook_register_function_call(bevy_ecs, quote! {on_remove}, &on_remove_path);
         let on_despawn =
-            hook_register_function_call(bevy_ecs, quote! {on_despawn}, on_despawn_path);
+            hook_register_function_call(bevy_ecs, quote! {on_despawn}, &on_despawn_path);
 
         let requires = &self.requires;
         let mut register_required = Vec::with_capacity(self.requires.iter().len());
@@ -673,15 +643,24 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream {
 fn hook_register_function_call(
     bevy_ecs_path: &Path,
     hook: TokenStream,
-    function: Option<TokenStream>,
-) -> Option<TokenStream> {
-    function.map(|meta| {
-        quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+    functions: &[TokenStream],
+) -> TokenStream {
+    let hook_function = match functions {
+        [] => return TokenStream::new(),
+        [single] => single.clone(),
+        multiple => {
+            quote! {
+                |mut world: #bevy_ecs_path::world::DeferredWorld, context: #bevy_ecs_path::lifecycle::HookContext| {
+                    #(#multiple(world.reborrow(), context.clone());)*
+                }
             }
         }
-    })
+    };
+    quote! {
+        fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
+            ::core::option::Option::Some(#hook_function)
+        }
+    }
 }
 
 mod kw {

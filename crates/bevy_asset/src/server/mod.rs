@@ -526,25 +526,7 @@ impl AssetServer {
             .load(path.into())
     }
 
-    pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
-        guard: G,
-        override_unapproved: bool,
-    ) -> Handle<A> {
-        self.load_with_meta_transform_erased(
-            path,
-            TypeId::of::<A>(),
-            Some(type_name::<A>()),
-            meta_transform,
-            guard,
-            override_unapproved,
-        )
-        .typed_unchecked()
-    }
-
-    pub(crate) fn load_with_meta_transform_erased<'a, G: Send + Sync + 'static>(
+    pub(crate) fn load_with_meta_transform<'a, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
@@ -2069,7 +2051,7 @@ impl<'a> LoadBuilder<'a> {
         type_name: Option<&str>,
         asset_path: AssetPath<'_>,
     ) -> UntypedHandle {
-        self.asset_server.load_with_meta_transform_erased(
+        self.asset_server.load_with_meta_transform(
             asset_path,
             type_id,
             type_name,

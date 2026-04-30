@@ -45,8 +45,7 @@ use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
-use bevy_render::sync_world::{MainEntity, RenderEntity};
-use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap, RenderEntity};
 use bevy_render::view::{
     RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities, RenderVisibleEntities,
     VisibilityExtractionSystemParam,
@@ -421,17 +420,6 @@ pub fn extract_lights(
         &mut RenderExtractedShadowMapVisibleEntities,
         &mut RenderShadowMapVisibleEntities,
     )>,
-    (
-        mut removed_point_lights,
-        mut removed_spot_lights,
-        mut removed_directional_lights,
-        mut removed_rect_lights,
-    ): (
-        Extract<RemovedComponents<PointLight>>,
-        Extract<RemovedComponents<SpotLight>>,
-        Extract<RemovedComponents<DirectionalLight>>,
-        Extract<RemovedComponents<RectLight>>,
-    ),
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -453,14 +441,6 @@ pub fn extract_lights(
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
-    // Keep track of all entities of a type that we updated this frame, so that
-    // we don't incorrectly remove the components later even if they show up in
-    // `RemovedComponents`.
-    let mut seen_point_light_main_entities = MainEntityHashSet::default();
-    let mut seen_spot_light_main_entities = MainEntityHashSet::default();
-    let mut seen_directional_light_main_entities = MainEntityHashSet::default();
-    let mut seen_rect_light_main_entities = MainEntityHashSet::default();
-
     for (
         main_entity,
         render_entity,
@@ -472,8 +452,6 @@ pub fn extract_lights(
         volumetric_light,
     ) in point_lights.iter()
     {
-        seen_point_light_main_entities.insert(main_entity.into());
-
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
                 entity_commands.remove::<ExtractedPointLight>();
@@ -586,8 +564,6 @@ pub fn extract_lights(
         volumetric_light,
     ) in spot_lights.iter()
     {
-        seen_spot_light_main_entities.insert(main_entity.into());
-
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
                 entity_commands.remove::<ExtractedPointLight>();
@@ -706,8 +682,6 @@ pub fn extract_lights(
         sun_disk,
     ) in &directional_lights
     {
-        seen_directional_light_main_entities.insert(main_entity.into());
-
         if !view_visibility.get() {
             commands
                 .get_entity(entity)
@@ -850,8 +824,6 @@ pub fn extract_lights(
     }
 
     for (main_entity, render_entity, rect_light, transform, view_visibility) in &rect_lights {
-        seen_rect_light_main_entities.insert(main_entity.into());
-
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
                 entity_commands.remove::<ExtractedRectLight>();
@@ -877,64 +849,6 @@ pub fn extract_lights(
                 },
                 MainEntity::from(main_entity),
             ));
-    }
-
-    // Remove extracted light components from entities that have had their
-    // light components removed.
-    remove_components::<PointLight, ExtractedPointLight>(
-        &mut commands,
-        mapper,
-        &mut removed_point_lights,
-        &seen_point_light_main_entities,
-    );
-    remove_components::<SpotLight, ExtractedPointLight>(
-        &mut commands,
-        mapper,
-        &mut removed_spot_lights,
-        &seen_spot_light_main_entities,
-    );
-    remove_components::<DirectionalLight, ExtractedDirectionalLight>(
-        &mut commands,
-        mapper,
-        &mut removed_directional_lights,
-        &seen_directional_light_main_entities,
-    );
-    remove_components::<RectLight, ExtractedRectLight>(
-        &mut commands,
-        mapper,
-        &mut removed_rect_lights,
-        &seen_rect_light_main_entities,
-    );
-
-    // A helper function that removes a render-world component `RWC` when a
-    // main-world component `MC` is removed.
-    //
-    // `seen_entities` is the list of all entities with that component that were
-    // updated this frame. It's needed because presence in the
-    // `RemovedComponents` table for the main-world component isn't enough to
-    // determine whether the render-world component can be removed, as the
-    // main-world component might have been removed and then re-added in the
-    // same frame.
-    fn remove_components<MC, RWC>(
-        commands: &mut Commands,
-        mapper: &Query<&RenderEntity>,
-        removed_components: &mut RemovedComponents<MC>,
-        seen_entities: &MainEntityHashSet,
-    ) where
-        MC: Component,
-        RWC: Component,
-    {
-        // As usual, only remove components if we didn't process them in the
-        // outer extraction function, because of the possibility that the
-        // component might have been removed and re-added in the same frame.
-        for main_entity in removed_components.read() {
-            if !seen_entities.contains(&MainEntity::from(main_entity))
-                && let Ok(render_entity) = mapper.get(main_entity)
-                && let Ok(mut entity_commands) = commands.get_entity(**render_entity)
-            {
-                entity_commands.remove::<RWC>();
-            }
-        }
     }
 
     /// Clears out any shadow maps that may be present for a light with shadow
@@ -965,17 +879,6 @@ pub(crate) fn add_light_view_entities(
     }
 }
 
-/// Removes [`DirectionalLightViewEntities`] when light is removed. See
-/// [`add_light_view_entities`].
-pub(crate) fn extracted_light_removed(
-    remove: On<Remove, ExtractedDirectionalLight>,
-    mut commands: Commands,
-) {
-    if let Ok(mut v) = commands.get_entity(remove.entity) {
-        v.try_remove::<DirectionalLightViewEntities>();
-    }
-}
-
 pub(crate) fn remove_light_view_entities(
     remove: On<Remove, DirectionalLightViewEntities>,
     query: Query<&DirectionalLightViewEntities>,
@@ -987,6 +890,20 @@ pub(crate) fn remove_light_view_entities(
                 if let Ok(mut v) = commands.get_entity(e) {
                     v.despawn();
                 }
+            }
+        }
+    }
+}
+
+pub(crate) fn remove_point_and_spot_light_view_entities(
+    remove: On<Remove, PointAndSpotLightViewEntities>,
+    query: Query<&PointAndSpotLightViewEntities>,
+    mut commands: Commands,
+) {
+    if let Ok(entities) = query.get(remove.entity) {
+        for e in entities.0.iter().copied() {
+            if let Ok(mut v) = commands.get_entity(e) {
+                v.despawn();
             }
         }
     }
@@ -2078,21 +1995,6 @@ pub fn prepare_lights(
             }
         }
 
-        commands.entity(entity).insert((
-            ViewShadowBindings {
-                point_light_depth_texture: point_light_depth_texture.texture.clone(),
-                point_light_depth_texture_view: point_light_depth_texture_view.clone(),
-                directional_light_depth_texture: directional_light_depth_texture.texture.clone(),
-                directional_light_depth_texture_view: directional_light_depth_texture_view.clone(),
-            },
-            ViewLightEntities {
-                lights: view_lights,
-            },
-            ViewLightsUniformOffset {
-                offset: view_gpu_lights_writer.write(&gpu_lights),
-            },
-        ));
-
         // Make a link from the camera to all shadow cascades with occlusion
         // culling enabled.
         if !view_occlusion_culling_lights.is_empty() {
@@ -2125,6 +2027,21 @@ pub fn prepare_lights(
             };
             gpu_lights.n_rect_lights += 1;
         }
+
+        commands.entity(entity).insert((
+            ViewShadowBindings {
+                point_light_depth_texture: point_light_depth_texture.texture.clone(),
+                point_light_depth_texture_view: point_light_depth_texture_view.clone(),
+                directional_light_depth_texture: directional_light_depth_texture.texture.clone(),
+                directional_light_depth_texture_view: directional_light_depth_texture_view.clone(),
+            },
+            ViewLightEntities {
+                lights: view_lights,
+            },
+            ViewLightsUniformOffset {
+                offset: view_gpu_lights_writer.write(&gpu_lights),
+            },
+        ));
     }
 
     // Mark the existing shadow maps as unused this frame so that the first

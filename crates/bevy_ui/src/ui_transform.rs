@@ -1,4 +1,5 @@
 use crate::Val;
+use crate::ValArithmeticError;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
@@ -68,6 +69,44 @@ impl Val2 {
                 .resolve(scale_factor, base_size.y, viewport_size)
                 .unwrap_or(0.),
         )
+    }
+
+    /// Try to add two `Val2`s component-wise.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
+    /// assert_eq!(Val2::px(1., 2.).try_add(Val2::px(3., 4.)), Ok(Val2::px(4., 6.)));
+    /// assert_eq!(
+    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_add(Val2::new(Val::Percent(3.), Val::Px(4.))),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
+        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
+            return Err(ValArithmeticError::IncompatibleUnits);
+        };
+        Ok(Self { x, y })
+    }
+
+    /// Try to subtract two `Val2`s component-wise.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
+    /// assert_eq!(Val2::px(3., 4.).try_sub(Val2::px(1., 2.)), Ok(Val2::px(2., 2.)));
+    /// assert_eq!(
+    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_sub(Val2::new(Val::Percent(3.), Val::Px(4.))),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
+        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
+            return Err(ValArithmeticError::IncompatibleUnits);
+        };
+        Ok(Self { x, y })
     }
 }
 

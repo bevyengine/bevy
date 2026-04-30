@@ -40,6 +40,12 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`](crate::io::AssetSource). `value` is the bytes that will be returned for the asset. This can be
     /// _either_ a `&'static [u8]` or a [`Vec<u8>`](alloc::vec::Vec).
+    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(full_path, asset_path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -47,7 +53,7 @@ impl EmbeddedAssetRegistry {
             reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
         )
     )]
-    pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
+    fn insert_asset_internal(&self, full_path: PathBuf, asset_path: &Path, value: Value) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()

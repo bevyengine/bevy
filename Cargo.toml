@@ -184,7 +184,6 @@ default_app = [
 # COLLECTION: These are platform support features, such as OS support/features, windowing and input backends, etc.
 default_platform = [
   "std",
-  "android-game-activity",
   "bevy_gilrs",
   "bevy_winit",
   # Note: OS-integrated clipboard support is gated behind the `system_clipboard` feature,
