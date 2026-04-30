@@ -18,7 +18,7 @@ use core::{
 
 use indexmap::set::{self, IndexSet};
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
+use super::{Entity, EntityHash, EntitySetIterator, EntityEquivalent};
 
 use bevy_platform::prelude::Box;
 
@@ -29,14 +29,14 @@ use bevy_reflect::Reflect;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
-pub struct EntityEquivalentIndexSet<K: TrustedEntityBorrow + Hash>(
+pub struct EntityEquivalentIndexSet<K: EntityEquivalent + Hash>(
     pub(crate) IndexSet<K, EntityHash>,
 );
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
 pub type EntityIndexSet = EntityEquivalentIndexSet<Entity>;
 
-impl<K: TrustedEntityBorrow + Hash> EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     /// Creates an empty `EntityEquivalentIndexSet`.
     ///
     /// Equivalent to [`IndexSet::with_hasher(EntityHash)`].
@@ -101,7 +101,7 @@ impl<K: TrustedEntityBorrow + Hash> EntityEquivalentIndexSet<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Deref for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Deref for EntityEquivalentIndexSet<K> {
     type Target = IndexSet<K, EntityHash>;
 
     fn deref(&self) -> &Self::Target {
@@ -109,13 +109,13 @@ impl<K: TrustedEntityBorrow + Hash> Deref for EntityEquivalentIndexSet<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> DerefMut for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> DerefMut for EntityEquivalentIndexSet<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a EntityEquivalentIndexSet<K> {
+impl<'a, K: EntityEquivalent + Hash> IntoIterator for &'a EntityEquivalentIndexSet<K> {
     type Item = &'a K;
 
     type IntoIter = Iter<'a, K>;
@@ -125,7 +125,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a EntityEquivalentInd
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> IntoIterator for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> IntoIterator for EntityEquivalentIndexSet<K> {
     type Item = K;
 
     type IntoIter = IntoIter<K>;
@@ -135,7 +135,7 @@ impl<K: TrustedEntityBorrow + Hash> IntoIterator for EntityEquivalentIndexSet<K>
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitAnd for &EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash + Clone> BitAnd for &EntityEquivalentIndexSet<K> {
     type Output = EntityEquivalentIndexSet<K>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
@@ -143,7 +143,7 @@ impl<K: TrustedEntityBorrow + Hash + Clone> BitAnd for &EntityEquivalentIndexSet
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitOr for &EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash + Clone> BitOr for &EntityEquivalentIndexSet<K> {
     type Output = EntityEquivalentIndexSet<K>;
 
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -151,7 +151,7 @@ impl<K: TrustedEntityBorrow + Hash + Clone> BitOr for &EntityEquivalentIndexSet<
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> BitXor for &EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash + Clone> BitXor for &EntityEquivalentIndexSet<K> {
     type Output = EntityEquivalentIndexSet<K>;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
@@ -159,7 +159,7 @@ impl<K: TrustedEntityBorrow + Hash + Clone> BitXor for &EntityEquivalentIndexSet
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> Sub for &EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash + Clone> Sub for &EntityEquivalentIndexSet<K> {
     type Output = EntityEquivalentIndexSet<K>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -167,31 +167,31 @@ impl<K: TrustedEntityBorrow + Hash + Clone> Sub for &EntityEquivalentIndexSet<K>
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash + Copy> Extend<&'a K> for EntityEquivalentIndexSet<K> {
+impl<'a, K: EntityEquivalent + Hash + Copy> Extend<&'a K> for EntityEquivalentIndexSet<K> {
     fn extend<I: IntoIterator<Item = &'a K>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Extend<K> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Extend<K> for EntityEquivalentIndexSet<K> {
     fn extend<I: IntoIterator<Item = K>>(&mut self, iter: I) {
         self.0.extend(iter);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, const N: usize> From<[K; N]> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash, const N: usize> From<[K; N]> for EntityEquivalentIndexSet<K> {
     fn from(value: [K; N]) -> Self {
         Self(IndexSet::from_iter(value))
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> FromIterator<K> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> FromIterator<K> for EntityEquivalentIndexSet<K> {
     fn from_iter<I: IntoIterator<Item = K>>(iterable: I) -> Self {
         Self(IndexSet::from_iter(iterable))
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash, S2> PartialEq<IndexSet<K, S2>> for EntityEquivalentIndexSet<K>
+impl<K: EntityEquivalent + Hash, S2> PartialEq<IndexSet<K, S2>> for EntityEquivalentIndexSet<K>
 where
     S2: BuildHasher,
 {
@@ -200,15 +200,15 @@ where
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> PartialEq for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> PartialEq for EntityEquivalentIndexSet<K> {
     fn eq(&self, other: &EntityEquivalentIndexSet<K>) -> bool {
         self.0.eq(other)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Eq for EntityEquivalentIndexSet<K> {}
+impl<K: EntityEquivalent + Hash> Eq for EntityEquivalentIndexSet<K> {}
 
-impl<K: TrustedEntityBorrow + Hash> Index<(Bound<usize>, Bound<usize>)>
+impl<K: EntityEquivalent + Hash> Index<(Bound<usize>, Bound<usize>)>
     for EntityEquivalentIndexSet<K>
 {
     type Output = Slice<K>;
@@ -218,7 +218,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<(Bound<usize>, Bound<usize>)>
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<Range<usize>> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<Range<usize>> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: Range<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -226,7 +226,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<Range<usize>> for EntityEquivalentInde
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeFrom<usize>> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeFrom<usize>> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -234,7 +234,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeFrom<usize>> for EntityEquivalent
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeFull> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeFull> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeFull) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -242,7 +242,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeFull> for EntityEquivalentIndexSe
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeInclusive<usize>> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeInclusive<usize>> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -250,7 +250,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeInclusive<usize>> for EntityEquiv
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeTo<usize>> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeTo<usize>> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeTo<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -258,7 +258,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeTo<usize>> for EntityEquivalentIn
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeToInclusive<usize>> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeToInclusive<usize>> for EntityEquivalentIndexSet<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
         // SAFETY: The source IndexSet uses EntityHash.
@@ -266,7 +266,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeToInclusive<usize>> for EntityEqu
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<usize> for EntityEquivalentIndexSet<K> {
+impl<K: EntityEquivalent + Hash> Index<usize> for EntityEquivalentIndexSet<K> {
     type Output = K;
     fn index(&self, key: usize) -> &K {
         self.0.index(key)
@@ -278,9 +278,9 @@ impl<K: TrustedEntityBorrow + Hash> Index<usize> for EntityEquivalentIndexSet<K>
 /// Equivalent to an [`indexmap::set::Slice<V>`] whose source [`IndexSet`]
 /// uses [`EntityHash`].
 #[repr(transparent)]
-pub struct Slice<K: TrustedEntityBorrow + Hash, S = EntityHash>(PhantomData<S>, set::Slice<K>);
+pub struct Slice<K: EntityEquivalent + Hash, S = EntityHash>(PhantomData<S>, set::Slice<K>);
 
-impl<K: TrustedEntityBorrow + Hash> Slice<K> {
+impl<K: EntityEquivalent + Hash> Slice<K> {
     /// Returns an empty slice.
     ///
     /// Equivalent to [`set::Slice::new`].
@@ -405,7 +405,7 @@ impl<K: TrustedEntityBorrow + Hash> Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Deref for Slice<K> {
+impl<K: EntityEquivalent + Hash> Deref for Slice<K> {
     type Target = set::Slice<K>;
 
     fn deref(&self) -> &Self::Target {
@@ -413,7 +413,7 @@ impl<K: TrustedEntityBorrow + Hash> Deref for Slice<K> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a Slice<K> {
+impl<'a, K: EntityEquivalent + Hash> IntoIterator for &'a Slice<K> {
     type IntoIter = Iter<'a, K>;
     type Item = &'a K;
 
@@ -422,7 +422,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> IntoIterator for &'a Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> IntoIterator for Box<Slice<K>> {
+impl<K: EntityEquivalent + Hash> IntoIterator for Box<Slice<K>> {
     type IntoIter = IntoIter<K>;
     type Item = K;
 
@@ -431,28 +431,28 @@ impl<K: TrustedEntityBorrow + Hash> IntoIterator for Box<Slice<K>> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Clone> Clone for Box<Slice<K>> {
+impl<K: EntityEquivalent + Hash + Clone> Clone for Box<Slice<K>> {
     fn clone(&self) -> Self {
         // SAFETY: This is a clone of a valid slice.
         unsafe { Slice::from_boxed_slice_unchecked(self.as_boxed_inner().clone()) }
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for &Slice<K> {
+impl<K: EntityEquivalent + Hash> Default for &Slice<K> {
     fn default() -> Self {
         // SAFETY: The source slice is empty.
         unsafe { Slice::from_slice_unchecked(<&set::Slice<K>>::default()) }
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for Box<Slice<K>> {
+impl<K: EntityEquivalent + Hash> Default for Box<Slice<K>> {
     fn default() -> Self {
         // SAFETY: The source slice is empty.
         unsafe { Slice::from_boxed_slice_unchecked(<Box<set::Slice<K>>>::default()) }
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Slice<K> {
+impl<K: EntityEquivalent + Hash + Debug> Debug for Slice<K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Slice")
             .field(&self.0)
@@ -461,40 +461,40 @@ impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Copy> From<&Slice<K>> for Box<Slice<K>> {
+impl<K: EntityEquivalent + Hash + Copy> From<&Slice<K>> for Box<Slice<K>> {
     fn from(value: &Slice<K>) -> Self {
         // SAFETY: This slice is a copy of a valid slice.
         unsafe { Slice::from_boxed_slice_unchecked(value.1.into()) }
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Hash for Slice<K> {
+impl<K: EntityEquivalent + Hash> Hash for Slice<K> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.1.hash(state);
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + PartialOrd> PartialOrd for Slice<K> {
+impl<K: EntityEquivalent + Hash + PartialOrd> PartialOrd for Slice<K> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.1.partial_cmp(other)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Ord> Ord for Slice<K> {
+impl<K: EntityEquivalent + Hash + Ord> Ord for Slice<K> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(other)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> PartialEq for Slice<K> {
+impl<K: EntityEquivalent + Hash> PartialEq for Slice<K> {
     fn eq(&self, other: &Self) -> bool {
         self.1 == other.1
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Eq for Slice<K> {}
+impl<K: EntityEquivalent + Hash> Eq for Slice<K> {}
 
-impl<K: TrustedEntityBorrow + Hash> Index<(Bound<usize>, Bound<usize>)> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<(Bound<usize>, Bound<usize>)> for Slice<K> {
     type Output = Self;
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -502,7 +502,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<(Bound<usize>, Bound<usize>)> for Slic
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<Range<usize>> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<Range<usize>> for Slice<K> {
     type Output = Self;
     fn index(&self, key: Range<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -510,7 +510,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<Range<usize>> for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeFrom<usize>> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeFrom<usize>> for Slice<K> {
     type Output = Slice<K>;
     fn index(&self, key: RangeFrom<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -518,7 +518,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeFrom<usize>> for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeFull> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeFull> for Slice<K> {
     type Output = Self;
     fn index(&self, key: RangeFull) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -526,7 +526,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeFull> for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeInclusive<usize>> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeInclusive<usize>> for Slice<K> {
     type Output = Self;
     fn index(&self, key: RangeInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -534,7 +534,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeInclusive<usize>> for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeTo<usize>> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeTo<usize>> for Slice<K> {
     type Output = Self;
     fn index(&self, key: RangeTo<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -542,7 +542,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeTo<usize>> for Slice<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<RangeToInclusive<usize>> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<RangeToInclusive<usize>> for Slice<K> {
     type Output = Self;
     fn index(&self, key: RangeToInclusive<usize>) -> &Self {
         // SAFETY: This a subslice of a valid slice.
@@ -550,7 +550,7 @@ impl<K: TrustedEntityBorrow + Hash> Index<RangeToInclusive<usize>> for Slice<K> 
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Index<usize> for Slice<K> {
+impl<K: EntityEquivalent + Hash> Index<usize> for Slice<K> {
     type Output = K;
     fn index(&self, key: usize) -> &K {
         self.1.index(key)
@@ -562,12 +562,12 @@ impl<K: TrustedEntityBorrow + Hash> Index<usize> for Slice<K> {
 /// This struct is created by the [`iter`] method on [`EntityEquivalentIndexSet`]. See its documentation for more.
 ///
 /// [`iter`]: EntityEquivalentIndexSet::iter
-pub struct Iter<'a, K: TrustedEntityBorrow + Hash, S = EntityHash>(
+pub struct Iter<'a, K: EntityEquivalent + Hash, S = EntityHash>(
     set::Iter<'a, K>,
     PhantomData<S>,
 );
 
-impl<'a, K: TrustedEntityBorrow + Hash> Iter<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Iter<'a, K> {
     /// Returns the inner [`Iter`](set::Iter).
     pub fn into_inner(self) -> set::Iter<'a, K> {
         self.0
@@ -582,7 +582,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iter<'a, K> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Deref for Iter<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Deref for Iter<'a, K> {
     type Target = set::Iter<'a, K>;
 
     fn deref(&self) -> &Self::Target {
@@ -590,7 +590,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> Deref for Iter<'a, K> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Iter<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Iterator for Iter<'a, K> {
     type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -602,48 +602,48 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Iter<'a, K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> DoubleEndedIterator for Iter<'_, K> {
+impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Iter<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Iter<'_, K> {}
+impl<K: EntityEquivalent + Hash> ExactSizeIterator for Iter<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash> FusedIterator for Iter<'_, K> {}
+impl<K: EntityEquivalent + Hash> FusedIterator for Iter<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash> Clone for Iter<'_, K> {
+impl<K: EntityEquivalent + Hash> Clone for Iter<'_, K> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Iter<'_, K> {
+impl<K: EntityEquivalent + Hash + Debug> Debug for Iter<'_, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Iter").field(&self.0).field(&self.1).finish()
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for Iter<'_, K> {
+impl<K: EntityEquivalent + Hash> Default for Iter<'_, K> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: Iter stems from a correctly behaving `IndexSet<K, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Iter<'_, K> {}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for Iter<'_, K> {}
 
 /// Owning iterator over the items of an [`EntityEquivalentIndexSet`].
 ///
 /// This struct is created by the [`into_iter`] method on [`EntityEquivalentIndexSet`] (provided by the [`IntoIterator`] trait). See its documentation for more.
 ///
 /// [`into_iter`]: EntityEquivalentIndexSet::into_iter
-pub struct IntoIter<K: TrustedEntityBorrow + Hash, S = EntityHash>(
+pub struct IntoIter<K: EntityEquivalent + Hash, S = EntityHash>(
     set::IntoIter<K>,
     PhantomData<S>,
 );
 
-impl<K: TrustedEntityBorrow + Hash> IntoIter<K> {
+impl<K: EntityEquivalent + Hash> IntoIter<K> {
     /// Returns the inner [`IntoIter`](set::IntoIter).
     pub fn into_inner(self) -> set::IntoIter<K> {
         self.0
@@ -658,7 +658,7 @@ impl<K: TrustedEntityBorrow + Hash> IntoIter<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Deref for IntoIter<K> {
+impl<K: EntityEquivalent + Hash> Deref for IntoIter<K> {
     type Target = set::IntoIter<K>;
 
     fn deref(&self) -> &Self::Target {
@@ -666,7 +666,7 @@ impl<K: TrustedEntityBorrow + Hash> Deref for IntoIter<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K> {
+impl<K: EntityEquivalent + Hash> Iterator for IntoIter<K> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -678,23 +678,23 @@ impl<K: TrustedEntityBorrow + Hash> Iterator for IntoIter<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> DoubleEndedIterator for IntoIter<K> {
+impl<K: EntityEquivalent + Hash> DoubleEndedIterator for IntoIter<K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for IntoIter<K> {}
+impl<K: EntityEquivalent + Hash> ExactSizeIterator for IntoIter<K> {}
 
-impl<K: TrustedEntityBorrow + Hash> FusedIterator for IntoIter<K> {}
+impl<K: EntityEquivalent + Hash> FusedIterator for IntoIter<K> {}
 
-impl<K: TrustedEntityBorrow + Hash + Clone> Clone for IntoIter<K> {
+impl<K: EntityEquivalent + Hash + Clone> Clone for IntoIter<K> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for IntoIter<K> {
+impl<K: EntityEquivalent + Hash + Debug> Debug for IntoIter<K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("IntoIter")
             .field(&self.0)
@@ -703,26 +703,26 @@ impl<K: TrustedEntityBorrow + Hash + Debug> Debug for IntoIter<K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> Default for IntoIter<K> {
+impl<K: EntityEquivalent + Hash> Default for IntoIter<K> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: IntoIter stems from a correctly behaving `IndexSet<K, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for IntoIter<K> {}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for IntoIter<K> {}
 
 /// A draining iterator over the items of an [`EntityEquivalentIndexSet`].
 ///
 /// This struct is created by the [`drain`] method on [`EntityEquivalentIndexSet`]. See its documentation for more.
 ///
 /// [`drain`]: EntityEquivalentIndexSet::drain
-pub struct Drain<'a, K: TrustedEntityBorrow + Hash, S = EntityHash>(
+pub struct Drain<'a, K: EntityEquivalent + Hash, S = EntityHash>(
     set::Drain<'a, K>,
     PhantomData<S>,
 );
 
-impl<'a, K: TrustedEntityBorrow + Hash> Drain<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Drain<'a, K> {
     /// Returns the inner [`Drain`](set::Drain).
     pub fn into_inner(self) -> set::Drain<'a, K> {
         self.0
@@ -737,7 +737,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> Drain<'a, K> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Deref for Drain<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Deref for Drain<'a, K> {
     type Target = set::Drain<'a, K>;
 
     fn deref(&self) -> &Self::Target {
@@ -745,7 +745,7 @@ impl<'a, K: TrustedEntityBorrow + Hash> Deref for Drain<'a, K> {
     }
 }
 
-impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K> {
+impl<'a, K: EntityEquivalent + Hash> Iterator for Drain<'a, K> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -757,17 +757,17 @@ impl<'a, K: TrustedEntityBorrow + Hash> Iterator for Drain<'a, K> {
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> DoubleEndedIterator for Drain<'_, K> {
+impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Drain<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
     }
 }
 
-impl<K: TrustedEntityBorrow + Hash> ExactSizeIterator for Drain<'_, K> {}
+impl<K: EntityEquivalent + Hash> ExactSizeIterator for Drain<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash> FusedIterator for Drain<'_, K> {}
+impl<K: EntityEquivalent + Hash> FusedIterator for Drain<'_, K> {}
 
-impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Drain<'_, K> {
+impl<K: EntityEquivalent + Hash + Debug> Debug for Drain<'_, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain")
             .field(&self.0)
@@ -777,31 +777,31 @@ impl<K: TrustedEntityBorrow + Hash + Debug> Debug for Drain<'_, K> {
 }
 
 // SAFETY: Drain stems from a correctly behaving `IndexSet<K, EntityHash>`.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for Drain<'_, K> {}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for Drain<'_, K> {}
 
 // SAFETY: Difference stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
     for set::Difference<'_, K, EntityHash>
 {
 }
 
 // SAFETY: Intersection stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
     for set::Intersection<'_, K, EntityHash>
 {
 }
 
 // SAFETY: SymmetricDifference stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator
     for set::SymmetricDifference<'_, K, EntityHash, EntityHash>
 {
 }
 
 // SAFETY: Union stems from two correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash> EntitySetIterator for set::Union<'_, K, EntityHash> {}
+unsafe impl<K: EntityEquivalent + Hash> EntitySetIterator for set::Union<'_, K, EntityHash> {}
 
 // SAFETY: Splice stems from a correctly behaving `IndexSet<K, EntityHash>`s.
-unsafe impl<K: TrustedEntityBorrow + Hash, I: Iterator<Item = K>> EntitySetIterator
+unsafe impl<K: EntityEquivalent + Hash, I: Iterator<Item = K>> EntitySetIterator
     for set::Splice<'_, I, K, EntityHash>
 {
 }
