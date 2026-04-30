@@ -18,7 +18,7 @@ pub trait SceneComponent: Component + FromTemplate<Template: Default> {
     fn scene(props: Self::Props) -> impl Scene;
 }
 
-/// A [`Component`] that must always be spawned with a [`Scene`].
+/// Indicates that this entity includes a [`Component`] that must always be spawned with a [`Scene`].
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[cfg_attr(debug_assertions, component(on_add))]
 #[reflect(Component)]
