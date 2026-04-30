@@ -1123,4 +1123,111 @@ mod tests {
 
         (app, window_entity)
     }
+
+    #[test]
+    fn test_react_to_resize_with_changed_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1920, 1080));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1920);
+        assert_eq!(window.resolution.physical_height(), 1080);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    #[test]
+    fn test_react_to_resize_with_same_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1280, 720));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1280);
+        assert_eq!(window.resolution.physical_height(), 720);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    fn setup_react_to_resize(
+        initial_size: PhysicalSize<u32>,
+        changed_size: PhysicalSize<u32>,
+    ) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_message::<WindowResized>();
+        app.add_message::<BevyWindowEvent>();
+        app.add_systems(
+            Update,
+            move |mut window: Single<(Entity, &mut Window)>,
+                  mut window_resized_writer: MessageWriter<WindowResized>,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
+                let window_resized = react_to_resize(window.0, &mut window.1, changed_size);
+                window_resized_writer.write(window_resized.clone());
+                window_event.write(BevyWindowEvent::WindowResized(window_resized));
+            },
+        );
+
+        let mut window = Window::default();
+        window
+            .resolution
+            .set_physical_resolution(initial_size.width, initial_size.height);
+        let window_entity = app.world_mut().spawn(window).id();
+
+        (app, window_entity)
+    }
 }
