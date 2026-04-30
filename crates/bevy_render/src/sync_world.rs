@@ -183,12 +183,14 @@ unsafe impl EntityEquivalent for MainEntity {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
 ///
-/// [`HashMap`]: `bevy_platform_support::collections::HashMap`
+/// [`HashMap`]: `bevy_ecs::entity::hash_map::EntityEquivalentHashMap`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
 pub type MainEntityHashMap<V> = EntityEquivalentHashMap<MainEntity, V>;
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
 ///
-/// [`HashSet`]: `bevy_platform_support::collections::HashSet`
+/// [`HashSet`]: `bevy_ecs::entity::hash_set::EntityEquivalentHashSet`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
 pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
