@@ -734,7 +734,7 @@
 //! They are functionally quite different however. It is worth understanding the differences and
 //! tradeoffs:
 //!
-//! - **Required Components**: Context-less (ex: Default constructors), non-hierarchical, can alway
+//! - **Required Components**: Context-less (ex: Default constructors), non-hierarchical, can always
 //!   be applied immediately, not dependency aware, automatically enforced at runtime as components
 //!   are added, not patchable, pretty low overhead, not a lot of features / functionality
 //! - **Scene Components**: Require context (ex: World access and "Entity Spawn Context", such as
