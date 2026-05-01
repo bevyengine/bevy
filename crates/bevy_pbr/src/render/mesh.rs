@@ -3344,6 +3344,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "dfg_lut") {
             shader_defs.push("DFG_LUT".into());
         }
+        if cfg!(feature = "ltc_luts") {
+            shader_defs.push("LTC_LUTS".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![

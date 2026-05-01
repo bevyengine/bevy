@@ -97,6 +97,7 @@ bitflags::bitflags! {
         const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
         const CONTACT_SHADOWS                  = 1 << 14;
         const DISTANCE_FOG                     = 1 << 15;
+        const LTC_LUTS                         = 1 << 16;
     }
 }
 
@@ -148,6 +149,10 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
 
         if cfg!(feature = "bluenoise_texture") {
             result |= MeshPipelineViewLayoutKey::STBN;
+        }
+
+        if cfg!(feature = "ltc_luts") {
+            result |= MeshPipelineViewLayoutKey::LTC_LUTS;
         }
 
         if value.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -462,25 +467,23 @@ fn layout_entries(
         ),));
     }
     // LTC LUTs for area lights
-    entries = entries.extend_with_indices((
-        (
-            36,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (
-            37,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (38, sampler(SamplerBindingType::Filtering)),
-    ));
+    if cfg!(feature = "ltc_luts") {
+        entries = entries.extend_with_indices((
+            (
+                36,
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+            ),
+            (37, sampler(SamplerBindingType::Filtering)),
+        ));
+    }
     // DFG LUT
     if cfg!(feature = "dfg_lut") {
         entries = entries.extend_with_indices((
             (
-                39,
+                38,
                 texture_2d(TextureSampleType::Float { filterable: true }),
             ),
-            (40, sampler(SamplerBindingType::Filtering)),
+            (39, sampler(SamplerBindingType::Filtering)),
         ));
     }
 
@@ -896,16 +899,16 @@ pub fn prepare_mesh_view_bind_groups(
             };
 
             // LTC LUTs for area lights
-            let (ltc1_view, ltc_sampler) = images
-                .get(&ltc_luts.ltc_1)
-                .map(|img| (&img.texture_view, &img.sampler))
-                .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-            let ltc2_view = images
-                .get(&ltc_luts.ltc_2)
-                .map(|img| &img.texture_view)
-                .unwrap_or(&fallback_image.d2.texture_view);
-            entries =
-                entries.extend_with_indices(((36, ltc1_view), (37, ltc2_view), (38, ltc_sampler)));
+            if cfg!(feature = "ltc_luts") {
+                let (ltc_view, ltc_sampler) = images
+                    .get(&ltc_luts.image)
+                    .map(|img| (&img.texture_view, &img.sampler))
+                    .unwrap_or((
+                        &fallback_image.d2_array.texture_view,
+                        &fallback_image.d2_array.sampler,
+                    ));
+                entries = entries.extend_with_indices(((36, ltc_view), (37, ltc_sampler)));
+            }
 
             // DFG LUT
             if cfg!(feature = "dfg_lut") {
@@ -913,7 +916,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&dfg_lut.texture)
                     .map(|img| (&img.texture_view, &img.sampler))
                     .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-                entries = entries.extend_with_indices(((39, dfg_view), (40, dfg_sampler)));
+                entries = entries.extend_with_indices(((38, dfg_view), (39, dfg_sampler)));
             }
 
             let environment_map_bind_group_entries =
