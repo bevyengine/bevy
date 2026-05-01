@@ -60,7 +60,7 @@ impl AtlasRasterSize {
         Self((font_size * raster_scale).to_bits())
     }
 
-    /// Converts the `AtlasFontSize` back to an `f32`. This is
+    /// Converts the `AtlasRasterSize` to a `f32`.
     pub fn as_f32(self) -> f32 {
         f32::from_bits(self.0)
     }
