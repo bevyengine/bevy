@@ -277,7 +277,7 @@ impl BsnEntry {
             }
             BsnEntry::NameExpression(expr) => Ok(quote! {
                 <#bevy_ecs::name::Name as #bevy_scene::PatchFromTemplate>::patch(move |value, _context| {
-                    *value = #bevy_ecs::Name({#expr}.into());
+                    *value = #bevy_ecs::name::Name({#expr}.into());
                 })
             }),
         }
