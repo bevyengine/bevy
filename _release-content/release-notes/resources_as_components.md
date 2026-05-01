@@ -1,7 +1,7 @@
 ---
 title: Resources as Components
-authors: ["@Trashtalk", "@cart"]
-pull_requests: [20934, 22910, 22911, 22919, 22930]
+authors: ["@Trashtalk", "@cart", "@specificprotagonist"]
+pull_requests: [20934, 22910, 22911, 22919, 22930, 24058]
 ---
 
 Resources are very similar to Components: they are both data that can be stored in the ECS and queried.
