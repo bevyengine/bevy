@@ -807,7 +807,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
     let bevy_ecs = bevy_ecs_path();
-    TokenStream::from(derive_component.impl_component(&mut ast, &bevy_ecs))
+    let impl_component = match derive_component.impl_component(&mut ast, &bevy_ecs) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
+    };
+    TokenStream::from(impl_component)
 }
 
 /// Implement the `FromWorld` trait.

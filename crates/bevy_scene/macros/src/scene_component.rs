@@ -46,7 +46,10 @@ pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
     derive_component.additional_requires.push(quote! {
         required_components.register_required(|| #bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(false));
     });
-    let component_impl = derive_component.impl_component(ast, &bevy_ecs);
+    let component_impl = match derive_component.impl_component(ast, &bevy_ecs) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error(),
+    };
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     quote! {

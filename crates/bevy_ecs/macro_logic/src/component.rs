@@ -155,7 +155,7 @@ impl DeriveComponent {
     /// Generates a new `Component` trait implementation from this specification.
     ///
     /// Note that this will add Send + Sync + 'static to the where clause
-    pub fn impl_component(self, ast: &mut DeriveInput, bevy_ecs: &Path) -> TokenStream {
+    pub fn impl_component(self, ast: &mut DeriveInput, bevy_ecs: &Path) -> Result<TokenStream> {
         // We want to raise a compile time error when the generic lifetimes
         // are not bound to 'static lifetime
         let non_static_lifetime_error = ast
@@ -168,7 +168,7 @@ impl DeriveComponent {
                 err_acc
             });
         if let Some(err) = non_static_lifetime_error {
-            return err.into_compile_error();
+            return Err(err);
         }
 
         let relationship = match self.derive_relationship(ast, bevy_ecs) {
@@ -318,7 +318,7 @@ impl DeriveComponent {
         } else {
             quote! {::core::option::Option::None}
         };
-        quote! {
+        Ok(quote! {
             #required_component_docs
             impl #impl_generics #bevy_ecs::component::Component for #struct_name #type_generics #where_clause {
                 const STORAGE_TYPE: #bevy_ecs::component::StorageType = #storage;
@@ -351,7 +351,7 @@ impl DeriveComponent {
             #relationship
 
             #relationship_target
-        }
+        })
     }
     fn derive_relationship(
         &self,

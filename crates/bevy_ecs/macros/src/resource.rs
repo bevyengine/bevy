@@ -23,7 +23,10 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         required_components.register_required::<#bevy_ecs::resource::IsResource>(move || #bevy_ecs::resource::IsResource::new(resource_component_id));
     });
 
-    let component_impl = derive_component.impl_component(ast, &bevy_ecs);
+    let component_impl = match derive_component.impl_component(ast, &bevy_ecs) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error(),
+    };
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
