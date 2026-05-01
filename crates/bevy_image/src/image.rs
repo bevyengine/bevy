@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, MipmapFilterMode,
@@ -1025,7 +1025,7 @@ impl Image {
                 usage: TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_DST
                     | TextureUsages::COPY_SRC,
-                view_formats: smallvec![],
+                view_formats: ImageTextureViewFormats::default(),
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,

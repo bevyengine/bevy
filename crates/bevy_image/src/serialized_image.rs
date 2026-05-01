@@ -155,7 +155,7 @@ mod tests {
             TextureDimension::D2,
             vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::RENDER_WORLD,
+            RenderAssetUsages::default(),
         );
 
         let serialized_image = SerializedImage::from_image(image.clone());
