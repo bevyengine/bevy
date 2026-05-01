@@ -61,6 +61,10 @@ impl<I, V> SparseArray<I, V> {
             marker: PhantomData,
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
 }
 
 macro_rules! impl_sparse_array {
@@ -141,7 +145,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// This must scan the entire array to find non-empty values,
     /// which may be slow even if the array is sparsely populated.
     #[inline]
-    #[expect(dead_code, reason = "May need this for later.")]
     pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
         self.values.iter().enumerate().filter_map(|(index, value)| {
             value

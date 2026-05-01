@@ -1,9 +1,6 @@
 use alloc::borrow::Cow;
-use bevy_ecs_macros::MapEntities;
-use bevy_platform::{collections::HashMap, hash::FixedHasher, sync::PoisonError};
+use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use bevy_utils::{prelude::DebugName, TypeIdMap};
 use core::{
     alloc::Layout,
@@ -16,17 +13,15 @@ use indexmap::IndexSet;
 use crate::{
     archetype::ArchetypeFlags,
     component::{
-        Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
-        RequiredComponents, StorageType,
+        Component, ComponentCloneBehavior, ComponentId, ComponentIdMap, ComponentMutability,
+        QueuedComponents, RequiredComponents, StorageType,
     },
-    entity::{Entity, EntityHash},
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
     resource::Resource,
-    storage::SparseSetIndex,
 };
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
@@ -150,80 +145,6 @@ impl ComponentInfo {
     /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
         self.descriptor.relationship_accessor.accessor()
-    }
-}
-
-/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
-/// [`World`](crate::world::World).
-///
-/// Each time a new `Component` type is registered within a `World` using
-/// e.g. [`World::register_component`](crate::world::World::register_component) or
-/// [`World::register_component_with_descriptor`](crate::world::World::register_component_with_descriptor)
-/// or a Resource with e.g. [`World::init_resource`](crate::world::World::init_resource),
-/// a corresponding `ComponentId` is created to track it.
-///
-/// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
-/// into two separate but related concepts allows components to exist outside of Rust's type system.
-/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
-/// `ComponentId`s may exist in a `World` to track components which cannot be
-/// represented as Rust types for scripting or other advanced use-cases.
-///
-/// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
-/// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
-/// and must not be attempted.
-///
-/// Given a type `T` which implements [`Component`] (including [`Resource`]), the `ComponentId` for `T` can be retrieved
-/// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, MapEntities)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Debug, Hash, PartialEq, Clone)
-)]
-pub struct ComponentId(pub(super) Entity);
-
-impl ComponentId {
-    /// Creates a new [`ComponentId`].
-    ///
-    /// The `index` is a unique value associated with each type of component in a given world.
-    /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
-    #[inline]
-    pub const fn new(index: Entity) -> ComponentId {
-        ComponentId(index)
-    }
-
-    /// Creates a new [`ComponentId`].
-    ///
-    /// Panics if the index is `u32::MAX`.
-    #[inline]
-    pub const fn from_u32(index: u32) -> ComponentId {
-        ComponentId(Entity::from_raw_u32(index).unwrap())
-    }
-
-    /// Returns the index of the current component.
-    // TODO: Track down all uses and improve data structures for performance.
-    #[inline]
-    pub fn index(self) -> usize {
-        self.0.index_u32() as usize
-    }
-
-    /// Returns the inner entity from the `ComponentId`
-    #[inline]
-    pub fn id(self) -> Entity {
-        self.0
-    }
-}
-
-// Identical implementation as Entity
-impl SparseSetIndex for ComponentId {
-    #[inline]
-    fn sparse_set_index(&self) -> usize {
-        self.0.sparse_set_index()
-    }
-
-    #[inline]
-    fn get_sparse_set_index(value: usize) -> Self {
-        Self(Entity::get_sparse_set_index(value))
     }
 }
 
@@ -373,7 +294,7 @@ impl ComponentDescriptor {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
-    pub(super) components: HashMap<ComponentId, ComponentInfo, EntityHash>,
+    pub(super) components: ComponentIdMap<ComponentInfo>,
     pub(super) indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
