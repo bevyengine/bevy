@@ -115,6 +115,7 @@ pub fn extract_text2d_sprite(
                 i,
                 PositionedGlyph {
                     position,
+                    size,
                     atlas_info,
                     ..
                 },
@@ -123,7 +124,7 @@ pub fn extract_text2d_sprite(
                 extracted_slices.slices.push(ExtractedSlice {
                     offset: *position,
                     rect: atlas_info.rect,
-                    size: atlas_info.rect.size(),
+                    size: *size,
                 });
 
                 if text_layout_info
@@ -213,6 +214,7 @@ pub fn extract_text2d_sprite(
             i,
             PositionedGlyph {
                 position,
+                size,
                 atlas_info,
                 section_index,
                 ..
@@ -235,7 +237,7 @@ pub fn extract_text2d_sprite(
             extracted_slices.slices.push(ExtractedSlice {
                 offset: *position,
                 rect: atlas_info.rect,
-                size: atlas_info.rect.size(),
+                size: *size,
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {

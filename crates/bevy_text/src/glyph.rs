@@ -15,6 +15,12 @@ use bevy_reflect::Reflect;
 pub struct PositionedGlyph {
     /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
+    /// The physical pixels size of the glyph in the render target.
+    ///
+    /// This is independent of the rasterization resolution stored in [`GlyphAtlasInfo::rect`],
+    /// allowing the atlas to be rasterized at a different resolution than the display size
+    /// (e.g. supersampled based on `UiRasterScale`).
+    pub size: Vec2,
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked sections.

@@ -2,6 +2,7 @@
 use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_raster_scale::UiRasterScale,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
@@ -94,6 +95,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Option<&UiRasterScale>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
@@ -211,6 +213,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
+            UiRasterScale::DEFAULT,
         );
     }
 
@@ -230,11 +233,13 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
+            Option<&UiRasterScale>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        parent_raster_scale: UiRasterScale,
     ) {
         if let Ok((
             mut node,
@@ -245,6 +250,7 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
+            maybe_raster_scale,
         )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
@@ -368,6 +374,13 @@ pub fn ui_layout_system(
 
             node.bypass_change_detection().scroll_position = physical_scroll_position;
 
+            let raster_scale = match maybe_raster_scale {
+                Some(raster_scale) => *raster_scale,
+                None => parent_raster_scale,
+            };
+
+            node.bypass_change_detection().raster_scale = raster_scale;
+
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     child_uinode,
@@ -380,6 +393,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    raster_scale,
                 );
             }
         }

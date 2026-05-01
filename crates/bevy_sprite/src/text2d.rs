@@ -314,6 +314,7 @@ pub fn update_text2d_layout(
             text_bounds,
             block.justify,
             *hinting,
+            1.0,
         ) {
             Err(TextError::NoSuchFont | TextError::NoSuchFontFamily(_)) => {
                 // There was an error processing the text layout.

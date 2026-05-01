@@ -3954,6 +3954,12 @@ name = "text_debug"
 path = "examples/ui/text/text_debug.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "text_scaling"
+path = "examples/ui/text/text_scaling.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
 [package.metadata.example.text_debug]
 name = "Text Debug"
 description = "An example for debugging text layout"

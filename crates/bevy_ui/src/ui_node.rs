@@ -1,4 +1,5 @@
 use crate::{
+    ui_raster_scale::UiRasterScale,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
 };
@@ -78,6 +79,13 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub inverse_scale_factor: f32,
+    /// Scale factor for rasterizing this Node.
+    /// Multiplies the raster resolution of rasterized parts of this node, such as text.
+    ///
+    /// Does not affect the logical or physical size of the node.
+    ///
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    pub raster_scale: UiRasterScale,
 }
 
 impl ComputedNode {
@@ -392,6 +400,7 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        raster_scale: UiRasterScale::DEFAULT,
     };
 }
 

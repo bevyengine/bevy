@@ -19,7 +19,6 @@ use parley::{
 };
 use swash::FontRef;
 
-use crate::TextBrush;
 use crate::{
     add_glyph_to_atlas,
     error::TextError,
@@ -29,6 +28,7 @@ use crate::{
     Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
     TextFont, TextLayout,
 };
+use crate::{AtlasRasterSize, TextBrush};
 
 struct TextSectionView<'a> {
     index: usize,
@@ -298,6 +298,9 @@ impl TextPipeline {
     }
 
     /// Update [`TextLayoutInfo`] with the new [`PositionedGlyph`] layout.
+    ///
+    /// `raster_scale` multiplies the atlas rasterization resolution without affecting
+    /// the position, size or other layout properties of the glyphs.
     pub fn update_text_layout_info(
         &mut self,
         layout_info: &mut TextLayoutInfo,
@@ -308,6 +311,7 @@ impl TextPipeline {
         bounds: TextBounds,
         justify: Justify,
         hinting: FontHinting,
+        raster_scale: f32,
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
         layout_info.clear();
@@ -323,12 +327,13 @@ impl TextPipeline {
                     let run = glyph_run.run();
                     let font = run.font();
                     let font_size = run.font_size();
+                    let raster_size = AtlasRasterSize::new(font_size, raster_scale);
                     let coords = run.normalized_coords();
                     let variations_hash = FixedHasher.hash_one(coords);
                     let font_atlas_key = FontAtlasKey {
                         id: font.data.id() as u32,
                         index: font.index,
-                        font_size_bits: font_size.to_bits(),
+                        raster_size,
                         variations_hash,
                         hinting,
                         font_smoothing,
@@ -344,7 +349,7 @@ impl TextPipeline {
                     let mut scaler = scale_cx
                         .0
                         .builder(font_ref)
-                        .size(font_size)
+                        .size(raster_size.as_f32())
                         .hint(hint)
                         .normalized_coords(coords)
                         .build();
@@ -369,7 +374,9 @@ impl TextPipeline {
                                 })?;
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
-                        let size = atlas_info.rect.size();
+                        // Convert atlas size and offset from raster space back to layout space.
+                        let size = atlas_info.rect.size() / raster_scale;
+                        let offset = atlas_info.offset / raster_scale;
 
                         layout_info.glyphs.push(PositionedGlyph {
                             position: size / 2.
@@ -378,7 +385,8 @@ impl TextPipeline {
                                 } else {
                                     glyph_pos
                                 }
-                                + atlas_info.offset,
+                                + offset,
+                            size,
                             atlas_info,
                             section_index,
                             line_index,

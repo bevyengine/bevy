@@ -14,8 +14,8 @@ pub struct FontAtlasKey {
     pub id: u32,
     /// Font data index
     pub index: u32,
-    /// Font size via `f32::to_bits`
-    pub font_size_bits: u32,
+    /// Raster size, which is the font size multiplied by `UiRasterSize`.
+    pub raster_size: AtlasRasterSize,
     /// Hash of normalized variation coords for this run.
     pub variations_hash: u64,
     /// Hinting
@@ -46,5 +46,22 @@ impl FontAtlasSet {
                     .map_or(0, |data| data.len() as u64)
             })
             .sum()
+    }
+}
+
+/// Wrapping the raster size so it can be used as a key in a `HashMap`.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct AtlasRasterSize(u32);
+
+impl AtlasRasterSize {
+    /// Create a new `AtlasRasterSize` from a font size and a raster scale.
+    /// `raster_size = font_size * raster_scale`.
+    pub fn new(font_size: f32, raster_scale: f32) -> Self {
+        Self((font_size * raster_scale).to_bits())
+    }
+
+    /// Converts the `AtlasFontSize` back to an `f32`. This is
+    pub fn as_f32(self) -> f32 {
+        f32::from_bits(self.0)
     }
 }

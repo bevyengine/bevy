@@ -368,6 +368,8 @@ pub enum ExtractedUiItem {
 pub struct ExtractedGlyph {
     pub color: LinearRgba,
     pub translation: Vec2,
+    /// Physical pixel size of the glyph in the render target.
+    pub size: Vec2,
     pub rect: Rect,
 }
 
@@ -1003,6 +1005,7 @@ pub fn extract_text_sections(
             i,
             PositionedGlyph {
                 position,
+                size,
                 atlas_info,
                 section_index,
                 ..
@@ -1029,7 +1032,7 @@ pub fn extract_text_sections(
                     .selection_rects
                     .iter()
                     .any(|selection_rect| {
-                        let glyph_rect = Rect::from_center_size(*position, atlas_info.rect.size());
+                        let glyph_rect = Rect::from_center_size(*position, *size);
                         selection_rect.contains(glyph_rect.min)
                             && selection_rect.contains(glyph_rect.max)
                     })
@@ -1042,6 +1045,7 @@ pub fn extract_text_sections(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
+                size: *size,
                 rect: atlas_info.rect,
             });
 
@@ -1137,6 +1141,7 @@ pub fn extract_text_shadows(
             i,
             PositionedGlyph {
                 position,
+                size,
                 atlas_info,
                 section_index,
                 ..
@@ -1146,6 +1151,7 @@ pub fn extract_text_shadows(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 translation: *position,
+                size: *size,
                 rect: atlas_info.rect,
             });
 
@@ -1842,14 +1848,13 @@ pub fn prepare_uinodes(
 
                         for glyph in &extracted_uinodes.glyphs[range.clone()] {
                             let color = glyph.color.to_f32_array();
-                            let glyph_rect = glyph.rect;
-                            let rect_size = glyph_rect.size();
+                            let rect_size = glyph.size;
 
                             // Specify the corners of the glyph
                             let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
                                 extracted_uinode
                                     .transform
-                                    .transform_point2(glyph.translation + pos * glyph_rect.size())
+                                    .transform_point2(glyph.translation + pos * glyph.size)
                                     .extend(0.)
                             });
 
@@ -1895,22 +1900,29 @@ pub fn prepare_uinodes(
                                 continue;
                             }
 
+                            // Scale positions_diff from display space to atlas texture space.
+                            // atlas_size / display_size gives atlas pixels per display pixel.
+                            let atlas_scale =
+                                glyph.rect.size() / glyph.size.max(Vec2::splat(f32::EPSILON));
+                            let positions_diff_atlas_space =
+                                positions_diff.map(|diff| diff * atlas_scale);
+
                             let uvs = [
                                 Vec2::new(
-                                    glyph.rect.min.x + positions_diff[0].x,
-                                    glyph.rect.min.y + positions_diff[0].y,
+                                    glyph.rect.min.x + positions_diff_atlas_space[0].x,
+                                    glyph.rect.min.y + positions_diff_atlas_space[0].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.max.x + positions_diff[1].x,
-                                    glyph.rect.min.y + positions_diff[1].y,
+                                    glyph.rect.max.x + positions_diff_atlas_space[1].x,
+                                    glyph.rect.min.y + positions_diff_atlas_space[1].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.max.x + positions_diff[2].x,
-                                    glyph.rect.max.y + positions_diff[2].y,
+                                    glyph.rect.max.x + positions_diff_atlas_space[2].x,
+                                    glyph.rect.max.y + positions_diff_atlas_space[2].y,
                                 ),
                                 Vec2::new(
-                                    glyph.rect.min.x + positions_diff[3].x,
-                                    glyph.rect.max.y + positions_diff[3].y,
+                                    glyph.rect.min.x + positions_diff_atlas_space[3].x,
+                                    glyph.rect.max.y + positions_diff_atlas_space[3].y,
                                 ),
                             ]
                             .map(|pos| pos / atlas_extent);

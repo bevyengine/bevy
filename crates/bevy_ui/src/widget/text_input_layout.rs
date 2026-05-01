@@ -1,7 +1,9 @@
 use core::hash::BuildHasher;
 use core::time::Duration;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
+use crate::{
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure, UiGlobalTransform,
+};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
@@ -17,7 +19,7 @@ use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
+    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, AtlasRasterSize, EditableText,
     EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
     GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
     TextBrush, TextFont, TextLayout, TextLayoutInfo,
@@ -323,12 +325,14 @@ pub fn update_editable_text_layout(
 
                             let font_data = run.font();
                             let font_size = run.font_size();
+                            let raster_scale = computed_node.raster_scale.0;
+                            let raster_size = AtlasRasterSize::new(font_size, raster_scale);
                             let coords = run.normalized_coords();
 
                             let font_atlas_key = FontAtlasKey {
                                 id: font_data.data.id() as u32,
                                 index: font_data.index,
-                                font_size_bits: font_size.to_bits(),
+                                raster_size,
                                 variations_hash: FixedHasher.hash_one(coords),
                                 hinting: *hinting,
                                 font_smoothing: brush.font_smoothing,
@@ -352,7 +356,7 @@ pub fn update_editable_text_layout(
                                     .unwrap();
                                     let mut scaler = scale_cx
                                         .builder(font_ref)
-                                        .size(font_size)
+                                        .size(raster_size.as_f32())
                                         .hint(matches!(*hinting, FontHinting::Enabled))
                                         .normalized_coords(coords)
                                         .build();
@@ -367,10 +371,13 @@ pub fn update_editable_text_layout(
                                     continue;
                                 };
 
+                                let size = atlas_info.rect.size() / raster_scale;
+                                let logical_offset = atlas_info.offset / raster_scale;
                                 info.glyphs.push(PositionedGlyph {
                                     position: Vec2::new(glyph.x, glyph.y)
-                                        + atlas_info.rect.size() / 2.
-                                        + atlas_info.offset,
+                                        + size / 2.
+                                        + logical_offset,
+                                    size,
                                     atlas_info,
                                     section_index: brush.section_index as usize,
                                     line_index,

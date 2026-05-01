@@ -21,6 +21,7 @@ pub mod widget;
 pub mod gradients;
 #[cfg(feature = "bevy_picking")]
 pub mod picking_backend;
+pub mod ui_raster_scale;
 pub mod ui_transform;
 
 use bevy_derive::{Deref, DerefMut};
@@ -45,6 +46,7 @@ pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
+pub use ui_raster_scale::*;
 pub use ui_transform::*;
 pub use widget::TextNodeFlags;
 
