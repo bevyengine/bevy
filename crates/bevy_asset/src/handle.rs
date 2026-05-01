@@ -212,8 +212,8 @@ impl<T: Asset> FromTemplate for Handle<T> {
 ///
 /// # How asset paths are resolved in templates
 ///
-/// Because [`Handle<T>`] implements [`FromTemplate`], it is replaced by its template type,
-/// [`HandleTemplate<T>`] in the generated code.
+/// When a type with a [`Handle<T>`] field derives [`FromTemplate`], that field is replaced by its
+/// template type, [`HandleTemplate<T>`], when created via BSN.
 /// We can see that [`HandleTemplate<T>`] has the following trait impl block:
 ///
 /// ```rust, ignore
@@ -224,11 +224,14 @@ impl<T: Asset> FromTemplate for Handle<T> {
 /// }
 /// ```
 ///
-/// Because [`AssetPath<'static>`] implements [`From<&'static str>`], this means that any string literal assigned to a `Handle<T>` field
-/// is automatically converted into a `HandleTemplate<T>::Path` with the given asset path string using the `.into()` machinery generated
-/// by Rust's blanket impl that converts [`From`] trait implementations into their [`Into`] equivalents.
-/// Finally, the `HandleTemplate<T>::Path` generated gets converted to a `Handle<T>` at spawn time,
-/// creating a component that points to the correct asset.
+/// [`AssetPath<'static>`] implements [`From<&'static str>`].
+/// Because of that, assigning a string literal to a `Handle<T>` field automatically converts it into
+/// [`HandleTemplate<T>::Path`] with that asset path when used in the `bsn!` macro.
+/// Calls to `bsn!` automatically insert `.into()` conversions, and due to Rust's blanket impl that turns [`From`] trait impls into their [`Into`]
+/// equivalents, the conversion from `&'static str` to `AssetPath<'static>` is handled automatically.
+/// Finally, the [`HandleTemplate<T>::Path`] generated gets converted to a [`Handle<T>`] during scene initialization,
+/// as the asset is loaded from the given path, and the resulting handle is assigned to the field,
+/// pointing to the asset that was found at the file path in our original string.
 #[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].
