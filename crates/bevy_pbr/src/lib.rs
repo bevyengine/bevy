@@ -107,15 +107,15 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageSampler, ImageTextureDescriptor, ImageTextureViewFormats,
+    ImageType,
+};
 use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
-    render_resource::{
-        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
-    },
+    render_resource::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat, TextureUsages},
     sync_component::SyncComponentPlugin,
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
     RenderSystems,
@@ -464,7 +464,7 @@ pub fn stbn_placeholder() -> Image {
     Image {
         data: Some(data),
         data_order: TextureDataOrder::default(),
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             size: Extent3d::default(),
             format,
             dimension: TextureDimension::D2,
@@ -472,7 +472,7 @@ pub fn stbn_placeholder() -> Image {
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,

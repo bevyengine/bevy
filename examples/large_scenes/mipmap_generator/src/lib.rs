@@ -422,10 +422,15 @@ pub fn generate_mips_texture(
             image.texture_descriptor.mip_level_count = mip_count;
             #[cfg(feature = "compress")]
             if let Some(format) = compressed_format {
+                // Convert the view formats for compressed textures.
+                for view_format in &mut image.texture_descriptor.view_formats {
+                    if *view_format == image.texture_descriptor.format.add_srgb_suffix() {
+                        *view_format = format.add_srgb_suffix();
+                    } else if *view_format == image.texture_descriptor.format.remove_srgb_suffix() {
+                        *view_format = format.remove_srgb_suffix();
+                    }
+                }
                 image.texture_descriptor.format = format;
-                // Remove view formats for compressed textures.
-                // TODO Is this an issue? A bit difficult to work around since it's &['static]
-                image.texture_descriptor.view_formats = &[];
             }
 
             image.data = Some(new_image_data);

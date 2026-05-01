@@ -182,6 +182,8 @@ impl AssetLoader for ImageLoader {
         settings: &ImageLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
+        let path = format!("{}", load_context.path().path().display());
+
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let image_type = match settings.format {
@@ -200,12 +202,12 @@ impl AssetLoader for ImageLoader {
             ImageFormatSetting::Guess => {
                 let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
                     error: err.into(),
-                    path: format!("{}", load_context.path().path().display()),
+                    path: path.clone(),
                 })?;
                 ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
                     || FileTextureError {
                         error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
-                        path: format!("{}", load_context.path().path().display()),
+                        path: path.clone(),
                     },
                 )?)
             }
@@ -221,7 +223,7 @@ impl AssetLoader for ImageLoader {
         )
         .map_err(|err| FileTextureError {
             error: err,
-            path: format!("{}", load_context.path().path().display()),
+            path: path.clone(),
         })?;
 
         if let Some(format) = settings.texture_format {
@@ -236,7 +238,7 @@ impl AssetLoader for ImageLoader {
 
             image.reinterpret_stacked_2d_as_array(layers)?;
         }
-
+        image.texture_descriptor.label = Some(path.into());
         Ok(image)
     }
 

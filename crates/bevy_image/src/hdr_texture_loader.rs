@@ -38,7 +38,7 @@ impl AssetLoader for HdrTextureLoader {
         &self,
         reader: &mut dyn Reader,
         settings: &Self::Settings,
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         // `Rgba32Float` will always return a valid pixel size
@@ -64,7 +64,8 @@ impl AssetLoader for HdrTextureLoader {
             rgba_data.extend_from_slice(&alpha.to_le_bytes());
         }
 
-        Ok(Image::new(
+        let path = format!("{}", load_context.path().path().display());
+        let mut image = Image::new(
             Extent3d {
                 width: info.width,
                 height: info.height,
@@ -74,7 +75,9 @@ impl AssetLoader for HdrTextureLoader {
             rgba_data,
             format,
             settings.asset_usage,
-        ))
+        );
+        image.texture_descriptor.label = Some(path.into());
+        Ok(image)
     }
 
     fn extensions(&self) -> &[&str] {

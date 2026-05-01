@@ -1,13 +1,12 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
+use bevy::image::{ImageTextureDescriptor, ImageTextureViewFormats};
 use bevy::{
     camera::visibility::RenderLayers,
     camera::RenderTarget,
     color::palettes::css::GRAY,
     prelude::*,
-    render::render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     window::WindowResized,
 };
 
@@ -90,7 +89,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // This Image serves as a canvas representing the low-resolution game screen
     let mut canvas = Image {
-        texture_descriptor: TextureDescriptor {
+        texture_descriptor: ImageTextureDescriptor {
             label: None,
             size: canvas_size,
             dimension: TextureDimension::D2,
@@ -100,7 +99,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
+            view_formats: ImageTextureViewFormats::default(),
         },
         ..default()
     };
