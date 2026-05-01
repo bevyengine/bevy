@@ -37,7 +37,7 @@ use bevy_ui_widgets::{
 use bevy_utils::prelude::*;
 use bevy_window::SystemCursorIcon;
 use core::time::Duration;
-use criterion::{criterion_group, Criterion};
+use criterion::{criterion_group, BatchSize, Criterion};
 use glam::{Vec2, Vec3};
 
 criterion_group!(benches, spawn);
@@ -46,16 +46,47 @@ fn spawn(c: &mut Criterion) {
     let mut group = c.benchmark_group("spawn");
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(4));
-    group.bench_function("construct", |b| {
+
+    // Cconstruct and drop the scene.
+    group.bench_function("construct_and_drop", |b| {
         b.iter(move || {
-            demo_root();
+            scene();
         });
     });
-    group.bench_function("construct_and_spawn", |b| {
-        let mut app = bench_app();
-        b.iter(move || {
-            app.world_mut().spawn_scene(demo_root()).unwrap();
-        });
+
+    // Drop the scene.
+    group.bench_function("drop", |b| {
+        b.iter_batched(scene, drop, BatchSize::LargeInput);
+    });
+
+    // Spawn the scene into a fresh world. This means we're also measuring the
+    // overhead of creating new ECS archetypes and tables.
+    group.bench_function("spawn_cold", |b| {
+        b.iter_batched(
+            move || (bench_app(), scene()),
+            move |(mut app, scene)| {
+                app.world_mut().spawn_scene(scene).unwrap();
+                app
+            },
+            BatchSize::LargeInput,
+        );
+    });
+
+    // Spawn the scene into a world with one copy of the same scene already
+    // spawned. This means ECS archetypes and tables should already be created.
+    group.bench_function("spawn_warm", |b| {
+        b.iter_batched(
+            move || {
+                let mut app = bench_app();
+                app.world_mut().spawn_scene(scene()).unwrap();
+                (app, scene())
+            },
+            move |(mut app, scene)| {
+                app.world_mut().spawn_scene(scene).unwrap();
+                app
+            },
+            BatchSize::LargeInput,
+        );
     });
     group.finish();
 }
@@ -109,7 +140,7 @@ enum DemoVec3Field {
     Z,
 }
 
-fn demo_root() -> impl Scene {
+fn scene() -> impl Scene {
     bsn! {
         Node {
             width: percent(100),
