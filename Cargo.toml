@@ -1040,6 +1040,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_scaling"
+path = "examples/ui/text/text_scaling.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.text_scaling]
+name = "Text Scaling"
+description = "Demonstrates increasing text rasterization resolution for zooming"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "editable_text_filter"
 path = "examples/ui/text/editable_text_filter.rs"
 doc-scrape-examples = true
@@ -3953,12 +3965,6 @@ wasm = true
 name = "text_debug"
 path = "examples/ui/text/text_debug.rs"
 doc-scrape-examples = true
-
-[[example]]
-name = "text_scaling"
-path = "examples/ui/text/text_scaling.rs"
-doc-scrape-examples = true
-required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.text_debug]
 name = "Text Debug"

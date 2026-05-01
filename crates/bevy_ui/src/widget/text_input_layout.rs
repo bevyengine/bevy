@@ -1,9 +1,7 @@
 use core::hash::BuildHasher;
 use core::time::Duration;
 
-use crate::{
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure, UiGlobalTransform,
-};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{

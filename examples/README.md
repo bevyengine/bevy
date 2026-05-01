@@ -632,6 +632,7 @@ Example | Description
 [Text Background Colors](../examples/ui/text/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text/text_debug.rs) | An example for debugging text layout
 [Text Input](../examples/ui/text/text_input.rs) | Demonstrates a simple, unstyled text input widget
+[Text Scaling](../examples/ui/text/text_scaling.rs) | Demonstrates increasing text rasterization resolution for zooming
 [Text Wrap Debug](../examples/ui/text/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes

@@ -1,6 +1,6 @@
 use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
-    Node, NodeMeasure, UiGlobalTransform,
+    Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -23,7 +23,6 @@ use bevy_text::{
     LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
     TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
-use bevy_window::{PrimaryWindow, Window};
 use taffy::{style::AvailableSpace, MaybeMath};
 use tracing::error;
 

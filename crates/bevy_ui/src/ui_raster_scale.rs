@@ -3,7 +3,7 @@ use bevy_reflect::prelude::*;
 
 /// Scale factor for ui node rasterization.
 ///
-/// Add it to an entity with [`Node`] to multiply the raster resolution of rasterized parts
+/// Add it to an entity with [`Node`](crate::Node) to multiply the raster resolution of rasterized parts
 /// of the node and it's **descendants**, such as text.
 ///
 /// Does not affect the logical or physical size of the node.
