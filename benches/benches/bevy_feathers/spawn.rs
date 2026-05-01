@@ -107,7 +107,6 @@ fn bench_app() -> App {
     app
 }
 
-/// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
 struct DemoWidgetStates {
     rgb_color: Srgba,
