@@ -353,8 +353,9 @@ use proc_macro::TokenStream;
 ///
 /// **Inheritance** uses the `:` prefix. The parent is *pre-resolved* first — its templates are
 /// fully flattened into a `ResolvedScene` — and the child's patches are applied on top.
-/// Use this when the parent comes from an asset file, or when you want the parent treated as
-/// a stable, opaque base:
+/// When the scene is parameterless, this will "cache" the scene and share it across all inheriting scenes.
+/// For larger scenes that are inherited many times, this can be much faster than re-computing
+/// the scene each time.
 ///
 /// ```rust, ignore
 /// fn boss() -> impl Scene {
