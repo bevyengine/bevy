@@ -158,7 +158,7 @@ impl MorphIndices {
     /// As morph descriptors are only present if the platform supports storage
     /// buffers, this method returns `None` if the platform doesn't support
     /// them.
-    pub(crate) fn morph_descriptor_index(
+    pub fn morph_descriptor_index(
         &self,
         main_entity: MainEntity,
     ) -> Option<MorphDescriptorIndex> {
