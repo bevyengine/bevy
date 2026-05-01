@@ -231,8 +231,8 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// A `{...}` block can also hold an expression that implements [`Scene`] or, inside a
-/// `Children [...]` block, one that implements [`SceneList`]:
+/// A `{...}` block can also hold an expression that implements `Scene` or, inside a
+/// `Children [...]` block, one that implements `SceneList`:
 ///
 /// ```rust, ignore
 /// fn unit_with_armor(unit_base: impl Scene) -> impl Scene {
@@ -305,8 +305,8 @@ use proc_macro::TokenStream;
 ///
 /// ## Observers
 ///
-/// Use [`on`] inside `bsn!` to attach an entity observer — a closure that fires when a given
-/// [`EntityEvent`] targets the entity. The first parameter's type determines which event is
+/// Use `on` inside `bsn!` to attach an entity observer — a closure that fires when a given
+/// `EntityEvent` targets the entity. The first parameter's type determines which event is
 /// observed. Multiple observers can be stacked on the same entity, and the closure has full
 /// access to the ECS via system parameters:
 ///
@@ -471,7 +471,7 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 /// can cross-reference each other by `#Name`.
 /// This is not possible with separate [`bsn!`] calls, and is a key motivation for using [`bsn_list!`].
 ///
-/// See [`bsn`] for more details on syntax.
+/// See [`bsn!`] for more details on syntax.
 /// See the `bevy_scene` crate docs for a high-level overview of the key concepts.
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
