@@ -7,6 +7,10 @@ use bevy_reflect::prelude::*;
 /// of the node and it's **descendants**, such as text.
 ///
 /// Does not affect the logical or physical size of the node.
+///
+/// # Warning
+/// The raster scale should only be set to a small amount of discrete values, because
+/// each scale is likely to rerasterize all affected text glyphs for example.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct UiRasterScale(pub f32);
