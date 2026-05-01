@@ -126,8 +126,7 @@ impl<'a> StrokeTextLayout<'a> {
                 continue;
             }
             let advance = match self.font.resolve_glyph(c) {
-                GlyphSource::Standard(advance, _) => advance,
-                GlyphSource::Extended(advance, _, _) => advance,
+                GlyphSource::Standard(advance, _) | GlyphSource::Extended(advance, _, _) => advance,
             };
             line_width += advance as f32 * self.scale;
         }
@@ -150,7 +149,7 @@ impl<'a> StrokeTextLayout<'a> {
         let mut current_color = Color::WHITE;
 
         core::iter::from_fn(move || loop {
-            while let Some(stroke_idx) = current_main_strokes.next() {
+            for stroke_idx in current_main_strokes.by_ref() {
                 let stroke = self.font.strokes[stroke_idx].clone();
                 if stroke.len() < 2 {
                     continue;
@@ -170,7 +169,7 @@ impl<'a> StrokeTextLayout<'a> {
                 return Some((color, inner));
             }
 
-            while let Some(stroke_idx) = current_extended_strokes.next() {
+            for stroke_idx in current_extended_strokes.by_ref() {
                 let stroke = self.font.extended_strokes[stroke_idx].clone();
                 if stroke.len() < 2 {
                     continue;
