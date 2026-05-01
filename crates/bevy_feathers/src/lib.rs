@@ -42,6 +42,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
+    feedback::FeedbackPlugin,
     theme::{ThemedText, UiTheme},
 };
 
@@ -52,6 +53,7 @@ pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
 pub mod display;
+pub mod feedback;
 pub mod focus;
 pub mod font_styles;
 pub mod palette;
@@ -85,6 +87,7 @@ impl Plugin for FeathersCorePlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
+            FeedbackPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
