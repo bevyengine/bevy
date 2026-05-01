@@ -383,17 +383,6 @@ use proc_macro::TokenStream;
 ///
 /// ## Syntax Reference
 ///
-/// ### Components
-///
-/// | Syntax | Meaning | Explanation |
-/// |--------|---------|-------------|
-/// | `MyComponent` | Default | Inserts `MyComponent` with all fields at their defaults |
-/// | `MyComponent { field: val }` | Named fields | Sets named fields; unmentioned fields keep their defaults or values from prior patches |
-/// | `MyComponent(val1, val2)` | Positional fields | Constructs a tuple-struct component |
-/// | `MyEnum::Variant` | Enum variant | Inserts an enum component; supports unit, `( )`, and `{ }` forms |
-/// | `module::MyComponent` | Path | Inserts a component by its full module path |
-/// | `MyComponent<f32>` | Generic | Inserts a component with an explicit type parameter |
-///
 /// ### Components on the same entity vs. separate entities
 ///
 /// | Syntax | Meaning | Explanation |
@@ -401,7 +390,6 @@ use proc_macro::TokenStream;
 /// | `CompA CompB CompC` | Same entity | **Whitespace** between items — all go on the **same** entity |
 /// | `A, B, C` | Separate entities | **Commas** inside `[…]` — each becomes its **own** entity |
 /// | `(CompA CompB)` | Entity group | Parentheses group components for readability; equivalent to whitespace alone |
-/// | `// …` / `/* … */` | Comment | Standard Rust line and block comments are ignored by the macro |
 ///
 /// ### Naming entities
 ///
@@ -438,6 +426,28 @@ use proc_macro::TokenStream;
 /// | Syntax | Meaning | Explanation |
 /// |--------|---------|-------------|
 /// | `on(\|ev: On<Ev>\| { … })` | Observer | Attaches an entity observer that fires when `Ev` targets this entity |
+///
+/// ### Other Rust syntax
+///
+/// If you're new to Rust, you might struggle with some of its syntax when you see it in BSN.
+/// Here are the most important syntax patterns to be aware of:
+///
+/// | Syntax | Meaning | Explanation |
+/// |--------|---------|-------------|
+/// | `MyComponent` | Unit or defaulted struct | A struct with no fields, or in BSN only, with all fields at their defaults |
+/// | `MyComponent { field: val, field2: val2 }` | Struct with named fields | Sets named fields; unmentioned fields keep their defaults or values from prior patches |
+/// | `MyComponent(val1, val2)` | Tuple struct | Constructs a tuple-struct component |
+/// | `MyEnum::Variant` | Enum variant | A value of the `MyEnum` type with the `Variant` variant |
+/// | `module::MyComponent` | Path | A module path to a struct type |
+/// | `GREEN`` | Constant | A constant value |
+/// | `f32::PI` | Associated constant | A constant (here, `PI`) associated with a type (here, `f32`) |
+/// | `\|param\| { … }` | Closure | A closure; effectively an unnamed function |
+/// | `Vec<T>` | Generic type | A type with a generic type parameter `T` |
+/// | `spawn_enemy("orc", 10, true)` | Function call | Calls a function with the given arguments by position |
+/// | `spawn_player()` | Argumentless function call | Calls a function that takes no arguments |
+/// | `//` | Comment | Line comment; all text after `//` on the same line is ignored |
+/// | `/* */` | Block comment | Standard Rust block comment; all text inside `/* */` is ignored |
+/// | `bsn! { … }` | Macro call | Calls a macro on the value inside of the braces |
 ///
 /// ## Further reading
 ///
