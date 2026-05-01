@@ -313,15 +313,16 @@
 //!
 //! ### Which composition pattern should I choose?
 //!
-//! |                           | Inline composition           | Inheritance                           |
-//! |---------------------------|------------------------------|---------------------------------------|
-//! | Parent accepts parameters | Yes                          | No                                    |
-//! | Parent from an asset file | No                           | Yes                                   |
-//! | Resolution order          | Merged together in one pass  | Parent resolved first, then patched   |
+//! |                           | Function inheritance `:my_scene`    | Asset inheritance `:"my_scene.bsn"` | Inline composition `my_scene()`  |
+//! |---------------------------|-------------------------------------|-------------------------------------|----------------------------------|
+//! | Accepts parameters        | Yes                                 | No                                  | Yes                              |
+//! | Asset-based               | No                                  | Yes                                 | No                               |
+//! | Cached resolution         | Parameterless scenes only           | Yes                                 | No                               |
 //!
-//! Use **inline composition** as the default — it's simpler and supports function parameters.
-//! Reach for **inheritance** when the parent scene comes from an asset file,
-//! or when you want the parent to be treated as a fully resolved, opaque base ("prefab").
+//! Prefer scene inheritance over inline composition in general: the expensive scene resolution is cached, saving work during reuse.
+//! Inline composition should be reserved for parameterized scenes that vary based on a given input,
+//! small scenes that are shared across contexts (like styles),
+//! or one-off scenes that do not require reuse.
 //!
 //! ## Loading Assets into Scenes
 //!

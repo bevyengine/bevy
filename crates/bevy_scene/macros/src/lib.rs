@@ -327,14 +327,16 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// |                           | Inline composition `my_scene()`     | Inheritance `:my_scene`              |
-/// |---------------------------|-------------------------------------|--------------------------------------|
-/// | Parent accepts parameters | Yes                                 | Yes                                  |
-/// | Parent from an asset file | No                                  | Yes                                  |
-/// | Resolution order          | Merged together in one pass         | Parent resolved first, then patched  |
+/// |                           | Function inheritance `:my_scene`    | Asset inheritance `:"my_scene.bsn"` | Inline composition `my_scene()`  |
+/// |---------------------------|-------------------------------------|-------------------------------------|----------------------------------|
+/// | Accepts parameters        | Yes                                 | No                                  | Yes                              |
+/// | Asset-based               | No                                  | Yes                                 | No                               |
+/// | Cached resolution         | Parameterless scenes only           | Yes                                 | No                               |
 ///
-/// Prefer inline composition — reach for inheritance only when the parent comes from an asset,
-/// or when you need a fully pre-resolved opaque base.
+/// Prefer scene inheritance over inline composition in general: the expensive scene resolution is cached, saving work during reuse.
+/// Inline composition should be reserved for parameterized scenes that vary based on a given input,
+/// small scenes that are shared across contexts (like styles),
+/// or one-off scenes that do not require reuse.
 ///
 /// /// ## Formatting BSN
 ///
