@@ -11,36 +11,11 @@ use criterion::{criterion_group, Criterion};
 
 criterion_group!(benches, get, get_mut, insert_remove);
 
-fn create_world() -> World {
-    let mut world = World::new();
-    for _ in 0..500 {
-        // SAFETY: Uses zero-sized value, never drops
-        unsafe {
-            let resource_id =
-                world.register_component_with_descriptor(ComponentDescriptor::new_with_layout(
-                    "",
-                    StorageType::Resource,
-                    Layout::new::<()>(),
-                    None,
-                    true,
-                    ComponentCloneBehavior::Default,
-                    None,
-                ));
-            world.insert_resource_by_id(
-                resource_id,
-                OwningPtr::new(NonNull::dangling()),
-                MaybeLocation::caller(),
-            );
-        }
-    }
-    world
-}
-
 #[derive(Resource)]
 struct R;
 
 pub fn get(criterion: &mut Criterion) {
-    let mut world = create_world();
+    let mut world = World::new();
     world.insert_resource(R);
     criterion.bench_function(bench!("get"), |bencher| {
         bencher.iter(|| world.get_resource::<R>());
@@ -48,7 +23,7 @@ pub fn get(criterion: &mut Criterion) {
 }
 
 pub fn get_mut(criterion: &mut Criterion) {
-    let mut world = create_world();
+    let mut world = World::new();
     world.insert_resource(R);
     criterion.bench_function(bench!("get_mut"), |bencher| {
         bencher.iter(|| {
@@ -58,7 +33,7 @@ pub fn get_mut(criterion: &mut Criterion) {
 }
 
 pub fn insert_remove(criterion: &mut Criterion) {
-    let mut world = create_world();
+    let mut world = World::new();
     criterion.bench_function(bench!("insert_remove"), |bencher| {
         bencher.iter(|| {
             world.insert_resource(R);
