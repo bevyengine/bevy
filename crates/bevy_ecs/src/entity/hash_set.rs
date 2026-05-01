@@ -231,7 +231,7 @@ impl<'a> Iter<'a> {
     /// `iter` must either be empty, or have been obtained from a
     /// [`hash_set::HashSet`] using the `S` hasher.
     pub const unsafe fn from_iter_unchecked<S>(iter: hash_set::Iter<'a, Entity>) -> Iter<'a, S> {
-        Iter::<'_, S>(iter, PhantomData)
+        Iter(iter, PhantomData)
     }
 
     /// Returns the inner [`Iter`](hash_set::Iter).
@@ -304,7 +304,7 @@ impl IntoIter {
     pub const unsafe fn from_into_iter_unchecked<S>(
         into_iter: hash_set::IntoIter<Entity>,
     ) -> IntoIter<S> {
-        IntoIter::<S>(into_iter, PhantomData)
+        IntoIter(into_iter, PhantomData)
     }
 
     /// Returns the inner [`IntoIter`](hash_set::IntoIter).
@@ -373,7 +373,7 @@ impl<'a> Drain<'a> {
     pub const unsafe fn from_drain_unchecked<S>(
         drain: hash_set::Drain<'a, Entity>,
     ) -> Drain<'a, S> {
-        Drain::<'_, S>(drain, PhantomData)
+        Drain(drain, PhantomData)
     }
 
     /// Returns the inner [`Drain`](hash_set::Drain).
@@ -438,7 +438,7 @@ impl<'a, F: FnMut(&Entity) -> bool> ExtractIf<'a, F> {
     pub const unsafe fn from_extract_if_unchecked<S>(
         extract_if: hash_set::ExtractIf<'a, Entity, F>,
     ) -> ExtractIf<'a, F, S> {
-        ExtractIf::<'_, _, S>(extract_if, PhantomData)
+        ExtractIf(extract_if, PhantomData)
     }
 
     /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).

@@ -866,7 +866,7 @@ impl<'a, V> Iter<'a, V> {
     /// `iter` must either be empty, or have been obtained from a
     /// [`IndexMap`] using the `S` hasher.
     pub const unsafe fn from_iter_unchecked<S>(iter: map::Iter<'a, Entity, V>) -> Iter<'a, V, S> {
-        Iter::<'_, _, S>(iter, PhantomData)
+        Iter(iter, PhantomData)
     }
 
     /// Returns the inner [`Iter`](map::Iter).
@@ -949,7 +949,7 @@ impl<'a, V> IterMut<'a, V> {
     pub const unsafe fn from_iter_mut_unchecked<S>(
         iter_mut: map::IterMut<'a, Entity, V>,
     ) -> IterMut<'a, V, S> {
-        IterMut::<'_, _, S>(iter_mut, PhantomData)
+        IterMut(iter_mut, PhantomData)
     }
 
     /// Returns the inner [`IterMut`](map::IterMut).
@@ -1036,7 +1036,7 @@ impl<V> IntoIter<V> {
     pub const unsafe fn from_into_iter_unchecked<S>(
         into_iter: map::IntoIter<Entity, V>,
     ) -> IntoIter<V, S> {
-        IntoIter::<_, S>(into_iter, PhantomData)
+        IntoIter(into_iter, PhantomData)
     }
 
     /// Returns the inner [`IntoIter`](map::IntoIter).
@@ -1130,7 +1130,7 @@ impl<'a, V> Drain<'a, V> {
     pub const unsafe fn from_drain_unchecked<S>(
         drain: map::Drain<'a, Entity, V>,
     ) -> Drain<'a, V, S> {
-        Drain::<'_, _, S>(drain, PhantomData)
+        Drain(drain, PhantomData)
     }
 
     /// Returns the inner [`Drain`](indexmap::map::Drain).
@@ -1200,7 +1200,7 @@ impl<'a, V> Keys<'a, V> {
     /// `keys` must either be empty, or have been obtained from a
     /// [`IndexMap`] using the `S` hasher.
     pub const unsafe fn from_keys_unchecked<S>(keys: map::Keys<'a, Entity, V>) -> Keys<'a, V, S> {
-        Keys::<'_, _, S>(keys, PhantomData)
+        Keys(keys, PhantomData)
     }
 
     /// Returns the inner [`Keys`](map::Keys).
@@ -1286,7 +1286,7 @@ impl<V> IntoKeys<V> {
     pub const unsafe fn from_into_keys_unchecked<S>(
         into_keys: map::IntoKeys<Entity, V>,
     ) -> IntoKeys<V, S> {
-        IntoKeys::<_, S>(into_keys, PhantomData)
+        IntoKeys(into_keys, PhantomData)
     }
 
     /// Returns the inner [`IntoKeys`](map::IntoKeys).

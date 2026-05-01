@@ -586,7 +586,7 @@ impl<'a> Iter<'a> {
     /// `iter` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
     pub const unsafe fn from_iter_unchecked<S>(iter: set::Iter<'a, Entity>) -> Iter<'a, S> {
-        Iter::<'_, S>(iter, PhantomData)
+        Iter(iter, PhantomData)
     }
 
     /// Returns the inner [`Iter`](set::Iter).
@@ -673,7 +673,7 @@ impl IntoIter {
     pub const unsafe fn from_into_iter_unchecked<S>(
         into_iter: set::IntoIter<Entity>,
     ) -> IntoIter<S> {
-        IntoIter::<S>(into_iter, PhantomData)
+        IntoIter(into_iter, PhantomData)
     }
 
     /// Returns the inner [`IntoIter`](set::IntoIter).
@@ -761,7 +761,7 @@ impl<'a> Drain<'a> {
     /// `drain` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
     pub const unsafe fn from_drain_unchecked<S>(drain: set::Drain<'a, Entity>) -> Drain<'a, S> {
-        Drain::<'_, S>(drain, PhantomData)
+        Drain(drain, PhantomData)
     }
 
     /// Returns the inner [`Drain`](set::Drain).

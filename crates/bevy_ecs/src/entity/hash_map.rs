@@ -177,7 +177,7 @@ impl<'a, V> Keys<'a, V> {
     pub const unsafe fn from_keys_unchecked<S>(
         keys: hash_map::Keys<'a, Entity, V>,
     ) -> Keys<'a, V, S> {
-        Keys::<'_, _, S>(keys, PhantomData)
+        Keys(keys, PhantomData)
     }
 
     /// Returns the inner [`Keys`](hash_map::Keys).
@@ -253,7 +253,7 @@ impl<V> IntoKeys<V> {
     pub const unsafe fn from_into_keys_unchecked<S>(
         into_keys: hash_map::IntoKeys<Entity, V>,
     ) -> IntoKeys<V, S> {
-        IntoKeys::<_, S>(into_keys, PhantomData)
+        IntoKeys(into_keys, PhantomData)
     }
 
     /// Returns the inner [`IntoKeys`](hash_map::IntoKeys).
