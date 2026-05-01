@@ -147,7 +147,7 @@ use proc_macro::TokenStream;
 /// ## Named entity references
 ///
 /// The `#Name` syntax does two things at once: it adds a `Name("Name")` component to the entity
-/// and registers it so that other entities in the same scene can refer to it by name.
+/// and registers it so that other entities in the same scene scope can refer to it by name.
 /// To use a named entity as a value — for example, as a component field that holds an `Entity` id —
 /// write `#Name` in the value position:
 ///
@@ -254,7 +254,7 @@ use proc_macro::TokenStream;
 /// let greeting: &'static str = "Hello";
 /// bsn! {
 ///     // &str → String via Into, no .to_string() required
-///     Label({greeting})
+///     Label(greeting)
 /// }
 /// ```
 ///
