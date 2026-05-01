@@ -156,6 +156,21 @@ impl DeriveComponent {
     ///
     /// Note that this will add Send + Sync + 'static to the where clause
     pub fn impl_component(self, ast: &mut DeriveInput, bevy_ecs: &Path) -> TokenStream {
+        // We want to raise a compile time error when the generic lifetimes
+        // are not bound to 'static lifetime
+        let non_static_lifetime_error = ast
+            .generics
+            .lifetimes()
+            .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+            .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+            .reduce(|mut err_acc, err| {
+                err_acc.combine(err);
+                err_acc
+            });
+        if let Some(err) = non_static_lifetime_error {
+            return err.into_compile_error();
+        }
+
         let relationship = match self.derive_relationship(ast, bevy_ecs) {
             Ok(value) => value,
             Err(err) => Some(err.into_compile_error()),
