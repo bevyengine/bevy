@@ -49,7 +49,6 @@ glam = { version = "0.32.0", default-features = false, features = [
 rand = "0.10"
 chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 nonmax = { version = "0.5", default-features = false }
-tracing = { version = "0.1", default-features = false }
 
 [lints.clippy]
 doc_markdown = "warn"

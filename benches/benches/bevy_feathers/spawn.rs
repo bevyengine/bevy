@@ -39,7 +39,6 @@ use bevy_window::SystemCursorIcon;
 use core::time::Duration;
 use criterion::{criterion_group, Criterion};
 use glam::{Vec2, Vec3};
-use tracing::{info, warn};
 
 criterion_group!(benches, spawn);
 
@@ -163,7 +162,6 @@ fn demo_column_1() -> impl Scene {
                             flex_grow: 1.0,
                         }
                         on(|_activate: On<Activate>| {
-                            info!("Normal button clicked!");
                         })
                         AutoFocus
                     ),
@@ -180,7 +178,6 @@ fn demo_column_1() -> impl Scene {
                         InteractionDisabled
                         DemoDisabledButton
                         on(|_activate: On<Activate>| {
-                            info!("Disabled button clicked!");
                         })
                     ),
                     (
@@ -194,9 +191,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        on(|_activate: On<Activate>| {
-                            info!("Disabled button clicked!");
-                        })
+                        on(|_activate: On<Activate>| {})
                     ),
                     (
                         :menu
@@ -220,18 +215,14 @@ fn demo_column_1() -> impl Scene {
                                             caption: Box::new(bsn_list!(
                                                 (Text("MenuItem 1") ThemedText)))
                                         })
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 1 clicked!");
-                                        })
+                                        on(|_: On<Activate>| {})
                                     ),
                                     (
                                         menu_item(MenuItemProps {
                                             caption: Box::new(bsn_list!(
                                                 (Text("MenuItem 2") ThemedText)))
                                         })
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 2 clicked!");
-                                        })
+                                        on(|_: On<Activate>| {})
                                     ),
                                     :menu_divider,
                                     (
@@ -239,9 +230,7 @@ fn demo_column_1() -> impl Scene {
                                             caption: Box::new(bsn_list!(
                                                 (Text("MenuItem 3") ThemedText)))
                                         })
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 3 clicked!");
-                                        })
+                                        on(|_: On<Activate>| {})
                                     )
                                 ]
                             )
@@ -269,9 +258,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        on(|_activate: On<Activate>| {
-                            info!("Left button clicked!");
-                        })
+                        on(|_activate: On<Activate>| {})
                     ),
                     (
                         button(ButtonProps {
@@ -284,9 +271,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        on(|_activate: On<Activate>| {
-                            info!("Center button clicked!");
-                        })
+                        on(|_activate: On<Activate>| {})
                     ),
                     (
                         button(ButtonProps {
@@ -299,9 +284,7 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        on(|_activate: On<Activate>| {
-                            info!("Right button clicked!");
-                        })
+                        on(|_activate: On<Activate>| {})
                     ),
                 ]
             ),
@@ -313,7 +296,6 @@ fn demo_column_1() -> impl Scene {
                     } else {
                         Some(EntityCursor::System(SystemCursorIcon::Wait))
                     };
-                    info!("Override cursor button clicked!");
                 })
                 Children [ (Text::new("Toggle override") ThemedText) ]
             ),
@@ -328,7 +310,6 @@ fn demo_column_1() -> impl Scene {
                     |change: On<ValueChange<bool>>,
                         query: Query<Entity, With<DemoDisabledButton>>,
                         mut commands: Commands| {
-                        info!("Checkbox clicked!");
                         let mut button = commands.entity(query.single().unwrap());
                         if change.value {
                             button.insert(InteractionDisabled);
@@ -354,7 +335,6 @@ fn demo_column_1() -> impl Scene {
                 on(
                     |change: On<ValueChange<bool>>,
                      mut commands: Commands| {
-                        info!("Checkbox clicked!");
                         let mut checkbox = commands.entity(change.source);
                         if change.value {
                             checkbox.insert(Checked);
@@ -371,9 +351,7 @@ fn demo_column_1() -> impl Scene {
                     )),
                 })
                 InteractionDisabled
-                on(|_change: On<ValueChange<bool>>| {
-                    warn!("Disabled checkbox clicked!");
-                })
+                on(|_change: On<ValueChange<bool>>| {})
             ),
             (
                 checkbox(CheckboxProps {
@@ -383,9 +361,7 @@ fn demo_column_1() -> impl Scene {
                 })
                 InteractionDisabled
                 Checked
-                on(|_change: On<ValueChange<bool>>| {
-                    warn!("Disabled checkbox clicked!");
-                })
+                on(|_change: On<ValueChange<bool>>| {})
             ),
             (
                 Node {
@@ -515,7 +491,10 @@ fn demo_column_1() -> impl Scene {
                                     font: fonts::MONO
                                 }
                                 HexColorInput
-                                on(handle_hex_color_change)
+                                on(|_change: On<TextEditChange>,
+                                    _q_text_input: Single<&EditableText, With<HexColorInput>>,
+                                    _colors: ResMut<DemoWidgetStates>| {}
+                                )
                             )
                         ]
                     )
@@ -789,18 +768,5 @@ fn demo_column_2() -> impl Scene {
                 ]
             ),
         ]
-    }
-}
-
-fn handle_hex_color_change(
-    _change: On<TextEditChange>,
-    q_text_input: Single<&EditableText, With<HexColorInput>>,
-    mut colors: ResMut<DemoWidgetStates>,
-) {
-    let editable_text = *q_text_input;
-    if let Ok(color) = Srgba::hex(editable_text.value().to_string())
-        && color != colors.rgb_color
-    {
-        colors.rgb_color = color;
     }
 }
