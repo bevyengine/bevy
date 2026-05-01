@@ -55,7 +55,7 @@ pub enum BsnSceneListItem {
 pub enum BsnInheritedScene {
     Asset(LitStr),
     Fn {
-        function: Ident,
+        function: Path,
         args: Option<Punctuated<Expr, Token![,]>>,
     },
 }

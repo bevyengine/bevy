@@ -78,7 +78,7 @@ pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::shader_flags::INVERT;
-use crate::text::extract_text_cursor;
+use crate::text::{extract_preedit_underlines, extract_text_cursor};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -247,6 +247,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
+                    extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -1021,7 +1022,9 @@ pub fn extract_text_sections(
                 current_section_index = *section_index;
             }
 
-            let color = if let Some(selected_text_color) = selected_text_color
+            let color = if !atlas_info.is_alpha_mask {
+                LinearRgba::WHITE
+            } else if let Some(selected_text_color) = selected_text_color
                 && text_layout_info
                     .selection_rects
                     .iter()
@@ -1029,7 +1032,8 @@ pub fn extract_text_sections(
                         let glyph_rect = Rect::from_center_size(*position, atlas_info.rect.size());
                         selection_rect.contains(glyph_rect.min)
                             && selection_rect.contains(glyph_rect.max)
-                    }) {
+                    })
+            {
                 selected_text_color
             } else {
                 color

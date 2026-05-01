@@ -16,13 +16,11 @@ struct ChromaticAberrationSettings {
 // The source framebuffer texture.
 @group(0) @binding(0) var source_texture: texture_2d<f32>;
 // The sampler used to sample the source framebuffer texture.
-@group(0) @binding(1) var source_sampler: sampler;
+@group(0) @binding(1) var common_sampler: sampler;
 // The 1D lookup table for chromatic aberration.
 @group(0) @binding(2) var chromatic_aberration_lut_texture: texture_2d<f32>;
-// The sampler used to sample that lookup table.
-@group(0) @binding(3) var chromatic_aberration_lut_sampler: sampler;
 // The settings supplied by the developer.
-@group(0) @binding(4) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
+@group(0) @binding(3) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
 
 fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     // Radial chromatic aberration implemented using the *Inside* technique:
@@ -56,7 +54,7 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
             let sample_uv = mix(start_pos, end_pos, t);
             let sample = textureSampleLevel(
                 source_texture,
-                source_sampler,
+                common_sampler,
                 sample_uv,
                 0.0,
             ).rgb;
@@ -65,7 +63,7 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
             let lut_u = mix(lut_u_offset, 1.0 - lut_u_offset, t);
             let modulate = textureSampleLevel(
                 chromatic_aberration_lut_texture,
-                chromatic_aberration_lut_sampler,
+                common_sampler,
                 vec2(lut_u, 0.5),
                 0.0,
             ).rgb;
@@ -82,7 +80,7 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
         // texture to such pixels, which is wrong.
         color = textureSampleLevel(
             source_texture,
-            source_sampler,
+            common_sampler,
             start_pos,
             0.0,
         ).rgb;

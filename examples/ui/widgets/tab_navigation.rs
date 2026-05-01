@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputFocus,
+        FocusCause, InputFocus,
     },
     prelude::*,
 };
@@ -139,7 +139,7 @@ fn setup(mut commands: Commands) {
                                 .observe(
                                     |mut click: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.set(click.entity);
+                                        focus.set(click.entity, FocusCause::Pressed);
                                         click.propagate(false);
                                     },
                                 );

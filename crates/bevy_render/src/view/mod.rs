@@ -26,7 +26,7 @@ use crate::{
 };
 use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
-use bevy_color::{LinearRgba, Oklaba};
+use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
@@ -686,7 +686,8 @@ pub struct ViewTarget {
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
-    out_texture: OutputColorAttachment,
+    /// The final output attachment this view will present to, if available.
+    out_texture: Option<OutputColorAttachment>,
     /// Color space of values stored in the main texture (for blit conversion to output)
     pub compositing_space: Option<CompositingSpace>,
 }
@@ -901,26 +902,31 @@ impl ViewTarget {
 
     /// The final texture this view will render to.
     #[inline]
-    pub fn out_texture(&self) -> &TextureView {
-        &self.out_texture.view
+    pub fn out_texture(&self) -> Option<&TextureView> {
+        self.out_texture.as_ref().map(|t| &t.view)
     }
 
+    /// The final texture this view will render to, as a color attachment.
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment<'_> {
-        self.out_texture.get_attachment(clear_color)
+    ) -> Option<RenderPassColorAttachment<'_>> {
+        self.out_texture
+            .as_ref()
+            .map(|t| t.get_attachment(clear_color))
     }
 
     /// Whether the final texture this view will render to needs to be presented.
     pub fn needs_present(&self) -> bool {
-        self.out_texture.needs_present()
+        self.out_texture
+            .as_ref()
+            .is_some_and(OutputColorAttachment::needs_present)
     }
 
-    /// The format of the final texture this view will render to
+    /// The format of the final texture this view will render to, if any.
     #[inline]
-    pub fn out_texture_view_format(&self) -> TextureFormat {
-        self.out_texture.view_format
+    pub fn out_texture_view_format(&self) -> Option<TextureFormat> {
+        self.out_texture.as_ref().map(|t| t.view_format)
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -1090,6 +1096,10 @@ pub fn prepare_view_attachments(
             continue;
         };
 
+        if matches!(camera.output_mode, bevy_camera::CameraOutputMode::Skip) {
+            continue;
+        }
+
         match view_target_attachments.entry(target.clone()) {
             Entry::Occupied(_) => {}
             Entry::Vacant(entry) => {
@@ -1153,20 +1163,23 @@ pub fn prepare_view_targets(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(out_attachment)) = (
-            camera.physical_target_size,
-            camera
-                .target
-                .as_ref()
-                .and_then(|target| view_target_attachments.get(target)),
-        ) else {
-            // If we can't find an output attachment we need to remove the ViewTarget
-            // component to make sure the camera doesn't try rendering to an invalid
-            // output attachment.
+        let Some(target_size) = camera.physical_target_size else {
+            // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
-
             continue;
         };
+
+        let out_attachment = camera
+            .target
+            .as_ref()
+            .and_then(|target| view_target_attachments.get(target));
+
+        // If we have no output and the camera is set to clear, we can skip rendering
+        // entirely.
+        if out_attachment.is_none() && !matches!(camera.clear_color, ClearColorConfig::None) {
+            commands.entity(entity).try_remove::<ViewTarget>();
+            continue;
+        }
 
         let main_texture_format = view.target_format;
 
@@ -1177,19 +1190,13 @@ pub fn prepare_view_targets(
         };
 
         // Convert clear color to the format expected by the main texture
-        let converted_clear_color: Option<WgpuColor> = clear_color.map(|color| {
-            let linear: LinearRgba = color.into();
-            if camera
-                .compositing_space
-                .is_some_and(|s| s == CompositingSpace::Oklab)
-            {
-                // Main texture stores Oklab; convert linear RGB to Oklab for correct clear
-                let oklab: Oklaba = linear.into();
-                oklab.into()
-            } else {
-                linear.into()
-            }
-        });
+        let converted_clear_color: Option<WgpuColor> =
+            clear_color.map(|color| match camera.compositing_space {
+                // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
+                Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
+                Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
+                Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
+            });
 
         let key: MainTextureKey = (
             camera.target.clone(),
@@ -1270,7 +1277,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            out_texture: out_attachment.clone(),
+            out_texture: out_attachment.cloned(),
             compositing_space: camera.compositing_space,
         });
     }
