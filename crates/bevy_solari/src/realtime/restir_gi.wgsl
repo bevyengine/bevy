@@ -241,12 +241,14 @@ fn merge_reservoirs(
     // Radiances for resampling
     let canonical_sample_wi = normalize(canonical_reservoir.sample_point_world_position - canonical_world_position);
     let other_sample_wi = normalize(other_reservoir.sample_point_world_position - canonical_world_position);
-    let canonical_sample_radiance = canonical_reservoir.radiance * saturate(dot(canonical_sample_wi, canonical_world_normal));
-    let other_sample_radiance = other_reservoir.radiance * saturate(dot(other_sample_wi, canonical_world_normal));
 
     // Target functions for resampling and MIS
-    let canonical_target_function_canonical_sample = luminance(canonical_sample_radiance * canonical_diffuse_brdf);
-    let canonical_target_function_other_sample = luminance(other_sample_radiance * canonical_diffuse_brdf);
+    let canonical_target_function_canonical_sample = luminance(
+        canonical_reservoir.radiance * saturate(dot(canonical_sample_wi, canonical_world_normal)) * canonical_diffuse_brdf
+    );
+    let canonical_target_function_other_sample = luminance(
+        other_reservoir.radiance * saturate(dot(other_sample_wi, canonical_world_normal)) * canonical_diffuse_brdf
+    );
 
     // Extra target functions for MIS
     let other_target_function_canonical_sample = luminance(
@@ -272,7 +274,7 @@ fn merge_reservoirs(
 
     // Don't merge samples with huge jacobians, as it explodes the variance
     if canonical_target_function_other_sample_jacobian > 1.2 || other_target_function_canonical_sample_jacobian > 1.2 {
-        return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance, canonical_sample_wi);
+        return ReservoirMergeResult(canonical_reservoir, canonical_reservoir.radiance, canonical_sample_wi);
     }
 
     // Resampling weight for canonical sample
@@ -302,7 +304,7 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_other_sample, canonical_target_function_other_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, other_sample_radiance, other_sample_wi);
+        return ReservoirMergeResult(combined_reservoir, other_reservoir.radiance, other_sample_wi);
     } else {
         combined_reservoir.sample_point_world_position = canonical_reservoir.sample_point_world_position;
         combined_reservoir.sample_point_world_normal = canonical_reservoir.sample_point_world_normal;
@@ -311,6 +313,6 @@ fn merge_reservoirs(
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function_canonical_sample, canonical_target_function_canonical_sample > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_sample_radiance, canonical_sample_wi);
+        return ReservoirMergeResult(combined_reservoir, canonical_reservoir.radiance, canonical_sample_wi);
     }
 }
