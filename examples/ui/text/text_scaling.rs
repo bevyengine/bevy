@@ -47,8 +47,29 @@ fn root() -> impl Scene {
             align_items: AlignItems::Center,
             flex_direction: FlexDirection::Column
         }
-        // Goal: Render text of font size 16 that stays sharp up to 4x zoom.
+        // Goal: Render text of logical pixel size 16 that stays sharp up to 4x zoom.
         Children [
+            // For comparison non-sharp text.
+            Node
+            Text::new("Some Text")
+            TextFont {
+                font_size: FontSize::Px(16.),
+            }
+            ThemeBackgroundColor(tokens::PANE_BODY_BG),
+
+            // Simple solution:
+            // Scaling by UiRasterScale, which scales up the glyph rasterization resolution
+            // and could be dynamically changed based on zoom level. When zoomed out very far
+            // less raster resolution can look better.
+            Node
+            Text::new("Some Text")
+            TextFont {
+                font_size: FontSize::Px(16.),
+            }
+            UiRasterScale(4.)
+            ThemeBackgroundColor(tokens::PANE_BODY_BG),
+
+            // More complex, less flexible solution:
             // Increase font size by 4x and scale the node down to 1/4 size.
             // This works, but you need to multiply your font sizes everywhere by 4x
             // and there is extra complexity, because the 1/4 scale needs to happen somwhere.
@@ -60,30 +81,9 @@ fn root() -> impl Scene {
             Node {
                 // The node size is calculated before the scale is applied,
                 // so we move it down to be next to the other text.
-                top: px(30.)
+                top: px(-30.)
             }
             ThemeBackgroundColor(tokens::PANE_BODY_BG),
-
-            // Scaling by UiRasterScale, which simply scales up the glyph rasterization resolution
-            // and could even be dynamically changed based on zoom level. When zoomed out very far
-            // less raster resolution can look better.
-            Node
-            Text::new("Some Text")
-            TextFont {
-                font_size: FontSize::Px(16.),
-            }
-            UiRasterScale(4.)
-            ThemeBackgroundColor(tokens::PANE_BODY_BG),
-
-            // For comparison non-sharp text.
-            Node
-            Text::new("Some Text")
-            TextFont {
-                font_size: FontSize::Px(16.),
-            }
-            ThemeBackgroundColor(tokens::PANE_BODY_BG),
-
-
         ]
     }
 }
