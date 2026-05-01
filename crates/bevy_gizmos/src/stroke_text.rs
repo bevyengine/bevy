@@ -22,8 +22,17 @@ pub struct StrokeFont<'a> {
     pub strokes: &'a [Range<usize>],
     /// Glyph advances and stroke ranges.
     pub glyphs: &'a [(i8, Range<usize>); 95],
+    /// Extended glyph point positions.
+    pub extended_positions: &'a [[i8; 2]],
+    /// Stroke ranges for extended glyphs
+    pub extended_strokes: &'a [Range<usize>],
     /// Extended glyphs
-    pub extended: &'a [(char, i8, Range<usize>)],
+    pub extended: &'a [(char, i8, Range<usize>, Range<usize>)],
+}
+
+enum GlyphSource {
+    Standard(i8, Range<usize>),
+    Extended(i8, Range<usize>, Range<usize>),
 }
 
 impl<'a> StrokeFont<'a> {
@@ -67,13 +76,23 @@ impl<'a> StrokeFont<'a> {
         }
     }
 
+    fn resolve_glyph(&self, c: char) -> GlyphSource {
+        if let Some(idx) = self.get_glyph_index(c) {
+            GlyphSource::Standard(self.glyphs[idx].0, self.glyphs[idx].1.clone())
+        } else if let Ok(i) = self.extended.binary_search_by_key(&c, |entry| entry.0) {
+            GlyphSource::Extended(
+                self.extended[i].1,
+                self.extended[i].2.clone(),
+                self.extended[i].3.clone(),
+            )
+        } else {
+            GlyphSource::Standard(self.advance, 0..0)
+        }
+    }
+
     /// Get the advance for a glyph.
     pub fn get_glyph_advance(&self, c: char) -> Option<i8> {
         self.get_glyph(c).map(|(advance, _)| advance)
-    }
-
-    fn fallback_glyph(&self) -> (i8, Range<usize>) {
-        self.glyphs['?' as usize - 0x20].clone()
     }
 }
 
@@ -106,11 +125,10 @@ impl<'a> StrokeTextLayout<'a> {
                 layout_size.y += self.line_height;
                 continue;
             }
-
-            let advance = self
-                .font
-                .get_glyph_advance(c)
-                .unwrap_or_else(|| self.font.fallback_glyph().0);
+            let advance = match self.font.resolve_glyph(c) {
+                GlyphSource::Standard(advance, _) => advance,
+                GlyphSource::Extended(advance, _, _) => advance,
+            };
             line_width += advance as f32 * self.scale;
         }
 
@@ -120,54 +138,77 @@ impl<'a> StrokeTextLayout<'a> {
 
     /// Returns an iterator over the font strokes for this text layout, grouped into polylines
     /// of `Vec2` points, each paired with its color from the text sections.
-    pub fn render(&'a self) -> impl Iterator<Item = (Color, impl Iterator<Item = Vec2> + 'a)> + 'a {
+    pub fn render(
+        &'a self,
+    ) -> impl Iterator<Item = (Color, Box<dyn Iterator<Item = Vec2> + 'a>)> + 'a {
         let mut chars = colored_chars(self.sections);
         let mut x = 0.0_f32;
         let mut y = -self.margin_top;
-        let mut current_strokes: Range<usize> = 0..0;
+        let mut current_main_strokes: Range<usize> = 0..0;
+        let mut current_extended_strokes: Range<usize> = 0..0;
         let mut current_x = 0.0_f32;
         let mut current_color = Color::WHITE;
 
         core::iter::from_fn(move || loop {
-            for stroke_index in current_strokes.by_ref() {
-                let stroke = self.font.strokes[stroke_index].clone();
+            while let Some(stroke_idx) = current_main_strokes.next() {
+                let stroke = self.font.strokes[stroke_idx].clone();
                 if stroke.len() < 2 {
                     continue;
                 }
-
-                // If this stroke is a closed loop, append one extra point to add a join at the seam.
                 let join = (self.font.positions[stroke.start]
                     == self.font.positions[stroke.end - 1])
                     .then_some(stroke.start + 1);
-
-                let color = current_color;
-                return Some((
-                    color,
-                    stroke.chain(join).map(move |index| {
-                        let [p, q] = self.font.positions[index];
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(stroke.chain(join).map(move |idx| {
+                        let [p, q] = self.font.positions[idx];
                         Vec2::new(
-                            current_x + self.scale * p as f32,
+                            cx + self.scale * p as f32,
                             y - self.scale * (self.font.cap_height - q as f32),
                         )
-                    }),
-                ));
+                    }));
+                return Some((color, inner));
             }
 
+            while let Some(stroke_idx) = current_extended_strokes.next() {
+                let stroke = self.font.extended_strokes[stroke_idx].clone();
+                if stroke.len() < 2 {
+                    continue;
+                }
+                let join = (self.font.extended_positions[stroke.start]
+                    == self.font.extended_positions[stroke.end - 1])
+                    .then_some(stroke.start + 1);
+                let (color, cx) = (current_color, current_x);
+                let inner: Box<dyn Iterator<Item = Vec2> + 'a> =
+                    Box::new(stroke.chain(join).map(move |idx| {
+                        let [p, q] = self.font.extended_positions[idx];
+                        Vec2::new(
+                            cx + self.scale * p as f32,
+                            y - self.scale * (self.font.cap_height - q as f32),
+                        )
+                    }));
+                return Some((color, inner));
+            }
             let (c, char_color) = chars.next()?;
-
             if c == '\n' {
-                x = 0.0;
+                x = 0.;
                 y -= self.line_height;
                 continue;
             }
-            let (advance, strokes) = self
-                .font
-                .get_glyph(c)
-                .unwrap_or_else(|| self.font.fallback_glyph());
             current_color = char_color;
-            current_strokes = strokes;
             current_x = x;
-            x += advance as f32 * self.scale;
+            match self.font.resolve_glyph(c) {
+                GlyphSource::Standard(advance, stroke_range) => {
+                    current_main_strokes = stroke_range;
+                    x += advance as f32 * self.scale;
+                    current_extended_strokes = 0..0;
+                }
+                GlyphSource::Extended(advance, main_stroke_range, extended_stroke_range) => {
+                    current_main_strokes = main_stroke_range;
+                    current_extended_strokes = extended_stroke_range;
+                    x += advance as f32 * self.scale;
+                }
+            }
         })
     }
 }

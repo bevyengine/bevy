@@ -1411,5 +1411,7 @@ pub const SIMPLEX_STROKE_FONT: StrokeFont = StrokeFont {
     positions: &SIMPLEX_POSITIONS,
     strokes: &SIMPLEX_STROKES,
     glyphs: &SIMPLEX_GLYPHS,
+    extended_positions: &[],
+    extended_strokes: &[],
     extended: &[],
 };
