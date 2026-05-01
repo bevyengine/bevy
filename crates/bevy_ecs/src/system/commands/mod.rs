@@ -896,6 +896,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::insert_resource(resource));
     }
 
+    /// Inserts a [`Resource`] into the [`World`] with a specific value
+    /// if the resource is different or missing.
+    #[track_caller]
+    pub fn insert_if_resource_neq<R: Resource + PartialEq>(&mut self, resource: R) -> &mut Self {
+        unimplemented!();
+    }
+
     /// Removes a [`Resource`] from the [`World`].
     ///
     /// # Example
