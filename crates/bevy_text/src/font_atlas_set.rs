@@ -14,7 +14,7 @@ pub struct FontAtlasKey {
     pub id: u32,
     /// Font data index
     pub index: u32,
-    /// Raster size, which is the font size multiplied by `UiRasterSize`.
+    /// Raster size, which is the font size multiplied by a raster scale.
     pub raster_size: AtlasRasterSize,
     /// Hash of normalized variation coords for this run.
     pub variations_hash: u64,
