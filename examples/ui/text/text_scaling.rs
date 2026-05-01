@@ -72,7 +72,7 @@ fn root() -> impl Scene {
             // More complex, less flexible solution:
             // Increase font size by 4x and scale the node down to 1/4 size.
             // This works, but you need to multiply your font sizes everywhere by 4x
-            // and there is extra complexity, because the 1/4 scale needs to happen somwhere.
+            // and there is extra complexity, because the 1/4 scale needs to happen somewhere.
             TextFont {
                 font_size: {FontSize::Px(16. * 4.)},
             }
