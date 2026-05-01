@@ -454,7 +454,7 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have permission to access the resource of `component_id`.
-        self.storages()
+        unsafe { self.storages() }
             .resources
             .get(component_id)
             .and_then(ResourceStorage::get)
@@ -575,7 +575,7 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
             .map(|(value, cells)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
+                value: unsafe { value.assert_unique() },
                 ticks: ComponentTicksMut::from_tick_cells(
                     cells,
                     self.last_change_tick(),
@@ -683,7 +683,7 @@ impl<'w> UnsafeWorldCell<'w> {
         component_id: ComponentId,
     ) -> Option<(Ptr<'w>, ComponentTickCells<'w>)> {
         // SAFETY: We have permission to access the resource of `component_id`.
-        self.fetch_resource(component_id)?.get_with_ticks()
+        unsafe { self.fetch_resource(component_id) }?.get_with_ticks()
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
