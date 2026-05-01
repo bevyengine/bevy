@@ -267,13 +267,10 @@ impl ScopedEntities {
 /// ```
 ///
 /// [`FromTemplate`] is automatically implemented for anything that is [`Default`] and [`Clone`].
-/// In most cases, you should derive (or manually implement) [`Default`] and [`Clone`] instead of [`FromTemplate`] for your types.
-/// "Built in" collection types like
+/// [`FromTemplate`] is automatically implemented for anything that is [`Default`] and [`Clone`]. "Built in" collection types like
 /// [`Option`] and [`Vec`] pick up this "blanket" implementation, which is generally a good thing because it means these collection
-/// types work with [`FromTemplate`] derives by default.
-///
-/// However if the items in the collection have a custom [`FromTemplate`] impl
-/// (ex: a manual implementation like `Handle<T>` for assets, an [`Entity`] reference or an explicit [`FromTemplate`] derive), then relying on a [`Default`] /
+/// types work with [`FromTemplate`] derives by default. However if the items in the collection have a custom [`FromTemplate`] impl
+/// (ex: a manual implementation like `Handle<T>` for assets or an explicit [`FromTemplate`] derive), then relying on a [`Default`] /
 /// [`Clone`] implementation doesn't work, as that won't run the template logic!
 ///
 /// Therefore, cases like [`Option<Handle<T>>`] need something other than [`FromTemplate`] to determine the type. One option is to specify
