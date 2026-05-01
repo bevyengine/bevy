@@ -98,52 +98,6 @@ use proc_macro::TokenStream;
 ///
 /// `ChildOf` accepts either a plain `Entity` value or a named `#Name` reference from the same scope.
 ///
-/// ## Formatting BSN
-///
-/// Whitespace, parentheses, and comments have no effect on the generated scene —
-/// they exist purely to help you organize and read your code.
-///
-/// **Whitespace** (spaces, newlines, tabs) separates items on the *same* entity.
-/// Use it freely for alignment and to make groupings of both components and entities clearer.
-///
-/// **Parentheses** group a set of items into one logical unit inside a `[...]` list.
-/// Trailing commas are the delimiter used to end one entity and start another,
-/// but these can be hard to spot in deeply nested or one-line scenes.
-/// Parentheses (often with associated indentation) make the boundary explicit:
-///
-/// ```rust, ignore
-/// bsn! {
-///     Children [
-///         // Hard to see where one entity ends and the next begins:
-///         ComponentA
-///         ComponentB,
-///         ComponentA
-///         ComponentC,
-///
-///         // Much clearer:
-///         (
-///           ComponentA
-///           ComponentB
-///         ),
-///         (
-///           ComponentA
-///           ComponentC
-///         ),
-///     ]
-/// }
-/// ```
-///
-/// ```rust, ignore
-/// // Without parentheses, one-line definitions of children are prone to subtle mistakes:
-/// bsn! { Children [ComponentA ComponentB, ComponentC ComponentD] }
-///
-/// // With parentheses, the structure is clear:
-/// bsn! { Children [ (ComponentA ComponentB), (ComponentC ComponentD) ] }
-/// ```
-///
-/// **Comments** (`//` line comments and `/* */` block comments) work exactly as in
-/// normal Rust and are stripped by the macro before parsing.
-///
 /// ## Named entity references
 ///
 /// The `#Name` syntax does two things at once: it adds a `Name("Name")` component to the entity
@@ -381,6 +335,52 @@ use proc_macro::TokenStream;
 ///
 /// Prefer inline composition — reach for inheritance only when the parent comes from an asset,
 /// or when you need a fully pre-resolved opaque base.
+///
+/// /// ## Formatting BSN
+///
+/// Whitespace, parentheses, and comments have no effect on the generated scene —
+/// they exist purely to help you organize and read your code.
+///
+/// **Whitespace** (spaces, newlines, tabs) separates items on the *same* entity.
+/// Use it freely for alignment and to make groupings of both components and entities clearer.
+///
+/// **Parentheses** group a set of items into one logical unit inside a `[...]` list.
+/// Trailing commas are the delimiter used to end one entity and start another,
+/// but these can be hard to spot in deeply nested or one-line scenes.
+/// Parentheses (often with associated indentation) make the boundary explicit:
+///
+/// ```rust, ignore
+/// bsn! {
+///     Children [
+///         // Hard to see where one entity ends and the next begins:
+///         ComponentA
+///         ComponentB,
+///         ComponentA
+///         ComponentC,
+///
+///         // Much clearer:
+///         (
+///           ComponentA
+///           ComponentB
+///         ),
+///         (
+///           ComponentA
+///           ComponentC
+///         ),
+///     ]
+/// }
+/// ```
+///
+/// ```rust, ignore
+/// // Without parentheses, one-line definitions of children are prone to subtle mistakes:
+/// bsn! { Children [ComponentA ComponentB, ComponentC ComponentD] }
+///
+/// // With parentheses, the structure is clear:
+/// bsn! { Children [ (ComponentA ComponentB), (ComponentC ComponentD) ] }
+/// ```
+///
+/// **Comments** (`//` line comments and `/* */` block comments) work exactly as in
+/// normal Rust and are stripped by the macro before parsing.
 ///
 /// ## Syntax Reference
 ///
