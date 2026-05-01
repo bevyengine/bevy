@@ -435,7 +435,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
+    ) -> Result<Cow<'_, str>, wesl::ResolveError> {
         let asset_id = self
             .module_path_to_asset_id
             .get(module_path)
@@ -447,7 +447,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
             })?;
 
         let shader = self.shaders.get(asset_id).unwrap();
-        Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
+        Ok(Cow::Borrowed(shader.source.as_str()))
     }
 }
 
