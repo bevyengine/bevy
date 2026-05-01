@@ -4,7 +4,7 @@ use core::any::Any;
 
 use crate::{
     error::ErrorContext,
-    event::{EventMatcher, EventMatcherTrigger},
+    event::{EventPattern, EventPatternTrigger},
     observer::TriggerContext,
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -32,7 +32,7 @@ pub type ObserverRunner =
 // NOTE: The way `Trigger` and `On` interact in this implementation is _subtle_ and _easily invalidated_
 // from a soundness perspective. Please read and understand the safety comments before making any changes,
 // either here or in `On`.
-pub(super) unsafe fn observer_system_runner<E: EventMatcher, S: ObserverSystem<E>>(
+pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E>>(
     mut world: DeferredWorld,
     observer: Entity,
     trigger_context: &TriggerContext,
@@ -74,7 +74,7 @@ pub(super) unsafe fn observer_system_runner<E: EventMatcher, S: ObserverSystem<E
     // This becomes On<'a, 'a> in practice. This is why `On<'w, 't>` has the strict constraint that
     // the 'w lifetime can never be exposed. To do so would make it possible to introduce use-after-free bugs.
     // See this thread for more details: <https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935>
-    let trigger: &mut EventMatcherTrigger<'_, E> = unsafe { trigger_ptr.deref_mut() };
+    let trigger: &mut EventPatternTrigger<'_, E> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut E`

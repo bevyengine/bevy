@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use variadics_please::all_tuples;
 
-use crate::{event::EventMatcher, prelude::On, system::System};
+use crate::{event::EventPattern, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -247,7 +247,7 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: EventMatcher> SystemInput for On<'_, '_, E> {
+impl<E: EventPattern> SystemInput for On<'_, '_, E> {
     // Note: the fact that we must use a shared lifetime here is
     // a key piece of the complicated safety story documented above
     // the `&mut E::Trigger<'_>` cast in `observer_system_runner` and in

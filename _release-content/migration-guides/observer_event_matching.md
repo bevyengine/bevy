@@ -44,7 +44,7 @@ pub struct Bar;
 
 pub struct Foo<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Foo<B> {
+impl<B: Bundle> EventPattern for Foo<B> {
     type Event = FooEvent;
     type Components = B;
 }

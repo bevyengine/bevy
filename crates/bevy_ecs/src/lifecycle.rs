@@ -54,7 +54,7 @@ use crate::{
     change_detection::{MaybeLocation, Tick},
     component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
-    event::{EntityComponentsTrigger, EntityEvent, EventKey, EventMatcher},
+    event::{EntityComponentsTrigger, EntityEvent, EventKey, EventPattern},
     message::{
         Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
@@ -338,7 +338,7 @@ pub struct AddEvent {
     pub entity: Entity,
 }
 
-/// [`EventMatcher`] for an [`AddEvent`] on a given bundle of components.
+/// [`EventPattern`] for an [`AddEvent`] on a given bundle of components.
 ///
 /// # Note
 ///
@@ -348,7 +348,7 @@ pub struct AddEvent {
 #[doc(alias = "OnAdd")]
 pub struct Add<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Add<B> {
+impl<B: Bundle> EventPattern for Add<B> {
     type Event = AddEvent;
     type Components = B;
 }
@@ -365,7 +365,7 @@ pub struct InsertEvent {
     pub entity: Entity,
 }
 
-/// [`EventMatcher`] for an [`InsertEvent`] on a given bundle of components.
+/// [`EventPattern`] for an [`InsertEvent`] on a given bundle of components.
 ///
 /// # Note
 ///
@@ -375,7 +375,7 @@ pub struct InsertEvent {
 #[doc(alias = "OnInsert")]
 pub struct Insert<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Insert<B> {
+impl<B: Bundle> EventPattern for Insert<B> {
     type Event = InsertEvent;
     type Components = B;
 }
@@ -395,7 +395,7 @@ pub struct DiscardEvent {
     pub entity: Entity,
 }
 
-/// [`EventMatcher`] for a [`DiscardEvent`] on a given bundle of components.
+/// [`EventPattern`] for a [`DiscardEvent`] on a given bundle of components.
 ///
 /// # Note
 ///
@@ -407,7 +407,7 @@ pub struct DiscardEvent {
 #[doc(alias = "Replace")]
 pub struct Discard<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Discard<B> {
+impl<B: Bundle> EventPattern for Discard<B> {
     type Event = DiscardEvent;
     type Components = B;
 }
@@ -424,7 +424,7 @@ pub struct RemoveEvent {
     pub entity: Entity,
 }
 
-/// [`EventMatcher`] for a [`RemoveEvent`] on a given bundle of components.
+/// [`EventPattern`] for a [`RemoveEvent`] on a given bundle of components.
 ///
 /// # Note
 ///
@@ -434,7 +434,7 @@ pub struct RemoveEvent {
 #[doc(alias = "OnRemove")]
 pub struct Remove<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Remove<B> {
+impl<B: Bundle> EventPattern for Remove<B> {
     type Event = RemoveEvent;
     type Components = B;
 }
@@ -450,7 +450,7 @@ pub struct DespawnEvent {
     pub entity: Entity,
 }
 
-/// [`EventMatcher`] for a [`DespawnEvent`] on a given bundle of components.
+/// [`EventPattern`] for a [`DespawnEvent`] on a given bundle of components.
 ///
 /// # Note
 ///
@@ -460,7 +460,7 @@ pub struct DespawnEvent {
 #[doc(alias = "OnDespawn")]
 pub struct Despawn<B: Bundle>(PhantomData<B>);
 
-impl<B: Bundle> EventMatcher for Despawn<B> {
+impl<B: Bundle> EventPattern for Despawn<B> {
     type Event = DespawnEvent;
     type Components = B;
 }

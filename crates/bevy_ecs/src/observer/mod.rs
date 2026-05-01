@@ -457,7 +457,7 @@ mod tests {
         archetype::{Archetype, ArchetypeId},
         change_detection::MaybeLocation,
         error::Result,
-        event::{EntityComponentsTrigger, Event, EventMatcher, GlobalTrigger},
+        event::{EntityComponentsTrigger, Event, EventPattern, GlobalTrigger},
         hierarchy::ChildOf,
         lifecycle::RemoveEvent,
         observer::{Discard, Observer},
@@ -487,7 +487,7 @@ mod tests {
 
     struct EntityComponents<B: Bundle>(PhantomData<B>);
 
-    impl<B: Bundle> EventMatcher for EntityComponents<B> {
+    impl<B: Bundle> EventPattern for EntityComponents<B> {
         type Event = EntityComponentsEvent;
         type Components = B;
     }
@@ -1807,7 +1807,7 @@ mod tests {
 
         fn observer<E>(e: On<E>, mut c: ResMut<Changes>)
         where
-            E: EventMatcher,
+            E: EventPattern,
             E::Event: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>,
         {
             c.0.push((

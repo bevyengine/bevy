@@ -3,7 +3,7 @@ use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     component::Component,
     error::Result,
-    event::{EntityEvent, EventMatcher},
+    event::{EntityEvent, EventPattern},
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
@@ -504,7 +504,7 @@ pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 impl<I, E, M> Template for OnTemplate<I, E, M>
 where
     I: IntoObserverSystem<E, M> + Clone,
-    E: EventMatcher<Event: EntityEvent>,
+    E: EventPattern<Event: EntityEvent>,
     M: 'static,
 {
     type Output = ();
@@ -522,7 +522,7 @@ where
 impl<I, E, M> Scene for OnTemplate<I, E, M>
 where
     I: IntoObserverSystem<E, M> + Clone + Send + Sync,
-    E: EventMatcher<Event: EntityEvent>,
+    E: EventPattern<Event: EntityEvent>,
     M: 'static,
 {
     fn resolve(
@@ -541,7 +541,7 @@ where
 pub fn on<I, E, M>(observer: I) -> OnTemplate<I, E, M>
 where
     I: IntoObserverSystem<E, M>,
-    E: EventMatcher<Event: EntityEvent>,
+    E: EventPattern<Event: EntityEvent>,
     M: 'static,
 {
     OnTemplate(observer, PhantomData)

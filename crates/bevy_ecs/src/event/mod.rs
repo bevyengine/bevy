@@ -93,9 +93,9 @@ pub trait Event: Send + Sync + Sized + 'static {
 
 /// Trait for types that can be 'matched' on by [`Observer`]s to register additional
 /// metadata for an [`Event`] trigger. All [`Event`]s are also implicitly
-/// [`EventMatcher`]s, but this trait can be manually implemented.
+/// [`EventPattern`]s, but this trait can be manually implemented.
 ///
-/// The following are lifecycle [`EventMatcher`]s that register components
+/// The following are lifecycle [`EventPattern`]s that register components
 /// to watch for via their generic [`Bundle`] type parameter:
 ///
 /// - [`Add`]
@@ -111,11 +111,11 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// [`Remove`]: crate::lifecycle::Remove
 /// [`Despawn`]: crate::lifecycle::Despawn
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `Event` or `EventMatcher`",
-    label = "invalid `EventMatcher`",
-    note = "consider annotating `{Self}` with `#[derive(Event)]` or implementing `EventMatcher` manually"
+    message = "`{Self}` is not an `Event` or `EventPattern`",
+    label = "invalid `EventPattern`",
+    note = "consider annotating `{Self}` with `#[derive(Event)]` or implementing `EventPattern` manually"
 )]
-pub trait EventMatcher: Send + Sync + 'static {
+pub trait EventPattern: Send + Sync + 'static {
     /// The event type being observed.
     type Event: Event;
 
@@ -126,8 +126,8 @@ pub trait EventMatcher: Send + Sync + 'static {
     type Components: Bundle;
 }
 
-// All events are implicitly EventMatchers, with no additional components.
-impl<E: Event> EventMatcher for E {
+// All events are implicitly EventPatterns, with no additional components.
+impl<E: Event> EventPattern for E {
     type Event = Self;
     type Components = ();
 }

@@ -16,7 +16,7 @@ use core::marker::PhantomData;
 use crate::{
     component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
-    event::{EventKey, EventMatcher},
+    event::{EventKey, EventPattern},
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
@@ -221,7 +221,7 @@ impl Observer {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: EventMatcher, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
+    pub fn new<E: EventPattern, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
         assert!(
             !system.is_exclusive(),
@@ -453,7 +453,7 @@ impl ObserverDescriptor {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: EventMatcher, S: ObserverSystem<E>>(
+fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {
@@ -569,13 +569,13 @@ impl IntoObserver<()> for Observer {
     }
 }
 
-impl<E: EventMatcher, M, T: IntoObserverSystem<E, M>> IntoObserver<(E, M)> for T {
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> IntoObserver<(E, M)> for T {
     fn into_observer(self) -> Observer {
         Observer::new(self)
     }
 }
 
-impl<E: EventMatcher, M: 'static, S: IntoObserverSystem<E, M>>
+impl<E: EventPattern, M: 'static, S: IntoObserverSystem<E, M>>
     IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer(self) -> Observer {
@@ -598,7 +598,7 @@ pub trait IntoEntityObserver<Marker>: Send + 'static {
     fn into_observer_for_entity(self, entity: Entity) -> Observer;
 }
 
-impl<E: EventMatcher<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEntityObserver<(E, M)>
+impl<E: EventPattern<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEntityObserver<(E, M)>
     for T
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
@@ -606,7 +606,7 @@ impl<E: EventMatcher<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEn
     }
 }
 
-impl<E: EventMatcher<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M>>
+impl<E: EventPattern<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M>>
     IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
@@ -618,7 +618,7 @@ impl<E: EventMatcher<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M
 }
 
 /// Extension trait for adding run conditions to observer systems.
-pub trait ObserverSystemExt<E: EventMatcher, M>: IntoObserverSystem<E, M> + Sized {
+pub trait ObserverSystemExt<E: EventPattern, M>: IntoObserverSystem<E, M> + Sized {
     /// Adds a run condition to this observer system.
     ///
     /// The observer will only run if the condition returns `true`.
@@ -635,4 +635,4 @@ pub trait ObserverSystemExt<E: EventMatcher, M>: IntoObserverSystem<E, M> + Size
     }
 }
 
-impl<E: EventMatcher, M, T: IntoObserverSystem<E, M>> ObserverSystemExt<E, M> for T {}
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> ObserverSystemExt<E, M> for T {}

@@ -6,7 +6,7 @@
 
 use bevy::{
     color::palettes::basic::*,
-    ecs::{event::EventMatcher, lifecycle::RemoveEvent},
+    ecs::{event::EventPattern, lifecycle::RemoveEvent},
     input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
@@ -151,7 +151,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
     )
 }
 
-fn button_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+fn button_on_interaction<E: EventPattern<Event: EntityEvent>>(
     event: On<E>,
     mut buttons: Query<
         (
@@ -278,7 +278,7 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
     )
 }
 
-fn slider_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+fn slider_on_interaction<E: EventPattern<Event: EntityEvent>>(
     event: On<E>,
     sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
     children: Query<&Children>,
@@ -383,7 +383,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
     )
 }
 
-fn checkbox_on_interaction<E: EventMatcher<Event: EntityEvent>>(
+fn checkbox_on_interaction<E: EventPattern<Event: EntityEvent>>(
     event: On<E>,
     checkboxes: Query<
         (&Hovered, Has<InteractionDisabled>, Has<Checked>, &Children),

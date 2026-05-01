@@ -1,4 +1,4 @@
-use crate::event::{EventMatcher, SetEntityEventTarget};
+use crate::event::{EventPattern, SetEntityEventTarget};
 use crate::{
     archetype::Archetype,
     component::ComponentId,
@@ -55,8 +55,8 @@ pub unsafe trait Trigger<E: Event> {
     );
 }
 
-/// Shorthand for accessing an [`EventMatcher`]s [`Trigger`] via its [`Event`].
-pub type EventMatcherTrigger<'a, E> = <<E as EventMatcher>::Event as Event>::Trigger<'a>;
+/// Shorthand for accessing an [`EventPattern`]s [`Trigger`] via its [`Event`].
+pub type EventPatternTrigger<'a, E> = <<E as EventPattern>::Event as Event>::Trigger<'a>;
 
 /// A [`Trigger`] that runs _every_ "global" [`Observer`](crate::observer::Observer) (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
 /// that matches the given [`Event`].
