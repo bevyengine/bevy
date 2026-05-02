@@ -263,10 +263,9 @@ impl AssetSaver for CompressedImageSaver {
     }
 }
 
-/// Returns `Some((unorm, srgb, hdr))` ASTC format triple if the env var is set, `None` otherwise.
+/// Returns `Some((unorm, hdr))` ASTC format pair if the env var is set, `None` otherwise.
 #[cfg(feature = "compressed_image_saver")]
-fn parse_astc_env_var(
-) -> Result<Option<(ktx2::Format, ktx2::Format, ktx2::Format)>, CompressedImageSaverError> {
+fn parse_astc_env_var() -> Result<Option<(ktx2::Format, ktx2::Format)>, CompressedImageSaverError> {
     use ktx2::Format;
 
     let val = match std::env::var("BEVY_COMPRESSED_IMAGE_SAVER_ASTC") {
@@ -276,75 +275,37 @@ fn parse_astc_env_var(
     };
 
     let val = val.trim();
-    let (unorm, srgb, hdr) = match val {
-        "" | "1" | "4x4" => (
-            Format::ASTC_4x4_UNORM_BLOCK,
-            Format::ASTC_4x4_SRGB_BLOCK,
-            Format::ASTC_4x4_SFLOAT_BLOCK,
-        ),
-        "5x4" => (
-            Format::ASTC_5x4_UNORM_BLOCK,
-            Format::ASTC_5x4_SRGB_BLOCK,
-            Format::ASTC_5x4_SFLOAT_BLOCK,
-        ),
-        "5x5" => (
-            Format::ASTC_5x5_UNORM_BLOCK,
-            Format::ASTC_5x5_SRGB_BLOCK,
-            Format::ASTC_5x5_SFLOAT_BLOCK,
-        ),
-        "6x5" => (
-            Format::ASTC_6x5_UNORM_BLOCK,
-            Format::ASTC_6x5_SRGB_BLOCK,
-            Format::ASTC_6x5_SFLOAT_BLOCK,
-        ),
-        "6x6" => (
-            Format::ASTC_6x6_UNORM_BLOCK,
-            Format::ASTC_6x6_SRGB_BLOCK,
-            Format::ASTC_6x6_SFLOAT_BLOCK,
-        ),
-        "8x5" => (
-            Format::ASTC_8x5_UNORM_BLOCK,
-            Format::ASTC_8x5_SRGB_BLOCK,
-            Format::ASTC_8x5_SFLOAT_BLOCK,
-        ),
-        "8x6" => (
-            Format::ASTC_8x6_UNORM_BLOCK,
-            Format::ASTC_8x6_SRGB_BLOCK,
-            Format::ASTC_8x6_SFLOAT_BLOCK,
-        ),
-        "8x8" => (
-            Format::ASTC_8x8_UNORM_BLOCK,
-            Format::ASTC_8x8_SRGB_BLOCK,
-            Format::ASTC_8x8_SFLOAT_BLOCK,
-        ),
+    let (unorm, hdr) = match val {
+        "" | "1" | "4x4" => (Format::ASTC_4x4_UNORM_BLOCK, Format::ASTC_4x4_SFLOAT_BLOCK),
+        "5x4" => (Format::ASTC_5x4_UNORM_BLOCK, Format::ASTC_5x4_SFLOAT_BLOCK),
+        "5x5" => (Format::ASTC_5x5_UNORM_BLOCK, Format::ASTC_5x5_SFLOAT_BLOCK),
+        "6x5" => (Format::ASTC_6x5_UNORM_BLOCK, Format::ASTC_6x5_SFLOAT_BLOCK),
+        "6x6" => (Format::ASTC_6x6_UNORM_BLOCK, Format::ASTC_6x6_SFLOAT_BLOCK),
+        "8x5" => (Format::ASTC_8x5_UNORM_BLOCK, Format::ASTC_8x5_SFLOAT_BLOCK),
+        "8x6" => (Format::ASTC_8x6_UNORM_BLOCK, Format::ASTC_8x6_SFLOAT_BLOCK),
+        "8x8" => (Format::ASTC_8x8_UNORM_BLOCK, Format::ASTC_8x8_SFLOAT_BLOCK),
         "10x5" => (
             Format::ASTC_10x5_UNORM_BLOCK,
-            Format::ASTC_10x5_SRGB_BLOCK,
             Format::ASTC_10x5_SFLOAT_BLOCK,
         ),
         "10x6" => (
             Format::ASTC_10x6_UNORM_BLOCK,
-            Format::ASTC_10x6_SRGB_BLOCK,
             Format::ASTC_10x6_SFLOAT_BLOCK,
         ),
         "10x8" => (
             Format::ASTC_10x8_UNORM_BLOCK,
-            Format::ASTC_10x8_SRGB_BLOCK,
             Format::ASTC_10x8_SFLOAT_BLOCK,
         ),
         "10x10" => (
             Format::ASTC_10x10_UNORM_BLOCK,
-            Format::ASTC_10x10_SRGB_BLOCK,
             Format::ASTC_10x10_SFLOAT_BLOCK,
         ),
         "12x10" => (
             Format::ASTC_12x10_UNORM_BLOCK,
-            Format::ASTC_12x10_SRGB_BLOCK,
             Format::ASTC_12x10_SFLOAT_BLOCK,
         ),
         "12x12" => (
             Format::ASTC_12x12_UNORM_BLOCK,
-            Format::ASTC_12x12_SRGB_BLOCK,
             Format::ASTC_12x12_SFLOAT_BLOCK,
         ),
         other => {
@@ -356,7 +317,7 @@ fn parse_astc_env_var(
         }
     };
 
-    Ok(Some((unorm, srgb, hdr)))
+    Ok(Some((unorm, hdr)))
 }
 
 #[cfg(feature = "compressed_image_saver")]
@@ -368,37 +329,39 @@ fn choose_ctt_compressed_format(
     let astc_block = parse_astc_env_var()?;
 
     let format = match input {
-        // 1-channel snorm
+        // 1-channel snorm (ASTC has no snorm variant, pass through uncompressed if ASTC is preferred)
         TextureFormat::R8Snorm => {
-            if let Some((unorm, _, _)) = astc_block {
-                unorm
-            } else {
-                Format::BC4_SNORM_BLOCK
+            if astc_block.is_some() {
+                return Ok(ctt::TargetFormat::Uncompressed(map_to_ctt_texture_format(
+                    input,
+                )?));
             }
+            Format::BC4_SNORM_BLOCK
         }
 
         // 1-channel
         TextureFormat::R8Unorm => {
-            if let Some((unorm, _, _)) = astc_block {
-                unorm
+            if let Some((astc_unorm, _)) = astc_block {
+                astc_unorm
             } else {
                 Format::BC4_UNORM_BLOCK
             }
         }
 
-        // 2-channel snorm
+        // 2-channel snorm (ASTC has no snorm variant, pass through uncompressed if ASTC is preferred)
         TextureFormat::Rg8Snorm => {
-            if let Some((unorm, _, _)) = astc_block {
-                unorm
-            } else {
-                Format::BC5_SNORM_BLOCK
+            if astc_block.is_some() {
+                return Ok(ctt::TargetFormat::Uncompressed(map_to_ctt_texture_format(
+                    input,
+                )?));
             }
+            Format::BC5_SNORM_BLOCK
         }
 
         // 2-channel
         TextureFormat::Rg8Unorm => {
-            if let Some((unorm, _, _)) = astc_block {
-                unorm
+            if let Some((astc_unorm, _)) = astc_block {
+                astc_unorm
             } else {
                 Format::BC5_UNORM_BLOCK
             }
@@ -410,8 +373,8 @@ fn choose_ctt_compressed_format(
         | TextureFormat::R16Float
         | TextureFormat::Rg16Float
         | TextureFormat::Rgba16Float => {
-            if let Some((_, _, hdr)) = astc_block {
-                hdr
+            if let Some((_, astc_hdr)) = astc_block {
+                astc_hdr
             } else {
                 Format::BC6H_UFLOAT_BLOCK
             }
@@ -419,17 +382,17 @@ fn choose_ctt_compressed_format(
 
         // 4-channel LDR
         TextureFormat::Rgba8Unorm | TextureFormat::Bgra8Unorm | TextureFormat::Rgb10a2Unorm => {
-            if let Some((unorm, _, _)) = astc_block {
-                unorm
+            if let Some((astc_unorm, _)) = astc_block {
+                astc_unorm
             } else {
                 Format::BC7_UNORM_BLOCK
             }
         }
         TextureFormat::Rgba8UnormSrgb | TextureFormat::Bgra8UnormSrgb => {
-            if let Some((_, srgb, _)) = astc_block {
-                srgb
+            if let Some((astc_unorm, _)) = astc_block {
+                astc_unorm
             } else {
-                Format::BC7_SRGB_BLOCK
+                Format::BC7_UNORM_BLOCK
             }
         }
 
