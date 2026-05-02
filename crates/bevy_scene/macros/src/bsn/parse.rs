@@ -434,6 +434,10 @@ impl Parse for BsnValue {
             }
         } else if input.peek(Lit) {
             BsnValue::Lit(input.parse::<Lit>()?)
+        } else if input.peek(Token![-]) {
+            // Negative numeric literal: -0.1, -42, etc. Not a syn::Lit, so parse as Expr.
+            let expr: Expr = input.parse()?;
+            BsnValue::Expr(quote! { #expr })
         } else if input.peek(Paren) {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
