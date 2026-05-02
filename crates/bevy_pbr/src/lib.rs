@@ -167,10 +167,11 @@ pub struct Bluenoise {
     pub texture: Handle<Image>,
 }
 
-/// A texture array contains 2 LTC (Linearly Transformed Cosines) LUT textures for area light shading.
+/// LTC (Linearly Transformed Cosines) LUT textures for area light shading.
 ///
-/// `ltc_1` encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
-/// `ltc_2` encodes amplitude and Fresnel-related weights.
+/// It is a texture array containing 2 LUT textures:
+/// The first entry encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
+/// The second entry encodes amplitude and Fresnel-related weights.
 ///
 /// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
 #[derive(Resource, Clone)]

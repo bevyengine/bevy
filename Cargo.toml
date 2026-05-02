@@ -574,7 +574,7 @@ bluenoise_texture = ["bevy_internal/bluenoise_texture"]
 # Include a preintegrated BRDF Look Up Table for more accurate specular shading.
 dfg_lut = ["bevy_internal/dfg_lut"]
 
-# Include Look Up Tables that are required for rect light.
+# Include Look Up Tables that are required for area lights.
 area_light_luts = ["bevy_internal/area_light_luts"]
 
 # NVIDIA Deep Learning Super Sampling
