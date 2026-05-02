@@ -244,9 +244,9 @@ impl AssetSaver for CompressedImageSaver {
             // library bindings note that invalid params might produce undefined behavior.
             unsafe {
                 compressor.init(&compressor_params);
-                compressor
-                    .process()
-                    .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
+                compressor.process().map_err(|e| {
+                    CompressedImageSaverError::CompressionFailed(format!("{e:?}").into())
+                })?;
             }
             compressor.basis_file().to_vec()
         };
