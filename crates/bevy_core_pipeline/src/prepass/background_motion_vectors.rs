@@ -18,6 +18,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
+use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -84,16 +85,36 @@ pub struct BackgroundMotionVectorsBindGroup(pub BindGroup);
 #[derive(Default)]
 pub struct BackgroundMotionVectorsPlugin;
 
+impl BackgroundMotionVectorsPlugin {
+    /// [`DownlevelFlags`] required for this plugin to function.
+    pub fn required_downlevel_flags() -> DownlevelFlags {
+        DownlevelFlags::INDEPENDENT_BLEND
+    }
+}
+
 impl Plugin for BackgroundMotionVectorsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "background_motion_vectors.wgsl");
 
         app.register_type::<NoBackgroundMotionVectors>()
             .add_plugins(ExtractComponentPlugin::<NoBackgroundMotionVectors>::default());
+    }
 
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        let render_adapter = render_app.world().resource::<RenderAdapter>();
+        let downlevel_flags = render_adapter.get_downlevel_capabilities().flags;
+        if !downlevel_flags.contains(BackgroundMotionVectorsPlugin::required_downlevel_flags()) {
+            warn!(
+                "BackgroundMotionVectorsPlugin not loaded. GPU lacks support for required downlevel capability flags: {:?}.",
+                BackgroundMotionVectorsPlugin::required_downlevel_flags().difference(downlevel_flags)
+            );
+            return;
+        }
+
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>()
             .init_gpu_resource::<PreviousViewUniforms>()
@@ -120,7 +141,6 @@ struct BackgroundMotionVectorsPipeline {
 struct BackgroundMotionVectorsPipelineKey {
     samples: u32,
     normal_prepass: bool,
-    supports_downlevel_independent_blend: bool,
 }
 
 fn init_background_motion_vectors_pipeline(
@@ -152,18 +172,15 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
-
-        if key.supports_downlevel_independent_blend {
-            // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
-            // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
-            for target in
-                targets
-                    .iter_mut()
-                    .enumerate()
-                    .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
-            {
-                target.write_mask = bevy_render::render_resource::ColorWrites::empty();
-            }
+        // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
+        // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
+        for target in
+            targets
+                .iter_mut()
+                .enumerate()
+                .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
+        {
+            target.write_mask = bevy_render::render_resource::ColorWrites::empty();
         }
 
         RenderPipelineDescriptor {
@@ -194,7 +211,6 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
 
 fn prepare_background_motion_vectors_pipelines(
     mut commands: Commands,
-    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>,
     pipeline: Res<BackgroundMotionVectorsPipeline>,
@@ -206,10 +222,6 @@ fn prepare_background_motion_vectors_pipelines(
         ),
     >,
 ) {
-    let supports_downlevel_independent_blend = render_adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::INDEPENDENT_BLEND);
     for (entity, normal_prepass, msaa) in &views {
         let id = pipelines.specialize(
             &pipeline_cache,
@@ -217,7 +229,6 @@ fn prepare_background_motion_vectors_pipelines(
             BackgroundMotionVectorsPipelineKey {
                 samples: msaa.samples(),
                 normal_prepass,
-                supports_downlevel_independent_blend,
             },
         );
         commands
