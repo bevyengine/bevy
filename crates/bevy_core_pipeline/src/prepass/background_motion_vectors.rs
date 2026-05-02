@@ -95,9 +95,13 @@ impl BackgroundMotionVectorsPlugin {
 impl Plugin for BackgroundMotionVectorsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "background_motion_vectors.wgsl");
-
         app.register_type::<NoBackgroundMotionVectors>()
             .add_plugins(ExtractComponentPlugin::<NoBackgroundMotionVectors>::default());
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app.init_gpu_resource::<PreviousViewUniforms>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -117,7 +121,6 @@ impl Plugin for BackgroundMotionVectorsPlugin {
 
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>()
-            .init_gpu_resource::<PreviousViewUniforms>()
             .add_systems(RenderStartup, init_background_motion_vectors_pipeline)
             .add_systems(
                 Render,
