@@ -474,7 +474,7 @@ mod tests {
 
     /// Regression for #24050: `MyComponent(-0.1)` previously raised `expected Expr`
     /// when the parser saw `-` and the literal as separate tokens (rust-analyzer's
-    /// behaviour). After the fix the value parses successfully — either as a
+    /// behavior). After the fix the value parses successfully — either as a
     /// folded `Lit` (when syn combines the tokens) or as an `Expr` (when it
     /// doesn't); both downstream codegen paths handle the value correctly.
     #[test]
