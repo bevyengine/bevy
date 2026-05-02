@@ -643,6 +643,7 @@ Example | Description
 [UI Texture Slice](../examples/ui/images/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Texture Slice Flipping and Tiling](../examples/ui/images/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
+[UI Transform](../examples/ui/scroll_and_overflow/overflow_scale.rs) | An example demonstrating overflow clipping when scaling UI elements.
 [UI Z-Index](../examples/ui/layout/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Vertical Slider](../examples/ui/widgets/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 [Viewport Node](../examples/ui/widgets/viewport_node.rs) | Demonstrates how to create a viewport node with picking support

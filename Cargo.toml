@@ -4150,6 +4150,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_scale"
+path = "examples/ui/scroll_and_overflow/overflow_scale.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_scale]
+name = "UI Transform"
+description = "An example demonstrating overflow clipping when scaling UI elements."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_target_camera"
 path = "examples/ui/ui_target_camera.rs"
 doc-scrape-examples = true
