@@ -47,7 +47,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
-    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+    let storage = storage_path(&bevy_ecs_path, StorageTy::SparseSet);
 
     let on_add_path = None;
     let on_remove_path = None;

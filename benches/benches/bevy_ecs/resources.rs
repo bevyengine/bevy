@@ -19,7 +19,7 @@ fn create_world() -> World {
             let resource_id =
                 world.register_component_with_descriptor(ComponentDescriptor::new_with_layout(
                     "",
-                    StorageType::Table,
+                    StorageType::SparseSet,
                     Layout::new::<()>(),
                     None,
                     true,
