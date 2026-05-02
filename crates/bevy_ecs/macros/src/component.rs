@@ -47,7 +47,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
-    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+    let storage = storage_path(&bevy_ecs_path, StorageTy::SparseSet);
 
     ast.generics
         .make_where_clause()
