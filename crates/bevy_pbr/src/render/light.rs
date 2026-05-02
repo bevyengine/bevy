@@ -1004,7 +1004,13 @@ pub fn prepare_lights(
         Local<bool>,
         Local<HashSet<RetainedViewEntity>>,
     ),
-    (mut point_lights, directional_lights, rect_lights, mut directional_light_view_entities): (
+    (
+        mut point_lights,
+        changed_point_lights,
+        directional_lights,
+        rect_lights,
+        mut directional_light_view_entities,
+    ): (
         Query<(
             Entity,
             &MainEntity,
@@ -1012,6 +1018,14 @@ pub fn prepare_lights(
             &mut PointAndSpotLightViewEntities,
             AnyOf<(&CubemapFrusta, &Frustum)>,
         )>,
+        Query<
+            (),
+            Or<(
+                Changed<ExtractedPointLight>,
+                Changed<CubemapFrusta>,
+                Changed<Frustum>,
+            )>,
+        >,
         Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
         Query<(Entity, &MainEntity, &ExtractedRectLight)>,
         Query<&mut DirectionalLightViewEntities>,
@@ -1548,6 +1562,41 @@ pub fn prepare_lights(
             }
 
             point_and_spot_light_view_entities.0 = light_view_entities;
+        } else if changed_point_lights.get(*light_entity).is_ok() {
+            // If the point light was changed, update the `ExtractedView` only.
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
+            let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
+                core::f32::consts::FRAC_PI_2,
+                1.0,
+                light.shadow_map_near_z,
+            );
+            for (face_index, (view_rotation, frustum)) in cube_face_rotations
+                .iter()
+                .zip(&point_light_frusta.unwrap().frusta)
+                .enumerate()
+            {
+                let view_light_entity = point_and_spot_light_view_entities.0[face_index];
+                let retained_view_entity =
+                    RetainedViewEntity::new(*light_main_entity, None, face_index as u32);
+                commands.entity(view_light_entity).insert((
+                    ExtractedView {
+                        retained_view_entity,
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: view_translation * *view_rotation,
+                        clip_from_world: None,
+                        clip_from_view: cube_face_projection,
+                        target_format: CORE_3D_DEPTH_FORMAT,
+                        color_grading: Default::default(),
+                        invert_culling: false,
+                    },
+                    *frustum,
+                ));
+            }
         }
 
         // Initialize the shadow render phases. We have to do this even if we've
@@ -1658,6 +1707,35 @@ pub fn prepare_lights(
             }
 
             point_and_spot_light_view_entities.0 = vec![view_light_entity];
+        } else if changed_point_lights.get(*light_entity).is_ok() {
+            // If the spot light was changed, update the `ExtractedView` only.
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
+
+            let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
+
+            // There should be only one `view_light_entity` for spotlights.
+            let view_light_entity = point_and_spot_light_view_entities.0[0];
+            commands.entity(view_light_entity).insert((
+                ExtractedView {
+                    retained_view_entity,
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        directional_light_shadow_map.size as u32,
+                        directional_light_shadow_map.size as u32,
+                    ),
+                    world_from_view: spot_world_from_view,
+                    clip_from_view: spot_projection,
+                    clip_from_world: None,
+                    target_format: CORE_3D_DEPTH_FORMAT,
+                    color_grading: Default::default(),
+                    invert_culling: false,
+                },
+                *spot_light_frustum.unwrap(),
+            ));
         }
 
         shadow_render_phases.prepare_for_new_frame(
