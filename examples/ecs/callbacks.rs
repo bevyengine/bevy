@@ -4,16 +4,25 @@
 //! This pattern trades some performance for flexibility and works well for things like cutscenes, scripted events,
 //! or one-off UI-driven interactions that don't need to run every frame.
 
-use bevy::{ecs::system::SystemId, prelude::*};
+use bevy::{
+    ecs::system::{system_value, SystemId},
+    prelude::*,
+    scene::ScenePlugin,
+};
 
 fn main() {
     let mut app = App::new();
+
+    // These two plugins are only needed when spawning via a scene!
+    // Spawning via `Commands::spawn` works without them.
+    app.add_plugins((AssetPlugin::default(), ScenePlugin));
+
     app.add_systems(Startup, setup_callbacks);
     app.add_systems(Update, run_callbacks);
     app.run();
 }
 
-#[derive(Component)]
+#[derive(Component, FromTemplate)] // `FromTemplate` is only needed when spawning via a scene!
 struct Callback {
     system_id: SystemId<(), ()>,
 }
@@ -42,6 +51,14 @@ fn setup_callbacks(mut commands: Commands) {
     commands.spawn(trivial_callback);
     commands.spawn(ordinary_system_callback);
     commands.spawn(exclusive_callback);
+
+    commands.spawn_scene(bsn! {
+        Callback {
+            system_id: system_value(|| {
+                println!("This is a callback spawned via a scene.");
+            })
+        }
+    });
 }
 
 // In many cases, you might want to use an observer to detect when a callback should run,
