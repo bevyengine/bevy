@@ -154,6 +154,60 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
     }
 }
 
+impl<I: SystemInput + 'static, O: 'static> FromTemplate for SystemId<I, O> {
+    type Template = SystemIdTemplate<I, O>;
+}
+
+/// A [`Template`] that produces a [`SystemId`].
+pub enum SystemIdTemplate<I: SystemInput + 'static = (), O: 'static = ()> {
+    /// Creates a [`SystemId`] by copying the given [`SystemId`] value.
+    Id(SystemId<I, O>),
+    /// Creates a [`SystemId`] by registering the given system to the [`World`]
+    /// using [`World::register_system_arc`].
+    System(SystemArcDyn<I, O>),
+}
+
+impl<I: SystemInput + 'static, O: 'static> Template for SystemIdTemplate<I, O> {
+    type Output = SystemId<I, O>;
+
+    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+        match self {
+            Self::Id(id) => Ok(*id),
+            Self::System(system) => Ok(context
+                .entity
+                .world_scope(|world| world.register_system_arc(system.clone()))),
+        }
+    }
+
+    fn clone_template(&self) -> Self {
+        match self {
+            Self::Id(id) => Self::Id(*id),
+            Self::System(system) => Self::System(system.clone()),
+        }
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> Default for SystemIdTemplate<I, O> {
+    fn default() -> Self {
+        Self::Id(SystemId::from_entity(Entity::PLACEHOLDER))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<SystemId<I, O>> for SystemIdTemplate<I, O> {
+    fn from(id: SystemId<I, O>) -> Self {
+        Self::Id(id)
+    }
+}
+
+/// This will create a new [`SystemIdTemplate`] for the given `system` value.
+/// This makes it possible to define systems "inline" in templates / scenes that
+/// produce a [`SystemId`].
+pub fn system_value<I: SystemInput + 'static, O: 'static, M>(
+    system: impl IntoSystem<I, O, M>,
+) -> SystemIdTemplate<I, O> {
+    SystemIdTemplate::System(SystemArc::new_dyn(system))
+}
+
 /// A cached [`SystemId`] distinguished by the unique function type of its system.
 ///
 /// This resource is inserted by [`World::register_system_cached`].
@@ -586,7 +640,7 @@ mod tests {
 
     use crate::{
         prelude::*,
-        system::{RegisteredSystemError, SystemId},
+        system::{system_value, RegisteredSystemError, SystemId, SystemIdTemplate},
     };
 
     #[derive(Resource, Default, PartialEq, Debug)]
@@ -1054,6 +1108,29 @@ mod tests {
             Ok(_) => panic!("Should fail since called `run_system` with wrong SystemId type."),
             Err(RegisteredSystemError::IncorrectType(_, _)) => (),
             Err(err) => panic!("Failed with wrong error. `{:?}`", err),
+        }
+    }
+
+    #[test]
+    fn system_id_template() {
+        fn my_system() {}
+
+        let mut world = World::new();
+
+        {
+            let my_system_id = world.register_system(my_system);
+            let system_id = world
+                .spawn_empty()
+                .build_template(&SystemIdTemplate::Id(my_system_id))
+                .unwrap();
+            assert_eq!(system_id, my_system_id);
+        }
+
+        {
+            world
+                .spawn_empty()
+                .build_template(&system_value(my_system))
+                .unwrap();
         }
     }
 }
