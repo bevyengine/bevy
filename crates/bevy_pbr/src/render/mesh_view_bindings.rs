@@ -1,7 +1,6 @@
 use crate::{
-    DfgLut, LtcLuts, ScreenSpaceTransmission, ViewEnvironmentMapUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset,
+    DfgLut, LtcLuts, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_core_pipeline::{
     oit::{
@@ -94,9 +93,8 @@ bitflags::bitflags! {
         const SCREEN_SPACE_AMBIENT_OCCLUSION   = 1 << 10;
         const IRRADIANCE_VOLUME                = 1 << 11;
         const SCREEN_SPACE_REFLECTIONS         = 1 << 12;
-        const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
-        const CONTACT_SHADOWS                  = 1 << 14;
-        const DISTANCE_FOG                     = 1 << 15;
+        const CONTACT_SHADOWS                  = 1 << 13;
+        const DISTANCE_FOG                     = 1 << 14;
     }
 }
 
@@ -164,9 +162,6 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
-        }
-        if value.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
-            result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
         }
         if value.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             result |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
@@ -403,16 +398,14 @@ fn layout_entries(
         }
     }
 
-    if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION) {
-        // View Transmission Texture
-        entries = entries.extend_with_indices((
-            (
-                25,
-                texture_2d(TextureSampleType::Float { filterable: true }),
-            ),
-            (26, sampler(SamplerBindingType::Filtering)),
-        ));
-    }
+    // View Transmission Texture
+    entries = entries.extend_with_indices((
+        (
+            25,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (26, sampler(SamplerBindingType::Filtering)),
+    ));
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
@@ -646,7 +639,7 @@ pub fn prepare_mesh_view_bind_groups(
             Option<&RenderViewLightProbes<EnvironmentMapLight>>,
             Option<&RenderViewLightProbes<IrradianceVolume>>,
         ),
-        (Has<ExtractedAtmosphere>, Has<ScreenSpaceTransmission>),
+        Has<ExtractedAtmosphere>,
         (
             &ViewUniformOffset,
             &ViewLightsUniformOffset,
@@ -725,7 +718,7 @@ pub fn prepare_mesh_view_bind_groups(
             atmosphere_textures,
             tonemapping,
             (render_view_environment_maps, render_view_irradiance_volumes),
-            (has_atmosphere, has_transmission),
+            has_atmosphere,
             (
                 view_uniform_offset,
                 view_lights_offset,
@@ -866,19 +859,16 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            if has_transmission {
-                layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
-                let transmission_view = transmission_texture
-                    .map(|transmission| &transmission.view)
-                    .unwrap_or(&fallback_image_zero.texture_view);
+            let transmission_view = transmission_texture
+                .map(|transmission| &transmission.view)
+                .unwrap_or(&fallback_image_zero.texture_view);
 
-                let transmission_sampler = transmission_texture
-                    .map(|transmission| &transmission.sampler)
-                    .unwrap_or(&fallback_image_zero.sampler);
+            let transmission_sampler = transmission_texture
+                .map(|transmission| &transmission.sampler)
+                .unwrap_or(&fallback_image_zero.sampler);
 
-                entries = entries
-                    .extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
-            }
+            entries =
+                entries.extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263

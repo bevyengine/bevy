@@ -3552,10 +3552,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
 
-        if key.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
-            shader_defs.push("SCREEN_SPACE_TRANSMISSION".into());
-        }
-
         let blur_quality =
             key.intersection(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS);
 
