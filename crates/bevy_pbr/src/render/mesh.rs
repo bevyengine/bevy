@@ -15,7 +15,7 @@ use bevy_camera::{
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -64,9 +64,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -80,7 +78,9 @@ use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
-use tracing::{error, info_span, warn};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -108,7 +108,6 @@ use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -380,9 +379,12 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        Has<OrderIndependentTransparencySettings>,
-        Has<ExtractedAtmosphere>,
-        Has<ScreenSpaceReflectionsUniform>,
+        (
+            Has<OrderIndependentTransparencySettings>,
+            Has<ExtractedAtmosphere>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<ViewContactShadowsUniformOffset>,
+        ),
     )>,
 ) {
     for (
@@ -398,9 +400,7 @@ pub fn check_views_need_specialization(
         projection,
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
-        has_oit,
-        has_atmosphere,
-        has_ssr,
+        (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -444,6 +444,10 @@ pub fn check_views_need_specialization(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if has_contact_shadows {
+            view_key |= MeshPipelineKey::CONTACT_SHADOWS;
         }
 
         if view.invert_culling {
@@ -2482,6 +2486,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             changed
                                 .drain(..)
@@ -2520,6 +2525,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             for (entity, mesh_instance_builder, mesh_culling_builder) in
                                 changed_cpu_culling
@@ -2723,10 +2729,7 @@ fn init_mesh_pipeline(
 }
 
 impl MeshPipeline {
-    pub fn get_view_layout(
-        &self,
-        layout_key: MeshPipelineViewLayoutKey,
-    ) -> &MeshPipelineViewLayout {
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -3018,7 +3021,8 @@ bitflags::bitflags! {
         const ATMOSPHERE                        = 1 << 21;
         const INVERT_CULLING                    = 1 << 22;
         const PREPASS_READS_MATERIAL            = 1 << 23;
-        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+        const CONTACT_SHADOWS                   = 1 << 24;
+        const LAST_FLAG                         = Self::CONTACT_SHADOWS.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3365,6 +3369,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
+        if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            shader_defs.push("CONTACT_SHADOWS".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
@@ -3542,6 +3550,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
+        }
+
+        if key.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
+            shader_defs.push("SCREEN_SPACE_TRANSMISSION".into());
         }
 
         let blur_quality =
@@ -4174,50 +4186,22 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            view_ssr,
-            view_contact_shadows,
-            view_environment_map,
-            mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, '_, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_contact_shadows,
-            **view_environment_map,
-        ];
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.main,
+            &mesh_view_bind_group.main_offsets,
+        );
 
         RenderCommandResult::Success
     }

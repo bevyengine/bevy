@@ -1512,6 +1512,9 @@ impl Image {
             .contains(Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
                 .required_features()
+                .contains(Features::TEXTURE_COMPRESSION_ASTC_HDR)
+            || format_description
+                .required_features()
                 .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features()
@@ -2215,6 +2218,11 @@ bitflags::bitflags! {
         ///
         /// [ASTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ASTC
         const ASTC_LDR = 1 << 0;
+        /// Support for ASTC HDR textures.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ASTC_HDR`]
+        const ASTC_HDR = 1 << 1;
         /// Support for Block Compressed textures.
         ///
         /// For more information see:
@@ -2226,7 +2234,7 @@ bitflags::bitflags! {
         /// [S3TC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#S3TC
         /// [RGTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#RGTC
         /// [BPTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#BPTC
-        const BC       = 1 << 1;
+        const BC       = 1 << 2;
         /// Support for Ericsson Texture Compression.
         ///
         /// For more information see:
@@ -2234,7 +2242,7 @@ bitflags::bitflags! {
         /// - [ETC2 Format Specification]
         ///
         /// [ETC2 Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ETC2
-        const ETC2     = 1 << 2;
+        const ETC2     = 1 << 3;
     }
 }
 
@@ -2244,6 +2252,9 @@ impl CompressedImageFormats {
         let mut supported_compressed_formats = Self::default();
         if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
+        }
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC_HDR) {
+            supported_compressed_formats |= Self::ASTC_HDR;
         }
         if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
@@ -2284,6 +2295,10 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Astc {
+                channel: wgpu_types::AstcChannel::Hdr,
+                ..
+            } => self.contains(CompressedImageFormats::ASTC_HDR),
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }

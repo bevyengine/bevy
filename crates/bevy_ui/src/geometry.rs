@@ -301,6 +301,54 @@ impl Val {
     pub const fn vertical(self) -> UiRect {
         UiRect::vertical(self)
     }
+
+    /// Try to add two `Val`s.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_add(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// Try to subtract one `Val` from another.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_sub(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
 }
 
 impl Default for Val {
@@ -389,6 +437,8 @@ impl Neg for Val {
 pub enum ValArithmeticError {
     #[error("the given variant of Val is not evaluable (non-numeric)")]
     NonEvaluable,
+    #[error("the given variants of Val have incompatible units")]
+    IncompatibleUnits,
 }
 
 impl Val {
@@ -1178,10 +1228,60 @@ mod tests {
     }
 
     #[test]
-    fn val_arithmetic_error_messages() {
+    fn val_try_add_compatible_variants() {
+        assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
         assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluable),
-            "the given variant of Val is not evaluable (non-numeric)"
+            Val::Percent(1.).try_add(Val::Percent(2.)),
+            Ok(Val::Percent(3.))
+        );
+        assert_eq!(Val::Vw(1.).try_add(Val::Vw(2.)), Ok(Val::Vw(3.)));
+        assert_eq!(Val::Vh(1.).try_add(Val::Vh(2.)), Ok(Val::Vh(3.)));
+        assert_eq!(Val::VMin(1.).try_add(Val::VMin(2.)), Ok(Val::VMin(3.)));
+        assert_eq!(Val::VMax(1.).try_add(Val::VMax(2.)), Ok(Val::VMax(3.)));
+    }
+
+    #[test]
+    fn val_try_add_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_add(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_add(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+    }
+
+    #[test]
+    fn val_try_sub_compatible_variants() {
+        assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+        assert_eq!(
+            Val::Percent(3.).try_sub(Val::Percent(2.)),
+            Ok(Val::Percent(1.))
+        );
+        assert_eq!(Val::Vw(3.).try_sub(Val::Vw(2.)), Ok(Val::Vw(1.)));
+        assert_eq!(Val::Vh(3.).try_sub(Val::Vh(2.)), Ok(Val::Vh(1.)));
+        assert_eq!(Val::VMin(3.).try_sub(Val::VMin(2.)), Ok(Val::VMin(1.)));
+        assert_eq!(Val::VMax(3.).try_sub(Val::VMax(2.)), Ok(Val::VMax(1.)));
+    }
+
+    #[test]
+    fn val_try_sub_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_sub(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_sub(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_sub(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
         );
     }
 

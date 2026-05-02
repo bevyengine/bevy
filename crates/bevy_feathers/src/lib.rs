@@ -106,6 +106,7 @@ impl Plugin for FeathersCorePlugin {
             .add_observer(theme::on_changed_background)
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
+            .add_observer(theme::on_changed_text_color)
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
