@@ -545,7 +545,7 @@ use bevy_ecs::{
         InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
         ScheduleLabel, SystemSet,
     },
-    system::{Commands, In, IntoSystem, ResMut, System, SystemId},
+    system::{Commands, In, IntoSystem, ResMut, SystemArc, SystemArcDyn, SystemId},
     world::World,
 };
 use bevy_platform::collections::HashMap;
@@ -622,7 +622,7 @@ impl RemotePlugin {
         .unwrap()
         .push((
             name.into(),
-            RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
+            RemoteMethodHandler::Instant(SystemArc::new_dyn(handler)),
         ));
         self
     }
@@ -663,7 +663,7 @@ impl RemotePlugin {
         .unwrap()
         .push((
             name.into(),
-            RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
+            RemoteMethodHandler::Watching(SystemArc::new_dyn(handler)),
         ));
         self
     }
@@ -812,10 +812,10 @@ impl Plugin for RemotePlugin {
                 name.clone(),
                 match handler {
                     RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
-                        app.main_mut().world_mut().register_boxed_system(system),
+                        app.main_mut().world_mut().register_system_arc(system),
                     ),
                     RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
-                        app.main_mut().world_mut().register_boxed_system(system),
+                        app.main_mut().world_mut().register_system_arc(system),
                     ),
                 },
             );
@@ -869,10 +869,10 @@ impl Plugin for RemotePlugin {
                     name,
                     match handler {
                         RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
-                            render_app.world_mut().register_boxed_system(system),
+                            render_app.world_mut().register_system_arc(system),
                         ),
                         RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
-                            render_app.world_mut().register_boxed_system(system),
+                            render_app.world_mut().register_system_arc(system),
                         ),
                     },
                 );
@@ -925,9 +925,9 @@ pub enum RemoteSystems {
 #[derive(Debug)]
 pub enum RemoteMethodHandler {
     /// A handler that only runs once and returns one response.
-    Instant(Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>),
+    Instant(SystemArcDyn<In<Option<Value>>, BrpResult>),
     /// A handler that watches for changes and response when a change is detected.
-    Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
+    Watching(SystemArcDyn<In<Option<Value>>, BrpResult<Option<Value>>>),
 }
 
 /// The [`SystemId`] of a function that implements a remote instant method (`world.get_components`, `world.query`, etc.)

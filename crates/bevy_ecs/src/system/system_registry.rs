@@ -3,32 +3,29 @@ use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    error::BevyError,
+    error::{BevyError, Result},
     system::{
-        input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
+        input::SystemInput, IntoSystem, RunSystemError, System, SystemArc, SystemArcDyn,
+        SystemParamValidationError,
     },
+    template::{FromTemplate, Template, TemplateContext},
     world::World,
 };
-use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
-/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
+/// A small wrapper for [`SystemArc`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 #[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
-pub(crate) struct RegisteredSystem<I, O> {
-    initialized: bool,
-    system: Option<BoxedSystem<I, O>>,
+pub(crate) struct RegisteredSystem<I: SystemInput + 'static, O: 'static> {
+    system: SystemArcDyn<I, O>,
 }
 
-impl<I, O> RegisteredSystem<I, O> {
-    pub fn new(system: BoxedSystem<I, O>) -> Self {
-        RegisteredSystem {
-            initialized: false,
-            system: Some(system),
-        }
+impl<I: SystemInput + 'static, O: 'static> RegisteredSystem<I, O> {
+    pub fn new(system: SystemArcDyn<I, O>) -> Self {
+        RegisteredSystem { system }
     }
 }
 
@@ -76,20 +73,19 @@ impl SystemIdMarker {
 /// It contains the system and whether or not it has been initialized.
 ///
 /// This struct is returned by [`World::unregister_system`].
-pub struct RemovedSystem<I = (), O = ()> {
-    initialized: bool,
-    system: BoxedSystem<I, O>,
+pub struct RemovedSystem<I: SystemInput + 'static = (), O: 'static = ()> {
+    system: SystemArcDyn<I, O>,
 }
 
-impl<I, O> RemovedSystem<I, O> {
+impl<I: SystemInput + 'static, O: 'static> RemovedSystem<I, O> {
     /// Is the system initialized?
     /// A system is initialized the first time it's ran.
     pub fn initialized(&self) -> bool {
-        self.initialized
+        self.system.lock().is_initialized()
     }
 
     /// The system removed from the storage.
-    pub fn system(self) -> BoxedSystem<I, O> {
+    pub fn system(self) -> SystemArcDyn<I, O> {
         self.system
     }
 }
@@ -198,14 +194,14 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
+        self.register_system_arc(SystemArc::new_dyn(system))
     }
 
-    /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
+    /// Similar to [`Self::register_system`], but allows passing in a [`SystemArcDyn`].
     ///
-    ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
-    /// [`System`](crate::system::System) trait object and put in a [`Box`].
-    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
+    /// This is useful if the [`IntoSystem`] implementor has already been turned
+    /// into a [`System`] trait object and put in a [`SystemArcDyn`].
+    pub fn register_system_arc<I, O>(&mut self, system: SystemArcDyn<I, O>) -> SystemId<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
@@ -230,16 +226,11 @@ impl World {
     {
         match self.get_entity_mut(id.entity) {
             Ok(mut entity) => {
-                let registered_system = entity
+                let RegisteredSystem { system } = entity
                     .take::<RegisteredSystem<I, O>>()
                     .ok_or(RegisteredSystemError::SelfRemove(id))?;
                 entity.despawn();
-                Ok(RemovedSystem {
-                    initialized: registered_system.initialized,
-                    system: registered_system
-                        .system
-                        .ok_or(RegisteredSystemError::SystemMissing(id))?,
-                })
+                Ok(RemovedSystem { system })
             }
             Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
         }
@@ -372,12 +363,10 @@ impl World {
         O: 'static,
     {
         // Lookup
-        let mut entity = self
-            .get_entity_mut(id.entity)
+        let entity = self
+            .get_entity(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
-
-        // Take ownership of system trait object
-        let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>() else {
+        let Some(registered_system) = entity.get::<RegisteredSystem<I, O>>() else {
             let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
                 return Err(RegisteredSystemError::SystemIdNotRegistered(id));
             };
@@ -392,37 +381,32 @@ impl World {
             return Err(RegisteredSystemError::MissingRegisteredSystemComponent(id));
         };
 
-        let mut system = registered_system
-            .system
-            .take()
-            .ok_or(RegisteredSystemError::SystemMissing(id))?;
+        let system = registered_system.system.clone();
 
-        // Initialize the system
-        if !registered_system.initialized {
-            system.initialize(self);
-        }
+        // Wrap the system locking in a block to ensure it gets dropped before we flush commands.
+        // This is needed to allow systems to recursively call themselves.
+        let result = {
+            let mut system = system.lock();
 
-        // refresh hotpatches for stored systems
-        #[cfg(feature = "hotpatching")]
-        if self
-            .get_resource_ref::<HotPatchChanges>()
-            .is_none_or(|r| r.is_changed_after(system.get_last_run()))
-        {
-            system.refresh_hotpatch();
-        }
+            // Initialize the system
+            system.ensure_initialized(self);
 
-        // Wait to run the commands until the system is available again.
-        // This is needed so the systems can recursively run themselves.
-        let result = system.run_without_applying_deferred(input, self);
-        system.queue_deferred(self.into());
+            // refresh hotpatches for stored systems
+            #[cfg(feature = "hotpatching")]
+            if self
+                .get_resource_ref::<HotPatchChanges>()
+                .is_none_or(|r| r.is_changed_after(system.get_last_run()))
+            {
+                system.refresh_hotpatch();
+            }
 
-        // Return ownership of system trait object (if entity still exists)
-        if let Ok(mut entity) = self.get_entity_mut(id.entity)
-            && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
-        {
-            registered_system.system = Some(system);
-            registered_system.initialized = true;
-        }
+            // Wait to run the commands until the system is available again.
+            // This is needed so the systems can recursively run themselves.
+            let result = system.run_without_applying_deferred(input, self);
+            system.queue_deferred(self.into());
+
+            result
+        };
 
         // Run any commands enqueued by the system
         self.flush();
@@ -470,9 +454,7 @@ impl World {
         self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
             if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
-                    entity.insert(RegisteredSystem::new(Box::new(IntoSystem::into_system(
-                        system,
-                    ))));
+                    entity.insert(RegisteredSystem::new(SystemArc::new_dyn(system)));
                 }
             } else {
                 id.entity = world.register_system(system).entity();

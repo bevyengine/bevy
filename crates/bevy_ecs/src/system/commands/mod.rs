@@ -11,7 +11,6 @@ pub use entity_command::EntityCommand;
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
 
-use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::{
@@ -31,7 +30,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
+        Deferred, IntoSystem, RegisteredSystem, SystemArc, SystemId, SystemInput,
+        SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -1031,7 +1031,7 @@ impl<'w, 's> Commands<'w, 's> {
         O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
+        let system = RegisteredSystem::<I, O>::new(SystemArc::new_dyn(system));
         self.entity(entity).insert(system);
         SystemId::from_entity(entity)
     }
