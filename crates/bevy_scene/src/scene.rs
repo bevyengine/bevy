@@ -542,3 +542,36 @@ pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>
 ) -> OnTemplate<I, E, B, M> {
     OnTemplate(observer, PhantomData)
 }
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+/// A [`Scene`] that initializes a template if it doesn't yet exist.
+#[derive(Default)]
+pub struct InitTemplate<T>(PhantomData<T>);
+
+impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for InitTemplate<T> {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        let _ = scene.get_or_insert_template::<T>(context);
+        Ok(())
+    }
+}

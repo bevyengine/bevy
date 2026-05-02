@@ -29,11 +29,11 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
+use crate::generate_city::spawn_city;
 use crate::{
     assets::{merge_car_meshes, strip_base_url},
-    settings::Settings,
+    settings::{settings_ui, Settings},
 };
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
@@ -90,15 +90,15 @@ fn main() {
         .add_message::<CityAssetsLoaded>()
         .add_message::<CityAssetsReady>()
         .add_message::<CitySpawned>()
-        .add_systems(Startup, (setup, spawn_atmosphere, load_assets))
+        .add_systems(Startup, (scene.spawn(), spawn_atmosphere, load_assets))
         .add_systems(
             Update,
             (
                 simulate_cars,
-                loading_screen,
+                update_loading_screen,
                 process_assets.run_if(on_message::<CityAssetsLoaded>),
                 on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
-                (add_no_cpu_culling, on_city_spawned, setup_settings_ui)
+                (add_no_cpu_culling, on_city_spawned, settings_ui.spawn())
                     .run_if(on_message::<CitySpawned>),
             ),
         )
@@ -106,52 +106,46 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Hdr,
-        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamera::default(),
+fn scene() -> impl SceneList {
+    bsn_list![camera(), sun(), loading_screen()]
+}
+
+fn camera() -> impl Scene {
+    bsn! {
+        Camera3d
+        Hdr
+        template_value(Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y))
+        FreeCamera
         AtmosphereSettings {
             // Reduce the default max distance in the aerial view LUT
             // to 16km to approximately fit the size of the city. This way the aerial perspective
             // gets more detail and has less banding artifacts compared to the 32km default.
             aerial_view_lut_max_distance: 1.6e4,
-            ..default()
-        },
+        }
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure::OVERCAST,
+        Exposure::OVERCAST
         // Bloom gives the sun a much more natural look.
-        Bloom::NATURAL,
+        Bloom::NATURAL
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
-        AtmosphereEnvironmentMapLight::default(),
-        Msaa::Off,
-        TemporalAntiAliasing::default(),
-        ContactShadows::default(),
-    ));
+        AtmosphereEnvironmentMapLight
+        Msaa::Off
+        TemporalAntiAliasing
+        ContactShadows
+    }
+}
 
-    commands.spawn((
-        DirectionalLight {
-            shadow_maps_enabled: Settings::default().shadow_maps_enabled,
-            contact_shadows_enabled: Settings::default().contact_shadows_enabled,
-            illuminance: light_consts::lux::RAW_SUNLIGHT,
-            ..default()
-        },
-        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    commands.spawn((
-        LoadingScreen,
+fn loading_screen() -> impl Scene {
+    bsn! {
+        LoadingScreen
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            ..default()
-        },
-        BackgroundColor(Color::BLACK),
-        children![(
+        }
+        BackgroundColor(Color::BLACK)
+        Children [
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(50.0),
@@ -161,28 +155,36 @@ fn setup(mut commands: Commands) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexStart,
                 overflow: Overflow::scroll_y(),
-                ..default()
-            },
-            children![
+            }
+            Children [
                 (
-                    LoadingText,
-                    Text::new("Loading..."),
+                    LoadingText
+                    Text("Loading...")
                     TextFont {
                         font_size: FontSize::Px(24.0),
-                        ..default()
-                    },
+                    }
                 ),
                 (
-                    LoadingPaths,
-                    Text::new(""),
+                    LoadingPaths
+                    Text
                     TextFont {
                         font_size: FontSize::Px(14.0),
-                        ..default()
-                    },
+                    }
                 ),
             ]
-        )],
-    ));
+        ]
+    }
+}
+
+fn sun() -> impl Scene {
+    bsn! {
+        DirectionalLight {
+            shadow_maps_enabled: {Settings::default().shadow_maps_enabled},
+            contact_shadows_enabled: {Settings::default().contact_shadows_enabled},
+            illuminance: light_consts::lux::RAW_SUNLIGHT,
+        }
+        template_value(Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y))
+    }
 }
 
 /// Spawns the earth atmosphere plus an extra near-ground fog term.
@@ -229,11 +231,11 @@ fn spawn_atmosphere(
     ));
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingScreen;
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingText;
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingPaths;
 
 /// Triggers when all the assets managed in [`CityAssets`] are loaded
@@ -247,7 +249,7 @@ struct CityAssetsReady;
 struct CitySpawned;
 
 #[allow(clippy::type_complexity)]
-fn loading_screen(
+fn update_loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
     asset_server: Res<AssetServer>,

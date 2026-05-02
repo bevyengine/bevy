@@ -21,10 +21,12 @@ use crate::{
     palette,
 };
 
-/// Marker identifying a color swatch.
-#[derive(Component, Default, Clone, Reflect)]
+/// A color swatch widget.
+///
+/// This is spawnable by inheriting it as a "scene component".
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-pub struct ColorSwatch;
+pub struct FeathersColorSwatch;
 
 /// Component that contains the value of the color swatch. This is copied to the child element
 /// background.
@@ -39,30 +41,31 @@ pub struct ColorSwatchValue(pub Color);
 #[reflect(Component, Clone, Default)]
 pub struct ColorSwatchFg;
 
-/// Scene function to spawn a color swatch.
-pub fn color_swatch() -> impl Scene {
-    bsn! {
-        Node {
-            height: size::ROW_HEIGHT,
-            min_width: size::ROW_HEIGHT,
-            border_radius: BorderRadius::all(Val::Px(5.0)),
-        }
-        ColorSwatch
-        ColorSwatchValue
-        AlphaPattern
-        MaterialNode::<AlphaPatternMaterial>
-        Children [(
+impl FeathersColorSwatch {
+    fn scene() -> impl Scene {
+        bsn! {
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                right: Val::Px(0.),
+                height: size::ROW_HEIGHT,
+                min_width: size::ROW_HEIGHT,
                 border_radius: BorderRadius::all(Val::Px(5.0)),
             }
-            ColorSwatchFg
-            BackgroundColor({palette::ACCENT.with_alpha(0.5)})
-        )]
+            FeathersColorSwatch
+            ColorSwatchValue
+            AlphaPattern
+            MaterialNode::<AlphaPatternMaterial>
+            Children [(
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.),
+                    top: Val::Px(0.),
+                    bottom: Val::Px(0.),
+                    right: Val::Px(0.),
+                    border_radius: BorderRadius::all(Val::Px(5.0)),
+                }
+                ColorSwatchFg
+                BackgroundColor({palette::ACCENT.with_alpha(0.5)})
+            )]
+        }
     }
 }
 
@@ -79,7 +82,7 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
             border_radius: BorderRadius::all(Val::Px(5.0)),
             ..Default::default()
         },
-        ColorSwatch,
+        FeathersColorSwatch,
         ColorSwatchValue::default(),
         AlphaPattern,
         MaterialNode::<AlphaPatternMaterial>(Handle::default()),
