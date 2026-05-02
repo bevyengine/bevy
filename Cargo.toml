@@ -2086,6 +2086,22 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "compressed_image_saver"
+path = "examples/asset/compressed_image_saver.rs"
+doc-scrape-examples = true
+required-features = [
+  "compressed_image_saver_universal",
+  "asset_processor",
+  "jpeg",
+]
+
+[package.metadata.example.compressed_image_saver]
+name = "Compressed Image Saver"
+description = "Demonstrates compressing textures and generating mipmaps using CompressedImageSaver"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
 doc-scrape-examples = true
