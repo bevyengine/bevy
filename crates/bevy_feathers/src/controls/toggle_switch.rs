@@ -31,55 +31,58 @@ use crate::{
     tokens,
 };
 
-/// Marker for the toggle switch outline
-#[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
-struct ToggleSwitchOutline;
-
-/// Marker for the toggle switch slide
-#[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
-struct ToggleSwitchSlide;
-
-/// Scene function to spawn a toggle switch.
+/// A toggle switch widget.
+///
+/// This is spawnable by inheriting it as a "scene component".
 ///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-pub fn toggle_switch() -> impl Scene {
-    bsn! {
-        Node {
-            width: size::TOGGLE_WIDTH,
-            height: size::TOGGLE_HEIGHT,
-            border: UiRect::all(Val::Px(2.0)),
-            border_radius: BorderRadius::all(Val::Px(5.0)),
-        }
-        Checkbox
-        ToggleSwitchOutline
-        ThemeBackgroundColor(tokens::SWITCH_BG)
-        ThemeBorderColor(tokens::SWITCH_BORDER)
-        AccessibilityNode(accesskit::Node::new(Role::Switch))
-        Hovered
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-        TabIndex(0)
-        FocusIndicator
-        Children [(
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersToggleSwitch;
+
+impl FeathersToggleSwitch {
+    fn scene() -> impl Scene {
+        bsn! {
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                width: Val::Percent(50.),
+                width: size::TOGGLE_WIDTH,
+                height: size::TOGGLE_HEIGHT,
                 border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(3.0)),
+                border_radius: BorderRadius::all(Val::Px(5.0)),
             }
-            ToggleSwitchSlide
-            ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
-            ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
-        )]
+            Checkbox
+            FeathersToggleSwitch
+            ThemeBackgroundColor(tokens::SWITCH_BG)
+            ThemeBorderColor(tokens::SWITCH_BORDER)
+            AccessibilityNode(accesskit::Node::new(Role::Switch))
+            Hovered
+            EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+            TabIndex(0)
+            FocusIndicator
+            Children [(
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(0.),
+                    top: Val::Px(0.),
+                    bottom: Val::Px(0.),
+                    width: Val::Percent(50.),
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(3.0)),
+                }
+                ToggleSwitchSlide
+                ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
+                ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
+            )]
+        }
     }
 }
+
+/// Marker for the toggle switch slide
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
+struct ToggleSwitchSlide;
 
 /// Template function to spawn a toggle switch.
 ///
@@ -102,7 +105,7 @@ pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
             ..Default::default()
         },
         Checkbox,
-        ToggleSwitchOutline,
+        FeathersToggleSwitch,
         ThemeBackgroundColor(tokens::SWITCH_BG),
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
@@ -142,7 +145,7 @@ fn update_switch_styles(
             &ThemeBorderColor,
         ),
         (
-            With<ToggleSwitchOutline>,
+            With<FeathersToggleSwitch>,
             Or<(
                 Changed<Hovered>,
                 Added<Checked>,
@@ -208,7 +211,7 @@ fn update_switch_styles_remove(
             &ThemeBackgroundColor,
             &ThemeBorderColor,
         ),
-        With<ToggleSwitchOutline>,
+        With<FeathersToggleSwitch>,
     >,
     q_children: Query<&Children>,
     mut q_slide: Query<

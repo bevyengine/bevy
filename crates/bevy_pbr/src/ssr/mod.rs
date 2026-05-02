@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
@@ -14,13 +14,12 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryItem, With},
+    query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
-use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -38,7 +37,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_component::SyncComponent,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
@@ -46,11 +45,8 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
-    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSystems,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    binding_arrays_are_usable, deferred::deferred_lighting, Bluenoise, MeshPipelineSystems,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -70,8 +66,8 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
 /// An alternative that doesn't suffer from this problem is the combination of
-/// a [`LightProbe`](bevy_light::LightProbe) and [`EnvironmentMapLight`]. The advantage of SSR is
-/// that it can reflect all objects, not just static ones.
+/// a [`LightProbe`](bevy_light::LightProbe) and [`EnvironmentMapLight`](bevy_light::EnvironmentMapLight).
+/// The advantage of SSR is that it can reflect all objects, not just static ones.
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
@@ -192,8 +188,6 @@ pub struct ViewScreenSpaceReflectionsUniformOffset(u32);
 pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
     target_format: TextureFormat,
-    has_environment_maps: bool,
-    has_atmosphere: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -251,13 +245,6 @@ impl Default for ScreenSpaceReflections {
 pub fn screen_space_reflections(
     view: ViewQuery<(
         &ViewTarget,
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
-        &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
         &MeshViewBindGroup,
         &ScreenSpaceReflectionsPipelineId,
     )>,
@@ -267,18 +254,7 @@ pub fn screen_space_reflections(
     render_images: Res<RenderAssets<GpuImage>>,
     mut ctx: RenderContext,
 ) {
-    let (
-        view_target,
-        view_uniform_offset,
-        view_lights_offset,
-        view_fog_offset,
-        view_light_probes_offset,
-        view_ssr_offset,
-        view_contact_shadows_offset,
-        view_environment_map_offset,
-        view_bind_group,
-        ssr_pipeline_id,
-    ) = view.into_inner();
+    let (view_target, view_bind_group, ssr_pipeline_id) = view.into_inner();
 
     // Grab the render pipeline.
     let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
@@ -332,19 +308,8 @@ pub fn screen_space_reflections(
 
     // Set bind groups.
     render_pass.set_render_pipeline(render_pipeline);
-    render_pass.set_bind_group(
-        0,
-        &view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
-    );
+
+    render_pass.set_bind_group(0, &view_bind_group.main, &view_bind_group.main_offsets);
     render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
     // Perform the SSR render pass.
@@ -424,17 +389,11 @@ pub fn init_screen_space_reflections_pipeline(
 pub fn prepare_ssr_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
     ssr_pipeline: Res<ScreenSpaceReflectionsPipeline>,
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<NormalPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<ExtractedAtmosphere>,
-        ),
+        (Entity, &ExtractedView),
         (
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
@@ -442,42 +401,17 @@ pub fn prepare_ssr_pipelines(
         ),
     >,
 ) {
-    for (
-        entity,
-        extracted_view,
-        has_environment_maps,
-        has_normal_prepass,
-        has_motion_vector_prepass,
-        has_atmosphere,
-    ) in &views
-    {
-        // SSR is only supported in the deferred pipeline, which has no MSAA
-        // support. Thus we can assume MSAA is off.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
-            | MeshPipelineViewLayoutKey::DEPTH_PREPASS
-            | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-        mesh_pipeline_view_key.set(
-            MeshPipelineViewLayoutKey::NORMAL_PREPASS,
-            has_normal_prepass,
-        );
-        mesh_pipeline_view_key.set(
-            MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
-            has_motion_vector_prepass,
-        );
-        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
-        if cfg!(feature = "bluenoise_texture") {
-            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
-        }
-
+    for (entity, extracted_view) in &views {
+        let Some(view_key) = view_key_cache.get(&extracted_view.retained_view_entity) else {
+            continue;
+        };
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
-                mesh_pipeline_view_key,
+                mesh_pipeline_view_key: (*view_key).into(),
                 target_format: extracted_view.target_format,
-                has_environment_maps,
-                has_atmosphere,
             },
         );
 
@@ -492,7 +426,7 @@ pub fn prepare_ssr_pipelines(
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
+    views: Query<(Entity, &ScreenSpaceReflectionsUniform), With<ExtractedView>>,
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -504,10 +438,7 @@ pub fn prepare_ssr_settings(
     };
 
     for (view, ssr_uniform) in views.iter() {
-        let uniform_offset = match ssr_uniform {
-            None => 0,
-            Some(ssr_uniform) => writer.write(ssr_uniform),
-        };
+        let uniform_offset = writer.write(ssr_uniform);
         commands
             .entity(view)
             .insert(ViewScreenSpaceReflectionsUniformOffset(uniform_offset));
@@ -548,8 +479,8 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             .mesh_view_layouts
             .get_view_layout(key.mesh_pipeline_view_key);
         let layout = vec![
-            layout.main_layout.clone(),
-            layout.binding_array_layout.clone(),
+            layout.main_layout,
+            layout.binding_array_layout,
             self.bind_group_layout.clone(),
         ];
 
@@ -559,7 +490,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             "SCREEN_SPACE_REFLECTIONS".into(),
         ];
 
-        if key.has_environment_maps {
+        if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ENVIRONMENT_MAP)
+        {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
@@ -567,7 +501,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
         }
 
-        if key.has_atmosphere {
+        if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ATMOSPHERE)
+        {
             shader_defs.push("ATMOSPHERE".into());
         }
 
