@@ -126,9 +126,9 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
 #endif // BLUE_NOISE_TEXTURE
 
-#ifdef LTC_LUTS
-@group(0) @binding(36) var ltc_luts: texture_2d_array<f32>;
-@group(0) @binding(37) var ltc_lut_sampler: sampler;
+#ifdef AREA_LIGHT_LUTS
+@group(0) @binding(36) var area_light_luts: texture_2d_array<f32>;
+@group(0) @binding(37) var area_light_luts_sampler: sampler;
 #endif
 
 #ifdef DFG_LUT

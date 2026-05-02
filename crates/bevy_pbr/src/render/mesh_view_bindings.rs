@@ -1,5 +1,5 @@
 use crate::{
-    DfgLut, LtcLuts, ScreenSpaceTransmission, ViewEnvironmentMapUniformOffset,
+    DfgLut, AreaLightLuts, ScreenSpaceTransmission, ViewEnvironmentMapUniformOffset,
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
 };
@@ -97,7 +97,7 @@ bitflags::bitflags! {
         const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
         const CONTACT_SHADOWS                  = 1 << 14;
         const DISTANCE_FOG                     = 1 << 15;
-        const LTC_LUTS                         = 1 << 16;
+        const AREA_LIGHT_LUTS                         = 1 << 16;
     }
 }
 
@@ -151,8 +151,8 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
             result |= MeshPipelineViewLayoutKey::STBN;
         }
 
-        if cfg!(feature = "ltc_luts") {
-            result |= MeshPipelineViewLayoutKey::LTC_LUTS;
+        if cfg!(feature = "area_light_luts") {
+            result |= MeshPipelineViewLayoutKey::AREA_LIGHT_LUTS;
         }
 
         if value.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -467,7 +467,7 @@ fn layout_entries(
         ),));
     }
     // LTC LUTs for area lights
-    if cfg!(feature = "ltc_luts") {
+    if cfg!(feature = "area_light_luts") {
         entries = entries.extend_with_indices((
             (
                 36,
@@ -681,7 +681,7 @@ pub fn prepare_mesh_view_bind_groups(
         atmosphere_buffer,
         atmosphere_sampler,
         blue_noise,
-        ltc_luts,
+        area_light_luts,
         dfg_lut,
     ): (
         Res<DecalsBuffer>,
@@ -689,7 +689,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
-        Res<LtcLuts>,
+        Res<AreaLightLuts>,
         Res<DfgLut>,
     ),
     // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
@@ -899,9 +899,9 @@ pub fn prepare_mesh_view_bind_groups(
             };
 
             // LTC LUTs for area lights
-            if cfg!(feature = "ltc_luts") {
+            if cfg!(feature = "area_light_luts") {
                 let (ltc_view, ltc_sampler) = images
-                    .get(&ltc_luts.image)
+                    .get(&area_light_luts.image)
                     .map(|img| (&img.texture_view, &img.sampler))
                     .unwrap_or((
                         &fallback_image.d2_array.texture_view,

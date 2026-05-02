@@ -12,4 +12,4 @@ The implementation uses [Linearly Transformed Cosines](https://eheitzresearch.wo
 
 Rectangular lights currently don't cast shadows or have support for anisotropic materials.
 
-You need to enable `ltc_luts` cargo feature to use it. Check out [the new example](https://github.com/bevyengine/bevy/tree/latest/examples/3d/rect_light.rs) to see them in action.
+You need to enable `area_light_luts` cargo feature to use it. Check out [the new example](https://github.com/bevyengine/bevy/tree/latest/examples/3d/rect_light.rs) to see them in action.

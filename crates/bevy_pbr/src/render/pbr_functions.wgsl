@@ -657,7 +657,7 @@ fn apply_pbr_lighting(
 #endif
     }
 
-#ifdef LTC_LUTS
+#ifdef AREA_LIGHT_LUTS
     // Rect lights
     let n_rect_lights = view_bindings::lights.n_rect_lights;
     for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {

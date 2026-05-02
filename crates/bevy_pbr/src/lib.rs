@@ -174,7 +174,7 @@ pub struct Bluenoise {
 ///
 /// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
 #[derive(Resource, Clone)]
-pub struct LtcLuts {
+pub struct AreaLightLuts {
     pub image: Handle<Image>,
 }
 
@@ -304,13 +304,13 @@ impl Plugin for PbrPlugin {
             }
         }
 
-        let has_ltc_luts = app
+        let has_area_light_luts = app
             .get_sub_app(RenderApp)
-            .is_some_and(|render_app| render_app.world().is_resource_added::<LtcLuts>());
+            .is_some_and(|render_app| render_app.world().is_resource_added::<AreaLightLuts>());
 
-        if !has_ltc_luts {
+        if !has_area_light_luts {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-            #[cfg(feature = "ltc_luts")]
+            #[cfg(feature = "area_light_luts")]
             let handle = {
                 let mut image = Image::from_buffer(
                     include_bytes!("ltc/ltc.ktx2"),
@@ -321,15 +321,15 @@ impl Plugin for PbrPlugin {
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded LTC LUTs");
-                image.texture_descriptor.label = Some("ltc_luts");
+                image.texture_descriptor.label = Some("area_light_luts");
                 images.add(image)
             };
-            #[cfg(not(feature = "ltc_luts"))]
-            let handle = images.add(ltc_luts_placeholder());
+            #[cfg(not(feature = "area_light_luts"))]
+            let handle = images.add(area_light_luts_placeholder());
 
-            let ltc_luts = LtcLuts { image: handle };
+            let area_light_luts = AreaLightLuts { image: handle };
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-                render_app.world_mut().insert_resource(ltc_luts);
+                render_app.world_mut().insert_resource(area_light_luts);
             }
         }
 
@@ -474,7 +474,7 @@ pub fn stbn_placeholder() -> Image {
     }
 }
 
-pub fn ltc_luts_placeholder() -> Image {
+pub fn area_light_luts_placeholder() -> Image {
     let format = TextureFormat::Rgba16Float;
     let data = vec![0; 16];
     Image {
@@ -488,7 +488,7 @@ pub fn ltc_luts_placeholder() -> Image {
             },
             format,
             dimension: TextureDimension::D2,
-            label: Some("ltc_luts_placeholder"),
+            label: Some("area_light_luts_placeholder"),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,

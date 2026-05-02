@@ -574,8 +574,8 @@ bluenoise_texture = ["bevy_internal/bluenoise_texture"]
 # Include a preintegrated BRDF Look Up Table for more accurate specular shading.
 dfg_lut = ["bevy_internal/dfg_lut"]
 
-# Include Linearly Transformed Cosines (LTC) Look Up Tables which is required for rect light.
-ltc_luts = ["bevy_internal/ltc_luts"]
+# Include Look Up Tables that are required for rect light.
+area_light_luts = ["bevy_internal/area_light_luts"]
 
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_internal/dlss"]
@@ -1193,7 +1193,7 @@ wasm = true
 name = "rect_light"
 path = "examples/3d/rect_light.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "ltc_luts"]
+required-features = ["free_camera", "area_light_luts"]
 
 [package.metadata.example.rect_light]
 name = "Rectangular Area Light"
@@ -5195,7 +5195,7 @@ hidden = true
 name = "testbed_3d"
 path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
-required-features = ["ltc_luts"]
+required-features = ["area_light_luts"]
 
 [package.metadata.example.testbed_3d]
 hidden = true
