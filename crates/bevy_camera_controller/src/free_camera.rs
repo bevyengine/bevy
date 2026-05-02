@@ -72,7 +72,7 @@ const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 /// which is added to the entity as a required component.
 ///
 /// To activate the controller, add the [`FreeCameraPlugin`] to your [`App`].
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[require(FreeCameraState)]
 pub struct FreeCamera {
     /// Multiplier for pitch and yaw rotation speed.

@@ -55,6 +55,7 @@ impl Plugin for PanicHandlerPlugin {
                         ));
                     }
                     // Otherwise use the default target panic hook - Do nothing.
+                    _ => ()
                 }
             });
         }
