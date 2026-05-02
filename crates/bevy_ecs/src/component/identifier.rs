@@ -1,3 +1,5 @@
+use core::ops::{BitAndAssign, BitOrAssign, SubAssign};
+
 use crate::{
     entity::{Entity, EntityHashMap, EntityHashSet, EntityIndex},
     storage::{SparseArray, SparseSetIndex},
@@ -125,10 +127,7 @@ impl<V> ComponentIdMap<V> {
     }
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {
-        self.dense
-            .iter()
-            .map(|(_, v)| v)
-            .chain(self.sparse.values())
+        self.dense.values().chain(self.sparse.values())
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -145,6 +144,235 @@ impl<V> ComponentIdMap<V> {
         } else {
             // SAFETY: safety contract is ensured by the caller.
             unsafe { self.sparse.insert_unique_unchecked(id.id(), value) };
+        }
+    }
+}
+
+/// A set of [`ComponentId`]s.
+#[derive(Default, PartialEq, Eq)]
+pub struct ComponentIdSet {
+    dense: FixedBitSet,
+    sparse: EntityHashSet,
+}
+
+impl ComponentIdSet {
+    /// Create a new empty `ComponentIdSet`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            dense: FixedBitSet::new(),
+            sparse: EntityHashSet::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_bits(bits: FixedBitSet) -> Self {
+        Self {
+            dense: bits,
+            sparse: EntityHashSet::new(),
+        }
+    }
+
+    /// Adds a [`ComponentId`] to the set.
+    #[inline]
+    pub fn insert(&mut self, index: ComponentId) {
+        let entity = index.id();
+        if entity.index_u32() < 1024 {
+            self.dense.grow_and_insert(index.index());
+        } else {
+            self.sparse.insert(entity);
+        }
+    }
+
+    /// Removes a [`ComponentId`] from the set.
+    #[inline]
+    pub fn remove(&mut self, index: ComponentId) {
+        let entity = index.id();
+        if entity.index_u32() < 1024 {
+            if index.index() < self.dense.len() {
+                self.dense.remove(index.index());
+            }
+        } else {
+            self.sparse.remove(&entity);
+        }
+    }
+
+    /// Removes all [`ComponentId`]s from the set.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.dense.clear();
+        self.sparse.clear();
+    }
+
+    /// Returns `true` if the [`ComponentId`] is in the set.
+    #[inline]
+    pub fn contains(&self, index: ComponentId) -> bool {
+        let entity = index.id();
+        if entity.index_u32() < 1024 {
+            self.dense.contains(index.index())
+        } else {
+            self.sparse.contains(&entity)
+        }
+    }
+
+    /// Returns `true` if `self` has no elements in common with `other`. This
+    /// is equivalent to checking for an empty intersection.
+    #[inline]
+    pub fn is_disjoint(&self, other: &ComponentIdSet) -> bool {
+        self.dense.is_disjoint(&other.dense) && self.sparse.is_disjoint(&other.sparse)
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    #[inline]
+    pub fn is_subset(&self, other: &ComponentIdSet) -> bool {
+        self.dense.is_subset(&other.dense) && self.sparse.is_subset(&other.sparse)
+    }
+
+    /// Returns `true` if the set is empty.
+    #[inline]
+    pub fn is_clear(&self) -> bool {
+        self.dense.is_clear() && self.sparse.is_empty()
+    }
+
+    /// Iterates the [`ComponentId`]s in the set.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = ComponentId> {
+        self.dense
+            .ones()
+            .map(|id| ComponentId::from_u32(id as u32))
+            .chain(self.sparse.iter().map(|entity| ComponentId::new(*entity)))
+    }
+
+    /// Returns a lazy iterator over the union of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn union<'a>(&'a self, other: &'a ComponentIdSet) -> impl Iterator<Item = ComponentId> {
+        self.dense
+            .union(&other.dense)
+            .map(|id| ComponentId::from_u32(id as u32))
+            .chain(
+                self.sparse
+                    .union(&other.sparse)
+                    .map(|entity| ComponentId::new(*entity)),
+            )
+    }
+
+    /// Returns a lazy iterator over the intersection of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn intersection<'a>(
+        &'a self,
+        other: &'a ComponentIdSet,
+    ) -> impl Iterator<Item = ComponentId> {
+        self.dense
+            .intersection(&other.dense)
+            .map(|id| ComponentId::from_u32(id as u32))
+            .chain(
+                self.sparse
+                    .intersection(&other.sparse)
+                    .map(|entity| ComponentId::new(*entity)),
+            )
+    }
+
+    /// Returns a lazy iterator over the difference of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn difference<'a>(
+        &'a self,
+        other: &'a ComponentIdSet,
+    ) -> impl Iterator<Item = ComponentId> {
+        self.dense
+            .difference(&other.dense)
+            .map(|id| ComponentId::from_u32(id as u32))
+            .chain(
+                self.sparse
+                    .difference(&other.sparse)
+                    .map(|entity| ComponentId::new(*entity)),
+            )
+    }
+
+    /// In-place union of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn union_with(&mut self, other: &ComponentIdSet) {
+        self.dense.union_with(&other.dense);
+        self.sparse.bitor_assign(&other.sparse);
+    }
+
+    /// In-place intersection of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn intersect_with(&mut self, other: &ComponentIdSet) {
+        self.dense.intersect_with(&other.dense);
+        self.sparse.bitand_assign(&other.sparse)
+    }
+
+    /// In-place difference of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn difference_with(&mut self, other: &ComponentIdSet) {
+        self.dense.difference_with(&other.dense);
+        self.sparse.sub_assign(&other.sparse);
+    }
+
+    /// In-place reversed difference of two [`ComponentIdSet`]s.
+    /// This sets `self` to be `other.difference(self)`.
+    #[inline]
+    pub fn difference_from(&mut self, other: &ComponentIdSet) {
+        // Calculate `other - self` as `!self & other`
+        // We have to grow here because the new bits are going to get flipped to 1.
+        self.dense.grow(other.dense.len());
+        self.dense.toggle_range(..);
+        self.dense.intersect_with(&other.dense);
+        self.sparse.clone_from(&(&other.sparse - &self.sparse));
+    }
+}
+
+impl Clone for ComponentIdSet {
+    #[inline]
+    fn clone(&self) -> Self {
+        ComponentIdSet {
+            dense: self.dense.clone(),
+            sparse: self.sparse.clone(),
+        }
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        self.dense.clone_from(&source.dense);
+        self.sparse.clone_from(&source.sparse);
+    }
+}
+
+impl alloc::fmt::Debug for ComponentIdSet {
+    fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+        // `FixedBitSet` normally has a `Debug` output like:
+        // FixedBitSet { data: [ 160 ], length: 8 }
+        // Instead, print the list of set values, like:
+        // [ 5, 7 ]
+        // Don't wrap in `ComponentId`, since that would just output:
+        // [ ComponentId(5), ComponentId(7) ]
+        f.debug_list()
+            .entries(
+                self.dense
+                    .ones()
+                    .chain(self.sparse.iter().map(|index| index.index_u32() as usize)),
+            )
+            .finish()
+    }
+}
+
+impl FromIterator<ComponentId> for ComponentIdSet {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = ComponentId>>(iter: T) -> Self {
+        let mut set = ComponentIdSet::new();
+        for index in iter {
+            set.insert(index);
+        }
+        set
+    }
+}
+
+impl Extend<ComponentId> for ComponentIdSet {
+    #[inline]
+    fn extend<T: IntoIterator<Item = ComponentId>>(&mut self, iter: T) {
+        for index in iter {
+            self.insert(index);
         }
     }
 }

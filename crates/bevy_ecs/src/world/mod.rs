@@ -4117,7 +4117,13 @@ mod tests {
 
         let mut iter = world.iter_resources();
 
-        // The resources are given back in reverse order of component registration
+        // The resources are given back in order of component registration
+        // but this is not always true
+        let (info, ptr) = iter.next().unwrap();
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
+        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
+
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
@@ -4125,11 +4131,6 @@ mod tests {
             unsafe { &ptr.deref::<TestResource2>().0 },
             &"Hello, world!".to_string()
         );
-
-        let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         assert!(iter.next().is_none());
     }
@@ -4147,17 +4148,17 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
-        // SAFETY: We know that the resource is of type `TestResource2`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
-        };
-
-        let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
+        };
+
+        let (info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
+        // SAFETY: We know that the resource is of type `TestResource2`
+        unsafe {
+            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
         };
 
         assert!(iter.next().is_none());

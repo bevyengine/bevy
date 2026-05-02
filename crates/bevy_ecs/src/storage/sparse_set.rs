@@ -145,12 +145,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// This must scan the entire array to find non-empty values,
     /// which may be slow even if the array is sparsely populated.
     #[inline]
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
-        self.values.iter().enumerate().filter_map(|(index, value)| {
-            value
-                .as_ref()
-                .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
-        })
+    pub(crate) fn values(&self) -> impl Iterator<Item = &V> {
+        self.values.iter().filter_map(|a| a.as_ref())
     }
 }
 
