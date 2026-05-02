@@ -402,17 +402,8 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     }
 
     for data_format_descriptor in ktx2.dfd_blocks() {
-        if data_format_descriptor.header == DfdHeader::BASIC {
-            let basic_data_format_descriptor = DfdBlockBasic::parse(data_format_descriptor.data)
-                .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
-            let sample_information = basic_data_format_descriptor
-                .sample_information()
-                .collect::<Vec<_>>();
-            return ktx2_dfd_header_to_texture_format(
-                &basic_data_format_descriptor.header,
-                &sample_information,
-                is_srgb,
-            );
+        if let Block::Basic(basic_data_format_descriptor) = data_format_descriptor {
+            return ktx2_dfd_header_to_texture_format(basic_data_format_descriptor, is_srgb);
         }
     }
 
