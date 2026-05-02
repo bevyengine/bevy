@@ -2,28 +2,14 @@
 //! it stays sharp even when zoomed in.
 
 use bevy::{
-    feathers::{
-        dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, UiTheme},
-        tokens, FeathersPlugins,
-    },
     input::{keyboard::KeyboardInput, mouse::MouseWheel},
     prelude::*,
     ui::UiRasterScale,
-    window::WindowResolution,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: WindowResolution::default(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .add_plugins(FeathersPlugins)
-        .insert_resource(UiTheme(create_dark_theme()))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, scene.spawn())
         .add_systems(Update, zoom)
         .run();
@@ -54,8 +40,7 @@ fn root() -> impl Scene {
             Text::new("Some Text")
             TextFont {
                 font_size: FontSize::Px(16.),
-            }
-            ThemeBackgroundColor(tokens::PANE_BODY_BG),
+            },
 
             // Simple solution:
             // Scaling by UiRasterScale, which scales up the glyph rasterization resolution
@@ -66,8 +51,7 @@ fn root() -> impl Scene {
             TextFont {
                 font_size: FontSize::Px(16.),
             }
-            UiRasterScale(4.)
-            ThemeBackgroundColor(tokens::PANE_BODY_BG),
+            UiRasterScale(4.),
 
             // More complex, less flexible solution:
             // Increase font size by 4x and scale the node down to 1/4 size.
@@ -82,8 +66,7 @@ fn root() -> impl Scene {
                 // The node size is calculated before the scale is applied,
                 // so we move it down to be next to the other text.
                 top: px(-30.)
-            }
-            ThemeBackgroundColor(tokens::PANE_BODY_BG),
+            },
         ]
     }
 }

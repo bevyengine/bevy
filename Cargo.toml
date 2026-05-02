@@ -1043,7 +1043,6 @@ wasm = true
 name = "text_scaling"
 path = "examples/ui/text/text_scaling.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.text_scaling]
 name = "Text Scaling"
