@@ -36,6 +36,9 @@ use crate::{
     theme::ThemedText,
 };
 
+const TOAST_HEIGHT: f32 = 60.0;
+const TOAST_MARGIN: f32 = 10.0;
+
 /// Keeps track of currently spawned toasts in their respective positions.
 ///
 /// This is used to determine
@@ -54,7 +57,7 @@ pub enum ToastVariant {
     Info,
     /// Uses [palette::SUCCESS] for background and [palette::WHITE] for text color.
     Success,
-    /// Uses [palette::WARNING] for background and [palette::BLACK] for text color.
+    /// Uses [palette::WARNING] for background and [palette::WHITE] for text color.
     Warning,
     /// Uses [palette::ERROR] for background and [palette::WHITE] for text color.
     Error,
@@ -94,7 +97,7 @@ impl ToastPosition {
         let mut node = entity_mut
             .get_mut::<Node>()
             .expect("Node should be present in ToastPosition on_add");
-        let offset = 70.0 * idx as f32; // Assuming each toast has a height of 60px + 10px margin
+        let offset = (TOAST_HEIGHT + TOAST_MARGIN) * idx as f32;
         match position {
             ToastPosition::BottomRight => {
                 node.bottom = px(offset);
@@ -145,7 +148,7 @@ impl ToastPosition {
             let mut node = entity_mut
                 .get_mut::<Node>()
                 .expect("Node should be present in ToastPosition on_despawn");
-            let offset = 70.0 * (removed_idx + idx) as f32; // Assuming each toast has a height of 60px + 10px margin
+            let offset = (TOAST_HEIGHT + TOAST_MARGIN) * (removed_idx + idx) as f32;
             match position {
                 ToastPosition::BottomRight => {
                     node.bottom = px(-offset);
@@ -175,8 +178,15 @@ pub struct ToastProgressBar {
     pub root_entity: Entity
 }
 
-/// Props used for spawning a toast. This is not a component, but a struct used for passing data to the toast template.
-pub struct ToastProps {
+/// A toast widget.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersToastProps`].`]
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersToastProps)]
+pub struct FeathersToast;
+
+/// Props used for construct a [`FeathersToast`] scene.
+pub struct FeathersToastProps {
     /// The message to display in the toast.
     pub message: String,
     /// The severity variant of the toast, which determines the background and text color.
@@ -187,18 +197,19 @@ pub struct ToastProps {
     pub position: ToastPosition,
 }
 
-impl Default for ToastProps {
+impl Default for FeathersToastProps {
     fn default() -> Self {
         Self {
-            message: "".to_string(),
+            message: "".to_string(), // TODO: Could multiline messages be supported by passing a [`SceneList`]?
             variant: ToastVariant::default(),
             duration: Some(Duration::from_secs(3)),
             position: ToastPosition::default(),
         }
     }
 }
-/// TODO: Add docs after updating after [Scene Components](https://github.com/bevyengine/bevy/pull/24008)
-pub fn toast(props: ToastProps) -> impl Scene {
+
+impl FeathersToast {
+    fn scene(props: FeathersToastProps) -> impl Scene {
     bsn! {
         #Toast
         Node {
@@ -242,7 +253,7 @@ pub fn toast(props: ToastProps) -> impl Scene {
                     let text_color = match props.variant {
                         ToastVariant::Info => palette::WHITE,
                         ToastVariant::Success => palette::WHITE,
-                        ToastVariant::Warning => palette::BLACK,
+                        ToastVariant::Warning => palette::WHITE,
                         ToastVariant::Error => palette::WHITE,
                     };
                     Ok(TextColor(text_color))
@@ -269,12 +280,7 @@ pub fn toast(props: ToastProps) -> impl Scene {
                 Box::new(bsn!()) as Box<dyn Scene>
             }
         }), ({ if props.duration.is_some() {
-                Box::new(bsn! {(
-                    template(|ctx| {
-                        println!("ctx2: {:?}", ctx.entity_scopes);
-                        println!("ctx: {:?}", ctx.scoped_entities);
-                        Ok(Button)
-                    })
+                Box::new(bsn! {
                     Node {
                         width: percent(100),
                         height: px(10),
@@ -284,15 +290,16 @@ pub fn toast(props: ToastProps) -> impl Scene {
                     }
                     BackgroundColor(palette::WHITE)
                     template(move |ctx| {
-                        let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 0, index: 0});
+                        let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
                         Ok(ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity })
                     })
-                    // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // This panics if the EntityReference is there
-                    )}) as Box<dyn Scene>
+                    // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
+                    }) as Box<dyn Scene>
             } else {
                 Box::new(bsn!()) as Box<dyn Scene>
             }
         })]
+    }
     }
 }
 
