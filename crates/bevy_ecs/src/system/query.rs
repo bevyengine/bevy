@@ -1761,7 +1761,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
             F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
 
-            query::maybe_update_change_index::<D>(table, self.this_run);
+            query::maybe_update_change_index::<D>(table, self.last_run, self.this_run);
 
             if F::filter_fetch(
                 &self.state.filter_state,

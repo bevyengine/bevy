@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use crate::change_detection::Tick;
+use crate::change_detection::{Tick, MAX_CHANGE_AGE};
 
 #[derive(Default, Debug)]
 pub struct ChangeIndex {
@@ -21,20 +21,17 @@ impl ChangeIndex {
         self.page_table.store(tick.get(), Ordering::Relaxed);
     }
 
-    pub(crate) fn note_changed(&self, tick: Tick) {
-        let mut val = self.page_table.load(Ordering::Relaxed);
-        // FIXME: this CAS loop needs to be smarter and do the "is newer than" dance
-        if val < tick.get() {
-            loop {
-                match self.page_table.compare_exchange_weak(
-                    val,
-                    tick.get(),
-                    Ordering::Relaxed,
-                    Ordering::Relaxed,
-                ) {
-                    Ok(_) => break,
-                    Err(old) => val = old,
-                }
+    pub(crate) fn note_changed(&self, _: Tick, now: Tick) {
+        let mut then = self.page_table.load(Ordering::Relaxed);
+        while then != now.get() && now.get().wrapping_sub(then) < MAX_CHANGE_AGE {
+            match self.page_table.compare_exchange_weak(
+                then,
+                now.get(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(prev) => then = prev,
             }
         }
     }

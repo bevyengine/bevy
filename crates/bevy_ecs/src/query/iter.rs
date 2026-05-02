@@ -24,6 +24,7 @@ use core::{
     ops::Range,
 };
 use nonmax::NonMaxU32;
+use std::println;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -263,7 +264,8 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         if !F::USES_INDEX
             || table.change_index().is_none_or(|change_index| {
-                change_index.is_dirty(self.cursor.last_run, self.cursor.this_run)
+                let dirty = change_index.is_dirty(self.cursor.last_run, self.cursor.this_run);
+                dirty
             })
         {
             loop {
@@ -344,7 +346,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
-        maybe_update_change_index::<D>(table, self.cursor.this_run);
+        maybe_update_change_index::<D>(table, self.cursor.last_run, self.cursor.this_run);
 
         let entities = archetype.entities();
         for index in indices {
@@ -424,12 +426,13 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
-        maybe_update_change_index::<D>(table, self.cursor.this_run);
+        maybe_update_change_index::<D>(table, self.cursor.last_run, self.cursor.this_run);
 
         let entities = table.entities();
         if !F::USES_INDEX
             || table.change_index().is_none_or(|change_index| {
-                change_index.is_dirty(self.cursor.last_run, self.cursor.this_run)
+                let dirty = change_index.is_dirty(self.cursor.last_run, self.cursor.this_run);
+                dirty
             })
         {
             loop {
@@ -2954,7 +2957,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         D::set_table(&mut self.fetch, &query_state.fetch_state, table);
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
                     }
-                    maybe_update_change_index::<D>(table, self.this_run);
+                    maybe_update_change_index::<D>(table, self.last_run, self.this_run);
                     self.table_entities = table.entities();
                     self.current_change_index = table.change_index();
                     self.current_len = table.entity_count();
@@ -3018,7 +3021,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             table,
                         );
                     }
-                    maybe_update_change_index::<D>(table, self.this_run);
+                    maybe_update_change_index::<D>(table, self.last_run, self.this_run);
 
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
@@ -3093,15 +3096,14 @@ impl<T> Ord for NeutralOrd<T> {
     }
 }
 
-// TODO: `since`
-pub(crate) fn maybe_update_change_index<D>(table: &Table, now: Tick)
+pub(crate) fn maybe_update_change_index<D>(table: &Table, since: Tick, now: Tick)
 where
     D: QueryData,
 {
     if D::MUTATES_INDEXED_COLUMNS
         && let Some(change_index) = table.change_index()
     {
-        change_index.note_changed(now);
+        change_index.note_changed(since, now);
     }
 }
 
