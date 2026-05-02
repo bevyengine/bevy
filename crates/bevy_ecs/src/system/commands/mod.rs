@@ -2929,6 +2929,111 @@ mod tests {
     }
 
     #[test]
+    fn insert_resource_if_not_equal() {
+        #[derive(Resource, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(41));
+        }
+
+        queue.apply(&mut world);
+        assert!(world.is_resource_added::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 41);
+
+        world.clear_trackers();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(42));
+        }
+
+        queue.apply(&mut world);
+        assert!(world.is_resource_changed::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 42);
+
+        world.clear_trackers();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(42));
+        }
+
+        queue.apply(&mut world);
+        assert!(!world.is_resource_changed::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 42);
+    }
+
+    #[cfg(feature = "track_location")]
+    #[test]
+    fn insert_resource_if_not_equal_tracks_caller() {
+        use crate::change_detection::DetectChanges;
+        use core::panic::Location;
+
+        #[derive(Resource, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        macro_rules! insert_resource_if_neq_with_expected_caller {
+            ($commands:expr, $resource:expr) => {{
+                $commands.insert_resource_if_neq($resource);
+                Location::caller()
+            }};
+        }
+        let expected1 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(41));
+
+        queue.apply(&mut world);
+
+        assert_eq!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected1)
+        );
+
+        world.clear_trackers();
+
+        let expected2 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(42));
+
+        queue.apply(&mut world);
+
+        assert_eq!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected2)
+        );
+
+        world.clear_trackers();
+
+        let expected3 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(42));
+
+        queue.apply(&mut world);
+
+        assert_ne!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected3)
+        );
+    }
+
+    #[test]
     fn remove_component_with_required_components() {
         #[derive(Component)]
         #[require(Y)]
