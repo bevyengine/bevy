@@ -11,7 +11,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
-    template::{template, FromTemplate},
+    template::{FromTemplate, ScopedEntityIndex, template},
     world::DeferredWorld,
 };
 use bevy_picking::Pickable;
@@ -36,28 +36,43 @@ use crate::{
     theme::ThemedText,
 };
 
+/// Keeps track of currently spawned toasts in their respective positions.
+///
+/// This is used to determine
+/// - initial positioning for each toast relative to other toasts in the same position and
+/// - which toasts need to be repositioned when a toast is despawned
 #[derive(Resource, Default, Reflect)]
 #[reflect(Resource, Default)]
 pub struct ToastPositions(pub HashMap<ToastPosition, Vec<Entity>>);
 
+/// Severity variants for toasts. This determines the background and text color of the toast.
 #[derive(Component, Default, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Clone, Default)]
 pub enum ToastVariant {
+    /// Uses [palette::INFO] for background and [palette::WHITE] for text color.
     #[default]
     Info,
+    /// Uses [palette::SUCCESS] for background and [palette::WHITE] for text color.
     Success,
+    /// Uses [palette::WARNING] for background and [palette::BLACK] for text color.
     Warning,
+    /// Uses [palette::ERROR] for background and [palette::WHITE] for text color.
     Error,
 }
 
+/// Available positions for toasts.
 #[derive(Component, Clone, Default, Reflect, Debug, PartialEq, Eq, Hash)]
 #[reflect(Component, Clone, Default)]
 #[component(on_add, on_despawn)]
 pub enum ToastPosition {
+    /// Bottom right corner of the screen. Siblings stack upwards.
     #[default]
     BottomRight,
+    /// Bottom left corner of the screen. Siblings stack upwards.
     BottomLeft,
+    /// Top left corner of the screen. Siblings stack downwards.
     TopLeft,
+    /// Top right corner of the screen. Siblings stack downwards.
     TopRight,
 }
 
@@ -149,16 +164,26 @@ impl ToastPosition {
     }
 }
 
+/// Component for keeping track of the progress bar of a toast with a duration.
+/// This is used to update the width of the progress bar and despawn the toast when the timer finishes.
 #[derive(Component, FromTemplate, Clone, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Clone)]
 pub struct ToastProgressBar {
+    /// [Timer] for the toast duration. The progress bar width is updated based on the remaining time of this timer, and the toast is despawned when this timer finishes.
     pub timer: Timer,
+    /// The root entity of the toast. This is used to despawn the toast when the timer finishes.
+    pub root_entity: Entity
 }
 
+/// Props used for spawning a toast. This is not a component, but a struct used for passing data to the toast template.
 pub struct ToastProps {
+    /// The message to display in the toast.
     pub message: String,
+    /// The severity variant of the toast, which determines the background and text color.
     pub variant: ToastVariant,
+    /// Optional duration for the toast. If `Some`, a progress bar is shown and the toast is automatically despawned after the duration. If `None`, the toast will stay until manually despawned.
     pub duration: Option<Duration>,
+    /// The position of the toast on the screen, which determines where the toast is spawned and how it is stacked with other toasts.
     pub position: ToastPosition,
 }
 
@@ -172,7 +197,7 @@ impl Default for ToastProps {
         }
     }
 }
-
+/// TODO: Add docs after updating after [Scene Components](https://github.com/bevyengine/bevy/pull/24008)
 pub fn toast(props: ToastProps) -> impl Scene {
     bsn! {
         #Toast
@@ -245,6 +270,11 @@ pub fn toast(props: ToastProps) -> impl Scene {
             }
         }), ({ if props.duration.is_some() {
                 Box::new(bsn! {(
+                    template(|ctx| {
+                        println!("ctx2: {:?}", ctx.entity_scopes);
+                        println!("ctx: {:?}", ctx.scoped_entities);
+                        Ok(Button)
+                    })
                     Node {
                         width: percent(100),
                         height: px(10),
@@ -253,7 +283,10 @@ pub fn toast(props: ToastProps) -> impl Scene {
                         left: px(0),
                     }
                     BackgroundColor(palette::WHITE)
-                    ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once) }
+                    template(move |ctx| {
+                        let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 0, index: 0});
+                        Ok(ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity })
+                    })
                     // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // This panics if the EntityReference is there
                     )}) as Box<dyn Scene>
             } else {
@@ -265,24 +298,18 @@ pub fn toast(props: ToastProps) -> impl Scene {
 
 fn tick_toasts_progress_bars(
     mut commands: Commands,
-    mut toast_progress_bars: Query<(Entity, &mut Node, &mut ToastProgressBar)>,
-    child_of: Query<&ChildOf>,
+    mut toast_progress_bars: Query<(&mut Node, &mut ToastProgressBar)>,
     time: Res<Time<Fixed>>,
 ) {
-    for (entity, mut node, mut toast_progress_bar) in &mut toast_progress_bars {
+    for (mut node, mut toast_progress_bar) in &mut toast_progress_bars {
         let timer = &mut toast_progress_bar.timer;
         timer.tick(time.delta());
         let remaining_secs = timer.remaining_secs();
         let duration_secs = timer.duration().as_secs() as f32;
         let remaining = remaining_secs / duration_secs;
         node.width = percent(remaining * 100.);
-        let mut root_entity = entity;
-        // Hacky solution to get the root entity of the toast since using EntityReference in ToastProgressBar causes a panic.
-        while let Ok(entity) = child_of.get(root_entity) {
-            root_entity = entity.0;
-        }
         if timer.is_finished() {
-            commands.entity(root_entity).despawn();
+            commands.entity(toast_progress_bar.root_entity).despawn();
         }
     }
 }

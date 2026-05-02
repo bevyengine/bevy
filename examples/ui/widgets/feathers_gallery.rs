@@ -701,13 +701,10 @@ fn demo_column_2() -> impl Scene {
                                 }
                                 Children [
                                     (
-                                        button(ButtonProps {
-                                            caption: Box::new(bsn_list!(
-                                                (Text("Top left") ThemedText),
-                                            )),
-                                            corners: RoundedCorners::None,
-                                            ..default()
-                                        })
+                                        :FeathersButton {
+                                            @caption: {bsn!{ Text("Top left") ThemedText }},
+                                            @corners: RoundedCorners::Left,
+                                        }
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -720,13 +717,10 @@ fn demo_column_2() -> impl Scene {
                                             }));
                                         })
                                     ), (
-                                        button(ButtonProps {
-                                            caption: Box::new(bsn_list!(
-                                                (Text("Top right") ThemedText),
-                                            )),
-                                            corners: RoundedCorners::Right,
-                                            ..default()
-                                        })
+                                        :FeathersButton {
+                                            @caption: {bsn!{ Text("Top right") ThemedText }},
+                                            @corners: RoundedCorners::None,
+                                        }
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -739,13 +733,10 @@ fn demo_column_2() -> impl Scene {
                                             }));
                                         })
                                     ), (
-                                        button(ButtonProps {
-                                            caption: Box::new(bsn_list!(
-                                                (Text("Bottom right") ThemedText),
-                                            )),
-                                            corners: RoundedCorners::Left,
-                                            ..default()
-                                        })
+                                        :FeathersButton {
+                                            @caption: {bsn!{ Text("Bottom right") ThemedText }},
+                                            @corners: RoundedCorners::None,
+                                        }
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -758,13 +749,10 @@ fn demo_column_2() -> impl Scene {
                                             }));
                                         })
                                     ), (
-                                        button(ButtonProps {
-                                            caption: Box::new(bsn_list!(
-                                                (Text("Bottom left") ThemedText),
-                                            )),
-                                            corners: RoundedCorners::None,
-                                            ..default()
-                                        })
+                                        :FeathersButton {
+                                            @caption: {bsn!{ Text("Bottom left") ThemedText }},
+                                            @corners: RoundedCorners::Right,
+                                        }
                                         Node {
                                             flex_grow: 1.0,
                                         }
