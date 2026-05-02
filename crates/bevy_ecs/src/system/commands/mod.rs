@@ -899,8 +899,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// Inserts a [`Resource`] into the [`World`] with a specific value
     /// if the resource is different or missing.
     #[track_caller]
-    pub fn insert_if_resource_neq<R: Resource + PartialEq>(&mut self, resource: R) -> &mut Self {
-        unimplemented!();
+    pub fn insert_resource_if_neq<R: Resource + PartialEq>(&mut self, resource: R) {
+        let caller = MaybeLocation::caller();
+
+        self.queue(move |world: &mut World| {
+            if world
+                .get_resource::<R>()
+                .is_none_or(|old_resource| *old_resource != resource)
+            {
+                world.insert_resource_with_caller(resource, caller);
+            }
+        });
     }
 
     /// Removes a [`Resource`] from the [`World`].
