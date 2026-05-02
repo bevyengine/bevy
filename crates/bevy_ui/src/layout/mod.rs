@@ -275,14 +275,21 @@ pub fn ui_layout_system(
             let local_center =
                 layout_location - effective_parent_scroll + 0.5 * (layout_size - parent_size);
 
+            let raster_scale = match maybe_raster_scale {
+                Some(raster_scale) => *raster_scale,
+                None => parent_raster_scale,
+            };
+
             // only trigger change detection when the new values are different
             if node.size != layout_size
                 || node.unrounded_size != unrounded_size
                 || node.inverse_scale_factor != inverse_target_scale_factor
+                || node.raster_scale != raster_scale
             {
                 node.size = layout_size;
                 node.unrounded_size = unrounded_size;
                 node.inverse_scale_factor = inverse_target_scale_factor;
+                node.raster_scale = raster_scale;
             }
 
             let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
@@ -373,13 +380,6 @@ pub fn ui_layout_system(
             let physical_scroll_position = clamped_scroll_position.floor();
 
             node.bypass_change_detection().scroll_position = physical_scroll_position;
-
-            let raster_scale = match maybe_raster_scale {
-                Some(raster_scale) => *raster_scale,
-                None => parent_raster_scale,
-            };
-
-            node.bypass_change_detection().raster_scale = raster_scale;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
