@@ -224,6 +224,10 @@ impl TextPipeline {
                 );
                 builder.push(
                     StyleProperty::FontFeatures((&section.text_font.font_features).into()),
+                    range.clone(),
+                );
+                builder.push(
+                    StyleProperty::FontVariations((&section.text_font.font_variations).into()),
                     range,
                 );
             }
