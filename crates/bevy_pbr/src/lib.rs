@@ -30,7 +30,10 @@ pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::sync_component::SyncComponent;
+use bevy_render::{
+    sync_component::SyncComponent,
+    view::{RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities},
+};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -418,7 +421,9 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
-        render_app.world_mut().add_observer(extracted_light_removed);
+        render_app
+            .world_mut()
+            .add_observer(remove_point_and_spot_light_view_entities);
 
         render_app.add_systems(
             Core3d,
@@ -434,7 +439,7 @@ impl Plugin for PbrPlugin {
                 shared_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>),
                 shared_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
@@ -477,16 +482,34 @@ pub fn stbn_placeholder() -> Image {
 }
 
 impl SyncComponent<PbrPlugin> for DirectionalLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedDirectionalLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        DirectionalLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for PointLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for SpotLight {
-    type Target = Self;
+    type Target = (
+        Self,
+        ExtractedPointLight,
+        RenderExtractedShadowMapVisibleEntities,
+        RenderShadowMapVisibleEntities,
+        PointAndSpotLightViewEntities,
+    );
 }
 impl SyncComponent<PbrPlugin> for RectLight {
-    type Target = Self;
+    type Target = (Self, ExtractedRectLight);
 }
 impl SyncComponent<PbrPlugin> for AmbientLight {
     type Target = Self;

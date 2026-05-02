@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             TextLayout {
-                                linebreak: LineBreak::AnyCharacter,
+                                linebreak: LineBreak::WordOrCharacter,
                                 ..default()
                             },
                             TextCursorStyle {

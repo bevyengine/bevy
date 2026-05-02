@@ -136,10 +136,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
 
         descriptor.set_layout(0, view_layout.main_layout.clone());
         descriptor.vertex.buffers = line_gizmo_vertex_buffer_layouts(key.strip);
@@ -207,10 +204,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         let format = key.view_key.target_format();
 
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
         let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {

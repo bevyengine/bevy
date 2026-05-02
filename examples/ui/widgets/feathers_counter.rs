@@ -4,7 +4,7 @@
 
 use bevy::{
     feathers::{
-        controls::{button, ButtonProps},
+        controls::FeathersButton,
         dark_theme::create_dark_theme,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
@@ -58,24 +58,24 @@ fn demo_root() -> impl Scene {
             }
             Children [
                 (
-                    button(ButtonProps::default())
+                    :FeathersButton
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 -= 1;
                     })
-                    Children [ (Text::new("-1") ThemedText) ]
+                    Children [ (Text("-1") ThemedText) ]
                 ),
                 (
                     Node {
                         margin: UiRect::horizontal(px(10.0)),
                     }
-                    Text::new("0") ThemedText CounterText
+                    Text("0") ThemedText CounterText
                 ),
                 (
-                    button(ButtonProps::default())
+                    :FeathersButton
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 += 1;
                     })
-                    Children [ (Text::new("+1") ThemedText) ]
+                    Children [ (Text("+1") ThemedText) ]
                 )
             ]
         )]
