@@ -96,8 +96,14 @@ fn update_clipping(
         // The current node doesn't clip, propagate the optional inherited clipping rect to any children
         maybe_inherited_clip
     } else {
-        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect = Rect::from_center_size(transform.translation, computed_node.size());
+        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists.
+
+        // ComputedNode is in layout space, that is, it does not include UiTransform's scale,
+        // however clipping should respect the scale so we apply it manually to the clip rect.
+        let (ui_scale, _, _) = transform.to_scale_angle_translation();
+
+        let mut clip_rect =
+            Rect::from_center_size(transform.translation, computed_node.size() * ui_scale);
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -109,8 +115,8 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        clip_rect.min += clip_inset.min_inset;
-        clip_rect.max -= clip_inset.max_inset;
+        clip_rect.min += clip_inset.min_inset * ui_scale;
+        clip_rect.max -= clip_inset.max_inset * ui_scale;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
