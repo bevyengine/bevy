@@ -5195,6 +5195,7 @@ hidden = true
 name = "testbed_3d"
 path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
+required-features = ["ltc_luts"]
 
 [package.metadata.example.testbed_3d]
 hidden = true
