@@ -140,6 +140,8 @@ pub enum Handle<A: Asset> {
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
+// `Handle` needs a custom `FromReflect` to do extra type checking - see the
+// `strong_handle.type_id` check below.
 impl<A: Asset> FromReflect for Handle<A>
 where
     Handle<A>: Send + Sync,
