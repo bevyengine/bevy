@@ -122,7 +122,7 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
         let inverse_target_function = select(0.0, 1.0 / selected_sample_target_function, selected_sample_target_function > 0.0);
         unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        unbiased_contribution_weight *= trace_light_visibility(world_position + (world_position * RAY_T_MIN), selected_sample_world_position);
+        unbiased_contribution_weight *= trace_light_visibility(world_position + (world_normal * RAY_T_MIN), selected_sample_world_position);
     }
 
     return selected_sample_radiance * unbiased_contribution_weight;
