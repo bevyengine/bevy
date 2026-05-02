@@ -613,7 +613,7 @@ impl Access {
         let archetypal = self
             .archetypal
             .difference(&self.read_and_writes)
-            .map(|id| ComponentAccessKind::Archetypal(id));
+            .map(ComponentAccessKind::Archetypal);
 
         Ok(reads_and_writes.chain(archetypal))
     }
@@ -638,7 +638,7 @@ fn invertible_union_with(
         (true, false) => self_set.difference_with(other_set),
         (false, true) => {
             *self_inverted = true;
-            self_set.difference_from(other_set)
+            self_set.difference_from(other_set);
         }
         (false, false) => self_set.union_with(other_set),
     }

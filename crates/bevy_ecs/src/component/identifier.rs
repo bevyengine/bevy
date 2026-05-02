@@ -300,7 +300,7 @@ impl ComponentIdSet {
     #[inline]
     pub fn intersect_with(&mut self, other: &ComponentIdSet) {
         self.dense.intersect_with(&other.dense);
-        self.sparse.bitand_assign(&other.sparse)
+        self.sparse.bitand_assign(&other.sparse);
     }
 
     /// In-place difference of two [`ComponentIdSet`]s.
@@ -339,8 +339,8 @@ impl Clone for ComponentIdSet {
     }
 }
 
-impl alloc::fmt::Debug for ComponentIdSet {
-    fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for ComponentIdSet {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // `FixedBitSet` normally has a `Debug` output like:
         // FixedBitSet { data: [ 160 ], length: 8 }
         // Instead, print the list of set values, like:
