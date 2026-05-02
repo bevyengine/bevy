@@ -8,6 +8,8 @@ Bevy's `CompressedImageSaver` asset processor has been significantly upgraded wi
 
 The new `compressed_image_saver` feature compresses textures into BCn formats (for desktop GPUs) or ASTC formats (for mobile GPUs), producing higher-quality output than the previous Basis Universal approach. The compressor automatically selects the best output format based on the input texture's channel count and type — for example, single-channel textures get BC4, HDR textures get BC6H, and standard RGBA textures get BC7.
 
+Try out the new `compressed_image_saver` example to see it in action.
+
 ## Automatic Mipmap Generation
 
 No more manually generating mipmaps! The new backend automatically produces a full mip chain during compression. This means less aliasing when textures are viewed at a distance and better GPU cache utilization — all for free, just by running your textures through the asset processor.
