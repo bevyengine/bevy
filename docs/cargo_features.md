@@ -121,7 +121,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dfg_lut|Include a preintegrated BRDF Look Up Table for more accurate specular shading.|
-|ltc_luts|Include Linearly Transformed Cosines (LTC) Look Up Tables which is required for rect light.|
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
@@ -148,6 +147,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
+|ltc_luts|Include Linearly Transformed Cosines (LTC) Look Up Tables which is required for rect light.|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|

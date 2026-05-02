@@ -342,8 +342,8 @@ impl Plugin for PbrPlugin {
             let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
                 Image::from_buffer(
                     include_bytes!("environment_map/dfg.ktx2"),
-                    ImageType::Extension("ktx2"),
-                    CompressedImageFormats::NONE,
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
                     false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,
