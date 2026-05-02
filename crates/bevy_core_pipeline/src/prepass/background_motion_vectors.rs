@@ -24,10 +24,10 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines,
+        DownlevelFlags, FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
     view::{Msaa, ViewUniform, ViewUniforms},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
@@ -120,6 +120,7 @@ struct BackgroundMotionVectorsPipeline {
 struct BackgroundMotionVectorsPipelineKey {
     samples: u32,
     normal_prepass: bool,
+    supports_downlevel_independent_blend: bool,
 }
 
 fn init_background_motion_vectors_pipeline(
@@ -151,15 +152,18 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
-        // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
-        // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
-        for target in
-            targets
-                .iter_mut()
-                .enumerate()
-                .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
-        {
-            target.write_mask = bevy_render::render_resource::ColorWrites::empty();
+
+        if key.supports_downlevel_independent_blend {
+            // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
+            // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
+            for target in
+                targets
+                    .iter_mut()
+                    .enumerate()
+                    .filter_map(|(i, t)| if i == 1 { None } else { t.as_mut() })
+            {
+                target.write_mask = bevy_render::render_resource::ColorWrites::empty();
+            }
         }
 
         RenderPipelineDescriptor {
@@ -190,6 +194,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
 
 fn prepare_background_motion_vectors_pipelines(
     mut commands: Commands,
+    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>,
     pipeline: Res<BackgroundMotionVectorsPipeline>,
@@ -201,6 +206,10 @@ fn prepare_background_motion_vectors_pipelines(
         ),
     >,
 ) {
+    let supports_downlevel_independent_blend = render_adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::INDEPENDENT_BLEND);
     for (entity, normal_prepass, msaa) in &views {
         let id = pipelines.specialize(
             &pipeline_cache,
@@ -208,6 +217,7 @@ fn prepare_background_motion_vectors_pipelines(
             BackgroundMotionVectorsPipelineKey {
                 samples: msaa.samples(),
                 normal_prepass,
+                supports_downlevel_independent_blend,
             },
         );
         commands
