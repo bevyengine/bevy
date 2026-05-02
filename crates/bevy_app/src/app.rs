@@ -19,13 +19,17 @@ use bevy_ecs::{
         InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
         ScheduleLabel,
     },
-    system::{ScheduleSystem, SystemId, SystemInput},
+    system::ScheduleSystem,
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
+
+bevy_platform::cfg::arc! {
+    use bevy_ecs::system::{SystemId, SystemInput};
+}
 
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -362,24 +366,27 @@ impl App {
         self.main_mut().remove_systems_in_set(schedule, set, policy)
     }
 
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
-    ///
-    /// It's possible to register the same systems more than once, they'll be stored separately.
-    ///
-    /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a push-based fashion.
-    /// Using a [`Schedule`] is still preferred for most cases
-    /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I, O, M>(
-        &mut self,
-        system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
-    where
-        I: SystemInput + 'static,
-        O: 'static,
-    {
-        self.main_mut().register_system(system)
+    // Check bevy_ecs::system::SystemArc file for why this is gated on `arc`.
+    bevy_platform::cfg::arc! {
+        /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+        ///
+        /// It's possible to register the same systems more than once, they'll be stored separately.
+        ///
+        /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
+        /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+        /// This allows for running systems in a push-based fashion.
+        /// Using a [`Schedule`] is still preferred for most cases
+        /// due to its better performance and ability to run non-conflicting systems simultaneously.
+        pub fn register_system<I, O, M>(
+            &mut self,
+            system: impl IntoSystem<I, O, M> + 'static,
+        ) -> SystemId<I, O>
+        where
+            I: SystemInput + 'static,
+            O: 'static,
+        {
+            self.main_mut().register_system(system)
+        }
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.

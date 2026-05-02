@@ -134,7 +134,6 @@ mod system;
 mod system_arc;
 mod system_name;
 mod system_param;
-mod system_registry;
 
 use core::any::TypeId;
 
@@ -153,7 +152,11 @@ pub use system::*;
 pub use system_arc::*;
 pub use system_name::*;
 pub use system_param::*;
-pub use system_registry::*;
+
+bevy_platform::cfg::arc! {
+    mod system_registry;
+    pub use system_registry::*;
+}
 
 use crate::world::{FromWorld, World};
 

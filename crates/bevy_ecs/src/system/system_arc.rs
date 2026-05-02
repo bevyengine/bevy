@@ -9,7 +9,7 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{IntoSystem, System, SystemInput},
+    system::{IntoSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld},
 };
 
@@ -35,14 +35,6 @@ impl<S: System> SystemArc<S> {
             })),
         }
     }
-
-    /// Erases the concrete type of the system, returning a [`SystemArc<dyn System>`].
-    /// Useful for storing systems of different types in a homogeneous collection.
-    pub fn erase(self) -> SystemArcDyn<S::In, S::Out> {
-        SystemArc {
-            system: self.system as Arc<Mutex<SystemArcInner<dyn System<In = S::In, Out = S::Out>>>>,
-        }
-    }
 }
 
 impl<S: System + ?Sized> SystemArc<S> {
@@ -50,19 +42,6 @@ impl<S: System + ?Sized> SystemArc<S> {
     /// inner [`SystemArcInner`].
     pub fn lock(&self) -> MutexGuard<'_, SystemArcInner<S>> {
         self.system.lock().unwrap()
-    }
-}
-
-impl<I: SystemInput + 'static, O: 'static> SystemArc<dyn System<In = I, Out = O>> {
-    /// Creates a new [`SystemArc`] by converting the given `system` into a
-    /// [`System`], wrapping it in an [`Arc`] and [`Mutex`], and erasing its concrete type.
-    pub fn new_dyn<M>(system: impl IntoSystem<I, O, M>) -> Self {
-        Self {
-            system: Arc::new(Mutex::new(SystemArcInner {
-                initialized: false,
-                system: IntoSystem::into_system(system),
-            })) as Arc<Mutex<SystemArcInner<dyn System<In = I, Out = O>>>>,
-        }
     }
 }
 
@@ -91,9 +70,40 @@ impl<S: System> From<S> for SystemArc<S> {
     }
 }
 
-impl<S: System> From<SystemArc<S>> for SystemArcDyn<S::In, S::Out> {
-    fn from(system_arc: SystemArc<S>) -> Self {
-        system_arc.erase()
+// TODO: These are feature gated because they require portable_atomic_util::Arc
+// to be CoerceUnsized, which is currently unstable until #[derive(CoerceePointee)]
+// is stabilized. Once that is stabilized and derived for portable_atomic_util::Arc,
+// we can remove the feature gate.
+bevy_platform::cfg::arc! {
+    use crate::system::SystemInput;
+
+    impl<S: System> SystemArc<S> {
+        /// Erases the concrete type of the system, returning a [`SystemArc<dyn System>`].
+        /// Useful for storing systems of different types in a homogeneous collection.
+        pub fn erase(self) -> SystemArcDyn<S::In, S::Out> {
+            SystemArc {
+                system: self.system,
+            }
+        }
+    }
+
+    impl<I: SystemInput + 'static, O: 'static> SystemArc<dyn System<In = I, Out = O>> {
+        /// Creates a new [`SystemArc`] by converting the given `system` into a
+        /// [`System`], wrapping it in an [`Arc`] and [`Mutex`], and erasing its concrete type.
+        pub fn new_dyn<M>(system: impl IntoSystem<I, O, M>) -> Self {
+            Self {
+                system: Arc::new(Mutex::new(SystemArcInner {
+                    initialized: false,
+                    system: IntoSystem::into_system(system),
+                })),
+            }
+        }
+    }
+
+    impl<S: System> From<SystemArc<S>> for SystemArcDyn<S::In, S::Out> {
+        fn from(system_arc: SystemArc<S>) -> Self {
+            system_arc.erase()
+        }
     }
 }
 

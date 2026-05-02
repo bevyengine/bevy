@@ -8,10 +8,14 @@ use bevy_ecs::{
         InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
         ScheduleError, ScheduleLabel,
     },
-    system::{ScheduleSystem, SystemId, SystemInput},
+    system::ScheduleSystem,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
+
+bevy_platform::cfg::arc! {
+    use bevy_ecs::system::{SystemId, SystemInput};
+}
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, warn};
@@ -235,16 +239,19 @@ impl SubApp {
         })
     }
 
-    /// See [`App::register_system`].
-    pub fn register_system<I, O, M>(
-        &mut self,
-        system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
-    where
-        I: SystemInput + 'static,
-        O: 'static,
-    {
-        self.world.register_system(system)
+    // Check bevy_ecs::system::SystemArc file for why this is gated on `arc`.
+    bevy_platform::cfg::arc! {
+        /// See [`App::register_system`].
+        pub fn register_system<I, O, M>(
+            &mut self,
+            system: impl IntoSystem<I, O, M> + 'static,
+        ) -> SystemId<I, O>
+        where
+            I: SystemInput + 'static,
+            O: 'static,
+        {
+            self.world.register_system(system)
+        }
     }
 
     /// See [`App::configure_sets`].

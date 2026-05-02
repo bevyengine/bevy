@@ -15,7 +15,6 @@ use crate::{
     message::{Message, Messages},
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -181,83 +180,88 @@ pub fn remove_resource<R: Resource>() -> impl Command {
     }
 }
 
-/// A [`Command`] that runs the system corresponding to the given [`SystemId`].
-pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
-    move |world: &mut World| -> Result {
-        world.run_system(id)?;
-        Ok(())
-    }
-}
+// Check bevy_ecs::system::SystemArc file for why this is gated on `arc`.
+bevy_platform::cfg::arc! {
+    use crate::system::{IntoSystem, SystemInput, SystemId};
 
-/// A [`Command`] that runs the system corresponding to the given [`SystemId`]
-/// and provides the given input value.
-pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command
-where
-    I: SystemInput<Inner<'static>: Send> + 'static,
-{
-    move |world: &mut World| -> Result {
-        world.run_system_with(id, input)?;
-        Ok(())
+    /// A [`Command`] that runs the system corresponding to the given [`SystemId`].
+    pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
+        move |world: &mut World| -> Result {
+            world.run_system(id)?;
+            Ok(())
+        }
     }
-}
 
-/// A [`Command`] that runs the given system,
-/// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached<M, S>(system: S) -> impl Command
-where
-    M: 'static,
-    S: IntoSystem<(), (), M> + Send + 'static,
-{
-    move |world: &mut World| -> Result {
-        world.run_system_cached(system)?;
-        Ok(())
+    /// A [`Command`] that runs the system corresponding to the given [`SystemId`]
+    /// and provides the given input value.
+    pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command
+    where
+        I: SystemInput<Inner<'static>: Send> + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_with(id, input)?;
+            Ok(())
+        }
     }
-}
 
-/// A [`Command`] that runs the given system with the given input value,
-/// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-///
-/// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
-pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command
-where
-    I: SystemInput<Inner<'static>: Send> + Send + 'static,
-    M: 'static,
-    S: IntoSystem<I, (), M> + Send + 'static,
-{
-    move |world: &mut World| -> Result {
-        world.run_system_cached_with(system, input)?;
-        Ok(())
+    /// A [`Command`] that runs the given system,
+    /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    pub fn run_system_cached<M, S>(system: S) -> impl Command
+    where
+        M: 'static,
+        S: IntoSystem<(), (), M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_cached(system)?;
+            Ok(())
+        }
     }
-}
 
-/// A [`Command`] that removes a system previously registered with
-/// [`Commands::register_system`](crate::system::Commands::register_system) or
-/// [`World::register_system`].
-pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command
-where
-    I: SystemInput + Send + 'static,
-    O: Send + 'static,
-{
-    move |world: &mut World| -> Result {
-        world.unregister_system(system_id)?;
-        Ok(())
+    /// A [`Command`] that runs the given system with the given input value,
+    /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+    pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command
+    where
+        I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        M: 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_cached_with(system, input)?;
+            Ok(())
+        }
     }
-}
 
-/// A [`Command`] that removes a system previously registered with one of the following:
-/// - [`Commands::run_system_cached`](crate::system::Commands::run_system_cached)
-/// - [`World::run_system_cached`]
-/// - [`World::register_system_cached`]
-pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command
-where
-    I: SystemInput + Send + 'static,
-    O: 'static,
-    M: 'static,
-    S: IntoSystem<I, O, M> + Send + 'static,
-{
-    move |world: &mut World| -> Result {
-        world.unregister_system_cached(system)?;
-        Ok(())
+    /// A [`Command`] that removes a system previously registered with
+    /// [`Commands::register_system`](crate::system::Commands::register_system) or
+    /// [`World::register_system`].
+    pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.unregister_system(system_id)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that removes a system previously registered with one of the following:
+    /// - [`Commands::run_system_cached`](crate::system::Commands::run_system_cached)
+    /// - [`World::run_system_cached`]
+    /// - [`World::register_system_cached`]
+    pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command
+    where
+        I: SystemInput + Send + 'static,
+        O: 'static,
+        M: 'static,
+        S: IntoSystem<I, O, M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.unregister_system_cached(system)?;
+            Ok(())
+        }
     }
 }
 

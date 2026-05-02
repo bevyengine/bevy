@@ -29,15 +29,16 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemArc, SystemId, SystemInput,
-        SystemParamValidationError,
-    },
+    system::{Deferred, SystemParamValidationError},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
         EntityWorldMut, FromWorld, World,
     },
 };
+
+bevy_platform::cfg::arc! {
+    use crate::system::{IntoSystem, RegisteredSystem, SystemArc, SystemId, SystemInput};
+}
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -917,230 +918,233 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::remove_resource::<R>());
     }
 
-    /// Runs the system corresponding to the given [`SystemId`].
-    /// Before running a system, it must first be registered via
-    /// [`Commands::register_system`] or [`World::register_system`].
-    ///
-    /// The system is run in an exclusive and single-threaded way.
-    /// Running slow systems can become a bottleneck.
-    ///
-    /// There is no way to get the output of a system when run as a command, because the
-    /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
-    ///
-    /// # Fallible
-    ///
-    /// This command will fail if the given [`SystemId`]
-    /// does not correspond to a [`System`](crate::system::System).
-    ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
-        self.queue(command::run_system(id).handle_error_with(warn));
-    }
+    // Check bevy_ecs::system::SystemArc file for why this is gated on `arc`.
+    bevy_platform::cfg::arc! {
+        /// Runs the system corresponding to the given [`SystemId`].
+        /// Before running a system, it must first be registered via
+        /// [`Commands::register_system`] or [`World::register_system`].
+        ///
+        /// The system is run in an exclusive and single-threaded way.
+        /// Running slow systems can become a bottleneck.
+        ///
+        /// There is no way to get the output of a system when run as a command, because the
+        /// execution of the system happens later. To get the output of a system, use
+        /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
+        ///
+        /// # Fallible
+        ///
+        /// This command will fail if the given [`SystemId`]
+        /// does not correspond to a [`System`](crate::system::System).
+        ///
+        /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+        /// which will be handled by [logging the error at the `warn` level](warn).
+        pub fn run_system(&mut self, id: SystemId) {
+            self.queue(command::run_system(id).handle_error_with(warn));
+        }
 
-    /// Runs the system corresponding to the given [`SystemId`] with input.
-    /// Before running a system, it must first be registered via
-    /// [`Commands::register_system`] or [`World::register_system`].
-    ///
-    /// The system is run in an exclusive and single-threaded way.
-    /// Running slow systems can become a bottleneck.
-    ///
-    /// There is no way to get the output of a system when run as a command, because the
-    /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
-    ///
-    /// # Fallible
-    ///
-    /// This command will fail if the given [`SystemId`]
-    /// does not correspond to a [`System`](crate::system::System).
-    ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
-    where
-        I: SystemInput<Inner<'static>: Send> + 'static,
-    {
-        self.queue(command::run_system_with(id, input).handle_error_with(warn));
-    }
+        /// Runs the system corresponding to the given [`SystemId`] with input.
+        /// Before running a system, it must first be registered via
+        /// [`Commands::register_system`] or [`World::register_system`].
+        ///
+        /// The system is run in an exclusive and single-threaded way.
+        /// Running slow systems can become a bottleneck.
+        ///
+        /// There is no way to get the output of a system when run as a command, because the
+        /// execution of the system happens later. To get the output of a system, use
+        /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
+        ///
+        /// # Fallible
+        ///
+        /// This command will fail if the given [`SystemId`]
+        /// does not correspond to a [`System`](crate::system::System).
+        ///
+        /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+        /// which will be handled by [logging the error at the `warn` level](warn).
+        pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+        where
+            I: SystemInput<Inner<'static>: Send> + 'static,
+        {
+            self.queue(command::run_system_with(id, input).handle_error_with(warn));
+        }
 
-    /// Registers a system and returns its [`SystemId`] so it can later be called by
-    /// [`Commands::run_system`] or [`World::run_system`].
-    ///
-    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    ///
-    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
-    /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    ///
-    /// # Note
-    ///
-    /// If the same system is registered more than once,
-    /// each registration will be considered a different system,
-    /// and they will each be given their own [`SystemId`].
-    ///
-    /// If you want to avoid registering the same system multiple times,
-    /// consider using [`Commands::run_system_cached`] or storing the [`SystemId`]
-    /// in a [`Local`](crate::system::Local).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
-    /// #[derive(Resource)]
-    /// struct Counter(i32);
-    ///
-    /// fn register_system(
-    ///     mut commands: Commands,
-    ///     mut local_system: Local<Option<SystemId>>,
-    /// ) {
-    ///     if let Some(system) = *local_system {
-    ///         commands.run_system(system);
-    ///     } else {
-    ///         *local_system = Some(commands.register_system(increment_counter));
-    ///     }
-    /// }
-    ///
-    /// fn increment_counter(mut value: ResMut<Counter>) {
-    ///     value.0 += 1;
-    /// }
-    ///
-    /// # let mut world = World::default();
-    /// # world.insert_resource(Counter(0));
-    /// # let mut queue_1 = CommandQueue::default();
-    /// # let systemid = {
-    /// #   let mut commands = Commands::new(&mut queue_1, &world);
-    /// #   commands.register_system(increment_counter)
-    /// # };
-    /// # let mut queue_2 = CommandQueue::default();
-    /// # {
-    /// #   let mut commands = Commands::new(&mut queue_2, &world);
-    /// #   commands.run_system(systemid);
-    /// # }
-    /// # queue_1.append(&mut queue_2);
-    /// # queue_1.apply(&mut world);
-    /// # assert_eq!(1, world.resource::<Counter>().0);
-    /// # bevy_ecs::system::assert_is_system(register_system);
-    /// ```
-    pub fn register_system<I, O, M>(
-        &mut self,
-        system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
-    where
-        I: SystemInput + Send + 'static,
-        O: Send + 'static,
-    {
-        let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::<I, O>::new(SystemArc::new_dyn(system));
-        self.entity(entity).insert(system);
-        SystemId::from_entity(entity)
-    }
+        /// Registers a system and returns its [`SystemId`] so it can later be called by
+        /// [`Commands::run_system`] or [`World::run_system`].
+        ///
+        /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+        /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+        ///
+        /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+        /// due to its better performance and ability to run non-conflicting systems simultaneously.
+        ///
+        /// # Note
+        ///
+        /// If the same system is registered more than once,
+        /// each registration will be considered a different system,
+        /// and they will each be given their own [`SystemId`].
+        ///
+        /// If you want to avoid registering the same system multiple times,
+        /// consider using [`Commands::run_system_cached`] or storing the [`SystemId`]
+        /// in a [`Local`](crate::system::Local).
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+        /// #[derive(Resource)]
+        /// struct Counter(i32);
+        ///
+        /// fn register_system(
+        ///     mut commands: Commands,
+        ///     mut local_system: Local<Option<SystemId>>,
+        /// ) {
+        ///     if let Some(system) = *local_system {
+        ///         commands.run_system(system);
+        ///     } else {
+        ///         *local_system = Some(commands.register_system(increment_counter));
+        ///     }
+        /// }
+        ///
+        /// fn increment_counter(mut value: ResMut<Counter>) {
+        ///     value.0 += 1;
+        /// }
+        ///
+        /// # let mut world = World::default();
+        /// # world.insert_resource(Counter(0));
+        /// # let mut queue_1 = CommandQueue::default();
+        /// # let systemid = {
+        /// #   let mut commands = Commands::new(&mut queue_1, &world);
+        /// #   commands.register_system(increment_counter)
+        /// # };
+        /// # let mut queue_2 = CommandQueue::default();
+        /// # {
+        /// #   let mut commands = Commands::new(&mut queue_2, &world);
+        /// #   commands.run_system(systemid);
+        /// # }
+        /// # queue_1.append(&mut queue_2);
+        /// # queue_1.apply(&mut world);
+        /// # assert_eq!(1, world.resource::<Counter>().0);
+        /// # bevy_ecs::system::assert_is_system(register_system);
+        /// ```
+        pub fn register_system<I, O, M>(
+            &mut self,
+            system: impl IntoSystem<I, O, M> + 'static,
+        ) -> SystemId<I, O>
+        where
+            I: SystemInput + Send + 'static,
+            O: Send + 'static,
+        {
+            let entity = self.spawn_empty().id();
+            let system = RegisteredSystem::<I, O>::new(SystemArc::new_dyn(system));
+            self.entity(entity).insert(system);
+            SystemId::from_entity(entity)
+        }
 
-    /// Removes a system previously registered with [`Commands::register_system`]
-    /// or [`World::register_system`].
-    ///
-    /// After removing a system, the [`SystemId`] becomes invalid
-    /// and attempting to use it afterwards will result in an error.
-    /// Re-adding the removed system will register it with a new `SystemId`.
-    ///
-    /// # Fallible
-    ///
-    /// This command will fail if the given [`SystemId`]
-    /// does not correspond to a [`System`](crate::system::System).
-    ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
-    where
-        I: SystemInput + Send + 'static,
-        O: Send + 'static,
-    {
-        self.queue(command::unregister_system(system_id).handle_error_with(warn));
-    }
+        /// Removes a system previously registered with [`Commands::register_system`]
+        /// or [`World::register_system`].
+        ///
+        /// After removing a system, the [`SystemId`] becomes invalid
+        /// and attempting to use it afterwards will result in an error.
+        /// Re-adding the removed system will register it with a new `SystemId`.
+        ///
+        /// # Fallible
+        ///
+        /// This command will fail if the given [`SystemId`]
+        /// does not correspond to a [`System`](crate::system::System).
+        ///
+        /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+        /// which will be handled by [logging the error at the `warn` level](warn).
+        pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
+        where
+            I: SystemInput + Send + 'static,
+            O: Send + 'static,
+        {
+            self.queue(command::unregister_system(system_id).handle_error_with(warn));
+        }
 
-    /// Removes a system previously registered with one of the following:
-    /// - [`Commands::run_system_cached`]
-    /// - [`World::run_system_cached`]
-    /// - [`World::register_system_cached`]
-    ///
-    /// # Fallible
-    ///
-    /// This command will fail if the given system
-    /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-    ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn unregister_system_cached<I, O, M, S>(&mut self, system: S)
-    where
-        I: SystemInput + Send + 'static,
-        O: 'static,
-        M: 'static,
-        S: IntoSystem<I, O, M> + Send + 'static,
-    {
-        self.queue(command::unregister_system_cached(system).handle_error_with(warn));
-    }
+        /// Removes a system previously registered with one of the following:
+        /// - [`Commands::run_system_cached`]
+        /// - [`World::run_system_cached`]
+        /// - [`World::register_system_cached`]
+        ///
+        /// # Fallible
+        ///
+        /// This command will fail if the given system
+        /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+        ///
+        /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+        /// which will be handled by [logging the error at the `warn` level](warn).
+        pub fn unregister_system_cached<I, O, M, S>(&mut self, system: S)
+        where
+            I: SystemInput + Send + 'static,
+            O: 'static,
+            M: 'static,
+            S: IntoSystem<I, O, M> + Send + 'static,
+        {
+            self.queue(command::unregister_system_cached(system).handle_error_with(warn));
+        }
 
-    /// Runs a cached system, registering it if necessary.
-    ///
-    /// Unlike [`Commands::run_system`], this method does not require manual registration.
-    ///
-    /// The first time this method is called for a particular system,
-    /// it will register the system and store its [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
-    ///
-    /// If you would rather manage the [`SystemId`] yourself,
-    /// or register multiple copies of the same system,
-    /// use [`Commands::register_system`] instead.
-    ///
-    /// # Limitations
-    ///
-    /// This method only accepts ZST (zero-sized) systems to guarantee that any two systems of
-    /// the same type must be equal. This means that closures that capture the environment, and
-    /// function pointers, are not accepted.
-    ///
-    /// If you want to access values from the environment within a system,
-    /// consider passing them in as inputs via [`Commands::run_system_cached_with`].
-    ///
-    /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached<M, S>(&mut self, system: S)
-    where
-        M: 'static,
-        S: IntoSystem<(), (), M> + Send + 'static,
-    {
-        self.queue(command::run_system_cached(system).handle_error_with(warn));
-    }
+        /// Runs a cached system, registering it if necessary.
+        ///
+        /// Unlike [`Commands::run_system`], this method does not require manual registration.
+        ///
+        /// The first time this method is called for a particular system,
+        /// it will register the system and store its [`SystemId`] in a
+        /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
+        ///
+        /// If you would rather manage the [`SystemId`] yourself,
+        /// or register multiple copies of the same system,
+        /// use [`Commands::register_system`] instead.
+        ///
+        /// # Limitations
+        ///
+        /// This method only accepts ZST (zero-sized) systems to guarantee that any two systems of
+        /// the same type must be equal. This means that closures that capture the environment, and
+        /// function pointers, are not accepted.
+        ///
+        /// If you want to access values from the environment within a system,
+        /// consider passing them in as inputs via [`Commands::run_system_cached_with`].
+        ///
+        /// If that's not an option, consider [`Commands::register_system`] instead.
+        pub fn run_system_cached<M, S>(&mut self, system: S)
+        where
+            M: 'static,
+            S: IntoSystem<(), (), M> + Send + 'static,
+        {
+            self.queue(command::run_system_cached(system).handle_error_with(warn));
+        }
 
-    /// Runs a cached system with an input, registering it if necessary.
-    ///
-    /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
-    ///
-    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
-    ///
-    /// The first time this method is called for a particular system,
-    /// it will register the system and store its [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
-    ///
-    /// If you would rather manage the [`SystemId`] yourself,
-    /// or register multiple copies of the same system,
-    /// use [`Commands::register_system`] instead.
-    ///
-    /// # Limitations
-    ///
-    /// This method only accepts ZST (zero-sized) systems to guarantee that any two systems of
-    /// the same type must be equal. This means that closures that capture the environment, and
-    /// function pointers, are not accepted.
-    ///
-    /// If you want to access values from the environment within a system,
-    /// consider passing them in as inputs.
-    ///
-    /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
-    where
-        I: SystemInput<Inner<'static>: Send> + Send + 'static,
-        M: 'static,
-        S: IntoSystem<I, (), M> + Send + 'static,
-    {
-        self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
+        /// Runs a cached system with an input, registering it if necessary.
+        ///
+        /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
+        ///
+        /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+        ///
+        /// The first time this method is called for a particular system,
+        /// it will register the system and store its [`SystemId`] in a
+        /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
+        ///
+        /// If you would rather manage the [`SystemId`] yourself,
+        /// or register multiple copies of the same system,
+        /// use [`Commands::register_system`] instead.
+        ///
+        /// # Limitations
+        ///
+        /// This method only accepts ZST (zero-sized) systems to guarantee that any two systems of
+        /// the same type must be equal. This means that closures that capture the environment, and
+        /// function pointers, are not accepted.
+        ///
+        /// If you want to access values from the environment within a system,
+        /// consider passing them in as inputs.
+        ///
+        /// If that's not an option, consider [`Commands::register_system`] instead.
+        pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+        where
+            I: SystemInput<Inner<'static>: Send> + Send + 'static,
+            M: 'static,
+            S: IntoSystem<I, (), M> + Send + 'static,
+        {
+            self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
+        }
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
