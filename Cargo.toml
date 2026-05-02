@@ -4155,7 +4155,7 @@ path = "examples/ui/scroll_and_overflow/overflow_scale.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.overflow_scale]
-name = "UI Transform"
+name = "UI Overflow Scale"
 description = "An example demonstrating overflow clipping when scaling UI elements."
 category = "UI (User Interface)"
 wasm = true

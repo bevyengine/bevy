@@ -636,6 +636,7 @@ Example | Description
 [Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
+[UI Overflow Scale](../examples/ui/scroll_and_overflow/overflow_scale.rs) | An example demonstrating overflow clipping when scaling UI elements.
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Target Camera](../examples/ui/ui_target_camera.rs) | Demonstrates how to use `UiTargetCamera` and camera ordering.
 [UI Texture Atlas](../examples/ui/images/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
@@ -643,7 +644,6 @@ Example | Description
 [UI Texture Slice](../examples/ui/images/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Texture Slice Flipping and Tiling](../examples/ui/images/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
-[UI Transform](../examples/ui/scroll_and_overflow/overflow_scale.rs) | An example demonstrating overflow clipping when scaling UI elements.
 [UI Z-Index](../examples/ui/layout/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Vertical Slider](../examples/ui/widgets/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 [Viewport Node](../examples/ui/widgets/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
