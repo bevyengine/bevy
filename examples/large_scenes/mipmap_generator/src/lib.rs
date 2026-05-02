@@ -423,12 +423,26 @@ pub fn generate_mips_texture(
             #[cfg(feature = "compress")]
             if let Some(format) = compressed_format {
                 // Convert the view formats for compressed textures.
-                for view_format in &mut image.texture_descriptor.view_formats {
-                    if *view_format == image.texture_descriptor.format.add_srgb_suffix() {
-                        *view_format = format.add_srgb_suffix();
-                    } else if *view_format == image.texture_descriptor.format.remove_srgb_suffix() {
-                        *view_format = format.remove_srgb_suffix();
+                fn convert_view_format(
+                    view_format: &mut TextureFormat,
+                    original_format: TextureFormat,
+                    compressed_format: TextureFormat,
+                ) {
+                    if *view_format == original_format.add_srgb_suffix() {
+                        *view_format = compressed_format.add_srgb_suffix();
+                    } else if *view_format == original_format.remove_srgb_suffix() {
+                        *view_format = compressed_format.remove_srgb_suffix();
+                    } else if *view_format == original_format {
+                        *view_format = compressed_format;
                     }
+                }
+                for view_format in image.texture_descriptor.view_formats.iter_mut() {
+                    convert_view_format(view_format, image.texture_descriptor.format, format);
+                }
+                if let Some(view_desc) = image.texture_view_descriptor.as_mut()
+                    && let Some(view_format) = view_desc.format.as_mut()
+                {
+                    convert_view_format(view_format, image.texture_descriptor.format, format);
                 }
                 image.texture_descriptor.format = format;
             }
