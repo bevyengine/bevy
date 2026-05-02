@@ -454,3 +454,47 @@ fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
     path.segments.pop_punct();
     ident
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proc_macro2::{Punct, Spacing, TokenStream, TokenTree};
+    use quote::quote;
+    use syn::parse2;
+
+    /// Build a `-` punct followed by `lit_tokens` so the resulting TokenStream
+    /// has the `-` and the literal as separate tokens. This mirrors the way
+    /// rust-analyzer's tokenizer splits `-0.1` (the path that exposes #24050).
+    fn neg_then(lit_tokens: TokenStream) -> TokenStream {
+        let minus = TokenTree::Punct(Punct::new('-', Spacing::Alone));
+        let mut out = TokenStream::from(minus);
+        out.extend(lit_tokens);
+        out
+    }
+
+    /// Regression for #24050: `MyComponent(-0.1)` previously raised `expected Expr`
+    /// when the parser saw `-` and the literal as separate tokens (rust-analyzer's
+    /// behaviour). After the fix the value parses successfully — either as a
+    /// folded `Lit` (when syn combines the tokens) or as an `Expr` (when it
+    /// doesn't); both downstream codegen paths handle the value correctly.
+    #[test]
+    fn negative_float_value_parses() {
+        let value: BsnValue = parse2(neg_then(quote! { 0.1 })).expect("BsnValue should parse");
+        assert!(matches!(value, BsnValue::Lit(_) | BsnValue::Expr(_)));
+    }
+
+    #[test]
+    fn negative_int_value_parses() {
+        let value: BsnValue = parse2(neg_then(quote! { 42 })).expect("BsnValue should parse");
+        assert!(matches!(value, BsnValue::Lit(_) | BsnValue::Expr(_)));
+    }
+
+    #[test]
+    fn positive_literal_value_parses() {
+        let value: BsnValue = parse2(quote! { 0.1 }).expect("BsnValue should parse");
+        assert!(matches!(value, BsnValue::Lit(_)));
+
+        let value: BsnValue = parse2(quote! { 42 }).expect("BsnValue should parse");
+        assert!(matches!(value, BsnValue::Lit(_)));
+    }
+}
