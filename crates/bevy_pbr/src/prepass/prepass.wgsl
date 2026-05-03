@@ -142,7 +142,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef MORPH_TARGETS
 
 #ifdef HAS_PREVIOUS_MORPH
-    let prev_vertex = morph_prev_vertex(vertex_no_morph, mesh[vertex_no_morph.instance_index].morph_descriptor_index);
+    let prev_vertex = morph_prev_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #else   // HAS_PREVIOUS_MORPH
     let prev_vertex = vertex_no_morph;
 #endif  // HAS_PREVIOUS_MORPH
