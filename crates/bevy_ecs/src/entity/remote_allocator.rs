@@ -834,7 +834,7 @@ impl SharedAllocator {
     fn new(range: &Range<u32>) -> Self {
         Self {
             free: FreeList::new(),
-            fresh: FreshAllocator::new(&range),
+            fresh: FreshAllocator::new(range),
             is_closed: AtomicBool::new(false),
         }
     }
