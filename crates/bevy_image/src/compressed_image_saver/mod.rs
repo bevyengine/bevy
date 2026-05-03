@@ -23,6 +23,7 @@ use bevy_asset::{
     AssetPath,
 };
 use bevy_reflect::TypePath;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::TextureFormat;
 
@@ -100,6 +101,7 @@ use wgpu_types::TextureFormat;
 ///
 /// The `compressed_image_saver_universal` backend does not generate mipmaps.
 #[derive(TypePath, Default)]
+#[allow(clippy::doc_markdown)]
 pub struct CompressedImageSaver {
     #[cfg(feature = "compressed_image_saver")]
     inner: CompressedImageSaverCtt,
@@ -113,7 +115,7 @@ pub struct CompressedImageSaver {
 impl AssetSaver for CompressedImageSaver {
     type Asset = Image;
 
-    type Settings = ();
+    type Settings = CompressedImageSaverSettings;
     type OutputLoader = ImageLoader;
     type Error = CompressedImageSaverError;
 
@@ -126,6 +128,51 @@ impl AssetSaver for CompressedImageSaver {
     ) -> Result<ImageLoaderSettings, Self::Error> {
         self.inner.save(writer, asset, settings, asset_path).await
     }
+}
+
+/// Settings for [`CompressedImageSaver`].
+#[derive(Serialize, Deserialize)]
+#[serde(default)]
+pub struct CompressedImageSaverSettings {
+    /// The alpha mode the source image is authored in.
+    ///
+    /// Set this to match how the input texture stores its alpha channel. If the input does not
+    /// match `output_alpha_mode`, the saver converts between the two before compression.
+    ///
+    /// Defaults to [`AlphaMode::Straight`], which is how most image editors and asset pipelines
+    /// produce textures.
+    pub input_alpha_mode: AlphaMode,
+    /// The alpha mode the compressed output should use.
+    ///
+    /// With straight alpha, the RGB values of fully-transparent texels still consume endpoint
+    /// precision in block-compressed formats and can bleed into neighboring opaque texels under
+    /// texture filtering, producing colored fringes at transparent edges. Premultiplying forces
+    /// transparent texels to zero RGB, which avoids both problems.
+    ///
+    /// Defaults to [`AlphaMode::Premultiplied`]. Materials sampling this texture must be
+    /// configured with `bevy_material::AlphaMode::Premultiplied` (or another premultiplied-blend
+    /// mode) so the blend state matches.
+    pub output_alpha_mode: AlphaMode,
+}
+
+impl Default for CompressedImageSaverSettings {
+    fn default() -> Self {
+        Self {
+            input_alpha_mode: AlphaMode::Straight,
+            output_alpha_mode: AlphaMode::Premultiplied,
+        }
+    }
+}
+
+/// Alpha mode of an [`Image`].
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum AlphaMode {
+    /// The image has an alpha channel that is stored independently of the RGB channels.
+    Straight,
+    /// The image has an alpha channel, and the RGB channels have been premultiplied by the alpha value.
+    Premultiplied,
+    /// The image has no alpha channel.
+    Opaque,
 }
 
 /// Errors encountered when writing compressed images via [`CompressedImageSaver`].

@@ -8,9 +8,8 @@ use super::CompressedImageSaverError;
 
 /// Returns `Some((unorm, hdr))` ASTC format pair if the env var is set, `None` otherwise.
 pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageSaverError> {
-    let val = match env::var("BEVY_COMPRESSED_IMAGE_SAVER_ASTC") {
-        Ok(v) => v,
-        _ => return Ok(None),
+    let Ok(val) = env::var("BEVY_COMPRESSED_IMAGE_SAVER_ASTC") else {
+        return Ok(None);
     };
 
     let val = val.trim();
@@ -337,4 +336,12 @@ pub fn wgpu_to_ctt_texture_format(
             (AstcBlock::B12x12, AstcChannel::Hdr) => Format::ASTC_12x12_SFLOAT_BLOCK,
         },
     })
+}
+
+pub fn bevy_to_ctt_alpha_mode(alpha_mode: super::AlphaMode) -> ctt::AlphaMode {
+    match alpha_mode {
+        super::AlphaMode::Straight => ctt::AlphaMode::Straight,
+        super::AlphaMode::Premultiplied => ctt::AlphaMode::Premultiplied,
+        super::AlphaMode::Opaque => ctt::AlphaMode::Opaque,
+    }
 }

@@ -1,6 +1,6 @@
 use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
 
-use super::CompressedImageSaverError;
+use super::{CompressedImageSaverError, CompressedImageSaverSettings};
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings};
 
 use basis_universal::{
@@ -15,7 +15,7 @@ impl CompressedImageSaverUniversal {
         &self,
         writer: &mut Writer,
         image: SavedAsset<'_, '_, Image>,
-        _settings: &(),
+        _settings: &CompressedImageSaverSettings,
         _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, CompressedImageSaverError> {
         let is_srgb = image.texture_descriptor.format.is_srgb();

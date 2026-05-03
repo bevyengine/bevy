@@ -1,8 +1,10 @@
 use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
 
 use super::{
-    ctt_helpers::{choose_ctt_compressed_format, wgpu_to_ctt_texture_format},
-    CompressedImageSaverError,
+    ctt_helpers::{
+        bevy_to_ctt_alpha_mode, choose_ctt_compressed_format, wgpu_to_ctt_texture_format,
+    },
+    CompressedImageSaverError, CompressedImageSaverSettings,
 };
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings};
 
@@ -14,7 +16,7 @@ impl CompressedImageSaverCtt {
         &self,
         writer: &mut Writer,
         image: SavedAsset<'_, '_, Image>,
-        _settings: &(),
+        settings: &CompressedImageSaverSettings,
         _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, CompressedImageSaverError> {
         let Some(ref data) = image.data else {
@@ -60,7 +62,7 @@ impl CompressedImageSaverCtt {
                     stride: image.width() * bytes_per_pixel,
                     format: input_format,
                     color_space,
-                    alpha: ctt::AlphaMode::Straight, // TODO: User-configurable
+                    alpha: bevy_to_ctt_alpha_mode(settings.input_alpha_mode),
                 }]
             })
             .collect();
@@ -74,7 +76,7 @@ impl CompressedImageSaverCtt {
             container: ctt::Container::ktx2_zstd(0),
             quality: ctt::Quality::default(),
             output_color_space: None,
-            output_alpha: Some(ctt::AlphaMode::Premultiplied), // TODO: User-configurable
+            output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
             swizzle: None,
             mipmap: true,
             mipmap_count: None,
