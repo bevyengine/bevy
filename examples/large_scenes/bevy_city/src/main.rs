@@ -141,17 +141,17 @@ fn loading_screen() -> impl Scene {
         LoadingScreen
         Node {
             position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
         }
         BackgroundColor(Color::BLACK)
         Children [
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(50.0),
-                left: Val::Percent(20.0),
-                right: Val::Percent(20.0),
-                height: Val::Vh(40.0),
+                top: percent(50),
+                left: percent(20),
+                right: percent(20),
+                height: vh(40),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexStart,
                 overflow: Overflow::scroll_y(),
