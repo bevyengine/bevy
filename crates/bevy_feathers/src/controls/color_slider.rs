@@ -269,9 +269,6 @@ impl FeathersColorSlider {
                                     color: palette::BLACK
                                 }
                                 UiTransform::from_translation(Val2::percent(-50., -50.))
-                                    percent(-50),
-                                    percent(-50),
-                                ))
                             )]
                         ),
                         // Right endcap

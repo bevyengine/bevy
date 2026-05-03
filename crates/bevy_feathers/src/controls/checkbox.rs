@@ -187,7 +187,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
                         top: px(0),
                         width: px(6),
                         height: px(11),
-                        border: UiRect::bottom(px(2)).with_right(px(2),
+                        border: UiRect {
                             bottom: px(2),
                             right: px(2),
                             ..Default::default()
