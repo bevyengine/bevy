@@ -86,7 +86,7 @@ impl FeathersButton {
                 height: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(8), px(0)),
+                padding: UiRect::horizontal(px(8)),
                 border_radius: {props.corners.to_border_radius(4.0)},
             }
             Button
@@ -132,7 +132,7 @@ impl ToolButton {
                 @corners: {props.corners}
             }
             Node {
-                padding: UiRect::axes(px(4), px(0)),
+                padding: UiRect::horizontal(px(4)),
                 min_width: size::ROW_HEIGHT,
             }
         }
@@ -170,7 +170,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(px(8), px(0)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: props.corners.to_border_radius(4.0),
             ..Default::default()

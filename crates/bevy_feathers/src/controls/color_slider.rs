@@ -268,7 +268,7 @@ impl FeathersColorSlider {
                                     offset: px(0),
                                     color: palette::BLACK
                                 }
-                                UiTransform::from_translation(Val2::new(
+                                UiTransform::from_translation(Val2::percent(-50., -50.))
                                     percent(-50),
                                     percent(-50),
                                 ))

@@ -32,12 +32,11 @@ pub fn pane_header() -> impl Scene {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            padding: UiRect::axes(px(6), px(6)),
+            padding: px(6),
             border: UiRect {
                 left: px(1),
                 top: px(1),
                 right: px(1),
-                bottom: px(0),
             },
             min_height: size::HEADER_HEIGHT,
             column_gap: px(6),
@@ -83,7 +82,7 @@ pub fn pane_body() -> impl Scene {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             row_gap: px(4),
-            padding: UiRect::axes(px(6), px(6)),
+            padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
         ThemeBackgroundColor(tokens::PANE_BODY_BG)

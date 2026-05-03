@@ -264,7 +264,7 @@ impl FeathersMenuItem {
                 min_width: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(8), px(0)),
+                padding: UiRect::horizontal(px(8)),
             }
             FeathersMenuItem
             MenuItem
@@ -437,7 +437,7 @@ impl FeathersMenuDivider {
                 height: px(1),
                 justify_content: JustifyContent::Start,
                 align_self: AlignSelf::Stretch,
-                margin: UiRect::axes(px(0), px(2)),
+                margin: UiRect::vertical(px(2)),
             }
             ThemeBackgroundColor(tokens::MENU_BORDER) // Same as menu
         }

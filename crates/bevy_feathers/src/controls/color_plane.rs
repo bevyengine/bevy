@@ -169,7 +169,7 @@ impl FeathersColorPlane {
                         color: palette::BLACK
                     }
                     Pickable::IGNORE
-                    UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
+                    UiTransform::from_translation(Val2::percent(-50., -50.),)
                 )]
             )]
         }

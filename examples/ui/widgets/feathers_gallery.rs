@@ -410,7 +410,7 @@ fn demo_column_1() -> impl Scene {
                         :FeathersTextInputContainer
                         Node {
                             flex_grow: 0.
-                            padding: { px(4).left().with_right(px(0)) },
+                            padding: { px(4).left() },
                         }
                         Children [
                             (

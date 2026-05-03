@@ -33,9 +33,8 @@ pub fn group_header() -> impl Scene {
                 left: px(1),
                 top: px(1),
                 right: px(1),
-                bottom: px(0),
             },
-            padding: UiRect::axes(px(10), px(0)),
+            padding: UiRect::horizontal(px(10)),
             min_height: size::HEADER_HEIGHT,
             column_gap: px(4),
             border_radius: {RoundedCorners::Top.to_border_radius(4.0)}
@@ -59,12 +58,11 @@ pub fn group_body() -> impl Scene {
             flex_direction: FlexDirection::Column,
             border: UiRect {
                 left: px(1),
-                top: px(0),
                 right: px(1),
                 bottom: px(1),
             },
             row_gap: px(4),
-            padding: UiRect::axes(px(6), px(6)),
+            padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
         ThemeBackgroundColor(tokens::GROUP_BODY_BG)

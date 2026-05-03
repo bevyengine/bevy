@@ -80,7 +80,7 @@ impl FeathersSlider {
                 height: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(px(8), px(0)),
+                padding: UiRect::horizontal(px(8)),
                 flex_grow: 1.0,
                 border_radius: {RoundedCorners::All.to_border_radius(6.0)},
             }
@@ -151,7 +151,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(px(8), px(0)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
