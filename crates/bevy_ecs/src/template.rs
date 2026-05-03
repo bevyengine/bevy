@@ -266,7 +266,6 @@ impl ScopedEntities {
 /// }
 /// ```
 ///
-/// [`FromTemplate`] is automatically implemented for anything that is [`Default`] and [`Clone`].
 /// [`FromTemplate`] is automatically implemented for anything that is [`Default`] and [`Clone`]. "Built in" collection types like
 /// [`Option`] and [`Vec`] pick up this "blanket" implementation, which is generally a good thing because it means these collection
 /// types work with [`FromTemplate`] derives by default. However if the items in the collection have a custom [`FromTemplate`] impl
