@@ -2,7 +2,6 @@ use bevy_app::{Plugin, PreUpdate, PropagateOver};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
@@ -29,98 +28,101 @@ use crate::{
     tokens,
 };
 
-/// Marker to indicate a text input widget with feathers styling.
-#[derive(Component, Default, Clone)]
-struct FeathersTextInputContainer;
+/// Decorative frame around a text input widget. This is a separate entity to allow icons
+/// (such as "search" or "clear") to be inserted adjacent to the input.
+///
+/// This is spawnable by inheriting it as a "scene component".
+#[derive(SceneComponent, Default, Clone)]
+pub struct FeathersTextInputContainer;
 
-/// Marker to indicate the inner part of the text input widget.
-#[derive(Component, Default, Clone)]
-struct FeathersTextInput;
+impl FeathersTextInputContainer {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect {
+                    right: px(3.0),
+                },
+                border: UiRect {
+                    left: px(3.0)
+                },
+                flex_grow: 1.0,
+                border_radius: {BorderRadius::all(px(4.0))},
+                column_gap: px(4),
+            }
+            FeathersTextInputContainer
+            FocusWithinIndicator
+            ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
+            InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
+            InheritableFont {
+                font: fonts::REGULAR,
+                font_size: size::COMPACT_FONT,
+                weight: FontWeight::NORMAL,
+            }
+        }
+    }
+}
 
-/// Parameters for the text input template, passed to [`text_input`] function.
+/// Scene function to spawn a text input. For proper styling, this should be enclosed by a [`FeathersTextInputContainer`].
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
+///
+/// ```ignore
+/// :FeathersTextInputContainer
+/// Children [
+///     :FeathersTextInput
+/// ]
+/// ```
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersTextInputProps)]
+pub struct FeathersTextInput;
+
+/// Props used to construct the [`FeathersTextInput`] scene.
 #[derive(Default, Clone)]
-pub struct TextInputProps {
+pub struct FeathersTextInputProps {
     /// Visible width
     pub visible_width: Option<f32>,
     /// Max characters
     pub max_characters: Option<usize>,
 }
 
-/// Decorative frame around a text input widget. This is a separate entity to allow icons
-/// (such as "search" or "clear") to be inserted adjacent to the input.
-pub fn text_input_container() -> impl Scene {
-    bsn! {
-        Node {
-            height: size::ROW_HEIGHT,
-            display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect {
-                right: px(3.0),
-            },
-            border: UiRect {
-                left: px(3.0)
-            },
-            flex_grow: 1.0,
-            border_radius: {BorderRadius::all(px(4.0))},
-            column_gap: px(4),
-        }
-        FeathersTextInputContainer
-        FocusWithinIndicator
-        ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
-        InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
-        InheritableFont {
-            font: fonts::REGULAR,
-            font_size: size::COMPACT_FONT,
-            weight: FontWeight::NORMAL,
-        }
-    }
-}
-
-/// Scene function to spawn a text input. For proper styling, this should be enclosed by a
-/// `text_input_container`.
-///
-/// ```ignore
-/// :text_input_container
-/// Children [
-///     text_input(props)
-/// ]
-/// ```
-///
-/// # Arguments
-/// * `props` - construction properties for the text input.
-pub fn text_input(props: TextInputProps) -> impl Scene {
-    bsn! {
-        Node {
-            flex_grow: {
-                if props.visible_width.is_some() {
-                    0.
-                } else {
-                    1.
-                }
-            } ,
-        }
-        FeathersTextInput
-        EditableText {
-            cursor_width: 0.3,
-            visible_width: {props.visible_width},
-            max_characters: {props.max_characters},
-        }
-        TextLayout {
-            linebreak: LineBreak::NoWrap,
-        }
-        TabIndex(0)
-        template(|ctx| {
-            Ok(TextFont {
-                font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
-                font_size: size::COMPACT_FONT,
-                weight: FontWeight::NORMAL,
-                ..Default::default()
+impl FeathersTextInput {
+    fn scene(props: FeathersTextInputProps) -> impl Scene {
+        bsn! {
+            Node {
+                flex_grow: {
+                    if props.visible_width.is_some() {
+                        0.
+                    } else {
+                        1.
+                    }
+                } ,
+            }
+            FeathersTextInput
+            EditableText {
+                cursor_width: 0.3,
+                visible_width: {props.visible_width},
+                max_characters: {props.max_characters},
+            }
+            TextLayout {
+                linebreak: LineBreak::NoWrap,
+            }
+            TabIndex(0)
+            template(|ctx| {
+                Ok(TextFont {
+                    font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
+                    font_size: size::COMPACT_FONT,
+                    weight: FontWeight::NORMAL,
+                    ..Default::default()
+                })
             })
-        })
-        PropagateOver<TextFont>
-        EntityCursor::System(bevy_window::SystemCursorIcon::Text)
-        TextCursorStyle::default()
+            PropagateOver<TextFont>
+            EntityCursor::System(bevy_window::SystemCursorIcon::Text)
+            TextCursorStyle::default()
+        }
     }
 }
 
