@@ -1,4 +1,4 @@
-//! Demonstrates compressing textures and generating mipmaps using CompressedImageSaver.
+//! Demonstrates compressing textures and generating mipmaps using `CompressedImageSaver`.
 
 use bevy::{
     camera::Hdr,
