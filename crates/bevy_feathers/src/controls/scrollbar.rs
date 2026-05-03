@@ -16,8 +16,8 @@ use bevy_ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, Scrollb
 
 use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
 
-/// A scrollbar. The `target` property should point to an entity whose [`ScrollPosition`] will
-/// be synchronized with the scrollbar.
+/// A scrollbar. The `target` property should point to an entity whose
+/// [`ScrollPosition`](bevy_ui::ScrollPosition) will be synchronized with the scrollbar.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersScrollbarProps)]
 #[reflect(Component, Clone, Default)]
