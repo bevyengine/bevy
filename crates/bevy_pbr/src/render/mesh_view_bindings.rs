@@ -58,10 +58,9 @@ use crate::{
     Bluenoise, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta,
     GlobalClusterableObjectMeta, GpuClusteredLights, GpuFog, GpuLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionResources,
-    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
-    ViewClusterBindings, ViewShadowBindings, ViewTransmissionTexture,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
+    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    ViewTransmissionTexture, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -638,10 +637,7 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
-        (
-            Has<ScreenSpaceAmbientOcclusion>,
-            Option<&ScreenSpaceAmbientOcclusionResources>,
-        ),
+        Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         Option<&AtmosphereTextures>,
@@ -723,7 +719,7 @@ pub fn prepare_mesh_view_bind_groups(
             shadow_bindings,
             cluster_bindings,
             msaa,
-            (has_ssao, ssao_resources),
+            ssao_resources,
             prepass_textures,
             transmission_texture,
             atmosphere_textures,
@@ -862,7 +858,7 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
             }
 
-            if has_ssao && let Some(ssao_resources) = ssao_resources {
+            if let Some(ssao_resources) = ssao_resources {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
                 let ssao_view = &ssao_resources
                     .screen_space_ambient_occlusion_texture
