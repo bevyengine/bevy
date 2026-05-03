@@ -848,7 +848,7 @@ impl SharedAllocator {
     #[inline]
     unsafe fn try_alloc(&self) -> Option<Entity> {
         // SAFETY: assured by caller
-        unsafe { self.free.alloc() }.or(self.fresh.alloc())
+        unsafe { self.free.alloc() }.or_else(|| self.fresh.alloc())
     }
 
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
@@ -869,7 +869,7 @@ impl SharedAllocator {
     /// This will only try to reuse a freed index if it is safe to do so.
     #[inline]
     fn try_remote_alloc(&self) -> Option<Entity> {
-        self.free.remote_alloc().or(self.fresh.alloc())
+        self.free.remote_alloc().or_else(|| self.fresh.alloc())
     }
 
     /// Marks the allocator as closed, but it will still function normally.
