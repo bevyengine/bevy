@@ -1,6 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin, PreUpdate};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -8,16 +8,12 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::ReflectComponent,
-    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::{
-    events::{Click, Pointer},
-    PickingSystems,
-};
+use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocusVisible};
+use bevy_picking::events::{Click, Pointer};
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Selectable, Selected};
 
@@ -251,44 +247,52 @@ fn listbox_on_row_click(
     }
 }
 
-/// Update the active descendant on focus changes
-fn update_active_descendant(
-    focus: Res<InputFocus>,
+/// Update the active descendant on focus changes. Whenever a listbox has focus, it should have
+/// an active descendant, which represents the focus row; when a widget loses focus, the active
+/// descendant should be cleared.
+fn listbox_focus_gained(
+    focus: On<FocusGained>,
     q_listbox: Query<(Entity, &ActiveDescendant), With<ListBox>>,
     q_listitems: Query<(Has<Selected>, Has<InteractionDisabled>), With<ListItem>>,
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    for (listbox, active_descendant) in q_listbox {
-        if Some(listbox) == focus.get() {
-            // If the listbox is focused, make sure we have an active descendant
-            if active_descendant.0.is_none() {
-                // Find all listbox descendants that are not disabled
-                let list_items = q_children
-                    .iter_descendants(listbox)
-                    .filter_map(|child_id| match q_listitems.get(child_id) {
-                        Ok((selected, false)) => Some((child_id, selected)),
-                        Ok((_, true)) | Err(_) => None,
-                    })
-                    .collect::<Vec<_>>();
-                if list_items.is_empty() {
-                    continue; // No enabled rows in the group
-                }
-
-                // Prefer the current active descendant if it exists, otherwise first element
-                let first_selected = list_items
-                    .iter()
-                    .position(|(_, selected)| *selected)
-                    .unwrap_or(0);
-
-                commands
-                    .entity(listbox)
-                    .insert(ActiveDescendant(Some(list_items[first_selected].0)));
+    if let Ok((listbox, active_descendant)) = q_listbox.get(focus.entity) {
+        // If the listbox is focused, make sure we have an active descendant
+        if active_descendant.0.is_none() {
+            // Find all listbox descendants that are not disabled
+            let list_items = q_children
+                .iter_descendants(listbox)
+                .filter_map(|child_id| match q_listitems.get(child_id) {
+                    Ok((selected, false)) => Some((child_id, selected)),
+                    Ok((_, true)) | Err(_) => None,
+                })
+                .collect::<Vec<_>>();
+            if list_items.is_empty() {
+                return; // No enabled rows in the group
             }
-        } else if active_descendant.0.is_some() {
-            // Listbox is not focused, clear active descendant
-            commands.entity(listbox).insert(ActiveDescendant::default());
+
+            // Prefer the current active descendant if it exists, otherwise first element
+            let first_selected = list_items
+                .iter()
+                .position(|(_, selected)| *selected)
+                .unwrap_or(0);
+
+            commands
+                .entity(listbox)
+                .insert(ActiveDescendant(Some(list_items[first_selected].0)));
         }
+    }
+}
+
+fn listbox_focus_lost(
+    focus: On<FocusLost>,
+    q_listbox: Query<Entity, With<ListBox>>,
+    mut commands: Commands,
+) {
+    if let Ok(listbox) = q_listbox.get(focus.entity) {
+        // Listbox is not focused, clear active descendant
+        commands.entity(listbox).insert(ActiveDescendant::default());
     }
 }
 
@@ -298,13 +302,9 @@ pub struct ListBoxPlugin;
 impl Plugin for ListBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(listbox_on_key_input)
-            .add_observer(listbox_on_row_click);
-        app.add_systems(
-            PreUpdate,
-            update_active_descendant
-                .run_if(resource_changed::<InputFocus>)
-                .in_set(PickingSystems::Last),
-        );
+            .add_observer(listbox_on_row_click)
+            .add_observer(listbox_focus_gained)
+            .add_observer(listbox_focus_lost);
     }
 }
 
