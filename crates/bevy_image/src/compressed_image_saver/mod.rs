@@ -101,7 +101,7 @@ use wgpu_types::TextureFormat;
 ///
 /// The `compressed_image_saver_universal` backend does not generate mipmaps.
 #[derive(TypePath, Default)]
-#[allow(clippy::doc_markdown)]
+#[expect(clippy::doc_markdown, reason = "clippy does not like unquoted BCn")]
 pub struct CompressedImageSaver {
     #[cfg(feature = "compressed_image_saver")]
     inner: CompressedImageSaverCtt,
