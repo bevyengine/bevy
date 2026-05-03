@@ -11,7 +11,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
-    template::{FromTemplate, ScopedEntityIndex, template},
+    template::{template, FromTemplate, ScopedEntityIndex},
     world::DeferredWorld,
 };
 use bevy_picking::Pickable;
@@ -36,8 +36,8 @@ use crate::{
     theme::ThemedText,
 };
 
-const TOAST_HEIGHT: f32 = 60.0;
-const TOAST_MARGIN: f32 = 10.0;
+const TOAST_HEIGHT_PX: f32 = 60.0;
+const TOAST_MARGIN_PX: f32 = 10.0;
 
 /// Keeps track of currently spawned toasts in their respective positions.
 ///
@@ -97,23 +97,23 @@ impl ToastPosition {
         let mut node = entity_mut
             .get_mut::<Node>()
             .expect("Node should be present in ToastPosition on_add");
-        let offset = (TOAST_HEIGHT + TOAST_MARGIN) * idx as f32;
+        let offset = (TOAST_HEIGHT_PX + TOAST_MARGIN_PX) * idx as f32;
         match position {
             ToastPosition::BottomRight => {
                 node.bottom = px(offset);
-                node.right = px(10.0);
+                node.right = px(TOAST_MARGIN_PX);
             }
             ToastPosition::BottomLeft => {
                 node.bottom = px(offset);
-                node.left = px(10.0);
+                node.left = px(TOAST_MARGIN_PX);
             }
             ToastPosition::TopLeft => {
                 node.top = px(offset);
-                node.left = px(10.0);
+                node.left = px(TOAST_MARGIN_PX);
             }
             ToastPosition::TopRight => {
                 node.top = px(offset);
-                node.right = px(10.0);
+                node.right = px(TOAST_MARGIN_PX);
             }
         }
     }
@@ -148,13 +148,13 @@ impl ToastPosition {
             let mut node = entity_mut
                 .get_mut::<Node>()
                 .expect("Node should be present in ToastPosition on_despawn");
-            let offset = (TOAST_HEIGHT + TOAST_MARGIN) * (removed_idx + idx) as f32;
+            let offset = (TOAST_HEIGHT_PX + TOAST_MARGIN_PX) * (removed_idx + idx) as f32;
             match position {
                 ToastPosition::BottomRight => {
-                    node.bottom = px(-offset);
+                    node.bottom = px(offset);
                 }
                 ToastPosition::BottomLeft => {
-                    node.bottom = px(-offset);
+                    node.bottom = px(offset);
                 }
                 ToastPosition::TopLeft => {
                     node.top = px(offset);
@@ -175,7 +175,7 @@ pub struct ToastProgressBar {
     /// [Timer] for the toast duration. The progress bar width is updated based on the remaining time of this timer, and the toast is despawned when this timer finishes.
     pub timer: Timer,
     /// The root entity of the toast. This is used to despawn the toast when the timer finishes.
-    pub root_entity: Entity
+    pub root_entity: Entity,
 }
 
 /// A toast widget.
@@ -210,96 +210,91 @@ impl Default for FeathersToastProps {
 
 impl FeathersToast {
     fn scene(props: FeathersToastProps) -> impl Scene {
-    bsn! {
-        #Toast
-        Node {
-            width: px(300),
-            height: px(60),
-            margin: UiRect::all(px(5)),
-            padding: UiRect::all(px(10)),
-            border_radius: {RoundedCorners::All.to_border_radius(4.0)},
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::SpaceBetween,
-            flex_direction: FlexDirection::Row,
-            position_type: PositionType::Absolute
-        }
-        Pickable::IGNORE
-        template_value(props.variant)
-        template_value(props.position)
-        template(move |_| {
-            let background_color = match props.variant {
-                ToastVariant::Info => palette::INFO,
-                ToastVariant::Success => palette::SUCCESS,
-                ToastVariant::Warning => palette::WARNING,
-                ToastVariant::Error => palette::ERROR,
-            };
-            Ok(BackgroundColor(background_color))
-        })
-        Children[(
+        bsn! {
+            #Toast
             Node {
-                width: percent(90),
-                overflow: Overflow::clip_x()
+                width: px(300),
+                height: px(60),
+                margin: UiRect::all(px(5)),
+                padding: UiRect::all(px(10)),
+                border_radius: {RoundedCorners::All.to_border_radius(4.0)},
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                flex_direction: FlexDirection::Row,
+                position_type: PositionType::Absolute
             }
-            InheritableFont {
-                font: fonts::REGULAR,
-                font_size: size::COMPACT_FONT,
-                weight: FontWeight::NORMAL,
-            }
+            Pickable::IGNORE
+            template_value(props.variant)
+            template_value(props.position)
+            template(move |_| {
+                let background_color = match props.variant {
+                    ToastVariant::Info => palette::INFO,
+                    ToastVariant::Success => palette::SUCCESS,
+                    ToastVariant::Warning => palette::WARNING,
+                    ToastVariant::Error => palette::ERROR,
+                };
+                Ok(BackgroundColor(background_color))
+            })
             Children[(
-                Text({props.message})
-                ThemedText
-                TextLayout {linebreak: LineBreak::NoWrap}
-                template(move |_| {
-                    let text_color = match props.variant {
-                        ToastVariant::Info => palette::WHITE,
-                        ToastVariant::Success => palette::WHITE,
-                        ToastVariant::Warning => palette::WHITE,
-                        ToastVariant::Error => palette::WHITE,
-                    };
-                    Ok(TextColor(text_color))
+                Node {
+                    width: percent(90),
+                    overflow: Overflow::clip_x()
+                }
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::COMPACT_FONT,
+                    weight: FontWeight::NORMAL,
+                }
+                Children[(
+                    Text({props.message})
+                    ThemedText
+                    TextLayout {linebreak: LineBreak::NoWrap}
+                    template(move |_| {
+                        let text_color = match props.variant {
+                            ToastVariant::Info => palette::WHITE,
+                            ToastVariant::Success => palette::WHITE,
+                            ToastVariant::Warning => palette::WHITE,
+                            ToastVariant::Error => palette::WHITE,
+                        };
+                        Ok(TextColor(text_color))
+                    })
+                )]
+            ), (
+                Node {
+                    width: px(30),
+                    height: px(30),
+                }
+                Button
+                template(|ctx| {
+                    let handle = ctx.resource::<AssetServer>().load(icons::X);
+                    Ok(ImageNode::new(handle))
                 })
-            )]
-        ), ({ if props.duration.is_some() {
-                Box::new(bsn! {
-                    Node {
-                        width: px(30),
-                        height: px(30),
+                on(|trigger: On<Activate>, mut commands: Commands, child_of: Query<&ChildOf>| {
+                    if let Ok(parent) = child_of.get(trigger.entity) {
+                        commands.entity(parent.0).despawn();
                     }
-                    Button
-                    template(|ctx| {
-                        let handle = ctx.resource::<AssetServer>().load(icons::X);
-                        Ok(ImageNode::new(handle))
-                    })
-                    on(|trigger: On<Activate>, mut commands: Commands, child_of: Query<&ChildOf>| {
-                        if let Ok(parent) = child_of.get(trigger.entity) {
-                            commands.entity(parent.0).despawn();
+                })
+            ), ({ if let Some(duration) = props.duration {
+                    Box::new(bsn! {
+                        Node {
+                            width: percent(100),
+                            height: px(10),
+                            position_type: PositionType::Absolute,
+                            bottom: px(0),
+                            left: px(0),
                         }
-                    })
-                }) as Box<dyn Scene>
-            } else {
-                Box::new(bsn!()) as Box<dyn Scene>
-            }
-        }), ({ if props.duration.is_some() {
-                Box::new(bsn! {
-                    Node {
-                        width: percent(100),
-                        height: px(10),
-                        position_type: PositionType::Absolute,
-                        bottom: px(0),
-                        left: px(0),
-                    }
-                    BackgroundColor(palette::WHITE)
-                    template(move |ctx| {
-                        let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
-                        Ok(ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity })
-                    })
-                    // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
-                    }) as Box<dyn Scene>
-            } else {
-                Box::new(bsn!()) as Box<dyn Scene>
-            }
-        })]
-    }
+                        BackgroundColor(palette::WHITE)
+                        template(move |ctx| {
+                            let root_entity = ctx.get_scoped_entity(ScopedEntityIndex { scope: 1, index: 0}); // TODO: Why is the scope 1 here? Before #24008 this was in 0.
+                            Ok(ToastProgressBar { timer: Timer::new(duration, TimerMode::Once), root_entity })
+                        })
+                        // ToastProgressBar { timer: Timer::new(props.duration.unwrap(), TimerMode::Once), root_entity: #Toast } // TODO: This panics if the EntityReference is there
+                        }) as Box<dyn Scene>
+                } else {
+                    Box::new(bsn!()) as Box<dyn Scene>
+                }
+            })]
+        }
     }
 }
 
