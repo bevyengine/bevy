@@ -171,7 +171,7 @@ F5 - Save image"
             Node {
                 width: vw(5),
                 height: vh(5),
-                border: UiRect::all(px(5)),
+                border: px(5).all(),
                 ..Default::default()
             },
             SelectableColor,
