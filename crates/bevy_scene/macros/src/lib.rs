@@ -68,6 +68,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// bsn! {
 ///     #Town
 ///     Children [
+///         // Parentheses and indentation help clarify the structure of nested scenes,
+///         // but are optional — this scene would be the same without them.
 ///         (
 ///             #Tavern
 ///             Children [
