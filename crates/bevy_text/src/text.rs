@@ -923,8 +923,20 @@ impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
 pub struct FontVariationTag([u8; 4]);
 
 impl FontVariationTag {
-    /// Defines the stroke thickness.
+    /// Varies the stroke thickness. The range is typically 1 to 1000.
     pub const WEIGHT: FontVariationTag = FontVariationTag::new(b"wght");
+
+    /// Varies the width of glyphs from narrower to wider. The range is typically 50 to 200 with
+    /// 100 being standard width.
+    pub const WIDTH: FontVariationTag = FontVariationTag::new(b"wdth");
+
+    /// Varies between upright and slanted glyphs. The range is typically between -90 and +90 degrees,
+    /// where 0 is upright.
+    pub const SLANT: FontVariationTag = FontVariationTag::new(b"slnt");
+
+    /// Varies the design of glyphs for different optical sizes (physical font size).
+    /// The range is typically 6 to 72.
+    pub const OPTICAL_SIZE: FontVariationTag = FontVariationTag::new(b"opsz");
 
     /// Create a new [`FontVariationTag`] from raw bytes.
     pub const fn new(src: &[u8; 4]) -> Self {
