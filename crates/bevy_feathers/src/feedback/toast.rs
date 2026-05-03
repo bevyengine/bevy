@@ -1,4 +1,4 @@
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::AssetServer;
@@ -52,14 +52,14 @@ pub struct ToastPositions(pub HashMap<ToastPosition, Vec<Entity>>);
 #[derive(Component, Default, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Clone, Default)]
 pub enum ToastVariant {
-    /// Uses [palette::INFO] for background and [palette::WHITE] for text color.
+    /// Uses [`palette::INFO`] for background and [`palette::WHITE`] for text color.
     #[default]
     Info,
-    /// Uses [palette::SUCCESS] for background and [palette::WHITE] for text color.
+    /// Uses [`palette::SUCCESS`] for background and [`palette::WHITE`] for text color.
     Success,
-    /// Uses [palette::WARNING] for background and [palette::WHITE] for text color.
+    /// Uses [`palette::WARNING`] for background and [`palette::WHITE`] for text color.
     Warning,
-    /// Uses [palette::ERROR] for background and [palette::WHITE] for text color.
+    /// Uses [`palette::ERROR`] for background and [`palette::WHITE`] for text color.
     Error,
 }
 
@@ -150,16 +150,10 @@ impl ToastPosition {
                 .expect("Node should be present in ToastPosition on_despawn");
             let offset = (TOAST_HEIGHT_PX + TOAST_MARGIN_PX) * (removed_idx + idx) as f32;
             match position {
-                ToastPosition::BottomRight => {
+                ToastPosition::BottomRight | ToastPosition::BottomLeft => {
                     node.bottom = px(offset);
                 }
-                ToastPosition::BottomLeft => {
-                    node.bottom = px(offset);
-                }
-                ToastPosition::TopLeft => {
-                    node.top = px(offset);
-                }
-                ToastPosition::TopRight => {
+                ToastPosition::TopLeft | ToastPosition::TopRight => {
                     node.top = px(offset);
                 }
             }
@@ -180,7 +174,7 @@ pub struct ToastProgressBar {
 
 /// A toast widget.
 ///
-/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersToastProps`].`]
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersToastProps`].
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersToastProps)]
 pub struct FeathersToast;
@@ -249,15 +243,7 @@ impl FeathersToast {
                     Text({props.message})
                     ThemedText
                     TextLayout {linebreak: LineBreak::NoWrap}
-                    template(move |_| {
-                        let text_color = match props.variant {
-                            ToastVariant::Info => palette::WHITE,
-                            ToastVariant::Success => palette::WHITE,
-                            ToastVariant::Warning => palette::WHITE,
-                            ToastVariant::Error => palette::WHITE,
-                        };
-                        Ok(TextColor(text_color))
-                    })
+                    TextColor(palette::WHITE)
                 )]
             ), (
                 Node {
