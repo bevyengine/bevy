@@ -35,10 +35,10 @@ use wgpu_types::TextureFormat;
 /// Two mutually exclusive feature flags control which compression backend is used:
 ///
 /// - **`compressed_image_saver`** — Uses the [`ctt`](https://github.com/cwfitzgerald/ctt)
-///   library to compress textures into BCn or ASTC formats, output as KTX2. Requires a C++
+///   library to compress textures into `BCn` or `ASTC` formats, output as KTX2. Requires a C++
 ///   compiler; see the [ctt readme](https://github.com/cwfitzgerald/ctt?tab=readme-ov-file#prebuilt-binaries).
 ///   Outputs BCn by default (for desktop targets). Set
-///   `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` to output ASTC instead (for mobile targets).
+///   `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` to output `ASTC` instead (for mobile targets).
 ///
 /// - **`compressed_image_saver_universal`** — Uses `basis-universal` to compress textures into UASTC
 ///   (Basis Universal) format. This is a GPU-agnostic supercompressed format that can be
@@ -66,16 +66,16 @@ use wgpu_types::TextureFormat;
 /// | 4-channel LDR (e.g. `Rgba8Unorm`) | BC7 |
 /// | 4-channel sRGB (e.g. `Rgba8UnormSrgb`) | BC7 sRGB |
 /// | Integer or high-precision (>16-bit) formats | Uncompressed KTX2 (passthrough) |
-/// | Already compressed (BCn, ASTC, ETC2, EAC) | Re-encoded to the same format |
+/// | Already compressed (`BCn`, `ASTC`, `ETC2`, `EAC`) | Re-encoded to the same format |
 ///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
 /// [`CompressedImageSaverError::UnsupportedFormat`].
 ///
 /// # ASTC override
 ///
-/// Set the `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` environment variable to compress into ASTC
-/// instead of BCn. ASTC is natively supported on mobile GPUs (Android, iOS) and some
-/// desktop GPUs, while BCn is typically only supported on desktop GPUs.
+/// Set the `BEVY_COMPRESSED_IMAGE_SAVER_ASTC` environment variable to compress into `ASTC`
+/// instead of `BCn`. `ASTC` is natively supported on mobile GPUs (Android, iOS) and some
+/// desktop GPUs, while `BCn` is typically only supported on desktop GPUs.
 ///
 /// The value specifies the block size. Larger blocks compress more aggressively (smaller
 /// files, less VRAM) at the cost of quality. If set to an empty string or `1`, defaults
@@ -85,9 +85,9 @@ use wgpu_types::TextureFormat;
 /// |---|---|---|
 /// | `4x4` | 8.00 | Highest quality, same bit rate as BC7 |
 /// | `6x6` | 3.56 | Good balance of quality and size |
-/// | `8x8` | 2.00 | Aggressive, suitable for base_color_texture |
+/// | `8x8` | 2.00 | Aggressive, suitable for `base_color_texture` |
 ///
-/// All 14 ASTC block sizes are supported: `4x4`, `5x4`, `5x5`, `6x5`, `6x6`, `8x5`,
+/// All 14 `ASTC` block sizes are supported: `4x4`, `5x4`, `5x5`, `6x5`, `6x6`, `8x5`,
 /// `8x6`, `8x8`, `10x5`, `10x6`, `10x8`, `10x10`, `12x10`, `12x12`.
 ///
 /// # Mipmap generation (`compressed_image_saver` only)
@@ -137,7 +137,7 @@ pub enum CompressedImageSaverError {
     Io(#[from] std::io::Error),
     /// The underlying compression library returned an error.
     #[error(transparent)]
-    CompressionFailed(Box<dyn std::error::Error + Send + Sync>),
+    CompressionFailed(Box<dyn core::error::Error + Send + Sync>),
     /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,

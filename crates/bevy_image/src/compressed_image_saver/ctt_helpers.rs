@@ -10,8 +10,7 @@ use super::CompressedImageSaverError;
 pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageSaverError> {
     let val = match env::var("BEVY_COMPRESSED_IMAGE_SAVER_ASTC") {
         Ok(v) => v,
-        Err(env::VarError::NotPresent) => return Ok(None),
-        Err(env::VarError::NotUnicode(_)) => return Ok(None),
+        _ => return Ok(None),
     };
 
     let val = val.trim();
@@ -118,14 +117,11 @@ pub fn choose_ctt_compressed_format(
         }
 
         // 4-channel LDR
-        TextureFormat::Rgba8Unorm | TextureFormat::Bgra8Unorm | TextureFormat::Rgb10a2Unorm => {
-            if let Some((astc_unorm, _)) = astc_block {
-                astc_unorm
-            } else {
-                Format::BC7_UNORM_BLOCK
-            }
-        }
-        TextureFormat::Rgba8UnormSrgb | TextureFormat::Bgra8UnormSrgb => {
+        TextureFormat::Rgba8Unorm
+        | TextureFormat::Rgba8UnormSrgb
+        | TextureFormat::Bgra8Unorm
+        | TextureFormat::Bgra8UnormSrgb
+        | TextureFormat::Rgb10a2Unorm => {
             if let Some((astc_unorm, _)) = astc_block {
                 astc_unorm
             } else {
