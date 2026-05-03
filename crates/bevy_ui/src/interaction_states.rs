@@ -80,3 +80,42 @@ pub(crate) fn on_remove_checked(remove: On<Remove, Checked>, mut world: Deferred
         accessibility.set_toggled(accesskit::Toggled::False);
     }
 }
+
+/// Component that indicates that a widget can be selected. Similar to [`Checkable`], but works for
+/// the ARIA "selected" state instead of "checked".
+#[derive(Component, Default, Debug)]
+pub struct Selectable;
+
+/// Similar to [`Checked`], but works for the ARIA "selected" state instead of "checked".
+#[derive(Component, Default, Debug, Clone)]
+pub struct Selected;
+
+pub(crate) fn on_add_selectable(add: On<Add, Selected>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    let selected = entity.get::<Selected>().is_some();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(selected);
+    }
+}
+
+pub(crate) fn on_remove_selectable(add: On<Add, Selected>, mut world: DeferredWorld) {
+    // Remove the 'toggled' attribute entirely.
+    let mut entity = world.entity_mut(add.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.clear_selected();
+    }
+}
+
+pub(crate) fn on_add_selected(add: On<Add, Selected>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(true);
+    }
+}
+
+pub(crate) fn on_remove_selected(remove: On<Remove, Selected>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(false);
+    }
+}

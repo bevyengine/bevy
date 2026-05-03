@@ -28,19 +28,23 @@
 
 mod button;
 mod checkbox;
+mod list;
 mod menu;
 mod observe;
 pub mod popover;
 mod radio;
+mod scrollarea;
 mod scrollbar;
 mod slider;
 mod text_input;
 
 pub use button::*;
 pub use checkbox::*;
+pub use list::*;
 pub use menu::*;
 pub use observe::*;
 pub use radio::*;
+pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
 pub use text_input::*;
@@ -61,9 +65,10 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(PopoverPlugin)
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
+            .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(RadioGroupPlugin)
-            .add(ScrollbarPlugin)
+            .add(ScrollAreaPlugin)
             .add(SliderPlugin)
             .add(EditableTextInputPlugin)
     }
