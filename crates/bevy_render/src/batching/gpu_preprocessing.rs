@@ -1334,7 +1334,7 @@ impl FromWorld for GpuPreprocessingSupport {
                 || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
         }
         fn is_preprocessing_only_android_device(adapter_info: &RenderAdapterInfo) -> bool {
-            crate::get_pixel10_driver_version(&adapter_info).is_some()
+            crate::get_pixel10_driver_version(adapter_info).is_some()
         }
 
         let culling_feature_support = device
