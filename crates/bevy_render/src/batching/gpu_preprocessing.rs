@@ -1328,9 +1328,11 @@ impl FromWorld for GpuPreprocessingSupport {
         // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
         //   than 730).
         // - We filter out Mali GPUs with driver versions lower than 48.
+        // - We filter out Pixel 10 GPUs (all versions for now)
         fn is_non_supported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
             crate::get_adreno_model(adapter_info).is_some_and(|model| model != 720 && model <= 730)
                 || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
+                || crate::get_pixel10_driver_version(adapter_info).is_some()
         }
 
         let culling_feature_support = device
