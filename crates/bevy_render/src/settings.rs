@@ -127,7 +127,15 @@ impl Default for WgpuSettings {
 
         let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
-        let instance_flags = InstanceFlags::default().with_env();
+        let mut instance_flags = InstanceFlags::default();
+        #[cfg(all(not(debug_assertions), not(feature = "raw_vulkan_init")))]
+        // wgpu executes additional necessary logic during validation passes for dx-12 backends,
+        // so the `VALIDATION_INDIRECT_CALL` flag should stay for dx-12.
+        if !backends.unwrap().contains(Backends::DX12) {
+            // Removing this flag improves performance.
+            instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+        }
+        instance_flags = instance_flags.with_env();
 
         Self {
             device_label: Default::default(),
