@@ -1,6 +1,6 @@
 //! This example shows how to setup a basic counter app using feathers
 //!
-//! To use feathers in your bevy app, you need to use the `experimental_bevy_feathers` feature
+//! To use feathers in your bevy app, you need to use the `bevy_feathers` feature
 
 use bevy::{
     feathers::{
