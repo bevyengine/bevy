@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use bevy_app::AppExit;
 use bevy_ecs::{
     resource::Resource,
     world::{Mut, World},
@@ -26,6 +27,8 @@ pub enum RenderErrorPolicy {
     StopRendering,
     /// Attempt renderer recovery with the given [`RenderCreation`].
     Recover(RenderCreation),
+    /// Quits the app.
+    QuitApplication,
 }
 
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
@@ -50,6 +53,9 @@ impl RenderErrorHandler {
             RenderErrorPolicy::StopRendering => {
                 // do nothing
             }
+            RenderErrorPolicy::QuitApplication => {
+                main_world.write_message(AppExit::error());
+            }
             RenderErrorPolicy::Recover(render_creation) => {
                 assert!(insert_future_resources(&render_creation, main_world));
                 render_world.insert_resource(RenderState::Reinitializing);
@@ -60,9 +66,14 @@ impl RenderErrorHandler {
 
 impl Default for RenderErrorHandler {
     fn default() -> Self {
-        // This is what we've always done historically,
-        // but we could choose a new default once recovery works better.
-        Self(|_, _, _| RenderErrorPolicy::Ignore)
+        // Quit the application for any `RenderError`.
+        // Especially for OOM's and Validation RenderErrors, ignoring the error
+        // and resuming render can cause a loop that can cause hazardous strobing effects.
+        // We can choose a new default once recovery works better.
+        Self(|error, _, _| {
+            bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
+            RenderErrorPolicy::QuitApplication
+        })
     }
 }
 
