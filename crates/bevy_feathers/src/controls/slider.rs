@@ -20,9 +20,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
-    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
-    PositionType, Pressed, UiRect, Val,
+    percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
+    Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
+    PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{
     Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
@@ -38,8 +38,23 @@ use crate::{
     tokens,
 };
 
-/// Slider template properties, passed to [`slider`] function.
-pub struct SliderProps {
+/// A slider widget.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersSliderProps`].
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[scene(FeathersSliderProps)]
+#[require(Slider)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersSlider;
+
+/// Props used to construct the [`FeathersSlider`] scene.
+pub struct FeathersSliderProps {
     /// Slider current value
     pub value: f32,
     /// Slider minimum value
@@ -48,7 +63,7 @@ pub struct SliderProps {
     pub max: f32,
 }
 
-impl Default for SliderProps {
+impl Default for FeathersSliderProps {
     fn default() -> Self {
         Self {
             value: 0.0,
@@ -58,79 +73,64 @@ impl Default for SliderProps {
     }
 }
 
-#[derive(Component, Default, Clone)]
-#[require(Slider)]
-#[derive(Reflect)]
-#[reflect(Component, Clone, Default)]
-struct SliderStyle;
+impl FeathersSlider {
+    fn scene(props: FeathersSliderProps) -> impl Scene {
+        bsn! {
+            Node {
+                height: size::ROW_HEIGHT,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(px(8)),
+                flex_grow: 1.0,
+                border_radius: {RoundedCorners::All.to_border_radius(6.0)},
+            }
+            Hovered
+            Slider {
+                track_click: TrackClick::Drag,
+                orientation: SliderOrientation::Horizontal,
+            }
+            FeathersSlider
+            SliderValue({props.value})
+            SliderRange::new(props.min, props.max)
+            EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
+            TabIndex(0)
+            FocusIndicator
+            // Use a gradient to draw the moving bar
+            BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+                angle: PI * 0.5,
+                stops: vec![
+                    ColorStop::new(Color::NONE, percent(0)),
+                    ColorStop::new(Color::NONE, percent(50)),
+                    ColorStop::new(Color::NONE, percent(50)),
+                    ColorStop::new(Color::NONE, percent(100)),
+                ],
+                color_space: InterpolationColorSpace::Srgba,
+            })]})
+            Children [(
+                // Text container
+                Node {
+                    display: Display::Flex,
+                    position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                }
+                InheritableThemeTextColor(tokens::SLIDER_TEXT)
+                InheritableFont {
+                    font: fonts::MONO,
+                    font_size: size::SMALL_FONT,
+                    weight: FontWeight::NORMAL,
+                }
+                Children [(Text("10.0") ThemedText SliderValueText)]
+            )]
+        }
+    }
+}
 
 /// Marker for the text
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderValueText;
-
-/// Spawn a new slider widget.
-///
-/// # Arguments
-///
-/// * `props` - construction properties for the slider.
-///
-/// # Emitted events
-///
-/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
-///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-pub fn slider(props: SliderProps) -> impl Scene {
-    bsn! {
-        Node {
-            height: size::ROW_HEIGHT,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
-            flex_grow: 1.0,
-            border_radius: {RoundedCorners::All.to_border_radius(6.0)},
-        }
-        Hovered
-        Slider {
-            track_click: TrackClick::Drag,
-            orientation: SliderOrientation::Horizontal,
-        }
-        SliderStyle
-        SliderValue({props.value})
-        SliderRange::new(props.min, props.max)
-        EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
-        TabIndex(0)
-        FocusIndicator
-        // Use a gradient to draw the moving bar
-        BackgroundGradient({vec![Gradient::Linear(LinearGradient {
-            angle: PI * 0.5,
-            stops: vec![
-                ColorStop::new(Color::NONE, Val::Percent(0.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(100.)),
-            ],
-            color_space: InterpolationColorSpace::Srgba,
-        })]})
-        Children [(
-            // Text container
-            Node {
-                display: Display::Flex,
-                position_type: PositionType::Absolute,
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-            }
-            InheritableThemeTextColor(tokens::SLIDER_TEXT)
-            InheritableFont {
-                font: fonts::MONO,
-                font_size: size::SMALL_FONT,
-                weight: FontWeight::NORMAL,
-            }
-            Children [(Text("10.0") ThemedText SliderValueText)]
-        )]
-    }
-}
 
 /// Spawn a new slider widget.
 ///
@@ -145,13 +145,13 @@ pub fn slider(props: SliderProps) -> impl Scene {
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[deprecated(since = "0.19.0", note = "Use the slider() BSN function")]
-pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
+pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> impl Bundle {
     (
         Node {
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
@@ -161,7 +161,7 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
             track_click: TrackClick::Drag,
             orientation: SliderOrientation::Horizontal,
         },
-        SliderStyle,
+        FeathersSlider,
         SliderValue(props.value),
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
@@ -171,10 +171,10 @@ pub fn slider_bundle<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
             stops: vec![
-                ColorStop::new(Color::NONE, Val::Percent(0.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(100.)),
+                ColorStop::new(Color::NONE, percent(0)),
+                ColorStop::new(Color::NONE, percent(50)),
+                ColorStop::new(Color::NONE, percent(50)),
+                ColorStop::new(Color::NONE, percent(100)),
             ],
             color_space: InterpolationColorSpace::Srgba,
         })]),
@@ -210,7 +210,7 @@ fn update_slider_styles(
             &mut BackgroundGradient,
         ),
         (
-            With<SliderStyle>,
+            With<FeathersSlider>,
             Or<(
                 Spawned,
                 Added<InteractionDisabled>,
@@ -244,7 +244,7 @@ fn update_slider_styles_remove(
             &Hovered,
             &mut BackgroundGradient,
         ),
-        With<SliderStyle>,
+        With<FeathersSlider>,
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut remove_pressed: RemovedComponents<Pressed>,
@@ -328,7 +328,7 @@ fn update_slider_pos(
             &mut BackgroundGradient,
         ),
         (
-            With<SliderStyle>,
+            With<FeathersSlider>,
             Or<(
                 Changed<SliderValue>,
                 Changed<SliderRange>,
@@ -342,8 +342,8 @@ fn update_slider_pos(
     for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
             let percent_value = (range.thumb_position(value.0) * 100.0).clamp(0.0, 100.0);
-            linear_gradient.stops[1].point = Val::Percent(percent_value);
-            linear_gradient.stops[2].point = Val::Percent(percent_value);
+            linear_gradient.stops[1].point = percent(percent_value);
+            linear_gradient.stops[2].point = percent(percent_value);
         }
 
         // Find slider text child entity and update its text with the formatted value

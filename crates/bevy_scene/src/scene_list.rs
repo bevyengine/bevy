@@ -1,4 +1,6 @@
-use crate::{ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies};
+use crate::{
+    ResolveContext, ResolveSceneError, ResolvedScene, Scene, SceneDependencies, SceneScope,
+};
 use variadics_please::all_tuples;
 
 /// This behaves like a list of [`Scene`], where each entry in the list is a new entity (see [`Scene`] for more details).
@@ -154,5 +156,22 @@ impl<S: Scene> SceneList for Vec<S> {
         for scene in self {
             scene.register_dependencies(dependencies);
         }
+    }
+}
+
+impl<S: Scene> SceneList for SceneScope<S> {
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        let mut resolved_scene = ResolvedScene::default();
+        self.resolve(context, &mut resolved_scene)?;
+        scenes.push(resolved_scene);
+        Ok(())
+    }
+
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        Scene::register_dependencies(self, dependencies);
     }
 }
