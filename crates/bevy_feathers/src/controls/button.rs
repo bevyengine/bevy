@@ -121,9 +121,9 @@ impl FeathersButton {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
-pub struct ToolButton;
+pub struct FeathersToolButton;
 
-impl ToolButton {
+impl FeathersToolButton {
     fn scene(props: FeathersButtonProps) -> impl Scene {
         bsn! {
             :FeathersButton {

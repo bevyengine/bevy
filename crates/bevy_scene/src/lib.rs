@@ -128,7 +128,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!     #Child1
 //!     ComponentA
@@ -149,7 +149,7 @@
 //!
 //! ```ignore
 //! bsn! {
-//!   #Parent,
+//!   #Parent
 //!   Children [
 //!      (
 //!        #Child1
@@ -215,15 +215,19 @@
 //! (from a parent scene, an earlier patch, or the type's defaults). Multiple patches to the
 //! same component merge together rather than overwriting each other.
 //!
-//! To make a component patchable, derive [`FromTemplate`]. This generates a companion
-//! [`Template`] type where every field is independently set-or-unset, which is what makes
-//! partial patches possible.
+//! To make a component available in [`bsn!`], derive either [`Default`] + [`Clone`], or [`FromTemplate`].
+//! Both support patching: unmentioned fields keep their values from earlier patches or the
+//! type's defaults, and multiple patches merge rather than overwrite.
 //!
-//! **Watch out:** types that implement `Clone + Default` (like the Quick Start example's
-//! `Score`, `Sword`, and `Shield`) get a blanket [`Template`] impl automatically, so they
-//! work inside [`bsn!`] without deriving [`FromTemplate`]. However, this blanket impl
-//! always replaces the *entire* value — there is no field-level merging. If you want
-//! per-field patching, you must derive [`FromTemplate`] explicitly.
+//! The distinction is about what values a field can hold at spawn time:
+//!
+//! - **`Clone + Default`** covers the simple case, and should be your default choice. The blanket [`Template`] impl handles patching
+//!   automatically with no extra derives needed.
+//!
+//! - **[`FromTemplate`]** is needed when a field requires spawn-time context — for example,
+//!   a `Handle<T>` field that resolves an asset path, or an [`Entity`] field that references
+//!   a named entity. If any of your fields' types implement [`FromTemplate`],
+//!   you must derive it for the parent type as well.
 //!
 //! Deriving [`FromTemplate`] and [`Default`] on the same type is not allowed —
 //! both would supply a [`FromTemplate`] impl and conflict.
@@ -309,15 +313,16 @@
 //!
 //! ### Which composition pattern should I choose?
 //!
-//! |                           | Inline composition           | Inheritance                           |
-//! |---------------------------|------------------------------|---------------------------------------|
-//! | Parent accepts parameters | Yes                          | No                                    |
-//! | Parent from an asset file | No                           | Yes                                   |
-//! | Resolution order          | Merged together in one pass  | Parent resolved first, then patched   |
+//! |                           | Function inheritance `:my_scene`    | Asset inheritance `:"my_scene.bsn"` | Inline composition `my_scene()`  |
+//! |---------------------------|-------------------------------------|-------------------------------------|----------------------------------|
+//! | Accepts parameters        | Yes                                 | No                                  | Yes                              |
+//! | Asset-based               | No                                  | Yes                                 | No                               |
+//! | Cached resolution         | Parameterless scenes only           | Yes                                 | No                               |
 //!
-//! Use **inline composition** as the default — it's simpler and supports function parameters.
-//! Reach for **inheritance** when the parent scene comes from an asset file,
-//! or when you want the parent to be treated as a fully resolved, opaque base ("prefab").
+//! Prefer scene inheritance over inline composition in general: the expensive scene resolution is cached, saving work during reuse.
+//! Inline composition should be reserved for parameterized scenes that vary based on a given input,
+//! small scenes that are shared across contexts (like styles),
+//! or one-off scenes that do not require reuse.
 //!
 //! ## Loading Assets into Scenes
 //!
@@ -473,6 +478,11 @@
 //! let my_unit = bsn! { Health { current: 100, max: 100 } };
 //! commands.spawn_scene(unit_with_armor(my_unit));
 //! ```
+//!
+//! ## BSN syntax reference
+//!
+//! For a quick rundown on how to read and write BSN syntax,
+//! see the docs for [`bsn!`].
 //!
 //! ## Scene Components
 //!
@@ -1399,6 +1409,56 @@ mod tests {
         }
 
         #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Bar(usize, usize, usize);
+
+        fn a() -> impl Scene {
+            bsn! {
+                Foo {
+                    x: 1,
+                    nested: Bar(1, 1),
+                }
+            }
+        }
+
+        fn b() -> impl Scene {
+            bsn! {
+                a()
+                Foo {
+                    y: 2,
+                    nested: Bar(2),
+                }
+            }
+        }
+
+        let id = world.spawn_scene(b()).unwrap().id();
+        let root = world.entity(id);
+
+        let foo = root.get::<Foo>().unwrap();
+        assert_eq!(
+            *foo,
+            Foo {
+                x: 1,
+                y: 2,
+                z: 0,
+                nested: Bar(2, 1, 0)
+            }
+        );
+    }
+
+    #[test]
+    fn field_patching_with_default() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, Clone, Default, PartialEq, Eq, Debug)]
+        struct Foo {
+            x: u32,
+            y: u32,
+            z: u32,
+            nested: Bar,
+        }
+
+        #[derive(Component, Clone, Default, PartialEq, Eq, Debug)]
         struct Bar(usize, usize, usize);
 
         fn a() -> impl Scene {
