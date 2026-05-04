@@ -16,7 +16,9 @@ mod world_query;
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
 use bevy_ecs_macro_logic::{component::DeriveComponent, map_entities::map_entities};
 use bevy_macro_utils::{
-    derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
+    derive_label, ensure_no_collision,
+    fq_std::{FQDefault, FQIterator, FQOption, FQResult},
+    get_struct_fields, pascal_to_snake_case, BevyManifest,
 };
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -138,13 +140,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
-            ) -> impl ::core::iter::Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+            ) -> impl #FQIterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
-            ) -> impl ::core::iter::Iterator<Item = ::core::option::Option<#ecs_path::component::ComponentId>> {
+            ) -> impl #FQIterator<Item = #FQOption<#ecs_path::component::ComponentId>> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
@@ -157,7 +159,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
-                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+                func: &mut impl ::core::ops::FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
@@ -182,6 +184,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
     };
 
+    let fqdefault = FQDefault.into_token_stream();
     let from_components_impl = attributes.impl_from_components.then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
@@ -189,11 +192,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+                __F: ::core::ops::FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self {
                     #(#active_field_members: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
-                    #(#inactive_field_members: ::core::default::Default::default(),)*
+                    #(#inactive_field_members: #fqdefault::default(),)*
                 }
             }
         }
@@ -457,14 +460,14 @@ fn derive_system_param_impl(
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> ::core::result::Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                ) -> #FQResult<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
                     let (#(#tuple_patterns,)*) = &mut state.state;
                     #(
                         let #field_locals = unsafe {
                             <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
                         }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
                     )*
-                    ::core::result::Result::Ok(#struct_name {
+                    #FQResult::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
                     })
                 }
@@ -676,11 +679,11 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 
     let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
     let key_name = key_name
-        .map(|f| quote! { ::core::option::Option::Some(#f) })
-        .unwrap_or(quote! { ::core::option::Option::None });
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
     let file_name = override_file
-        .map(|f| quote! { ::core::option::Option::Some(#f) })
-        .unwrap_or(quote! { ::core::option::Option::None });
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
 
     let expanded = quote! {
         impl #path::SettingsGroup for #name {
@@ -688,11 +691,11 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
                 #group_name
             }
 
-            fn settings_key_name() -> ::core::option::Option<&'static str> {
+            fn settings_key_name() -> #FQOption<&'static str> {
                 #key_name
             }
 
-            fn settings_source() -> ::core::option::Option<&'static str> {
+            fn settings_source() -> #FQOption<&'static str> {
                 #file_name
             }
         }

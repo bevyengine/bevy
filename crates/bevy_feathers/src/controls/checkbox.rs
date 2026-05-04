@@ -21,8 +21,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, PositionType, Pressed, UiRect, UiTransform, Val,
+    px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
+    JustifyContent, Node, PositionType, Pressed, UiRect, UiTransform,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
@@ -70,7 +70,7 @@ impl FeathersCheckbox {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                column_gap: Val::Px(4.0),
+                column_gap: px(4),
             }
             Checkbox
             CheckboxFrame
@@ -87,8 +87,8 @@ impl FeathersCheckbox {
                 Node {
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    border: px(2),
+                    border_radius: px(4),
                 }
                 CheckboxOutline
                 ThemeBackgroundColor(tokens::CHECKBOX_BG)
@@ -98,13 +98,13 @@ impl FeathersCheckbox {
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Px(4.0),
-                        top: Val::Px(0.0),
-                        width: Val::Px(6.),
-                        height: Val::Px(11.),
+                        left: px(4),
+                        top: px(0),
+                        width: px(6),
+                        height: px(11),
                         border: UiRect {
-                            bottom: Val::Px(2.0),
-                            right: Val::Px(2.0),
+                            bottom: px(2),
+                            right: px(2),
                         },
                     }
                     UiTransform::from_rotation(Rot2::FRAC_PI_4)
@@ -151,7 +151,7 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
             flex_direction: FlexDirection::Row,
             justify_content: JustifyContent::Start,
             align_items: AlignItems::Center,
-            column_gap: Val::Px(4.0),
+            column_gap: px(4),
             ..Default::default()
         },
         Checkbox,
@@ -171,8 +171,8 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
                 Node {
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    border: UiRect::all(px(2)),
+                    border_radius: BorderRadius::all(px(4)),
                     ..Default::default()
                 },
                 FocusIndicator,
@@ -183,13 +183,13 @@ pub fn checkbox_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bun
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Px(4.0),
-                        top: Val::Px(0.0),
-                        width: Val::Px(6.),
-                        height: Val::Px(11.),
+                        left: px(4),
+                        top: px(0),
+                        width: px(6),
+                        height: px(11),
                         border: UiRect {
-                            bottom: Val::Px(2.0),
-                            right: Val::Px(2.0),
+                            bottom: px(2),
+                            right: px(2),
                             ..Default::default()
                         },
                         ..Default::default()

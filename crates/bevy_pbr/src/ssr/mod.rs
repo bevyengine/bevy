@@ -514,6 +514,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         if cfg!(feature = "dfg_lut") {
             shader_defs.push("DFG_LUT".into());
         }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
