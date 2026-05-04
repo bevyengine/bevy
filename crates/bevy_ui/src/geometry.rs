@@ -1,5 +1,6 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_text::FontSize;
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
@@ -464,6 +465,20 @@ impl Val {
                 Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
             }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+}
+
+impl From<Val> for FontSize {
+    fn from(value: Val) -> Self {
+        match value {
+            Val::Auto => FontSize::Rem(1.),
+            Val::Px(px) => FontSize::Px(px),
+            Val::Percent(percent) => FontSize::Rem(percent / 100.),
+            Val::Vw(vw) => FontSize::Vw(vw),
+            Val::Vh(vh) => FontSize::Vh(vh),
+            Val::VMin(vmin) => FontSize::VMin(vmin),
+            Val::VMax(vmax) => FontSize::VMax(vmax),
         }
     }
 }

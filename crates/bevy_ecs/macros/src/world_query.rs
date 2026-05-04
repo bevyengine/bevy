@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQClone, FQOption};
 use proc_macro2::Ident;
 use quote::quote;
 use syn::{Attribute, Fields, ImplGenerics, Member, Type, TypeGenerics, Visibility, WhereClause};
@@ -82,7 +83,7 @@ pub(crate) fn world_query_impl(
             #marker_name: &'__w(),
         }
 
-        impl #user_impl_generics_with_world ::core::clone::Clone for #fetch_struct_name #user_ty_generics_with_world
+        impl #user_impl_generics_with_world #FQClone for #fetch_struct_name #user_ty_generics_with_world
             #user_where_clauses_with_world {
                 fn clone(&self) -> Self {
                     Self {
@@ -158,7 +159,7 @@ pub(crate) fn world_query_impl(
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: ::core::option::Option<&str>,
+                _system_name: #FQOption<&str>,
                 _component_access_set: &mut #path::query::FilteredAccessSet,
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell,
             ) {
@@ -171,13 +172,13 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn get_state(components: &#path::component::Components) -> ::core::option::Option<#state_struct_name #user_ty_generics> {
-                ::core::option::Option::Some(#state_struct_name {
+            fn get_state(components: &#path::component::Components) -> #FQOption<#state_struct_name #user_ty_generics> {
+                #FQOption::Some(#state_struct_name {
                     #(#field_aliases: <#field_types>::get_state(components)?,)*
                 })
             }
 
-            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+            fn matches_component_set(state: &Self::State, _set_contains_id: &impl ::core::ops::Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
             }
 
