@@ -6,17 +6,14 @@ use bevy_platform::sync::Mutex;
 
 pub use bevy_ecs_macros::FromTemplate;
 
-use crate::lifecycle::HookContext;
-use crate::name::Name;
-use crate::system::SystemId;
-use crate::world::DeferredWorld;
 use crate::{
     component::Mutable,
     entity::Entity,
     error::{BevyError, Result},
+    lifecycle::HookContext,
     resource::Resource,
-    system::{BoxedSystem, IntoSystem},
-    world::{EntityWorldMut, Mut, World},
+    system::{BoxedSystem, IntoSystem, SystemId},
+    world::{DeferredWorld, EntityWorldMut, Mut, World},
 };
 use alloc::{vec, vec::Vec};
 use variadics_please::all_tuples;
@@ -475,6 +472,29 @@ impl FromTemplate for Entity {
     type Template = EntityTemplate;
 }
 
+/// A [`Template`] that produces a [`SystemId`] for a given system. This is used to create one-shot systems from templates.
+///
+/// ```ignore
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::SystemId;
+/// use bevy_scene::prelude::*;
+/// 
+/// #[derive(Component, FromTemplate)]
+/// struct Callback(SystemId);
+///
+/// fn scene() -> impl Scene{
+///     bsn! {
+///         Callback(system_value(|| {})),    
+///     }
+/// }
+/// ```
+///
+/// Note that each system will be registered only once.
+/// They share the same [`SystemId`] across all templates referencing it.
+/// And the system will be automatically unregistered when no more referenced.
+///
+/// Therefore the system has same restriction as [`World::register_system_cached`].
+/// You should generally use the [`system_value`] helper function to create this, which enforces that the system is a zero-sized type.
 pub struct SystemIdTemplate(Arc<Mutex<Option<SystemOrId>>>);
 
 enum SystemOrId {
@@ -488,52 +508,59 @@ impl Default for SystemIdTemplate {
     }
 }
 
-/// These are used to track one-shot systems registered from templates, so that they can be cleaned up when the template is no longer in use and to prevent duplicate registrations.
-///
-/// A template instance will create a linked entity for each holding one-shot system. Each system will create a entity with `SytemIdRecorder` saved in `SceneSystemRegistry`, which counting references to it via `RefToSystem`.
-///
-/// `template_A`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA1_system1_entity, CompB1_system2_entity, ...])`
-///
-/// `template_A_clone`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA2_system1_entity, CompB2_system2_entity, ...])`
-///
-/// `system_1`: `SystemIdRecorder{...}, SystemRefs(vec![CompA1_system1_entity, CompA2_system1_entity, ...])`
-///
-/// `system_2`: `SystemIdRecorder{...}, SystemRefs(vec![CompB1_system2_entity, CompB2_system2_entity, ...])`
-///
-/// When `template_A` and `template_A_clone` are dropped, the linked entities will be despawned, which triggers the cleanup system to check the system entities. Since both `system_1` and `system_2` have no more references, they will be despawned and unregistered.
+// These are used to track one-shot systems registered from templates, so that they can be cleaned up when the template is no longer in use and to prevent duplicate registrations.
+//
+// A template instance will create a linked entity for each holding one-shot system. Each system will create a entity with `SystemIdRecorder` saved in `SceneSystemRegistry`, which counting references to it via `RefToSystem`.
+//
+// `template_A`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA1_system1_entity, CompB1_system2_entity, ...])`
+//
+// `template_A_clone`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA2_system1_entity, CompB2_system2_entity, ...])`
+//
+// `system_1`: `SystemIdRecorder{...}, SystemRefs(vec![CompA1_system1_entity, CompA2_system1_entity, ...])`
+//
+// `system_2`: `SystemIdRecorder{...}, SystemRefs(vec![CompB1_system2_entity, CompB2_system2_entity, ...])`
+//
+// When `template_A` and `template_A_clone` are dropped, the linked entities will be despawned, which triggers the cleanup system to check the system entities. Since both `system_1` and `system_2` have no more references, they will be despawned and the system is unregistered.
 
+/// A registry that tracks one-shot systems by their [`core::any::TypeId`], since we don't want it registered multiple times for same system.
 #[derive(Resource, Default)]
 struct SceneSystemRegistry {
     type_map: bevy_platform::collections::HashMap<core::any::TypeId, Entity>,
-    id_map: bevy_platform::collections::HashMap<SystemId<(), ()>, Entity>,
 }
 
 #[derive(Component, Clone)]
-struct SystemIdRecorder {
+struct TypeIdRecorder {
     type_id: core::any::TypeId,
-    system_id: SystemId<(), ()>,
 }
 
+/// These simulate a many-to-many between templates and systems in companion with [`LinkLifetimeWith`].
+/// A template refers to its systems via [`LinkedWith`] and a system refers to its templates via [`SystemRefs`].
 #[derive(Component)]
 #[relationship(relationship_target = SystemRefs)]
 #[component(on_remove = on_ref_to_system_remove)]
 struct RefToSystem(Entity);
 
 fn on_ref_to_system_remove(mut world: DeferredWorld, ctx: HookContext) {
-    let entity = ctx.entity;
-    let system_refs_entity = world.get::<RefToSystem>(entity).unwrap().0;
+    let system_refs_entity = world.get::<RefToSystem>(ctx.entity).unwrap().0;
     let system_refs = &world.get::<SystemRefs>(system_refs_entity).unwrap().0;
 
-    if system_refs.is_empty() { // a system is no more referenced, so we can clean it up.
-        let system_recorder = world.get::<SystemIdRecorder>(system_refs_entity).unwrap().clone();
+    // This hook is called in `on_remove` while relationship is maintained in `on_discard`,
+    // which is ensured to be run before `on_remove` when removing a `Component`.
+    // The collection hereby should be empty if a system is no more referenced.
+    // And we can clean it up.
+    if system_refs.is_empty() {
+        let system_recorder = world
+            .get::<TypeIdRecorder>(system_refs_entity)
+            .unwrap()
+            .clone();
 
         let mut registry = world.resource_mut::<SceneSystemRegistry>();
         registry.type_map.remove(&system_recorder.type_id);
-        registry.id_map.remove(&system_recorder.system_id);
-        
+
         let mut commands = world.commands();
-        commands.unregister_system(system_recorder.system_id);
-        commands.entity(system_refs_entity).despawn();
+
+        // reused the entity spawned by `register_boxed_system`, so we don't need to despawn it again.
+        commands.unregister_system::<(), ()>(SystemId::from_entity(system_refs_entity));
     }
 }
 #[derive(Component)]
@@ -544,28 +571,16 @@ struct SystemRefs(Vec<Entity>);
 #[relationship(relationship_target = LinkedWith)]
 struct LinkLifetimeWith(Entity);
 
+/// When a template entity is despawned, all its relationship with systems will be removed.
+/// Hence the system entities will be notified via `on_ref_to_system_remove` hook to check if they are still referenced by any templates, and clean up if not.
 #[derive(Component)]
-#[relationship_target(relationship = LinkLifetimeWith)]
-#[component(on_remove = on_template_remove)]
+#[relationship_target(relationship = LinkLifetimeWith, linked_spawn)]
 struct LinkedWith(Vec<Entity>);
-
-fn on_template_remove(mut world: DeferredWorld, ctx: HookContext) {
-    let entity = ctx.entity;
-    let linked = world.get::<LinkedWith>(entity).unwrap().0.clone();
-
-    let mut commands = world.commands();
-
-    for linked_entity in linked {
-        commands.entity(linked_entity).despawn();
-    }
-}
 
 impl Template for SystemIdTemplate {
     type Output = SystemId<(), ()>;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
-        let template_item_entity = _context.entity.id();
-
         // ensure the registry exists.
         _context.entity.world_scope(|world| {
             world.init_resource::<SceneSystemRegistry>();
@@ -579,34 +594,39 @@ impl Template for SystemIdTemplate {
                 let registry = world.resource::<SceneSystemRegistry>();
 
                 let type_id = system.system_type();
-                if let Some(&entity) = registry.type_map.get(&type_id) {
-                    let recorder = world.entity(entity).get::<SystemIdRecorder>().unwrap();
 
-                    recorder.system_id
+                if let Some(&entity) = registry.type_map.get(&type_id) {
+                    // this system has already been registered, so just get a `SystemId` for it.
+                    SystemId::from_entity(entity)
                 } else {
-                    let id = world.register_boxed_system(system);
-                    let entity = world
-                        .spawn((Name("SystemEntity".into()),SystemIdRecorder {
-                            system_id: id,
-                            type_id,
-                        }))
-                        .id();
+                    // otherwise register the system and do associated preparation.
+                    let system_id = world.register_boxed_system(system);
+                    let system_entity = system_id.entity;
+
+                    // link `TypeId` to `SystemId` for future reference.
+                    world
+                        .entity_mut(system_entity)
+                        .insert(TypeIdRecorder { type_id });
 
                     let mut registry = world.resource_mut::<SceneSystemRegistry>();
 
-                    registry.type_map.insert(type_id, entity);
-                    registry.id_map.insert(id, entity);
+                    registry.type_map.insert(type_id, system_entity);
 
-                    id
+                    system_id
                 }
             }),
             SystemOrId::SystemId(system_id) => system_id,
         };
 
+        // replace the system with its `SystemId`, so that next time we can skip registration and just clone the `SystemId`.
         *template_state = Some(SystemOrId::SystemId(system_id));
 
+        // create the relationship between template and system entites.
+        let template_item_entity = _context.entity.id();
+        let system_entity = system_id.entity;
+
+        // a middle entity is needed since we don't have many-to-many relationship yet.
         _context.entity.world_scope(|world| {
-            let system_entity = *world.resource::<SceneSystemRegistry>().id_map.get(&system_id).unwrap();
             world.spawn((
                 RefToSystem(system_entity),
                 LinkLifetimeWith(template_item_entity),
@@ -625,6 +645,8 @@ impl FromTemplate for SystemId<(), ()> {
     type Template = SystemIdTemplate;
 }
 
+/// A helper function to create a [`SystemIdTemplate`] from a given system. This has the same restriction with [`World::register_system_cached`],
+/// as the system of same type will be registered only once.
 pub fn system_value<M, S: IntoSystem<(), (), M>>(system: S) -> SystemIdTemplate {
     const {
         assert!(
@@ -632,7 +654,7 @@ pub fn system_value<M, S: IntoSystem<(), (), M>>(system: S) -> SystemIdTemplate 
             "Non-ZST systems (e.g. capturing closures, function pointers) cannot be cached.",
         );
     }
-    
+
     SystemIdTemplate(Arc::new(Mutex::new(Some(SystemOrId::BoxedSystem(
         Box::new(IntoSystem::into_system(system)),
     )))))
