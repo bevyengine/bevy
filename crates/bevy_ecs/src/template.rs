@@ -621,7 +621,7 @@ impl Template for SystemIdTemplate {
         // replace the system with its `SystemId`, so that next time we can skip registration and just clone the `SystemId`.
         *template_state = Some(SystemOrId::SystemId(system_id));
 
-        // create the relationship between template and system entites.
+        // create the relationship between template and system entities.
         let template_item_entity = _context.entity.id();
         let system_entity = system_id.entity;
 
