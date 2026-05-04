@@ -16,7 +16,7 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
-use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect};
 use bevy_ui_widgets::Button;
 
 use crate::{
@@ -86,7 +86,7 @@ impl FeathersButton {
                 height: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+                padding: UiRect::horizontal(px(8)),
                 border_radius: {props.corners.to_border_radius(4.0)},
             }
             Button
@@ -121,9 +121,9 @@ impl FeathersButton {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
-pub struct ToolButton;
+pub struct FeathersToolButton;
 
-impl ToolButton {
+impl FeathersToolButton {
     fn scene(props: FeathersButtonProps) -> impl Scene {
         bsn! {
             :FeathersButton {
@@ -132,7 +132,7 @@ impl ToolButton {
                 @corners: {props.corners}
             }
             Node {
-                padding: UiRect::axes(Val::Px(4.0), Val::Px(0.)),
+                padding: UiRect::horizontal(px(4)),
                 min_width: size::ROW_HEIGHT,
             }
         }
@@ -170,7 +170,7 @@ pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundl
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: props.corners.to_border_radius(4.0),
             ..Default::default()

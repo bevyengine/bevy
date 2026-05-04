@@ -2776,6 +2776,12 @@ impl BorderRadius {
     }
 }
 
+impl From<Val> for BorderRadius {
+    fn from(value: Val) -> Self {
+        Self::all(value)
+    }
+}
+
 /// Represents the resolved border radius values for a UI node.
 ///
 /// The values are in physical pixels.
