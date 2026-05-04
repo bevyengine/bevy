@@ -42,6 +42,7 @@ use bevy_platform::{
 use core::{mem::ManuallyDrop, ops::Range};
 use log::warn;
 use nonmax::NonMaxU32;
+use std::intrinsics::overflow_checks;
 
 use crate::query::DebugCheckedUnwrap;
 
@@ -741,7 +742,11 @@ struct FreshAllocator {
 }
 
 impl FreshAllocator {
-    pub(crate) fn new(range: &Range<u32>) -> Self {
+    /// This exists because it may possibly change depending on platform.
+    /// Ex: We may want this to be smaller on 32 bit platforms at some point.
+    const MAX_ENTITIES: u32 = u32::MAX;
+
+    pub(crate) fn new(range: Range<u32>) -> Self {
         Self {
             next_entity_index: AtomicU32::new(range.start),
             max_index: range.end,
@@ -768,9 +773,14 @@ impl FreshAllocator {
     #[inline]
     fn alloc(&self) -> Option<Entity> {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-        if index == self.max_index {
+        if index >= self.max_index {
+            self.next_entity_index
+                .store(self.max_index, Ordering::Relaxed);
             return None;
+        } else if index == Self::MAX_ENTITIES {
+            Self::on_overflow();
         }
+
         // SAFETY: We just checked that this was not max and we only added 1, so we can't have missed it.
         Some(Entity::from_index(unsafe {
             EntityIndex::new(NonMaxU32::new_unchecked(index))
@@ -831,7 +841,7 @@ struct SharedAllocator {
 
 impl SharedAllocator {
     /// Constructs a [`SharedAllocator`]
-    fn new(range: &Range<u32>) -> Self {
+    fn new(range: Range<u32>) -> Self {
         Self {
             free: FreeList::new(),
             fresh: FreshAllocator::new(range),
@@ -909,7 +919,7 @@ impl Allocator {
     /// Constructs a new [`Allocator`]
     pub(super) fn new(range: Range<u32>) -> Self {
         Self {
-            shared: Arc::new(SharedAllocator::new(&range)),
+            shared: Arc::new(SharedAllocator::new(range.clone())),
             local_free: Box::new(ArrayVec::new()),
             range,
         }

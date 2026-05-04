@@ -787,7 +787,7 @@ impl EntityAllocator {
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
     /// This is useful if you want to enforce properties about the [`EntityIndex`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
-        self.try_alloc().expect("out of entities")
+        self.inner.try_alloc().expect("out of entities")
     }
 
     /// Allocates some [`Entity`].
