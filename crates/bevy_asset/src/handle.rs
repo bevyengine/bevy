@@ -934,7 +934,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "blocked by #24111"]
+    #[ignore = "Known failure tracked in #24111"]
     fn handle_try_apply_verifies_type_id() {
         #[derive(Reflect, Asset)]
         struct A;
