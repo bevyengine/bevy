@@ -5,18 +5,8 @@ use bevy::{
     ecs::VariantDefaults,
     feathers::{
         constants::{fonts, icons},
-        containers::{
-            flex_spacer, group, group_body, group_header, pane, pane_body, pane_header,
-            pane_header_divider, subpane, subpane_body, subpane_header,
-        },
-        controls::{
-            ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchValue,
-            FeathersButton, FeathersCheckbox, FeathersColorPlane, FeathersColorSlider,
-            FeathersColorSwatch, FeathersDisclosureToggle, FeathersMenu, FeathersMenuButton,
-            FeathersMenuDivider, FeathersMenuItem, FeathersMenuPopup, FeathersNumberInput,
-            FeathersRadio, FeathersSlider, FeathersTextInput, FeathersTextInputContainer,
-            FeathersToggleSwitch, NumberInputValue, SliderBaseColor, ToolButton, UpdateNumberInput,
-        },
+        containers::*,
+        controls::*,
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         display::{icon, label, label_dim, label_small},
@@ -116,7 +106,7 @@ fn demo_column_1() -> impl Scene {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
             justify_content: JustifyContent::Start,
-            padding: UiRect::all(px(8)),
+            padding: px(8),
             row_gap: px(8),
             width: percent(30),
             min_width: px(200),
@@ -133,7 +123,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Normal") ThemedText }}
+                            @caption: {bsn! { Text("Normal") ThemedText }}
                         }
                         Node {
                             flex_grow: 1.0,
@@ -145,7 +135,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Disabled") ThemedText }},
+                            @caption: {bsn! { Text("Disabled") ThemedText }},
                         }
                         Node {
                             flex_grow: 1.0,
@@ -158,7 +148,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Primary") ThemedText }},
+                            @caption: {bsn! { Text("Primary") ThemedText }},
                             @variant: ButtonVariant::Primary,
                         }
                         Node {
@@ -184,7 +174,7 @@ fn demo_column_1() -> impl Scene {
                                 Children [
                                     (
                                         :FeathersMenuItem {
-                                            @caption: {bsn!{ Text("MenuItem 1") ThemedText }}
+                                            @caption: {bsn! { Text("MenuItem 1") ThemedText }}
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
@@ -192,7 +182,7 @@ fn demo_column_1() -> impl Scene {
                                     ),
                                     (
                                         :FeathersMenuItem {
-                                            @caption: {bsn!{ Text("MenuItem 2") ThemedText }}
+                                            @caption: {bsn! { Text("MenuItem 2") ThemedText }}
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
@@ -201,7 +191,7 @@ fn demo_column_1() -> impl Scene {
                                     :FeathersMenuDivider,
                                     (
                                         :FeathersMenuItem {
-                                            @caption: {bsn!{ Text("MenuItem 3") ThemedText }}
+                                            @caption: {bsn! { Text("MenuItem 3") ThemedText }}
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
@@ -224,7 +214,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Left") ThemedText }},
+                            @caption: {bsn! { Text("Left") ThemedText }},
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -236,7 +226,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Center") ThemedText }},
+                            @caption: {bsn! { Text("Center") ThemedText }},
                             @corners: RoundedCorners::None,
                         }
                         Node {
@@ -248,7 +238,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         :FeathersButton {
-                            @caption: {bsn!{ Text("Right") ThemedText }},
+                            @caption: {bsn! { Text("Right") ThemedText }},
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
@@ -275,7 +265,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 :FeathersCheckbox {
-                    @caption: {bsn!{ Text("Checkbox") ThemedText }}
+                    @caption: {bsn! { Text("Checkbox") ThemedText }}
                 }
                 Checked
                 on(
@@ -300,7 +290,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 :FeathersCheckbox {
-                    @caption: {bsn!{ Text("Fast Click Checkbox") ThemedText }}
+                    @caption: {bsn! { Text("Fast Click Checkbox") ThemedText }}
                 }
                 ActivateOnPress
                 on(
@@ -318,7 +308,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 :FeathersCheckbox {
-                    @caption: {bsn!{ Text("Disabled") ThemedText }},
+                    @caption: {bsn! { Text("Disabled") ThemedText }},
                 }
                 InteractionDisabled
                 on(|_change: On<ValueChange<bool>>| {
@@ -327,7 +317,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 :FeathersCheckbox {
-                    @caption: {bsn!{ Text("Checked+Disabled") ThemedText }}
+                    @caption: {bsn! { Text("Checked+Disabled") ThemedText }}
                 }
                 InteractionDisabled
                 Checked
@@ -355,22 +345,22 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 :FeathersRadio {
-                                    @caption: {bsn!{ Text("One") ThemedText }}
+                                    @caption: {bsn! { Text("One") ThemedText }}
                                 }
                                 Checked
                             ),
                             :FeathersRadio {
-                                @caption: {bsn!{ Text("Two") ThemedText }}
+                                @caption: {bsn! { Text("Two") ThemedText }}
                             },
                             (
                                 :FeathersRadio {
-                                    @caption: {bsn!{ Text("Fast Click") ThemedText }}
+                                    @caption: {bsn! { Text("Fast Click") ThemedText }}
                                 }
                                 ActivateOnPress
                             ),
                             (
                                 :FeathersRadio {
-                                    @caption: {bsn!{ Text("Disabled") ThemedText }}
+                                    @caption: {bsn! { Text("Disabled") ThemedText }}
                                 }
                                 InteractionDisabled
                             ),
@@ -409,7 +399,7 @@ fn demo_column_1() -> impl Scene {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
-                    column_gap: px(4.0),
+                    column_gap: px(4),
                 }
                 Children [
                     :label("Srgba"),
@@ -420,7 +410,7 @@ fn demo_column_1() -> impl Scene {
                         :FeathersTextInputContainer
                         Node {
                             flex_grow: 0.
-                            padding: { px(4.).left().with_right(px(0.)) },
+                            padding: { px(4).left() },
                         }
                         Children [
                             (
@@ -532,44 +522,44 @@ fn demo_column_2() -> impl Scene {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
             justify_content: JustifyContent::Start,
-            padding: UiRect::all(Val::Px(8.0)),
-            row_gap: Val::Px(8.0),
-            width: Val::Percent(30.),
-            min_width: Val::Px(200.),
+            padding: px(8),
+            row_gap: px(8),
+            width: percent(30),
+            min_width: px(200),
         }
         Children [
             (
                 :pane Children [
                     :pane_header Children [
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Primary,
                         } Children [
                             (Text("\u{0398}") ThemedText)
                         ],
                         :pane_header_divider,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BC}") ThemedText)
                         ],
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BD}") ThemedText)
                         ],
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BE}") ThemedText)
                         ],
                         :pane_header_divider,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             :icon(icons::CHEVRON_DOWN)
                         ],
                         :flex_spacer,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             :icon(icons::X)
