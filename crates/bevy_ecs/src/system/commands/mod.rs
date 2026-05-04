@@ -2964,7 +2964,8 @@ mod tests {
 
         fn nothing() {}
 
-        let resources = world.iter_resources().count();
+        // +1 accounts for `RegisteredSystemDespawner` resource
+        let resources = world.iter_resources().count() + 1;
         let handle = world.register_system_cached(nothing);
         assert_eq!(world.iter_resources().count(), resources + 1);
         assert!(world.get_entity(handle.entity()).is_ok());

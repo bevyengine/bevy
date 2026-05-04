@@ -33,7 +33,7 @@ impl<I, O> RegisteredSystem<I, O> {
     }
 }
 
-/// A system that despawns any [`RegisteredSystem`] entities whose [`SystemHandle`]
+/// A system that despawns any registered system entities whose [`SystemHandle`]
 /// reference count has reached zero.
 #[cfg(feature = "std")]
 pub fn despawn_unused_registered_systems(
@@ -49,7 +49,7 @@ pub fn despawn_unused_registered_systems(
     }
 }
 
-/// A resource that stores the channel for despawning unused [`RegisteredSystem`]
+/// A resource that stores the channel for despawning unused registered system
 /// entities.
 #[derive(Resource)]
 #[cfg(feature = "std")]
@@ -128,9 +128,13 @@ impl<I, O> RemovedSystem<I, O> {
     }
 }
 
-/// A maybe-strong handle to an entity with a [`RegisteredSystem`] component.
+/// A maybe-strong handle to an entity acting as a registered system.
+///
 /// Strong handles provide automatic cleanup of registered systems once all clones
-/// of the handle are dropped, while weak handles do not.
+/// of the handle are dropped, while weak handles do not. However, the **existence
+/// of a strong handle does not prevent the registered system entity from being
+/// despawned manually**, like with [`World::unregister_system`] or
+/// [`World::unregister_system_cached`].
 ///
 /// Strong handles are only returned by functions on [`World`], like
 /// [`World::register_system`] and [`World::register_system_cached`].
@@ -139,7 +143,7 @@ impl<I, O> RemovedSystem<I, O> {
 ///
 /// # Cleanup
 ///
-/// [`RegisteredSystem`] entities are cleaned up by the [`despawn_unused_registered_systems`]
+/// Registered system entities are cleaned up by the [`despawn_unused_registered_systems`]
 /// system, which is automatically added to the default app by the `bevy_ecs`
 /// crate when the "std" feature is enabled. If not using the default app, the
 /// "std" feature, or `bevy_app` in general, consider running this system
