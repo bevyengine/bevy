@@ -9,8 +9,9 @@ use bevy::{
     light::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    material::OpaqueRendererMethod,
     math::ops,
-    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
+    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
 };
 
@@ -59,7 +60,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -75,9 +76,9 @@ fn setup(
     let helmet_scene = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneRoot(helmet_scene.clone()));
+    commands.spawn(WorldAssetRoot(helmet_scene.clone()));
     commands.spawn((
-        SceneRoot(helmet_scene),
+        WorldAssetRoot(helmet_scene),
         Transform::from_xyz(-4.0, 0.0, -3.0),
     ));
 
@@ -122,7 +123,7 @@ fn setup(
         PointLight {
             intensity: 800.0,
             radius: 0.125,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             color: sphere_color,
             ..default()
         },
@@ -217,12 +218,14 @@ fn setup_parallax(
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load_with_settings(
-        "textures/parallax_example/cube_normal.png",
-        // The normal map texture is in linear color space. Lighting won't look correct
-        // if `is_srgb` is `true`, which is the default.
-        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    );
+    let normal_handle = asset_server
+        .load_builder()
+        .with_settings(
+            // The normal map texture is in linear color space. Lighting won't look correct
+            // if `is_srgb` is `true`, which is the default.
+            |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+        )
+        .load("textures/parallax_example/cube_normal.png");
 
     let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 

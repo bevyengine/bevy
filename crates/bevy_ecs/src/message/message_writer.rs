@@ -5,6 +5,11 @@ use crate::{
 
 /// Writes [`Message`]s of type `T`.
 ///
+/// This system parameter takes exclusive access to the [`Messages<T>`] resource,
+/// so a system cannot also have a [`MessageReader`](super::MessageReader) parameter of the same type.
+/// If you need to both read and write messages of the same type,
+/// use [`MessageMutator`](super::MessageMutator).
+///
 /// # Usage
 ///
 /// `MessageWriter`s are usually declared as a [`SystemParam`].
@@ -12,9 +17,9 @@ use crate::{
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Message)]
-/// pub struct MyMessage; // Custom message type.
+/// pub struct MyMessage(String); // Custom message type.
 /// fn my_system(mut writer: MessageWriter<MyMessage>) {
-///     writer.write(MyMessage);
+///     writer.write(MyMessage("My custom payload!".to_string()));
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
@@ -54,19 +59,19 @@ use crate::{
 ///
 /// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
-pub struct MessageWriter<'w, E: Message> {
+pub struct MessageWriter<'w, M: Message> {
     #[system_param(validation_message = "Message not initialized")]
-    messages: ResMut<'w, Messages<E>>,
+    messages: ResMut<'w, Messages<M>>,
 }
 
-impl<'w, E: Message> MessageWriter<'w, E> {
+impl<'w, M: Message> MessageWriter<'w, M> {
     /// Writes an `message`, which can later be read by [`MessageReader`](super::MessageReader)s.
     /// This method returns the [ID](`MessageId`) of the written `message`.
     ///
     /// See [`Messages`] for details.
     #[doc(alias = "send")]
     #[track_caller]
-    pub fn write(&mut self, message: E) -> MessageId<E> {
+    pub fn write(&mut self, message: M) -> MessageId<M> {
         self.messages.write(message)
     }
 
@@ -77,7 +82,7 @@ impl<'w, E: Message> MessageWriter<'w, E> {
     /// See [`Messages`] for details.
     #[doc(alias = "send_batch")]
     #[track_caller]
-    pub fn write_batch(&mut self, messages: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
+    pub fn write_batch(&mut self, messages: impl IntoIterator<Item = M>) -> WriteBatchIds<M> {
         self.messages.write_batch(messages)
     }
 
@@ -87,9 +92,9 @@ impl<'w, E: Message> MessageWriter<'w, E> {
     /// See [`Messages`] for details.
     #[doc(alias = "send_default")]
     #[track_caller]
-    pub fn write_default(&mut self) -> MessageId<E>
+    pub fn write_default(&mut self) -> MessageId<M>
     where
-        E: Default,
+        M: Default,
     {
         self.messages.write_default()
     }

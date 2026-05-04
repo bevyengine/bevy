@@ -1,7 +1,7 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
-    entity::{Entity, EntityRow},
+    change_detection::{CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo},
+    entity::{Entity, EntityIndex},
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, Column, TableRow, VecExtensions},
 };
@@ -10,14 +10,37 @@ use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZero, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
+/// A map from `I` to `V` implemented as a `Vec<Option<V>>`.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they are simple
+/// array indexing operations with no calculations.
+///
+/// However, it may use a lot of excess memory if the
+/// values are large or the set is sparsely populated.
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
 }
 
-/// A space-optimized version of [`SparseArray`] that cannot be changed
-/// after construction.
+/// A map from `I` to `V` implemented as a `Box<[Option<V>]>`.
+///
+/// This uses less space than [`SparseArray`] because it does not
+/// need to store both length and capacity,
+/// but it cannot be changed after construction.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they are simple
+/// array indexing operations with no calculations.
+///
+/// However, it may use a lot of excess memory if the
+/// values are large or the set is sparsely populated.
+
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
@@ -112,6 +135,19 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
             marker: PhantomData,
         }
     }
+
+    /// Returns an iterator over the non-empty values in the array.
+    ///
+    /// This must scan the entire array to find non-empty values,
+    /// which may be slow even if the array is sparsely populated.
+    #[inline]
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
+        self.values.iter().enumerate().filter_map(|(index, value)| {
+            value
+                .as_ref()
+                .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
+        })
+    }
 }
 
 /// A sparse data structure of [`Component`](crate::component::Component)s.
@@ -125,10 +161,10 @@ pub struct ComponentSparseSet {
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
     #[cfg(not(debug_assertions))]
-    entities: Vec<EntityRow>,
+    entities: Vec<EntityIndex>,
     #[cfg(debug_assertions)]
     entities: Vec<Entity>,
-    sparse: SparseArray<EntityRow, TableRow>,
+    sparse: SparseArray<EntityIndex, TableRow>,
 }
 
 impl ComponentSparseSet {
@@ -180,7 +216,7 @@ impl ComponentSparseSet {
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
-        if let Some(&dense_index) = self.sparse.get(entity.row()) {
+        if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
             self.dense.replace(dense_index, value, change_tick, caller);
@@ -189,7 +225,7 @@ impl ComponentSparseSet {
             let capacity = self.entities.capacity();
 
             #[cfg(not(debug_assertions))]
-            self.entities.push(entity.row());
+            self.entities.push(entity.index());
             #[cfg(debug_assertions)]
             self.entities.push(entity);
 
@@ -208,11 +244,11 @@ impl ComponentSparseSet {
                 }
             }
 
-            // SAFETY: This entity row does not exist here yet, so there are no duplicates,
+            // SAFETY: This entity index does not exist here yet, so there are no duplicates,
             // and the entity index is `NonMaxU32` so the length must not be max either.
             let table_row = unsafe { TableRow::new(NonMaxU32::new_unchecked(dense_index as u32)) };
             self.dense.initialize(table_row, value, change_tick, caller);
-            self.sparse.insert(entity.row(), table_row);
+            self.sparse.insert(entity.index(), table_row);
 
             core::mem::forget(_guard);
         }
@@ -223,7 +259,7 @@ impl ComponentSparseSet {
     pub fn contains(&self, entity: Entity) -> bool {
         #[cfg(debug_assertions)]
         {
-            if let Some(&dense_index) = self.sparse.get(entity.row()) {
+            if let Some(&dense_index) = self.sparse.get(entity.index()) {
                 #[cfg(debug_assertions)]
                 assert_eq!(entity, self.entities[dense_index.index()]);
                 true
@@ -232,7 +268,7 @@ impl ComponentSparseSet {
             }
         }
         #[cfg(not(debug_assertions))]
-        self.sparse.contains(entity.row())
+        self.sparse.contains(entity.index())
     }
 
     /// Returns a reference to the entity's component value.
@@ -240,7 +276,7 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
-        self.sparse.get(entity.row()).map(|&dense_index| {
+        self.sparse.get(entity.index()).map(|&dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
             // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -252,26 +288,19 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_with_ticks(
-        &self,
-        entity: Entity,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
-    )> {
-        let dense_index = *self.sparse.get(entity.row())?;
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
+        let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
-                TickCells {
+                ComponentTickCells {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
+                    changed_by: self.dense.get_changed_by_unchecked(dense_index),
                 },
-                self.dense.get_changed_by_unchecked(dense_index),
             ))
         }
     }
@@ -281,7 +310,7 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_added_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
-        let dense_index = *self.sparse.get(entity.row())?;
+        let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -293,7 +322,7 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_changed_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
-        let dense_index = *self.sparse.get(entity.row())?;
+        let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -305,7 +334,7 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
-        let dense_index = *self.sparse.get(entity.row())?;
+        let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -321,7 +350,7 @@ impl ComponentSparseSet {
         entity: Entity,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            let dense_index = *self.sparse.get(entity.row())?;
+            let dense_index = *self.sparse.get(entity.index())?;
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
             // SAFETY: if the sparse index points to something in the dense vec, it exists
@@ -340,7 +369,7 @@ impl ComponentSparseSet {
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
     pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
-        self.sparse.remove(entity.row()).map(|dense_index| {
+        self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
             let last = self.entities.len() - 1;
@@ -370,7 +399,7 @@ impl ComponentSparseSet {
                 #[cfg(not(debug_assertions))]
                 let index = *swapped_entity;
                 #[cfg(debug_assertions)]
-                let index = swapped_entity.row();
+                let index = swapped_entity.index();
                 // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
                 // been inserted and in bounds.
                 unsafe {
@@ -391,7 +420,7 @@ impl ComponentSparseSet {
     /// Returns `true` if `entity` had a component value in the sparse set.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
         self.sparse
-            .remove(entity.row())
+            .remove(entity.index())
             .map(|dense_index| {
                 #[cfg(debug_assertions)]
                 assert_eq!(entity, self.entities[dense_index.index()]);
@@ -418,7 +447,7 @@ impl ComponentSparseSet {
                     #[cfg(not(debug_assertions))]
                     let index = *swapped_entity;
                     #[cfg(debug_assertions)]
-                    let index = swapped_entity.row();
+                    let index = swapped_entity.index();
                     // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
                     // been inserted and in bounds.
                     unsafe {
@@ -452,22 +481,75 @@ impl Drop for ComponentSparseSet {
     }
 }
 
-/// A data structure that blends dense and sparse storage
+/// A map from `I` to `V` that combines dense and sparse storage.
 ///
-/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
+/// This is implemented as a sparse array mapping keys to dense indexes,
+/// plus dense arrays of indexes and keys.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they consist of one array index to map
+/// the key to a dense index, followed by a second array index to find the value.
+///
+/// This may use a lot of excess memory if the set is sparsely populated,
+/// since it stores an empty entry for each key.
+///
+/// Compared to a simple `Vec<Option<V>>`,
+/// the dense storage of values takes less memory when `V` is large,
+/// although the overhead of tracking which entries have values
+/// may make it larger when `V` is small or the set is densely populated.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
+    /// The mapping from dense index to value.
+    ///
+    /// `dense[sparse[k]]` holds the value for `k`.
     dense: Vec<V>,
+
+    /// The reverse mapping from dense index to key.
+    ///
+    /// `indices[sparse[k]] == k`
     indices: Vec<I>,
+
+    /// The mapping from keys to dense indexes.
     sparse: SparseArray<I, NonMaxUsize>,
 }
 
-/// A space-optimized version of [`SparseSet`] that cannot be changed
-/// after construction.
+/// A map from `I` to `V` that combines dense and sparse storage.
+///
+/// This is implemented as a sparse array mapping keys to dense indexes,
+/// plus dense arrays of indexes and keys.
+///
+/// This uses less space than [`SparseSet`] because it does not
+/// need to store both length and capacity,
+/// but it cannot be changed after construction.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they consist of one array index to map
+/// the key to a dense index, followed by a second array index to find the value.
+///
+/// This may use a lot of excess memory if the set is sparsely populated,
+/// since it stores an empty entry for each key.
+///
+/// Compared to a simple `Vec<Option<V>>`,
+/// the dense storage of values takes less memory when `V` is large,
+/// although the overhead of tracking which entries have values
+/// may make it larger when `V` is small or the set is densely populated.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
+    /// The mapping from dense index to value.
+    ///
+    /// `dense[sparse[k]]` holds the value for `k`.
     dense: Box<[V]>,
+
+    /// The reverse mapping from dense index to key.
+    ///
+    /// `indices[sparse[k]] == k`
     indices: Box<[I]>,
+
+    /// The mapping from keys to dense indexes.
     sparse: ImmutableSparseArray<I, NonMaxUsize>,
 }
 
@@ -771,7 +853,7 @@ mod tests {
     use super::SparseSets;
     use crate::{
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
-        entity::{Entity, EntityRow},
+        entity::{Entity, EntityIndex},
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
@@ -782,11 +864,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::from_row(EntityRow::from_raw_u32(0).unwrap());
-        let e1 = Entity::from_row(EntityRow::from_raw_u32(1).unwrap());
-        let e2 = Entity::from_row(EntityRow::from_raw_u32(2).unwrap());
-        let e3 = Entity::from_row(EntityRow::from_raw_u32(3).unwrap());
-        let e4 = Entity::from_row(EntityRow::from_raw_u32(4).unwrap());
+        let e0 = Entity::from_index(EntityIndex::from_raw_u32(0).unwrap());
+        let e1 = Entity::from_index(EntityIndex::from_raw_u32(1).unwrap());
+        let e2 = Entity::from_index(EntityIndex::from_raw_u32(2).unwrap());
+        let e3 = Entity::from_index(EntityIndex::from_raw_u32(3).unwrap());
+        let e4 = Entity::from_index(EntityIndex::from_raw_u32(4).unwrap());
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));
