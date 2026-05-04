@@ -64,7 +64,7 @@ use log::warn;
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
-/// A one-to-one relationship can be created by not having a `Vec` in the [`RelationshipTarget`].
+/// A one-to-one relationship can be created by putting a single [`Entity`] in the [`RelationshipTarget`]'s field.
 /// In that case, if another entity is added to the relationship, the original entity is removed.
 ///
 /// ```
