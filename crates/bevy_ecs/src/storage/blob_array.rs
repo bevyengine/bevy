@@ -1,17 +1,23 @@
-use super::blob_vec::array_layout;
-use crate::storage::blob_vec::array_layout_unchecked;
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
-/// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
-/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
+use crate::query::DebugCheckedUnwrap;
+
+/// A flat, type-erased data storage type.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
-/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the Blob that it stores,
-/// and a pointer to the location of the start of the array, similar to a C array.
+/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the blob that it stores,
+/// and a pointer to the location of the start of the array, similar to a C-style `void*` array.
+///
+/// This type is reliant on its owning type to store the capacity and length information.
+#[derive(Debug)]
 pub(super) struct BlobArray {
+    /// The layout of the data.
+    /// This always has `size()` as a multiple of `align()`,
+    /// meaning we can use `repeat_packed` for layout and can
+    /// index the array by multiplying `size()` by the index.
     item_layout: Layout,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
@@ -31,8 +37,10 @@ impl BlobArray {
     /// processes typically associated with the stored element.
     ///
     /// # Safety
-    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
-    /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    /// - `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
+    ///   If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    /// - `item_layout.size()` must be a multiple of `item_layout.align()`.
+    ///   Note that this is true for all rust types, but not all `Layout` values.
     ///
     /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn with_capacity(
@@ -42,7 +50,16 @@ impl BlobArray {
     ) -> Self {
         if capacity == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
-            let data = bevy_ptr::dangling_with_align(align);
+            // Indexing operations require that the size be a multiple of the alignment
+            debug_assert_eq!(
+                item_layout.pad_to_align(),
+                item_layout,
+                "Layout size must be a multiple of its alignment"
+            );
+
+            // Create a dangling pointer with the given alignment.
+            let data = NonNull::without_provenance(align);
+
             Self {
                 item_layout,
                 drop: drop_fn,
@@ -51,7 +68,8 @@ impl BlobArray {
                 capacity,
             }
         } else {
-            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
+            // SAFETY: Upheld by caller
+            let mut arr = unsafe { Self::with_capacity(item_layout, drop_fn, 0) };
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
@@ -69,10 +87,17 @@ impl BlobArray {
         self.item_layout.size() == 0
     }
 
+    /// Returns the drop function for values stored in the vector,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
+
     /// Returns a reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element at index `index` is safe to access.
@@ -95,7 +120,7 @@ impl BlobArray {
     /// Returns a mutable reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
@@ -133,7 +158,7 @@ impl BlobArray {
     /// To get a slice to the entire array, the caller must plug `len` in `slice_len`.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The type `T` must be the type of the items in this [`BlobArray`].
@@ -193,8 +218,8 @@ impl BlobArray {
         if cap != 0 {
             self.clear(len);
             if !self.is_zst() {
-                let layout =
-                    array_layout(&self.item_layout, cap).expect("array layout should be valid");
+                let layout = self.item_layout.repeat_packed(cap);
+                let layout = layout.expect("array layout should be valid");
                 alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
             }
             #[cfg(debug_assertions)]
@@ -227,12 +252,16 @@ impl BlobArray {
 
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, 0);
         if !self.is_zst() {
-            let new_layout = array_layout(&self.item_layout, capacity.get())
-                .expect("array layout should be valid");
+            let new_layout = self.item_layout.repeat_packed(capacity.get());
+            let new_layout = new_layout.expect("array layout should be valid");
             // SAFETY: layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
             let new_data = unsafe { alloc::alloc::alloc(new_layout) };
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
@@ -247,6 +276,10 @@ impl BlobArray {
     /// For example, if the length (number of stored elements) reached the capacity (number of elements the current allocation can store),
     /// you might want to use this method to increase the allocation, so more data can be stored in the array.
     ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
+    ///
     /// # Safety
     /// - `current_capacity` is indeed the current capacity of this array.
     /// - After calling this method, the caller must update their saved capacity to reflect the change.
@@ -258,21 +291,21 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, current_capacity.get());
         if !self.is_zst() {
-            // SAFETY: `new_capacity` can't overflow usize
-            let new_layout =
-                unsafe { array_layout_unchecked(&self.item_layout, new_capacity.get()) };
+            let new_layout = self.item_layout.repeat_packed(new_capacity.get());
+            let new_layout = new_layout.expect("array layout should be valid");
+            let layout = self.item_layout.repeat_packed(current_capacity.get());
             // SAFETY:
             // - ptr was be allocated via this allocator
-            // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
+            // - the layout used to previously allocate this array is equivalent to `self.item_layout.repeat_packed(current_capacity.get())`
             // - `item_layout.size() > 0` (`self.is_zst`==false) and `new_capacity > 0`, so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
-            // here and the overflow is handled in `array_layout`
+            // here and the overflow is handled in `Layout::repeat_packed`
             let new_data = unsafe {
                 alloc::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-                    array_layout_unchecked(&self.item_layout, current_capacity.get()),
+                    layout.debug_checked_unwrap(),
                     new_layout.size(),
                 )
             };
@@ -365,7 +398,6 @@ impl BlobArray {
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
@@ -426,7 +458,6 @@ impl BlobArray {
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.

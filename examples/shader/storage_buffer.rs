@@ -1,12 +1,10 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshTag,
-        render_resource::{AsBindGroup, ShaderRef},
-        storage::ShaderStorageBuffer,
-    },
+    render::{render_resource::AsBindGroup, storage::ShaderBuffer},
+    shader::ShaderRef,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
@@ -23,7 +21,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
@@ -35,7 +33,7 @@ fn setup(
         [0.0, 1.0, 1.0, 1.0],
     ];
 
-    let colors = buffers.add(ShaderStorageBuffer::from(color_data));
+    let colors = buffers.add(ShaderBuffer::from(color_data));
 
     let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer
@@ -71,11 +69,11 @@ fn update(
     time: Res<Time>,
     material_handles: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
 ) {
     let material = materials.get_mut(&material_handles.0).unwrap();
 
-    let buffer = buffers.get_mut(&material.colors).unwrap();
+    let mut buffer = buffers.get_mut(&material.colors).unwrap();
     buffer.set_data(
         (0..5)
             .map(|i| {
@@ -87,8 +85,7 @@ fn update(
                     1.0,
                 ]
             })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice(),
+            .collect::<Vec<[f32; 4]>>(),
     );
 }
 
@@ -100,7 +97,7 @@ struct CustomMaterialHandle(Handle<CustomMaterial>);
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[storage(0, read_only)]
-    colors: Handle<ShaderStorageBuffer>,
+    colors: Handle<ShaderBuffer>,
 }
 
 impl Material for CustomMaterial {

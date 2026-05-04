@@ -1,12 +1,19 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
-
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    ComputedNode, GlobalZIndex, ZIndex,
+    GlobalZIndex, ZIndex,
 };
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use core::ops::Range;
+
+/// The order of the node in the UI layout.
+/// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
+///
+/// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
+#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct ComputedStackIndex(pub u32);
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -14,6 +21,8 @@ use crate::{
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
+    pub partition: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
@@ -41,15 +50,19 @@ impl ChildBufferCache {
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut visited_root_nodes: Local<HashSet<Entity>>,
+    mut visited_root_nodes: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    zindex_global_node_query: Query<
+        (Entity, &GlobalZIndex, Option<&ZIndex>),
+        With<ComputedStackIndex>,
+    >,
     ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
-    mut update_query: Query<&mut ComputedNode>,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedStackIndex>,
 ) {
+    ui_stack.partition.clear();
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
@@ -81,6 +94,7 @@ pub fn ui_stack_system(
     root_nodes.sort_by_key(|(_, z)| *z);
 
     for (root_entity, _) in root_nodes.drain(..) {
+        let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
             root_entity,
@@ -88,11 +102,13 @@ pub fn ui_stack_system(
             &zindex_query,
             &mut ui_stack.uinodes,
         );
+        let end = ui_stack.uinodes.len();
+        ui_stack.partition.push(start..end);
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok(mut node) = update_query.get_mut(*entity) {
-            node.bypass_change_detection().stack_index = i as u32;
+        if let Ok(mut stack_index) = update_query.get_mut(*entity) {
+            stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
 }
@@ -101,7 +117,7 @@ fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
     ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);
@@ -256,6 +272,27 @@ mod tests {
             (Label("0")), // GlobalZIndex(2)
         ];
         assert_eq!(actual_result, expected_result);
+
+        // Test partitioning
+        let last_part = ui_stack.partition.last().unwrap();
+        assert_eq!(last_part.len(), 1);
+        let last_entity = ui_stack.uinodes[last_part.start];
+        assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
+
+        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+        let expected_result = vec![
+            (Label("1")), // ZIndex(1)
+            (Label("1-0")),
+            (Label("1-0-2")), // ZIndex(-1)
+            (Label("1-0-0")),
+            (Label("1-0-1")),
+            (Label("1-1")),
+            (Label("1-3")),
+        ];
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]
@@ -305,5 +342,10 @@ mod tests {
         ];
 
         assert_eq!(actual_result, expected_result);
+
+        assert_eq!(ui_stack.partition.len(), expected_result.len());
+        for (i, part) in ui_stack.partition.iter().enumerate() {
+            assert_eq!(*part, i..i + 1);
+        }
     }
 }

@@ -1,7 +1,9 @@
-use super::{
+use bevy_material::bind_group_layout_entries::{
     binding_types::{storage_buffer_read_only, uniform_buffer_sized},
-    BindGroupLayoutEntryBuilder, BufferVec,
+    BindGroupLayoutEntryBuilder,
 };
+
+use super::BufferVec;
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
@@ -10,10 +12,11 @@ use bevy_ecs::{prelude::Component, resource::Resource};
 use core::marker::PhantomData;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
-use wgpu::{BindingResource, BufferUsages};
+use wgpu::{BindingResource, BufferUsages, Limits};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
+
 impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 
 /// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
@@ -38,10 +41,9 @@ pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
-    pub fn new(device: &RenderDevice) -> Self {
-        let limits = device.limits();
+    pub fn new(limits: &Limits) -> Self {
         if limits.max_storage_buffers_per_shader_stage == 0 {
-            GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
+            GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(limits))
         } else {
             GpuArrayBuffer::Storage(BufferVec::new(BufferUsages::STORAGE))
         }
@@ -75,8 +77,8 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
-        if device.limits().max_storage_buffers_per_shader_stage == 0 {
+    pub fn binding_layout(limits: &Limits) -> BindGroupLayoutEntryBuilder {
+        if limits.max_storage_buffers_per_shader_stage == 0 {
             uniform_buffer_sized(
                 true,
                 // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
@@ -88,17 +90,16 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
             GpuArrayBuffer::Storage(buffer) => buffer.binding(),
         }
     }
 
-    pub fn batch_size(device: &RenderDevice) -> Option<u32> {
-        let limits = device.limits();
+    pub fn batch_size(limits: &Limits) -> Option<u32> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
-            Some(BatchedUniformBuffer::<T>::batch_size(&limits) as u32)
+            Some(BatchedUniformBuffer::<T>::batch_size(limits) as u32)
         } else {
             None
         }
