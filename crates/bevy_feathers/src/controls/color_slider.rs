@@ -18,9 +18,9 @@ use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
-    FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
-    UiRect, UiTransform, Val, Val2, ZIndex,
+    percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
+    ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
+    Outline, PositionType, UiRect, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -196,7 +196,7 @@ impl FeathersColorSlider {
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
-                height: Val::Px(SLIDER_HEIGHT),
+                height: px(SLIDER_HEIGHT),
                 align_items: AlignItems::Stretch,
                 flex_grow: 1.0,
             }
@@ -217,10 +217,10 @@ impl FeathersColorSlider {
                 (
                     Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Px(0.),
-                        right: Val::Px(0.),
-                        top: Val::Px(TRACK_PADDING),
-                        bottom: Val::Px(TRACK_PADDING),
+                        left: px(0),
+                        right: px(0),
+                        top: px(TRACK_PADDING),
+                        bottom: px(TRACK_PADDING),
                         border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
                     }
                     ColorSliderTrack
@@ -230,7 +230,7 @@ impl FeathersColorSlider {
                         // Left endcap
                         (
                             Node {
-                                width: Val::Px({THUMB_SIZE * 0.5}),
+                                width: px(THUMB_SIZE * 0.5),
                                 border_radius: {RoundedCorners::Left.to_border_radius(TRACK_RADIUS)},
                             }
                             BackgroundColor(palette::X_AXIS)
@@ -243,9 +243,9 @@ impl FeathersColorSlider {
                             BackgroundGradient({vec![Gradient::Linear(LinearGradient {
                                 angle: PI * 0.5,
                                 stops: vec![
-                                    ColorStop::new(Color::NONE, Val::Percent(0.)),
-                                    ColorStop::new(Color::NONE, Val::Percent(50.)),
-                                    ColorStop::new(Color::NONE, Val::Percent(100.)),
+                                    ColorStop::new(Color::NONE, percent(0)),
+                                    ColorStop::new(Color::NONE, percent(50)),
+                                    ColorStop::new(Color::NONE, percent(100)),
                                 ],
                                 color_space: InterpolationColorSpace::Srgba,
                             })]})
@@ -253,31 +253,28 @@ impl FeathersColorSlider {
                             Children [(
                                 Node {
                                     position_type: PositionType::Absolute,
-                                    left: Val::Percent(0.),
-                                    top: Val::Percent(50.),
-                                    width: Val::Px(THUMB_SIZE),
-                                    height: Val::Px(THUMB_SIZE),
-                                    border: UiRect::all(Val::Px(2.0)),
+                                    left: percent(0),
+                                    top: percent(50),
+                                    width: px(THUMB_SIZE),
+                                    height: px(THUMB_SIZE),
+                                    border: px(2),
                                     border_radius: BorderRadius::MAX,
                                 }
                                 SliderThumb
                                 ColorSliderThumb
                                 BorderColor::all(palette::WHITE)
                                 Outline {
-                                    width: Val::Px(1.),
-                                    offset: Val::Px(0.),
+                                    width: px(1),
+                                    offset: px(0),
                                     color: palette::BLACK
                                 }
-                                UiTransform::from_translation(Val2::new(
-                                    Val::Percent(-50.0),
-                                    Val::Percent(-50.0),
-                                ))
+                                UiTransform::from_translation(Val2::percent(-50., -50.))
                             )]
                         ),
                         // Right endcap
                         (
                             Node {
-                                width: Val::Px({THUMB_SIZE * 0.5}),
+                                width: px(THUMB_SIZE * 0.5),
                                 border_radius: {RoundedCorners::Right.to_border_radius(TRACK_RADIUS)},
                             }
                             BackgroundColor(palette::Z_AXIS)
@@ -310,7 +307,7 @@ pub fn color_slider_bundle<B: Bundle>(
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Row,
-            height: Val::Px(SLIDER_HEIGHT),
+            height: px(SLIDER_HEIGHT),
             align_items: AlignItems::Stretch,
             flex_grow: 1.0,
             ..Default::default()
@@ -333,10 +330,10 @@ pub fn color_slider_bundle<B: Bundle>(
             (
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Px(0.),
-                    right: Val::Px(0.),
-                    top: Val::Px(TRACK_PADDING),
-                    bottom: Val::Px(TRACK_PADDING),
+                    left: px(0),
+                    right: px(0),
+                    top: px(TRACK_PADDING),
+                    bottom: px(TRACK_PADDING),
                     border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                     ..Default::default()
                 },
@@ -347,7 +344,7 @@ pub fn color_slider_bundle<B: Bundle>(
                     // Left endcap
                     (
                         Node {
-                            width: Val::Px(THUMB_SIZE * 0.5),
+                            width: px(THUMB_SIZE * 0.5),
                             border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
@@ -362,9 +359,9 @@ pub fn color_slider_bundle<B: Bundle>(
                         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                             angle: PI * 0.5,
                             stops: vec![
-                                ColorStop::new(Color::NONE, Val::Percent(0.)),
-                                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                                ColorStop::new(Color::NONE, Val::Percent(100.)),
+                                ColorStop::new(Color::NONE, percent(0)),
+                                ColorStop::new(Color::NONE, percent(50)),
+                                ColorStop::new(Color::NONE, percent(100)),
                             ],
                             color_space: InterpolationColorSpace::Srgba,
                         })]),
@@ -372,11 +369,11 @@ pub fn color_slider_bundle<B: Bundle>(
                         children![(
                             Node {
                                 position_type: PositionType::Absolute,
-                                left: Val::Percent(0.),
-                                top: Val::Percent(50.),
-                                width: Val::Px(THUMB_SIZE),
-                                height: Val::Px(THUMB_SIZE),
-                                border: UiRect::all(Val::Px(2.0)),
+                                left: percent(0),
+                                top: percent(50),
+                                width: px(THUMB_SIZE),
+                                height: px(THUMB_SIZE),
+                                border: UiRect::all(px(2)),
                                 border_radius: BorderRadius::MAX,
                                 ..Default::default()
                             },
@@ -384,20 +381,17 @@ pub fn color_slider_bundle<B: Bundle>(
                             ColorSliderThumb,
                             BorderColor::all(palette::WHITE),
                             Outline {
-                                width: Val::Px(1.),
-                                offset: Val::Px(0.),
+                                width: px(1),
+                                offset: px(0),
                                 color: palette::BLACK
                             },
-                            UiTransform::from_translation(Val2::new(
-                                Val::Percent(-50.0),
-                                Val::Percent(-50.0),
-                            ))
+                            UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
                         )]
                     ),
                     // Right endcap
                     (
                         Node {
-                            width: Val::Px(THUMB_SIZE * 0.5),
+                            width: px(THUMB_SIZE * 0.5),
                             border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
@@ -423,7 +417,7 @@ fn update_slider_pos(
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
             if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
-                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }

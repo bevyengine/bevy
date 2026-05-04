@@ -647,7 +647,7 @@
 //! impl HelloRepeater {
 //!     fn scene(props: HelloRepeaterProps) -> impl Scene {
 //!         let hellos = (0..props.repeat)
-//!             .map(|_| bsn!{ Text("hello") })
+//!             .map(|_| bsn! { Text("hello") })
 //!             .collect::<Vec<_>>();
 //!         bsn! {
 //!             Node
