@@ -41,9 +41,9 @@ pub fn settings_ui() -> impl Scene {
     bsn! {
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(8.0)),
+            top: px(10),
+            right: px(10),
+            padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
         on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
@@ -74,7 +74,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     :FeathersCheckbox {
-                        @caption: {bsn!{ Text("Shadow maps enabled") ThemedText }}
+                        @caption: {bsn! { Text("Shadow maps enabled") ThemedText }}
                     }
                     Checked
                     on(checkbox_self_update)
@@ -110,7 +110,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     :FeathersCheckbox {
-                        @caption: {bsn!{ Text("Wireframe Enabled") ThemedText }}
+                        @caption: {bsn! { Text("Wireframe Enabled") ThemedText }}
                     }
                     on(checkbox_self_update)
                     on(
@@ -124,7 +124,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     :FeathersCheckbox {
-                        @caption: {bsn!{ Text("CPU culling") ThemedText }}
+                        @caption: {bsn! { Text("CPU culling") ThemedText }}
                     }
                     Checked
                     on(checkbox_self_update)
@@ -147,7 +147,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     :FeathersButton {
-                        @caption: {bsn!{ Text("Regenerate City") ThemedText }}
+                        @caption: {bsn! { Text("Regenerate City") ThemedText }}
                     }
                     on(
                         |_activate: On<Activate>,

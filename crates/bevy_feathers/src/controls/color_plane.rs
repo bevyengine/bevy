@@ -22,9 +22,9 @@ use bevy_render::render_resource::AsBindGroup;
 use bevy_scene::prelude::*;
 use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
-    px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, Display,
-    InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiTransform, Val, Val2,
+    percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
+    Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
+    UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
@@ -154,22 +154,22 @@ impl FeathersColorPlane {
                 Children [(
                     Node {
                         position_type: PositionType::Absolute,
-                        left: Val::Percent(0.),
-                        top: Val::Percent(0.),
+                        left: percent(0),
+                        top: percent(0),
                         width: px(10),
                         height: px(10),
-                        border: UiRect::all(Val::Px(1.0)),
+                        border: px(1),
                         border_radius: BorderRadius::MAX,
                     }
                     ColorPlaneThumb
                     BorderColor::all(palette::WHITE)
                     Outline {
-                        width: Val::Px(1.),
-                        offset: Val::Px(0.),
+                        width: px(1),
+                        offset: px(0),
                         color: palette::BLACK
                     }
                     Pickable::IGNORE
-                    UiTransform::from_translation(Val2::new(Val::Percent(-50.0), Val::Percent(-50.0),))
+                    UiTransform::from_translation(Val2::percent(-50., -50.),)
                 )]
             )]
         }
@@ -215,23 +215,23 @@ pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) ->
             children![(
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Percent(0.),
-                    top: Val::Percent(0.),
+                    left: percent(0),
+                    top: percent(0),
                     width: px(10),
                     height: px(10),
-                    border: UiRect::all(Val::Px(1.0)),
+                    border: UiRect::all(px(1)),
                     border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 ColorPlaneThumb,
                 BorderColor::all(palette::WHITE),
                 Outline {
-                    width: Val::Px(1.),
-                    offset: Val::Px(0.),
+                    width: px(1),
+                    offset: px(0),
                     color: palette::BLACK
                 },
                 Pickable::IGNORE,
-                UiTransform::from_translation(Val2::new(Val::Percent(-50.0), Val::Percent(-50.0),))
+                UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
             )],
         ),],
     )
@@ -287,8 +287,8 @@ fn update_plane_color(
             continue;
         };
 
-        thumb_node.left = Val::Percent(plane_value.0.x * 100.0);
-        thumb_node.top = Val::Percent(plane_value.0.y * 100.0);
+        thumb_node.left = percent(plane_value.0.x * 100.0);
+        thumb_node.top = percent(plane_value.0.y * 100.0);
     }
 }
 
