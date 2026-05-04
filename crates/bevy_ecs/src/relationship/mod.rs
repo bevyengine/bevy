@@ -64,6 +64,21 @@ use log::warn;
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
+/// A one-to-one relationship can be created by not having a `Vec` in the [`RelationshipTarget`].
+/// In that case, if another entity is added to the relationship, the original entity is removed.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = View)]
+/// pub struct ViewOf(pub Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ViewOf)]
+/// pub struct View(Entity);
+/// ```
+///
 /// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
 /// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
