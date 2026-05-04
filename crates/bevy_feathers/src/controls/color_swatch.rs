@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
+use bevy_ui::{px, BackgroundColor, BorderRadius, Node, PositionType};
 use bevy_ui_render::ui_material::MaterialNode;
 
 use crate::{
@@ -47,7 +47,7 @@ impl FeathersColorSwatch {
             Node {
                 height: size::ROW_HEIGHT,
                 min_width: size::ROW_HEIGHT,
-                border_radius: BorderRadius::all(Val::Px(5.0)),
+                border_radius: px(5),
             }
             FeathersColorSwatch
             ColorSwatchValue
@@ -56,11 +56,11 @@ impl FeathersColorSwatch {
             Children [(
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Px(0.),
-                    top: Val::Px(0.),
-                    bottom: Val::Px(0.),
-                    right: Val::Px(0.),
-                    border_radius: BorderRadius::all(Val::Px(5.0)),
+                    left: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    right: px(0),
+                    border_radius: px(5),
                 }
                 ColorSwatchFg
                 BackgroundColor({palette::ACCENT.with_alpha(0.5)})
@@ -79,7 +79,7 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         Node {
             height: size::ROW_HEIGHT,
             min_width: size::ROW_HEIGHT,
-            border_radius: BorderRadius::all(Val::Px(5.0)),
+            border_radius: BorderRadius::all(px(5)),
             ..Default::default()
         },
         FeathersColorSwatch,
@@ -90,11 +90,11 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         children![(
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                right: Val::Px(0.),
-                border_radius: BorderRadius::all(Val::Px(5.0)),
+                left: px(0),
+                top: px(0),
+                bottom: px(0),
+                right: px(0),
+                border_radius: BorderRadius::all(px(5)),
                 ..Default::default()
             },
             ColorSwatchFg,

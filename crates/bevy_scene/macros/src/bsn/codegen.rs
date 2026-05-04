@@ -2,7 +2,7 @@ use crate::bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnInheritedScene, BsnListRoot, BsnRelatedSceneList,
     BsnRoot, BsnSceneListItem, BsnSceneListItems, BsnType, BsnValue,
 };
-use bevy_macro_utils::path_to_string;
+use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -259,7 +259,7 @@ impl BsnEntry {
                     let type_path = &bsn_type.path;
                     let from_template_patch = from_template_patch(ctx, bsn_type, true)?;
                     quote! {{
-                        let mut #props = <<#type_path as #bevy_scene::SceneComponent>::Props as Default>::default();
+                        let mut #props = <<#type_path as #bevy_scene::SceneComponent>::Props as #FQDefault>::default();
                         let #props_ref = &mut #props;
                         #(#assignments)*
                         (<#type_path as #bevy_scene::SceneComponent>::scene(#props), #from_template_patch)
@@ -377,7 +377,7 @@ impl BsnType {
         assignments.push(quote! {
             {
                 let _node = #maybe_borrow_mut #(#field_path).*;
-                if !matches!(_node, #template_path::#check_pattern) {
+                if !::core::matches!(_node, #template_path::#check_pattern) {
                     #maybe_deref _node = #template_path::#variant_default();
                 }
                 if let #template_path::#binding_pattern = _node {

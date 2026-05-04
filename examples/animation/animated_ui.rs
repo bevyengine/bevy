@@ -7,7 +7,8 @@ use bevy::{
     prelude::*,
 };
 
-use std::any::TypeId;
+use core::any::TypeId;
+use core::f32::consts::TAU;
 
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
@@ -78,6 +79,24 @@ impl AnimationInfo {
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
                 ),
+            ),
+        );
+
+        // Create a curve that animates `UiTransform::rotation`.
+        //
+        // This animates the 2D rotation of the UI element using `Rot2`.
+        // Like other `Animatable` types, it uses shortest-path interpolation (slerp)
+        // to ensure smooth movement between keyframes.
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(
+                animated_field!(UiTransform::rotation),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 1.0, 2.0, 3.0]
+                        .into_iter()
+                        .zip([0., TAU / 3., TAU / 1.5, TAU].map(Rot2::radians)),
+                )
+                .expect("should be able to build rotation curve because we pass in valid samples"),
             ),
         );
 

@@ -3343,6 +3343,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "dfg_lut") {
             shader_defs.push("DFG_LUT".into());
         }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
@@ -3549,10 +3552,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
-        }
-
-        if key.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
-            shader_defs.push("SCREEN_SPACE_TRANSMISSION".into());
         }
 
         let blur_quality =
