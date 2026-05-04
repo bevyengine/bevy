@@ -86,7 +86,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var ray_origin = primary_surface.world_position + (primary_surface.world_normal * RAY_T_MIN);
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
-    var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
+    var path_roughness = primary_surface.material.roughness;
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
     var mirror_rotations = reflection_matrix(primary_surface.world_normal);
@@ -129,11 +129,11 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
 #endif
 
         // Terminate path in the world cache if the ray is long enough and the path spread is large enough
-        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position);
+        var rng_copy = *rng;
+        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position, &rng_copy);
         let ray_longer_than_cell = ray.t > sqrt(3.0) * world_cache_cell_size;
-        let path_spread_large_enough = path_spread > world_cache_cell_size * world_cache_cell_size;
 
-        if ray_longer_than_cell && path_spread_large_enough {
+        if i == 2u || (ray_longer_than_cell && path_roughness > DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD) {
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
@@ -157,14 +157,12 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         if ray_hit.material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
             throughput /= p_bounce;
         }
+        path_roughness += ray_hit.material.roughness;
 
         // Russian roulette for early termination
         let p = luminance(throughput);
         if rand_f(rng) > p { break; }
         throughput /= p;
-
-        // Path spread increase
-        path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
     }
 
     return radiance;
@@ -197,12 +195,6 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     let p_light = 1.0 / inverse_p_light;
     let p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     return power_heuristic(p_light, p_bounce);
-}
-
-fn path_spread_heuristic(ray_t: f32, roughness: f32) -> f32 {
-    let alpha_squared = min(roughness * roughness, 0.99);
-    let distance_squared = ray_t * ray_t;
-    return distance_squared * 0.5 * (alpha_squared / (1.0 - alpha_squared));
 }
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
