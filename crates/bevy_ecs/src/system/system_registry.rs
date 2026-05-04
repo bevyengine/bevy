@@ -150,7 +150,9 @@ pub enum SystemHandle<I: SystemInput = (), O = ()> {
     /// A strong handle keeps the system entity alive as long as the handle
     /// (and any clones of it) exist.
     Strong(Arc<StrongSystemHandle>),
-    /// A weak handle does not keep the system entity alive, but is [`Copy`]able.
+    /// A weak handle does not keep the system entity alive. If a weak handle is
+    /// returned by a registration function, the system entity must be
+    /// manually despawned.
     Weak(SystemId<I, O>),
 }
 
