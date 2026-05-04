@@ -2154,7 +2154,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         let mut folders_to_reload = Vec::default();
         let mut reload_parent_folders =
-            |path: &PathBuf, source: &AssetSourceId<'static>, infos: &mut AssetInfos| {
+            |path: &PathBuf, source: &AssetSourceId<'static>, infos: &AssetInfos| {
                 for parent in path.ancestors().skip(1) {
                     let parent_asset_path =
                         AssetPath::from(parent.to_path_buf()).with_source(source.clone());
@@ -2178,7 +2178,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 AssetSourceEvent::AddedAsset(path) => {
-                    reload_parent_folders(&path, &source, &mut infos);
+                    reload_parent_folders(&path, &source, &infos);
                     reload_path(path, &source, &infos);
                 }
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
@@ -2187,13 +2187,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     reload_path(path, &source, &infos);
                 }
                 AssetSourceEvent::RenamedFolder { old, new } => {
-                    reload_parent_folders(&old, &source, &mut infos);
-                    reload_parent_folders(&new, &source, &mut infos);
+                    reload_parent_folders(&old, &source, &infos);
+                    reload_parent_folders(&new, &source, &infos);
                 }
                 AssetSourceEvent::RemovedAsset(path)
                 | AssetSourceEvent::RemovedFolder(path)
                 | AssetSourceEvent::AddedFolder(path) => {
-                    reload_parent_folders(&path, &source, &mut infos);
+                    reload_parent_folders(&path, &source, &infos);
                 }
                 _ => {}
             }
