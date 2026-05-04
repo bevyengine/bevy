@@ -49,7 +49,7 @@ zstd_c = ["zstd", "dep:zstd"]
 compressed_image_saver_universal = ["basis-universal"]
 
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
-compressed_image_saver = ["dep:ctt", "ktx2"]
+compressed_image_saver = ["dep:ctt", "ktx2", "zstd"]
 
 [dependencies]
 # bevy
