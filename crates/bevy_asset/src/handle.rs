@@ -737,11 +737,11 @@ pub enum UntypedAssetConversionError {
 mod tests {
     use alloc::boxed::Box;
     use bevy_platform::hash::FixedHasher;
-    use bevy_reflect::PartialReflect;
+    use bevy_reflect::{FromReflect, PartialReflect};
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
-    use crate::tests::create_app;
+    use crate::{tests::create_app, AssetApp, Assets, VisitAssetDependencies};
 
     use super::*;
 
@@ -847,9 +847,6 @@ mod tests {
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, Assets, VisitAssetDependencies};
-        use bevy_reflect::FromReflect;
-
         #[derive(Reflect)]
         struct MyAsset {
             value: u32,
@@ -904,9 +901,6 @@ mod tests {
 
     #[test]
     fn handle_from_reflect_verifies_type_id() {
-        use crate::{AssetApp, Assets};
-        use bevy_reflect::FromReflect;
-
         #[derive(Reflect, Asset)]
         struct A;
         #[derive(Reflect, Asset)]
@@ -944,8 +938,6 @@ mod tests {
     #[test]
     #[ignore = "blocked by #24111"]
     fn handle_try_apply_verifies_type_id() {
-        use crate::{AssetApp, Assets};
-
         #[derive(Reflect, Asset)]
         struct A;
         #[derive(Reflect, Asset)]
@@ -969,9 +961,6 @@ mod tests {
 
     #[test]
     fn handle_from_reflect_and_try_apply() {
-        use crate::{AssetApp, Assets};
-        use bevy_reflect::FromReflect;
-
         #[derive(Reflect, Asset)]
         struct A(i32);
 
