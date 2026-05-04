@@ -940,4 +940,55 @@ mod tests {
             "Handle<A> should be constructible from reflected Handle<A>"
         );
     }
+
+    #[test]
+    #[ignore = "blocked by #24111"]
+    fn handle_try_apply_verifies_type_id() {
+        use crate::{AssetApp, Assets};
+
+        #[derive(Reflect, Asset)]
+        struct A;
+        #[derive(Reflect, Asset)]
+        struct B;
+
+        let mut app = create_app().0;
+        app.init_asset::<A>().init_asset::<B>();
+
+        let mut assets_a = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_a = assets_a.add(A);
+
+        let reflected_handle_a = handle_a.as_partial_reflect();
+
+        let mut assets_b = app.world_mut().resource_mut::<Assets<B>>();
+        let mut handle_b = assets_b.add(B);
+        assert!(
+            handle_b.try_apply(reflected_handle_a).is_err(),
+            "Handle<A> should not be applicable to Handle<B>"
+        );
+    }
+
+    #[test]
+    fn handle_from_reflect_and_try_apply() {
+        use crate::{AssetApp, Assets};
+        use bevy_reflect::FromReflect;
+
+        #[derive(Reflect, Asset)]
+        struct A(i32);
+
+        let mut app = create_app().0;
+        app.init_asset::<A>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_1 = assets.add(A(1));
+        let reflected_handle_1 = handle_1.as_partial_reflect();
+
+        let handle_1_from_reflect: Handle<A> =
+            FromReflect::from_reflect(reflected_handle_1).unwrap();
+        assert_eq!(handle_1, handle_1_from_reflect);
+
+        let mut handle_2 = assets.add(A(2));
+        assert_ne!(handle_1, handle_2);
+        handle_2.try_apply(reflected_handle_1).unwrap();
+        assert_eq!(handle_1, handle_2);
+    }
 }
