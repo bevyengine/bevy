@@ -139,9 +139,9 @@ pub struct CompressedImageSaverSettings {
     /// Set this to match how the input texture stores its alpha channel. If the input does not
     /// match `output_alpha_mode`, the saver converts between the two before compression.
     ///
-    /// Defaults to [`AlphaMode::Straight`], which is how most image editors and asset pipelines
+    /// Defaults to [`ImageCompressorAlphaMode::Straight`], which is how most image editors and asset pipelines
     /// produce textures.
-    pub input_alpha_mode: AlphaMode,
+    pub input_alpha_mode: ImageCompressorAlphaMode,
     /// The alpha mode the compressed output should use.
     ///
     /// With straight alpha, the RGB values of fully-transparent texels still consume endpoint
@@ -149,24 +149,24 @@ pub struct CompressedImageSaverSettings {
     /// texture filtering, producing colored fringes at transparent edges. Premultiplying forces
     /// transparent texels to zero RGB, which avoids both problems.
     ///
-    /// Defaults to [`AlphaMode::Premultiplied`]. Materials sampling this texture must be
+    /// Defaults to [`ImageCompressorAlphaMode::Premultiplied`]. Materials sampling this texture must be
     /// configured with `bevy_material::AlphaMode::Premultiplied` (or another premultiplied-blend
     /// mode) so the blend state matches.
-    pub output_alpha_mode: AlphaMode,
+    pub output_alpha_mode: ImageCompressorAlphaMode,
 }
 
 impl Default for CompressedImageSaverSettings {
     fn default() -> Self {
         Self {
-            input_alpha_mode: AlphaMode::Straight,
-            output_alpha_mode: AlphaMode::Premultiplied,
+            input_alpha_mode: ImageCompressorAlphaMode::Straight,
+            output_alpha_mode: ImageCompressorAlphaMode::Premultiplied,
         }
     }
 }
 
-/// Alpha mode of an [`Image`].
+/// Alpha mode of an [`Image`] for use with [`CompressedImageSaver`].
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum AlphaMode {
+pub enum ImageCompressorAlphaMode {
     /// The image has an alpha channel that is stored independently of the RGB channels.
     Straight,
     /// The image has an alpha channel, and the RGB channels have been premultiplied by the alpha value.

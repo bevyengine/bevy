@@ -1,10 +1,10 @@
 use std::env;
 
-use ctt::TargetFormat;
+use ctt::{AlphaMode, TargetFormat};
 use ktx2::Format;
 use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
 
-use super::CompressedImageSaverError;
+use super::{CompressedImageSaverError, ImageCompressorAlphaMode};
 
 /// Returns `Some((unorm, hdr))` ASTC format pair if the env var is set, `None` otherwise.
 pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageSaverError> {
@@ -338,10 +338,10 @@ pub fn wgpu_to_ctt_texture_format(
     })
 }
 
-pub fn bevy_to_ctt_alpha_mode(alpha_mode: super::AlphaMode) -> ctt::AlphaMode {
+pub fn bevy_to_ctt_alpha_mode(alpha_mode: ImageCompressorAlphaMode) -> AlphaMode {
     match alpha_mode {
-        super::AlphaMode::Straight => ctt::AlphaMode::Straight,
-        super::AlphaMode::Premultiplied => ctt::AlphaMode::Premultiplied,
-        super::AlphaMode::Opaque => ctt::AlphaMode::Opaque,
+        ImageCompressorAlphaMode::Straight => AlphaMode::Straight,
+        ImageCompressorAlphaMode::Premultiplied => AlphaMode::Premultiplied,
+        ImageCompressorAlphaMode::Opaque => AlphaMode::Opaque,
     }
 }
