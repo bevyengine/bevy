@@ -119,7 +119,7 @@ pub fn extract_text_cursor(
             }
         }
 
-        if let Some(cursor_rect) = text_layout_info.cursor
+        if let Some((true, cursor_rect)) = text_layout_info.cursor
             && !cursor_rect.is_empty()
             && !cursor_style.color.is_fully_transparent()
         {

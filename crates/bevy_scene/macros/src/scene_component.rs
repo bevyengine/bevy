@@ -1,5 +1,5 @@
 use bevy_ecs_macro_logic::component::DeriveComponent;
-use bevy_macro_utils::{BevyManifest, PathType};
+use bevy_macro_utils::{fq_std::FQDefault, BevyManifest, PathType};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
@@ -57,10 +57,10 @@ pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
 
         impl #impl_generics #bevy_scene::SceneComponent for #struct_name #type_generics #where_clause {
             type Props = #props_type;
-            fn scene(props: Self::Props) -> impl Scene {
+            fn scene(props: Self::Props) -> impl #bevy_scene::Scene {
                 (
                     #scene_impl,
-                    #bevy_scene::InitTemplate::<<#struct_name #type_generics as #bevy_ecs::template::FromTemplate>::Template>::default(),
+                    <#bevy_scene::InitTemplate::<<#struct_name #type_generics as #bevy_ecs::template::FromTemplate>::Template> as #FQDefault>::default(),
                     #bevy_scene::template_value(#bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(true)),
                 )
             }

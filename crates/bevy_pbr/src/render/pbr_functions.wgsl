@@ -657,6 +657,7 @@ fn apply_pbr_lighting(
 #endif
     }
 
+#ifdef AREA_LIGHT_LUTS
     // Rect lights
     let n_rect_lights = view_bindings::lights.n_rect_lights;
     for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
@@ -670,6 +671,7 @@ fn apply_pbr_lighting(
         transmitted_light += transmitted_light_contrib;
     #endif
     }
+#endif
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated

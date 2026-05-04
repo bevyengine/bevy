@@ -117,15 +117,15 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
                 #short_type_path
             }
 
-            fn type_ident() -> Option<&'static str> {
+            fn type_ident() -> #FQOption<&'static str> {
                 #type_ident
             }
 
-            fn crate_name() -> Option<&'static str> {
+            fn crate_name() -> #FQOption<&'static str> {
                 #crate_name
             }
 
-            fn module_path() -> Option<&'static str> {
+            fn module_path() -> #FQOption<&'static str> {
                 #module_path
             }
         }

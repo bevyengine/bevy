@@ -290,9 +290,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
-        if key.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
-            shader_defs.push("SCREEN_SPACE_TRANSMISSION".into());
-        }
         shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline

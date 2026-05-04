@@ -19,8 +19,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, Pressed, UiRect, Val,
+    px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
+    JustifyContent, Node, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
@@ -69,7 +69,7 @@ impl FeathersRadio {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                column_gap: Val::Px(4.0),
+                column_gap: px(4),
             }
             RadioButton
             Hovered
@@ -88,7 +88,7 @@ impl FeathersRadio {
                     justify_content: JustifyContent::Center,
                     width: size::RADIO_SIZE,
                     height: size::RADIO_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
+                    border: px(2),
                     border_radius: BorderRadius::MAX,
                 }
                 RadioOutline
@@ -97,8 +97,8 @@ impl FeathersRadio {
                 Children [(
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
-                        width: Val::Px(8.),
-                        height: Val::Px(8.),
+                        width: px(8),
+                        height: px(8),
                         border_radius: BorderRadius::MAX,
                     }
                     RadioMark
@@ -140,7 +140,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
             flex_direction: FlexDirection::Row,
             justify_content: JustifyContent::Start,
             align_items: AlignItems::Center,
-            column_gap: Val::Px(4.0),
+            column_gap: px(4),
             ..Default::default()
         },
         RadioButton,
@@ -162,7 +162,7 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                     justify_content: JustifyContent::Center,
                     width: size::RADIO_SIZE,
                     height: size::RADIO_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
+                    border: UiRect::all(px(2)),
                     border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
@@ -172,8 +172,8 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                 children![(
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
-                        width: Val::Px(8.),
-                        height: Val::Px(8.),
+                        width: px(8),
+                        height: px(8),
                         border_radius: BorderRadius::MAX,
                         ..Default::default()
                     },
