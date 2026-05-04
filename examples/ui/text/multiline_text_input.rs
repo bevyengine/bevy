@@ -65,6 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             TextCursorStyle {
+                                color: Color::WHITE,
                                 selected_text_color: Some(Color::BLACK),
                                 ..default()
                             },
@@ -137,8 +138,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
                                     EditableText::new("8"),
-                                    EditableTextFilter::new(|c| c.is_ascii_digit()),
+                                    EditableTextFilter::new(|c| c.is_ascii_digit() || c == '.'),
                                     TextCursorStyle {
+                                        color: Color::WHITE,
                                         selected_text_color: Some(Color::BLACK),
                                         ..default()
                                     },
@@ -220,6 +222,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     EditableText::new("30"),
                                     EditableTextFilter::new(|c| c.is_ascii_digit()),
                                     TextCursorStyle {
+                                        color: Color::WHITE,
                                         selected_text_color: Some(Color::BLACK),
                                         ..default()
                                     },
