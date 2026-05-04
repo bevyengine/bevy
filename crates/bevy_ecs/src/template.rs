@@ -510,15 +510,15 @@ impl Default for SystemIdTemplate {
 
 // These are used to track one-shot systems registered from templates, so that they can be cleaned up when the template is no longer in use and to prevent duplicate registrations.
 //
-// A template instance will create a linked entity for each holding one-shot system. Each system will create a entity with `SystemIdRecorder` saved in `SceneSystemRegistry`, which counting references to it via `RefToSystem`.
+// A template instance will create a linked entity for each holding one-shot system. Each system will create a entity with `TypeIdRecorder` saved in `SceneSystemRegistry`, which counting references to it via `RefToSystem`.
 //
 // `template_A`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA1_system1_entity, CompB1_system2_entity, ...])`
 //
 // `template_A_clone`: `(CompA(system_1), CompB{..., callback: system_2}, ..., LinkedWith(vec![CompA2_system1_entity, CompB2_system2_entity, ...])`
 //
-// `system_1`: `SystemIdRecorder{...}, SystemRefs(vec![CompA1_system1_entity, CompA2_system1_entity, ...])`
+// `system_1`: `TypeIdRecorder{...}, SystemRefs(vec![CompA1_system1_entity, CompA2_system1_entity, ...])`
 //
-// `system_2`: `SystemIdRecorder{...}, SystemRefs(vec![CompB1_system2_entity, CompB2_system2_entity, ...])`
+// `system_2`: `TypeIdRecorder{...}, SystemRefs(vec![CompB1_system2_entity, CompB2_system2_entity, ...])`
 //
 // When `template_A` and `template_A_clone` are dropped, the linked entities will be despawned, which triggers the cleanup system to check the system entities. Since both `system_1` and `system_2` have no more references, they will be despawned and the system is unregistered.
 
