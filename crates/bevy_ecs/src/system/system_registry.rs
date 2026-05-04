@@ -44,7 +44,8 @@ pub fn despawn_unused_registered_systems(
     // is registered, so it's possible that it doesn't exist yet when this system runs.
     if let Some(despawner) = despawner {
         for entity in despawner.receiver.try_iter() {
-            commands.entity(entity).despawn();
+            // In case the entity was already despawned manually, we ignore the error here.
+            commands.entity(entity).try_despawn();
         }
     }
 }
