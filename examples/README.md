@@ -438,6 +438,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
@@ -765,7 +766,7 @@ Keep in mind that if you are using `bevy_audio` the minimum supported Android AP
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.19", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", features = ["android-native-activity"] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.
