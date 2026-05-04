@@ -323,10 +323,10 @@ impl TabNavigation<'_, '_> {
         tab_group_idx: usize,
     ) {
         if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
-            if let Some(tabindex) = tabindex {
-                if tabindex.0 >= 0 {
-                    out.push((entity, *tabindex, tab_group_idx));
-                }
+            if let Some(tabindex) = tabindex
+                && tabindex.0 >= 0
+            {
+                out.push((entity, *tabindex, tab_group_idx));
             }
             if let Some(children) = children {
                 for child in children.iter() {
@@ -336,11 +336,11 @@ impl TabNavigation<'_, '_> {
                     }
                 }
             }
-        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent) {
-            if !tabgroup.modal {
-                for child in children.iter() {
-                    self.gather_focusable(out, *child, tab_group_idx);
-                }
+        } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent)
+            && !tabgroup.modal
+        {
+            for child in children.iter() {
+                self.gather_focusable(out, *child, tab_group_idx);
             }
         }
     }
