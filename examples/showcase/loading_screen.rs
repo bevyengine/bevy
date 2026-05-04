@@ -1,5 +1,5 @@
 //! Shows how to create a loading screen that waits for assets to load and render.
-use bevy::{ecs::system::SystemId, prelude::*};
+use bevy::{ecs::system::SystemHandle, prelude::*};
 
 use pipelines_ready::*;
 
@@ -64,16 +64,16 @@ impl LoadingData {
 // This resource will hold the level related systems ID for later use.
 #[derive(Resource)]
 struct LevelData {
-    unload_level_id: SystemId,
-    level_1_id: SystemId,
-    level_2_id: SystemId,
+    unload_level_handle: SystemHandle,
+    level_1_handle: SystemHandle,
+    level_2_handle: SystemHandle,
 }
 
 fn setup(mut commands: Commands) {
     let level_data = LevelData {
-        unload_level_id: commands.register_system(unload_current_level),
-        level_1_id: commands.register_system(load_level_1),
-        level_2_id: commands.register_system(load_level_2),
+        unload_level_handle: commands.register_system(unload_current_level),
+        level_1_handle: commands.register_system(load_level_1),
+        level_2_handle: commands.register_system(load_level_2),
     };
     commands.insert_resource(level_data);
 
@@ -104,11 +104,11 @@ fn level_selection(
     // Only trigger a load if the current level is fully loaded.
     if let LoadingState::LevelReady = loading_state.as_ref() {
         if keyboard.just_pressed(KeyCode::Digit1) {
-            commands.run_system(level_data.unload_level_id);
-            commands.run_system(level_data.level_1_id);
+            commands.run_system(&level_data.unload_level_handle);
+            commands.run_system(&level_data.level_1_handle);
         } else if keyboard.just_pressed(KeyCode::Digit2) {
-            commands.run_system(level_data.unload_level_id);
-            commands.run_system(level_data.level_2_id);
+            commands.run_system(&level_data.unload_level_handle);
+            commands.run_system(&level_data.level_2_handle);
         }
     }
 }

@@ -31,7 +31,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
+        Deferred, IntoSystem, RegisteredSystem, SystemHandle, SystemId, SystemInput,
+        SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -935,8 +936,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
-        self.queue(command::run_system(id).handle_error_with(warn));
+    pub fn run_system(&mut self, id: impl Into<SystemId>) {
+        self.queue(command::run_system(id.into()).handle_error_with(warn));
     }
 
     /// Runs the system corresponding to the given [`SystemId`] with input.
@@ -957,44 +958,49 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+    pub fn run_system_with<I>(&mut self, id: impl Into<SystemId<I>>, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(command::run_system_with(id, input).handle_error_with(warn));
+        self.queue(command::run_system_with(id.into(), input).handle_error_with(warn));
     }
 
-    /// Registers a system and returns its [`SystemId`] so it can later be called by
+    /// Registers a system and returns its [`SystemHandle`] so it can later be called by
     /// [`Commands::run_system`] or [`World::run_system`].
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// because the [`SystemHandle`] that is returned can be used anywhere in
+    /// the [`World`] to run the associated system.
     ///
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     ///
     /// # Note
     ///
+    /// This function returns a "weak" handle to the system, so if the handle is
+    /// dropped the system will **not** be automatically unregistered. You must
+    /// manually unregister the system with [`Commands::unregister_system`].
+    ///
     /// If the same system is registered more than once,
     /// each registration will be considered a different system,
-    /// and they will each be given their own [`SystemId`].
+    /// and they will each be given their own [`SystemHandle`].
     ///
     /// If you want to avoid registering the same system multiple times,
-    /// consider using [`Commands::run_system_cached`] or storing the [`SystemId`]
+    /// consider using [`Commands::run_system_cached`] or storing the [`SystemHandle`]
     /// in a [`Local`](crate::system::Local).
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemHandle};
     /// #[derive(Resource)]
     /// struct Counter(i32);
     ///
     /// fn register_system(
     ///     mut commands: Commands,
-    ///     mut local_system: Local<Option<SystemId>>,
+    ///     mut local_system: Local<Option<SystemHandle>>,
     /// ) {
-    ///     if let Some(system) = *local_system {
+    ///     if let Some(system) = &*local_system {
     ///         commands.run_system(system);
     ///     } else {
     ///         *local_system = Some(commands.register_system(increment_counter));
@@ -1008,14 +1014,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// # let mut world = World::default();
     /// # world.insert_resource(Counter(0));
     /// # let mut queue_1 = CommandQueue::default();
-    /// # let systemid = {
+    /// # let system_handle = {
     /// #   let mut commands = Commands::new(&mut queue_1, &world);
     /// #   commands.register_system(increment_counter)
     /// # };
     /// # let mut queue_2 = CommandQueue::default();
     /// # {
     /// #   let mut commands = Commands::new(&mut queue_2, &world);
-    /// #   commands.run_system(systemid);
+    /// #   commands.run_system(system_handle);
     /// # }
     /// # queue_1.append(&mut queue_2);
     /// # queue_1.apply(&mut world);
@@ -1025,15 +1031,17 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn register_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
+    ) -> SystemHandle<I, O>
     where
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
-        self.entity(entity).insert(system);
-        SystemId::from_entity(entity)
+        let entity = self
+            .spawn(RegisteredSystem::<I, O>::new(Box::new(
+                IntoSystem::into_system(system),
+            )))
+            .id();
+        SystemHandle::Weak(SystemId::from_entity(entity))
     }
 
     /// Removes a system previously registered with [`Commands::register_system`]
@@ -1066,7 +1074,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Fallible
     ///
     /// This command will fail if the given system
-    /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    /// is not currently cached in a
+    /// [`CachedSystemHandle`](crate::system::CachedSystemHandle) resource.
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
@@ -1085,10 +1094,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// Unlike [`Commands::run_system`], this method does not require manual registration.
     ///
     /// The first time this method is called for a particular system,
-    /// it will register the system and store its [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
+    /// it will register the system and store its [`SystemHandle`] in a
+    /// [`CachedSystemHandle`](crate::system::CachedSystemHandle) resource for later.
     ///
-    /// If you would rather manage the [`SystemId`] yourself,
+    /// If you would rather manage the [`SystemHandle`] yourself,
     /// or register multiple copies of the same system,
     /// use [`Commands::register_system`] instead.
     ///
@@ -1117,10 +1126,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     ///
     /// The first time this method is called for a particular system,
-    /// it will register the system and store its [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
+    /// it will register the system and store its [`SystemHandle`] in a
+    /// [`CachedSystemHandle`](crate::system::CachedSystemHandle) resource for later.
     ///
-    /// If you would rather manage the [`SystemId`] yourself,
+    /// If you would rather manage the [`SystemHandle`] yourself,
     /// or register multiple copies of the same system,
     /// use [`Commands::register_system`] instead.
     ///
@@ -2956,15 +2965,15 @@ mod tests {
         fn nothing() {}
 
         let resources = world.iter_resources().count();
-        let id = world.register_system_cached(nothing);
+        let handle = world.register_system_cached(nothing);
         assert_eq!(world.iter_resources().count(), resources + 1);
-        assert!(world.get_entity(id.entity).is_ok());
+        assert!(world.get_entity(handle.entity()).is_ok());
 
         let mut commands = Commands::new(&mut queue, &world);
         commands.unregister_system_cached(nothing);
         queue.apply(&mut world);
         assert_eq!(world.iter_resources().count(), resources);
-        assert!(world.get_entity(id.entity).is_err());
+        assert!(world.get_entity(handle.entity()).is_err());
     }
 
     fn is_send<T: Send>() {}

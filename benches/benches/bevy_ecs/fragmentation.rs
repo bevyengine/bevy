@@ -29,9 +29,9 @@ fn iter_frag_empty(c: &mut Criterion) {
                 black_box(t);
             });
         };
-        let query_id = world.register_system(query);
+        let query_handle = world.register_system(query);
         b.iter(|| {
-            world.run_system(query_id).unwrap();
+            world.run_system(&query_handle).unwrap();
         });
     });
     group.bench_function("foreach_sparse", |b| {
@@ -44,9 +44,9 @@ fn iter_frag_empty(c: &mut Criterion) {
                 black_box(t);
             });
         };
-        let query_id = world.register_system(query);
+        let query_handle = world.register_system(query);
         b.iter(|| {
-            world.run_system(query_id).unwrap();
+            world.run_system(&query_handle).unwrap();
         });
     });
     group.finish();

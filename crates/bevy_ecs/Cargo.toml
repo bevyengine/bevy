@@ -69,6 +69,7 @@ std = [
   "bevy_utils/std",
   "bitflags/std",
   "concurrent-queue/std",
+  "crossbeam-channel/std",
   "fixedbitset/std",
   "indexmap/std",
   "serde?/std",
@@ -101,6 +102,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-fea
 ] }
 
 bitflags = { version = "2.3", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",

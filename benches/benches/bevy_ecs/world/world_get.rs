@@ -278,9 +278,9 @@ pub fn query_get(criterion: &mut Criterion) {
                 }
                 assert_eq!(black_box(count), entity_count);
             };
-            let query_id = world.register_system(query);
+            let query_handle = world.register_system(query);
             bencher.iter(|| {
-                world.run_system(query_id).unwrap();
+                world.run_system(&query_handle).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
@@ -299,9 +299,9 @@ pub fn query_get(criterion: &mut Criterion) {
                 }
                 assert_eq!(black_box(count), entity_count);
             };
-            let query_id = world.register_system(query);
+            let query_handle = world.register_system(query);
             bencher.iter(|| {
-                world.run_system(query_id).unwrap();
+                world.run_system(&query_handle).unwrap();
             });
         });
     }
@@ -334,9 +334,9 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 }
                 assert_eq!(black_box(count), entity_count);
             };
-            let query_id = world.register_system(query);
+            let query_handle = world.register_system(query);
             bencher.iter(|| {
-                world.run_system(query_id).unwrap();
+                world.run_system(&query_handle).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_calls_sparse"), |bencher| {
@@ -358,9 +358,9 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 }
                 assert_eq!(black_box(count), entity_count);
             };
-            let query_id = world.register_system(query);
+            let query_handle = world.register_system(query);
             bencher.iter(|| {
-                world.run_system(query_id).unwrap();
+                world.run_system(&query_handle).unwrap();
             });
         });
     }

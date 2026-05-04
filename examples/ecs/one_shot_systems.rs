@@ -9,7 +9,7 @@
 //! docs for more details.
 
 use bevy::{
-    ecs::system::{RunSystemOnce, SystemId},
+    ecs::system::{RunSystemOnce, SystemHandle},
     prelude::*,
 };
 
@@ -29,7 +29,7 @@ fn main() {
 }
 
 #[derive(Component)]
-struct Callback(SystemId);
+struct Callback(SystemHandle);
 
 #[derive(Component)]
 struct Triggered;
@@ -40,16 +40,16 @@ struct A;
 struct B;
 
 fn setup_with_commands(mut commands: Commands) {
-    let system_id = commands.register_system(system_a);
-    commands.spawn((Callback(system_id), A));
+    let system_handle = commands.register_system(system_a);
+    commands.spawn((Callback(system_handle), A));
 }
 
 fn setup_with_world(world: &mut World) {
     // We can run it once manually
     world.run_system_once(system_b).unwrap();
     // Or with a Callback
-    let system_id = world.register_system(system_b);
-    world.spawn((Callback(system_id), B));
+    let system_handle = world.register_system(system_b);
+    world.spawn((Callback(system_handle), B));
 }
 
 /// Tag entities that have callbacks we want to run with the `Triggered` component.
@@ -74,7 +74,7 @@ fn trigger_system(
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
 fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut commands: Commands) {
     for (entity, callback) in query.iter() {
-        commands.run_system(callback.0);
+        commands.run_system(&callback.0);
         commands.entity(entity).remove::<Triggered>();
     }
 }

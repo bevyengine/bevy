@@ -202,7 +202,7 @@ where
 }
 
 /// A [`Command`] that runs the given system,
-/// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+/// caching its [`SystemHandle`] in a [`CachedSystemHandle`](crate::system::CachedSystemHandle) resource.
 pub fn run_system_cached<M, S>(system: S) -> impl Command
 where
     M: 'static,
@@ -215,7 +215,7 @@ where
 }
 
 /// A [`Command`] that runs the given system with the given input value,
-/// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+/// caching its [`SystemHandle`] in a [`CachedSystemHandle`](crate::system::CachedSystemHandle) resource.
 ///
 /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
 pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command

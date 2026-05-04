@@ -19,7 +19,7 @@ use bevy_ecs::{
         InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
         ScheduleLabel,
     },
-    system::{ScheduleSystem, SystemId, SystemInput},
+    system::{ScheduleSystem, SystemHandle, SystemInput},
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
@@ -129,6 +129,11 @@ impl Default for App {
             message_update_system
                 .in_set(bevy_ecs::message::MessageUpdateSystems)
                 .run_if(bevy_ecs::message::message_update_condition),
+        );
+        #[cfg(feature = "std")]
+        app.add_systems(
+            crate::Last,
+            bevy_ecs::system::despawn_unused_registered_systems,
         );
         app.add_message::<AppExit>();
 
@@ -362,19 +367,22 @@ impl App {
         self.main_mut().remove_systems_in_set(schedule, set, policy)
     }
 
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a strong [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`].
     ///
-    /// It's possible to register the same systems more than once, they'll be stored separately.
+    /// It's possible to register the same systems more than once, they'll be
+    /// stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a push-based fashion.
-    /// Using a [`Schedule`] is still preferred for most cases
-    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    /// because the [`SystemHandle`] that is returned can be used anywhere in
+    /// the [`World`] to run the associated system. This allows for running
+    /// systems in a push-based fashion. Using a [`Schedule`] is still preferred
+    /// for most cases due to its better performance and ability to run
+    /// non-conflicting systems simultaneously.
     pub fn register_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
+    ) -> SystemHandle<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
@@ -2085,5 +2093,22 @@ mod tests {
         let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn auto_despawn_unused_registered_systems() {
+        let mut app = App::new();
+
+        fn my_system() {}
+
+        let handle = app.register_system(my_system);
+        let entity = handle.entity();
+
+        app.update();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        drop(handle);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

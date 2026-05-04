@@ -8,7 +8,7 @@ use bevy_ecs::{
         InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
         ScheduleError, ScheduleLabel,
     },
-    system::{ScheduleSystem, SystemId, SystemInput},
+    system::{ScheduleSystem, SystemHandle, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
@@ -239,7 +239,7 @@ impl SubApp {
     pub fn register_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
+    ) -> SystemHandle<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,

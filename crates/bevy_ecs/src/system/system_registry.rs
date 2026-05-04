@@ -11,6 +11,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
+use bevy_platform::sync::Arc;
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
@@ -29,6 +30,39 @@ impl<I, O> RegisteredSystem<I, O> {
             initialized: false,
             system: Some(system),
         }
+    }
+}
+
+/// A system that despawns any [`RegisteredSystem`] entities whose [`SystemHandle`]
+/// reference count has reached zero.
+#[cfg(feature = "std")]
+pub fn despawn_unused_registered_systems(
+    despawner: Option<crate::system::Res<RegisteredSystemDespawner>>,
+    mut commands: crate::system::Commands,
+) {
+    // `RegisteredSystemDespawner` is initialized lazily the first time a system
+    // is registered, so it's possible that it doesn't exist yet when this system runs.
+    if let Some(despawner) = despawner {
+        for entity in despawner.receiver.try_iter() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// A resource that stores the channel for despawning unused [`RegisteredSystem`]
+/// entities.
+#[derive(Resource)]
+#[cfg(feature = "std")]
+pub struct RegisteredSystemDespawner {
+    receiver: crossbeam_channel::Receiver<Entity>,
+    sender: crossbeam_channel::Sender<Entity>,
+}
+
+#[cfg(feature = "std")]
+impl Default for RegisteredSystemDespawner {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        Self { receiver, sender }
     }
 }
 
@@ -94,6 +128,107 @@ impl<I, O> RemovedSystem<I, O> {
     }
 }
 
+/// A maybe-strong handle to an entity with a [`RegisteredSystem`] component.
+/// Strong handles provide automatic cleanup of registered systems once all clones
+/// of the handle are dropped, while weak handles do not.
+///
+/// Strong handles are only returned by functions on [`World`], like
+/// [`World::register_system`] and [`World::register_system_cached`].
+/// [`Commands::register_system`] can only return weak handles due to the lack of
+/// access to the world during command submission.
+///
+/// # Cleanup
+///
+/// [`RegisteredSystem`] entities are cleaned up by the [`despawn_unused_registered_systems`]
+/// system, which is automatically added to the default app by the `bevy_ecs`
+/// crate when the "std" feature is enabled. If not using the default app, the
+/// "std" feature, or `bevy_app` in general, consider running this system
+/// yourself to ensure proper cleanup of registered systems.
+///
+/// [`Commands::register_system`]: crate::system::Commands::register_system
+pub enum SystemHandle<I: SystemInput = (), O = ()> {
+    /// A strong handle keeps the system entity alive as long as the handle
+    /// (and any clones of it) exist.
+    Strong(Arc<StrongSystemHandle>),
+    /// A weak handle does not keep the system entity alive, but is [`Copy`]able.
+    Weak(SystemId<I, O>),
+}
+
+impl<I: SystemInput, O> SystemHandle<I, O> {
+    /// Returns the [`Entity`] of the registered system associated with this handle.
+    pub fn entity(&self) -> Entity {
+        match self {
+            SystemHandle::Strong(strong) => strong.entity,
+            SystemHandle::Weak(weak) => weak.entity,
+        }
+    }
+}
+
+impl<I: SystemInput, O> Eq for SystemHandle<I, O> {}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I: SystemInput, O> Clone for SystemHandle<I, O> {
+    fn clone(&self) -> Self {
+        match self {
+            SystemHandle::Strong(strong) => SystemHandle::Strong(Arc::clone(strong)),
+            SystemHandle::Weak(weak) => SystemHandle::Weak(*weak),
+        }
+    }
+}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I: SystemInput, O> PartialEq for SystemHandle<I, O> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<I: SystemInput, O> PartialEq<SystemId<I, O>> for SystemHandle<I, O> {
+    fn eq(&self, other: &SystemId<I, O>) -> bool {
+        self.entity() == other.entity
+    }
+}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I: SystemInput, O> core::hash::Hash for SystemHandle<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<I: SystemInput, O> core::fmt::Debug for SystemHandle<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = if matches!(self, SystemHandle::Strong(_)) {
+            "StrongSystemHandle"
+        } else {
+            "WeakSystemHandle"
+        };
+        f.debug_tuple(name).field(&self.entity()).finish()
+    }
+}
+
+impl<I: SystemInput, O> From<SystemId<I, O>> for SystemHandle<I, O> {
+    fn from(id: SystemId<I, O>) -> Self {
+        SystemHandle::Weak(id)
+    }
+}
+
+/// A strong handle for a registered system that keeps the system entity alive
+/// as long as the handle (and any clones of it) exist.
+pub struct StrongSystemHandle {
+    entity: Entity,
+    #[cfg(feature = "std")]
+    drop_sender: crossbeam_channel::Sender<Entity>,
+}
+
+#[cfg(feature = "std")]
+impl Drop for StrongSystemHandle {
+    fn drop(&mut self) {
+        // Send the entity to be despawned by the world when the last strong handle is dropped.
+        let _ = self.drop_sender.send(self.entity);
+    }
+}
+
 /// An identifier for a registered system.
 ///
 /// These are opaque identifiers, keyed to a specific [`World`],
@@ -141,7 +276,13 @@ impl<I: SystemInput, O> Clone for SystemId<I, O> {
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I: SystemInput, O> PartialEq for SystemId<I, O> {
     fn eq(&self, other: &Self) -> bool {
-        self.entity == other.entity && self.marker == other.marker
+        self.entity == other.entity
+    }
+}
+
+impl<I: SystemInput, O> PartialEq<SystemHandle<I, O>> for SystemId<I, O> {
+    fn eq(&self, other: &SystemHandle<I, O>) -> bool {
+        self.entity == other.entity()
     }
 }
 
@@ -158,42 +299,62 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
     }
 }
 
-/// A cached [`SystemId`] distinguished by the unique function type of its system.
-///
-/// This resource is inserted by [`World::register_system_cached`].
-#[derive(Resource)]
-pub struct CachedSystemId<S> {
-    /// The cached `SystemId` as an `Entity`.
-    pub entity: Entity,
-    _marker: PhantomData<fn() -> S>,
-}
-
-impl<S> CachedSystemId<S> {
-    /// Creates a new `CachedSystemId` struct given a `SystemId`.
-    pub fn new<I: SystemInput, O>(id: SystemId<I, O>) -> Self {
-        Self {
-            entity: id.entity(),
-            _marker: PhantomData,
+impl<I: SystemInput, O> From<&SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: &SystemHandle<I, O>) -> Self {
+        match handle {
+            SystemHandle::Strong(strong) => Self::from_entity(strong.entity),
+            SystemHandle::Weak(weak) => *weak,
         }
     }
 }
 
+impl<I: SystemInput, O> From<SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        (&handle).into()
+    }
+}
+
+/// A cached [`SystemId`] distinguished by the unique function type of its system.
+///
+/// This resource is inserted by [`World::register_system_cached`].
+#[derive(Resource)]
+pub struct CachedSystemHandle<S> {
+    strong: Arc<StrongSystemHandle>,
+    _marker: PhantomData<fn() -> S>,
+}
+
+/// Deprecated alias for [`CachedSystemHandle`].
+#[deprecated(
+    since = "0.18.0",
+    note = "This type was renamed to `CachedSystemHandle` for consistency."
+)]
+pub type CachedSystemId<S> = CachedSystemHandle<S>;
+
+impl<S> CachedSystemHandle<S> {
+    /// Returns the [`Entity`] of the cached system associated with this handle.
+    pub fn entity(&self) -> Entity {
+        self.strong.entity
+    }
+}
+
 impl World {
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a strong [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`].
     ///
-    /// It's possible to register multiple copies of the same system by calling this function
-    /// multiple times. If that's not what you want, consider using [`World::register_system_cached`]
-    /// instead.
+    /// It's possible to register multiple copies of the same system by calling
+    /// this function multiple times. If that's not what you want, consider
+    /// using [`World::register_system_cached`] instead.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a pushed-based fashion.
-    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
-    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    /// because the [`SystemHandle`] that is returned can be used anywhere in the
+    /// [`World`] to run the associated system. This allows for running systems
+    /// in a pushed-based fashion. Using a [`Schedule`](crate::schedule::Schedule)
+    /// is still preferred for most cases due to its better performance and
+    /// ability to run non-conflicting systems simultaneously.
     pub fn register_system<I, O, M>(
         &mut self,
         system: impl IntoSystem<I, O, M> + 'static,
-    ) -> SystemId<I, O>
+    ) -> SystemHandle<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
@@ -205,29 +366,38 @@ impl World {
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
     /// [`System`](crate::system::System) trait object and put in a [`Box`].
-    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
+    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemHandle<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
     {
         let entity = self.spawn(RegisteredSystem::new(system)).id();
-        SystemId::from_entity(entity)
+        #[cfg(feature = "std")]
+        let despawner = self.get_resource_or_init::<RegisteredSystemDespawner>();
+
+        SystemHandle::Strong(Arc::new(StrongSystemHandle {
+            entity,
+            #[cfg(feature = "std")]
+            drop_sender: despawner.sender.clone(),
+        }))
     }
 
-    /// Removes a registered system and returns the system, if it exists.
-    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
-    /// Re-adding the removed system will register it on a new [`SystemId`].
+    /// Removes a registered system and returns the system, if it exists. After
+    /// removing a system, the [`SystemId`] becomes invalid and attempting to use
+    /// it afterwards will result in errors. Re-adding the removed system will
+    /// register it on a new [`SystemId`].
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
     pub fn unregister_system<I, O>(
         &mut self,
-        id: SystemId<I, O>,
+        id: impl Into<SystemId<I, O>>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
     where
         I: SystemInput + 'static,
         O: 'static,
     {
+        let id = id.into();
         match self.get_entity_mut(id.entity) {
             Ok(mut entity) => {
                 let registered_system = entity
@@ -245,10 +415,11 @@ impl World {
         }
     }
 
-    /// Run stored systems by their [`SystemId`].
-    /// Before running a system, it must first be registered.
-    /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
-    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
+    /// Run stored systems by their [`SystemId`]. Before running a system, it
+    /// must first be registered. The method [`World::register_system`] stores a
+    /// given system and returns a [`SystemHandle`], which is convertible into a
+    /// [`SystemId`]. This is different from
+    /// [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
     /// Also runs any queued-up commands.
@@ -269,9 +440,9 @@ impl World {
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// world.run_system(counter_one); // -> 1
-    /// world.run_system(counter_one); // -> 2
-    /// world.run_system(counter_two); // -> 1
+    /// world.run_system(&counter_one); // -> 1
+    /// world.run_system(&counter_one); // -> 2
+    /// world.run_system(&counter_two); // -> 1
     /// ```
     ///
     /// ## Change detection
@@ -292,10 +463,10 @@ impl World {
     /// });
     ///
     /// // Resources are changed when they are first added
-    /// let _ = world.run_system(detector); // -> Something happened!
-    /// let _ = world.run_system(detector); // -> Nothing happened.
+    /// let _ = world.run_system(&detector); // -> Something happened!
+    /// let _ = world.run_system(&detector); // -> Nothing happened.
     /// world.resource_mut::<ChangeDetector>().set_changed();
-    /// let _ = world.run_system(detector); // -> Something happened!
+    /// let _ = world.run_system(&detector); // -> Something happened!
     /// ```
     ///
     /// ## Getting system output
@@ -327,19 +498,20 @@ impl World {
     /// ];
     ///
     /// for (label, scoring_system) in scoring_systems {
-    ///   println!("{label} has score {}", world.run_system(scoring_system).expect("system succeeded"));
+    ///   println!("{label} has score {}", world.run_system(&scoring_system).expect("system succeeded"));
     /// }
     /// ```
     pub fn run_system<O: 'static>(
         &mut self,
-        id: SystemId<(), O>,
+        id: impl Into<SystemId<(), O>>,
     ) -> Result<O, RegisteredSystemError<(), O>> {
         self.run_system_with(id, ())
     }
 
     /// Run a stored chained system by its [`SystemId`], providing an input value.
-    /// Before running a system, it must first be registered.
-    /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
+    /// Before running a system, it must first be registered. The method
+    /// [`World::register_system`] stores a given system and returns a [`SystemHandle`],
+    /// which is convertible into a [`SystemId`].
     ///
     /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// Also runs any queued-up commands.
@@ -356,21 +528,22 @@ impl World {
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// assert_eq!(world.run_system_with(counter_one, 1).unwrap(), 1);
-    /// assert_eq!(world.run_system_with(counter_one, 20).unwrap(), 21);
-    /// assert_eq!(world.run_system_with(counter_two, 30).unwrap(), 30);
+    /// assert_eq!(world.run_system_with(&counter_one, 1).unwrap(), 1);
+    /// assert_eq!(world.run_system_with(&counter_one, 20).unwrap(), 21);
+    /// assert_eq!(world.run_system_with(&counter_two, 30).unwrap(), 30);
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
     pub fn run_system_with<I, O>(
         &mut self,
-        id: SystemId<I, O>,
+        id: impl Into<SystemId<I, O>>,
         input: I::Inner<'_>,
     ) -> Result<O, RegisteredSystemError<I, O>>
     where
         I: SystemInput + 'static,
         O: 'static,
     {
+        let id = id.into();
         // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
@@ -429,14 +602,14 @@ impl World {
         Ok(result?)
     }
 
-    /// Registers a system or returns its cached [`SystemId`].
+    /// Registers a system or returns its cached [`SystemHandle`].
     ///
-    /// If you want to run the system immediately and you don't need its `SystemId`, see
+    /// If you want to run the system immediately and you don't need its `SystemHandle`, see
     /// [`World::run_system_cached`].
     ///
     /// The first time this function is called for a particular system, it will register it and
-    /// store its [`SystemId`] in a [`CachedSystemId`] resource for later. If you would rather
-    /// manage the `SystemId` yourself, or register multiple copies of the same system, use
+    /// store its [`SystemHandle`] in a [`CachedSystemHandle`] resource for later. If you would rather
+    /// manage the `SystemHandle` yourself, or register multiple copies of the same system, use
     /// [`World::register_system`] instead.
     ///
     /// # Limitations
@@ -448,7 +621,7 @@ impl World {
     /// If you want to access values from the environment within a system, consider passing them in
     /// as inputs via [`World::run_system_cached_with`]. If that's not an option, consider
     /// [`World::register_system`] instead.
-    pub fn register_system_cached<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    pub fn register_system_cached<I, O, M, S>(&mut self, system: S) -> SystemHandle<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
@@ -461,27 +634,36 @@ impl World {
             );
         }
 
-        if !self.contains_resource::<CachedSystemId<S>>() {
-            let id = self.register_system(system);
-            self.insert_resource(CachedSystemId::<S>::new(id));
-            return id;
+        if !self.contains_resource::<CachedSystemHandle<S>>() {
+            let handle = self.register_system(system);
+            self.insert_resource(CachedSystemHandle::<S> {
+                strong: match &handle {
+                    SystemHandle::Strong(strong) => strong.clone(),
+                    SystemHandle::Weak(_) => unreachable!(),
+                },
+                _marker: PhantomData,
+            });
+            return handle;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
-            if let Ok(mut entity) = world.get_entity_mut(id.entity) {
+        self.resource_scope(|world, mut handle: Mut<CachedSystemHandle<S>>| {
+            if let Ok(mut entity) = world.get_entity_mut(handle.strong.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(RegisteredSystem::new(Box::new(IntoSystem::into_system(
                         system,
                     ))));
                 }
             } else {
-                id.entity = world.register_system(system).entity();
+                handle.strong = match world.register_system(system) {
+                    SystemHandle::Strong(strong) => strong,
+                    SystemHandle::Weak(_) => unreachable!(),
+                };
             }
-            SystemId::from_entity(id.entity)
+            SystemHandle::Strong(Arc::clone(&handle.strong))
         })
     }
 
-    /// Removes a cached system and its [`CachedSystemId`] resource.
+    /// Removes a cached system and its [`CachedSystemHandle`] resource.
     ///
     /// See [`World::register_system_cached`] for more information.
     pub fn unregister_system_cached<I, O, M, S>(
@@ -494,9 +676,9 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self
-            .remove_resource::<CachedSystemId<S>>()
+            .remove_resource::<CachedSystemHandle<S>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.unregister_system(SystemId::<I, O>::from_entity(id.entity))
+        self.unregister_system(SystemHandle::<I, O>::Strong(id.strong))
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -604,7 +786,9 @@ mod tests {
 
     use crate::{
         prelude::*,
-        system::{RegisteredSystemError, SystemId},
+        system::{
+            despawn_unused_registered_systems, RegisteredSystemError, SystemHandle, SystemId,
+        },
     };
 
     #[derive(Resource, Default, PartialEq, Debug)]
@@ -629,15 +813,15 @@ mod tests {
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         // Resources are changed when they are first added.
-        let id = world.register_system(count_up_iff_changed);
-        world.run_system(id).expect("system runs successfully");
+        let handle = world.register_system(count_up_iff_changed);
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Nothing changed
-        world.run_system(id).expect("system runs successfully");
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Making a change
         world.resource_mut::<ChangeDetector>().set_changed();
-        world.run_system(id).expect("system runs successfully");
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -652,14 +836,14 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        let id = world.register_system(doubling);
-        world.run_system(id).expect("system runs successfully");
+        let handle = world.register_system(doubling);
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(id).expect("system runs successfully");
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
-        world.run_system(id).expect("system runs successfully");
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(4));
-        world.run_system(id).expect("system runs successfully");
+        world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(8));
     }
 
@@ -674,29 +858,29 @@ mod tests {
 
         let mut world = World::new();
 
-        let id = world.register_system(increment_sys);
+        let handle = world.register_system(increment_sys);
 
         // Insert the resource after registering the system.
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
 
         world
-            .run_system_with(id, NonCopy(1))
+            .run_system_with(&handle, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
 
         world
-            .run_system_with(id, NonCopy(1))
+            .run_system_with(&handle, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
 
         world
-            .run_system_with(id, NonCopy(20))
+            .run_system_with(&handle, NonCopy(20))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(23));
 
         world
-            .run_system_with(id, NonCopy(1))
+            .run_system_with(&handle, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(24));
     }
@@ -714,17 +898,17 @@ mod tests {
 
         let mut world = World::new();
 
-        let id = world.register_system(increment_sys);
+        let handle = world.register_system(increment_sys);
 
         // Insert the resource after registering the system.
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
 
-        let output = world.run_system(id).expect("system runs successfully");
+        let output = world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
         assert_eq!(output, NonCopy(2));
 
-        let output = world.run_system(id).expect("system runs successfully");
+        let output = world.run_system(&handle).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
         assert_eq!(output, NonCopy(3));
     }
@@ -737,8 +921,8 @@ mod tests {
         }
 
         let mut world = World::new();
-        let fallible_system_id = world.register_system(sys);
-        let output = world.run_system(fallible_system_id);
+        let fallible_system_handle = world.register_system(sys);
+        let output = world.run_system(&fallible_system_handle);
         assert!(matches!(output, Ok(Err(_))));
     }
 
@@ -755,14 +939,12 @@ mod tests {
 
     #[test]
     fn nested_systems() {
-        use crate::system::SystemId;
-
         #[derive(Component)]
-        struct Callback(SystemId);
+        struct Callback(SystemHandle);
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system(callback.0);
+                commands.run_system(&callback.0);
             }
         }
 
@@ -785,14 +967,12 @@ mod tests {
 
     #[test]
     fn nested_systems_with_inputs() {
-        use crate::system::SystemId;
-
         #[derive(Component)]
-        struct Callback(SystemId<In<u8>>, u8);
+        struct Callback(SystemHandle<In<u8>>, u8);
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system_with(callback.0, callback.1);
+                commands.run_system_with(&callback.0, callback.1);
             }
         }
 
@@ -805,7 +985,7 @@ mod tests {
             });
         let nested_id = world.register_system(nested);
 
-        world.spawn(Callback(increment_by, 2));
+        world.spawn(Callback(increment_by.clone(), 2));
         world.spawn(Callback(increment_by, 3));
         let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
@@ -829,7 +1009,7 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_ne!(old, new);
 
-        let output = world.run_system(old);
+        let output = world.run_system(&old);
         assert!(matches!(
             output,
             Err(RegisteredSystemError::SystemIdNotRegistered(x)) if x == old,
@@ -991,11 +1171,11 @@ mod tests {
         let post_system = world.register_system(post);
 
         let mut event = MyEvent { cancelled: false };
-        world.run_system_with(post_system, &mut event).unwrap();
+        world.run_system_with(&post_system, &mut event).unwrap();
         assert!(!event.cancelled);
 
         world.resource_mut::<Counter>().0 = 1;
-        world.run_system_with(post_system, &mut event).unwrap();
+        world.run_system_with(&post_system, &mut event).unwrap();
         assert!(event.cancelled);
     }
 
@@ -1042,9 +1222,9 @@ mod tests {
         }
 
         let mut world = World::new();
-        let id = world.register_system(system);
-        SYSTEM_ID.set(Some(id));
-        world.run_system(id).unwrap();
+        let handle = world.register_system(system);
+        SYSTEM_ID.set(Some((&handle).into()));
+        world.run_system(handle).unwrap();
 
         assert_eq!(INVOCATIONS_LEFT.get(), 0);
     }
@@ -1073,5 +1253,24 @@ mod tests {
             Err(RegisteredSystemError::IncorrectType(_, _)) => (),
             Err(err) => panic!("Failed with wrong error. `{:?}`", err),
         }
+    }
+
+    #[test]
+    fn despawn_unused() {
+        let mut world = World::new();
+
+        fn system() {}
+
+        let handle = world.register_system(system);
+        let entity = handle.entity();
+        drop(handle);
+
+        assert!(world.get_entity(entity).is_ok());
+
+        let mut cleanup = IntoSystem::into_system(despawn_unused_registered_systems);
+        cleanup.initialize(&mut world);
+        cleanup.run((), &mut world).unwrap();
+
+        assert!(world.get_entity(entity).is_err());
     }
 }
