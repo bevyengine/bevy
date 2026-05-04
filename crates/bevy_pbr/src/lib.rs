@@ -107,14 +107,14 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{Image, ImageSampler};
 use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
     render_resource::{
         Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     sync_component::SyncComponentPlugin,
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup,
@@ -169,14 +169,14 @@ pub struct Bluenoise {
 
 /// LTC (Linearly Transformed Cosines) LUT textures for area light shading.
 ///
-/// `ltc_1` encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
-/// `ltc_2` encodes amplitude and Fresnel-related weights.
+/// It is a texture array containing 2 LUT textures:
+/// The first entry encodes the 4 non-trivial elements of the inverse GGX LTC matrix.
+/// The second entry encodes amplitude and Fresnel-related weights.
 ///
 /// [LUT source and fitting code](https://github.com/selfshadow/ltc_code/blob/master/fit/results)
 #[derive(Resource, Clone)]
-pub struct LtcLuts {
-    pub ltc_1: Handle<Image>,
-    pub ltc_2: Handle<Image>,
+pub struct AreaLightLuts {
+    pub image: Handle<Image>,
 }
 
 // See https://github.com/bevyengine/bevy/pull/23737 for information on how the LUT was generated.
@@ -282,15 +282,16 @@ impl Plugin for PbrPlugin {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             #[cfg(feature = "bluenoise_texture")]
             let handle = {
-                let image = Image::from_buffer(
+                let mut image = Image::from_buffer(
                     include_bytes!("bluenoise/stbn.ktx2"),
-                    ImageType::Extension("ktx2"),
-                    CompressedImageFormats::NONE,
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
                     false,
                     ImageSampler::Default,
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
+                image.texture_descriptor.label = Some("bluenoise");
                 images.add(image)
             };
 
@@ -304,39 +305,32 @@ impl Plugin for PbrPlugin {
             }
         }
 
-        let has_ltc_luts = app
+        let has_area_light_luts = app
             .get_sub_app(RenderApp)
-            .is_some_and(|render_app| render_app.world().is_resource_added::<LtcLuts>());
+            .is_some_and(|render_app| render_app.world().is_resource_added::<AreaLightLuts>());
 
-        if !has_ltc_luts {
+        if !has_area_light_luts {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-            let ltc_luts = LtcLuts {
-                ltc_1: images.add(
-                    Image::from_buffer(
-                        include_bytes!("ltc/ltc1.ktx2"),
-                        ImageType::Extension("ktx2"),
-                        CompressedImageFormats::NONE,
-                        false,
-                        ImageSampler::linear(),
-                        RenderAssetUsages::RENDER_WORLD,
-                    )
-                    .expect("Failed to decode embedded LTC LUT 1"),
-                ),
-                ltc_2: images.add(
-                    Image::from_buffer(
-                        include_bytes!("ltc/ltc2.ktx2"),
-                        ImageType::Extension("ktx2"),
-                        CompressedImageFormats::NONE,
-                        false,
-                        ImageSampler::linear(),
-                        RenderAssetUsages::RENDER_WORLD,
-                    )
-                    .expect("Failed to decode embedded LTC LUT 2"),
-                ),
+            #[cfg(feature = "area_light_luts")]
+            let handle = {
+                let mut image = Image::from_buffer(
+                    include_bytes!("ltc/ltc.ktx2"),
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::linear(),
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded LTC LUTs");
+                image.texture_descriptor.label = Some("area_light_luts");
+                images.add(image)
             };
+            #[cfg(not(feature = "area_light_luts"))]
+            let handle = images.add(area_light_luts_placeholder());
 
+            let area_light_luts = AreaLightLuts { image: handle };
             if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-                render_app.world_mut().insert_resource(ltc_luts);
+                render_app.world_mut().insert_resource(area_light_luts);
             }
         }
 
@@ -349,8 +343,8 @@ impl Plugin for PbrPlugin {
             let texture = app.world_mut().resource_mut::<Assets<Image>>().add(
                 Image::from_buffer(
                     include_bytes!("environment_map/dfg.ktx2"),
-                    ImageType::Extension("ktx2"),
-                    CompressedImageFormats::NONE,
+                    bevy_image::ImageType::Extension("ktx2"),
+                    bevy_image::CompressedImageFormats::NONE,
                     false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,
@@ -468,7 +462,7 @@ pub fn stbn_placeholder() -> Image {
             size: Extent3d::default(),
             format,
             dimension: TextureDimension::D2,
-            label: None,
+            label: Some("bluenoise_placeholder"),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING,
@@ -476,6 +470,36 @@ pub fn stbn_placeholder() -> Image {
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
+        copy_on_resize: false,
+    }
+}
+
+pub fn area_light_luts_placeholder() -> Image {
+    let format = TextureFormat::Rgba16Float;
+    let data = vec![0; 16];
+    Image {
+        data: Some(data),
+        data_order: TextureDataOrder::default(),
+        texture_descriptor: TextureDescriptor {
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 2,
+            },
+            format,
+            dimension: TextureDimension::D2,
+            label: Some("area_light_luts_placeholder"),
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        sampler: ImageSampler::Default,
+        texture_view_descriptor: Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        }),
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
     }

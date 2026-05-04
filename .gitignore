@@ -20,6 +20,7 @@ Cargo.lock
 
 # Bevy Assets
 assets/**/*.meta
+!assets/textures/GroundSand005/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
 .web-asset-cache

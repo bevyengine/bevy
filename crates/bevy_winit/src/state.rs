@@ -3,7 +3,7 @@ use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::{
     change_detection::{DetectChanges, Res},
     entity::Entity,
-    message::{MessageCursor, MessageWriter},
+    message::MessageCursor,
     prelude::*,
     system::SystemState,
     world::FromWorld,
@@ -79,10 +79,7 @@ pub(crate) struct WinitAppRunnerState {
     /// Raw Winit window events to send
     raw_winit_events: Vec<RawWinitWindowEvent>,
 
-    message_writer_system_state: SystemState<(
-        MessageWriter<'static, WindowResized>,
-        MessageWriter<'static, WindowBackendScaleFactorChanged>,
-        MessageWriter<'static, WindowScaleFactorChanged>,
+    windows_system_state: SystemState<
         Query<
             'static,
             'static,
@@ -92,19 +89,16 @@ pub(crate) struct WinitAppRunnerState {
                 &'static mut WinitWindowPressedKeys,
             ),
         >,
-    )>,
+    >,
     /// time at which next tick is scheduled to run when `update_mode` is [`UpdateMode::Reactive`]
     scheduled_tick_start: Option<Instant>,
 }
 
 impl WinitAppRunnerState {
     fn new(mut app: App) -> Self {
-        let message_writer_system_state: SystemState<(
-            MessageWriter<WindowResized>,
-            MessageWriter<WindowBackendScaleFactorChanged>,
-            MessageWriter<WindowScaleFactorChanged>,
+        let windows_system_state: SystemState<
             Query<(&mut Window, &mut CachedWindow, &mut WinitWindowPressedKeys)>,
-        )> = SystemState::new(app.world_mut());
+        > = SystemState::new(app.world_mut());
 
         Self {
             app,
@@ -122,7 +116,7 @@ impl WinitAppRunnerState {
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
             raw_winit_events: Vec::new(),
-            message_writer_system_state,
+            windows_system_state,
             scheduled_tick_start: None,
         }
     }
@@ -219,13 +213,8 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             ACCESS_KIT_ADAPTERS.with_borrow_mut(|access_kit_adapters| {
-                let (
-                    mut window_resized,
-                    mut window_backend_scale_factor_changed,
-                    mut window_scale_factor_changed,
-                    mut windows,
-                ) = self
-                    .message_writer_system_state
+                let mut windows = self
+                    .windows_system_state
                     .get_mut(self.app.world_mut())
                     .unwrap();
 
@@ -256,17 +245,18 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                 }
 
                 match event {
-                    WindowEvent::Resized(size) => {
-                        react_to_resize(window, &mut win, size, &mut window_resized);
-                    }
+                    WindowEvent::Resized(size) => self
+                        .bevy_window_events
+                        .send(react_to_resize(window, &mut win, size)),
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                        react_to_scale_factor_change(
-                            window,
-                            &mut win,
-                            scale_factor,
-                            &mut window_backend_scale_factor_changed,
-                            &mut window_scale_factor_changed,
-                        );
+                        let (window_backend_scale_factor_changed, window_scale_factor_changed) =
+                            react_to_scale_factor_change(window, &mut win, scale_factor);
+
+                        self.bevy_window_events
+                            .send(window_backend_scale_factor_changed);
+                        if let Some(window_scale_factor_changed) = window_scale_factor_changed {
+                            self.bevy_window_events.send(window_scale_factor_changed);
+                        }
                     }
                     WindowEvent::CloseRequested => self
                         .bevy_window_events
@@ -926,42 +916,51 @@ pub(crate) fn react_to_resize(
     window_entity: Entity,
     window: &mut Window,
     size: PhysicalSize<u32>,
-    window_resized: &mut MessageWriter<WindowResized>,
-) {
+) -> WindowResized {
     window
         .resolution
         .set_physical_resolution(size.width, size.height);
 
-    window_resized.write(WindowResized {
+    WindowResized {
         window: window_entity,
         width: window.width(),
         height: window.height(),
-    });
+    }
 }
 
 pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
     window: &mut Window,
     scale_factor: f64,
-    window_backend_scale_factor_changed: &mut MessageWriter<WindowBackendScaleFactorChanged>,
-    window_scale_factor_changed: &mut MessageWriter<WindowScaleFactorChanged>,
+) -> (
+    WindowBackendScaleFactorChanged,
+    Option<WindowScaleFactorChanged>,
 ) {
     let prior_factor = window.resolution.scale_factor();
     window.resolution.set_scale_factor(scale_factor as f32);
 
-    window_backend_scale_factor_changed.write(WindowBackendScaleFactorChanged {
+    let window_backend_scale_factor_changed = WindowBackendScaleFactorChanged {
         window: window_entity,
         scale_factor,
-    });
+    };
 
     let scale_factor_override = window.resolution.scale_factor_override();
 
-    if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
-        window_scale_factor_changed.write(WindowScaleFactorChanged {
-            window: window_entity,
-            scale_factor,
-        });
-    }
+    let window_scale_factor_changed =
+        if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
+            let window_scale_factor_changed = WindowScaleFactorChanged {
+                window: window_entity,
+                scale_factor,
+            };
+            Some(window_scale_factor_changed)
+        } else {
+            None
+        };
+
+    (
+        window_backend_scale_factor_changed,
+        window_scale_factor_changed,
+    )
 }
 
 #[cfg(test)]
@@ -1011,6 +1010,30 @@ mod tests {
             })
         );
         assert_eq!(window_scale_factor_changed_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 2);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowScaleFactorChanged(
+                WindowScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 2.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     #[test]
@@ -1043,6 +1066,21 @@ mod tests {
         let window_scale_factor_changed_messages =
             app.world().resource::<Messages<WindowScaleFactorChanged>>();
         assert!(window_scale_factor_changed_messages.is_empty());
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowBackendScaleFactorChanged(
+                WindowBackendScaleFactorChanged {
+                    window: window_entity,
+                    scale_factor: 1.0
+                }
+            ))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
     }
 
     fn setup_react_to_scale_factor_change_test_app(
@@ -1052,25 +1090,142 @@ mod tests {
         let mut app = App::new();
         app.add_message::<WindowBackendScaleFactorChanged>();
         app.add_message::<WindowScaleFactorChanged>();
+        app.add_message::<BevyWindowEvent>();
         app.add_systems(
             Update,
             move |mut window: Single<(Entity, &mut Window)>,
-                  mut window_backend_scale_factor_changed: MessageWriter<
-                      WindowBackendScaleFactorChanged,
-                  >,
-                  mut window_scale_factor_changed: MessageWriter<WindowScaleFactorChanged>| {
-                react_to_scale_factor_change(
-                    window.0,
-                    &mut window.1,
-                    changed_scale_factor,
-                    &mut window_backend_scale_factor_changed,
-                    &mut window_scale_factor_changed,
-                );
+                  mut window_backend_scale_factor_changed_writer: MessageWriter<
+                WindowBackendScaleFactorChanged,
+            >,
+                  mut window_scale_factor_changed_writer: MessageWriter<
+                WindowScaleFactorChanged,
+            >,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
+                let (window_backend_scale_factor_changed, window_scale_factor_changed) =
+                    react_to_scale_factor_change(window.0, &mut window.1, changed_scale_factor);
+                window_backend_scale_factor_changed_writer
+                    .write(window_backend_scale_factor_changed.clone());
+                window_event.write(BevyWindowEvent::WindowBackendScaleFactorChanged(
+                    window_backend_scale_factor_changed,
+                ));
+                if let Some(window_scale_factor_changed) = window_scale_factor_changed {
+                    window_scale_factor_changed_writer.write(window_scale_factor_changed.clone());
+                    window_event.write(BevyWindowEvent::WindowScaleFactorChanged(
+                        window_scale_factor_changed,
+                    ));
+                }
             },
         );
 
         let mut window = Window::default();
         window.resolution.set_scale_factor(initial_scale_factor);
+        let window_entity = app.world_mut().spawn(window).id();
+
+        (app, window_entity)
+    }
+
+    #[test]
+    fn test_react_to_resize_with_changed_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1920, 1080));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1920);
+        assert_eq!(window.resolution.physical_height(), 1080);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1920.0,
+                height: 1080.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    #[test]
+    fn test_react_to_resize_with_same_size() {
+        let (mut app, window_entity) =
+            setup_react_to_resize(PhysicalSize::new(1280, 720), PhysicalSize::new(1280, 720));
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity).unwrap();
+        assert_eq!(window.resolution.physical_width(), 1280);
+        assert_eq!(window.resolution.physical_height(), 720);
+
+        let window_resized_messages = app.world().resource::<Messages<WindowResized>>();
+        assert_eq!(window_resized_messages.len(), 1);
+
+        let mut window_resized_messages_iter =
+            window_resized_messages.iter_current_update_messages();
+        assert_eq!(
+            window_resized_messages_iter.next(),
+            Some(&WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            })
+        );
+        assert_eq!(window_resized_messages_iter.next(), None);
+
+        let window_event_messages = app.world().resource::<Messages<BevyWindowEvent>>();
+        assert_eq!(window_event_messages.len(), 1);
+
+        let mut window_event_messages_iter = window_event_messages.iter_current_update_messages();
+        assert_eq!(
+            window_event_messages_iter.next(),
+            Some(&BevyWindowEvent::WindowResized(WindowResized {
+                window: window_entity,
+                width: 1280.0,
+                height: 720.0
+            }))
+        );
+        assert_eq!(window_event_messages_iter.next(), None);
+    }
+
+    fn setup_react_to_resize(
+        initial_size: PhysicalSize<u32>,
+        changed_size: PhysicalSize<u32>,
+    ) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_message::<WindowResized>();
+        app.add_message::<BevyWindowEvent>();
+        app.add_systems(
+            Update,
+            move |mut window: Single<(Entity, &mut Window)>,
+                  mut window_resized_writer: MessageWriter<WindowResized>,
+                  mut window_event: MessageWriter<BevyWindowEvent>| {
+                let window_resized = react_to_resize(window.0, &mut window.1, changed_size);
+                window_resized_writer.write(window_resized.clone());
+                window_event.write(BevyWindowEvent::WindowResized(window_resized));
+            },
+        );
+
+        let mut window = Window::default();
+        window
+            .resolution
+            .set_physical_resolution(initial_size.width, initial_size.height);
         let window_entity = app.world_mut().spawn(window).id();
 
         (app, window_entity)
