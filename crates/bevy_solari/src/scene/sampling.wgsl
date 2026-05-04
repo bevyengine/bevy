@@ -169,7 +169,8 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 
         // Rotate the ray so that the cone it was sampled from is aligned with the light direction
         direction_to_light = orthonormalize(directional_light.direction_to_light) * direction_to_light;
-# else let direction_to_light = directional_light.direction_to_light;
+#else
+        let direction_to_light = directional_light.direction_to_light;
 #endif
 
         return ResolvedLightSample(

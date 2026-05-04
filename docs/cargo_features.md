@@ -42,7 +42,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |scene|Features used to compose Bevy scenes. **Feature set:** `bevy_world_serialization`, `bevy_scene`.|
 |picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_input_focus`, `bevy_log`, `bevy_state`, `bevy_window`, `custom_cursor`, `reflect_auto_register`.|
-|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `bevy_gilrs`, `bevy_winit`, `bevy_clipboard`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
+|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `bevy_gilrs`, `bevy_winit`, `bevy_clipboard`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
 |common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `hdr`, `png`.|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_sprite`.|
 |2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`. **Feature set:** `2d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_post_process`, `bevy_sprite_render`, `bevy_gizmos_render`.|
@@ -78,6 +78,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_feathers|Feathers widget collection.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
 |bevy_gizmos_render|Adds support for rendering gizmos|
@@ -124,7 +125,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
-|experimental_bevy_feathers|Feathers widget collection.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|

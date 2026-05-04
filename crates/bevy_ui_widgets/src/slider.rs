@@ -306,9 +306,12 @@ pub(crate) fn slider_on_pointer_down(
             .unwrap_or(0.0);
 
         // Detect track click.
-        let local_pos = transform.try_inverse().unwrap().transform_point2(
+        let Some(normalized_pos) = node.normalize_point(
+            *transform,
             press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
-        );
+        ) else {
+            return;
+        };
         let track_size = if is_vertical {
             node.size().y - thumb_size
         } else {
@@ -319,13 +322,13 @@ pub(crate) fn slider_on_pointer_down(
         let click_val = if track_size > 0. {
             if is_vertical {
                 // For vertical sliders: bottom-to-top (0 at bottom, max at top)
-                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
-                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                // normalized_pos.y ranges from -0.5 (top) to +0.5 (bottom)
+                let y_from_bottom = (0.5 - normalized_pos.y) * node.size().y;
                 let adjusted_y = y_from_bottom - thumb_size / 2.0;
                 adjusted_y * range.span() / track_size + range.start()
             } else {
                 // For horizontal sliders: convert from center-origin to left-origin
-                let x_from_left = local_pos.x + node.size().x / 2.0;
+                let x_from_left = (normalized_pos.x + 0.5) * node.size().x;
                 let adjusted_x = x_from_left - thumb_size / 2.0;
                 adjusted_x * range.span() / track_size + range.start()
             }

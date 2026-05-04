@@ -95,7 +95,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 {
                     match #bevy_reflect_path::enums::Enum::variant_name(#ref_value) {
                         #match_branches
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
+                        name => #FQOption::None,
                     }
                 } else {
                     #FQOption::None
