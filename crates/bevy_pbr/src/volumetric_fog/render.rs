@@ -5,14 +5,11 @@ use core::array;
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
-use bevy_core_pipeline::prepass::{
-    DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, With},
+    query::With,
     resource::Resource,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -46,9 +43,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
-use crate::{
-    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-};
+use crate::{MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, ViewKeyCache};
 
 use super::FogAssets;
 
@@ -558,57 +553,23 @@ pub fn prepare_volumetric_fog_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
     fog_assets: Res<FogAssets>,
-    view_targets: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &Msaa,
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-            Has<ExtractedAtmosphere>,
-        ),
-        With<VolumetricFog>,
-    >,
+    view_targets: Query<(Entity, &ExtractedView), With<VolumetricFog>>,
     meshes: Res<RenderAssets<RenderMesh>>,
+    view_key_cache: Res<ViewKeyCache>,
 ) {
     let Some(plane_mesh) = meshes.get(&fog_assets.plane_mesh) else {
         // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
         return;
     };
 
-    for (
-        entity,
-        view,
-        msaa,
-        normal_prepass,
-        depth_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
-        atmosphere,
-    ) in view_targets.iter()
-    {
-        // Create a mesh pipeline view layout key corresponding to the view.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
-        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::NORMAL_PREPASS, normal_prepass);
-        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::DEPTH_PREPASS, depth_prepass);
-        mesh_pipeline_view_key.set(
-            MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
-            motion_vector_prepass,
-        );
-        mesh_pipeline_view_key.set(
-            MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
-            deferred_prepass,
-        );
-        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
-        if cfg!(feature = "bluenoise_texture") {
-            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
-        }
+    for (entity, view) in view_targets.iter() {
+        let Some(mesh_pipeline_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         // Specialize the pipeline.
         let textureless_pipeline_key = VolumetricFogPipelineKey {
-            mesh_pipeline_view_key,
+            mesh_pipeline_view_key: (*mesh_pipeline_key).into(),
             vertex_buffer_layout: plane_mesh.layout.clone(),
             target_format: view.target_format,
             has_density_texture: false,

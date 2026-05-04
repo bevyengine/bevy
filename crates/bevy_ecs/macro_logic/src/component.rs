@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQSend, FQSync};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::collections::HashSet;
@@ -242,7 +243,7 @@ impl DeriveComponent {
                 let ident = &require.path;
                 let constructor = match &require.func {
                     Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
-                    None => quote! { <#ident as ::core::default::Default>::default },
+                    None => quote! { <#ident as #FQDefault>::default },
                 };
                 register_required.push(quote! {
                     required_components.register_required::<#ident>(#constructor);
@@ -254,7 +255,7 @@ impl DeriveComponent {
         ast.generics
             .make_where_clause()
             .predicates
-            .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+            .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
         let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
         let required_component_docs = self.requires.map(|r| {
@@ -301,7 +302,7 @@ impl DeriveComponent {
             let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
             if relationship.is_some() {
                 quote! {
-                    ::core::option::Option::Some(
+                    #FQOption::Some(
                         // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
                         unsafe {
                             #bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship(
@@ -312,11 +313,11 @@ impl DeriveComponent {
                 }
             } else {
                 quote! {
-                    ::core::option::Option::Some(#bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+                    #FQOption::Some(#bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
                 }
             }
         } else {
-            quote! {::core::option::Option::None}
+            quote! {#FQOption::None}
         };
         Ok(quote! {
             #required_component_docs
@@ -343,7 +344,7 @@ impl DeriveComponent {
 
                 #map_entities
 
-                fn relationship_accessor() -> ::core::option::Option<#bevy_ecs::relationship::ComponentRelationshipAccessor<Self>> {
+                fn relationship_accessor() -> #FQOption<#bevy_ecs::relationship::ComponentRelationshipAccessor<Self>> {
                     #relationship_accessor
                 }
             }
@@ -385,6 +386,8 @@ impl DeriveComponent {
         let relationship_target = &relationship.relationship_target;
         let allow_self_referential = relationship.allow_self_referential;
 
+        let fqdefault = FQDefault.into_token_stream();
+
         Ok(Some(quote! {
             impl #impl_generics #bevy_ecs::relationship::Relationship for #struct_name #type_generics #where_clause {
                 type RelationshipTarget = #relationship_target;
@@ -398,7 +401,7 @@ impl DeriveComponent {
                 #[inline]
                 fn from(entity: #bevy_ecs::entity::Entity) -> Self {
                     Self {
-                        #(#members: ::core::default::Default::default(),)*
+                        #(#members: #fqdefault::default(),)*
                         #relationship_member: entity
                     }
                 }
@@ -447,6 +450,7 @@ impl DeriveComponent {
         let struct_name = &ast.ident;
         let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
         let linked_spawn = relationship_target.linked_spawn;
+        let fqdefault = FQDefault.into_token_stream();
         Ok(Some(quote! {
             impl #impl_generics #bevy_ecs::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
                 const LINKED_SPAWN: bool = #linked_spawn;
@@ -466,7 +470,7 @@ impl DeriveComponent {
                 #[inline]
                 fn from_collection_risky(collection: Self::Collection) -> Self {
                     Self {
-                        #(#members: ::core::default::Default::default(),)*
+                        #(#members: #fqdefault::default(),)*
                         #relationship_member: collection
                     }
                 }
@@ -672,8 +676,8 @@ fn hook_register_function_call(
         }
     };
     quote! {
-        fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
-            ::core::option::Option::Some(#hook_function)
+        fn #hook() -> #FQOption<#bevy_ecs_path::lifecycle::ComponentHook> {
+            #FQOption::Some(#hook_function)
         }
     }
 }

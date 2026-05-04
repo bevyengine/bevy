@@ -487,6 +487,7 @@ mod tests {
         {
             skip = true;
         }
+
         if skip {
             lines.next().unwrap();
         }
