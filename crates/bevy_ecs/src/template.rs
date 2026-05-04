@@ -478,7 +478,7 @@ impl FromTemplate for Entity {
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::SystemId;
 /// use bevy_scene::prelude::*;
-/// 
+///
 /// #[derive(Component, FromTemplate)]
 /// struct Callback(SystemId);
 ///
