@@ -20,16 +20,11 @@ impl Image {
 
         match dyn_img {
             DynamicImage::ImageLuma8(image) => {
-                let i = DynamicImage::ImageLuma8(image).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::R8Unorm;
 
-                data = i.into_raw();
+                data = image.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
                 let i = DynamicImage::ImageLumaA8(image).into_rgba8();
@@ -112,12 +107,7 @@ impl Image {
                     width as usize * height as usize * format.pixel_size().unwrap_or(0),
                 );
 
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilized
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
+                for [r, g, b] in image.into_raw().as_chunks().0 {
                     let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_le_bytes());
@@ -191,8 +181,8 @@ impl Image {
             TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
                 ImageBuffer::from_raw(width, height, {
                     let mut data = data;
-                    for bgra in data.chunks_exact_mut(4) {
-                        bgra.swap(0, 2);
+                    for [b, _, r, _] in data.as_chunks_mut().0 {
+                        core::mem::swap(b, r);
                     }
                     data
                 })

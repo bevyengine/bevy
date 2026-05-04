@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQInto, FQSend, FQSync};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -19,7 +20,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+        .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
 
     let mut processed_attrs = Vec::new();
     let mut trigger: Option<Type> = None;
@@ -63,7 +64,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+        .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
 
     let mut auto_propagate = false;
     let mut propagate = false;
@@ -139,7 +140,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
         quote! {
             impl #impl_generics #bevy_ecs_path::event::SetEntityEventTarget for #struct_name #type_generics #where_clause {
                 fn set_event_target(&mut self, entity: #bevy_ecs_path::entity::Entity) {
-                    self.#entity_field = ::core::convert::Into::into(entity);
+                    self.#entity_field = #FQInto::into(entity);
                 }
             }
         }

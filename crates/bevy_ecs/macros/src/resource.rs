@@ -1,4 +1,5 @@
 use bevy_ecs_macro_logic::component::DeriveComponent;
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Path};
@@ -15,7 +16,7 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
 
     // We add the component_id existence check here to avoid recursive init during required components initialization.
     derive_component.additional_requires.push(quote! {
-        let resource_component_id = if let ::core::option::Option::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
+        let resource_component_id = if let #FQOption::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
             id
         } else {
             required_components.components_registrator().register_component::<#struct_name #type_generics>()

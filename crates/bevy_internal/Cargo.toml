@@ -29,7 +29,12 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_image/compressed_image_saver_universal",
+]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
 # For ktx2 supercompression
@@ -84,6 +89,9 @@ bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
 # Include a preintegrated BRDF Look Up Table for more accurate specular shading.
 dfg_lut = ["bevy_pbr?/dfg_lut", "ktx2", "bevy_image/zstd"]
+
+# Include Look Up Tables that are required for area lights.
+area_light_luts = ["bevy_pbr?/area_light_luts", "ktx2", "bevy_image/zstd"]
 
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]

@@ -3,14 +3,10 @@ use core::marker::PhantomData;
 use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_scene::prelude::*;
-use bevy_ui::Node;
-use bevy_ui::Val;
-use bevy_ui::{widget::Text, FlexDirection};
+use bevy_ui::{px, widget::Text, FlexDirection, Node};
 use bevy_ui_widgets::{observe, Activate};
 
-use crate::controls::button::ButtonBundleProps;
-use crate::controls::button_bundle;
-use crate::controls::FeathersButton;
+use crate::controls::{button::ButtonBundleProps, button_bundle, FeathersButton};
 
 /// A virtual keyboard widget.
 ///
@@ -70,7 +66,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
             bsn! {
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(4.),
+                    column_gap: px(4),
                 }
                 Children [
                     {key_row}
@@ -80,7 +76,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
         bsn! {
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(4.),
+                row_gap: px(4),
             }
             TabGroup::new(0)
             Children [
@@ -116,7 +112,7 @@ where
     (
         Node {
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(4.),
+            row_gap: px(4),
             ..Default::default()
         },
         TabGroup::new(0),
@@ -124,7 +120,7 @@ where
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(4.),
+                    column_gap: px(4),
                     ..Default::default()
                 },
                 Children::spawn(SpawnIter(row.into_iter().map(move |key| {

@@ -13,11 +13,11 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_scene::{prelude::*, template_value};
+use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
-    InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect, Val,
+    InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -198,40 +198,38 @@ impl FeathersMenuPopup {
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Stretch,
                 align_items: AlignItems::Stretch,
-                border: UiRect::all(Val::Px(1.0)),
-                padding: UiRect::axes(Val::Px(0.0), Val::Px(4.0)),
+                border: px(1),
+                padding: UiRect::axes(px(0), px(4)),
                 border_radius: {RoundedCorners::All.to_border_radius(4.0)},
             }
             FeathersMenuPopup
             MenuPopup
-            template_value(Visibility::Hidden)
+            Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
-                Val::Px(0.0),
-                Val::Px(0.0),
-                Val::Px(1.0),
-                Val::Px(4.0),
+                px(0),
+                px(0),
+                px(1),
+                px(4),
             )
             GlobalZIndex(100)
-            template_value(
-                Popover {
-                    positions: vec![
-                        PopoverPlacement {
-                            side: PopoverSide::Bottom,
-                            align: PopoverAlign::Start,
-                            gap: 2.0,
-                        },
-                        PopoverPlacement {
-                            side: PopoverSide::Top,
-                            align: PopoverAlign::Start,
-                            gap: 2.0,
-                        },
-                    ],
-                    window_margin: 10.0,
-                }
-            )
+            Popover {
+                positions: {vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                ]},
+                window_margin: 10.0,
+            }
             OverrideClip
         }
     }
@@ -266,7 +264,7 @@ impl FeathersMenuItem {
                 min_width: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+                padding: UiRect::horizontal(px(8)),
             }
             FeathersMenuItem
             MenuItem
@@ -439,7 +437,7 @@ impl FeathersMenuDivider {
                 height: px(1),
                 justify_content: JustifyContent::Start,
                 align_self: AlignSelf::Stretch,
-                margin: UiRect::axes(Val::Px(0.0), Val::Px(2.)),
+                margin: UiRect::vertical(px(2)),
             }
             ThemeBackgroundColor(tokens::MENU_BORDER) // Same as menu
         }
