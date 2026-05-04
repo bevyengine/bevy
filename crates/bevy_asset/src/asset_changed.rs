@@ -10,11 +10,13 @@ use bevy_ecs::{
     change_detection::Tick,
     component::ComponentId,
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    query::{FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    resource::IS_RESOURCE,
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_platform::collections::HashMap;
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;
@@ -168,9 +170,8 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         // SAFETY:
         // - `state.resource_id` was obtained from `world.init_resource::<AssetChanges<A::Asset>>()`,
         //   so the untyped pointer returned by `get_resource_by_id` can safely be dereferenced into that type.
-        // - `update_component_access` declares a read on `state.resource_id`, so it is safe to
-        //   read that resource here (see trait-level safety comments on `WorldQuery`, regarding
-        //   readonly resource access in `init_fetch`)
+        // - `init_nested_access` declares a read on `state.resource_id`, so it is safe to
+        //   read that resource here (see trait-level safety comments on `WorldQuery`)
         let Some(changes) = (unsafe {
             world
                 .get_resource_by_id(state.resource_id)
@@ -235,7 +236,26 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
-        access.add_resource_read(state.resource_id);
+    }
+
+    // ChangedAsset accesses both the asset and the AssetChanges<A> resource.
+    // In order to access two different entities we implement init_nested_access.
+    fn init_nested_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+        let mut filter = FilteredAccess::default();
+        filter.add_read(state.resource_id);
+        filter.and_with(IS_RESOURCE);
+
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
+        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -294,6 +314,7 @@ mod tests {
     use crate::tests::create_app;
     use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
@@ -322,6 +343,20 @@ mod tests {
         fn as_asset_id(&self) -> AssetId<Self::Asset> {
             self.0.id()
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_conflict() {
+        #[derive(Component)]
+        struct Foo;
+
+        fn system(
+            _: Query<&Foo, AssetChanged<MyComponent>>,
+            _: Query<&mut AssetChanges<MyAsset>, bevy_ecs::query::Without<Foo>>,
+        ) {
+        }
+        assert_is_system(system);
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {

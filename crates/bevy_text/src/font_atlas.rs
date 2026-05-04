@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
-use bevy_math::{IVec2, UVec2};
+use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use swash::scale::Scaler;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
@@ -31,8 +31,8 @@ pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     /// A mapping between subpixel-offset glyphs and their [`GlyphAtlasLocation`].
     pub glyph_to_atlas_index: HashMap<GlyphCacheKey, GlyphAtlasLocation>,
-    /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
-    pub texture_atlas: Handle<TextureAtlasLayout>,
+    /// The layout for the font atlas.
+    pub texture_atlas: TextureAtlasLayout,
     /// The texture where this font atlas is located
     pub texture: Handle<Image>,
 }
@@ -41,7 +41,6 @@ impl FontAtlas {
     /// Create a new [`FontAtlas`] with the given size, adding it to the appropriate asset collections.
     pub fn new(
         textures: &mut Assets<Image>,
-        texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
         size: UVec2,
         font_smoothing: FontSmoothing,
     ) -> FontAtlas {
@@ -57,11 +56,10 @@ impl FontAtlas {
             image.sampler = ImageSampler::nearest();
         }
         let texture = textures.add(image);
-        let texture_atlas = texture_atlases_layout.add(TextureAtlasLayout::new_empty(size));
         Self {
-            texture_atlas,
+            texture_atlas: TextureAtlasLayout::new_empty(size),
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 2),
             texture,
         }
     }
@@ -90,20 +88,17 @@ impl FontAtlas {
     pub fn add_glyph(
         &mut self,
         textures: &mut Assets<Image>,
-        atlas_layouts: &mut Assets<TextureAtlasLayout>,
         key: GlyphCacheKey,
         texture: &Image,
-        offset: IVec2,
+        offset: Vec2,
+        is_alpha_mask: bool,
     ) -> Result<(), TextError> {
-        let mut atlas_layout = atlas_layouts
-            .get_mut(&self.texture_atlas)
-            .ok_or(TextError::MissingAtlasLayout)?;
         let mut atlas_texture = textures
             .get_mut(&self.texture)
             .ok_or(TextError::MissingAtlasTexture)?;
 
         if let Ok(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
-            &mut atlas_layout,
+            &mut self.texture_atlas,
             texture,
             &mut atlas_texture,
         ) {
@@ -112,6 +107,7 @@ impl FontAtlas {
                 GlyphAtlasLocation {
                     glyph_index,
                     offset,
+                    is_alpha_mask,
                 },
             );
             Ok(())
@@ -135,20 +131,20 @@ impl core::fmt::Debug for FontAtlas {
 /// Adds the given subpixel-offset glyph to the given font atlases
 pub fn add_glyph_to_atlas(
     font_atlases: &mut Vec<FontAtlas>,
-    texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
     glyph_id: u16,
 ) -> Result<GlyphAtlasInfo, TextError> {
-    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
+    let (glyph_texture, offset, is_alpha_mask) =
+        get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
         atlas.add_glyph(
             textures,
-            texture_atlases,
             GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
+            is_alpha_mask,
         )
     };
     if !font_atlases
@@ -164,19 +160,14 @@ pub fn add_glyph_to_atlas(
         // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
         let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
 
-        let mut new_atlas = FontAtlas::new(
-            textures,
-            texture_atlases,
-            UVec2::splat(containing),
-            font_smoothing,
-        );
+        let mut new_atlas = FontAtlas::new(textures, UVec2::splat(containing), font_smoothing);
 
         new_atlas.add_glyph(
             textures,
-            texture_atlases,
             GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
+            is_alpha_mask,
         )?;
 
         font_atlases.push(new_atlas);
@@ -195,7 +186,7 @@ pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
     glyph_id: u16,
     font_smoothing: FontSmoothing,
-) -> Result<(Image, IVec2), TextError> {
+) -> Result<(Image, Vec2, bool), TextError> {
     let image = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
         swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
@@ -211,27 +202,35 @@ pub fn get_outlined_glyph_texture(
     let height = image.placement.height;
 
     let px = (width * height) as usize;
-    let mut rgba = vec![0u8; px * 4];
-    match font_smoothing {
-        FontSmoothing::AntiAliased => {
-            for i in 0..px {
-                let a = image.data[i];
-                rgba[i * 4 + 0] = 255; // R
-                rgba[i * 4 + 1] = 255; // G
-                rgba[i * 4 + 2] = 255; // B
-                rgba[i * 4 + 3] = a; // A from swash
+    let rgba = match image.content {
+        swash::scale::image::Content::Mask => {
+            let mut rgba = vec![0u8; px * 4];
+            match font_smoothing {
+                FontSmoothing::AntiAliased => {
+                    for i in 0..px {
+                        let a = image.data[i];
+                        rgba[i * 4 + 0] = 255; // R
+                        rgba[i * 4 + 1] = 255; // G
+                        rgba[i * 4 + 2] = 255; // B
+                        rgba[i * 4 + 3] = a; // A from swash
+                    }
+                }
+                FontSmoothing::None => {
+                    for i in 0..px {
+                        let a = image.data[i];
+                        rgba[i * 4 + 0] = 255; // R
+                        rgba[i * 4 + 1] = 255; // G
+                        rgba[i * 4 + 2] = 255; // B
+                        rgba[i * 4 + 3] = if 127 < a { 255 } else { 0 }; // A from swash
+                    }
+                }
             }
+            rgba
         }
-        FontSmoothing::None => {
-            for i in 0..px {
-                let a = image.data[i];
-                rgba[i * 4 + 0] = 255; // R
-                rgba[i * 4 + 1] = 255; // G
-                rgba[i * 4 + 2] = 255; // B
-                rgba[i * 4 + 3] = if 127 < a { 255 } else { 0 }; // A from swash
-            }
+        swash::scale::image::Content::Color | swash::scale::image::Content::SubpixelMask => {
+            image.data
         }
-    }
+    };
 
     Ok((
         Image::new(
@@ -245,7 +244,8 @@ pub fn get_outlined_glyph_texture(
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
         ),
-        IVec2::new(left, top),
+        Vec2::new(left as f32, -top as f32),
+        image.content == swash::scale::image::Content::Mask,
     ))
 }
 
@@ -258,9 +258,10 @@ pub fn get_glyph_atlas_info(
         atlas
             .get_glyph_index(cache_key)
             .map(|location| GlyphAtlasInfo {
-                location,
-                texture_atlas: atlas.texture_atlas.id(),
+                offset: location.offset,
+                rect: atlas.texture_atlas.textures[location.glyph_index].as_rect(),
                 texture: atlas.texture.id(),
+                is_alpha_mask: location.is_alpha_mask,
             })
     })
 }

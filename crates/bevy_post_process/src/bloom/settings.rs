@@ -18,8 +18,6 @@ use bevy_render::{extract_component::ExtractComponent, sync_component::SyncCompo
 ///
 /// # Usage Notes
 ///
-/// **Bloom is currently not compatible with WebGL2.**
-///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
@@ -223,12 +221,13 @@ pub enum BloomCompositeMode {
 }
 
 impl SyncComponent for Bloom {
-    type Out = (Self, BloomUniforms);
+    type Target = (Self, BloomUniforms);
 }
 
 impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
     type QueryFilter = With<Hdr>;
+    type Out = (Self, BloomUniforms);
 
     fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         match (

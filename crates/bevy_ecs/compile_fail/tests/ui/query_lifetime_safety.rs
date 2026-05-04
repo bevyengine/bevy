@@ -10,7 +10,7 @@ fn main() {
 
     let mut system_state = SystemState::<Query<&mut Foo>>::new(&mut world);
     {
-        let mut query = system_state.get_mut(&mut world);
+        let mut query = system_state.get_mut(&mut world).unwrap();
         dbg!("hi");
         {
             let data: &Foo = query.get(e).unwrap();

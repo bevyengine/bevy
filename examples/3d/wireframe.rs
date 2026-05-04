@@ -10,7 +10,10 @@
 
 use bevy::{
     color::palettes::css::*,
-    pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
+    pbr::wireframe::{
+        NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframeLineWidth,
+        WireframePlugin, WireframeTopology,
+    },
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
 };
@@ -39,11 +42,15 @@ fn main() {
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `WireframeColor` component.
             default_color: WHITE.into(),
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();
 }
+
+#[derive(Component)]
+struct ColorToggleCube;
 
 /// set up a simple 3D scene
 fn setup(
@@ -55,24 +62,38 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(RED))),
-        Transform::from_xyz(-1.0, 0.5, -1.0),
+        Transform::from_xyz(-1.5, 0.5, -1.5),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(ORANGE))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform::from_xyz(-0.5, 0.5, -0.5),
     ));
-    // Green cube: Always renders a wireframe
+    // Green cube: Always renders a wireframe with custom color
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(LIME))),
-        Transform::from_xyz(1.0, 0.5, 1.0),
+        Transform::from_xyz(0.5, 0.5, 0.5),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         WireframeColor { color: LIME.into() },
+        ColorToggleCube,
+    ));
+
+    // Purple cube: wireframe with explicit Quads topology override
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(PURPLE))),
+        Transform::from_xyz(1.5, 0.5, 1.5),
+        Wireframe,
+        WireframeColor {
+            color: YELLOW.into(),
+        },
+        WireframeLineWidth { width: 3.0 },
+        WireframeTopology::Quads,
     ));
 
     // plane
@@ -111,21 +132,30 @@ fn setup(
 fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
-    mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
+    mut wireframe_colors: Query<&mut WireframeColor, With<ColorToggleCube>>,
+    mut wireframe_widths: Query<&mut WireframeLineWidth>,
     mut text: Single<&mut Text>,
 ) {
+    let current_width = wireframe_widths
+        .iter()
+        .next()
+        .map(|w| w.width)
+        .unwrap_or(1.0);
+
     text.0 = format!(
         "Controls
 ---------------
 Z - Toggle global
 X - Change global color
 C - Change color of the green cube wireframe
+V - Line width (current: {current_width:.1}px)
+B - Toggle topology (current: {:?})
 
 WireframeConfig
 -------------
 Global: {}
 Color: {:?}",
-        config.global, config.default_color,
+        config.default_topology, config.global, config.default_color,
     );
 
     // Toggle showing a wireframe on all meshes
@@ -151,5 +181,23 @@ Color: {:?}",
                 LIME.into()
             };
         }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyV) {
+        for mut width in &mut wireframe_widths {
+            width.width = match width.width as u32 {
+                0..=2 => 3.0,
+                3..=4 => 5.0,
+                5..=7 => 10.0,
+                _ => 2.0,
+            };
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyB) {
+        config.default_topology = match config.default_topology {
+            WireframeTopology::Triangles => WireframeTopology::Quads,
+            WireframeTopology::Quads => WireframeTopology::Triangles,
+        };
     }
 }
