@@ -42,7 +42,6 @@ use bevy_platform::{
 use core::{mem::ManuallyDrop, ops::Range};
 use log::warn;
 use nonmax::NonMaxU32;
-use std::intrinsics::overflow_checks;
 
 use crate::query::DebugCheckedUnwrap;
 
