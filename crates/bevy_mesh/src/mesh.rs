@@ -1231,15 +1231,12 @@ impl Mesh {
         ) -> Result<(), MeshWindingInvertError> {
             match topology {
                 PrimitiveTopology::TriangleList => {
-                    // Early return if the index count doesn't match
-                    if !indices.len().is_multiple_of(3) {
+                    let (chunks, []) = indices.as_chunks_mut() else {
+                        // Early return if the index count doesn't match
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                    }
-                    for chunk in indices.chunks_mut(3) {
-                        // This currently can only be optimized away with unsafe, rework this when `feature(slice_as_chunks)` gets stable.
-                        let [_, b, c] = chunk else {
-                            return Err(MeshWindingInvertError::AbruptIndicesEnd);
-                        };
+                    };
+
+                    for [_, b, c] in chunks {
                         core::mem::swap(b, c);
                     }
                     Ok(())
@@ -1353,9 +1350,10 @@ impl Mesh {
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let normals: Vec<_> = positions
-            .chunks_exact(3)
-            .map(|p| triangle_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| [normal; 3])
+            .as_chunks()
+            .0
+            .iter()
+            .flat_map(|&[a, b, c]| [triangle_normal(a, b, c); 3])
             .collect();
 
         self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -1608,11 +1606,14 @@ impl Mesh {
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        self.try_indices()?
-            .iter()
-            .collect::<Vec<usize>>()
-            .chunks_exact(3)
-            .for_each(|face| per_triangle([face[0], face[1], face[2]], positions, &mut normals));
+        match self.try_indices()? {
+            Indices::U16(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+            Indices::U32(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
+                per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
+            }),
+        }
 
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
@@ -2218,14 +2219,16 @@ impl Mesh {
                 // This implicitly truncates the indices to a multiple of 3.
                 let iterator = match indices {
                     Indices::U16(vec) => FourIterators::First(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks::<3>()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
-                        vec.as_slice()
-                            .chunks_exact(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                        vec.as_chunks::<3>()
+                            .0
+                            .iter()
+                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 

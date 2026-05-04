@@ -19,7 +19,7 @@ pub use wgpu::{
 #[derive(Clone)]
 pub enum WgpuSettingsPriority {
     /// WebGPU default features and limits
-    Compatibility,
+    WebGPU,
     /// The maximum supported features and limits of the adapter and backend
     Functionality,
     /// WebGPU default limits plus additional constraints in order to be compatible with WebGL2
@@ -315,7 +315,7 @@ pub fn settings_priority_from_env() -> Option<WgpuSettingsPriority> {
             .map(str::to_lowercase)
             .as_deref()
         {
-            Ok("compatibility") => WgpuSettingsPriority::Compatibility,
+            Ok("webgpu") => WgpuSettingsPriority::WebGPU,
             Ok("functionality") => WgpuSettingsPriority::Functionality,
             Ok("webgl2") => WgpuSettingsPriority::WebGL2,
             _ => return None,

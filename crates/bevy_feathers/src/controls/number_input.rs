@@ -1,5 +1,4 @@
 use bevy_app::PropagateOver;
-use bevy_asset::AssetServer;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,28 +8,120 @@ use bevy_ecs::{
     query::With,
     relationship::Relationship,
     system::{Commands, Query, Res},
-    template::template,
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
 use bevy_log::warn;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, EditableTextFilter, FontSource, FontWeight, TextEdit, TextEditChange, TextFont,
+    EditableText, EditableTextFilter, FontSourceTemplate, FontWeight, TextEdit, TextEditChange,
+    TextFont,
 };
 use bevy_ui::{px, widget::Text, AlignItems, AlignSelf, Display, JustifyContent, Node, UiRect};
-use bevy_ui_widgets::ValueChange;
+use bevy_ui_widgets::{SelectAllOnFocus, ValueChange};
 
 use crate::{
     constants::{fonts, size},
-    controls::{text_input, text_input_container, TextInputProps},
+    controls::{FeathersTextInput, FeathersTextInputContainer},
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor, ThemeToken},
     tokens,
 };
 
-/// Marker to indicate a number input widget with feathers styling.
-#[derive(Component, Default, Clone)]
-struct FeathersNumberInput;
+/// Widget that permits text entry of floating-point numbers. This widget implements two-way
+/// synchronization:
+/// * when the widget has focus, it emits values (via a [`ValueChange<T>`]) event as the user types.
+///   The type of ``T`` will be ``f32``, ``f64``, ``i32``, or ``i64`` depending on the
+///   ``number_format`` parameter.
+/// * when the widget does not have focus, it listens for [`UpdateNumberInput`] events, and replaces
+///   the contents of the text buffer based on the value in that event.
+///
+/// This is spawnable by inheriting it as a "scene component" with optional [`FeathersNumberInputProps`].
+///
+/// To avoid excessive updating, you should only update the number value when there is an actual
+/// change, that is, when the new value is different from the current value.
+///
+/// In most cases, the actual source of truth for the numeric value will be external, that is,
+/// some property in an app-specific data structure. It's the responsibility of the app to
+/// synchronize this value with the [`FeathersNumberInput`] widget in both directions:
+/// * When a [`ValueChange`] event is received, update the app-specific property.
+/// * When the app-specific property changes - either in response to a [`ValueChange`] event, or
+///   because of some other action, trigger an [`UpdateNumberInput`] entity event to update the
+///   displayed value.
+// TODO: Add text_input field validation when it becomes available.
+#[derive(SceneComponent, Default, Clone)]
+#[scene(FeathersNumberInputProps)]
+pub struct FeathersNumberInput;
+
+/// Props used to construct a [`FeathersNumberInput`] scene.
+pub struct FeathersNumberInputProps {
+    /// The "sigil" is a colored strip along the left edge of the input, which is used to
+    /// distinguish between different axes. The default is transparent (no sigil).
+    pub sigil_color: ThemeToken,
+    /// A caption to be placed on the left side of the input, next to the colored stripe.
+    /// Usually one of "X", "Y" or "Z".
+    pub label_text: Option<&'static str>,
+    /// Indicate what size numbers we are editing.
+    pub number_format: NumberFormat,
+}
+
+impl Default for FeathersNumberInputProps {
+    fn default() -> Self {
+        Self {
+            sigil_color: tokens::TEXT_INPUT_BG,
+            label_text: None,
+            number_format: NumberFormat::F32,
+        }
+    }
+}
+
+impl FeathersNumberInput {
+    fn scene(props: FeathersNumberInputProps) -> impl Scene {
+        bsn! {
+            :FeathersTextInputContainer
+            ThemeBorderColor({props.sigil_color})
+            FeathersNumberInput
+            template_value(props.number_format)
+            on(number_input_on_update)
+            Children [
+                {
+                    match props.label_text {
+                        Some(text) => Box::new(bsn_list!(
+                            Node {
+                                display: Display::Flex,
+                                align_items: AlignItems::Center,
+                                align_self: AlignSelf::Stretch,
+                                justify_content: JustifyContent::Center,
+                                padding: UiRect::axes(px(6), px(0)),
+                            }
+                            ThemeBackgroundColor(tokens::TEXT_INPUT_LABEL_BG)
+                            Children [
+                                Text(text)
+                                TextFont {
+                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font_size: size::COMPACT_FONT,
+                                    weight: FontWeight::NORMAL,
+                                }
+                                PropagateOver<TextFont>
+                                ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                            ]
+                        )) as Box<dyn SceneList>,
+                        None => Box::new(bsn_list!()) as Box<dyn SceneList>
+                    }
+                }
+                :FeathersTextInput {
+                    @max_characters: 20usize,
+                }
+                SelectAllOnFocus
+                on(number_input_on_text_change)
+                on(number_input_on_enter_key)
+                on(number_input_on_focus_loss)
+                EditableTextFilter::new(|c| {
+                    c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
+                }),
+            ]
+        }
+    }
+}
 
 /// Used to indicate what format of numbers we are editing. This primarily affects the type
 /// of [`ValueChange`] event that is emitted.
@@ -45,28 +136,6 @@ pub enum NumberFormat {
     I32,
     /// A 64-bit integer
     I64,
-}
-
-/// Parameters for the text input template, passed to [`number_input`] function.
-pub struct NumberInputProps {
-    /// The "sigil" is a colored strip along the left edge of the input, which is used to
-    /// distinguish between different axes. The default is transparent (no sigil).
-    pub sigil_color: ThemeToken,
-    /// A caption to be placed on the left side of the input, next to the colored stripe.
-    /// Usually one of "X", "Y" or "Z".
-    pub label_text: Option<&'static str>,
-    /// Indicate what size numbers we are editing.
-    pub number_format: NumberFormat,
-}
-
-impl Default for NumberInputProps {
-    fn default() -> Self {
-        Self {
-            sigil_color: tokens::TEXT_INPUT_BG,
-            label_text: None,
-            number_format: NumberFormat::F32,
-        }
-    }
 }
 
 /// Represents numbers in different formats.
@@ -101,75 +170,6 @@ pub struct UpdateNumberInput {
 
     /// Value to change to
     pub value: NumberInputValue,
-}
-
-/// Widget that permits text entry of floating-point numbers. This widget implements two-way
-/// synchronization:
-/// * when the widget has focus, it emits values (via a [`ValueChange<T>`]) event as the user types.
-///   The type of ``T`` will be ``f32``, ``f64``, ``i32``, or ``i64`` depending on the
-///   ``number_format`` parameter.
-/// * when the widget does not have focus, it listens for [`UpdateNumberInput`] events, and replaces
-///   the contents of the text buffer based on the value in that event.
-///
-/// To avoid excessive updating, you should only update the number value when there is an actual
-/// change, that is, when the new value is different from the current value.
-///
-/// In most cases, the actual source of truth for the numeric value will be external, that is,
-/// some property in an app-specific data structure. It's the responsibility of the app to
-/// synchronize this value with the [`number_input`] widget in both directions:
-/// * When a [`ValueChange`] event is received, update the app-specific property.
-/// * When the app-specific property changes - either in response to a [`ValueChange`] event, or
-///   because of some other action, trigger an [`UpdateNumberInput`] entity event to update the
-///   displayed value.
-// TODO: Add text_input field validation when it becomes available.
-pub fn number_input(props: NumberInputProps) -> impl Scene {
-    bsn! {
-        :text_input_container()
-        ThemeBorderColor({props.sigil_color.clone()})
-        FeathersNumberInput
-        template_value(props.number_format)
-        on(number_input_on_update)
-        Children [
-            {
-                match props.label_text {
-                    Some(text) => Box::new(bsn_list!(
-                        Node {
-                            display: Display::Flex,
-                            align_items: AlignItems::Center,
-                            align_self: AlignSelf::Stretch,
-                            justify_content: JustifyContent::Center,
-                            padding: UiRect::axes(px(6), px(0)),
-                        }
-                        ThemeBackgroundColor(tokens::TEXT_INPUT_LABEL_BG)
-                        Children [
-                            Text::new(text.to_string())
-                            template(|ctx| {
-                                Ok(TextFont {
-                                    font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
-                                    font_size: size::COMPACT_FONT,
-                                    weight: FontWeight::NORMAL,
-                                    ..Default::default()
-                                })
-                            })
-                            PropagateOver<TextFont>
-                            ThemeTextColor(tokens::TEXT_INPUT_TEXT)
-                        ]
-                    )) as Box<dyn SceneList>,
-                    None => Box::new(bsn_list!()) as Box<dyn SceneList>
-                }
-            }
-            text_input(TextInputProps {
-                visible_width: None,
-                max_characters: Some(20),
-            })
-            on(number_input_on_text_change)
-            on(number_input_on_enter_key)
-            on(number_input_on_focus_loss)
-            EditableTextFilter::new(|c| {
-                c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
-            }),
-        ]
-    }
 }
 
 fn number_input_on_text_change(
