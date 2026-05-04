@@ -18,16 +18,17 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
+use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines,
+        DownlevelFlags, FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
     view::{Msaa, ViewUniform, ViewUniforms},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
@@ -84,19 +85,42 @@ pub struct BackgroundMotionVectorsBindGroup(pub BindGroup);
 #[derive(Default)]
 pub struct BackgroundMotionVectorsPlugin;
 
+impl BackgroundMotionVectorsPlugin {
+    /// [`DownlevelFlags`] required for this plugin to function.
+    pub fn required_downlevel_flags() -> DownlevelFlags {
+        DownlevelFlags::INDEPENDENT_BLEND
+    }
+}
+
 impl Plugin for BackgroundMotionVectorsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "background_motion_vectors.wgsl");
-
         app.register_type::<NoBackgroundMotionVectors>()
             .add_plugins(ExtractComponentPlugin::<NoBackgroundMotionVectors>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+        render_app.init_gpu_resource::<PreviousViewUniforms>();
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        let render_adapter = render_app.world().resource::<RenderAdapter>();
+        let downlevel_flags = render_adapter.get_downlevel_capabilities().flags;
+        if !downlevel_flags.contains(BackgroundMotionVectorsPlugin::required_downlevel_flags()) {
+            warn!(
+                "BackgroundMotionVectorsPlugin not loaded. GPU lacks support for required downlevel capability flags: {:?}.",
+                BackgroundMotionVectorsPlugin::required_downlevel_flags().difference(downlevel_flags)
+            );
+            return;
+        }
+
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>()
-            .init_gpu_resource::<PreviousViewUniforms>()
             .add_systems(RenderStartup, init_background_motion_vectors_pipeline)
             .add_systems(
                 Render,
