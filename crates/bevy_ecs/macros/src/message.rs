@@ -1,3 +1,4 @@
+use bevy_macro_utils::fq_std::{FQSend, FQSync};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
@@ -9,7 +10,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: ::core::marker::Send + ::core::marker::Sync + 'static });
+        .push(parse_quote! { Self: #FQSend + #FQSync + 'static });
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();

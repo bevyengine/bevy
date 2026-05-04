@@ -1,5 +1,6 @@
 use crate::Val;
 use crate::ValArithmeticError;
+use crate::ValNum;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
@@ -35,25 +36,24 @@ impl Val2 {
         y: Val::ZERO,
     };
 
-    /// Creates a new [`Val2`] where both components are in logical pixels
-    pub const fn px(x: f32, y: f32) -> Self {
-        Self {
-            x: Val::Px(x),
-            y: Val::Px(y),
-        }
-    }
-
-    /// Creates a new [`Val2`] where both components are percentage values
-    pub const fn percent(x: f32, y: f32) -> Self {
-        Self {
-            x: Val::Percent(x),
-            y: Val::Percent(y),
-        }
-    }
-
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
         Self { x, y }
+    }
+
+    /// Creates a new [`Val2`] where both components are the same value
+    pub const fn all(val: Val) -> Self {
+        Self::new(val, val)
+    }
+
+    /// Creates a new [`Val2`] where both components are in logical pixels
+    pub fn px<X: ValNum, Y: ValNum>(x: X, y: Y) -> Self {
+        Self::new(Val::Px(x.val_num_f32()), Val::Px(y.val_num_f32()))
+    }
+
+    /// Creates a new [`Val2`] where both components are percentage values
+    pub fn percent<X: ValNum, Y: ValNum>(x: X, y: Y) -> Self {
+        Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
@@ -163,6 +163,14 @@ impl UiTransform {
     pub const fn from_scale(scale: Vec2) -> Self {
         Self {
             scale,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Create a new UI transform at the position `(x, y)`
+    pub const fn from_xy(x: Val, y: Val) -> Self {
+        Self {
+            translation: Val2::new(x, y),
             ..Self::IDENTITY
         }
     }

@@ -20,9 +20,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
-    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
-    PositionType, Pressed, UiRect, Val,
+    percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
+    Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
+    PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{
     Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
@@ -80,7 +80,7 @@ impl FeathersSlider {
                 height: size::ROW_HEIGHT,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+                padding: UiRect::horizontal(px(8)),
                 flex_grow: 1.0,
                 border_radius: {RoundedCorners::All.to_border_radius(6.0)},
             }
@@ -99,10 +99,10 @@ impl FeathersSlider {
             BackgroundGradient({vec![Gradient::Linear(LinearGradient {
                 angle: PI * 0.5,
                 stops: vec![
-                    ColorStop::new(Color::NONE, Val::Percent(0.)),
-                    ColorStop::new(Color::NONE, Val::Percent(50.)),
-                    ColorStop::new(Color::NONE, Val::Percent(50.)),
-                    ColorStop::new(Color::NONE, Val::Percent(100.)),
+                    ColorStop::new(Color::NONE, percent(0)),
+                    ColorStop::new(Color::NONE, percent(50)),
+                    ColorStop::new(Color::NONE, percent(50)),
+                    ColorStop::new(Color::NONE, percent(100)),
                 ],
                 color_space: InterpolationColorSpace::Srgba,
             })]})
@@ -151,7 +151,7 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            padding: UiRect::horizontal(px(8)),
             flex_grow: 1.0,
             border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
@@ -171,10 +171,10 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
             stops: vec![
-                ColorStop::new(Color::NONE, Val::Percent(0.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(50.)),
-                ColorStop::new(Color::NONE, Val::Percent(100.)),
+                ColorStop::new(Color::NONE, percent(0)),
+                ColorStop::new(Color::NONE, percent(50)),
+                ColorStop::new(Color::NONE, percent(50)),
+                ColorStop::new(Color::NONE, percent(100)),
             ],
             color_space: InterpolationColorSpace::Srgba,
         })]),
@@ -342,8 +342,8 @@ fn update_slider_pos(
     for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
             let percent_value = (range.thumb_position(value.0) * 100.0).clamp(0.0, 100.0);
-            linear_gradient.stops[1].point = Val::Percent(percent_value);
-            linear_gradient.stops[2].point = Val::Percent(percent_value);
+            linear_gradient.stops[1].point = percent(percent_value);
+            linear_gradient.stops[2].point = percent(percent_value);
         }
 
         // Find slider text child entity and update its text with the formatted value

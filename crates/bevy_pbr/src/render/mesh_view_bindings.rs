@@ -1,7 +1,6 @@
 use crate::{
-    DfgLut, LtcLuts, ScreenSpaceTransmission, ViewEnvironmentMapUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset,
+    AreaLightLuts, DfgLut, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_core_pipeline::{
     oit::{
@@ -94,9 +93,9 @@ bitflags::bitflags! {
         const SCREEN_SPACE_AMBIENT_OCCLUSION   = 1 << 10;
         const IRRADIANCE_VOLUME                = 1 << 11;
         const SCREEN_SPACE_REFLECTIONS         = 1 << 12;
-        const SCREEN_SPACE_TRANSMISSION        = 1 << 13;
-        const CONTACT_SHADOWS                  = 1 << 14;
-        const DISTANCE_FOG                     = 1 << 15;
+        const CONTACT_SHADOWS                  = 1 << 13;
+        const DISTANCE_FOG                     = 1 << 14;
+        const AREA_LIGHT_LUTS                  = 1 << 15;
     }
 }
 
@@ -150,6 +149,10 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
             result |= MeshPipelineViewLayoutKey::STBN;
         }
 
+        if cfg!(feature = "area_light_luts") {
+            result |= MeshPipelineViewLayoutKey::AREA_LIGHT_LUTS;
+        }
+
         if value.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             result |= MeshPipelineViewLayoutKey::TONEMAP_IN_SHADER;
         }
@@ -164,9 +167,6 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
-        }
-        if value.intersects(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS) {
-            result |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
         }
         if value.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             result |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
@@ -403,16 +403,14 @@ fn layout_entries(
         }
     }
 
-    if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION) {
-        // View Transmission Texture
-        entries = entries.extend_with_indices((
-            (
-                25,
-                texture_2d(TextureSampleType::Float { filterable: true }),
-            ),
-            (26, sampler(SamplerBindingType::Filtering)),
-        ));
-    }
+    // View Transmission Texture
+    entries = entries.extend_with_indices((
+        (
+            25,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (26, sampler(SamplerBindingType::Filtering)),
+    ));
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
@@ -462,25 +460,23 @@ fn layout_entries(
         ),));
     }
     // LTC LUTs for area lights
-    entries = entries.extend_with_indices((
-        (
-            36,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (
-            37,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (38, sampler(SamplerBindingType::Filtering)),
-    ));
+    if cfg!(feature = "area_light_luts") {
+        entries = entries.extend_with_indices((
+            (
+                36,
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+            ),
+            (37, sampler(SamplerBindingType::Filtering)),
+        ));
+    }
     // DFG LUT
     if cfg!(feature = "dfg_lut") {
         entries = entries.extend_with_indices((
             (
-                39,
+                38,
                 texture_2d(TextureSampleType::Float { filterable: true }),
             ),
-            (40, sampler(SamplerBindingType::Filtering)),
+            (39, sampler(SamplerBindingType::Filtering)),
         ));
     }
 
@@ -646,7 +642,7 @@ pub fn prepare_mesh_view_bind_groups(
             Option<&RenderViewLightProbes<EnvironmentMapLight>>,
             Option<&RenderViewLightProbes<IrradianceVolume>>,
         ),
-        (Has<ExtractedAtmosphere>, Has<ScreenSpaceTransmission>),
+        Has<ExtractedAtmosphere>,
         (
             &ViewUniformOffset,
             &ViewLightsUniformOffset,
@@ -678,7 +674,7 @@ pub fn prepare_mesh_view_bind_groups(
         atmosphere_buffer,
         atmosphere_sampler,
         blue_noise,
-        ltc_luts,
+        area_light_luts,
         dfg_lut,
     ): (
         Res<DecalsBuffer>,
@@ -686,7 +682,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
-        Res<LtcLuts>,
+        Res<AreaLightLuts>,
         Res<DfgLut>,
     ),
     // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
@@ -725,7 +721,7 @@ pub fn prepare_mesh_view_bind_groups(
             atmosphere_textures,
             tonemapping,
             (render_view_environment_maps, render_view_irradiance_volumes),
-            (has_atmosphere, has_transmission),
+            has_atmosphere,
             (
                 view_uniform_offset,
                 view_lights_offset,
@@ -866,19 +862,16 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            if has_transmission {
-                layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_TRANSMISSION;
-                let transmission_view = transmission_texture
-                    .map(|transmission| &transmission.view)
-                    .unwrap_or(&fallback_image_zero.texture_view);
+            let transmission_view = transmission_texture
+                .map(|transmission| &transmission.view)
+                .unwrap_or(&fallback_image_zero.texture_view);
 
-                let transmission_sampler = transmission_texture
-                    .map(|transmission| &transmission.sampler)
-                    .unwrap_or(&fallback_image_zero.sampler);
+            let transmission_sampler = transmission_texture
+                .map(|transmission| &transmission.sampler)
+                .unwrap_or(&fallback_image_zero.sampler);
 
-                entries = entries
-                    .extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
-            }
+            entries =
+                entries.extend_with_indices(((25, transmission_view), (26, transmission_sampler)));
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263
@@ -896,16 +889,16 @@ pub fn prepare_mesh_view_bind_groups(
             };
 
             // LTC LUTs for area lights
-            let (ltc1_view, ltc_sampler) = images
-                .get(&ltc_luts.ltc_1)
-                .map(|img| (&img.texture_view, &img.sampler))
-                .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-            let ltc2_view = images
-                .get(&ltc_luts.ltc_2)
-                .map(|img| &img.texture_view)
-                .unwrap_or(&fallback_image.d2.texture_view);
-            entries =
-                entries.extend_with_indices(((36, ltc1_view), (37, ltc2_view), (38, ltc_sampler)));
+            if cfg!(feature = "area_light_luts") {
+                let (ltc_view, ltc_sampler) = images
+                    .get(&area_light_luts.image)
+                    .map(|img| (&img.texture_view, &img.sampler))
+                    .unwrap_or((
+                        &fallback_image.d2_array.texture_view,
+                        &fallback_image.d2_array.sampler,
+                    ));
+                entries = entries.extend_with_indices(((36, ltc_view), (37, ltc_sampler)));
+            }
 
             // DFG LUT
             if cfg!(feature = "dfg_lut") {
@@ -913,7 +906,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&dfg_lut.texture)
                     .map(|img| (&img.texture_view, &img.sampler))
                     .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-                entries = entries.extend_with_indices(((39, dfg_view), (40, dfg_sampler)));
+                entries = entries.extend_with_indices(((38, dfg_view), (39, dfg_sampler)));
             }
 
             let environment_map_bind_group_entries =
