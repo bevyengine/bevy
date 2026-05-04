@@ -41,9 +41,9 @@ pub fn settings_ui() -> impl Scene {
     bsn! {
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(8.0)),
+            top: px(10),
+            right: px(10),
+            padding: UiRect::all(px(8)),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
         on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {

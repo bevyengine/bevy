@@ -209,6 +209,29 @@ impl<T: Asset> FromTemplate for Handle<T> {
 }
 
 /// A [`Template`] that produces a [`Handle`].
+///
+/// # How asset paths are resolved in templates
+///
+/// When a type with a [`Handle<T>`] field derives [`FromTemplate`], that field is replaced by its
+/// template type, [`HandleTemplate<T>`], when created via BSN.
+/// We can see that [`HandleTemplate<T>`] has the following trait impl block:
+///
+/// ```rust, ignore
+/// impl<I: Into<AssetPath<'static>>, T: Asset> From<I> for HandleTemplate<T> {
+///     fn from(value: I) -> Self {
+///         Self::Path(value.into())
+///     }
+/// }
+/// ```
+///
+/// [`AssetPath<'static>`] implements [`From<&'static str>`].
+/// Because of that, assigning a string literal to a `Handle<T>` field automatically converts it into
+/// [`HandleTemplate<T>::Path`] with that asset path when used in the `bsn!` macro.
+/// Calls to `bsn!` automatically insert `.into()` conversions, and due to Rust's blanket impl that turns [`From`] trait impls into their [`Into`]
+/// equivalents, the conversion from `&'static str` to `AssetPath<'static>` is handled automatically.
+/// Finally, the [`HandleTemplate<T>::Path`] generated gets converted to a [`Handle<T>`] during scene initialization,
+/// as the asset is loaded from the given path, and the resulting handle is assigned to the field,
+/// pointing to the asset that was found at the file path in our original string.
 #[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].

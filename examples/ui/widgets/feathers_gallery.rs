@@ -15,7 +15,8 @@ use bevy::{
             FeathersColorSwatch, FeathersDisclosureToggle, FeathersMenu, FeathersMenuButton,
             FeathersMenuDivider, FeathersMenuItem, FeathersMenuPopup, FeathersNumberInput,
             FeathersRadio, FeathersSlider, FeathersTextInput, FeathersTextInputContainer,
-            FeathersToggleSwitch, NumberInputValue, SliderBaseColor, ToolButton, UpdateNumberInput,
+            FeathersToggleSwitch, FeathersToolButton, NumberInputValue, SliderBaseColor,
+            UpdateNumberInput,
         },
         cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
@@ -541,35 +542,35 @@ fn demo_column_2() -> impl Scene {
             (
                 :pane Children [
                     :pane_header Children [
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Primary,
                         } Children [
                             (Text("\u{0398}") ThemedText)
                         ],
                         :pane_header_divider,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BC}") ThemedText)
                         ],
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BD}") ThemedText)
                         ],
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             (Text("\u{00BE}") ThemedText)
                         ],
                         :pane_header_divider,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             :icon(icons::CHEVRON_DOWN)
                         ],
                         :flex_spacer,
-                        :ToolButton {
+                        :FeathersToolButton {
                             @variant: ButtonVariant::Plain,
                         } Children [
                             :icon(icons::X)
