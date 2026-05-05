@@ -5,7 +5,7 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
 use bevy_platform::{collections::Equivalent, sync::Mutex};
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -130,7 +130,7 @@ impl core::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Debug, Hash, PartialEq, Clone, Handle)]
+#[reflect(Debug, Hash, PartialEq, Clone, Handle, from_reflect = false)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -138,6 +138,43 @@ pub enum Handle<A: Asset> {
     /// A reference to an [`Asset`] using a stable-across-runs / const identifier. Dropping this
     /// handle will not result in the asset being dropped.
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
+}
+
+// `Handle` needs a custom `FromReflect` to do extra type checking - see the
+// `strong_handle.type_id` check below.
+// `Handle` needs a custom `FromReflect` to do extra type checking - see the
+// `strong_handle.type_id` check below.
+impl<A: Asset> FromReflect for Handle<A>
+where
+    Handle<A>: Send + Sync,
+    A: TypePath,
+{
+    fn from_reflect(reflect_value: &dyn PartialReflect) -> Option<Self> {
+        let ReflectRef::Enum(enum_value) = PartialReflect::reflect_ref(reflect_value) else {
+            return None;
+        };
+
+        match Enum::variant_name(enum_value) {
+            "Strong" => {
+                let strong_field = enum_value.field_at(0usize)?;
+                let strong_handle = Arc::<StrongHandle>::from_reflect(strong_field)?;
+
+                // This is necessary as otherwise you could construct Handle<A> via Handle<B>
+                if strong_handle.type_id != TypeId::of::<A>() {
+                    return None;
+                }
+
+                Some(Handle::Strong(strong_handle))
+            }
+            "Uuid" => {
+                let uuid_field = enum_value.field_at(0usize)?;
+                let uuid = Uuid::from_reflect(uuid_field)?;
+
+                Some(Handle::Uuid(uuid, Default::default()))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl<T: Asset> Clone for Handle<T> {
@@ -209,6 +246,29 @@ impl<T: Asset> FromTemplate for Handle<T> {
 }
 
 /// A [`Template`] that produces a [`Handle`].
+///
+/// # How asset paths are resolved in templates
+///
+/// When a type with a [`Handle<T>`] field derives [`FromTemplate`], that field is replaced by its
+/// template type, [`HandleTemplate<T>`], when created via BSN.
+/// We can see that [`HandleTemplate<T>`] has the following trait impl block:
+///
+/// ```rust, ignore
+/// impl<I: Into<AssetPath<'static>>, T: Asset> From<I> for HandleTemplate<T> {
+///     fn from(value: I) -> Self {
+///         Self::Path(value.into())
+///     }
+/// }
+/// ```
+///
+/// [`AssetPath<'static>`] implements [`From<&'static str>`].
+/// Because of that, assigning a string literal to a `Handle<T>` field automatically converts it into
+/// [`HandleTemplate<T>::Path`] with that asset path when used in the `bsn!` macro.
+/// Calls to `bsn!` automatically insert `.into()` conversions, and due to Rust's blanket impl that turns [`From`] trait impls into their [`Into`]
+/// equivalents, the conversion from `&'static str` to `AssetPath<'static>` is handled automatically.
+/// Finally, the [`HandleTemplate<T>::Path`] generated gets converted to a [`Handle<T>`] during scene initialization,
+/// as the asset is loaded from the given path, and the resulting handle is assigned to the field,
+/// pointing to the asset that was found at the file path in our original string.
 #[derive(Reflect)]
 pub enum HandleTemplate<T: Asset> {
     /// Creates a [`Handle`] by calling [`AssetServer::load`] on the given [`AssetPath`].
@@ -840,5 +900,44 @@ mod tests {
             }
             _ => panic!("Expected a strong handle"),
         }
+    }
+
+    #[test]
+    fn handle_from_reflect_verifies_type_id() {
+        use crate::{AssetApp, Assets};
+        use bevy_reflect::FromReflect;
+
+        #[derive(Reflect, Asset)]
+        struct A;
+        #[derive(Reflect, Asset)]
+        struct B;
+
+        let mut app = create_app().0;
+        app.init_asset::<A>().init_asset::<B>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_a = assets.add(A);
+
+        let dynamic_handle_a = handle_a.to_dynamic();
+        let reflected_handle_a = handle_a.as_partial_reflect();
+
+        let handle_b_from_reflect_dynamic: Option<Handle<B>> =
+            FromReflect::from_reflect(&*dynamic_handle_a);
+        let handle_b_from_reflect: Option<Handle<B>> =
+            FromReflect::from_reflect(reflected_handle_a);
+        let handle_a_from_reflect: Option<Handle<A>> =
+            FromReflect::from_reflect(reflected_handle_a);
+        assert!(
+            handle_b_from_reflect.is_none(),
+            "Handle<B> should not be constructible from reflected Handle<A>"
+        );
+        assert!(
+            handle_b_from_reflect_dynamic.is_none(),
+            "Handle<B> should not be constructible from dynamic Handle<A>"
+        );
+        assert!(
+            handle_a_from_reflect.is_some(),
+            "Handle<A> should be constructible from reflected Handle<A>"
+        );
     }
 }

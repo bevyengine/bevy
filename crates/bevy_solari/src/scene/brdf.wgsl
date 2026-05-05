@@ -4,9 +4,9 @@ enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
-#import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
-#import bevy_render::maths::PI
+#import bevy_render::maths::{PI, orthonormalize}
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler}
 
@@ -19,7 +19,6 @@ struct EvaluateAndSampleBrdfResult {
 fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
-    world_tangent: vec4<f32>,
     material: ResolvedMaterial,
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
@@ -31,7 +30,7 @@ fn evaluate_and_sample_brdf(
     let diffuse_weight = mix(df, 0.0, material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
-    let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
+    let TBN = orthonormalize(world_normal);
     let T = TBN[0];
     let B = TBN[1];
     let N = TBN[2];

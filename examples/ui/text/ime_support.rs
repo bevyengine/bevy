@@ -6,7 +6,8 @@
 //! To use IME input, the system must have fonts installed that support the target script.
 //! This example uses [`FontSource::SansSerif`], which resolves to a system sans-serif font.
 //! On systems without e.g. CJK fonts installed, CJK input will render as boxes or question marks.
-use bevy::color::palettes::css::{DARK_GREY, YELLOW};
+use bevy::color::palettes::css::DARK_GREY;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
@@ -59,7 +60,7 @@ fn setup(mut commands: Commands) {
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
-            BorderColor::from(Color::from(YELLOW)),
+            BorderColor::from(Color::from(SLATE_300)),
             EditableText::default(),
             TextCursorStyle::default(),
             TabIndex(0),
