@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         TextShadow::default(),
         // Set the justification of the Text
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,

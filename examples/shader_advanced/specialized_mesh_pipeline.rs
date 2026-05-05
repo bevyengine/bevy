@@ -214,8 +214,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
             layout: vec![
-                view_layout.main_layout.clone(),
-                view_layout.empty_layout.clone(),
+                view_layout.main_layout,
+                view_layout.empty_layout,
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
             vertex: VertexState {

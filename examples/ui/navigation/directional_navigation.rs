@@ -464,6 +464,7 @@ fn interact_with_focused_button(
                     normal: None,
                     extra: None,
                 },
+                count: 1,
                 duration: Duration::from_secs_f32(0.1),
             },
             focused_entity,

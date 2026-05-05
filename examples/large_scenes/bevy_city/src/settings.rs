@@ -3,7 +3,7 @@ use bevy::{
     camera_controller::free_camera::FreeCameraState,
     feathers::{
         self,
-        controls::{button, checkbox, ButtonProps, CheckboxProps},
+        controls::{FeathersButton, FeathersCheckbox},
         theme::{ThemeBackgroundColor, ThemedText},
     },
     pbr::wireframe::WireframeConfig,
@@ -37,17 +37,13 @@ impl Default for Settings {
     }
 }
 
-pub fn setup_settings_ui(mut commands: Commands) {
-    commands.spawn_scene(settings_ui());
-}
-
 pub fn settings_ui() -> impl Scene {
     bsn! {
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(8.0)),
+            top: px(10),
+            right: px(10),
+            padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
         on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
@@ -67,11 +63,9 @@ pub fn settings_ui() -> impl Scene {
             Children [
                 Text("Settings"),
                 (
-                    checkbox(CheckboxProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Simulate Cars") ThemedText),
-                        )),
-                    })
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("Simulate Cars") ThemedText }}
+                    }
                     Checked
                     on(checkbox_self_update)
                     on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
@@ -79,11 +73,9 @@ pub fn settings_ui() -> impl Scene {
                     })
                 ),
                 (
-                    checkbox(CheckboxProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Shadow maps enabled") ThemedText),
-                        )),
-                    })
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("Shadow maps enabled") ThemedText }}
+                    }
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -99,11 +91,9 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    checkbox(CheckboxProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Contact shadows enabled") ThemedText),
-                        )),
-                    })
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("Contact shadows enabled") ThemedText }}
+                    }
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -119,11 +109,9 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    checkbox(CheckboxProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Wireframe Enabled") ThemedText),
-                        )),
-                    })
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("Wireframe Enabled") ThemedText }}
+                    }
                     on(checkbox_self_update)
                     on(
                         |change: On<ValueChange<bool>>,
@@ -135,11 +123,9 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    checkbox(CheckboxProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("CPU culling") ThemedText),
-                        )),
-                    })
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("CPU culling") ThemedText }}
+                    }
                     Checked
                     on(checkbox_self_update)
                     on(
@@ -160,12 +146,9 @@ pub fn settings_ui() -> impl Scene {
                     )
                 ),
                 (
-                    button(ButtonProps {
-                        caption: Box::new(bsn_list!(
-                            (Text("Regenerate City") ThemedText),
-                        )),
-                        ..Default::default()
-                    })
+                    :FeathersButton {
+                        @caption: {bsn! { Text("Regenerate City") ThemedText }}
+                    }
                     on(
                         |_activate: On<Activate>,
                          mut commands: Commands,

@@ -1,10 +1,8 @@
 use crate::{
     DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -13,6 +11,7 @@ use bevy_core_pipeline::{
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
+    oit::OrderIndependentTransparencySettingsOffset,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
     tonemapping::{DebandDither, Tonemapping},
@@ -26,7 +25,7 @@ use bevy_render::{
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{GpuResourceAppExt, RenderStartup};
@@ -125,13 +124,6 @@ impl Plugin for DeferredPbrLightingPlugin {
 
 pub fn deferred_lighting(
     view: ViewQuery<(
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
-        &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
         &MeshViewBindGroup,
         &ViewTarget,
         &DeferredLightingIdDepthTexture,
@@ -143,13 +135,6 @@ pub fn deferred_lighting(
     mut ctx: RenderContext,
 ) {
     let (
-        view_uniform_offset,
-        view_lights_offset,
-        view_fog_offset,
-        view_light_probes_offset,
-        view_ssr_offset,
-        view_contact_shadows_offset,
-        view_environment_map_offset,
         mesh_view_bind_group,
         target,
         deferred_lighting_id_depth_texture,
@@ -189,18 +174,11 @@ pub fn deferred_lighting(
     });
 
     render_pass.set_render_pipeline(pipeline);
+
     render_pass.set_bind_group(
         0,
         &mesh_view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
+        &mesh_view_bind_group.main_offsets,
     );
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
@@ -338,8 +316,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                layout.main_layout.clone(),
-                layout.binding_array_layout.clone(),
+                layout.main_layout,
+                layout.binding_array_layout,
                 self.bind_group_layout_2.clone(),
             ],
             vertex: VertexState {
@@ -436,6 +414,8 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Option<&ScreenSpaceTransmission>,
+        Has<OrderIndependentTransparencySettingsOffset>,
         Has<SkipDeferredLighting>,
         Has<ExtractedAtmosphere>,
     )>,
@@ -451,6 +431,8 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        transmission,
+        has_oit,
         skip_deferred_lighting,
         has_atmosphere,
     ) in &cameras
@@ -479,6 +461,14 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if let Some(transmission) = transmission {
+            view_key |= transmission.quality.pipeline_key();
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if view.invert_culling {

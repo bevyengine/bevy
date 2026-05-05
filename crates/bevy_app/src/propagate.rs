@@ -263,7 +263,7 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(targets), _, _)) = recurse.get(entity) {
+        if let Ok((Some(targets), None, _)) = recurse.get(entity) {
             to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
@@ -477,6 +477,45 @@ mod tests {
         app.update();
 
         assert_eq!(query.get(app.world(), propagatee), Ok(&TestValue(2)));
+    }
+
+    #[test]
+    fn test_detach_and_reattach_propagates_to_descendants() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let intermediate = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(propagator))
+            .id();
+        let propagatee = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(intermediate))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [intermediate, propagatee]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
+
+        app.world_mut()
+            .entity_mut(intermediate)
+            .remove::<ChildOf>()
+            .insert(ChildOf(propagator));
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [intermediate, propagatee]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
     }
 
     #[test]
