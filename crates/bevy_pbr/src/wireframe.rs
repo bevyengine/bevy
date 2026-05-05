@@ -1,7 +1,7 @@
 use crate::{
     collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
     SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
@@ -35,7 +35,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs},
+        allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -138,7 +138,7 @@ impl Plugin for WireframePlugin {
         // we need storage for vertex pulling in the wide wireframe path
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::STORAGE;
 
         render_app
@@ -152,13 +152,13 @@ impl Plugin for WireframePlugin {
             .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
-                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+                init_wireframe_3d_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Core3d,
                 wireframe_3d
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             )
             .add_systems(
                 ExtractSchedule,
@@ -746,7 +746,10 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
 
         if key.wide {
             descriptor.label = Some("wireframe_3d_wide_pipeline".into());
@@ -928,7 +931,9 @@ pub struct RenderWireframeMaterial {
     pub topology: WireframeTopology,
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
 
@@ -1432,7 +1437,10 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;

@@ -199,6 +199,15 @@ pub struct Last;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AnimationSystems;
 
+/// Set enum for the systems relating to scene spawning.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum SceneSpawnerSystems {
+    /// Bevy's original scene system.
+    WorldInstanceSpawn,
+    /// Bevy's next-generation scene system
+    SceneSpawn,
+}
+
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]

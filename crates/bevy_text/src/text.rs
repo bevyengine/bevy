@@ -1,4 +1,4 @@
-use crate::{Font, TextBrush, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -8,6 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
+use parley::setting::Tag;
 use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -144,18 +145,18 @@ impl TextLayout {
     }
 
     /// Makes a new [`TextLayout`] with the specified [`Justify`].
-    pub fn new_with_justify(justify: Justify) -> Self {
+    pub fn justify(justify: Justify) -> Self {
         Self::default().with_justify(justify)
     }
 
     /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
-    pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
+    pub fn linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
     }
 
     /// Makes a new [`TextLayout`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub fn new_with_no_wrap() -> Self {
+    pub fn no_wrap() -> Self {
         Self::default().with_no_wrap()
     }
 
@@ -198,13 +199,11 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
+impl TextSection for TextSpan {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -265,7 +264,7 @@ impl From<Justify> for parley::Alignment {
     }
 }
 
-#[derive(Clone, Debug, Reflect, PartialEq)]
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
@@ -288,6 +287,7 @@ pub enum FontSource {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
+    #[default]
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
@@ -371,7 +371,7 @@ impl From<&str> for FontSource {
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// Specifies the font face used for this text section.
@@ -900,14 +900,14 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
                 })
                 .collect(),
@@ -928,7 +928,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, _font_size: f32) -> parley::LineHeight {
+    /// eval a line height
+    pub fn eval(self) -> parley::LineHeight {
         match self {
             LineHeight::Px(px) => parley::LineHeight::Absolute(px),
             LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
