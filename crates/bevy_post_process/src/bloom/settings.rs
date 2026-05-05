@@ -221,12 +221,13 @@ pub enum BloomCompositeMode {
 }
 
 impl SyncComponent for Bloom {
-    type Out = (Self, BloomUniforms);
+    type Target = (Self, BloomUniforms);
 }
 
 impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
     type QueryFilter = With<Hdr>;
+    type Out = (Self, BloomUniforms);
 
     fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         match (
