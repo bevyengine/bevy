@@ -743,7 +743,7 @@ impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     const fn knots_len(control_points_len: usize) -> usize {
         control_points_len + 4
     }
@@ -1036,7 +1036,7 @@ impl<P: VectorSpace<Scalar = f32>> CubicSegment<P> {
 
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
-    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+    pub fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
         let step = 1.0 / subdivisions as f32;
         (0..=subdivisions).map(move |i| i as f32 * step)
     }
@@ -1347,6 +1347,7 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
+
 impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
@@ -1604,7 +1605,7 @@ impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
                 }
                 t -= segment.knot_span;
             }
-            return (self.segments.last().unwrap(), 1.0);
+            (self.segments.last().unwrap(), 1.0)
         }
     }
 

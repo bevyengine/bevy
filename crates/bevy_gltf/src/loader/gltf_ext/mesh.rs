@@ -11,7 +11,7 @@ pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
 
     if let Some(material_name) = material.name() {
-        format!("{}.{}", mesh_name, material_name)
+        format!("{mesh_name}.{material_name}")
     } else {
         mesh_name.to_string()
     }
@@ -25,7 +25,7 @@ pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
         reason = "`GltfError` is only barely past the threshold for large errors."
     )
 )]
-pub(crate) fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
+pub fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
         Mode::Lines => Ok(PrimitiveTopology::LineList),

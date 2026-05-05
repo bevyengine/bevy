@@ -33,9 +33,9 @@ fn print_system(input: Res<Input>) {
     println!("You typed: {}", input.0);
 }
 
-fn exit_system(input: Res<Input>, mut exit_event: EventWriter<AppExit>) {
+fn exit_system(input: Res<Input>, mut app_exit_reader: MessageWriter<AppExit>) {
     if input.0 == "exit" {
-        exit_event.write(AppExit::Success);
+        app_exit_reader.write(AppExit::Success);
     }
 }
 

@@ -1,3 +1,5 @@
+//! Types and functions for creating, manipulating and querying [`CustomAttributes`].
+
 use crate::Reflect;
 use alloc::boxed::Box;
 use bevy_utils::TypeIdMap;
@@ -98,16 +100,19 @@ struct CustomAttribute {
 }
 
 impl CustomAttribute {
+    /// Creates a new [`CustomAttribute`] containing `value`.
     pub fn new<T: Reflect>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
+    /// Returns a reference to the attribute's value if it is of type `T`, or [`None`] if not.
     pub fn value<T: Reflect>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
+    /// Returns a reference to the attribute's value as a [`Reflect`] trait object.
     pub fn reflect_value(&self) -> &dyn Reflect {
         &*self.value
     }
@@ -178,7 +183,7 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use crate::{enums::VariantInfo, type_info::Typed, TypeInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 

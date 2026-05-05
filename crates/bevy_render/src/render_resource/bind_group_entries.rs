@@ -241,7 +241,13 @@ macro_rules! impl_to_indexed_binding_slice {
 all_tuples_with_size!(impl_to_indexed_binding_slice, 1, 32, T, n, s);
 
 pub struct DynamicBindGroupEntries<'b> {
-    entries: Vec<BindGroupEntry<'b>>,
+    pub entries: Vec<BindGroupEntry<'b>>,
+}
+
+impl<'b> Default for DynamicBindGroupEntries<'b> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'b> DynamicBindGroupEntries<'b> {
@@ -284,6 +290,12 @@ impl<'b> DynamicBindGroupEntries<'b> {
                 .into_iter()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource })
                 .collect(),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
         }
     }
 

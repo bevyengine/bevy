@@ -1,19 +1,21 @@
 use crate::{
-    component::{ComponentId, Tick},
+    change_detection::{CheckChangeTicks, Tick},
+    error::Result,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoResult,
+        IntoSystem, System, SystemIn, SystemInput, SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::{SystemParamValidationError, SystemStateFlags};
+use super::{RunSystemError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -21,7 +23,7 @@ use super::{SystemParamValidationError, SystemStateFlags};
 /// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<Marker, F>
+pub struct ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
@@ -31,10 +33,10 @@ where
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> (Marker, Out)>,
 }
 
-impl<Marker, F> ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
@@ -42,7 +44,7 @@ where
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
-        self.system_meta.set_name(new_name.into());
+        self.system_meta.set_name(new_name);
         self
     }
 }
@@ -51,12 +53,14 @@ where
 #[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
+impl<Out, Marker, F> IntoSystem<F::In, Out, (IsExclusiveFunctionSystem, Marker, Out)> for F
 where
+    Out: 'static,
     Marker: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type System = ExclusiveFunctionSystem<Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, Out, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -74,22 +78,19 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> System for ExclusiveFunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
+    Out: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
     type In = F::In;
-    type Out = F::Out;
+    type Out = Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
     }
 
     #[inline]
@@ -106,7 +107,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: The safety is upheld by the caller.
         let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
@@ -116,7 +117,7 @@ where
             let params = F::Param::get_param(
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
-            );
+            )?;
 
             #[cfg(feature = "hotpatching")]
             let out = {
@@ -136,7 +137,7 @@ where
             world.flush();
             self.system_meta.last_run = world.increment_change_tick();
 
-            out
+            IntoResult::into_result(out)
         })
     }
 
@@ -166,31 +167,23 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // All exclusive system params are always available.
-        Ok(())
-    }
-
-    #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
+        FilteredAccessSet::new()
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
+            check,
+            self.system_meta.name.clone(),
         );
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 
@@ -335,20 +328,20 @@ mod tests {
             let system = IntoSystem::into_system(function);
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 function.system_type_id(),
-                "System::type_id should be consistent with IntoSystem::system_type_id"
+                "System::system_type should be consistent with IntoSystem::system_type_id"
             );
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 TypeId::of::<T::System>(),
-                "System::type_id should be consistent with TypeId::of::<T::System>()"
+                "System::system_type should be consistent with TypeId::of::<T::System>()"
             );
 
             assert_ne!(
-                system.type_id(),
-                IntoSystem::into_system(reference_system).type_id(),
+                system.system_type(),
+                IntoSystem::into_system(reference_system).system_type(),
                 "Different systems should have different TypeIds"
             );
         }

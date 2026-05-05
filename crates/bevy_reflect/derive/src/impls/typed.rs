@@ -90,6 +90,7 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
             const _: () = {
                 mod private_scope {
                     // Compiles if it can be named when there are no imports.
+                    #[allow(deprecated, reason = "derives on a deprecated type shouldn't be considered a usage")]
                     type AssertIsPrimitive = #type_path;
                 }
             };
@@ -106,42 +107,36 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
     quote! {
         #primitive_assert
 
-        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
-        const _: () = {
-            extern crate alloc;
-
-            use alloc::string::ToString;
-
-            impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
-                fn type_path() -> &'static str {
-                    #long_type_path
-                }
-
-                fn short_type_path() -> &'static str {
-                    #short_type_path
-                }
-
-                fn type_ident() -> Option<&'static str> {
-                    #type_ident
-                }
-
-                fn crate_name() -> Option<&'static str> {
-                    #crate_name
-                }
-
-                fn module_path() -> Option<&'static str> {
-                    #module_path
-                }
+        #[allow(deprecated, reason = "derives on a deprecated type shouldn't be considered a usage")]
+        impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
+            fn type_path() -> &'static str {
+                #long_type_path
             }
-        };
+
+            fn short_type_path() -> &'static str {
+                #short_type_path
+            }
+
+            fn type_ident() -> #FQOption<&'static str> {
+                #type_ident
+            }
+
+            fn crate_name() -> #FQOption<&'static str> {
+                #crate_name
+            }
+
+            fn module_path() -> #FQOption<&'static str> {
+                #module_path
+            }
+        }
     }
 }
 
 pub(crate) fn impl_typed(
-    meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
     type_info_generator: TokenStream,
 ) -> TokenStream {
+    let meta = where_clause_options.meta();
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
 

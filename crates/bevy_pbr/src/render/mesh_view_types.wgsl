@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct ClusterableObject {
+struct ClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset
     light_custom_data: vec4<f32>,
@@ -13,14 +13,16 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    texture_index: u32,
-    pad: f32,
+    decal_index: u32,
+    range: f32,
 };
 
-const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
-const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 2u;
-const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 4u;
-const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 8u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u << 0u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 1u << 1u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
+const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
+const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -40,11 +42,25 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 };
 
-const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u;
-const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 2u;
-const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 4u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 1u;
+const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
+const DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32           = 1u << 3u;
+
+struct RectLight {
+    color: vec4<f32>,
+    position: vec3<f32>,
+    width: f32,
+    right: vec3<f32>,
+    height: f32,
+    up: vec3<f32>,
+    range: f32,
+};
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -55,8 +71,8 @@ struct Lights {
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     //
     // For perspective projections:
-    // z is cluster_dimensions.z / log(far / near)
-    // w is cluster_dimensions.z * log(near) / log(far / near)
+    // z is (cluster_dimensions.z - 1) / log(far / near)
+    // w is (cluster_dimensions.z - 1) * log(near) / log(far / near)
     //
     // For orthographic projections:
     // NOTE: near and far are +ve but -z is infront of the camera
@@ -65,8 +81,9 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
-    environment_map_intensity: f32,
+    ambient_light_affects_lightmapped_meshes: u32,
+    n_rect_lights: u32,
+    rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
 };
 
 struct Fog {
@@ -95,38 +112,51 @@ const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
 const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-struct ClusterableObjects {
-    data: array<ClusterableObject>,
+struct ClusteredLights {
+    data: array<ClusteredLight>,
 };
-struct ClusterLightIndexLists {
+struct ClusterableObjectIndexLists {
     data: array<u32>,
 };
 struct ClusterOffsetsAndCounts {
     data: array<array<vec4<u32>, 2>>,
 };
 #else
-struct ClusterableObjects {
-    data: array<ClusterableObject, 204u>,
+struct ClusteredLights {
+    data: array<ClusteredLight, 204u>,
 };
-struct ClusterLightIndexLists {
+struct ClusterableObjectIndexLists {
     // each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
 struct ClusterOffsetsAndCounts {
-    // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
+    // each u32 contains a 24-bit index into ClusterableObjectIndexLists in the high 24 bits
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
 #endif
 
+// Whether this light probe contributes diffuse light to lightmapped meshes.
+const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;
+// Whether this light probe has parallax correction enabled.
+const LIGHT_PROBE_FLAG_PARALLAX_CORRECT:                 u32 = 2;
+
 struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
-    cubemap_index: i32,
+    // The falloff region, specified as a fraction of the light probe's
+    // bounding box.
+    falloff: vec3<f32>,
+    bounding_sphere_radius: f32,
+    // The boundaries of the simulated space used for parallax correction,
+    // specified as *half* extents in light probe space.
+    parallax_correction_bounds: vec3<f32>,
     intensity: f32,
-    // Whether this light probe contributes diffuse light to lightmapped meshes.
-    affects_lightmapped_mesh_diffuse: u32,
+    world_position: vec3<f32>,
+    cubemap_index: i32,
+    // Various flags that apply to this light probe.
+    flags: u32,
 };
 
 struct LightProbes {
@@ -153,12 +183,27 @@ struct LightProbes {
 // For more information on these settings, see the documentation for
 // `bevy_pbr::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
-    perceptual_roughness_threshold: f32,
+    min_perceptual_roughness: f32,
+    min_perceptual_roughness_fully_active: f32,
+    max_perceptual_roughness_starts_to_fade: f32,
+    max_perceptual_roughness: f32,
+    edge_fadeout_fully_active: f32,
+    edge_fadeout_no_longer_active: f32,
     thickness: f32,
     linear_steps: u32,
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+};
+
+// See the `ContactShadows` rust struct.
+struct ContactShadowsSettings {
+    linear_steps: u32,
+    thickness: f32,
+    length: f32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    _padding: f32,
+#endif
 };
 
 struct EnvironmentMapUniform {
@@ -168,16 +213,29 @@ struct EnvironmentMapUniform {
 
 // Shader version of the order independent transparency settings component.
 struct OrderIndependentTransparencySettings {
-  layers_count: i32,
+  sorted_fragment_max_count: u32,
+  fragments_per_pixel_average: f32,
   alpha_threshold: f32,
+};
+
+struct OitFragmentNode {
+    color: u32,
+    depth_alpha: u32,
+    next: u32,
 };
 
 struct ClusteredDecal {
     local_from_world: mat4x4<f32>,
-    image_index: i32,
+    base_color_texture_index: i32,
+    normal_map_texture_index: i32,
+    metallic_roughness_texture_index: i32,
+    emissive_texture_index: i32,
+    world_position: vec3<f32>,
+    bounding_sphere_radius: f32,
     tag: u32,
     pad_a: u32,
     pad_b: u32,
+    pad_c: u32,
 }
 
 struct ClusteredDecals {

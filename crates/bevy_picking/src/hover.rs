@@ -14,7 +14,10 @@ use crate::{
 };
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::FloatOrd;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
@@ -54,11 +57,39 @@ type OverMap = HashMap<PointerId, LayerMap>;
 /// [`PreviousHoverMap`] as a robust way of determining changes in hover state from the previous
 /// update.
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
-pub struct HoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
+pub struct HoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
 
 /// The previous state of the hover map, used to track changes to hover state.
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
-pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
+pub struct PreviousHoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
+
+/// Gets the hovered entities for a `pointer_id` from a provided `HoverMap` inner map
+pub(crate) fn get_hovered_entities(
+    hover_map: &HashMap<PointerId, EntityHashMap<HitData>>,
+    pointer_id: &PointerId,
+) -> EntityHashSet {
+    hover_map
+        .get(pointer_id)
+        .map_or(EntityHashSet::default(), |entity_hit| {
+            entity_hit
+                .iter()
+                .map(|(&entity, _)| entity)
+                .collect::<EntityHashSet>()
+        })
+}
+
+/// Returns whether there is hit data for the given `pointer_id` and `entity`
+/// from a provided `HoverMap` inner map. This means that the entity is
+/// "directly hovered" by the `pointer_id` for the given `hover_map`
+pub(crate) fn is_directly_hovered(
+    hover_map: &HashMap<PointerId, EntityHashMap<HitData>>,
+    pointer_id: &PointerId,
+    entity: &Entity,
+) -> bool {
+    hover_map
+        .get(pointer_id)
+        .is_some_and(|hit_data_map| hit_data_map.contains_key(entity))
+}
 
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
@@ -66,8 +97,8 @@ pub fn generate_hovermap(
     // Inputs
     pickable: Query<&Pickable>,
     pointers: Query<&PointerId>,
-    mut under_pointer: EventReader<backend::PointerHits>,
-    mut pointer_input: EventReader<PointerInput>,
+    mut pointer_hits_reader: MessageReader<backend::PointerHits>,
+    mut pointer_input_reader: MessageReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -80,7 +111,11 @@ pub fn generate_hovermap(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
+    build_over_map(
+        &mut pointer_hits_reader,
+        &mut over_map,
+        &mut pointer_input_reader,
+    );
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
 }
 
@@ -111,11 +146,11 @@ fn reset_maps(
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
-    backend_events: &mut EventReader<backend::PointerHits>,
+    pointer_hit_reader: &mut MessageReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_input: &mut EventReader<PointerInput>,
+    pointer_input_reader: &mut MessageReader<PointerInput>,
 ) {
-    let cancelled_pointers: HashSet<PointerId> = pointer_input
+    let cancelled_pointers: HashSet<PointerId> = pointer_input_reader
         .read()
         .filter_map(|p| {
             if let PointerAction::Cancel = p.action {
@@ -126,7 +161,7 @@ fn build_over_map(
         })
         .collect();
 
-    for entities_under_pointer in backend_events
+    for entities_under_pointer in pointer_hit_reader
         .read()
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {
@@ -212,7 +247,7 @@ pub fn update_interactions(
     // need to be able to insert the interaction component on entities if they do not exist. To do
     // so we need to know the final aggregated interaction state to avoid the scenario where we set
     // an entity to `Pressed`, then overwrite that with a lower precedent like `Hovered`.
-    let mut new_interaction_state = HashMap::<Entity, PickingInteraction>::default();
+    let mut new_interaction_state = EntityHashMap::<PickingInteraction>::default();
     for (pointer, pointer_press, mut pointer_interaction) in &mut pointers {
         if let Some(pointers_hovered_entities) = hover_map.get(pointer) {
             // Insert a sorted list of hit entities into the pointer's interaction component.
@@ -243,10 +278,10 @@ pub fn update_interactions(
         };
 
         for entity in previously_hovered_entities.keys() {
-            if !new_interaction_state.contains_key(entity) {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    interaction.set_if_neq(PickingInteraction::None);
-                }
+            if !new_interaction_state.contains_key(entity)
+                && let Ok(mut interaction) = interact.get_mut(*entity)
+            {
+                interaction.set_if_neq(PickingInteraction::None);
             }
         }
     }
@@ -256,7 +291,7 @@ pub fn update_interactions(
 fn merge_interaction_states(
     pointer_press: &PointerPress,
     hovered_entity: &Entity,
-    new_interaction_state: &mut HashMap<Entity, PickingInteraction>,
+    new_interaction_state: &mut EntityHashMap<PickingInteraction>,
 ) {
     let new_interaction = match pointer_press.is_any_pressed() {
         true => PickingInteraction::Pressed,
@@ -344,7 +379,7 @@ pub fn update_is_hovered(
     }
 
     // Algorithm: for each entity having a `Hovered` component, we want to know if the current
-    // entry in the hover map is "within" (that is, in the set of descenants of) that entity. Rather
+    // entry in the hover map is "within" (that is, in the set of descendants of) that entity. Rather
     // than doing an expensive breadth-first traversal of children, instead start with the hovermap
     // entry and search upwards. We can make this even cheaper by building a set of ancestors for
     // the hovermap entry, and then testing each `Hovered` entity against that set.
@@ -404,7 +439,7 @@ pub fn update_is_directly_hovered(
 
 #[cfg(test)]
 mod tests {
-    use bevy_render::camera::Camera;
+    use bevy_camera::Camera;
 
     use super::*;
 
@@ -419,7 +454,7 @@ mod tests {
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
-        let mut entity_map = HashMap::new();
+        let mut entity_map = EntityHashMap::new();
         entity_map.insert(
             hovered_child,
             HitData {
@@ -427,6 +462,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
@@ -471,7 +507,7 @@ mod tests {
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
-        let mut entity_map = HashMap::new();
+        let mut entity_map = EntityHashMap::new();
         entity_map.insert(
             hovered_entity,
             HitData {
@@ -479,6 +515,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
@@ -536,7 +573,7 @@ mod tests {
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
-        let mut entity_map = HashMap::new();
+        let mut entity_map = EntityHashMap::new();
         entity_map.insert(
             hovered_child,
             HitData {
@@ -544,6 +581,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
