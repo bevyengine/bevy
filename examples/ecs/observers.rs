@@ -1,11 +1,9 @@
 //! Demonstrates how to observe events: both component lifecycle events and custom events.
 
-use bevy::{
-    platform::collections::{HashMap, HashSet},
-    prelude::*,
-};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use bevy::ecs::entity::EntityHashSet;
+use bevy::{platform::collections::HashMap, prelude::*};
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
@@ -212,7 +210,7 @@ fn handle_click(
 
 #[derive(Resource, Default)]
 struct SpatialIndex {
-    map: HashMap<(i32, i32), HashSet<Entity>>,
+    map: HashMap<(i32, i32), EntityHashSet>,
 }
 
 /// Cell size has to be bigger than any `TriggerMine::radius`

@@ -571,7 +571,6 @@ impl<A: Asset> Assets<A> {
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
     /// [`Handle`] drop events.
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
-        let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
         // that `asset_server.load` calls that occur during it block, which ensures that
         // re-loads are kicked off appropriately. This function must be "transactional" relative
