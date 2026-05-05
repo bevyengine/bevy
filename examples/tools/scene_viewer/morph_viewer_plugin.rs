@@ -12,7 +12,7 @@ use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
 use std::fmt;
 
-const FONT_SIZE: f32 = 13.0;
+const FONT_SIZE: FontSize = FontSize::Px(13.0);
 
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];

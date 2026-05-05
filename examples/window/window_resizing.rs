@@ -43,7 +43,7 @@ fn setup_ui(mut commands: Commands) {
         .with_child((
             Text::new("Resolution"),
             TextFont {
-                font_size: 42.0,
+                font_size: FontSize::Px(42.0),
                 ..default()
             },
             ResolutionText,

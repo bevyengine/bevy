@@ -8,7 +8,7 @@ use criterion::{criterion_group, Criterion};
 use rand::{
     distr::{Distribution, StandardUniform, Uniform},
     rngs::StdRng,
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
 
 criterion_group!(benches, bounding);

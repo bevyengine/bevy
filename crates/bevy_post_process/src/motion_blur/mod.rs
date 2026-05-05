@@ -2,28 +2,41 @@
 //!
 //! Add the [`MotionBlur`] component to a camera to enable motion blur.
 
+use crate::{
+    bloom::bloom,
+    motion_blur::pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_camera::Camera;
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
-    prepass::{DepthPrepass, MotionVectorPrepass},
+    prepass::{MotionVectorPrepass, ViewPrepassTextures},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
+    system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
-    render_resource::{ShaderType, SpecializedRenderPipelines},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    diagnostic::RecordDiagnostics,
+    extract_component::{
+        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+    },
+    globals::GlobalsBuffer,
+    render_resource::{
+        BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, ShaderType, SpecializedRenderPipelines, StoreOp, TextureUsages,
+    },
+    renderer::{RenderContext, ViewQuery},
+    sync_component::SyncComponent,
+    view::{prepare_view_targets, Msaa, ViewDepthTexture, ViewTarget},
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
-pub mod node;
 pub mod pipeline;
 
 /// A component that enables and configures motion blur when added to a camera.
@@ -59,7 +72,7 @@ pub mod pipeline;
 /// ````
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(DepthPrepass, MotionVectorPrepass)]
+#[require(MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///
@@ -100,6 +113,10 @@ impl Default for MotionBlur {
             samples: 1,
         }
     }
+}
+
+impl SyncComponent for MotionBlur {
+    type Target = MotionBlurUniform;
 }
 
 impl ExtractComponent for MotionBlur {
@@ -144,25 +161,115 @@ impl Plugin for MotionBlurPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<MotionBlurPipeline>>()
             .add_systems(RenderStartup, pipeline::init_motion_blur_pipeline)
             .add_systems(
                 Render,
-                pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
-            );
-
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<node::MotionBlurNode>>(
-                Core3d,
-                Node3d::MotionBlur,
-            )
-            .add_render_graph_edges(
-                Core3d,
                 (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::MotionBlur,
-                    Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
+                    pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_view_depth_texture_usages_for_motion_blur
+                        .in_set(RenderSystems::PrepareViews)
+                        .after(prepare_view_targets)
+                        .ambiguous_with_all(),
                 ),
             );
+
+        render_app.add_systems(
+            Core3d,
+            motion_blur.before(bloom).in_set(Core3dSystems::PostProcess),
+        );
+    }
+}
+
+pub fn motion_blur(
+    view: ViewQuery<(
+        &ViewTarget,
+        &MotionBlurPipelineId,
+        &ViewPrepassTextures,
+        &ViewDepthTexture,
+        &MotionBlurUniform,
+        &Msaa,
+    )>,
+    motion_blur_pipeline: Res<MotionBlurPipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    settings_uniforms: Res<ComponentUniforms<MotionBlurUniform>>,
+    globals_buffer: Res<GlobalsBuffer>,
+    mut ctx: RenderContext,
+) {
+    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
+        view.into_inner();
+
+    if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
+        return; // We can skip running motion blur in these cases.
+    }
+
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
+        return;
+    };
+
+    let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
+        return;
+    };
+    let Some(prepass_motion_vectors_texture) = &prepass_textures.motion_vectors else {
+        return;
+    };
+    let Some(globals_uniforms) = globals_buffer.buffer.binding() else {
+        return;
+    };
+
+    let post_process = view_target.post_process_write();
+
+    let layout = if msaa.samples() == 1 {
+        &motion_blur_pipeline.layout
+    } else {
+        &motion_blur_pipeline.layout_msaa
+    };
+
+    let bind_group = ctx.render_device().create_bind_group(
+        Some("motion_blur_bind_group"),
+        &pipeline_cache.get_bind_group_layout(layout),
+        &BindGroupEntries::sequential((
+            post_process.source,
+            &prepass_motion_vectors_texture.texture.default_view,
+            depth.view(),
+            &motion_blur_pipeline.sampler,
+            settings_binding.clone(),
+            globals_uniforms.clone(),
+        )),
+    );
+
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("motion_blur"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: post_process.destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Default::default()),
+                store: StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "motion_blur");
+
+    render_pass.set_render_pipeline(pipeline);
+    render_pass.set_bind_group(0, &bind_group, &[]);
+    render_pass.draw(0..3, 0..1);
+
+    pass_span.end(&mut render_pass);
+}
+
+fn prepare_view_depth_texture_usages_for_motion_blur(
+    mut view_targets: Query<&mut Camera3d, With<MotionBlurUniform>>,
+) {
+    for mut camera in view_targets.iter_mut() {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }

@@ -13,13 +13,14 @@ pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    extract_resource::ExtractResourcePlugin, render_asset::RenderAssetPlugin,
-    renderer::RenderDevice, Render, RenderApp, RenderSystems,
+    extract_resource::ExtractResourcePlugin, init_gpu_resource, render_asset::RenderAssetPlugin,
+    render_resource::DefaultImageSamplerDescriptor, GpuResourceAppExt, Render, RenderApp,
+    RenderStartup, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
-use tracing::warn;
+use bevy_log::warn;
 
 #[derive(Default)]
 pub struct TexturePlugin;
@@ -32,10 +33,14 @@ impl Plugin for TexturePlugin {
         ))
         .init_resource::<ManualTextureViews>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TextureCache>().add_systems(
-                Render,
-                update_texture_cache_system.in_set(RenderSystems::Cleanup),
-            );
+            render_app
+                .init_resource::<ManualTextureViews>()
+                .init_gpu_resource::<TextureCache>()
+                .allow_ambiguous_resource::<TextureCache>()
+                .add_systems(
+                    Render,
+                    update_texture_cache_system.in_set(RenderSystems::Cleanup),
+                );
         }
     }
 
@@ -58,16 +63,19 @@ impl Plugin for TexturePlugin {
             .clone();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let default_sampler = {
-                let device = render_app.world().resource::<RenderDevice>();
-                device.create_sampler(&default_sampler.as_wgpu())
-            };
-            render_app
-                .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<FallbackImage>()
-                .init_resource::<FallbackImageZero>()
-                .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageFormatMsaaCache>();
+            render_app.insert_resource(DefaultImageSamplerDescriptor(default_sampler.clone()));
+            render_app.add_systems(
+                RenderStartup,
+                (
+                    init_gpu_resource::<DefaultImageSampler>,
+                    init_gpu_resource::<FallbackImage>,
+                    init_gpu_resource::<FallbackImageZero>,
+                    init_gpu_resource::<FallbackImageCubemap>,
+                    init_gpu_resource::<FallbackImageFormatMsaaCache>,
+                )
+                    .chain()
+                    .ambiguous_with_all(),
+            );
         }
     }
 }
