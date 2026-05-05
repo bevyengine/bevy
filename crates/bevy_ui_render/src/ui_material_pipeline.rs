@@ -9,7 +9,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
@@ -22,9 +21,10 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderRef};
 use bevy_sprite::BorderRect;
+use bevy_ui::ComputedStackIndex;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};
@@ -50,14 +50,14 @@ where
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>, GpuImage>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
-                .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+                .init_gpu_resource::<UiMaterialMeta<M>>()
+                .init_gpu_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(RenderStartup, init_ui_material_pipeline::<M>)
                 .add_systems(
                     ExtractSchedule,
@@ -113,8 +113,8 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 /// Render pipeline data for a given [`UiMaterial`]
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
-    pub ui_layout: BindGroupLayout,
-    pub view_layout: BindGroupLayout,
+    pub ui_layout: BindGroupLayoutDescriptor,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub vertex_shader: Handle<Shader>,
     pub fragment_shader: Handle<Shader>,
     marker: PhantomData<M>,
@@ -155,11 +155,7 @@ where
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -179,12 +175,12 @@ where
 
 pub fn init_ui_material_pipeline<M: UiMaterial>(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
 ) {
-    let ui_layout = M::bind_group_layout(&render_device);
+    let ui_layout = M::bind_group_layout_descriptor(&render_device);
 
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -330,6 +326,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &MaterialNode<M>,
             &InheritedVisibility,
@@ -341,8 +338,16 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        computed_node,
+        stack_index,
+        transform,
+        handle,
+        inherited_visibility,
+        clip,
+        camera,
+    ) in uinode_query.iter()
     {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
@@ -360,7 +365,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: computed_node.stack_index,
+            stack_index: stack_index.0,
             transform: transform.into(),
             material: handle.id(),
             rect: Rect {
@@ -380,6 +385,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
@@ -397,14 +403,14 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_material_view_bind_group",
-            &ui_material_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&ui_material_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding, globals_binding)),
         ));
         let mut index = 0;
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_shader_handle = AssetId::invalid();
+            let mut batch_shader_handle = None;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -415,11 +421,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 {
                     let mut existing_batch = batches
                         .last_mut()
-                        .filter(|_| batch_shader_handle == extracted_uinode.material);
+                        .filter(|_| batch_shader_handle == Some(extracted_uinode.material));
 
                     if existing_batch.is_none() {
                         batch_item_index = item_index;
-                        batch_shader_handle = extracted_uinode.material;
+                        batch_shader_handle = Some(extracted_uinode.material);
 
                         let new_batch = UiMaterialBatch {
                             range: index..index,
@@ -472,8 +478,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector2(rect_size);
+                    let transformed_rect_size = extracted_uinode
+                        .transform
+                        .transform_vector2(rect_size)
+                        .abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -516,10 +524,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             size: extracted_uinode.rect.size().into(),
                             radius: extracted_uinode.border_radius,
                             border: [
-                                extracted_uinode.border.left,
-                                extracted_uinode.border.top,
-                                extracted_uinode.border.right,
-                                extracted_uinode.border.bottom,
+                                extracted_uinode.border.min_inset.x,
+                                extracted_uinode.border.min_inset.y,
+                                extracted_uinode.border.max_inset.x,
+                                extracted_uinode.border.max_inset.y,
                             ],
                         });
                     }
@@ -528,7 +536,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     existing_batch.unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
-                    batch_shader_handle = AssetId::invalid();
+                    batch_shader_handle = None;
                 }
             }
         }
@@ -548,16 +556,28 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
 
-    type Param = (SRes<RenderDevice>, SRes<UiMaterialPipeline<M>>, M::Param);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<PipelineCache>,
+        SRes<UiMaterialPipeline<M>>,
+        M::Param,
+    );
 
     fn prepare_asset(
         material: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline_cache, pipeline, material_param): &mut SystemParamItem<
+            Self::Param,
+        >,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let bind_group_data = material.bind_group_data();
-        match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
+        match material.as_bind_group(
+            &pipeline.ui_layout.clone(),
+            render_device,
+            pipeline_cache,
+            material_param,
+        ) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
@@ -610,7 +630,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &pipeline_cache,
             &ui_material_pipeline,
             UiMaterialKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 bind_group_data: material.key.clone(),
             },
         );
@@ -619,11 +639,11 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
         }
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,

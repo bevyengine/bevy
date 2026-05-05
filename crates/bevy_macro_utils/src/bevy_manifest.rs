@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
 use proc_macro::TokenStream;
-use std::sync::{PoisonError, RwLock};
+use std::sync::{PoisonError, RwLock, RwLockWriteGuard};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -20,7 +20,7 @@ pub struct BevyManifest {
 const BEVY: &str = "bevy";
 
 impl BevyManifest {
-    /// Returns a global shared instance of the [`BevyManifest`] struct.
+    /// Calls `f` with a global shared instance of the [`BevyManifest`] struct.
     pub fn shared<R>(f: impl FnOnce(&BevyManifest) -> R) -> R {
         static MANIFESTS: RwLock<BTreeMap<PathBuf, BevyManifest>> = RwLock::new(BTreeMap::new());
         let manifest_path = Self::get_manifest_path();
@@ -42,15 +42,10 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        // TODO: Switch to using RwLockWriteGuard::downgrade when it stablizes.
-        MANIFESTS
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(key, manifest);
+        let mut manifests = MANIFESTS.write().unwrap_or_else(PoisonError::into_inner);
+        manifests.insert(key, manifest);
 
-        f(MANIFESTS
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        f(RwLockWriteGuard::downgrade(manifests)
             .get(&manifest_path)
             .unwrap())
     }

@@ -9,7 +9,7 @@
 //!
 //! ## Implementation Notes
 //!
-//! - This backend does not provide `position` or `normal` in `HitData`.
+//! - This backend does not provide `normal` in `HitData`.
 
 use core::f32;
 
@@ -34,11 +34,12 @@ pub fn update_window_hits(
     for (pointer_id, pointer_location) in pointers.iter() {
         if let Some(Location {
             target: NormalizedRenderTarget::Window(window_ref),
+            position,
             ..
         }) = pointer_location.location
         {
             let entity = window_ref.entity();
-            let hit_data = HitData::new(entity, 0.0, None, None);
+            let hit_data = HitData::new(entity, 0.0, Some(position.extend(0.0)), None);
             pointer_hits_writer.write(PointerHits::new(
                 *pointer_id,
                 vec![(entity, hit_data)],

@@ -6,6 +6,7 @@ use thiserror::Error;
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
+    primitives::Inset,
     Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
 };
 
@@ -468,11 +469,11 @@ impl Measured2d for CircularSegment {
 }
 
 impl CircularSegment {
-    /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
+    /// Create a new [`CircularSegment`] from a `radius`, and a `half_angle` in radians.
     #[inline]
-    pub const fn new(radius: f32, angle: f32) -> Self {
+    pub const fn new(radius: f32, half_angle: f32) -> Self {
         Self {
-            arc: Arc2d::new(radius, angle),
+            arc: Arc2d::new(radius, half_angle),
         }
     }
 
@@ -793,6 +794,9 @@ mod arc_tests {
 }
 
 /// An ellipse primitive, which is like a circle, but the width and height can be different
+///
+/// Ellipse does not implement [`Inset`] as concentric ellipses do not have parallel curves:
+/// if the ellipse is not a circle, the inset shape is not actually an ellipse (although it may look like one) but can also be a lens-like shape.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1723,13 +1727,14 @@ impl Triangle2d {
         let ca = a - c;
 
         // a^2 + b^2 < c^2 for an acute triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] > side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max > max
     }
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
@@ -1741,13 +1746,14 @@ impl Triangle2d {
         let ca = a - c;
 
         // a^2 + b^2 > c^2 for an obtuse triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] < side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max < max
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
@@ -2231,6 +2237,83 @@ impl Measured2d for Capsule2d {
     fn perimeter(&self) -> f32 {
         // 2pi*r + 2l
         2.0 * PI * self.radius + 4.0 * self.half_length
+    }
+}
+
+/// A 2D shape representing the ring version of a base shape.
+///
+/// The `inner_shape` forms the "hollow" of the `outer_shape`.
+///
+/// The resulting shapes are rings or hollow shapes.
+/// For example, a circle becomes an annulus.
+///
+/// # Warning
+///
+/// The `outer_shape` must contain the `inner_shape` for the generated meshes to be accurate.
+///
+/// If there are vertices in the `inner_shape` that escape the `outer_shape`
+/// (for example, if the `inner_shape` is in fact larger),
+/// it may result in incorrect geometries.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Ring<P: Primitive2d> {
+    /// The outer shape
+    pub outer_shape: P,
+    /// The inner shape (the same shape of a different size)
+    pub inner_shape: P,
+}
+
+impl<P: Primitive2d> Ring<P> {
+    /// Create a new `Ring` from a given `outer_shape` and `inner_shape`.
+    ///
+    /// If the primitive implements [`Inset`] and you would like a uniform thickness, consider using [`ToRing::to_ring`]
+    pub const fn new(outer_shape: P, inner_shape: P) -> Self {
+        Self {
+            outer_shape,
+            inner_shape,
+        }
+    }
+}
+
+impl<T: Primitive2d> Primitive2d for Ring<T> {}
+
+impl<P: Primitive2d + Clone + Inset> Ring<P> {
+    /// Generate a `Ring` from a given `primitive` and a `thickness`.
+    pub fn from_primitive_and_thickness(primitive: P, thickness: f32) -> Self {
+        let hollow = primitive.clone().inset(thickness);
+        Ring::new(primitive, hollow)
+    }
+}
+
+impl<P: Primitive2d + Measured2d> Measured2d for Ring<P> {
+    #[inline]
+    fn area(&self) -> f32 {
+        self.outer_shape.area() - self.inner_shape.area()
+    }
+
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        self.outer_shape.perimeter() + self.inner_shape.perimeter()
+    }
+}
+
+/// Provides a convenience method for converting a primitive to a [`Ring`], with a given thickness.
+///
+/// The primitive must implement [`Inset`].
+pub trait ToRing: Primitive2d + Inset
+where
+    Self: Sized,
+{
+    /// Construct a `Ring`
+    fn to_ring(self, thickness: f32) -> Ring<Self>;
+}
+
+impl<P> ToRing for P
+where
+    P: Primitive2d + Clone + Inset,
+{
+    fn to_ring(self, thickness: f32) -> Ring<Self> {
+        Ring::from_primitive_and_thickness(self, thickness)
     }
 }
 

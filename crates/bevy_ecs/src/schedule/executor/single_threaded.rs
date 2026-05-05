@@ -2,6 +2,8 @@ use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
 #[cfg(feature = "trace")]
+use alloc::string::ToString as _;
+#[cfg(feature = "trace")]
 use tracing::info_span;
 
 #[cfg(feature = "std")]
@@ -9,9 +11,7 @@ use std::eprintln;
 
 use crate::{
     error::{ErrorContext, ErrorHandler},
-    schedule::{
-        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
     system::{RunSystemError, ScheduleSystem},
     world::World,
 };
@@ -38,10 +38,6 @@ pub struct SingleThreadedExecutor {
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
-    fn kind(&self) -> ExecutorKind {
-        ExecutorKind::SingleThreaded
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -78,7 +74,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[cfg(feature = "trace")]
             let name = system.name();
             #[cfg(feature = "trace")]
-            let should_run_span = info_span!("check_conditions", name = name.as_string()).entered();
+            let should_run_span = info_span!("check_conditions", name = name.to_string()).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
             for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {

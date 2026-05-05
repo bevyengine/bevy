@@ -2,7 +2,7 @@
 //!
 //! Also illustrates how to read morph target names in `name_morphs`.
 
-use bevy::{prelude::*, scene::SceneInstanceReady};
+use bevy::{prelude::*, world_serialization::WorldInstanceReady};
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
@@ -10,7 +10,7 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 150.0,
             ..default()
         })
@@ -40,7 +40,7 @@ fn setup(
                 graph_handle: graphs.add(graph),
                 index,
             },
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
+            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
         ))
         .observe(play_animation_when_ready);
 
@@ -56,7 +56,7 @@ fn setup(
 }
 
 fn play_animation_when_ready(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,

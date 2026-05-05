@@ -2,10 +2,10 @@ use crate::{
     ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
     UiStack,
 };
-use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{ContainsEntity, Entity},
+    entity::{ContainsEntity, Entity, EntityHashMap},
     hierarchy::ChildOf,
     prelude::{Component, With},
     query::{QueryData, Without},
@@ -14,7 +14,6 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 
@@ -149,7 +148,7 @@ pub struct NodeQuery {
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -187,12 +186,12 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let camera_cursor_positions: EntityHashMap<Vec2> = camera_query
         .iter()
-        .filter_map(|(entity, camera)| {
+        .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
-                camera.target.normalize(primary_window)
+                render_target.normalize(primary_window)
             else {
                 return None;
             };
@@ -302,7 +301,8 @@ pub fn ui_focus_system(
 
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
-    let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
+    let mut hovered_nodes = hovered_nodes.iter();
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -329,7 +329,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
+    let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset pressed nodes because they're handled separately

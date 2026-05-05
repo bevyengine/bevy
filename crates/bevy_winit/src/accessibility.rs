@@ -8,7 +8,7 @@ use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
     ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
-    TreeUpdate,
+    TreeId, TreeUpdate,
 };
 use accesskit_winit::Adapter;
 use bevy_a11y::{
@@ -87,6 +87,7 @@ impl AccessKitState {
         TreeUpdate {
             nodes: vec![(accesskit_window_id, root)],
             tree: Some(tree),
+            tree_id: TreeId::ROOT,
             focus: accesskit_window_id,
         }
     }
@@ -214,7 +215,7 @@ fn update_accessibility_nodes(
         if focus.is_changed() || !nodes.is_empty() {
             // Don't panic if the focused entity does not currently exist
             // It's probably waiting to be spawned
-            if let Some(focused_entity) = focus.0
+            if let Some(focused_entity) = focus.get()
                 && !node_entities.contains(focused_entity)
             {
                 return;
@@ -266,7 +267,8 @@ fn update_adapter(
     TreeUpdate {
         nodes: to_update,
         tree: None,
-        focus: NodeId(focus.0.unwrap_or(primary_window_id).to_bits()),
+        tree_id: TreeId::ROOT,
+        focus: NodeId(focus.get().unwrap_or(primary_window_id).to_bits()),
     }
 }
 
@@ -314,7 +316,14 @@ impl Plugin for AccessKitPlugin {
                 PostUpdate,
                 (
                     poll_receivers,
-                    update_accessibility_nodes.run_if(should_update_accessibility_nodes),
+                    update_accessibility_nodes
+                        .run_if(should_update_accessibility_nodes)
+                        // This is unlikely to result in real conflicts,
+                        // as FocusChangeEvents only mutates internal state of InputFocus,
+                        // and update_accessibility_nodes only reads from it.
+                        // However, in case this changes in the future, this is a safer choice,
+                        // as accessibility updates could conceivably want to read focus change events.
+                        .after(bevy_input_focus::InputFocusSystems::FocusChangeEvents),
                     window_closed
                         .before(poll_receivers)
                         .before(update_accessibility_nodes),
