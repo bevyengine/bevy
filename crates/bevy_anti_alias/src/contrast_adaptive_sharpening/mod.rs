@@ -1,31 +1,28 @@
+use crate::{fxaa::fxaa, smaa::smaa};
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::Camera;
 use bevy_core_pipeline::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     FullscreenShader,
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, ViewTarget},
+    sync_component::SyncComponent,
+    view::ExtractedView,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
-use bevy_utils::default;
 
 mod node;
 
-pub use node::CasNode;
+pub(crate) use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -78,6 +75,10 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
+impl SyncComponent for ContrastAdaptiveSharpening {
+    type Target = (DenoiseCas, CasUniform);
+}
+
 impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
@@ -114,53 +115,28 @@ impl Plugin for CasPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
             .add_systems(RenderStartup, init_cas_pipeline)
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
-
-        {
-            render_app
-                .add_render_graph_node::<CasNode>(Core3d, Node3d::ContrastAdaptiveSharpening)
-                .add_render_graph_edge(
-                    Core3d,
-                    Node3d::Tonemapping,
-                    Node3d::ContrastAdaptiveSharpening,
-                )
-                .add_render_graph_edges(
-                    Core3d,
-                    (
-                        Node3d::Fxaa,
-                        Node3d::ContrastAdaptiveSharpening,
-                        Node3d::EndMainPassPostProcessing,
-                    ),
-                );
-        }
-        {
-            render_app
-                .add_render_graph_node::<CasNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
-                .add_render_graph_edge(
-                    Core2d,
-                    Node2d::Tonemapping,
-                    Node2d::ContrastAdaptiveSharpening,
-                )
-                .add_render_graph_edges(
-                    Core2d,
-                    (
-                        Node2d::Fxaa,
-                        Node2d::ContrastAdaptiveSharpening,
-                        Node2d::EndMainPassPostProcessing,
-                    ),
-                );
-        }
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare))
+            .add_systems(
+                Core3d,
+                cas.after(fxaa)
+                    .after(smaa)
+                    .in_set(Core3dSystems::PostProcess),
+            )
+            .add_systems(
+                Core2d,
+                cas.after(fxaa)
+                    .after(smaa)
+                    .in_set(Core2dSystems::PostProcess),
+            );
     }
 }
 
 #[derive(Resource)]
 pub struct CasPipeline {
-    texture_bind_group: BindGroupLayoutDescriptor,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
-    fullscreen_shader: FullscreenShader,
-    fragment_shader: Handle<Shader>,
+    variants: Variants<RenderPipeline, CasPipelineSpecializer>,
 }
 
 pub fn init_cas_pipeline(
@@ -169,7 +145,7 @@ pub fn init_cas_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture_bind_group = BindGroupLayoutDescriptor::new(
+    let layout = BindGroupLayoutDescriptor::new(
         "sharpening_texture_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -184,81 +160,94 @@ pub fn init_cas_pipeline(
 
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
+    let fragment_shader = load_embedded_asset!(
+        asset_server.as_ref(),
+        "robust_contrast_adaptive_sharpening.wgsl"
+    );
+
+    let variants = Variants::new(
+        CasPipelineSpecializer,
+        RenderPipelineDescriptor {
+            label: Some("contrast_adaptive_sharpening".into()),
+            layout: vec![layout.clone()],
+            vertex: fullscreen_shader.to_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: fragment_shader,
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+
     commands.insert_resource(CasPipeline {
-        texture_bind_group,
+        layout,
         sampler,
-        fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(
-            asset_server.as_ref(),
-            "robust_contrast_adaptive_sharpening.wgsl"
-        ),
+        variants,
     });
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
 pub struct CasPipelineKey {
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
     denoise: bool,
 }
 
-impl SpecializedRenderPipeline for CasPipeline {
+pub struct CasPipelineSpecializer;
+
+impl Specializer<RenderPipeline> for CasPipelineSpecializer {
     type Key = CasPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut <RenderPipeline as Specializable>::Descriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let fragment = descriptor.fragment_mut()?;
+
         if key.denoise {
-            shader_defs.push("RCAS_DENOISE".into());
+            fragment.shader_defs.push("RCAS_DENOISE".into());
         }
-        RenderPipelineDescriptor {
-            label: Some("contrast_adaptive_sharpening".into()),
-            layout: vec![self.texture_bind_group.clone()],
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                shader_defs,
-                targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-                ..default()
-            }),
-            ..default()
-        }
+
+        fragment.set_target(
+            0,
+            ColorTargetState {
+                format: key.target_format,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            },
+        );
+
+        Ok(key)
     }
 }
 
 fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
-    sharpening_pipeline: Res<CasPipeline>,
-    views: Query<
+    mut sharpening_pipeline: ResMut<CasPipeline>,
+    cameras: Query<
         (Entity, &ExtractedView, &DenoiseCas),
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
     mut removals: RemovedComponents<CasUniform>,
-) {
+) -> Result<(), BevyError> {
     for entity in removals.read() {
         commands.entity(entity).remove::<ViewCasPipeline>();
     }
 
-    for (entity, view, denoise_cas) in &views {
-        let pipeline_id = pipelines.specialize(
+    for (entity, view, denoise_cas) in &cameras {
+        let pipeline_id = sharpening_pipeline.variants.specialize(
             &pipeline_cache,
-            &sharpening_pipeline,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                target_format: view.target_format,
             },
-        );
+        )?;
 
         commands.entity(entity).insert(ViewCasPipeline(pipeline_id));
     }
+
+    Ok(())
 }
 
 #[derive(Component)]

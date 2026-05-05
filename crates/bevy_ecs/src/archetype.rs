@@ -363,12 +363,12 @@ bitflags::bitflags! {
     pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
-        const ON_REPLACE_HOOK = (1 << 2);
+        const ON_DISCARD_HOOK = (1 << 2);
         const ON_REMOVE_HOOK = (1 << 3);
         const ON_DESPAWN_HOOK = (1 << 4);
         const ON_ADD_OBSERVER = (1 << 5);
         const ON_INSERT_OBSERVER = (1 << 6);
-        const ON_REPLACE_OBSERVER = (1 << 7);
+        const ON_DISCARD_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
     }
@@ -680,10 +680,10 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have `on_replace` hooks
+    /// Returns true if any of the components in this archetype have `on_discard` hooks
     #[inline]
-    pub fn has_replace_hook(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_HOOK)
+    pub fn has_discard_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_remove` hooks
@@ -714,12 +714,12 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`Replace`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Discard`] observer
     ///
-    /// [`Replace`]: crate::lifecycle::Replace
+    /// [`Discard`]: crate::lifecycle::Discard
     #[inline]
-    pub fn has_replace_observer(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
+    pub fn has_discard_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_OBSERVER)
     }
 
     /// Returns true if any of the components in this archetype have at least one [`Remove`] observer
@@ -856,21 +856,32 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Panics
+    /// Tries to fetch mutable references to two disjoint archetypes.
     ///
-    /// Panics if `a` and `b` are equal.
+    /// Returns `(&mut Archetype, None)` if the same [`ArchetypeId`] was provided twice.
+    ///
+    /// # Safety
+    /// - Both [`ArchetypeId`]s must be valid for this [`Archetypes`].
     #[inline]
-    pub(crate) fn get_2_mut(
+    pub(crate) unsafe fn get_maybe_disjoint_mut(
         &mut self,
-        a: ArchetypeId,
-        b: ArchetypeId,
-    ) -> (&mut Archetype, &mut Archetype) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
+        id_a: ArchetypeId,
+        id_b: ArchetypeId,
+    ) -> (&mut Archetype, Option<&mut Archetype>) {
+        if id_a == id_b {
+            // SAFETY:
+            // - The caller ensures `id_a` is in-bounds.
+            let archetype_a = unsafe { self.archetypes.get_unchecked_mut(id_a.index()) };
+            (archetype_a, None)
         } else {
-            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
+            // SAFETY:
+            // - `id_a` and `id_b` do not overlap in this branch.
+            // - The caller ensures `id_a` and `id_b` are in-bounds.
+            let [archetype_a, archetype_b] = unsafe {
+                self.archetypes
+                    .get_disjoint_unchecked_mut([id_a.index(), id_b.index()])
+            };
+            (archetype_a, Some(archetype_b))
         }
     }
 
@@ -936,7 +947,7 @@ impl Archetypes {
     }
 
     /// Get the component index
-    pub(crate) fn component_index(&self) -> &ComponentIndex {
+    pub fn component_index(&self) -> &ComponentIndex {
         &self.by_component
     }
 

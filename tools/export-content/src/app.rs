@@ -42,7 +42,7 @@ impl Content {
             .ancestors()
             .nth(3)
             .ok_or(diagnostic!("failed to determine path to repo root"))?
-            .join("release-content");
+            .join("_release-content");
 
         let release_notes_dir = content_dir.join("release-notes");
         let release_notes = load_content(release_notes_dir, "release note")?;

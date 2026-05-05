@@ -32,6 +32,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 /// See `ExtractComponentPlugin` to actually perform the extraction.
 ///
 /// If you only want to extract a component conditionally, you may use the `extract_component_filter` attribute.
+/// To specify `SyncComponent::Target`, you can use the `extract_component_sync_target` attribute.
 ///
 /// # Example
 ///
@@ -41,6 +42,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// #[derive(Component, Clone, ExtractComponent)]
 /// #[extract_component_filter(With<Camera>)]
+/// #[extract_component_sync_target((Self, OtherNeedsCleanup))]
 /// pub struct Foo {
 ///     pub should_foo: bool,
 /// }
@@ -51,7 +53,10 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///     pub should_bar: bool,
 /// }
 /// ```
-#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+#[proc_macro_derive(
+    ExtractComponent,
+    attributes(extract_component_filter, extract_component_sync_target)
+)]
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     extract_component::derive_extract_component(input)
 }
@@ -91,22 +96,6 @@ pub fn derive_render_label(input: TokenStream) -> TokenStream {
     derive_label(input, "RenderLabel", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `RenderSubGraph`.
-///
-/// This does not work for unions.
-#[proc_macro_derive(RenderSubGraph)]
-pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_graph").into());
-    trait_path
-        .segments
-        .push(format_ident!("RenderSubGraph").into());
-    derive_label(input, "RenderSubGraph", &trait_path)
-}
-
 /// Derive macro generating an impl of the trait `Specializer`
 ///
 /// This only works for structs whose members all implement `Specializer`
@@ -119,30 +108,4 @@ pub fn derive_specialize(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
     specializer::impl_specializer_key(input)
-}
-
-#[proc_macro_derive(ShaderLabel)]
-pub fn derive_shader_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
-    trait_path
-        .segments
-        .push(format_ident!("ShaderLabel").into());
-    derive_label(input, "ShaderLabel", &trait_path)
-}
-
-#[proc_macro_derive(DrawFunctionLabel)]
-pub fn derive_draw_function_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_phase").into());
-    trait_path
-        .segments
-        .push(format_ident!("DrawFunctionLabel").into());
-    derive_label(input, "DrawFunctionLabel", &trait_path)
 }

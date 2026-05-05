@@ -135,6 +135,33 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// struct Explode(#[event_target] Entity);
 /// ```
 ///
+/// You may also use any type which implements [`ContainsEntity`](crate::entity::ContainsEntity) as the event target:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// struct Bomb(Entity);
+///
+/// impl ContainsEntity for Bomb {
+///     fn entity(&self) -> Entity {
+///         self.0
+///     }
+/// }
+///
+/// #[derive(EntityEvent)]
+/// struct Explode(Bomb);
+/// ```
+///
+/// By default, an [`EntityEvent`] is immutable. This means the event data, including the target, does not change while the event
+/// is triggered. However, to support event propagation, your event must also implement the [`SetEntityEventTarget`] trait.
+///
+/// This trait is automatically implemented for you if you enable event propagation:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate)]
+/// struct Explode(Entity);
+/// ```
+///
 /// ## Trigger Behavior
 ///
 /// When derived, [`EntityEvent`] defaults to setting [`Event::Trigger`] to [`EntityTrigger`], which will run all normal "untargeted"
@@ -245,6 +272,22 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// });
 /// ```
 ///
+/// ## Best practices for event propagation
+///
+/// Propagation is useful for events that should be handled by multiple entities in a hierarchy, such as UI events.
+/// In these cases, it is common for the event to be triggered on a "leaf" entity, and then propagate up to "root" entities.
+/// In this pattern, it is generally recommended to trigger the event on the most specific entity possible (the leaf), and then use propagation to have it handled by more general entities (the roots).
+///
+/// Once an event is handled by a given entity, you should stop propagation.
+/// This ensures that only a single "behavior" resolves per event sent,
+/// avoiding unexpected behavior from entities higher up the hierarchy.
+///
+/// This advice has one notable wrinkle:
+/// if an entity is "disabled" (e.g. if a UI node is grayed out),
+/// the event should still be considered "handled" by that entity,
+/// even though the observer logic should not be run.
+/// This ensures consistent behavior regardless of the enabled/disabled state of entities.
+///
 /// ## Naming and Usage Conventions
 ///
 /// In most cases, it is recommended to use a named struct field for the "event target" entity, and to use
@@ -284,11 +327,21 @@ pub trait Event: Send + Sync + Sized + 'static {
 pub trait EntityEvent: Event {
     /// The [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     fn event_target(&self) -> Entity;
-    /// Returns a mutable reference to the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
+}
+
+/// A trait which is used to set the target of an [`EntityEvent`].
+///
+/// By default, entity events are immutable; meaning their target does not change during the lifetime of the event. However, some events
+/// may require mutable access to provide features such as event propagation.
+///
+/// You should never need to implement this trait manually if you use `#[derive(EntityEvent)]`. It is automatically implemented for you if you
+/// use `#[entity_event(propagate)]`.
+pub trait SetEntityEventTarget: EntityEvent {
+    /// Sets the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     ///
-    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
+    /// Note: In general, this should not be called from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
     /// the event in any of Bevy's built-in [`Trigger`] implementations.
-    fn event_target_mut(&mut self) -> &mut Entity;
+    fn set_event_target(&mut self, entity: Entity);
 }
 
 impl World {
@@ -333,9 +386,39 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 ///
 /// You can look up the key for your event by calling the [`World::event_key`] method.
 ///
+/// For dynamic events not backed by a Rust type, create an `EventKey` from
+/// a [`ComponentId`] using [`EventKey::new`]. Obtain a [`ComponentId`] via
+/// [`World::register_component_with_descriptor`].
+///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
+
+impl EventKey {
+    /// Creates a new [`EventKey`] from a [`ComponentId`].
+    ///
+    /// Useful for dynamic events not backed by a Rust type. Obtain a
+    /// [`ComponentId`] via [`World::register_component_with_descriptor`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `component_id` was registered for use as
+    /// an event (e.g. via [`World::register_component_with_descriptor`]).
+    /// Using an unrelated [`ComponentId`] may cause observers to receive
+    /// data with an unexpected layout.
+    ///
+    /// [`World::register_component_with_descriptor`]: crate::world::World::register_component_with_descriptor
+    #[inline]
+    pub const unsafe fn new(component_id: ComponentId) -> Self {
+        Self(component_id)
+    }
+
+    /// Returns the underlying [`ComponentId`] for this event key.
+    #[inline]
+    pub const fn component_id(self) -> ComponentId {
+        self.0
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -930,5 +1013,128 @@ mod tests {
             assert!(events.is_empty());
         });
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_derive_entity_event() {
+        use bevy_ecs::prelude::*;
+
+        struct Entitoid(Entity);
+
+        impl ContainsEntity for Entitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        struct MutableEntitoid(Entity);
+
+        impl ContainsEntity for MutableEntitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        impl From<Entity> for MutableEntitoid {
+            fn from(value: Entity) -> Self {
+                Self(value)
+            }
+        }
+
+        #[derive(EntityEvent)]
+        struct A(Entity);
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct AP(Entity);
+
+        #[derive(EntityEvent)]
+        struct B {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct BP {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct C {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct CP {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct D(Entitoid);
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct DP(Entitoid);
+
+        #[derive(EntityEvent)]
+        struct E {
+            entity: Entitoid,
+        }
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct EP {
+        //     entity: Entitoid,
+        // }
+
+        #[derive(EntityEvent)]
+        struct F {
+            #[event_target]
+            target: Entitoid,
+        }
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct FP {
+        //     #[event_target]
+        //     target: Entitoid,
+        // }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct G(MutableEntitoid);
+
+        impl From<Entity> for G {
+            fn from(value: Entity) -> Self {
+                Self(value.into())
+            }
+        }
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+
+        world.entity_mut(entity).trigger(A);
+        world.entity_mut(entity).trigger(AP);
+        world.trigger(B { entity });
+        world.trigger(BP { entity });
+        world.trigger(C { target: entity });
+        world.trigger(CP { target: entity });
+        world.trigger(D(Entitoid(entity)));
+        world.trigger(E {
+            entity: Entitoid(entity),
+        });
+        world.trigger(F {
+            target: Entitoid(entity),
+        });
+        world.trigger(G(MutableEntitoid(entity)));
+        world.entity_mut(entity).trigger(G::from);
+
+        // No asserts; test just needs to compile
     }
 }

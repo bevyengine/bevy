@@ -160,15 +160,15 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": ["bevy_transform::components::transform::Transform"]
 //!             "option": [],
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!           "with": [],
 //!           "without": []
 //!         },
@@ -182,15 +182,15 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": []
 //!             "option": "all",
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!            "with": [],
 //!           "without": []
 //!         },
@@ -202,90 +202,88 @@
 //! This should return you something like the below (in a larger list):
 //! ```json
 //! {
-//!      "components": {
-//!        "bevy_camera::Camera3d": {
-//!          "depth_load_op": {
-//!            "Clear": 0.0
-//!          },
-//!          "depth_texture_usages": 16,
-//!          "screen_space_specular_transmission_quality": "Medium",
-//!          "screen_space_specular_transmission_steps": 1
-//!        },
-//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
-//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
-//!        "bevy_light::cluster::ClusterConfig": {
-//!          "FixedZ": {
-//!         "dynamic_resizing": true,
-//!            "total": 4096,
-//!            "z_config": {
-//!              "far_z_mode": "MaxClusterableObjectRange",
-//!              "first_slice_depth": 5.0
-//!            },
-//!            "z_slices": 24
-//!          }
-//!        },
-//!        "bevy_camera::Camera": {
-//!          "clear_color": "Default",
-//!          "is_active": true,
-//!          "msaa_writeback": true,
-//!          "order": 0,
-//!          "sub_camera_view": null,
-//!          "target": {
-//!            "Window": "Primary"
-//!          },
-//!       "viewport": null
-//!        },
-//!        "bevy_camera::Projection": {
-//!          "Perspective": {
-//!            "aspect_ratio": 1.7777777910232544,
-//!            "far": 1000.0,
-//!            "fov": 0.7853981852531433,
-//!            "near": 0.10000000149011612
-//!          }
-//!        },
-//!        "bevy_camera::primitives::Frustum": {},
-//!     "bevy_render::sync_world::RenderEntity": 4294967291,
-//!        "bevy_render::sync_world::SyncToRenderWorld": {},
-//!        "bevy_render::view::Msaa": "Sample4",
-//!        "bevy_camera::visibility::InheritedVisibility": true,
-//!        "bevy_camera::visibility::ViewVisibility": false,
-//!        "bevy_camera::visibility::Visibility": "Inherited",
-//!        "bevy_camera::visibility::VisibleEntities": {},
-//!        "bevy_transform::components::global_transform::GlobalTransform": [
-//!          0.9635179042816162,
-//!          -3.725290298461914e-9,
-//!          0.26764383912086487,
-//!          0.11616238951683044,
-//!          0.9009039402008056,
-//!          -0.4181846082210541,
-//!          -0.24112138152122495,
-//!          0.4340185225009918,
-//!          0.8680371046066284,
-//!          -2.5,
-//!          4.5,
-//!          9.0
-//!        ],
-//!        "bevy_transform::components::transform::Transform": {
-//!       "rotation": [
-//!            -0.22055435180664065,
-//!            -0.13167093694210052,
-//!            -0.03006339818239212,
-//!            0.9659786224365234
-//!          ],
-//!          "scale": [
-//!            1.0,
-//!            1.0,
-//!            1.0
+//!   "components": {
+//!     "bevy_camera::Camera3d": {
+//!       "depth_load_op": {
+//!         "Clear": 0.0
+//!       },
+//!       "depth_texture_usages": 16,
+//!     },
+//!     "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
+//!     "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!     "bevy_light::cluster::ClusterConfig": {
+//!       "FixedZ": {
+//!      "dynamic_resizing": true,
+//!         "total": 4096,
+//!         "z_config": {
+//!           "far_z_mode": "MaxClusterableObjectRange",
+//!           "first_slice_depth": 5.0
+//!         },
+//!         "z_slices": 24
+//!       }
+//!     },
+//!     "bevy_camera::Camera": {
+//!       "clear_color": "Default",
+//!       "is_active": true,
+//!       "msaa_writeback": true,
+//!       "order": 0,
+//!       "sub_camera_view": null,
+//!       "target": {
+//!         "Window": "Primary"
+//!       },
+//!    "viewport": null
+//!     },
+//!     "bevy_camera::Projection": {
+//!       "Perspective": {
+//!         "aspect_ratio": 1.7777777910232544,
+//!         "far": 1000.0,
+//!         "fov": 0.7853981852531433,
+//!         "near": 0.10000000149011612
+//!       }
+//!     },
+//!     "bevy_camera::primitives::Frustum": {},
+//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!     "bevy_render::sync_world::SyncToRenderWorld": {},
+//!     "bevy_render::view::Msaa": "Sample4",
+//!     "bevy_camera::visibility::InheritedVisibility": true,
+//!     "bevy_camera::visibility::ViewVisibility": false,
+//!     "bevy_camera::visibility::Visibility": "Inherited",
+//!     "bevy_camera::visibility::VisibleEntities": {},
+//!     "bevy_transform::components::global_transform::GlobalTransform": [
+//!       0.9635179042816162,
+//!       -3.725290298461914e-9,
+//!       0.26764383912086487,
+//!       0.11616238951683044,
+//!       0.9009039402008056,
+//!       -0.4181846082210541,
+//!       -0.24112138152122495,
+//!       0.4340185225009918,
+//!       0.8680371046066284,
+//!       -2.5,
+//!       4.5,
+//!       9.0
+//!     ],
+//!     "bevy_transform::components::transform::Transform": {
+//!    "rotation": [
+//!         -0.22055435180664065,
+//!         -0.13167093694210052,
+//!         -0.03006339818239212,
+//!         0.9659786224365234
 //!       ],
-//!          "translation": [
-//!            -2.5,
-//!          4.5,
-//!            9.0
-//!          ]
-//!        },
-//!        "bevy_transform::components::transform::TransformTreeChanged": null
-//!      },
-//!      "entity": 4294967261
+//!       "scale": [
+//!         1.0,
+//!         1.0,
+//!         1.0
+//!    ],
+//!       "translation": [
+//!         -2.5,
+//!       4.5,
+//!         9.0
+//!       ]
+//!     },
+//!     "bevy_transform::components::transform::TransformTreeChanged": null
+//!   },
+//!   "entity": 4294967261
 //!},
 //! ```
 //!
@@ -455,6 +453,16 @@
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
+//! ### `world.trigger_event`
+//!
+//! Triggers an event.
+//!
+//! `params`:
+//! - `event`: The [fully-qualified type name] of the event to trigger.
+//! - `value`: The value of the event to trigger.
+//!
+//! `result`: null.
+//!
 //! ### `registry.schema`
 //!
 //! Retrieve schema information about registered types in the Bevy app's type registry.
@@ -531,14 +539,20 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    observer::On,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    schedule::{
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
+        ScheduleLabel, SystemSet,
+    },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
 use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_render")]
+use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
 use bevy_utils::prelude::default;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
 
@@ -556,8 +570,10 @@ const CHANNEL_SIZE: usize = 16;
 ///
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
-    /// The verbs that the server will recognize and respond to.
+    /// The verbs that the server will recognize and respond to for the main app.
     methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
+    /// The verbs that the server will recognize and respond to for the render subapp.
+    render_methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -566,113 +582,223 @@ impl RemotePlugin {
     fn empty() -> Self {
         Self {
             methods: RwLock::new(vec![]),
+            render_methods: RwLock::new(vec![]),
         }
     }
 
-    /// Add a remote method to the plugin using the given `name` and `handler`.
-    #[must_use]
-    pub fn with_method<M>(
-        mut self,
+    /// Add a remote method to the plugin using the given `name` and `handler` to main app.
+    #[inline]
+    pub fn with_method_main<M>(
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.with_method(name, handler, true)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to render app.
+    #[inline]
+    pub fn with_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+    ) -> Self {
+        self.with_method(name, handler, false)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to given app.
+    #[must_use]
+    fn with_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+        to_main: bool,
+    ) -> Self {
+        (if to_main {
+            self.methods.get_mut()
+        } else {
+            self.render_methods.get_mut()
+        })
+        .unwrap()
+        .push((
             name.into(),
             RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
         ));
         self
     }
 
-    /// Add a remote method with a watching handler to the plugin using the given `name`.
-    #[must_use]
-    pub fn with_watching_method<M>(
-        mut self,
+    /// Add a remote method with a watching handler to the plugin using the given `name` to main app.
+    #[inline]
+    pub fn with_watching_method_main<M>(
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.with_watching_method(name, handler, true)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to render app.
+    #[inline]
+    pub fn with_watching_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+    ) -> Self {
+        self.with_watching_method(name, handler, false)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to given app.
+    #[must_use]
+    fn with_watching_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+        to_main: bool,
+    ) -> Self {
+        (if to_main {
+            self.methods.get_mut()
+        } else {
+            self.render_methods.get_mut()
+        })
+        .unwrap()
+        .push((
             name.into(),
             RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
         ));
         self
     }
+
+    /// Create the default list of BRP methods
+    fn add_default_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            builtin_methods::BRP_GET_COMPONENTS_METHOD,
+            builtin_methods::process_remote_get_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_QUERY_METHOD,
+            builtin_methods::process_remote_query_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SPAWN_ENTITY_METHOD,
+            builtin_methods::process_remote_spawn_entity_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_INSERT_COMPONENTS_METHOD,
+            builtin_methods::process_remote_insert_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REMOVE_COMPONENTS_METHOD,
+            builtin_methods::process_remote_remove_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD,
+            builtin_methods::process_remote_despawn_entity_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REPARENT_ENTITIES_METHOD,
+            builtin_methods::process_remote_reparent_entities_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_LIST_COMPONENTS_METHOD,
+            builtin_methods::process_remote_list_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_MUTATE_COMPONENTS_METHOD,
+            builtin_methods::process_remote_mutate_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::RPC_DISCOVER_METHOD,
+            builtin_methods::process_remote_list_methods_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_GET_COMPONENTS_AND_WATCH_METHOD,
+            builtin_methods::process_remote_get_components_watching_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_LIST_COMPONENTS_AND_WATCH_METHOD,
+            builtin_methods::process_remote_list_components_watching_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_GET_RESOURCE_METHOD,
+            builtin_methods::process_remote_get_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_INSERT_RESOURCE_METHOD,
+            builtin_methods::process_remote_insert_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
+            builtin_methods::process_remote_remove_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+            builtin_methods::process_remote_mutate_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_LIST_RESOURCES_METHOD,
+            builtin_methods::process_remote_list_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_TRIGGER_EVENT_METHOD,
+            builtin_methods::process_remote_trigger_event_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_WRITE_MESSAGE_METHOD,
+            builtin_methods::process_remote_write_message_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_OBSERVE_METHOD,
+            builtin_methods::process_remote_observe_watching_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+            builtin_methods::export_registry_types,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_LIST,
+            builtin_methods::schedule_list,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_GRAPH,
+            builtin_methods::schedule_graph,
+            to_main,
+        )
+    }
 }
 
 impl Default for RemotePlugin {
     fn default() -> Self {
-        Self::empty()
-            .with_method(
-                builtin_methods::BRP_GET_COMPONENTS_METHOD,
-                builtin_methods::process_remote_get_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_QUERY_METHOD,
-                builtin_methods::process_remote_query_request,
-            )
-            .with_method(
-                builtin_methods::BRP_SPAWN_ENTITY_METHOD,
-                builtin_methods::process_remote_spawn_entity_request,
-            )
-            .with_method(
-                builtin_methods::BRP_INSERT_COMPONENTS_METHOD,
-                builtin_methods::process_remote_insert_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REMOVE_COMPONENTS_METHOD,
-                builtin_methods::process_remote_remove_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD,
-                builtin_methods::process_remote_despawn_entity_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REPARENT_ENTITIES_METHOD,
-                builtin_methods::process_remote_reparent_entities_request,
-            )
-            .with_method(
-                builtin_methods::BRP_LIST_COMPONENTS_METHOD,
-                builtin_methods::process_remote_list_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_MUTATE_COMPONENTS_METHOD,
-                builtin_methods::process_remote_mutate_components_request,
-            )
-            .with_method(
-                builtin_methods::RPC_DISCOVER_METHOD,
-                builtin_methods::process_remote_list_methods_request,
-            )
-            .with_watching_method(
-                builtin_methods::BRP_GET_COMPONENTS_AND_WATCH_METHOD,
-                builtin_methods::process_remote_get_components_watching_request,
-            )
-            .with_watching_method(
-                builtin_methods::BRP_LIST_COMPONENTS_AND_WATCH_METHOD,
-                builtin_methods::process_remote_list_components_watching_request,
-            )
-            .with_method(
-                builtin_methods::BRP_GET_RESOURCE_METHOD,
-                builtin_methods::process_remote_get_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_INSERT_RESOURCE_METHOD,
-                builtin_methods::process_remote_insert_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
-                builtin_methods::process_remote_remove_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
-                builtin_methods::process_remote_mutate_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_LIST_RESOURCES_METHOD,
-                builtin_methods::process_remote_list_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
-                builtin_methods::export_registry_types,
-            )
+        let mut t = Self::empty();
+        t = t.add_default_methods(true);
+
+        #[cfg(feature = "bevy_render")]
+        {
+            t = t.add_default_methods(false);
+        }
+
+        t
     }
 }
 
@@ -683,7 +809,7 @@ impl Plugin for RemotePlugin {
         let plugin_methods = &mut *self.methods.write().unwrap();
         for (name, handler) in plugin_methods.drain(..) {
             remote_methods.insert(
-                name,
+                name.clone(),
                 match handler {
                     RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
                         app.main_mut().world_mut().register_boxed_system(system),
@@ -695,6 +821,14 @@ impl Plugin for RemotePlugin {
             );
         }
 
+        if remote_methods
+            .0
+            .contains_key(builtin_methods::BRP_SCHEDULE_GRAPH)
+        {
+            app.init_resource::<PreviousScheduleBuildMetadata>()
+                .add_observer(cache_schedule_build_metadata);
+        }
+
         app.init_schedule(RemoteLast)
             .world_mut()
             .resource_mut::<MainScheduleOrder>()
@@ -703,6 +837,7 @@ impl Plugin for RemotePlugin {
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
+            .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
@@ -717,6 +852,57 @@ impl Plugin for RemotePlugin {
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
+
+        #[cfg(feature = "bevy_render")]
+        {
+            use bevy_ecs::schedule::common_conditions::run_once;
+
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+
+            let mut render_remote_methods = RemoteMethods::new();
+
+            let render_plugin_methods = &mut *self.render_methods.write().unwrap();
+            for (name, handler) in render_plugin_methods.drain(..) {
+                render_remote_methods.insert(
+                    name,
+                    match handler {
+                        RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                        RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                    },
+                );
+            }
+
+            render_app
+                .init_schedule(RemoteLast)
+                .world_mut()
+                .resource_mut::<RenderScheduleOrder>()
+                .insert_after(Render, RemoteLast);
+
+            render_app
+                .insert_resource(render_remote_methods)
+                .init_resource::<schemas::SchemaTypesMetadata>()
+                .init_resource::<RemoteWatchingRequests>()
+                .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
+                .configure_sets(
+                    RemoteLast,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
+                )
+                .add_systems(
+                    RemoteLast,
+                    (
+                        (process_remote_requests, process_ongoing_watching_requests)
+                            .chain()
+                            .in_set(RemoteSystems::ProcessRequests),
+                        remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
+                    ),
+                );
+        }
     }
 }
 
@@ -848,25 +1034,124 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///         params: None,
 ///     };
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct BrpRequest {
-    /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
-    pub jsonrpc: String,
-
     /// The action to be performed.
     pub method: String,
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
 
     /// The parameters, specific to each method.
     ///
     /// These are passed as the first argument to the method handler.
     /// Sometimes params can be omitted.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
+}
+
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
+// and check for it's presence in the input.
+// This is similar to the inverse of `#[serde(skip)]`, but serde doesn't provide
+// an attribute for this behavior so we need a manual ser/de implementation.
+impl Serialize for BrpRequest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("jsonrpc", "2.0")?;
+        map.serialize_entry("method", &self.method)?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        if self.params.is_some() {
+            map.serialize_entry("params", &self.params)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BrpRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            JsonRpc,
+            Method,
+            Id,
+            Params,
+        }
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BrpRequest;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("struct BrpRequest")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut jsonrpc = false;
+                let mut method = None;
+                let mut id = None;
+                let mut params = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::JsonRpc => {
+                            let value = map.next_value::<String>()?;
+                            if value != "2.0" {
+                                return Err(de::Error::invalid_value(
+                                    de::Unexpected::Str(&value),
+                                    &"2.0",
+                                ));
+                            }
+                            if jsonrpc {
+                                return Err(de::Error::duplicate_field("jsonrpc"));
+                            }
+                            jsonrpc = true;
+                        }
+                        Field::Method => {
+                            if method.is_some() {
+                                return Err(de::Error::duplicate_field("method"));
+                            }
+                            method = Some(map.next_value()?);
+                        }
+                        Field::Id => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            id = Some(map.next_value()?);
+                        }
+                        Field::Params => {
+                            if params.is_some() {
+                                return Err(de::Error::duplicate_field("params"));
+                            }
+                            params = Some(map.next_value()?);
+                        }
+                    }
+                }
+                if !jsonrpc {
+                    return Err(de::Error::missing_field("jsonrpc"));
+                }
+                let method = method.ok_or_else(|| de::Error::missing_field("method"))?;
+                let id = id.flatten();
+                let params = params.flatten();
+                Ok(BrpRequest { method, id, params })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
 }
 
 /// A response according to BRP.
@@ -915,7 +1200,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,
@@ -1180,5 +1465,62 @@ fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>)
         if message.sender.is_closed() {
             requests.0.swap_remove(i);
         }
+    }
+}
+
+/// Resource tracking the last [`ScheduleBuildMetadata`] of each schedule as it is built.
+///
+/// This allows the `schedule.graph` endpoint to return better results for schedules.
+#[derive(Resource, Default)]
+struct PreviousScheduleBuildMetadata(HashMap<InternedScheduleLabel, ScheduleBuildMetadata>);
+
+fn cache_schedule_build_metadata(
+    event: On<ScheduleBuilt>,
+    mut metadata: ResMut<PreviousScheduleBuildMetadata>,
+) {
+    let new_metadata = ScheduleBuildMetadata {
+        // We intentionally don't bother cloning the warnings, since they aren't used by the
+        // `ScheduleData`.
+        warnings: vec![],
+        edges_added_by_build_passes: event.build_metadata.edges_added_by_build_passes.clone(),
+    };
+    metadata.0.insert(event.label, new_metadata);
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::BrpRequest;
+    use serde_json::json;
+
+    #[test]
+    fn deserialize_brp_request_params_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "id": 1
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, Some(json!(1)));
+        assert_eq!(request.params, None);
+    }
+
+    #[test]
+    fn deserialize_brp_request_id_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "params": {
+                "number": 5
+            }
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, None);
+        assert_eq!(request.params, Some(json!({ "number": 5 })));
     }
 }
