@@ -15,8 +15,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use rand::{seq::IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 const CUBES_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8;
@@ -212,7 +212,7 @@ fn setup(
     };
 
     let font = TextFont {
-        font_size: 40.0,
+        font_size: FontSize::Px(40.0),
         ..Default::default()
     };
 
@@ -224,7 +224,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 10000.0,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
             ..default()
         },
         Transform::from_xyz(1.0, 2.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),

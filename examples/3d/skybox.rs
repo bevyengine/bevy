@@ -1,12 +1,12 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::Skybox,
     image::CompressedImageFormats,
+    light::Skybox,
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{
@@ -73,13 +73,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Msaa::Off,
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
         Skybox {
-            image: skybox_handle.clone(),
+            image: Some(skybox_handle.clone()),
             brightness: 1000.0,
             ..default()
         },
@@ -153,12 +153,13 @@ fn asset_loaded(
 ) {
     if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let image = images.get_mut(&cubemap.image_handle).unwrap();
+        let mut image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
+            let layers = image.height() / image.width();
             image
-                .reinterpret_stacked_2d_as_array(image.height() / image.width())
+                .reinterpret_stacked_2d_as_array(layers)
                 .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
@@ -167,7 +168,7 @@ fn asset_loaded(
         }
 
         for mut skybox in &mut skyboxes {
-            skybox.image = cubemap.image_handle.clone();
+            skybox.image = Some(cubemap.image_handle.clone());
         }
 
         cubemap.is_loaded = true;
