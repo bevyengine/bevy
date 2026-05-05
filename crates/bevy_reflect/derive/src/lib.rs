@@ -123,7 +123,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// It will automatically generate implementations for `Reflect`, `Typed`, `GetTypeRegistration`, and `FromReflect`.
 /// And, depending on the item's structure, will either implement `Struct`, `TupleStruct`, or `Enum`.
 ///
-/// See the [`FromReflect`] derive macro for more information on how to customize the `FromReflect` implementation.
+/// See the [`FromReflect`] derive macro for more information on how to customize the [`FromReflect`] implementation.
+/// To implement [`FromReflect`] manually while deriving [`Reflect`], [opt out](#reflectfrom_reflect--false) of the default implementation.
 ///
 /// # Container Attributes
 ///

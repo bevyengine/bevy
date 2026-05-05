@@ -13,7 +13,7 @@ use alloc::{
 use bevy_ecs::world::World;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdMap, TypeIdMapEntry};
 use core::{
     any::{type_name, TypeId},
     task::Waker,
@@ -222,7 +222,7 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            Entry::Occupied(entry) => {
+            TypeIdMapEntry::Occupied(entry) => {
                 let index = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self
@@ -264,7 +264,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            Entry::Vacant(entry) => {
+            TypeIdMapEntry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
@@ -746,7 +746,7 @@ impl AssetInfos {
         }
 
         if let Some(map) = path_to_id.get_mut(path) {
-            map.remove(&type_id);
+            map.shift_remove(&type_id);
 
             if map.is_empty() {
                 path_to_id.remove(path);

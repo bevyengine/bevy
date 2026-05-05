@@ -765,6 +765,11 @@ impl RemotePlugin {
             builtin_methods::process_remote_write_message_request,
             to_main,
         )
+        .with_watching_method(
+            builtin_methods::BRP_OBSERVE_METHOD,
+            builtin_methods::process_remote_observe_watching_request,
+            to_main,
+        )
         .with_method(
             builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
             builtin_methods::export_registry_types,
@@ -832,6 +837,7 @@ impl Plugin for RemotePlugin {
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
+            .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,

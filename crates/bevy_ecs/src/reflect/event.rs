@@ -8,7 +8,7 @@
 use alloc::boxed::Box;
 
 use crate::{
-    event::Event,
+    event::{Event, EventKey},
     observer::{Observer, On},
     reflect::from_reflect_with_fallback,
     world::{DeferredWorld, World},
@@ -46,6 +46,8 @@ pub struct ReflectEventFns {
     pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectEvent::create_observer`].
     pub create_observer: fn(Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Observer,
+    /// Function pointer implementing [`ReflectEvent::register_event_key`].
+    pub register_event_key: fn(&mut World) -> EventKey,
 }
 
 impl ReflectEventFns {
@@ -74,6 +76,14 @@ impl ReflectEvent {
         callback: Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>,
     ) -> Observer {
         (self.0.create_observer)(callback)
+    }
+
+    /// Generates the [`EventKey`] for this [`Event`].
+    ///
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`Observer::with_event_key`].
+    pub fn register_event_key(&self, world: &mut World) -> EventKey {
+        (self.0.register_event_key)(world)
     }
 
     /// Create a custom implementation of [`ReflectEvent`].
@@ -127,6 +137,7 @@ where
                     callback((*event).as_reflect(), world);
                 })
             },
+            register_event_key: |world| world.register_event_key::<E>(),
         })
     }
 }

@@ -4,13 +4,12 @@ use bevy::{prelude::*, text::FontSourceTemplate};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, ui()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, ui()]
 }
 
 fn ui() -> impl Scene {
@@ -36,7 +35,7 @@ fn ui() -> impl Scene {
     }
 }
 
-fn button(label: &'static str) -> impl Scene {
+fn button(label: &str) -> impl Scene {
     bsn! {
         Button
         Node {
@@ -53,7 +52,7 @@ fn button(label: &'static str) -> impl Scene {
             Text(label)
             TextFont {
                 font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
-                font_size: FontSize::Px(33.0),
+                font_size: px(33.0),
             }
             TextColor(Color::srgb(0.9, 0.9, 0.9))
             TextShadow
