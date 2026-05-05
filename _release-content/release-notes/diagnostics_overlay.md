@@ -31,7 +31,7 @@ commands.spawn(DiagnosticsOverlay::new("MyDiagnostics", vec![DiagnosticsOverlayI
 All [`DiagnosticsOverlay`] will be managed by the [`DiagnosticsOverlayPlugin`], this includes
 having them being added as a child of [`DiagnosticsOverlayPlane`]. The plane will be initially
 spawned on the [`GlobalZIndex`] defined by [`INITIAL_DIAGNOSTICS_OVERLAY_Z_INDEX`]. You can order
-the Uis relative to it, or edit the [`GlobalZIndex`] of the plane.
+the UIs relative to it, or edit the [`GlobalZIndex`] of the plane.
 
 The contents of the [`DiagnosticsOverlay`] entity are rebuilt every second. The system that rebuilds
 the contents of the overlays is defined on the [`DiagnosticsOverlaySystems::Rebuild`] system set.

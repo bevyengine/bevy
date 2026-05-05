@@ -71,7 +71,7 @@ use core::any::TypeId;
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(Justify::Center)
+///     TextLayout::justify(Justify::Center)
 /// ));
 ///
 /// // With spans

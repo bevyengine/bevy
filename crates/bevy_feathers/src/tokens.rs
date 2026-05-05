@@ -69,9 +69,19 @@ pub const BUTTON_PLAIN_BG_PRESSED: ThemeToken =
 
 /// Background for slider
 pub const SLIDER_BG: ThemeToken = ThemeToken::new_static("feathers.slider.bg");
-/// Background for slider moving bar
+/// Background for slider (hovered)
+pub const SLIDER_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bg.hover");
+/// Background for slider (pressed)
+pub const SLIDER_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.pressed");
+/// Background for slider (disabled)
+pub const SLIDER_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.disabled");
+/// Fill color for slider
 pub const SLIDER_BAR: ThemeToken = ThemeToken::new_static("feathers.slider.bar");
-/// Background for slider moving bar (disabled)
+/// Fill color for slider (hovered)
+pub const SLIDER_BAR_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bar.hover");
+/// Fill color for slider (pressed)
+pub const SLIDER_BAR_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.pressed");
+/// Fill color for slider (disabled)
 pub const SLIDER_BAR_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.disabled");
 /// Background for slider text
 pub const SLIDER_TEXT: ThemeToken = ThemeToken::new_static("feathers.slider.text");
@@ -147,15 +157,34 @@ pub const CHECKBOX_TEXT_DISABLED: ThemeToken =
 
 // Radio button
 
-/// Radio border around the checkmark
+/// Border around the radio button
 pub const RADIO_BORDER: ThemeToken = ThemeToken::new_static("feathers.radio.border");
-/// Radio border around the checkmark (hovered)
+/// Border around the radio button (hovered)
 pub const RADIO_BORDER_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.border.hover");
-/// Radio border around the checkmark (disabled)
+/// Border around the radio button (pressed)
+pub const RADIO_BORDER_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.pressed");
+/// Border around the radio button (disabled)
 pub const RADIO_BORDER_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.radio.border.disabled");
+/// Border around the radio button (checked)
+pub const RADIO_BORDER_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked");
+/// Border around the radio button (checked+hovered)
+pub const RADIO_BORDER_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.hover");
+/// Border around the radio button (checked+pressed)
+pub const RADIO_BORDER_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.pressed");
+/// Border around the radio button (checked+disabled)
+pub const RADIO_BORDER_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.disabled");
 /// Radio check mark
 pub const RADIO_MARK: ThemeToken = ThemeToken::new_static("feathers.radio.mark");
+/// Radio check mark (hovered)
+pub const RADIO_MARK_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.mark.hover");
+/// Radio check mark (pressed)
+pub const RADIO_MARK_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.pressed");
 /// Radio check mark (disabled)
 pub const RADIO_MARK_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.disabled");
 /// Radio label text
@@ -290,6 +319,17 @@ pub const TEXT_INPUT_TEXT_DISABLED: ThemeToken =
 pub const TEXT_INPUT_CURSOR: ThemeToken = ThemeToken::new_static("feathers.textinput.cursor");
 /// Selection color for text input
 pub const TEXT_INPUT_SELECTION: ThemeToken = ThemeToken::new_static("feathers.textinput.selection");
+/// Selection color for unfocused text input
+pub const TEXT_INPUT_SELECTION_UNFOCUSED: ThemeToken =
+    ThemeToken::new_static("feathers.textinput.selection.unfocused");
+/// Background color for label text
+pub const TEXT_INPUT_LABEL_BG: ThemeToken = ThemeToken::new_static("feathers.textinput.label.bg");
+/// Sigil color for X
+pub const TEXT_INPUT_X_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.x");
+/// Sigil color for Y
+pub const TEXT_INPUT_Y_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.y");
+/// Sigil color for Z
+pub const TEXT_INPUT_Z_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.z");
 
 // Pane
 
