@@ -24,13 +24,13 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
-/// 
+///
 /// <div class="warning">
 ///
 /// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
 /// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
 /// Please see the example code (which assumes a single camera and window)
-/// 
+///
 /// ```no_run
 /// # use bevy_camera::{Camera, Projection, Viewport};
 /// # use bevy::preluede::*;
@@ -38,9 +38,9 @@ use wgpu_types::{BlendState, TextureUsages};
 /// # use bevy_math::Vec2;
 /// # use bevy_window::Window;
 /// # use bevy_utils::default;
-/// 
+///
 /// fn update_viewport(
-///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>, 
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
 ///    windows: Query<&Window>
 /// ) {
 ///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
@@ -48,8 +48,8 @@ use wgpu_types::{BlendState, TextureUsages};
 ///     let window = windows.single().expect("Window not found");
 ///     let scale = window.resolution.scale_factor();
 ///
-///     camera.viewport = Some(Viewport { 
-///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(), 
+///     camera.viewport = Some(Viewport {
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(),
 ///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
 ///         ..default()
 ///     });
