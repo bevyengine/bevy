@@ -5,8 +5,11 @@ use crate::{
     ShapeSample, Vec3,
 };
 use alloc::vec::Vec;
-use rand::Rng;
-use rand_distr::{Distribution, WeightedAliasIndex, WeightedError};
+use rand::RngExt;
+use rand_distr::{
+    weighted::{Error as WeightedError, WeightedAliasIndex},
+    Distribution,
+};
 
 /// A [distribution] that caches data to allow fast sampling from a collection of triangles.
 /// Generally used through [`sample`] or [`sample_iter`].
@@ -19,7 +22,7 @@ use rand_distr::{Distribution, WeightedAliasIndex, WeightedError};
 /// ```
 /// # use bevy_math::{Vec3, primitives::*};
 /// # use bevy_math::sampling::mesh_sampling::UniformMeshSampler;
-/// # use rand::{SeedableRng, rngs::StdRng, distributions::Distribution};
+/// # use rand::{SeedableRng, rngs::StdRng, distr::Distribution};
 /// let faces = Tetrahedron::default().faces();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
 /// let rng = StdRng::seed_from_u64(8765309);
@@ -32,7 +35,7 @@ pub struct UniformMeshSampler {
 }
 
 impl Distribution<Vec3> for UniformMeshSampler {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+    fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let face_index = self.face_distribution.sample(rng);
         self.triangles[face_index].sample_interior(rng)
     }

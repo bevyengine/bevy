@@ -55,6 +55,12 @@ enum Action {
         /// This defaults to frame 250. Set it to 0 to not stop the example automatically.
         stop_frame: u32,
 
+        #[arg(long, default_value = "false")]
+        /// Automatically ends after taking a screenshot
+        ///
+        /// Only works if `screenshot-frame` is set to non-0, and overrides `stop-frame`.
+        auto_stop_frame: bool,
+
         #[arg(long)]
         /// Which frame to take a screenshot at. Set to 0 for no screenshot.
         screenshot_frame: u32,
@@ -150,6 +156,7 @@ fn main() {
         Action::Run {
             wgpu_backend,
             stop_frame,
+            auto_stop_frame,
             screenshot_frame,
             fixed_frame_time,
             in_ci,
@@ -183,11 +190,21 @@ fn main() {
 
             let mut extra_parameters = vec![];
 
-            match (stop_frame, screenshot_frame) {
+            match (stop_frame, screenshot_frame, auto_stop_frame) {
                 // When the example does not automatically stop nor take a screenshot.
-                (0, 0) => (),
+                (0, 0, _) => (),
+                // When the example automatically stops at an automatic frame.
+                (0, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example does not automatically stop.
-                (0, _) => {
+                (0, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes(),
@@ -197,15 +214,25 @@ fn main() {
                     extra_parameters.push("bevy_ci_testing");
                 }
                 // When the example does not take a screenshot.
-                (_, 0) => {
+                (_, 0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(format!("(events: [({stop_frame}, AppExit)])").as_bytes())
                         .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
+                // When the example both automatically stops at an automatic frame and takes a screenshot.
+                (_, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example both automatically stops and takes a screenshot.
-                (_, _) => {
+                (_, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes(),
@@ -308,12 +335,6 @@ fn main() {
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
 
-                for command in &to_run.setup {
-                    let exe = &command[0];
-                    let args = &command[1..];
-                    cmd!(sh, "{exe} {args...}").run().unwrap();
-                }
-
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -356,7 +377,7 @@ fn main() {
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
                         if let Err(err) = renamed_screenshot {
-                            println!("Failed to rename screenshot: {}", err);
+                            println!("Failed to rename screenshot: {err}");
                             no_screenshot_examples.push((to_run, duration));
                         } else {
                             successful_examples.push((to_run, duration));
@@ -373,12 +394,12 @@ fn main() {
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
                     if show_logs {
-                        println!("{}", stdout);
-                        println!("{}", stderr);
+                        println!("{stdout}");
+                        println!("{stderr}");
                     }
                     if report_details {
                         let mut file =
-                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                            File::create(format!("{reports_path}/{example}.log")).unwrap();
                         file.write_all(b"==== stdout ====\n").unwrap();
                         file.write_all(stdout.as_bytes()).unwrap();
                         file.write_all(b"\n==== stderr ====\n").unwrap();
@@ -465,7 +486,8 @@ fn main() {
             content_folder,
             api,
         } => {
-            let examples_to_run = parse_examples();
+            let mut examples_to_run = parse_examples();
+            examples_to_run.sort_by_key(|e| format!("{}-{}", e.category, e.name));
 
             let root_path = Path::new(&content_folder);
 
@@ -574,6 +596,7 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
+required_features = {:?}
 +++
 
 {}
@@ -615,6 +638,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            to_show.required_features,
                             docblock,
                         )
                         .as_bytes(),
@@ -628,7 +652,7 @@ header_message = \"Examples ({})\"
             optimize_size,
             api,
         } => {
-            let api = format!("{}", api);
+            let api = format!("{api}");
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -773,9 +797,7 @@ fn parse_examples() -> Vec<Example> {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
             let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
-            let shader_regex =
-                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
-                    .unwrap();
+            let shader_regex = Regex::new(r"shaders\/\w+\.(wgsl|frag|vert|wesl)").unwrap();
 
             // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
             let mut shader_paths = vec![];
@@ -813,23 +835,6 @@ fn parse_examples() -> Vec<Example> {
                             .unwrap()
                             .into_iter()
                             .map(|v| v.as_str().unwrap().to_string())
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                setup: metadata
-                    .get("setup")
-                    .map(|setup| {
-                        setup
-                            .as_array()
-                            .unwrap()
-                            .into_iter()
-                            .map(|v| {
-                                v.as_array()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|v| v.as_str().unwrap().to_string())
-                                    .collect()
-                            })
                             .collect()
                     })
                     .unwrap_or_default(),
@@ -876,8 +881,6 @@ struct Example {
     /// Does this example work in Wasm?
     // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
     wasm: bool,
-    /// List of commands to run before the example. Can be used for example to specify data to download
-    setup: Vec<Vec<String>>,
     /// Type of example
     example_type: ExampleType,
 }

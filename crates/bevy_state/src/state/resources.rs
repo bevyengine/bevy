@@ -91,6 +91,63 @@ impl<S: States> Deref for State<S> {
     }
 }
 
+/// The previous state of [`State<S>`].
+///
+/// This resource holds the state value that was active immediately **before** the
+/// most recent state transition. It is primarily useful for logic that runs
+/// during state exit or transition schedules ([`OnExit`](crate::state::OnExit), [`OnTransition`](crate::state::OnTransition)).
+///
+/// It is inserted into the world only after the first state transition occurs. It will
+/// remain present even if the primary state is removed (e.g., when a
+/// [`SubStates`](crate::state::SubStates) or [`ComputedStates`](crate::state::ComputedStates) instance ceases to exist).
+///
+/// Use `Option<Res<PreviousState<S>>>` to access it, as it will not exist
+/// before the first transition.
+///
+/// ```
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_state_macros::States;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     InGame,
+/// }
+///
+/// // This system might run in an OnExit schedule
+/// fn log_previous_state(previous_state: Option<Res<PreviousState<GameState>>>) {
+///     if let Some(previous) = previous_state {
+///         // If this system is in OnExit(InGame), the previous state is what we
+///         // were in before InGame.
+///         println!("Transitioned from: {:?}", previous.get());
+///     }
+/// }
+/// ```
+#[derive(Resource, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Debug, PartialEq)
+)]
+pub struct PreviousState<S: States>(pub(crate) S);
+
+impl<S: States> PreviousState<S> {
+    /// Get the previous state.
+    pub fn get(&self) -> &S {
+        &self.0
+    }
+}
+
+impl<S: States> Deref for PreviousState<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// This can be fetched as a resource and used to queue state transitions.
@@ -127,12 +184,29 @@ pub enum NextState<S: FreelyMutableState> {
     Unchanged,
     /// There is a pending transition for state `S`
     Pending(S),
+    /// There is a pending transition for state `S`
+    ///
+    /// This will not trigger state transitions schedules if the target state is the same as the current one.
+    PendingIfNeq(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
+    ///
+    /// This will run the state transition schedules [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit).
+    /// If you want to skip those schedules for the same where we are transitioning to the same state, use [`set_if_neq`](Self::set_if_neq) instead.
     pub fn set(&mut self, state: S) {
         *self = Self::Pending(state);
+    }
+
+    /// Tentatively set a pending state transition to `Some(state)`.
+    ///
+    /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
+    /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
+    pub fn set_if_neq(&mut self, state: S) {
+        if !matches!(self, Self::Pending(s) if s == &state) {
+            *self = Self::PendingIfNeq(state);
+        }
     }
 
     /// Remove any pending changes to [`State<S>`]
@@ -143,13 +217,17 @@ impl<S: FreelyMutableState> NextState<S> {
 
 pub(crate) fn take_next_state<S: FreelyMutableState>(
     next_state: Option<ResMut<NextState<S>>>,
-) -> Option<S> {
+) -> Option<(S, bool)> {
     let mut next_state = next_state?;
 
     match core::mem::take(next_state.bypass_change_detection()) {
         NextState::Pending(x) => {
             next_state.set_changed();
-            Some(x)
+            Some((x, true))
+        }
+        NextState::PendingIfNeq(x) => {
+            next_state.set_changed();
+            Some((x, false))
         }
         NextState::Unchanged => None,
     }

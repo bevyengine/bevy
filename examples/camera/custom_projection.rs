@@ -1,7 +1,7 @@
 //! Demonstrates how to define and use custom camera projections.
 
+use bevy::camera::CameraProjection;
 use bevy::prelude::*;
-use bevy::render::camera::CameraProjection;
 
 fn main() {
     App::new()
@@ -27,7 +27,7 @@ impl CameraProjection for ObliquePerspectiveProjection {
         mat
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &bevy::render::camera::SubCameraView) -> Mat4 {
+    fn get_clip_from_view_for_sub(&self, sub_view: &bevy::camera::SubCameraView) -> Mat4 {
         let mut mat = self.perspective.get_clip_from_view_for_sub(sub_view);
         mat.col_mut(2)[0] = self.horizontal_obliqueness;
         mat.col_mut(2)[1] = self.vertical_obliqueness;
@@ -76,7 +76,7 @@ fn setup(
     ));
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

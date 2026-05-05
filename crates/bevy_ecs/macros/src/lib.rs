@@ -1,25 +1,31 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+//! Macros for deriving ECS traits.
+
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate proc_macro;
 
-mod component;
+mod event;
+mod message;
 mod query_data;
 mod query_filter;
-mod states;
+mod resource;
+mod template;
+mod variant_defaults;
 mod world_query;
 
-use crate::{
-    component::map_entities, query_data::derive_query_data_impl,
-    query_filter::derive_query_filter_impl,
+use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use bevy_ecs_macro_logic::{component::DeriveComponent, map_entities::map_entities};
+use bevy_macro_utils::{
+    derive_label, ensure_no_collision,
+    fq_std::{FQDefault, FQIterator, FQOption, FQResult},
+    get_struct_fields, pascal_to_snake_case, BevyManifest,
 };
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
+    DeriveInput, Fields, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -29,20 +35,56 @@ enum BundleFieldKind {
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS: &str = "ignore_from_components";
 
+#[derive(Debug)]
+struct BundleAttributes {
+    impl_from_components: bool,
+}
+
+impl Default for BundleAttributes {
+    fn default() -> Self {
+        Self {
+            impl_from_components: true,
+        }
+    }
+}
+
+/// Implement the `Bundle` trait.
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_struct_fields(&ast.data) {
+    let mut attributes = BundleAttributes::default();
+
+    for attr in &ast.attrs {
+        if attr.path().is_ident(BUNDLE_ATTRIBUTE_NAME) {
+            let parsing = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS) {
+                    attributes.impl_from_components = false;
+                    return Ok(());
+                }
+
+                Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`")))
+            });
+
+            if let Err(e) = parsing {
+                return e.into_compile_error().into();
+            }
+        }
+    }
+
+    let fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let mut field_kind = Vec::with_capacity(named_fields.len());
+    let mut field_kinds = Vec::with_capacity(fields.len());
 
-    for field in named_fields {
+    for field in fields {
+        let mut kind = BundleFieldKind::Component;
+
         for attr in field
             .attrs
             .iter()
@@ -50,7 +92,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         {
             if let Err(error) = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                    field_kind.push(BundleFieldKind::Ignore);
+                    kind = BundleFieldKind::Ignore;
                     Ok(())
                 } else {
                     Err(meta.error(format!(
@@ -62,142 +104,125 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        field_kind.push(BundleFieldKind::Component);
+        field_kinds.push(kind);
     }
 
-    let field = named_fields
-        .iter()
-        .map(|field| field.ident.as_ref())
-        .collect::<Vec<_>>();
+    let field_types = fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
 
-    let field_type = named_fields
-        .iter()
-        .map(|field| &field.ty)
-        .collect::<Vec<_>>();
-
-    let mut field_component_ids = Vec::new();
-    let mut field_get_component_ids = Vec::new();
-    let mut field_get_components = Vec::new();
-    let mut field_from_components = Vec::new();
-    let mut field_required_components = Vec::new();
-    for (((i, field_type), field_kind), field) in field_type
-        .iter()
-        .enumerate()
-        .zip(field_kind.iter())
-        .zip(field.iter())
+    let mut active_field_types = Vec::new();
+    let mut active_field_members = Vec::new();
+    let mut active_field_locals = Vec::new();
+    let mut inactive_field_members = Vec::new();
+    for ((field_member, field_type), field_kind) in
+        fields.members().zip(field_types).zip(field_kinds)
     {
+        let field_local = format_ident!("field_{}", field_member);
+
         match field_kind {
             BundleFieldKind::Component => {
-                field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
-                });
-                field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
-                });
-                field_get_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
-                });
-                match field {
-                    Some(field) => {
-                        field_get_components.push(quote! {
-                            self.#field.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                    None => {
-                        let index = Index::from(i);
-                        field_get_components.push(quote! {
-                            self.#index.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                }
+                active_field_types.push(field_type);
+                active_field_locals.push(field_local);
+                active_field_members.push(field_member);
             }
-
-            BundleFieldKind::Ignore => {
-                field_from_components.push(quote! {
-                    #field: ::core::default::Default::default(),
-                });
-            }
+            BundleFieldKind::Ignore => inactive_field_members.push(field_member),
         }
     }
     let generics = ast.generics;
+    let generics_ty_list = generics.type_params().map(|p| p.ident.clone());
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    TokenStream::from(quote! {
+    let bundle_impl = quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
-        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
-                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
-            ){
-                #(#field_component_ids)*
+            ) -> impl #FQIterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
-                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
-            ){
-                #(#field_get_component_ids)*
-            }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(#field_required_components)*
+            ) -> impl #FQIterator<Item = #FQOption<#ecs_path::component::ComponentId>> {
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
+    };
 
-        // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
-        #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
-            #[allow(unused_variables, non_snake_case)]
-            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
-            where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
-            {
-                Self{
-                    #(#field_from_components)*
-                }
-            }
-        }
-
-        #[allow(deprecated)]
+    let dynamic_bundle_impl = quote! {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
-            fn get_components(
-                self,
-                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+            unsafe fn get_components(
+                ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
+                func: &mut impl ::core::ops::FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(#field_get_components)*
+                use #ecs_path::__macro_exports::DebugCheckedUnwrap;
+
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let #struct_name { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
+                });
+                #(
+                    <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
+                        #active_field_locals,
+                        func
+                    );
+                )*
+            }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn apply_effect(
+                ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
+                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+            ) {
             }
         }
+    };
+
+    let fqdefault = FQDefault.into_token_stream();
+    let from_components_impl = attributes.impl_from_components.then(|| quote! {
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
+            #[allow(unused_variables, non_snake_case)]
+            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
+            where
+                __F: ::core::ops::FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+            {
+                Self {
+                    #(#active_field_members: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
+                    #(#inactive_field_members: #fqdefault::default(),)*
+                }
+            }
+        }
+    });
+    TokenStream::from(quote! {
+        #bundle_impl
+        #from_components_impl
+        #dynamic_bundle_impl
     })
 }
 
+/// Implement the `MapEntities` trait.
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
     let map_entities_impl = map_entities(
         &ast.data,
+        &ecs_path,
         Ident::new("self", Span::call_site()),
         false,
         false,
+        None,
     );
+
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
@@ -214,72 +239,61 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let Data::Struct(DataStruct {
-        fields: field_definitions,
-        ..
-    }) = ast.data
-    else {
-        return syn::Error::new(
-            ast.span(),
-            "Invalid `SystemParam` type: expected a `struct`",
-        )
-        .into_compile_error()
-        .into();
-    };
+
+    match derive_system_param_impl(token_stream, ast) {
+        Ok(t) => t,
+        Err(e) => e.into_compile_error().into(),
+    }
+}
+fn derive_system_param_impl(
+    token_stream: TokenStream,
+    ast: DeriveInput,
+) -> syn::Result<TokenStream> {
+    let fields = get_struct_fields(&ast.data, "derive(SystemParam)")?;
     let path = bevy_ecs_path();
 
-    let mut field_locals = Vec::new();
-    let mut field_names = Vec::new();
-    let mut fields = Vec::new();
-    let mut field_types = Vec::new();
-    let mut field_messages = Vec::new();
-    for (i, field) in field_definitions.iter().enumerate() {
-        field_locals.push(format_ident!("f{i}"));
-        let i = Index::from(i);
-        let field_value = field
-            .ident
-            .as_ref()
-            .map(|f| quote! { #f })
-            .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{}", field_value));
-        fields.push(field_value);
-        field_types.push(&field.ty);
-        let mut field_message = None;
-        for meta in field
-            .attrs
-            .iter()
-            .filter(|a| a.path().is_ident("system_param"))
-        {
-            if let Err(e) = meta.parse_nested_meta(|nested| {
+    let field_locals = fields
+        .members()
+        .map(|m| format_ident!("field{}", m))
+        .collect::<Vec<_>>();
+    let field_members = fields.members().collect::<Vec<_>>();
+    let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
+
+    let field_validation_names = fields.members().map(|m| format!("::{}", quote! { #m }));
+    let mut field_validation_messages = Vec::with_capacity(fields.len());
+    for attr in fields
+        .iter()
+        .map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
+    {
+        let mut field_validation_message = None;
+        if let Some(attr) = attr {
+            attr.parse_nested_meta(|nested| {
                 if nested.path.is_ident("validation_message") {
-                    field_message = Some(nested.value()?.parse()?);
+                    field_validation_message = Some(nested.value()?.parse()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
                 }
-            }) {
-                return e.into_compile_error().into();
-            }
+            })?;
         }
-        field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
+        field_validation_messages
+            .push(field_validation_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
 
     // Emit an error if there's any unrecognized lifetime names.
+    let w = format_ident!("w");
+    let s = format_ident!("s");
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
-        let w = format_ident!("w");
-        let s = format_ident!("s");
         if ident != &w && ident != &s {
-            return syn::Error::new_spanned(
+            return Err(syn::Error::new_spanned(
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
  'w -- refers to data stored in the World.
  's -- refers to data stored in the SystemParam's state.'"#,
-            )
-            .into_compile_error()
-            .into();
+            ));
         }
     }
 
@@ -324,8 +338,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
-    let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
+    let mut tuple_types: Vec<_> = field_types.iter().map(ToTokens::to_token_stream).collect();
+    let mut tuple_patterns: Vec<_> = field_locals.iter().map(ToTokens::to_token_stream).collect();
 
     // If the number of fields exceeds the 16-parameter limit,
     // fold the fields into tuples of tuples until we are below the limit.
@@ -337,7 +351,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
         tuple_patterns.push(parse_quote!( (#(#end,)*) ));
     }
-
     // Create a where clause for the `ReadOnlySystemParam` impl.
     // Ensure that each field implements `ReadOnlySystemParam`.
     let mut read_only_generics = generics.clone();
@@ -361,25 +374,23 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|a| a.path().is_ident("system_param"))
     {
-        if let Err(e) = meta.parse_nested_meta(|nested| {
+        meta.parse_nested_meta(|nested| {
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
-        }) {
-            return e.into_compile_error().into();
-        }
+        })?;
     }
 
     let builder = builder_name.map(|builder_name| {
-        let builder_type_parameters: Vec<_> = (0..fields.len()).map(|i| format_ident!("B{i}")).collect();
+        let builder_type_parameters: Vec<Ident> = field_members.iter().map(|m| format_ident!("B{}", m)).collect();
         let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
-            struct #builder_name<#(#builder_type_parameters,)*> {
-                #(#fields: #builder_type_parameters,)*
+            struct #builder_name<#(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters,)*> {
+                #(#field_members: #builder_type_parameters,)*
             }
         };
         let lifetimes: Vec<_> = generics.lifetimes().collect();
@@ -388,15 +399,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*
-                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
                 #punctuated_generics
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
             {
-                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
-                    let #builder_name { #(#fields: #field_locals,)* } = self;
+                fn build(self, world: &mut #path::world::World) -> <#generic_struct as #path::system::SystemParam>::State {
+                    let #builder_name { #(#field_members: #field_locals,)* } = self;
                     #state_struct_name {
-                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world)
                     }
                 }
             }
@@ -405,10 +416,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     });
     let (builder_struct, builder_impl) = builder.unzip();
 
-    TokenStream::from(quote! {
+    Ok(TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::State
+        // The struct can still be accessed via SystemParam::State, e.g. MessageReaderState can be accessed via
+        // <MessageReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
             type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
@@ -425,15 +436,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
-                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                fn init_state(world: &mut #path::world::World) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world),
                     }
                 }
 
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet, world: &mut #path::world::World) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -445,32 +455,21 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
-                    _system_meta: &#path::system::SystemMeta,
-                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> Result<(), #path::system::SystemParamValidationError> {
-                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
-                    #(
-                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
-                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
-                    )*
-                    Result::Ok(())
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                    change_tick: #path::component::Tick,
-                ) -> Self::Item<'w, 's> {
-                    let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
-                        #(#fields: #field_locals,)*
-                    }
+                    change_tick: #path::change_detection::Tick,
+                ) -> #FQResult<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                    let (#(#tuple_patterns,)*) = &mut state.state;
+                    #(
+                        let #field_locals = unsafe {
+                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                        }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
+                    )*
+                    #FQResult::Ok(#struct_name {
+                        #(#field_members: #field_locals,)*
+                    })
                 }
             }
 
@@ -481,7 +480,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         };
 
         #builder_struct
-    })
+    }))
 }
 
 /// Implement `QueryData` to use a struct as a data parameter in a query
@@ -504,12 +503,10 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "ScheduleLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "ScheduleLabel", &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
@@ -520,44 +517,307 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("SystemSet").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "SystemSet", &trait_path, &dyn_eq_path)
+    derive_label(input, "SystemSet", &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
+pub(crate) fn bevy_settings_path() -> syn::Path {
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_settings"))
+}
+
+/// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    component::derive_event(input)
+    event::derive_event(input)
 }
 
+/// Cheat sheet for derive syntax,
+/// see full explanation on `EntityEvent` trait docs.
+///
+/// ```ignore
+/// #[derive(EntityEvent)]
+/// /// Enable propagation, which defaults to using the ChildOf component
+/// #[entity_event(propagate)]
+/// /// Enable propagation using the given Traversal implementation
+/// #[entity_event(propagate = &'static ChildOf)]
+/// /// Always propagate
+/// #[entity_event(auto_propagate)]
+/// struct MyEvent;
+/// ```
+#[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
+pub fn derive_entity_event(input: TokenStream) -> TokenStream {
+    event::derive_entity_event(input)
+}
+
+/// Implement the `Message` trait.
+#[proc_macro_derive(Message)]
+pub fn derive_message(input: TokenStream) -> TokenStream {
+    message::derive_message(input)
+}
+
+/// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
-    component::derive_resource(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(resource::derive_resource(&mut ast))
 }
 
+/// Cheat sheet for derive syntax,
+///
+/// ## Group Override
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(group = "my_group")]
+/// struct MySettings {
+///     test: true
+/// }
+/// ```
+/// results in:
+/// ```ignore
+/// [my_group]
+/// test = true
+/// ```
+///
+/// ## File Override
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(file = "my_file")]
+/// struct MySettings {
+///     test: true
+/// }
+/// ```
+/// results in a different file being used as the source of the settings.
+///
+/// ## Key Override
+/// Only valid for enums, as struct keys are always derived from the field name.
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// #[settings_group(key = "my_key")]
+/// enum MySettingsEnum {
+///     Variant1,
+///     Variant2
+/// };
+/// ```
+/// results in:
+/// ```ignore
+/// [my_settings_enum]
+/// my_key = "variant1"
+/// ```
+#[proc_macro_derive(SettingsGroup, attributes(settings_group))]
+pub fn derive_settings_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = &input.ident;
+
+    let path = bevy_settings_path();
+
+    let (override_group_name, override_key_name, override_file) = {
+        let mut override_group_name: Option<String> = None;
+        let mut override_key_name: Option<String> = None;
+        let mut override_file: Option<String> = None;
+
+        input
+            .attrs
+            .iter()
+            .find(|attr| attr.path().is_ident("settings_group"))
+            .and_then(|attr| {
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("group") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_group_name = Some(s.value());
+                        Ok(())
+                    } else if meta.path.is_ident("key") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_key_name = Some(s.value());
+                        Ok(())
+                    } else if meta.path.is_ident("file") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_file = Some(s.value());
+                        Ok(())
+                    } else {
+                        Err(meta.error("unsupported attribute"))
+                    }
+                })
+                .ok()
+            });
+
+        (override_group_name, override_key_name, override_file)
+    };
+
+    let key_name = match &input.data {
+        Data::Struct(data) => match data.fields {
+            Fields::Named(_) if override_key_name.is_some() => {
+                return syn::Error::new(
+                    Span::call_site(),
+                    "The `key` attribute is not supported for structs with named fields",
+                )
+                .into_compile_error()
+                .into();
+            }
+            Fields::Named(_) => None,
+            Fields::Unnamed(_) | Fields::Unit => {
+                override_key_name.or_else(|| Some(pascal_to_snake_case(&name.to_string())))
+            }
+        },
+        Data::Enum(_) => override_key_name.or(Some(pascal_to_snake_case(&name.to_string()))),
+        Data::Union(_) => {
+            return syn::Error::new(
+                Span::call_site(),
+                "SettingsGroup cannot be derived for unions",
+            )
+            .into_compile_error()
+            .into();
+        }
+    };
+
+    let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+    let key_name = key_name
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
+    let file_name = override_file
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
+
+    let expanded = quote! {
+        impl #path::SettingsGroup for #name {
+            fn settings_group_name() -> &'static str {
+                #group_name
+            }
+
+            fn settings_key_name() -> #FQOption<&'static str> {
+                #key_name
+            }
+
+            fn settings_source() -> #FQOption<&'static str> {
+                #file_name
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Cheat sheet for derive syntax,
+/// see full explanation and examples on the `Component` trait doc.
+///
+/// ## Immutability
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct MyComponent;
+/// ```
+///
+/// ## Sparse instead of table-based storage
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
+/// struct MyComponent;
+/// ```
+///
+/// ## Required Components
+///
+/// ```ignore
+/// #[derive(Component)]
+/// #[require(
+///     // `Default::default()`
+///     A,
+///     // tuple structs
+///     B(1),
+///     // named-field structs
+///     C {
+///         x: 1,
+///         ..default()
+///     },
+///     // unit structs/variants
+///     D::One,
+///     // associated consts
+///     E::ONE,
+///     // constructors
+///     F::new(1),
+///     // arbitrary expressions
+///     G = make(1, 2, 3)
+/// )]
+/// struct MyComponent;
+/// ```
+///
+/// ## Relationships
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = Children)]
+/// pub struct ChildOf {
+///     // Marking the field is not necessary if there is only one.
+///     #[relationship]
+///     pub parent: Entity,
+///     internal: u8,
+/// };
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ChildOf)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// On despawn, also despawn all related entities:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// Allow relationships to point to their own entity:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+/// ```
+/// ## Warning
+///
+/// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
+/// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
+///
+/// ## Hooks
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(hook_name = function)]
+/// struct MyComponent;
+/// ```
+/// where `hook_name` is `on_add`, `on_insert`, `on_discard` or `on_remove`;
+/// `function` can be either a path, e.g. `some_function::<Self>`,
+/// or a function call that returns a function that can be turned into
+/// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
+///
+/// ## Ignore this component when cloning an entity
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
+/// ```
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
-    component::derive_component(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let derive_component = match DeriveComponent::parse(&ast) {
+        Ok(value) => value,
+        Err(e) => return e.into_compile_error().into(),
+    };
+    let bevy_ecs = bevy_ecs_path();
+    let impl_component = match derive_component.impl_component(&mut ast, &bevy_ecs) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
+    };
+    TokenStream::from(impl_component)
 }
 
-#[proc_macro_derive(States)]
-pub fn derive_states(input: TokenStream) -> TokenStream {
-    states::derive_states(input)
-}
-
-#[proc_macro_derive(SubStates, attributes(source))]
-pub fn derive_substates(input: TokenStream) -> TokenStream {
-    states::derive_substates(input)
-}
-
+/// Implement the `FromWorld` trait.
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
@@ -614,4 +874,16 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 }
             }
     })
+}
+
+/// Derives `FromTemplate`.
+#[proc_macro_derive(FromTemplate, attributes(template, default))]
+pub fn derive_from_template(input: TokenStream) -> TokenStream {
+    template::derive_from_template(input)
+}
+
+/// Derives `VariantDefaults`.
+#[proc_macro_derive(VariantDefaults)]
+pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
+    variant_defaults::derive_variant_defaults(input)
 }
