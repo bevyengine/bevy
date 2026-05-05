@@ -384,12 +384,16 @@ impl BufferMut for QueueWriteBufferViewWrapper {
 
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
-        self.buffer_view.write(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 
     #[inline]
     fn write_slice(&mut self, offset: usize, val: &[u8]) {
-        self.buffer_view.write_slice(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 }
 

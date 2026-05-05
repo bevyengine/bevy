@@ -14,7 +14,7 @@ use bevy::{
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, MeshPipelineViewLayoutKey,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshPipelineViewLayoutKey,
         RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
         ViewKeyCache,
     },
@@ -33,9 +33,9 @@ use bevy::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
             FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            SpecializedMeshPipelines, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
@@ -118,7 +118,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
             .add_systems(
                 RenderStartup,
-                init_custom_mesh_pipeline.after(MeshPipelineSet),
+                init_custom_mesh_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,
@@ -214,8 +214,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
             layout: vec![
-                view_layout.main_layout.clone(),
-                view_layout.empty_layout.clone(),
+                view_layout.main_layout,
+                view_layout.empty_layout,
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
             vertex: VertexState {
@@ -227,13 +227,9 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
                 targets: vec![Some(ColorTargetState {
-                    // This isn't required, but bevy supports HDR and non-HDR rendering
+                    // This isn't required, but bevy supports rendering different formats
                     // so it's generally recommended to specialize the pipeline for that
-                    format: if mesh_key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: mesh_key.target_format(),
                     // For this example we only use opaque meshes,
                     // but if you wanted to use alpha blending you would need to set it here
                     blend: None,
@@ -243,6 +239,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
@@ -252,8 +249,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: default(),
                 bias: default(),
             }),
@@ -363,7 +360,10 @@ fn queue_custom_mesh_pipeline(
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             // Finally, we can specialize the pipeline based on the key
             let pipeline_id = specialized_mesh_pipelines
