@@ -103,10 +103,8 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(24) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-#ifdef SCREEN_SPACE_TRANSMISSION
 @group(0) @binding(25) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(26) var view_transmission_sampler: sampler;
-#endif
 
 #ifdef OIT_ENABLED
 @group(0) @binding(27) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
@@ -121,16 +119,19 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(33) var atmosphere_transmittance_sampler: sampler;
 @group(0) @binding(34) var<storage> atmosphere: atmosphere_types::Atmosphere;
 #endif // ATMOSPHERE
+
 #ifdef BLUE_NOISE_TEXTURE
 @group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
 #endif // BLUE_NOISE_TEXTURE
 
-@group(0) @binding(36) var ltc_lut1: texture_2d<f32>;
-@group(0) @binding(37) var ltc_lut2: texture_2d<f32>;
-@group(0) @binding(38) var ltc_lut_sampler: sampler;
+#ifdef AREA_LIGHT_LUTS
+@group(0) @binding(36) var area_light_luts: texture_2d_array<f32>;
+@group(0) @binding(37) var area_light_luts_sampler: sampler;
+#endif
+
 #ifdef DFG_LUT
-@group(0) @binding(39) var dfg_lut: texture_2d<f32>;
-@group(0) @binding(40) var dfg_lut_sampler: sampler;
+@group(0) @binding(38) var dfg_lut: texture_2d<f32>;
+@group(0) @binding(39) var dfg_lut_sampler: sampler;
 #endif // DFG_LUT
 
 #ifdef ENVIRONMENT_MAP

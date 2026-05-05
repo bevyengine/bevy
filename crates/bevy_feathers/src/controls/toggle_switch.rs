@@ -19,7 +19,7 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect, Val,
+    percent, px, BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
@@ -49,8 +49,8 @@ impl FeathersToggleSwitch {
             Node {
                 width: size::TOGGLE_WIDTH,
                 height: size::TOGGLE_HEIGHT,
-                border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(5.0)),
+                border: px(2),
+                border_radius: px(5),
             }
             Checkbox
             FeathersToggleSwitch
@@ -64,12 +64,12 @@ impl FeathersToggleSwitch {
             Children [(
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Percent(0.),
-                    top: Val::Px(0.),
-                    bottom: Val::Px(0.),
-                    width: Val::Percent(50.),
-                    border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(3.0)),
+                    left: percent(0),
+                    top: px(0),
+                    bottom: px(0),
+                    width: percent(50),
+                    border: px(2),
+                    border_radius: px(3),
                 }
                 ToggleSwitchSlide
                 ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
@@ -100,8 +100,8 @@ pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         Node {
             width: size::TOGGLE_WIDTH,
             height: size::TOGGLE_HEIGHT,
-            border: UiRect::all(Val::Px(2.0)),
-            border_radius: BorderRadius::all(Val::Px(5.0)),
+            border: UiRect::all(px(2)),
+            border_radius: BorderRadius::all(px(5)),
             ..Default::default()
         },
         Checkbox,
@@ -117,12 +117,12 @@ pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         children![(
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Percent(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                width: Val::Percent(50.),
-                border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(3.0)),
+                left: percent(0),
+                top: px(0),
+                bottom: px(0),
+                width: percent(50),
+                border: UiRect::all(px(2)),
+                border_radius: BorderRadius::all(px(3)),
                 ..Default::default()
             },
             ToggleSwitchSlide,
@@ -373,8 +373,8 @@ fn set_switch_styles(
     };
 
     let slide_pos = match checked {
-        true => Val::Percent(50.),
-        false => Val::Percent(0.),
+        true => percent(50),
+        false => percent(0),
     };
 
     let cursor_shape = match disabled {
