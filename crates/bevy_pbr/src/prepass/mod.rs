@@ -38,10 +38,11 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
+        ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
@@ -63,7 +64,6 @@ use bevy_platform::hash::FixedHasher;
 use bevy_render::{
     erased_render_asset::ErasedRenderAssets,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::RenderVisibleEntities,
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
@@ -98,7 +98,7 @@ impl Plugin for PrepassPipelinePlugin {
                 Render,
                 prepare_prepass_view_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
+            .init_gpu_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
     }
 }
 
@@ -157,9 +157,9 @@ impl Plugin for PrepassPlugin {
         }
 
         render_app
-            .init_resource::<ViewKeyPrepassCache>()
-            .init_resource::<SpecializedPrepassMaterialPipelineCache>()
-            .init_resource::<PendingPrepassMeshMaterialQueues>()
+            .init_gpu_resource::<ViewKeyPrepassCache>()
+            .init_gpu_resource::<SpecializedPrepassMaterialPipelineCache>()
+            .init_gpu_resource::<PendingPrepassMeshMaterialQueues>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass>()
             .add_render_command::<Opaque3dPrepass, DrawDepthOnlyPrepass>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass>()
@@ -227,7 +227,6 @@ pub fn update_mesh_previous_global_transforms(
         (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
     mut meshes: Query<(Ref<GlobalTransform>, &mut PreviousGlobalTransform), PreviousMeshFilter>,
-    system_change_tick: SystemChangeTick,
 ) {
     if !views.iter().any(|camera| camera.is_active) {
         return;
@@ -238,10 +237,7 @@ pub fn update_mesh_previous_global_transforms(
         commands.entity(entity).try_insert(new_previous_transform);
     }
     meshes.par_iter_mut().for_each(|(transform, mut previous)| {
-        if transform
-            .last_changed()
-            .is_newer_than(previous.last_changed(), system_change_tick.this_run())
-        {
+        if transform.is_changed_after(previous.last_changed()) {
             *previous = PreviousGlobalTransform(transform.affine());
         }
     });
@@ -617,13 +613,14 @@ impl PrepassPipeline {
             layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 unclipped_depth,
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -913,7 +910,7 @@ pub(crate) fn specialize_prepass_material_meshes(
             mut pending_prepass_mesh_material_queues,
             dirty_specializations,
             this_run: system_change_tick,
-        } = state.get_mut(world);
+        } = state.get_mut(world).unwrap();
 
         this_run = system_change_tick.this_run();
 
@@ -980,12 +977,13 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 }
 
+                // Check for material instance, mesh, and material. If any of
+                // these fail, it's probably because the relevant asset hasn't
+                // loaded yet. In that case, add the entity to the list of
+                // pending mesh materials and bail.
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
-                    // We couldn't fetch the material instance, probably because
-                    // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -994,18 +992,12 @@ pub(crate) fn specialize_prepass_material_meshes(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    // We couldn't fetch the mesh, probably because it hasn't
-                    // loaded yet. Add the entity to the list of pending prepass
-                    // mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
-                    // We couldn't fetch the material instance, probably because
-                    // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1267,11 +1259,12 @@ pub fn queue_prepass_material_meshes(
                 continue;
             };
 
+            // Check for material instance, mesh, and material. If any of these
+            // fail, it's probably because the relevant asset hasn't loaded yet.
+            // In that case, add the entity to the list of pending mesh
+            // materials and bail.
             let Some(material_instance) = render_material_instances.instances.get(visible_entity)
             else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
@@ -1279,25 +1272,20 @@ pub fn queue_prepass_material_meshes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
-                // We couldn't fetch the mesh, probably because it hasn't been
-                // loaded yet. Add the entity to the list of pending prepass
-                // mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
-                // We couldn't fetch the material, probably because the material
-                // hasn't been loaded yet. Add the entity to the list of pending
-                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let (vertex_slab, index_slab) =
-                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             let deferred = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => false,
@@ -1313,8 +1301,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1341,8 +1328,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index,
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1363,8 +1349,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1382,8 +1367,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),

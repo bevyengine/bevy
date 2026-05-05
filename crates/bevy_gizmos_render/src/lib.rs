@@ -18,6 +18,8 @@ pub enum GizmoRenderSystems {
 }
 
 pub mod retained;
+#[cfg(feature = "bevy_pbr")]
+pub mod transform_gizmo_render;
 
 #[cfg(feature = "bevy_sprite_render")]
 mod pipeline_2d;
@@ -33,7 +35,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Affine3Ext;
-use bevy_pbr::MeshPipelineSet;
 use bevy_reflect::Reflect;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
@@ -97,10 +98,7 @@ impl Plugin for GizmoRenderPlugin {
             .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                RenderStartup,
-                init_line_gizmo_uniform_bind_group_layout.after(MeshPipelineSet),
-            );
+            render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
 
             render_app.add_systems(
                 Render,
@@ -118,6 +116,7 @@ impl Plugin for GizmoRenderPlugin {
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+                app.add_plugins(transform_gizmo_render::TransformGizmoRenderPlugin);
             } else {
                 tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }

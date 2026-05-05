@@ -6,23 +6,29 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 /// True if multisampled depth textures are supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
+///   so it doesn't support Msaa when reading `ViewDepthTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 
 /// True if multisampled depth textures are supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
+///   so it doesn't support Msaa when reading `ViewDepthTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::{f32, ops::Range};
 
@@ -31,7 +37,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
-    mesh::allocator::SlabId,
+    mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::CachedTexture,
@@ -195,16 +201,13 @@ pub struct Opaque3dBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
@@ -213,7 +216,7 @@ pub struct Opaque3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -972,19 +975,19 @@ pub fn prepare_prepass_textures(
                 frame_count.0,
             ),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             deferred: package_double_buffered_texture(
                 cached_deferred_texture1,
                 cached_deferred_texture2,
                 frame_count.0,
             ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             size,
         });
     }
@@ -1000,19 +1003,19 @@ fn package_double_buffered_texture(
             t1,
             None,
             None,
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => Some(ColorAttachment::new(
             t1,
             None,
             Some(t2),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) => Some(ColorAttachment::new(
             t2,
             None,
             Some(t1),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         _ => None,
     }
