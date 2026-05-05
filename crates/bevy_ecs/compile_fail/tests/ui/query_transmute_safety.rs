@@ -12,7 +12,7 @@ fn main() {
     world.spawn(Foo(10));
 
     let mut system_state = SystemState::<Query<(&mut Foo, &Bar)>>::new(&mut world);
-    let mut query = system_state.get_mut(&mut world);
+    let mut query = system_state.get_mut(&mut world).unwrap();
 
     {
         let mut lens_a = query.transmute_lens::<&mut Foo>();
@@ -22,8 +22,8 @@ fn main() {
         let mut query_a = lens_a.query();
         let mut query_b = lens_b.query();
 
-        let a = query_a.single_mut();
-        let b = query_b.single_mut(); // oops 2 mutable references to same Foo
+        let a = query_a.single_mut().unwrap();
+        let b = query_b.single_mut().unwrap(); // oops 2 mutable references to same Foo
         assert_eq!(*a, *b);
     }
 
@@ -34,8 +34,8 @@ fn main() {
         let mut query_b = lens.query();
         //~^ E0499
 
-        let a = query_a.single_mut();
-        let b = query_b.single_mut(); // oops 2 mutable references to same Foo
+        let a = query_a.single_mut().unwrap();
+        let b = query_b.single_mut().unwrap(); // oops 2 mutable references to same Foo
         assert_eq!(*a, *b);
     }
 }

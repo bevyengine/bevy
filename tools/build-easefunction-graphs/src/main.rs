@@ -1,4 +1,7 @@
 //! Generates graphs for the `EaseFunction` docs.
+
+#![expect(clippy::print_stdout, reason = "Allowed in tools.")]
+
 use std::path::PathBuf;
 
 use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve, JumpAt};

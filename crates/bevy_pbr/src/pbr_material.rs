@@ -1,38 +1,28 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
+use bevy_material::OpaqueRendererMethod;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
+use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
-/// An enum to define which UV attribute to use for a texture.
-///
-/// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_0`] and
-/// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
-/// The default is [`UvChannel::Uv0`].
-#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug)]
-pub enum UvChannel {
-    #[default]
-    Uv0,
-    Uv1,
-}
-
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures here:
-/// <https://google.github.io/filament/Material%20Properties.pdf>.
+/// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// The `StandardMaterial` can be extended with more data and custom
+/// shaders using [`ExtendedMaterial`]. Examples of how to do this can
+/// be found in the Bevy examples.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
-#[uniform(0, StandardMaterialUniform, binding_array(10))]
-#[bindless]
-#[reflect(Default, Debug)]
+#[data(0, StandardMaterialUniform, binding_array(10))]
+#[bindless(index_table(range(0..31)))]
+#[reflect(Default, Debug, Clone)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
@@ -79,16 +69,25 @@ pub struct StandardMaterial {
     ///
     /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
-    /// To increase emissive strength, channel values for `emissive`
+    /// Emissive strength is controlled by the value of the color channels,
+    /// while the hue is controlled by their relative values.
+    ///
+    /// As a result, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
     /// `LinearRgba::rgb(1.0, 0.0, 0.0)` represents the brightest
     /// red for objects that reflect light, but an emissive color
     /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
     ///
+    /// This results in a final luminance value when multiplied
+    /// by the value of the greyscale emissive texture (which ranges from 0 for black to 1 for white).
+    /// Luminance is a measure of the amount of light emitted per unit area,
+    /// and can be thought of as the "brightness" of the effect.
+    /// In Bevy, we treat these luminance values as the physical units of cd/m², aka nits.
+    ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
-    /// light up surrounding areas like a light source**,
+    /// typically light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
     pub emissive: LinearRgba,
 
@@ -130,7 +129,7 @@ pub struct StandardMaterial {
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
     // Technically for 32-bit floats, 0.045 could be used.
-    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
+    // See <https://google.github.io/filament/Filament.md.html#materialsystem/parameterization>
     pub perceptual_roughness: f32,
 
     /// How "metallic" the material appears, within `[0.0, 1.0]`.
@@ -214,7 +213,7 @@ pub struct StandardMaterial {
     ///
     /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
     /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
-    ///   use the [`TransmittedShadowReceiver`] component.
+    ///   use the [`TransmittedShadowReceiver`](bevy_light::TransmittedShadowReceiver) component.
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
@@ -232,6 +231,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(19))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(20))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
@@ -248,14 +248,14 @@ pub struct StandardMaterial {
     /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
-    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
-    ///     to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
-    ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    ///         [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    /// - [`crate::ScreenSpaceTransmission::steps`] can be used to enable transmissive objects
+    ///   to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
+    ///   - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
+    ///     [`crate::ScreenSpaceTransmission::steps`] to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
-    ///     for a much less expensive effect.
+    ///   for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
-    ///     won't be visible through specular transmissive materials.
+    ///   won't be visible through specular transmissive materials.
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
@@ -273,6 +273,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(15))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(16))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub specular_transmission_texture: Option<Handle<Image>>,
 
     /// Thickness of the volume beneath the material surface.
@@ -302,6 +303,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(17))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(18))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub thickness_texture: Option<Handle<Image>>,
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
@@ -383,8 +385,25 @@ pub struct StandardMaterial {
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
-    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
-    /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
+    /// [`Mesh::generate_tangents`]: bevy_mesh::Mesh::generate_tangents
+    /// [`Mesh::with_generated_tangents`]: bevy_mesh::Mesh::with_generated_tangents
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_ecs::change_detection::Res;
+    /// # use bevy_image::{Image, ImageLoaderSettings};
+    /// #
+    /// fn load_normal_map(asset_server: Res<AssetServer>) {
+    ///     let normal_handle: Handle<Image> = asset_server.load_builder().with_settings(
+    ///             // The normal map texture is in linear color space. Lighting won't look correct
+    ///             // if `is_srgb` is `true`, which is the default.
+    ///             |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    ///         )
+    ///         .load("textures/parallax_example/cube_normal.png");
+    /// }
+    /// ```
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -409,6 +428,11 @@ pub struct StandardMaterial {
     ///
     /// The material will be less lit in places where this texture is dark.
     /// This is similar to ambient occlusion, but built into the model.
+    ///
+    /// It is very common to use an RGB texture that uses the red channel for the [`StandardMaterial::occlusion_texture`],
+    /// and the B and G channels for [`StandardMaterial::metallic_roughness_texture`].
+    /// In such cases, use the same image handle for both fields.
+    /// Notably, this is the setup used by [glTF](https://docs.blender.org/manual/en/latest/addons/import_export/scene_gltf2.html#baked-ambient-occlusion).
     #[texture(7)]
     #[sampler(8)]
     #[dependency]
@@ -436,9 +460,10 @@ pub struct StandardMaterial {
     /// the [`StandardMaterial::specular_tint_texture`] has no alpha value, it
     /// may be desirable to pack the values together and supply the same
     /// texture to both fields.
-    #[texture(27)]
-    #[sampler(28)]
+    #[cfg_attr(feature = "pbr_specular_textures", texture(27))]
+    #[cfg_attr(feature = "pbr_specular_textures", sampler(28))]
     #[cfg(feature = "pbr_specular_textures")]
+    #[dependency]
     pub specular_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the
@@ -457,9 +482,10 @@ pub struct StandardMaterial {
     ///
     /// Like the fixed specular tint value, this texture map isn't supported in
     /// the deferred renderer.
+    #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
+    #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
-    #[texture(29)]
-    #[sampler(30)]
+    #[dependency]
     pub specular_tint_texture: Option<Handle<Image>>,
 
     /// An extra thin translucent layer on top of the main PBR layer. This is
@@ -485,6 +511,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(21))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(22))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_texture: Option<Handle<Image>>,
 
     /// The roughness of the clearcoat material. This is specified in exactly
@@ -510,6 +537,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(23))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(24))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the [`StandardMaterial::clearcoat_normal_texture`].
@@ -532,6 +560,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(25))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(26))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_normal_texture: Option<Handle<Image>>,
 
     /// Increases the roughness along a specific direction, so that the specular
@@ -602,6 +631,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_anisotropy_texture", texture(13))]
     #[cfg_attr(feature = "pbr_anisotropy_texture", sampler(14))]
     #[cfg(feature = "pbr_anisotropy_texture")]
+    #[dependency]
     pub anisotropy_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
@@ -628,9 +658,9 @@ pub struct StandardMaterial {
     ///
     /// Your 3D editing software should manage all of that.
     ///
-    /// [`Mesh`]: bevy_render::mesh::Mesh
+    /// [`Mesh`]: bevy_mesh::Mesh
     // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
@@ -1110,7 +1140,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if has_normal_map {
             let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
-                match texture.texture_format {
+                match texture.texture_descriptor.format {
                     // All 2-component unorm formats
                     TextureFormat::Rg8Unorm
                     | TextureFormat::Rg16Unorm
@@ -1184,6 +1214,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
 bitflags! {
     /// The pipeline key for `StandardMaterial`, packed into 64 bits.
+    #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct StandardMaterialKey: u64 {
         const CULL_FRONT               = 0x000001;
@@ -1344,7 +1375,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[inline]
@@ -1380,11 +1411,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[cfg(feature = "meshlet")]
@@ -1403,7 +1434,7 @@ impl Material for StandardMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
@@ -1505,15 +1536,19 @@ impl Material for StandardMaterial {
             }
         }
 
-        descriptor.primitive.cull_mode = if key
-            .bind_group_data
-            .contains(StandardMaterialKey::CULL_FRONT)
-        {
-            Some(Face::Front)
-        } else if key.bind_group_data.contains(StandardMaterialKey::CULL_BACK) {
-            Some(Face::Back)
-        } else {
-            None
+        // Generally, we want to cull front faces if `CULL_FRONT` is present and
+        // backfaces if `CULL_BACK` is present. However, if the view has
+        // `INVERT_CULLING` on (usually used for mirrors and the like), we do
+        // the opposite.
+        descriptor.primitive.cull_mode = match (
+            key.bind_group_data
+                .contains(StandardMaterialKey::CULL_FRONT),
+            key.bind_group_data.contains(StandardMaterialKey::CULL_BACK),
+            key.mesh_key.contains(MeshPipelineKey::INVERT_CULLING),
+        ) {
+            (true, false, false) | (false, true, true) => Some(Face::Front),
+            (false, true, false) | (true, false, true) => Some(Face::Back),
+            _ => None,
         };
 
         if let Some(label) = &mut descriptor.label {

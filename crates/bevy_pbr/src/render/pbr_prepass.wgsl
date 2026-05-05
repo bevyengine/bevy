@@ -10,6 +10,8 @@
     mesh_view_bindings::view,
 }
 
+#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
+
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif

@@ -1,6 +1,12 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -11,6 +17,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
@@ -25,7 +32,8 @@ pub use world_query::*;
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
-pub(crate) trait DebugCheckedUnwrap {
+#[doc(hidden)]
+pub trait DebugCheckedUnwrap {
     type Item;
     /// # Panics
     /// Panics if the value is `None` or `Err`, only in debug mode.
@@ -102,22 +110,20 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
-        archetype::Archetype,
-        component::{Component, ComponentId, Components, Tick},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
         query::{
-            ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
-            ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
+            ReadOnlyQueryData,
         },
-        schedule::{IntoSystemConfigs, Schedule},
-        storage::{Table, TableRow},
-        system::{assert_is_system, IntoSystem, Query, System, SystemState},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        schedule::{IntoScheduleConfigs, Schedule},
+        system::{IntoSystem, Query, System, SystemState},
+        world::World,
     };
     use alloc::{vec, vec::Vec};
-    use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
 
@@ -151,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~170s on CI")]
     fn query_filtered_exactsizeiterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
@@ -162,7 +169,7 @@ mod tests {
         }
         fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -176,7 +183,7 @@ mod tests {
         }
         fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -506,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn self_conflicting_worldquery() {
         #[derive(QueryData)]
         #[query_data(mutable)]
@@ -716,7 +723,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -727,7 +734,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -740,7 +747,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
     }
 
@@ -763,12 +770,12 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world);
+        let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
@@ -776,9 +783,8 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -810,121 +816,106 @@ mod tests {
         assert_eq!(values, vec![&B(2)]);
     }
 
-    #[derive(Resource)]
-    struct R;
-
-    /// `QueryData` that performs read access on R to test that resource access is tracked
-    struct ReadsRData;
-
-    /// SAFETY:
-    /// `update_component_access` adds resource read access for `R`.
-    /// `update_archetype_component_access` does nothing, as this accesses no components.
-    unsafe impl WorldQuery for ReadsRData {
-        type Fetch<'w> = ();
-        type State = ComponentId;
-
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
-
-        unsafe fn init_fetch<'w>(
-            _world: UnsafeWorldCell<'w>,
-            _state: &Self::State,
-            _last_run: Tick,
-            _this_run: Tick,
-        ) -> Self::Fetch<'w> {
-        }
-
-        const IS_DENSE: bool = true;
-
-        #[inline]
-        unsafe fn set_archetype<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
-            _archetype: &'w Archetype,
-            _table: &Table,
-        ) {
-        }
-
-        #[inline]
-        unsafe fn set_table<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
-            _table: &'w Table,
-        ) {
-        }
-
-        fn update_component_access(
-            &component_id: &Self::State,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
-            assert!(
-                !access.access().has_resource_write(component_id),
-                "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
-            );
-            access.add_resource_read(component_id);
-        }
-
-        fn init_state(world: &mut World) -> Self::State {
-            world.components.register_resource::<R>()
-        }
-
-        fn get_state(components: &Components) -> Option<Self::State> {
-            components.resource_id::<R>()
-        }
-
-        fn matches_component_set(
-            _state: &Self::State,
-            _set_contains_id: &impl Fn(ComponentId) -> bool,
-        ) -> bool {
-            true
-        }
-    }
-
-    /// SAFETY: `Self` is the same as `Self::ReadOnly`
-    unsafe impl QueryData for ReadsRData {
-        type ReadOnly = Self;
-        type Item<'w> = ();
-
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
-
-        #[inline(always)]
-        unsafe fn fetch<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Self::Item<'w> {
-        }
-    }
-
-    /// SAFETY: access is read only
-    unsafe impl ReadOnlyQueryData for ReadsRData {}
-
+    // regression test for https://github.com/bevyengine/bevy/pull/23352
     #[test]
-    fn read_res_read_res_no_conflict() {
-        fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
-        assert_is_system(system);
+    // presence/lack of trailing commas are significant in this test, so skip rustfmt
+    #[rustfmt::skip]
+    fn query_data_derive_where_clause() {
+        #[derive(QueryData)]
+        struct QueryDataA<C>
+        where
+            C: Component,
+        {
+            component: &'static C,
+        }
+
+        #[derive(QueryData)]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component;
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
     #[test]
-    fn read_res_sets_archetype_component_access() {
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
         let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
 
-        fn read_query(_q: Query<ReadsRData, With<A>>) {}
-        let mut read_query = IntoSystem::into_system(read_query);
-        read_query.initialize(&mut world);
+    // regression test for https://github.com/bevyengine/bevy/pull/23930
+    #[test]
+    fn query_data_derive_empty() {
+        #[derive(QueryData)]
+        struct QueryDataA {}
 
-        fn read_res(_r: Res<R>) {}
-        let mut read_res = IntoSystem::into_system(read_res);
-        read_res.initialize(&mut world);
+        #[derive(QueryData)]
+        struct QueryDataB();
 
-        fn write_res(_r: ResMut<R>) {}
-        let mut write_res = IntoSystem::into_system(write_res);
-        write_res.initialize(&mut world);
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataC {}
 
-        assert!(read_query
-            .archetype_component_access()
-            .is_compatible(read_res.archetype_component_access()));
-        assert!(!read_query
-            .archetype_component_access()
-            .is_compatible(write_res.archetype_component_access()));
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataD();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataE {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataF();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataG {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataH();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataI {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataJ();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataK {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataL();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataM {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataN();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataO {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataP();
     }
 }

@@ -79,7 +79,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
         // Basic benchmark without constraints.
-        group.bench_function(format!("{graph_size}_schedule_noconstraints"), |bencher| {
+        group.bench_function(format!("{graph_size}_schedule_no_constraints"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
@@ -125,21 +125,16 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("run_empty_schedule");
 
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+    schedule.set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
     group.bench_function("SingleThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
 
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+    schedule.set_executor(bevy_ecs::schedule::MultiThreadedExecutor::new());
     group.bench_function("MultiThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
 
-    let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::Simple);
-    group.bench_function("Simple", |bencher| {
-        bencher.iter(|| schedule.run(app.world_mut()));
-    });
     group.finish();
 }
