@@ -4,7 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
+    Node, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -16,7 +16,6 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
-use bevy_sprite::BorderRect;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -101,7 +100,10 @@ fn update_clipping(
         //
         // `clip_inset` should always fit inside `node_rect`.
         // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
-        let clip_rect = computed_node.resolve_clip_rect(node.overflow, node.overflow_clip_margin);
+        let mut clip_rect =
+            computed_node.resolve_clip_rect(node.overflow, node.overflow_clip_margin);
+        clip_rect.min += transform.translation;
+        clip_rect.max += transform.translation;
         Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
