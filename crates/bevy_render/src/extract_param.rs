@@ -1,6 +1,6 @@
 use crate::MainWorld;
 use bevy_ecs::{
-    component::{ComponentId, Tick},
+    change_detection::Tick,
     prelude::*,
     query::FilteredAccessSet,
     system::{
@@ -83,7 +83,7 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet<ComponentId>,
+        component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
         Res::<MainWorld>::init_access(
@@ -95,36 +95,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to world data registered in `init_state`.
-        let result = unsafe { world.get_resource_by_id(state.main_world_state) };
-        let Some(main_world) = result else {
-            return Err(SystemParamValidationError::invalid::<Self>(
-                "`MainWorld` resource does not exist",
-            ));
-        };
-        // SAFETY: Type is guaranteed by `SystemState`.
-        let main_world: &World = unsafe { main_world.deref() };
-        // SAFETY: We provide the main world on which this system state was initialized on.
-        unsafe {
-            SystemState::<P>::validate_param(
-                &mut state.state,
-                main_world.as_unsafe_world_cell_readonly(),
-            )
-        }
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
@@ -134,10 +110,10 @@ where
                 system_meta,
                 world,
                 change_tick,
-            )
+            )?
         };
-        let item = state.state.get(main_world.into_inner());
-        Extract { item }
+        let item = state.state.get(main_world.into_inner())?;
+        Ok(Extract { item })
     }
 }
 

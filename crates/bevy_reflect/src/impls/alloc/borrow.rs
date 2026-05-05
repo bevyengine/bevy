@@ -55,11 +55,11 @@ impl PartialReflect for Cow<'static, str> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -83,6 +83,14 @@ impl PartialReflect for Cow<'static, str> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 
@@ -180,7 +188,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.as_ref().len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -228,11 +236,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -245,19 +253,23 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        crate::list_hash(self)
+        crate::list::list_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+        crate::list::list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list_apply(self, value);
+        crate::list::list_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list_try_apply(self, value)
+        crate::list::list_try_apply(self, value)
     }
 }
 

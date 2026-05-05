@@ -3,6 +3,7 @@ mod blas;
 mod extract;
 mod types;
 
+use bevy_shader::load_shader_library;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
@@ -11,18 +12,17 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     mesh::{
-        allocator::{allocate_and_free_meshes, MeshAllocator},
+        allocator::{allocate_and_free_meshes, MeshAllocatorSettings},
         RenderMesh,
     },
     render_asset::prepare_assets,
     render_resource::BufferUsages,
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use binder::prepare_raytracing_scene_bindings;
-use blas::{prepare_raytracing_blas, BlasManager};
+use blas::{compact_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{extract_raytracing_scene, StandardMaterialAssets};
 use tracing::warn;
 
@@ -31,10 +31,9 @@ pub struct RaytracingScenePlugin;
 
 impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "brdf.wgsl");
         load_shader_library!(app, "raytracing_scene_bindings.wgsl");
         load_shader_library!(app, "sampling.wgsl");
-
-        app.register_type::<RaytracingMesh3d>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -55,13 +54,13 @@ impl Plugin for RaytracingScenePlugin {
 
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app
-            .init_resource::<BlasManager>()
-            .init_resource::<StandardMaterialAssets>()
-            .init_resource::<RaytracingSceneBindings>()
+            .init_gpu_resource::<BlasManager>()
+            .init_gpu_resource::<StandardMaterialAssets>()
+            .insert_resource(RaytracingSceneBindings::new())
             .add_systems(ExtractSchedule, extract_raytracing_scene)
             .add_systems(
                 Render,
@@ -70,6 +69,9 @@ impl Plugin for RaytracingScenePlugin {
                         .in_set(RenderSystems::PrepareAssets)
                         .before(prepare_assets::<RenderMesh>)
                         .after(allocate_and_free_meshes),
+                    compact_raytracing_blas
+                        .in_set(RenderSystems::PrepareAssets)
+                        .after(prepare_raytracing_blas),
                     prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );

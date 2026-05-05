@@ -152,7 +152,8 @@ impl WinitWindows {
                 .with_titlebar_hidden(!window.titlebar_shown)
                 .with_titlebar_transparent(window.titlebar_transparent)
                 .with_title_hidden(!window.titlebar_show_title)
-                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons)
+                .with_borderless_game(window.borderless_game);
         }
 
         #[cfg(target_os = "ios")]
@@ -324,13 +325,13 @@ impl WinitWindows {
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
-                warn!(
-                    "Could not set cursor hit test for window {}: {}",
-                    window.title, err
-                );
-            }
+        if !cursor_options.hit_test
+            && let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test)
+        {
+            warn!(
+                "Could not set cursor hit test for window {}: {}",
+                window.title, err
+            );
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());
@@ -385,8 +386,8 @@ pub fn get_selected_videomode(
 
 /// Gets a monitor's current video-mode.
 ///
-/// TODO: When Winit 0.31 releases this function can be removed and replaced with
-/// `MonitorHandle::current_video_mode()`
+// TODO: When Winit 0.31 releases this function can be removed and replaced with
+// `MonitorHandle::current_video_mode()`
 fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
     monitor
         .video_modes()
@@ -397,10 +398,29 @@ fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
         .max_by_key(VideoModeHandle::bit_depth)
 }
 
+#[cfg(target_arch = "wasm32")]
+fn pointer_supported() -> Result<bool, ExternalError> {
+    Ok(js_sys::Reflect::has(
+        web_sys::window()
+            .ok_or(ExternalError::Ignored)?
+            .document()
+            .ok_or(ExternalError::Ignored)?
+            .as_ref(),
+        &"exitPointerLock".into(),
+    )
+    .unwrap_or(false))
+}
+
 pub(crate) fn attempt_grab(
     winit_window: &WinitWindow,
     grab_mode: CursorGrabMode,
 ) -> Result<(), ExternalError> {
+    // Do not attempt to grab on web if unsupported (e.g. mobile)
+    #[cfg(target_arch = "wasm32")]
+    if !pointer_supported()? {
+        return Err(ExternalError::Ignored);
+    }
+
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window

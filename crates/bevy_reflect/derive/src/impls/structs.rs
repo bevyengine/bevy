@@ -40,8 +40,9 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let full_reflect_impl = impl_full_reflect(&where_clause_options);
     let common_methods = common_partial_reflect_methods(
         reflect_struct.meta(),
-        || Some(quote!(#bevy_reflect_path::struct_partial_eq)),
+        || Some(quote!(#bevy_reflect_path::structs::struct_partial_eq)),
         || None,
+        || Some(quote!(#bevy_reflect_path::structs::struct_partial_cmp)),
     );
     let clone_fn = reflect_struct.get_clone_impl();
 
@@ -58,6 +59,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .generics()
         .split_for_impl();
 
+    #[cfg(not(feature = "auto_register"))]
+    let auto_register = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "auto_register")]
+    let auto_register = crate::impls::reflect_auto_registration(reflect_struct.meta());
+
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
@@ -71,7 +77,9 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
         #function_impls
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
+        #auto_register
+
+        impl #impl_generics #bevy_reflect_path::structs::Struct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match name {
                     #(#field_names => #fqoption::Some(#fields_ref),)*
@@ -107,16 +115,23 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 }
             }
 
+            fn index_of_name(&self, name: &str) -> #FQOption<usize> {
+                match name {
+                    #(#field_names => #fqoption::Some(#field_indices),)*
+                    _ => #FQOption::None,
+                }
+            }
+
             fn field_len(&self) -> usize {
                 #field_count
             }
 
-            fn iter_fields(&self) -> #bevy_reflect_path::FieldIter {
-                #bevy_reflect_path::FieldIter::new(self)
+            fn iter_fields(&self) -> #bevy_reflect_path::structs::FieldIter {
+                #bevy_reflect_path::structs::FieldIter::new(self)
             }
 
-            fn to_dynamic_struct(&self) -> #bevy_reflect_path::DynamicStruct {
-                let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
+            fn to_dynamic_struct(&self) -> #bevy_reflect_path::structs::DynamicStruct {
+                let mut dynamic: #bevy_reflect_path::structs::DynamicStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
                 #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref));)*
                 dynamic
@@ -136,9 +151,8 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value)
                     = #bevy_reflect_path::PartialReflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
-                        let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
+                    for (name, value) in #bevy_reflect_path::structs::Struct::iter_fields(struct_value) {
+                        if let #FQOption::Some(v) = #bevy_reflect_path::structs::Struct::field_mut(self, name) {
                            #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
                         }
                     }

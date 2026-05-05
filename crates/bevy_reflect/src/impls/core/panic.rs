@@ -57,11 +57,11 @@ impl PartialReflect for &'static Location<'static> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -85,6 +85,14 @@ impl PartialReflect for &'static Location<'static> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 

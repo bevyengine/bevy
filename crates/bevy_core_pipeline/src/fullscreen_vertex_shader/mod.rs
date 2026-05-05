@@ -1,6 +1,7 @@
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{resource::Resource, world::FromWorld};
-use bevy_render::{prelude::Shader, render_resource::VertexState};
+use bevy_render::render_resource::VertexState;
+use bevy_shader::Shader;
 
 /// A shader that renders to the whole screen. Useful for post-processing.
 #[derive(Resource, Clone)]
