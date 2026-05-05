@@ -75,9 +75,9 @@ pub enum Color {
     Oklcha(Oklcha),
     /// A color in the XYZ color space with alpha.
     Xyza(Xyza),
-    ///
+    /// A color in the Okhsl color space with alpha.
     Okhsla(Okhsla),
-    ///
+    /// A color in the Okhsv color space with alpha.
     Okhsva(Okhsva),
 }
 
@@ -906,8 +906,8 @@ impl Hue for Color {
             Color::Oklaba(x) => *x = ChosenColorSpace::from(*x).with_hue(hue).into(),
             Color::Oklcha(x) => *x = x.with_hue(hue),
             Color::Xyza(x) => *x = ChosenColorSpace::from(*x).with_hue(hue).into(),
-            Color::Okhsla(x) => *x = x.with_hue(hue).into(),
-            Color::Okhsva(x) => *x = x.with_hue(hue).into(),
+            Color::Okhsla(x) => *x = x.with_hue(hue),
+            Color::Okhsva(x) => *x = x.with_hue(hue),
         }
 
         new

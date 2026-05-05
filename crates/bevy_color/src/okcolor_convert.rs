@@ -1,3 +1,10 @@
+//! Functions for Okhsl/Okhsv <-> Oklab conversion. See <https://bottosson.github.io/misc/ok_color.h>
+
+#![expect(
+    non_snake_case,
+    reason = "The code is translated from a C implementation."
+)]
+
 use crate::{okhsla::Okhsla, LinearRgba, Okhsva, Oklaba};
 use bevy_math::ops;
 
@@ -16,10 +23,10 @@ pub(crate) struct ST {
 pub(crate) fn to_ST(cusp: LC) -> ST {
     let L = cusp.L;
     let C = cusp.C;
-    return ST {
+    ST {
         S: C / L,
         T: C / (1. - L),
-    };
+    }
 }
 
 // Finds the maximum saturation possible for a given hue that fits in sRGB
@@ -31,36 +38,36 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
     // Select different coefficients depending on which component goes below zero first
     let (k0, k1, k2, k3, k4, wl, wm, ws);
 
-    if (-1.88170328 * a - 0.80936493 * b > 1.) {
+    if -1.881_703_3 * a - 0.809_364_9 * b > 1. {
         // Red component
-        k0 = 1.19086277;
-        k1 = 1.76576728;
-        k2 = 0.59662641;
-        k3 = 0.75515197;
-        k4 = 0.56771245;
-        wl = 4.0767416621;
-        wm = -3.3077115913;
-        ws = 0.2309699292;
-    } else if (1.81444104 * a - 1.19445276 * b > 1.) {
+        k0 = 1.190_862_8;
+        k1 = 1.765_767_3;
+        k2 = 0.596_626_4;
+        k3 = 0.755_152;
+        k4 = 0.567_712_4;
+        wl = 4.076_741_7;
+        wm = -3.307_711_6;
+        ws = 0.230_969_94;
+    } else if 1.814_441_1 * a - 1.194_452_8 * b > 1. {
         // Green component
         k0 = 0.73956515;
         k1 = -0.45954404;
         k2 = 0.08285427;
-        k3 = 0.12541070;
+        k3 = 0.125_410_7;
         k4 = 0.14503204;
-        wl = -1.2684380046;
-        wm = 2.6097574011;
-        ws = -0.3413193965;
+        wl = -1.268_438;
+        wm = 2.609_757_4;
+        ws = -0.341_319_38;
     } else {
         // Blue component
-        k0 = 1.35733652;
+        k0 = 1.357_336_5;
         k1 = -0.00915799;
-        k2 = -1.15130210;
+        k2 = -1.151_302_1;
         k3 = -0.50559606;
         k4 = 0.00692167;
         wl = -0.0041960863;
-        wm = -0.7034186147;
-        ws = 1.7076147010;
+        wm = -0.703_418_6;
+        ws = 1.707_614_7;
     }
 
     // Approximate max saturation using a polynomial:
@@ -70,9 +77,9 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
     // this gives an error less than 10e6, except for some blue hues where the dS/dh is close to infinite
     // this should be sufficient for most applications, otherwise do two/three steps
 
-    let k_l = 0.3963377774 * a + 0.2158037573 * b;
-    let k_m = -0.1055613458 * a - 0.0638541728 * b;
-    let k_s = -0.0894841775 * a - 1.2914855480 * b;
+    let k_l = 0.396_337_78 * a + 0.215_803_76 * b;
+    let k_m = -0.105_561_346 * a - 0.063_854_17 * b;
+    let k_s = -0.089_484_18 * a - 1.291_485_5 * b;
 
     {
         let l_ = 1. + S * k_l;
@@ -95,10 +102,10 @@ fn compute_max_saturation(a: f32, b: f32) -> f32 {
         let f1 = wl * l_dS + wm * m_dS + ws * s_dS;
         let f2 = wl * l_dS2 + wm * m_dS2 + ws * s_dS2;
 
-        S = S - f * f1 / (f1 * f1 - 0.5 * f * f2);
+        S -= f * f1 / (f1 * f1 - 0.5 * f * f2);
     }
 
-    return S;
+    S
 }
 
 // finds L_cusp and C_cusp for a given hue
@@ -109,13 +116,13 @@ pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
 
     // Convert to linear sRGB to find the first point where at least one of r,g or b >= 1:
     let rgb_at_max: LinearRgba = Oklaba::lab(1., S_cusp * a, S_cusp * b).into();
-    let L_cusp = ops::cbrt((1. / ((rgb_at_max.red.max(rgb_at_max.green)).max(rgb_at_max.blue))));
+    let L_cusp = ops::cbrt(1. / ((rgb_at_max.red.max(rgb_at_max.green)).max(rgb_at_max.blue)));
     let C_cusp = L_cusp * S_cusp;
 
-    return LC {
+    LC {
         L: L_cusp,
         C: C_cusp,
-    };
+    }
 }
 
 // Finds intersection of the line defined by
@@ -125,7 +132,7 @@ pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
 fn find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: LC) -> f32 {
     // Find the intersection for upper and lower half seprately
     let mut t;
-    if (((L1 - L0) * cusp.C - (cusp.L - L0) * C1) <= 0.) {
+    if ((L1 - L0) * cusp.C - (cusp.L - L0) * C1) <= 0. {
         // Lower half
 
         t = cusp.C * L0 / (C1 * cusp.L + cusp.C * (L0 - L1));
@@ -140,9 +147,9 @@ fn find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: LC) 
             let dL = L1 - L0;
             let dC = C1;
 
-            let k_l = 0.3963377774 * a + 0.2158037573 * b;
-            let k_m = -0.1055613458 * a - 0.0638541728 * b;
-            let k_s = -0.0894841775 * a - 1.2914855480 * b;
+            let k_l = 0.396_337_78 * a + 0.215_803_76 * b;
+            let k_m = -0.105_561_346 * a - 0.063_854_17 * b;
+            let k_s = -0.089_484_18 * a - 1.291_485_5 * b;
 
             let l_dt = dL + dC * k_l;
             let m_dt = dL + dC * k_m;
@@ -169,37 +176,37 @@ fn find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: LC) 
                 let mdt2 = 6. * m_dt * m_dt * m_;
                 let sdt2 = 6. * s_dt * s_dt * s_;
 
-                let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s - 1.;
-                let r1 = 4.0767416621 * ldt - 3.3077115913 * mdt + 0.2309699292 * sdt;
-                let r2 = 4.0767416621 * ldt2 - 3.3077115913 * mdt2 + 0.2309699292 * sdt2;
+                let r = 4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s - 1.;
+                let r1 = 4.076_741_7 * ldt - 3.307_711_6 * mdt + 0.230_969_94 * sdt;
+                let r2 = 4.076_741_7 * ldt2 - 3.307_711_6 * mdt2 + 0.230_969_94 * sdt2;
 
                 let u_r = r1 / (r1 * r1 - 0.5 * r * r2);
                 let mut t_r = -r * u_r;
 
-                let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s - 1.;
-                let g1 = -1.2684380046 * ldt + 2.6097574011 * mdt - 0.3413193965 * sdt;
-                let g2 = -1.2684380046 * ldt2 + 2.6097574011 * mdt2 - 0.3413193965 * sdt2;
+                let g = -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s - 1.;
+                let g1 = -1.268_438 * ldt + 2.609_757_4 * mdt - 0.341_319_38 * sdt;
+                let g2 = -1.268_438 * ldt2 + 2.609_757_4 * mdt2 - 0.341_319_38 * sdt2;
 
                 let u_g = g1 / (g1 * g1 - 0.5 * g * g2);
                 let mut t_g = -g * u_g;
 
-                let b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s - 1.;
-                let b1 = -0.0041960863 * ldt - 0.7034186147 * mdt + 1.7076147010 * sdt;
-                let b2 = -0.0041960863 * ldt2 - 0.7034186147 * mdt2 + 1.7076147010 * sdt2;
+                let b = -0.0041960863 * l - 0.703_418_6 * m + 1.707_614_7 * s - 1.;
+                let b1 = -0.0041960863 * ldt - 0.703_418_6 * mdt + 1.707_614_7 * sdt;
+                let b2 = -0.0041960863 * ldt2 - 0.703_418_6 * mdt2 + 1.707_614_7 * sdt2;
 
                 let u_b = b1 / (b1 * b1 - 0.5 * b * b2);
                 let mut t_b = -b * u_b;
 
-                t_r = if u_r >= 0. { t_r } else { core::f32::MAX };
-                t_g = if u_g >= 0. { t_g } else { core::f32::MAX };
-                t_b = if u_b >= 0. { t_b } else { core::f32::MAX };
+                t_r = if u_r >= 0. { t_r } else { f32::MAX };
+                t_g = if u_g >= 0. { t_g } else { f32::MAX };
+                t_b = if u_b >= 0. { t_b } else { f32::MAX };
 
-                t += (t_r.min(t_g.min(t_b)));
+                t += t_r.min(t_g.min(t_b));
             }
         }
     }
 
-    return t;
+    t
 }
 
 #[derive(Clone, Copy)]
@@ -242,7 +249,7 @@ fn get_Cs(L: f32, a_: f32, b_: f32) -> Cs {
         C_0 = (1. / (1. / (C_a * C_a) + 1. / (C_b * C_b))).sqrt();
     }
 
-    return Cs { C_0, C_mid, C_max };
+    Cs { C_0, C_mid, C_max }
 }
 
 // Returns a smooth approximation of the location of the cusp
@@ -250,36 +257,36 @@ fn get_Cs(L: f32, a_: f32, b_: f32) -> Cs {
 // It has been designed so that S_mid < S_max and T_mid < T_max
 fn get_ST_mid(a_: f32, b_: f32) -> ST {
     let S = 0.11516993
-        + 1. / (7.44778970
-            + 4.15901240 * b_
-            + a_ * (-2.19557347
-                + 1.75198401 * b_
-                + a_ * (-2.13704948 - 10.02301043 * b_
-                    + a_ * (-4.24894561 + 5.38770819 * b_ + 4.69891013 * a_))));
+        + 1. / (7.447_789_7
+            + 4.159_012_3 * b_
+            + a_ * (-2.195_573_6
+                + 1.751_984 * b_
+                + a_ * (-2.137_049_4 - 10.023_01 * b_
+                    + a_ * (-4.248_945_7 + 5.387_708 * b_ + 4.698_91 * a_))));
 
     let T = 0.11239642
-        + 1. / (1.61320320 - 0.68124379 * b_
+        + 1. / (1.613_203_2 - 0.681_243_8 * b_
             + a_ * (0.40370612
-                + 0.90148123 * b_
+                + 0.901_481_2 * b_
                 + a_ * (-0.27087943
-                    + 0.61223990 * b_
+                    + 0.612_239_9 * b_
                     + a_ * (0.00299215 - 0.45399568 * b_ - 0.14661872 * a_))));
 
-    return ST { S, T };
+    ST { S, T }
 }
 
 pub(crate) fn toe(x: f32) -> f32 {
     let k_1: f32 = 0.206;
     let k_2: f32 = 0.03;
     let k_3: f32 = (1. + k_1) / (1. + k_2);
-    return 0.5 * (k_3 * x - k_1 + ((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x).sqrt());
+    0.5 * (k_3 * x - k_1 + ((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x).sqrt())
 }
 
 pub(crate) fn toe_inv(x: f32) -> f32 {
     let k_1 = 0.206;
     let k_2 = 0.03;
     let k_3 = (1. + k_1) / (1. + k_2);
-    return (x * x + k_1 * x) / (k_3 * (x + k_2));
+    (x * x + k_1 * x) / (k_3 * (x + k_2))
 }
 
 pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
@@ -306,29 +313,28 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
     let mid = 0.8;
     let mid_inv = 1.25;
 
-    let s;
-    if (C < C_mid) {
+    let s = if C < C_mid {
         let k_1 = mid * C_0;
-        let k_2 = (1. - k_1 / C_mid);
+        let k_2 = 1. - k_1 / C_mid;
 
         let t = C / (k_1 + k_2 * C);
-        s = t * mid;
+        t * mid
     } else {
         let k_0 = C_mid;
         let k_1 = (1. - mid) * C_mid * C_mid * mid_inv * mid_inv / C_0;
-        let k_2 = (1. - (k_1) / (C_max - C_mid));
+        let k_2 = 1. - (k_1) / (C_max - C_mid);
 
         let t = (C - k_0) / (k_1 + k_2 * (C - k_0));
-        s = mid + (1. - mid) * t;
-    }
+        mid + (1. - mid) * t
+    };
 
     let l = toe(L);
-    return Okhsla {
+    Okhsla {
         hue: h * 360.,
         saturation: s,
         lightness: l,
         alpha,
-    };
+    }
 }
 
 pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
@@ -340,14 +346,14 @@ pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if (l == 1.) {
+    if l == 1. {
         return LinearRgba::new(1., 1., 1., alpha).into();
-    } else if (l == 0.) {
+    } else if l == 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
-    let a_ = (2. * core::f32::consts::PI * h).cos();
-    let b_ = (2. * core::f32::consts::PI * h).sin();
+    let a_ = ops::cos(2. * core::f32::consts::PI * h);
+    let b_ = ops::sin(2. * core::f32::consts::PI * h);
     let L = toe_inv(l);
 
     let cs = get_Cs(L, a_, b_);
@@ -360,11 +366,11 @@ pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
 
     let (C, t, k_0, k_1, k_2);
 
-    if (s < mid) {
+    if s < mid {
         t = mid_inv * s;
 
         k_1 = mid * C_0;
-        k_2 = (1. - k_1 / C_mid);
+        k_2 = 1. - k_1 / C_mid;
 
         C = t * k_1 / (1. - k_2 * t);
     } else {
@@ -372,7 +378,7 @@ pub(crate) fn okhsl_to_oklab(value: Okhsla) -> Oklaba {
 
         k_0 = C_mid;
         k_1 = (1. - mid) * C_mid * C_mid * mid_inv * mid_inv / C_0;
-        k_2 = (1. - (k_1) / (C_max - C_mid));
+        k_2 = 1. - (k_1) / (C_max - C_mid);
 
         C = k_0 + t * k_1 / (1. - k_2 * t);
     }
@@ -387,7 +393,7 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
         b: lab_b,
         alpha,
     } = value;
-    let mut C = (lab_a * lab_a + lab_b * lab_b).sqrt();
+    let C = (lab_a * lab_a + lab_b * lab_b).sqrt();
     let a_ = lab_a / C;
     let b_ = lab_b / C;
 
@@ -415,10 +421,8 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
     let scale_L =
         ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
 
-    L = L / scale_L;
-    C = C / scale_L;
+    L /= scale_L;
 
-    C = C * toe(L) / L;
     L = toe(L);
 
     // we can now compute v and s:
@@ -426,12 +430,12 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
     let v = L / L_v;
     let s = (S_0 + T_max) * C_v / ((T_max * S_0) + T_max * k * C_v);
 
-    return Okhsva {
+    Okhsva {
         hue: h * 360.,
         saturation: s,
         value: v,
         alpha,
-    };
+    }
 }
 
 pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
@@ -443,12 +447,12 @@ pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
     } = value;
     let h = h / 360.;
 
-    if (v == 0.) {
+    if v == 0. {
         return LinearRgba::new(0., 0., 0., alpha).into();
     }
 
-    let a_ = (2. * core::f32::consts::PI * h).cos();
-    let b_ = (2. * core::f32::consts::PI * h).sin();
+    let a_ = ops::cos(2. * core::f32::consts::PI * h);
+    let b_ = ops::sin(2. * core::f32::consts::PI * h);
 
     let cusp = find_cusp(a_, b_);
     let ST_max = to_ST(cusp);
@@ -476,10 +480,10 @@ pub(crate) fn okhsv_to_oklab(value: Okhsva) -> Oklaba {
 
     let rgb_scale: LinearRgba = Oklaba::lab(L_vt, a_ * C_vt, b_ * C_vt).into();
     let scale_L =
-        ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max((rgb_scale.blue.max(0.)))));
+        ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
 
-    L = L * scale_L;
-    C = C * scale_L;
+    L *= scale_L;
+    C *= scale_L;
 
     Oklaba::new(L, C * a_, C * b_, alpha)
 }
