@@ -449,6 +449,10 @@ impl BsnType {
                 }
             }
             BsnFields::Tuple(fields) => {
+                // Tuple fields can't be props
+                if is_props {
+                    return Ok(());
+                }
                 for (i, field) in fields.iter().enumerate() {
                     if let Err(err) = self.process_field(
                         ctx,
