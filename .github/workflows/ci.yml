@@ -374,7 +374,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@cf5f1c29a8ac336af8568821ec41919923b05a83 # v1.45.1
+        uses: crate-ci/typos@7c572958218557a3272c2d6719629443b5cc26fd # v1.45.2
       - name: Typos info
         if: failure()
         run: |
