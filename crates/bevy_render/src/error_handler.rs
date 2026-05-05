@@ -20,6 +20,11 @@ use crate::{
 pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
     /// This discards the error after logging it to console.
+    /// WARNING: Using this policy can cause hazardous rapid flashing
+    /// if the conditions causing the error remain unaddressed, since
+    /// rendering will attempt to continue executing.
+    /// When choosing to use this policy, be sure to test that the application
+    /// remains safe to use.
     Ignore,
     /// Keeps the app alive, but stops rendering further.
     /// This keeps the error state, and will continue polling the [`RenderErrorHandler`]
@@ -28,6 +33,8 @@ pub enum RenderErrorPolicy {
     /// Attempt renderer recovery with the given [`RenderCreation`].
     Recover(RenderCreation),
     /// Quits the app.
+    /// This stops rendering and sends an [`AppExit::error`], which will
+    /// immediately terminate the app.
     QuitApplication,
 }
 
