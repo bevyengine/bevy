@@ -37,18 +37,18 @@ pub(crate) fn on_remove_disabled(
 
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default)]
 pub struct Pressed;
 
 /// Component that indicates that a widget can be checked.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default)]
 pub struct Checkable;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default)]
 pub struct Checked;
 
-pub(crate) fn on_add_checkable(add: On<Add, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -59,7 +59,7 @@ pub(crate) fn on_add_checkable(add: On<Add, Checked>, mut world: DeferredWorld) 
     }
 }
 
-pub(crate) fn on_remove_checkable(add: On<Add, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checkable(add: On<Remove, Checkable>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
