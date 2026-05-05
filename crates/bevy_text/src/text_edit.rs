@@ -1,3 +1,4 @@
+use bevy_clipboard::ClipboardRead;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
@@ -135,10 +136,31 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to select-all commands such as Ctrl + A or Cmd + A.
     SelectAll,
+    /// Selects all text if the current selection is collapsed.
+    ///
+    /// Typically generated in response to a chain of focus gained by pointer press into
+    /// pointer release events.
+    SelectAllIfCollapsed,
     /// Moves the cursor to the given point.
     ///
     /// Typically generated in response to a pointer press within the text area.
     MoveToPoint(Vec2),
+    /// Selects the word at the given point.
+    ///
+    /// Typically generated in response to a double-click within the text area.
+    SelectWordAtPoint(Vec2),
+    /// Selects the line at the given point.
+    ///
+    /// A line here means a single row of glyphs, all sharing the same baseline.
+    ///
+    /// Typically generated in response to a triple-click within the text area.
+    SelectLineAtPoint(Vec2),
+    /// Selects the hard line at the given point.
+    ///
+    /// A “hard line” is the portion of text between explicit newline characters.
+    ///
+    /// Typically generated in response to a triple-click within the text area.
+    SelectedHardLineAtPoint(Vec2),
     /// Extends the current selection to the given point.
     ///
     /// Typically generated in response to dragging a pointer within the text area.
@@ -188,66 +210,45 @@ impl TextEdit {
         }
     }
 
-    /// Apply the `TextEdit` to the text editor driver
+    /// Apply the [`TextEdit`] to the text editor driver.
+    ///
+    /// Note that some edits, such as [`TextEdit::Paste`], may need to be deferred across frames due to asynchronous clipboard I/O.
+    /// For proper handling of deferred edits, use [`EditableText::apply_pending_edits`](super::EditableText::apply_pending_edits) instead,
+    /// which manages the queuing and application of edits by storing them in the [`EditableText`](super::EditableText) component.
     pub fn apply<'a>(
         self,
         driver: &'a mut PlainEditorDriver<TextBrush>,
-        clipboard_text: &mut String,
+        clipboard: &mut bevy_clipboard::Clipboard,
         max_characters: Option<usize>,
         char_filter: impl Fn(char) -> bool,
     ) {
         match self {
             TextEdit::Copy => {
-                if let Some(text) = driver.editor.selected_text() {
-                    clipboard_text.clear();
-                    clipboard_text.push_str(text);
+                if let Some(text) = driver.editor.selected_text()
+                    && let Err(e) = clipboard.set_text(text)
+                {
+                    bevy_log::warn!("Failed to write selection to clipboard: {e:?}");
                 }
             }
             TextEdit::Cut => {
                 if let Some(text) = driver.editor.selected_text() {
-                    clipboard_text.clear();
-                    clipboard_text.push_str(text);
-                    driver.delete();
+                    match clipboard.set_text(text) {
+                        Ok(()) => driver.delete(),
+                        Err(e) => bevy_log::warn!("Failed to write selection to clipboard: {e:?}"),
+                    }
                 }
             }
             TextEdit::Paste => {
-                if !clipboard_text.chars().all(char_filter) {
-                    return;
-                }
-                if let Some(max) = max_characters {
-                    let select_len = driver
-                        .editor
-                        .selected_text()
-                        .map(str::chars)
-                        .map(Iterator::count)
-                        .unwrap_or(0);
-                    if max
-                        < driver.editor.text().chars().count() - select_len
-                            + clipboard_text.chars().count()
-                    {
-                        return;
-                    }
-                }
-                driver.insert_or_replace_selection(clipboard_text.as_str());
+                // It's nice to be able to provide apply as a public method, but Paste is a little buggy.
+                // We'll try our best since that works on native, but we should warn users away from doing so.
+                bevy_log::warn_once!("Directly applying a Paste edit is not recommended, as it cannot defer asynchronous clipboard reads.
+                    For proper handling of async clipboard operations, use `EditableText::apply_pending_edits` instead.");
+
+                let mut read = clipboard.fetch_text();
+                poll_and_apply_paste(&mut read, driver, max_characters, char_filter);
             }
             TextEdit::Insert(text) => {
-                if !text.chars().all(char_filter) {
-                    return;
-                }
-                if let Some(max) = max_characters {
-                    let select_len = driver
-                        .editor
-                        .selected_text()
-                        .map(str::chars)
-                        .map(Iterator::count)
-                        .unwrap_or(0);
-                    if max
-                        < driver.editor.text().chars().count() - select_len + text.chars().count()
-                    {
-                        return;
-                    }
-                }
-                driver.insert_or_replace_selection(text.as_str());
+                let _ = insert_filtered(driver, text.as_str(), max_characters, char_filter);
             }
             TextEdit::Backspace => driver.backdelete(),
             TextEdit::BackspaceWord => driver.backdelete_word(),
@@ -279,7 +280,17 @@ impl TextEdit {
             TextEdit::LineEnd(true) => driver.select_to_line_end(),
             TextEdit::CollapseSelection => driver.collapse_selection(),
             TextEdit::SelectAll => driver.select_all(),
+            TextEdit::SelectAllIfCollapsed => {
+                if driver.editor.raw_selection().is_collapsed() {
+                    driver.select_all();
+                }
+            }
             TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
+            TextEdit::SelectWordAtPoint(point) => driver.select_word_at_point(point.x, point.y),
+            TextEdit::SelectLineAtPoint(point) => driver.select_line_at_point(point.x, point.y),
+            TextEdit::SelectedHardLineAtPoint(point) => {
+                driver.select_hard_line_at_point(point.x, point.y);
+            }
             TextEdit::ExtendSelectionToPoint(point) => {
                 driver.extend_selection_to_point(point.x, point.y);
             }
@@ -303,5 +314,76 @@ impl TextEdit {
                 }
             }
         }
+    }
+}
+
+/// Reason an [`insert_filtered`] call was rejected.
+///
+/// The two branches matter to callers (paste warns on [`CharFilter`](Self::CharFilter) but
+/// not on [`MaxLength`](Self::MaxLength)), so a bool return wouldn't suffice.
+enum InsertRejection {
+    /// At least one character failed the user-supplied filter.
+    CharFilter,
+    /// The insertion would exceed `max_characters`.
+    MaxLength,
+}
+
+/// Insert (or replace the current selection with) `text`, subject to the char filter and
+/// `max_characters`.
+///
+/// Shared by [`TextEdit::Insert`] and [`TextEdit::Paste`] paths to ensure consistent behavior.
+fn insert_filtered(
+    driver: &mut PlainEditorDriver<TextBrush>,
+    text: &str,
+    max_characters: Option<usize>,
+    char_filter: impl Fn(char) -> bool,
+) -> Result<(), InsertRejection> {
+    if !text.chars().all(char_filter) {
+        return Err(InsertRejection::CharFilter);
+    }
+    if let Some(max) = max_characters {
+        let select_len = driver
+            .editor
+            .selected_text()
+            .map(str::chars)
+            .map(Iterator::count)
+            .unwrap_or(0);
+        if max < driver.editor.text().chars().count() - select_len + text.chars().count() {
+            return Err(InsertRejection::MaxLength);
+        }
+    }
+    driver.insert_or_replace_selection(text);
+    Ok(())
+}
+
+/// Polls a clipboard read and, if ready, applies the resulting text as a paste.
+///
+/// Returns `true` when the read has resolved (applied, filter-rejected, or errored)
+/// and the caller should move on.
+/// Returns `false` when the read is still pending
+/// and the caller should hold onto the [`ClipboardRead`] to poll again on a later frame.
+pub(crate) fn poll_and_apply_paste(
+    read: &mut ClipboardRead,
+    driver: &mut PlainEditorDriver<TextBrush>,
+    max_characters: Option<usize>,
+    char_filter: impl Fn(char) -> bool,
+) -> bool {
+    match read.poll_result() {
+        Some(Ok(text)) => {
+            if matches!(
+                insert_filtered(driver, &text, max_characters, char_filter),
+                Err(InsertRejection::CharFilter)
+            ) {
+                bevy_log::debug!(
+                    "Paste rejected: clipboard contents contained characters not allowed by the char filter."
+                );
+            }
+            true
+        }
+        Some(Err(e)) => {
+            bevy_log::warn!("Failed to read clipboard for paste: {e:?}");
+            true
+        }
+        None => false,
     }
 }

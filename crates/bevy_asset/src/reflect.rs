@@ -409,7 +409,7 @@ impl LoadFromPath for LoadContext<'_> {
         type_id: TypeId,
         path: AssetPath<'static>,
     ) -> UntypedHandle {
-        self.loader().with_dynamic_type(type_id).load(path)
+        self.load_builder().load_erased(type_id, path)
     }
 }
 

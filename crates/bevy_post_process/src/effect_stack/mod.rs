@@ -11,7 +11,6 @@ mod lens_distortion;
 mod vignette;
 
 use bevy_color::ColorToComponents;
-use bevy_math::Vec2;
 pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
 pub use lens_distortion::{LensDistortion, LensDistortionUniform};
 pub use vignette::{Vignette, VignetteUniform};
@@ -81,10 +80,8 @@ pub struct EffectStackPlugin;
 pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
     bind_group_layout: BindGroupLayoutDescriptor,
-    /// Specifies how to sample the source framebuffer texture.
-    source_sampler: Sampler,
-    /// Specifies how to sample the chromatic aberration gradient.
-    chromatic_aberration_lut_sampler: Sampler,
+    /// A shared sampler used to sample both the source framebuffer texture and the LUT texture.
+    common_sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -176,7 +173,7 @@ impl Plugin for EffectStackPlugin {
     }
 }
 
-pub fn init_post_processing_pipeline(
+pub(crate) fn init_post_processing_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
@@ -190,12 +187,10 @@ pub fn init_post_processing_pipeline(
             (
                 // Common source:
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Common source sampler:
+                // Common sampler:
                 sampler(SamplerBindingType::Filtering),
                 // Chromatic aberration LUT:
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Chromatic aberration LUT sampler:
-                sampler(SamplerBindingType::Filtering),
                 // Chromatic aberration settings:
                 uniform_buffer::<ChromaticAberrationUniform>(true),
                 // Vignette settings:
@@ -208,15 +203,7 @@ pub fn init_post_processing_pipeline(
 
     // Both source and chromatic aberration LUTs should be sampled
     // bilinearly.
-
-    let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: MipmapFilterMode::Linear,
-        min_filter: FilterMode::Linear,
-        mag_filter: FilterMode::Linear,
-        ..default()
-    });
-
-    let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
+    let common_sampler = render_device.create_sampler(&SamplerDescriptor {
         mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
@@ -225,8 +212,7 @@ pub fn init_post_processing_pipeline(
 
     commands.insert_resource(PostProcessingPipeline {
         bind_group_layout,
-        source_sampler,
-        chromatic_aberration_lut_sampler,
+        common_sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
     });
@@ -335,9 +321,8 @@ pub(crate) fn post_processing(
         &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
         &BindGroupEntries::sequential((
             post_process.source,
-            &post_processing_pipeline.source_sampler,
+            &post_processing_pipeline.common_sampler,
             &chromatic_aberration_lut.texture_view,
-            &post_processing_pipeline.chromatic_aberration_lut_sampler,
             chromatic_aberration_uniform_buffer_binding,
             vignette_uniform_buffer_binding,
             lens_distortion_uniform_buffer_binding,
@@ -366,7 +351,7 @@ pub(crate) fn post_processing(
 }
 
 /// Specializes the built-in postprocessing pipeline for each applicable view.
-pub fn prepare_post_processing_pipelines(
+pub(crate) fn prepare_post_processing_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
@@ -398,7 +383,7 @@ pub fn prepare_post_processing_pipelines(
 
 /// Gathers the built-in postprocessing settings for every view and uploads them
 /// to the GPU.
-pub fn prepare_post_processing_uniforms(
+pub(crate) fn prepare_post_processing_uniforms(
     mut commands: Commands,
     mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
     render_device: Res<RenderDevice>,
@@ -419,6 +404,7 @@ pub fn prepare_post_processing_uniforms(
 ) {
     post_processing_uniform_buffers.chromatic_aberration.clear();
     post_processing_uniform_buffers.vignette.clear();
+    post_processing_uniform_buffers.lens_distortion.clear();
 
     // Gather up all the postprocessing settings.
     for (view_entity, maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) in
@@ -444,10 +430,10 @@ pub fn prepare_post_processing_uniforms(
             post_processing_uniform_buffers
                 .vignette
                 .push(&VignetteUniform {
-                    intensity: vignette.intensity,
-                    radius: vignette.radius,
-                    smoothness: vignette.smoothness,
-                    roundness: vignette.roundness,
+                    intensity: vignette.intensity.min(1.0),
+                    radius: vignette.radius.max(1e-6),
+                    smoothness: vignette.smoothness.max(0.0),
+                    roundness: vignette.roundness.clamp(1e-6, 2.0 - 1e-6),
                     center: vignette.center,
                     edge_compensation: vignette.edge_compensation,
                     unused: 0,
@@ -466,8 +452,8 @@ pub fn prepare_post_processing_uniforms(
                     .push(&LensDistortionUniform {
                         intensity: lens_distortion.intensity,
                         scale: lens_distortion.scale.max(1e-6),
-                        multiplier: lens_distortion.multiplier.max(Vec2::ZERO),
-                        center: lens_distortion.center.clamp(Vec2::ZERO, Vec2::ONE),
+                        multiplier: lens_distortion.multiplier,
+                        center: lens_distortion.center,
                         edge_curvature: lens_distortion.edge_curvature,
                         unused: 0,
                     })
