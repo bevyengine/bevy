@@ -371,7 +371,7 @@ impl BundleInfo {
                 StorageType::Resource => {
                     let resource_storage=
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
-                        // a sparse set exists for the component.
+                        // a resource storage exists for the component.
                         unsafe { resource_storages.get_mut(component_id).debug_checked_unwrap() };
                     resource_storage.insert(entity, component_ptr, change_tick, caller);
                 }
