@@ -29,7 +29,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-fea
 [target.'cfg(any(windows, unix))'.dependencies]
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev", default-features = false, optional = true }
 bevy_image = { path = "../bevy_image", version = "0.19.0-dev", default-features = false, optional = true }
-wgpu-types = { version = "29.0.1", default-features = false, optional = true }
+wgpu-types = { version = "29.0.3", default-features = false, optional = true }
 arboard = { version = "3.6.1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

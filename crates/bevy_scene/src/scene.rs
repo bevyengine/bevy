@@ -460,6 +460,7 @@ impl Scene for NameEntityReference {
 
 /// A [`Scene`] that will create a new "entity scope" and fully resolve the given scene `S` on top of the current [`ResolvedScene`] (using that scope).
 /// It is not "inherited" or cached.
+#[must_use]
 pub struct SceneScope<S: Scene>(pub S);
 
 impl<S: Scene> Scene for SceneScope<S> {
@@ -478,6 +479,7 @@ impl<S: Scene> Scene for SceneScope<S> {
 
 /// A [`SceneList`] that will create a new "entity scope" and fully resolve the given scene list `L` on top of the current [`Vec<ResolvedScene>`]
 /// (using that scope). It is not "inherited" or cached.
+#[must_use]
 pub struct SceneListScope<L: SceneList>(pub L);
 
 impl<L: SceneList> SceneList for SceneListScope<L> {
@@ -539,4 +541,37 @@ pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>
     observer: I,
 ) -> OnTemplate<I, E, B, M> {
     OnTemplate(observer, PhantomData)
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
+    fn from(value: SceneScope<S>) -> Self {
+        Box::new(value)
+    }
+}
+
+/// A [`Scene`] that initializes a template if it doesn't yet exist.
+#[derive(Default)]
+pub struct InitTemplate<T>(PhantomData<T>);
+
+impl<T: Template<Output: Component> + Default + Send + Sync + 'static> Scene for InitTemplate<T> {
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        let _ = scene.get_or_insert_template::<T>(context);
+        Ok(())
+    }
 }
