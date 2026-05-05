@@ -110,7 +110,7 @@ pub struct RayCastBackfaces;
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[derive(Component, FromTemplate, Clone, Debug, Deref, DerefMut, Reflect)]
 #[reflect(Component, Debug, Clone)]
 pub struct SimplifiedMesh(pub Handle<Mesh>);
 

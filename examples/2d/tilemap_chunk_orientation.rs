@@ -61,14 +61,14 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         TilemapChunk {
             chunk_size,
             tile_display_size,
-            tileset: assets.load_with_settings(
-                "textures/arrow.png",
-                |settings: &mut ImageLoaderSettings| {
+            tileset: assets
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| {
                     // The tileset texture is expected to be an array of tile textures, so we tell the
                     // `ImageLoader` that our texture is composed of 2 stacked tile images.
                     settings.array_layout = Some(ImageArrayLayout::RowCount { rows: 2 });
-                },
-            ),
+                })
+                .load("textures/arrow.png"),
             alpha_mode: AlphaMode2d::Blend,
         },
         TilemapChunkTileData(tile_data),

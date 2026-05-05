@@ -3,7 +3,6 @@ use alloc::sync::Arc;
 use bevy_asset::AssetId;
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use core::hash::Hash;
-use naga::valid::Capabilities;
 use thiserror::Error;
 use tracing::debug;
 use wgpu_types::{DownlevelFlags, Features};
@@ -129,7 +128,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             &ValidateShader,
         ) -> Result<ShaderModule, ShaderCacheError>,
     ) -> Self {
-        let capabilities = get_capabilities(features, downlevel);
+        let capabilities = wgpu_naga_bridge::features_to_naga_capabilities(features, downlevel);
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
@@ -466,158 +465,4 @@ pub enum ShaderCacheError {
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
-}
-
-// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
-// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
-// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
-/// Get the device's capabilities for use in `naga_oil`.
-fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
-    let mut capabilities = Capabilities::empty();
-    capabilities.set(
-        Capabilities::IMMEDIATES,
-        features.contains(Features::IMMEDIATES),
-    );
-    capabilities.set(
-        Capabilities::FLOAT64,
-        features.contains(Features::SHADER_F64),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT16,
-        features.contains(Features::SHADER_F16),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT16_IN_FLOAT32,
-        downlevel.contains(DownlevelFlags::SHADER_F16_IN_F32),
-    );
-    capabilities.set(
-        Capabilities::PRIMITIVE_INDEX,
-        features.contains(Features::SHADER_PRIMITIVE_INDEX),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY,
-        features.contains(Features::TEXTURE_BINDING_ARRAY),
-    );
-    capabilities.set(
-        Capabilities::BUFFER_BINDING_ARRAY,
-        features.contains(Features::BUFFER_BINDING_ARRAY),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY,
-        features.contains(Features::TEXTURE_BINDING_ARRAY)
-            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_BUFFER_BINDING_ARRAY,
-        features.contains(Features::BUFFER_BINDING_ARRAY)
-            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
-        features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
-    );
-    capabilities.set(
-        Capabilities::MULTIVIEW,
-        features.contains(Features::MULTIVIEW),
-    );
-    capabilities.set(
-        Capabilities::EARLY_DEPTH_TEST,
-        features.contains(Features::SHADER_EARLY_DEPTH_TEST),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64,
-        features.contains(Features::SHADER_INT64),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
-        features.intersects(
-            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
-        ),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
-        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_ATOMIC,
-        features.contains(Features::TEXTURE_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_INT64_ATOMIC,
-        features.contains(Features::TEXTURE_INT64_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT32_ATOMIC,
-        features.contains(Features::SHADER_FLOAT32_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::MULTISAMPLED_SHADING,
-        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
-    );
-    capabilities.set(
-        Capabilities::DUAL_SOURCE_BLENDING,
-        features.contains(Features::DUAL_SOURCE_BLENDING),
-    );
-    capabilities.set(
-        Capabilities::CLIP_DISTANCE,
-        features.contains(Features::CLIP_DISTANCES),
-    );
-    capabilities.set(
-        Capabilities::CUBE_ARRAY_TEXTURES,
-        downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP,
-        features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP_BARRIER,
-        features.intersects(Features::SUBGROUP_BARRIER),
-    );
-    capabilities.set(
-        Capabilities::RAY_QUERY,
-        features.intersects(Features::EXPERIMENTAL_RAY_QUERY),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP_VERTEX_STAGE,
-        features.contains(Features::SUBGROUP_VERTEX),
-    );
-    capabilities.set(
-        Capabilities::RAY_HIT_VERTEX_POSITION,
-        features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_EXTERNAL,
-        features.intersects(Features::EXTERNAL_TEXTURE),
-    );
-    capabilities.set(
-        Capabilities::SHADER_BARYCENTRICS,
-        features.intersects(Features::SHADER_BARYCENTRICS),
-    );
-    capabilities.set(
-        Capabilities::MESH_SHADER,
-        features.intersects(Features::EXPERIMENTAL_MESH_SHADER),
-    );
-    capabilities.set(
-        Capabilities::MESH_SHADER_POINT_TOPOLOGY,
-        features.intersects(Features::EXPERIMENTAL_MESH_SHADER_POINTS),
-    );
-
-    capabilities
 }

@@ -13,25 +13,25 @@ use bevy_ecs::{
     resource::Resource,
     world::{EntityWorldMut, World},
 };
+use bevy_mesh::{Mesh, MeshVertexAttribute};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use gltf::Node;
 
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_animation")]
-use {
-    bevy_animation::AnimationClip,
-    bevy_platform::collections::{HashMap, HashSet},
-};
+use {bevy_animation::AnimationClip, bevy_platform::collections::HashSet};
 
-use crate::{GltfMaterial, GltfMesh};
+use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
     khr_materials_specular::SpecularExtension,
 };
 
-/// Stores the `GltfExtensionHandler` implementations so that they
+/// Stores the `ErasedGltfExtensionHandler` implementations so that they
 /// can be added by users and also passed to the glTF loader
 #[derive(Resource, Default)]
-pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn GltfExtensionHandler>>>>);
+pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn ErasedGltfExtensionHandler>>>>);
 
 /// glTF Extensions can attach data to any objects in a glTF file.
 /// This is done by inserting data in the `extensions` sub-object, and
@@ -59,9 +59,9 @@ pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn GltfExtensionHandler
 /// The hooks are always called once, even if there is no extension data
 /// This is useful for scenarios where additional extension data isn't
 /// required, but processing should still happen.
-pub trait GltfExtensionHandler: Send + Sync {
+pub trait GltfExtensionHandler: Send + Sync + 'static {
     /// Required for dyn cloning
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler>;
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler>;
 
     /// Called when the "global" data for an extension
     /// at the root of a glTF file is encountered.
@@ -69,7 +69,13 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {}
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    ) {
+    }
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -77,7 +83,13 @@ pub trait GltfExtensionHandler: Send + Sync {
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
     /// Called when an individual animation is processed
-    fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {}
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    ) {
+    }
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -151,11 +163,15 @@ pub trait GltfExtensionHandler: Send + Sync {
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_document: &gltf::Gltf,
+        gltf_mesh: &gltf::Mesh,
         gltf_primitive: &gltf::Primitive,
         buffer_data: &[Vec<u8>],
-        out_doc: &mut Option<gltf::Document>,
-        out_data: &mut Option<Vec<Vec<u8>>>,
-    ) {
+        custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
+        user_mesh: &mut Option<Mesh>,
+    ) -> impl ConditionalSendFuture<Output = ()> {
+        async {}
     }
 
     /// Called when an individual glTF Mesh is processed
@@ -260,7 +276,297 @@ pub trait GltfExtensionHandler: Send + Sync {
     }
 }
 
-impl Clone for Box<dyn GltfExtensionHandler> {
+/// Type-erased version of [`GltfExtensionHandler`].
+/// This is used to store heterogeneous handlers in a collection.
+pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
+    /// Required for dyn cloning
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler>;
+
+    /// Called when the "global" data for an extension
+    /// at the root of a glTF file is encountered.
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    );
+
+    #[cfg(feature = "bevy_animation")]
+    /// Called when an individual animation is processed
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    );
+
+    #[cfg(feature = "bevy_animation")]
+    /// Called when all animations have been collected.
+    fn on_animations_collected(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        animations: &[Handle<AnimationClip>],
+        named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
+        animation_roots: &HashSet<usize>,
+    );
+
+    /// Called when an individual texture is processed
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>);
+
+    /// Called when an individual material is processed
+    fn on_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_material: &gltf::Material,
+        material: Handle<GltfMaterial>,
+        material_asset: &GltfMaterial,
+        material_label: &str,
+    );
+
+    /// Called when an individual glTF primitive is processed
+    fn on_gltf_primitive<'a>(
+        &'a mut self,
+        load_context: &'a mut LoadContext<'_>,
+        gltf_document: &'a gltf::Gltf,
+        gltf_mesh: &'a gltf::Mesh,
+        gltf_primitive: &'a gltf::Primitive,
+        buffer_data: &'a [Vec<u8>],
+        custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
+        user_mesh: &'a mut Option<Mesh>,
+    ) -> BoxedFuture<'a, ()>;
+
+    /// Called when an individual glTF Mesh is processed
+    fn on_gltf_mesh(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_mesh: &gltf::Mesh,
+        mesh: Handle<GltfMesh>,
+    );
+
+    /// Called when mesh and material are spawned as a single Entity
+    fn on_spawn_mesh_and_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        primitive: &gltf::Primitive,
+        mesh: &gltf::Mesh,
+        material: &gltf::Material,
+        entity: &mut EntityWorldMut,
+        material_label: &str,
+    );
+
+    /// Called when an individual Scene is done processing
+    fn on_scene_completed(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        scene: &gltf::Scene,
+        world_root_id: Entity,
+        scene_world: &mut World,
+    );
+
+    /// Called when a node is processed
+    fn on_gltf_node(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    );
+
+    /// Called when a `DirectionalLight` node is spawned
+    fn on_spawn_light_directional(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    );
+
+    /// Called when a `PointLight` node is spawned
+    fn on_spawn_light_point(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    );
+
+    /// Called when a `SpotLight` node is spawned
+    fn on_spawn_light_spot(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    );
+}
+
+impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
+        Self::dyn_clone(self)
+    }
+
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf: &gltf::Gltf,
+        settings: &GltfLoaderSettings,
+    ) {
+        Self::on_root(self, load_context, gltf, settings);
+    }
+
+    #[cfg(feature = "bevy_animation")]
+    fn on_animation(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_animation: &gltf::Animation,
+        animation_clip: &mut AnimationClip,
+    ) {
+        Self::on_animation(self, load_context, gltf_animation, animation_clip);
+    }
+
+    #[cfg(feature = "bevy_animation")]
+    fn on_animations_collected(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        animations: &[Handle<AnimationClip>],
+        named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
+        animation_roots: &HashSet<usize>,
+    ) {
+        Self::on_animations_collected(
+            self,
+            load_context,
+            animations,
+            named_animations,
+            animation_roots,
+        );
+    }
+
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {
+        Self::on_texture(self, gltf_texture, texture);
+    }
+
+    fn on_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_material: &gltf::Material,
+        material: Handle<GltfMaterial>,
+        material_asset: &GltfMaterial,
+        material_label: &str,
+    ) {
+        Self::on_material(
+            self,
+            load_context,
+            gltf_material,
+            material,
+            material_asset,
+            material_label,
+        );
+    }
+
+    fn on_gltf_primitive<'a>(
+        &'a mut self,
+        load_context: &'a mut LoadContext<'_>,
+        gltf_document: &'a gltf::Gltf,
+        gltf_mesh: &'a gltf::Mesh,
+        gltf_primitive: &'a gltf::Primitive,
+        buffer_data: &'a [Vec<u8>],
+        custom_vertex_attributes: &'a HashMap<Box<str>, MeshVertexAttribute>,
+        gltf_mesh_on_skinned_nodes: bool,
+        gltf_mesh_on_non_skinned_nodes: bool,
+        user_mesh: &'a mut Option<Mesh>,
+    ) -> BoxedFuture<'a, ()> {
+        Box::pin(async move {
+            Self::on_gltf_primitive(
+                self,
+                load_context,
+                gltf_document,
+                gltf_mesh,
+                gltf_primitive,
+                buffer_data,
+                custom_vertex_attributes,
+                gltf_mesh_on_skinned_nodes,
+                gltf_mesh_on_non_skinned_nodes,
+                user_mesh,
+            )
+            .await;
+        })
+    }
+
+    fn on_gltf_mesh(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_mesh: &gltf::Mesh,
+        mesh: Handle<GltfMesh>,
+    ) {
+        Self::on_gltf_mesh(self, load_context, gltf_mesh, mesh);
+    }
+
+    fn on_spawn_mesh_and_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        primitive: &gltf::Primitive,
+        mesh: &gltf::Mesh,
+        material: &gltf::Material,
+        entity: &mut EntityWorldMut,
+        material_label: &str,
+    ) {
+        Self::on_spawn_mesh_and_material(
+            self,
+            load_context,
+            primitive,
+            mesh,
+            material,
+            entity,
+            material_label,
+        );
+    }
+
+    fn on_scene_completed(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        scene: &gltf::Scene,
+        world_root_id: Entity,
+        scene_world: &mut World,
+    ) {
+        Self::on_scene_completed(self, load_context, scene, world_root_id, scene_world);
+    }
+
+    fn on_gltf_node(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+        Self::on_gltf_node(self, load_context, gltf_node, entity);
+    }
+
+    fn on_spawn_light_directional(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+        Self::on_spawn_light_directional(self, load_context, gltf_node, entity);
+    }
+
+    fn on_spawn_light_point(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+        Self::on_spawn_light_point(self, load_context, gltf_node, entity);
+    }
+
+    fn on_spawn_light_spot(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_node: &Node,
+        entity: &mut EntityWorldMut,
+    ) {
+        Self::on_spawn_light_spot(self, load_context, gltf_node, entity);
+    }
+}
+
+impl Clone for Box<dyn ErasedGltfExtensionHandler> {
     fn clone(&self) -> Self {
         self.dyn_clone()
     }
