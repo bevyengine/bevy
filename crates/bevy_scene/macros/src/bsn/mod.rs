@@ -26,10 +26,12 @@ fn bsn_token_stream<T: BsnTokenStream>(input: TokenStream) -> TokenStream {
         )
     });
     let mut entity_refs = EntityRefs::default();
+    let mut hoisted_expressions = HoistedExpressions::default();
     let mut ctx = BsnCodegenCtx {
         bevy_scene: &bevy_scene,
         bevy_ecs: &bevy_ecs,
         entity_refs: &mut entity_refs,
+        hoisted_expressions: &mut hoisted_expressions,
         errors: Vec::new(),
     };
 
