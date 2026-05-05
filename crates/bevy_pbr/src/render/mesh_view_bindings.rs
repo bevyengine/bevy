@@ -669,14 +669,7 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
         Res<OitBuffers>,
     ),
-    (
-        decals_buffer,
-        render_decals,
-        atmosphere_sampler,
-        blue_noise,
-        area_light_luts,
-        dfg_lut,
-    ): (
+    (decals_buffer, render_decals, atmosphere_sampler, blue_noise, area_light_luts, dfg_lut): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Option<Res<AtmosphereSampler>>,
