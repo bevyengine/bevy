@@ -56,7 +56,7 @@ mod sealed {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -144,7 +144,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -278,7 +278,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         write_lock
             .entry(type_id)
-            .insert({
+            .insert_entry({
                 // We leak here in order to obtain a `&'static` reference.
                 // Otherwise, we won't be able to return a reference due to the `RwLock`.
                 // This should be okay, though, since we expect it to remain statically

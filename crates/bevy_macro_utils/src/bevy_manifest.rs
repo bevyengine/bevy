@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
 use proc_macro::TokenStream;
-use std::sync::{PoisonError, RwLock};
+use std::sync::{PoisonError, RwLock, RwLockWriteGuard};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -42,15 +42,10 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        // TODO: Switch to using RwLockWriteGuard::downgrade when it stabilizes.
-        MANIFESTS
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(key, manifest);
+        let mut manifests = MANIFESTS.write().unwrap_or_else(PoisonError::into_inner);
+        manifests.insert(key, manifest);
 
-        f(MANIFESTS
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        f(RwLockWriteGuard::downgrade(manifests)
             .get(&manifest_path)
             .unwrap())
     }

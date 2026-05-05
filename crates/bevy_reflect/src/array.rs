@@ -1,3 +1,6 @@
+//! Traits and types used to power [array-like] operations via reflection.
+//!
+//! [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 use crate::generics::impl_generic_info_methods;
 use crate::{
     type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
@@ -31,7 +34,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Array};
+/// use bevy_reflect::{PartialReflect, array::Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
@@ -42,7 +45,7 @@ use core::{
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 /// [reflection]: crate
-/// [`List`]: crate::List
+/// [`List`]: crate::list::List
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
@@ -159,7 +162,7 @@ impl ArrayInfo {
 /// This isn't to say that a [`DynamicArray`] is immutable— its items
 /// can be mutated— just that the _number_ of items cannot change.
 ///
-/// [`DynamicList`]: crate::DynamicList
+/// [`DynamicList`]: crate::list::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) represented_type: Option<&'static TypeInfo>,
@@ -263,6 +266,10 @@ impl PartialReflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         array_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        array_partial_cmp(self, value)
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -461,6 +468,33 @@ pub fn array_partial_eq<A: Array + ?Sized>(
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [arrays](Array) and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn array_partial_cmp<A: Array + ?Sized>(
+    array: &A,
+    reflect: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Array(reflect_array) = reflect.reflect_ref() else {
+        return None;
+    };
+
+    let min_len = core::cmp::min(array.len(), reflect_array.len());
+
+    for (a, b) in array.iter().zip(reflect_array.iter()).take(min_len) {
+        match a.reflect_partial_cmp(b) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    // If all compared elements were equal, order by length
+    Some(array.len().cmp(&reflect_array.len()))
 }
 
 /// The default debug formatter for [`Array`] types.

@@ -9,6 +9,7 @@ impl_reflect_opaque!(::alloc::string::String(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
