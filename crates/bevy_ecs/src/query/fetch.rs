@@ -2666,31 +2666,184 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 /// # Example
 ///
+/// The simplest way to use a `NestedQuery` is with a `#[derive(QueryData)]` struct.
+/// The `Query` will be available on the generated `Item` struct,
+/// and we can use the query in methods on that struct.
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::{QueryData, NestedQuery};
+/// # use bevy_ecs::query::{NestedQuery, QueryData, QueryFilter, ReadOnlyQueryData};
 /// #
-/// #[derive(Component)]
-/// struct A(Entity);
+/// # #[derive(Component)]
+/// # struct Data(usize);
+/// #
+/// # let mut world = World::new();
+/// #
+/// // We want to create a relational query data
+/// // that lets us query components on an entity's parent,
+/// // like this:
+/// let root = world.spawn(Data(3)).id();
+/// let child = world.spawn(ChildOf(root)).id();
 ///
-/// #[derive(Component)]
-/// struct Name(String);
+/// let mut query = world.query::<Parent<&Data>>();
+/// let &Data(data) = query.query(&mut world).get(child).unwrap().data().unwrap();
+/// assert_eq!(data, 3);
 ///
+/// // We derive a query data struct that contains the relation plus a `NestedQuery`
 /// #[derive(QueryData)]
-/// struct NameFromA {
-///     a: &'static A,
-///     query: NestedQuery<&'static Name>,
+/// struct Parent<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static = ()> {
+///     // This will query `ChildOf` on the entity itself,
+///     // so we can find the parent entity
+///     parent: &'static ChildOf,
+///     // This will provide a `Query` that we can use to
+///     // query data on the parent entity
+///     nested_query: NestedQuery<D, F>,
 /// }
 ///
-/// impl<'w, 's> NameFromAItem<'w, 's> {
-///     fn name(&self) -> Option<&str> {
-///         self.query.get(self.a.0).ok().map(|name| &*name.0)
+/// // And add a method on the generated item struct to invoke the nested query.
+/// impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ParentItem<'w, 's, D, F> {
+///     fn data(&self) -> Option<D::Item<'w, 's>> {
+///         // We need to use `_inner` methods to return the full `'w` lifetime.
+///         self.nested_query.get_inner(self.parent.parent()).ok()
+///     }
+/// }
+/// ```
+///
+/// In order to make a query that returns the inner query data directly,
+/// instead of through an intermediate `Item` struct,
+/// you can implement `QueryData` manually by delegating to `NestedQuery`.
+///
+/// ```
+/// # use bevy_ecs::{
+/// #     archetype::Archetype,
+/// #     change_detection::Tick,
+/// #     component::{ComponentId, Components},
+/// #     prelude::*,
+/// #     query::{
+/// #         EcsAccessType, FilteredAccess, IterQueryData, NestedQuery, QueryData, QueryFilter,
+/// #         ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery,
+/// #     },
+/// #     storage::{Table, TableRow},
+/// #     world::unsafe_world_cell::UnsafeWorldCell,
+/// # };
+/// #
+/// # #[derive(Component)]
+/// # struct Data(usize);
+/// #
+/// # let mut world = World::new();
+/// #
+/// // We want to create a relational query data
+/// // that lets us query components on an entity's parent,
+/// // like this:
+/// let root = world.spawn(Data(3)).id();
+/// let child = world.spawn(ChildOf(root)).id();
+///
+/// let mut query = world.query::<Parent<&Data>>();
+/// let &Data(data) = query.query(&mut world).get(child).unwrap();
+/// assert_eq!(data, 3);
+///
+/// // This is the relational query data.
+/// // This will never actually be constructed,
+/// // and is only used as a `QueryData` type.
+/// pub struct Parent<D: ReadOnlyQueryData, F: QueryFilter = ()>(D, F);
+///
+/// // A type alias to delegate the `QueryData` impls to.
+/// // We need to refer to this type a lot, so the alias will help.
+/// // This could also be a `#[derive(QueryData)]` type.
+/// type ParentInner<D, F> = (
+///     // This will query `ChildOf` on the entity itself,
+///     // so we can find the parent entity
+///     &'static ChildOf,
+///     // This will provide a `Query` that we can use to
+///     // query data on the parent entity
+///     NestedQuery<D, F>,
+/// );
+///
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
+///     // Set `Item` to what we need for this relational query.
+///     // Here we use the output of `D`.
+///     type Item<'w, 's> = D::Item<'w, 's>;
+///
+///     unsafe fn fetch<'w, 's>(state: &'s Self::State, fetch: &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Option<Self::Item<'w, 's>> {
+///         // In `fetch`, first delegate to the type alias to get the parts:
+///         let (&ChildOf(parent), nested_query) =
+///             <ParentInner<D, F> as QueryData>::fetch(state, fetch, entity, table_row)?;
+///         // Then use the `NestedQuery` to get the data we need.
+///         // We need to use `_inner` methods to return the full `'w` lifetime.
+///         nested_query.get_inner(parent).ok()
+///     }
+///
+///     fn shrink<'wlong: 'wshort, 'wshort, 's>(item: Self::Item<'wlong, 's>) -> Self::Item<'wshort, 's> {
+///         D::shrink(item)
+///     }
+///
+///     // Set `ReadOnly` to `Self`,
+///     // as `NestedQuery` does not yet support mutable queries.
+///     type ReadOnly = Self;
+///
+///     // Delegate everything else on `QueryData` and `WorldQuery` to the type alias.
+///     // This is sound for `unsafe` items because they delegate to the
+///     // sound implementations on the type alias.
+///     const IS_READ_ONLY: bool = <ParentInner<D, F> as QueryData>::IS_READ_ONLY;
+///     const IS_ARCHETYPAL: bool = <ParentInner<D, F> as QueryData>::IS_ARCHETYPAL;
+///
+///     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+///         <ParentInner<D, F> as QueryData>::iter_access(state)
 ///     }
 /// }
 ///
-/// fn system(query: Query<NameFromA>) {
-///     for item in query {
-///         let name: Option<&str> = item.name();
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
+///     type Fetch<'w> = <ParentInner<D, F> as WorldQuery>::Fetch<'w>;
+///     type State = <ParentInner<D, F> as WorldQuery>::State;
+///
+///     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+///         <ParentInner<D, F> as WorldQuery>::shrink_fetch(fetch)
+///     }
+///
+///     unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+///         <ParentInner<D, F> as WorldQuery>::init_fetch(world, state, last_run, this_run)
+///     }
+///
+///     const IS_DENSE: bool = <ParentInner<D, F> as WorldQuery>::IS_DENSE;
+///
+///     unsafe fn set_archetype<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, archetype: &'w Archetype, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_archetype(fetch, state, archetype, table)
+///     }
+///
+///     unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_table(fetch, state, table)
+///     }
+///
+///     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
+///         <ParentInner<D, F> as WorldQuery>::update_component_access(state, access)
+///     }
+///
+///     fn init_state(world: &mut World) -> Self::State {
+///         <ParentInner<D, F> as WorldQuery>::init_state(world)
+///     }
+///
+///     fn get_state(components: &Components) -> Option<Self::State> {
+///         <ParentInner<D, F> as WorldQuery>::get_state(components)
+///     }
+///
+///     fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+///         <ParentInner<D, F> as WorldQuery>::matches_component_set(state, set_contains_id)
+///     }
+/// }
+///
+/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`
+/// // These are safe because they delegate to the type alias, which is also read-only.
+/// // Do *not* impl `ArchetypeQueryData`, because `fetch` sometimes returns `None`,
+/// // and do *not* impl `SingleEntityQueryData`, because `NestedQuery` accesses other entities.
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlyQueryData for Parent<D, F> {}
+///
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> IterQueryData for Parent<D, F> {}
+///
+/// impl<D: ReadOnlyQueryData + ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
+///     ReleaseStateQueryData for Parent<D, F>
+/// {
+///     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+///         D::release_state(item)
 ///     }
 /// }
 /// ```
