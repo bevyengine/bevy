@@ -2,7 +2,7 @@
 //!
 //! Also illustrates how to read morph target names in `name_morphs`.
 
-use bevy::{prelude::*, scene::SceneInstanceReady};
+use bevy::{prelude::*, world_serialization::WorldInstanceReady};
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
@@ -10,7 +10,7 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 150.0,
             ..default()
         })
@@ -40,7 +40,7 @@ fn setup(
                 graph_handle: graphs.add(graph),
                 index,
             },
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
+            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
         ))
         .observe(play_animation_when_ready);
 
@@ -56,14 +56,14 @@ fn setup(
 }
 
 fn play_animation_when_ready(
-    trigger: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
-        for child in children.iter_descendants(trigger.target()) {
+    if let Ok(animation_to_play) = animations_to_play.get(scene_ready.entity) {
+        for child in children.iter_descendants(scene_ready.entity) {
             if let Ok(mut player) = players.get_mut(child) {
                 player.play(animation_to_play.index).repeat();
 
@@ -79,7 +79,7 @@ fn play_animation_when_ready(
 /// of its morph targets.
 fn name_morphs(
     asset_server: Res<AssetServer>,
-    mut events: EventReader<AssetEvent<Mesh>>,
+    mut events: MessageReader<AssetEvent<Mesh>>,
     meshes: Res<Assets<Mesh>>,
 ) {
     for event in events.read() {

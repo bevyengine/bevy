@@ -3,7 +3,7 @@
 //!
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
-//! Same as [`super::component`], but for bundles.
+//! Same as [`component`](`super::component`), but for bundles.
 use alloc::boxed::Box;
 use bevy_utils::prelude::DebugName;
 use core::any::{Any, TypeId};
@@ -30,7 +30,7 @@ pub struct ReflectBundle(ReflectBundleFns);
 
 /// The raw function pointers needed to make up a [`ReflectBundle`].
 ///
-/// The also [`super::component::ReflectComponentFns`].
+/// The also [`ReflectComponentFns`](`super::component::ReflectComponentFns`).
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].
@@ -166,7 +166,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| apply_field(&mut entity, field, registry)),
+                            .for_each(|(_, field)| apply_field(&mut entity, field, registry)),
                         ReflectRef::Tuple(bundle) => bundle
                             .iter_fields()
                             .for_each(|field| apply_field(&mut entity, field, registry)),
@@ -195,15 +195,17 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                     );
                 } else {
                     match reflected_bundle.reflect_ref() {
-                        ReflectRef::Struct(bundle) => bundle.iter_fields().for_each(|field| {
-                            apply_or_insert_field_mapped(
-                                entity,
-                                field,
-                                registry,
-                                mapper,
-                                relationship_hook_mode,
-                            );
-                        }),
+                        ReflectRef::Struct(bundle) => {
+                            bundle.iter_fields().for_each(|(_, field)| {
+                                apply_or_insert_field_mapped(
+                                    entity,
+                                    field,
+                                    registry,
+                                    mapper,
+                                    relationship_hook_mode,
+                                );
+                            });
+                        }
                         ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
                             apply_or_insert_field_mapped(
                                 entity,

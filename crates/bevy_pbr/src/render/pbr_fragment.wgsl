@@ -86,10 +86,12 @@ fn pbr_input_from_standard_material(
     let base_color = pbr_bindings::material_array[material_indices[slot].material].base_color;
     let deferred_lighting_pass_id =
         pbr_bindings::material_array[material_indices[slot].material].deferred_lighting_pass_id;
+    let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
     let flags = pbr_bindings::material.flags;
     let base_color = pbr_bindings::material.base_color;
     let deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+    let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif
 
     let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
@@ -119,6 +121,8 @@ fn pbr_input_from_standard_material(
 #else   // BINDLESS
     let uv_transform = pbr_bindings::material.uv_transform;
 #endif  // BINDLESS
+
+pbr_input.material.uv_transform = uv_transform;
 
 #ifdef VERTEX_UVS_A
     var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
@@ -235,6 +239,7 @@ fn pbr_input_from_standard_material(
 #endif // VERTEX_UVS
 
     pbr_input.material.flags = flags;
+    pbr_input.material.alpha_cutoff = alpha_cutoff;
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
@@ -244,13 +249,10 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_distance;
-        pbr_input.material.alpha_cutoff =
-                pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
-        pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS
 
         // reflectance

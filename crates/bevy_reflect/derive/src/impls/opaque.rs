@@ -3,7 +3,7 @@ use crate::{
     where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
-use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQInto, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
@@ -11,12 +11,12 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let with_docs = {
         let doc = quote::ToTokens::to_token_stream(meta.doc());
         Some(quote!(.with_docs(#doc)))
     };
-    #[cfg(not(feature = "documentation"))]
+    #[cfg(not(feature = "reflect_documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
     let where_clause_options = WhereClauseOptions::new(meta);
@@ -30,7 +30,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
     let type_path_impl = impl_type_path(meta);
     let full_reflect_impl = impl_full_reflect(&where_clause_options);
-    let common_methods = common_partial_reflect_methods(meta, || None, || None);
+    let common_methods = common_partial_reflect_methods(meta, || None, || None, || None);
     let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     let apply_impl = if let Some(remote_ty) = meta.remote_ty() {
@@ -97,8 +97,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
                 #FQResult::Err(
                     #bevy_reflect_path::ApplyError::MismatchedTypes {
-                        from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
-                        to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                        from_type: #FQInto::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
+                        to_type: #FQInto::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 )
             }

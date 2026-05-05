@@ -2,7 +2,7 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible system parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`World::get_default_error_handler`] will be called if it doesn't.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`World::default_error_handler`] will be called if it doesn't.
 //! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
 //! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
@@ -10,19 +10,18 @@
 //! Other system parameters, such as [`Query`], will never fail validation: returning a query with no matching entities is valid.
 //!
 //! The result of failed system parameter validation is determined by the [`SystemParamValidationError`] returned
-//! by [`SystemParam::validate_param`] for each system parameter.
+//! by [`SystemParam::get_param`] for each system parameter.
 //! Each system will pass if all of its parameters are valid, or else return [`SystemParamValidationError`] for the first failing parameter.
 //!
 //! To learn more about setting the fallback behavior for [`SystemParamValidationError`] failures,
 //! please see the `error_handling.rs` example.
 //!
 //! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
-//! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
-//! [`default_error_handler`]: bevy::ecs::error::default_error_handler
+//! [`SystemParam::get_param`]: bevy::ecs::system::SystemParam::get_param
 
 use bevy::ecs::error::warn;
 use bevy::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 
 fn main() {
     println!();

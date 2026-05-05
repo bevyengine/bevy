@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
 use core::hint::black_box;
 use criterion::*;
 use glam::*;
@@ -23,29 +22,31 @@ fn iter_frag_empty(c: &mut Criterion) {
     group.bench_function("foreach_table", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Table>(&mut world);
-        let mut q: SystemState<Query<(Entity, &Table)>> =
-            SystemState::<Query<(Entity, &Table<0>)>>::new(&mut world);
-        let query = q.get(&world);
-        b.iter(move || {
+        let query = move |query: Query<(Entity, &Table)>| {
             let mut res = 0;
             query.iter().for_each(|(e, t)| {
                 res += e.to_bits();
                 black_box(t);
             });
+        };
+        let query_id = world.register_system(query);
+        b.iter(|| {
+            world.run_system(query_id).unwrap();
         });
     });
     group.bench_function("foreach_sparse", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Sparse>(&mut world);
-        let mut q: SystemState<Query<(Entity, &Sparse)>> =
-            SystemState::<Query<(Entity, &Sparse<0>)>>::new(&mut world);
-        let query = q.get(&world);
-        b.iter(move || {
+        let query = move |query: Query<(Entity, &Sparse)>| {
             let mut res = 0;
             query.iter().for_each(|(e, t)| {
                 res += e.to_bits();
                 black_box(t);
             });
+        };
+        let query_id = world.register_system(query);
+        b.iter(|| {
+            world.run_system(query_id).unwrap();
         });
     });
     group.finish();

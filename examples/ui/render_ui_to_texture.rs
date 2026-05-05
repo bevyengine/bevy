@@ -65,9 +65,11 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(image_handle.clone().into()),
+                // render before the "main pass" camera
+                order: -1,
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -75,8 +77,8 @@ fn setup(
         .spawn((
             Node {
                 // Cover the whole image
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -90,38 +92,37 @@ fn setup(
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        width: Val::Auto,
-                        height: Val::Auto,
+                        width: auto(),
+                        height: auto(),
                         align_items: AlignItems::Center,
-                        padding: UiRect::all(Val::Px(20.)),
+                        padding: UiRect::all(px(20.)),
+                        border_radius: BorderRadius::all(px(10.)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(10.)),
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
-                        let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
-                        node.left =
-                            Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
-                        node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
+                    |drag: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
+                        let (mut node, computed) = nodes.get_mut(drag.entity).unwrap();
+                        node.left = px(drag.pointer_location.position.x - computed.size.x / 2.0);
+                        node.top = px(drag.pointer_location.position.y - 50.0);
                     },
                 )
                 .observe(
-                    |pointer: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.target()).unwrap().0 = RED.into();
+                    |over: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(over.entity).unwrap().0 = RED.into();
                     },
                 )
                 .observe(
-                    |pointer: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.target()).unwrap().0 = BLUE.into();
+                    |out: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(out.entity).unwrap().0 = BLUE.into();
                     },
                 )
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Drag Me!"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: FontSize::Px(40.0),
                             ..default()
                         },
                         TextColor::WHITE,
@@ -174,19 +175,18 @@ fn drive_diegetic_pointer(
     mut raycast: MeshRayCast,
     rays: Res<RayMap>,
     cubes: Query<&Mesh3d, With<Cube>>,
-    ui_camera: Query<&Camera, With<Camera2d>>,
+    ui_camera: Query<&RenderTarget, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut window_events: EventReader<WindowEvent>,
-    mut pointer_input: EventWriter<PointerInput>,
+    mut window_events: MessageReader<WindowEvent>,
+    mut pointer_inputs: MessageWriter<PointerInput>,
 ) -> Result {
     // Get the size of the texture, so we can convert from dimensionless UV coordinates that span
     // from 0 to 1, to pixel coordinates.
     let target = ui_camera
         .single()?
-        .target
         .normalize(primary_window.single().ok())
         .unwrap();
     let target_info = target
@@ -204,7 +204,7 @@ fn drive_diegetic_pointer(
         for (_cube, hit) in raycast.cast_ray(*ray, &raycast_settings) {
             let position = size * hit.uv.unwrap();
             if position != *cursor_last {
-                pointer_input.write(PointerInput::new(
+                pointer_inputs.write(PointerInput::new(
                     CUBE_POINTER_ID,
                     Location {
                         target: target.clone(),
@@ -232,7 +232,7 @@ fn drive_diegetic_pointer(
                 ButtonState::Pressed => PointerAction::Press(button),
                 ButtonState::Released => PointerAction::Release(button),
             };
-            pointer_input.write(PointerInput::new(
+            pointer_inputs.write(PointerInput::new(
                 CUBE_POINTER_ID,
                 Location {
                     target: target.clone(),
