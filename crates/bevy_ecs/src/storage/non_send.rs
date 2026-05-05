@@ -301,7 +301,9 @@ impl NonSends {
     ) -> &mut NonSendData {
         self.non_sends.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
-            // SAFETY: component_info.drop() is valid for the types that will be inserted.
+            // SAFETY:
+            // * component_info.drop() is valid for the types that will be inserted.
+            // * `ComponentInfo` ensures that `layout().size()` is a multiple of `layout().align()`
             let data = unsafe {
                 BlobArray::with_capacity(component_info.layout(), component_info.drop(), 1)
             };
