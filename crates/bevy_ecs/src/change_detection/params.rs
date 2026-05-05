@@ -12,7 +12,7 @@ use core::{
 
 /// Used by immutable query parameters (such as [`Ref`] and [`Res`])
 /// to store immutable access to the [`Tick`]s of a single component or resource.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) struct ComponentTicksRef<'w> {
     pub(crate) added: &'w Tick,
     pub(crate) changed: &'w Tick,
@@ -470,12 +470,12 @@ impl<'w, T: Resource> Res<'w, T> {
     /// prefer to just convert it to `&T` which can be freely copied.
     #[expect(
         clippy::should_implement_trait,
-        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content. (A similar case of this happening can be found with `std::cell::Ref::clone()`.)"
+        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content."
     )]
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks.clone(),
+            ticks: this.ticks,
         }
     }
 
@@ -721,6 +721,17 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
+    }
+}
+
+// `Ref` is `Copy` to facilitate creation of split borrows. Compared to `Res`
+// (which isn't `Copy`), `Ref` is not as widely used so can afford to require
+// `ref.as_ref().clone()` or `ref.deref().clone()` in order to clone the inner `T`.
+impl<'w, T: ?Sized> Copy for Ref<'w, T> {}
+
+impl<'w, T: ?Sized> Clone for Ref<'w, T> {
+    fn clone(&self) -> Self {
+        *self
     }
 }
 

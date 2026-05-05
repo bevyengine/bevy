@@ -7,7 +7,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 
@@ -33,6 +33,7 @@ pub struct GpuFog {
 }
 
 // Important: These must be kept in sync with `mesh_view_types.wgsl`
+#[expect(unused, reason = "Kept in sync with `mesh_view_types.wgsl`")]
 const GPU_FOG_MODE_OFF: u32 = 0;
 const GPU_FOG_MODE_LINEAR: u32 = 1;
 const GPU_FOG_MODE_EXPONENTIAL: u32 = 2;
@@ -51,7 +52,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
+    views: Query<(Entity, &DistanceFog), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -62,7 +63,7 @@ pub fn prepare_fog(
         return;
     };
     for (entity, fog) in views_iter {
-        let gpu_fog = if let Some(fog) = fog {
+        let gpu_fog = {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
@@ -104,12 +105,6 @@ pub fn prepare_fog(
                     bi: *inscattering,
                 },
             }
-        } else {
-            // If no fog is added to a camera, by default it's off
-            GpuFog {
-                mode: GPU_FOG_MODE_OFF,
-                ..Default::default()
-            }
         };
 
         // This is later read by `SetMeshViewBindGroup<I>`
@@ -137,7 +132,7 @@ impl Plugin for FogPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<FogMeta>()
+                .init_gpu_resource::<FogMeta>()
                 .add_systems(Render, prepare_fog.in_set(RenderSystems::PrepareResources));
         }
     }

@@ -93,6 +93,7 @@ impl Plugin for SpritePlugin {
                 .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
+                .after(bevy_text::apply_text_edits)
                 .after(bevy_app::AnimationSystems)
                 .before(bevy_asset::AssetEventSystems),
         )
