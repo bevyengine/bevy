@@ -1,10 +1,12 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
-use bevy::audio::AddAudioSource;
-use bevy::audio::AudioPlugin;
-use bevy::audio::Source;
-use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use bevy::utils::Duration;
+
+use bevy::{
+    audio::{AddAudioSource, AudioPlugin, ChannelCount, SampleRate, Source, Volume},
+    math::ops,
+    prelude::*,
+    reflect::TypePath,
+};
+use core::time::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
@@ -22,7 +24,7 @@ struct SineDecoder {
     progress_per_frame: f32,
     // how long a period is
     period: f32,
-    sample_rate: u32,
+    sample_rate: SampleRate,
 }
 
 impl SineDecoder {
@@ -33,7 +35,7 @@ impl SineDecoder {
             current_progress: 0.,
             progress_per_frame: frequency / sample_rate as f32,
             period: std::f32::consts::PI * 2.,
-            sample_rate,
+            sample_rate: SampleRate::new(sample_rate).unwrap(),
         }
     }
 }
@@ -46,21 +48,21 @@ impl Iterator for SineDecoder {
         self.current_progress += self.progress_per_frame;
         // we loop back round to 0 to avoid floating point inaccuracies
         self.current_progress %= 1.;
-        Some(f32::sin(self.period * self.current_progress))
+        Some(ops::sin(self.period * self.current_progress))
     }
 }
 // `Source` is what allows the audio source to be played by bevy.
 // This trait provides information on the audio.
 impl Source for SineDecoder {
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
-    fn channels(&self) -> u16 {
-        1
+    fn channels(&self) -> ChannelCount {
+        ChannelCount::new(1).unwrap()
     }
 
-    fn sample_rate(&self) -> u32 {
+    fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
@@ -71,8 +73,6 @@ impl Source for SineDecoder {
 
 // Finally `Decodable` can be implemented for our `SineAudio`.
 impl Decodable for SineAudio {
-    type DecoderItem = <SineDecoder as Iterator>::Item;
-
     type Decoder = SineDecoder;
 
     fn decoder(&self) -> Self::Decoder {
@@ -84,7 +84,7 @@ fn main() {
     let mut app = App::new();
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
-        global_volume: GlobalVolume::new(0.2),
+        global_volume: Volume::Linear(0.2).into(),
         ..default()
     }))
     .add_audio_source::<SineAudio>()
@@ -95,10 +95,7 @@ fn main() {
 fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
     // add a `SineAudio` to the asset server so that it can be played
     let audio_handle = assets.add(SineAudio {
-        frequency: 440., //this is the frequency of A4
+        frequency: 440., // this is the frequency of A4
     });
-    commands.spawn(AudioSourceBundle {
-        source: audio_handle,
-        ..default()
-    });
+    commands.spawn(AudioPlayer(audio_handle));
 }

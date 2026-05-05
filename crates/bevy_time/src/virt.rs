@@ -1,6 +1,7 @@
-use bevy_ecs::system::{Res, ResMut};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{tracing::debug, Duration};
+use core::time::Duration;
+use log::debug;
 
 use crate::{real::Real, time::Time};
 
@@ -19,8 +20,9 @@ use crate::{real::Real, time::Time};
 /// in order to prevent unexpected behavior in cases where updates do not happen
 /// at regular intervals (e.g. coming back after the program was suspended a long time).
 ///
-/// The virtual clock can be paused by calling [`pause()`](Time::pause) and
-/// unpaused by calling [`unpause()`](Time::unpause). When the game clock is
+/// The virtual clock can be paused by calling [`pause()`](Time::pause),
+/// unpaused by calling [`unpause()`](Time::unpause), or toggled by calling
+/// [`toggle()`](Time::toggle). When the game clock is
 /// paused [`delta()`](Time::delta) will be zero on each update, and
 /// [`elapsed()`](Time::elapsed) will not grow.
 /// [`effective_speed()`](Time::effective_speed) will return `0.0`. Calling
@@ -68,7 +70,8 @@ use crate::{real::Real, time::Time};
 /// time. You should also consider how stable your FPS is, as the limit will
 /// also dictate how big of an FPS drop you can accept without losing time and
 /// falling behind real time.
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Virtual {
     max_delta: Duration,
     paused: bool,
@@ -201,13 +204,19 @@ impl Time<Virtual> {
         self.context_mut().relative_speed = ratio;
     }
 
+    /// Stops the clock if it is running, otherwise resumes the clock.
+    #[inline]
+    pub fn toggle(&mut self) {
+        self.context_mut().paused ^= true;
+    }
+
     /// Stops the clock, preventing it from advancing until resumed.
     #[inline]
     pub fn pause(&mut self) {
         self.context_mut().paused = true;
     }
 
-    /// Resumes the clock if paused.
+    /// Resumes the clock.
     #[inline]
     pub fn unpause(&mut self) {
         self.context_mut().paused = false;
@@ -268,11 +277,7 @@ impl Default for Virtual {
 /// Advances [`Time<Virtual>`] and [`Time`] based on the elapsed [`Time<Real>`].
 ///
 /// The virtual time will be advanced up to the provided [`Time::max_delta`].
-pub fn virtual_time_system(
-    mut current: ResMut<Time>,
-    mut virt: ResMut<Time<Virtual>>,
-    real: Res<Time<Real>>,
-) {
+pub fn update_virtual_time(current: &mut Time, virt: &mut Time<Virtual>, real: &Time<Real>) {
     let raw_delta = real.delta();
     virt.advance_with_raw_delta(raw_delta);
     *current = virt.as_generic();

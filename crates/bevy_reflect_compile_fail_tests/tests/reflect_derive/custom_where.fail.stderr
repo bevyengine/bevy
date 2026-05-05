@@ -1,5 +1,0 @@
-error: expected `:`
-  --> tests/reflect_derive/custom_where.fail.rs:15:44
-   |
-15 | #[reflect(where T: std::fmt::Debug, MyTrait)]
-   |                                            ^

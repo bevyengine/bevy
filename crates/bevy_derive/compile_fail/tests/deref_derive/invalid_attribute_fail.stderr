@@ -1,0 +1,14 @@
+error: unexpected token in attribute
+ --> tests/deref_derive/invalid_attribute_fail.rs:8:12
+  |
+8 |     #[deref()] String
+  |            ^
+
+error: unexpected token in attribute
+  --> tests/deref_derive/invalid_attribute_fail.rs:15:12
+   |
+15 |     #[deref()]
+   |            ^
+
+error: aborting due to 2 previous errors
+

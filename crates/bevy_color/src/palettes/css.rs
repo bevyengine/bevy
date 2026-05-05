@@ -4,7 +4,6 @@
 use crate::Srgba;
 
 // The CSS4 colors are a superset of the CSS1 colors, so we can just re-export the CSS1 colors.
-#[allow(unused_imports)]
 pub use crate::palettes::basic::*;
 
 /// <div style="background-color:rgb(94.1%, 97.3%, 100.0%); width: 10px; padding: 10px; border: 1px solid;"></div>

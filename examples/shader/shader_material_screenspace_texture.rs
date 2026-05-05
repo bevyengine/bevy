@@ -1,10 +1,11 @@
 //! A shader that samples a texture with view-independent UV coordinates.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_material_screenspace_texture.wgsl";
 
 fn main() {
     App::new()
@@ -24,43 +25,34 @@ fn setup(
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: standard_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(standard_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: custom_materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(custom_materials.add(CustomMaterial {
             texture: asset_server.load(
                 "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
             ),
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
     ));
 }
 
-fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<Time>) {
-    let cam_transform = camera.single_mut().into_inner();
-
+fn rotate_camera(mut cam_transform: Single<&mut Transform, With<MainCamera>>, time: Res<Time>) {
     cam_transform.rotate_around(
         Vec3::ZERO,
-        Quat::from_axis_angle(Vec3::Y, 45f32.to_radians() * time.delta_seconds()),
+        Quat::from_axis_angle(Vec3::Y, 45f32.to_radians() * time.delta_secs()),
     );
     cam_transform.look_at(Vec3::ZERO, Vec3::Y);
 }
@@ -74,6 +66,6 @@ struct CustomMaterial {
 
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material_screenspace_texture.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

@@ -1,1 +1,8 @@
 /build
+.gradle
+.idea
+.DS_Store
+build
+.cxx
+local.properties
+*.so

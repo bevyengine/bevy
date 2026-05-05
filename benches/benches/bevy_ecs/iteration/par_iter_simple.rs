@@ -19,7 +19,7 @@ struct Data<const X: u16>(f32);
 pub struct Benchmark<'w>(World, QueryState<(&'w Velocity, &'w mut Position)>);
 
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
-    if i & 1 << B != 0 {
+    if i & (1 << B) != 0 {
         entity.insert(Data::<B>(1.0));
     }
 }
@@ -30,15 +30,15 @@ impl<'w> Benchmark<'w> {
 
         let mut world = World::new();
 
-        let iter = world.spawn_batch(
-            std::iter::repeat((
+        let iter = world.spawn_batch(core::iter::repeat_n(
+            (
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Position(Vec3::X),
                 Rotation(Vec3::X),
                 Velocity(Vec3::X),
-            ))
-            .take(100_000),
-        );
+            ),
+            100_000,
+        ));
         let entities = iter.into_iter().collect::<Vec<Entity>>();
         for i in 0..fragment {
             let mut e = world.entity_mut(entities[i as usize]);

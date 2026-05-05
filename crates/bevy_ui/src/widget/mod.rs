@@ -3,11 +3,13 @@
 mod button;
 mod image;
 mod label;
-#[cfg(feature = "bevy_text")]
 mod text;
+mod text_input_layout;
+mod viewport;
 
 pub use button::*;
 pub use image::*;
 pub use label::*;
-#[cfg(feature = "bevy_text")]
 pub use text::*;
+pub use text_input_layout::*;
+pub use viewport::*;

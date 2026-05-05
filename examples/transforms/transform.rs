@@ -45,12 +45,9 @@ fn setup(
 ) {
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
-            material: materials.add(Color::from(YELLOW)),
-            transform: Transform::from_translation(Vec3::ZERO),
-            ..default()
-        },
+        Mesh3d(meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap())),
+        MeshMaterial3d(materials.add(Color::from(YELLOW))),
+        Transform::from_translation(Vec3::ZERO),
         Center {
             max_size: 1.0,
             min_size: 0.1,
@@ -66,12 +63,9 @@ fn setup(
     let cube_spawn =
         Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
-            transform: cube_spawn,
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        cube_spawn,
         CubeState {
             start_pos: cube_spawn.translation,
             move_speed: 2.0,
@@ -80,16 +74,16 @@ fn setup(
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Add a light source for better 3d visibility.
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This system will move the cube forward.
@@ -97,7 +91,7 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time
     for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
-        transform.translation += forward * cube.move_speed * timer.delta_seconds();
+        transform.translation += forward * cube.move_speed * timer.delta_secs();
     }
 }
 
@@ -119,9 +113,9 @@ fn rotate_cube(
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
         let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
-        // when looking a the sphere,  with a given turn speed to get a smooth motion.
+        // when looking at the sphere, with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.
-        let incremental_turn_weight = cube.turn_speed * timer.delta_seconds();
+        let incremental_turn_weight = cube.turn_speed * timer.delta_secs();
         let old_rotation = transform.rotation;
         transform.rotation = old_rotation.lerp(look_at_sphere.rotation, incremental_turn_weight);
     }

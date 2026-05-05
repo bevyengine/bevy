@@ -1,16 +1,17 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 #[derive(FromArgs, Resource)]
@@ -23,6 +24,10 @@ struct Args {
     /// total number of foxes.
     #[argh(option, default = "1000")]
     count: usize,
+
+    /// enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
 }
 
 #[derive(Resource)]
@@ -46,30 +51,27 @@ fn main() {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(StaticTransformOptimizations::Disabled)
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
             moving: true,
             sync: args.sync,
         })
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
-                setup_scene_once_loaded,
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
@@ -113,18 +115,19 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
+    args: Res<Args>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
     let animation_clips = [
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
-        .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
+        .add_clips(animation_clips, 1.0, animation_graph.root)
         .collect();
     commands.insert_resource(Animations {
         node_indices,
@@ -136,7 +139,8 @@ fn setup(
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
 
     // NOTE: This fox model faces +z
-    let fox_handle = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (
@@ -156,7 +160,8 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 ring_direction,
                 Ring { radius },
             ))
@@ -168,17 +173,18 @@ fn setup(
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
-            let (s, c) = fox_angle.sin_cos();
+            let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn(SceneBundle {
-                    scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x, 0.0, z)
-                        .with_scale(Vec3::splat(0.01))
-                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                    ..default()
-                });
+                builder
+                    .spawn((
+                        WorldAssetRoot(fox_handle.clone()),
+                        Transform::from_xyz(x, 0.0, z)
+                            .with_scale(Vec3::splat(0.01))
+                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ))
+                    .observe(setup_scene_once_loaded);
             });
         }
 
@@ -194,34 +200,45 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(translation)
+    let mut camera = commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..default()
-    });
+    ));
+
+    if args.motion_blur {
+        camera.insert((
+            MotionBlur {
+                // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                shutter_angle: 3.0,
+                ..Default::default()
+            },
+            // MSAA and MotionBlur are not compatible on WebGL.
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            Msaa::Off,
+        ));
+    }
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
+            shadow_maps_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
@@ -232,25 +249,24 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    scene_ready: On<WorldInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
-    mut player: Query<(Entity, &mut AnimationPlayer)>,
-    mut done: Local<bool>,
+    children: Query<&Children>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    if !*done && player.iter().len() == foxes.count {
-        for (entity, mut player) in &mut player {
-            commands
-                .entity(entity)
-                .insert(animations.graph.clone())
-                .insert(AnimationTransitions::new());
-
+    for child in children.iter_descendants(scene_ready.entity) {
+        if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(entity.index() as f32 / 10.0);
+                playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
+            commands.entity(child).insert((
+                AnimationGraphHandle(animations.graph.clone()),
+                AnimationTransitions::default(),
+            ));
         }
-        *done = true;
     }
 }
 
@@ -263,7 +279,7 @@ fn update_fox_rings(
         return;
     }
 
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     for (ring, rotation_direction, mut transform) in &mut rings {
         let angular_velocity = foxes.speed / ring.radius;
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);

@@ -8,7 +8,7 @@
 
 This crate enables you to dynamically interact with Rust types:
 
-* Derive the Reflect traits
+* Derive the `Reflect` traits
 * Interact with fields using their names (for named structs) or indices (for tuple structs)
 * "Patch" your types with new values
 * Look up nested fields using "path strings"
@@ -18,10 +18,10 @@ This crate enables you to dynamically interact with Rust types:
 
 ## Features
 
-### Derive the Reflect traits
+### Derive the `Reflect` traits
 
 ```rust ignore
-// this will automatically implement the Reflect trait and the Struct trait (because the type is a struct)
+// this will automatically implement the `Reflect` trait and the `Struct` trait (because the type is a struct)
 #[derive(Reflect)]
 struct Foo {
     a: u32,
@@ -30,7 +30,7 @@ struct Foo {
     d: Vec<Baz>,
 }
 
-// this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
+// this will automatically implement the `Reflect` trait and the `TupleStruct` trait (because the type is a tuple struct)
 #[derive(Reflect)]
 struct Bar(String);
 
@@ -160,7 +160,7 @@ println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
 // of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
+// knows that &dyn Reflect should first be downcast to &MyType, which can then be safely cast to &dyn DoThing
 ```
 
 ## Why make this?
