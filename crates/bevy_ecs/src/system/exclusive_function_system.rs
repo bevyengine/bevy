@@ -15,7 +15,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::{RunSystemError, SystemParamValidationError, SystemStateFlags};
+use super::{RunSystemError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -117,7 +117,7 @@ where
             let params = F::Param::get_param(
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
-            );
+            )?;
 
             #[cfg(feature = "hotpatching")]
             let out = {
@@ -167,15 +167,6 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // All exclusive system params are always available.
-        Ok(())
-    }
-
-    #[inline]
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
@@ -192,7 +183,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 
@@ -337,20 +328,20 @@ mod tests {
             let system = IntoSystem::into_system(function);
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 function.system_type_id(),
-                "System::type_id should be consistent with IntoSystem::system_type_id"
+                "System::system_type should be consistent with IntoSystem::system_type_id"
             );
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 TypeId::of::<T::System>(),
-                "System::type_id should be consistent with TypeId::of::<T::System>()"
+                "System::system_type should be consistent with TypeId::of::<T::System>()"
             );
 
             assert_ne!(
-                system.type_id(),
-                IntoSystem::into_system(reference_system).type_id(),
+                system.system_type(),
+                IntoSystem::into_system(reference_system).system_type(),
                 "Different systems should have different TypeIds"
             );
         }

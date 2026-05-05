@@ -1,20 +1,20 @@
 use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSystems, Res,
+    RenderStartup, RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
-    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
-use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -27,6 +27,15 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 /// The system set during which we extract modified assets to the render world.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct AssetExtractionSystems;
+
+/// Error returned when an asset due for extraction has already been extracted
+#[derive(Debug, Error)]
+pub enum AssetExtractionError {
+    #[error("The asset has already been extracted")]
+    AlreadyExtracted,
+    #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
+    NoExtractionImplementation,
+}
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
@@ -82,6 +91,18 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         _param: &mut SystemParamItem<Self::Param>,
     ) {
     }
+
+    /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
+    /// should be moved into the copy, leaving this asset with only metadata.
+    /// An error may be returned to indicate that the asset has already been extracted, and should not
+    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
+    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    fn take_gpu_data(
+        _source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        Err(AssetExtractionError::NoExtractionImplementation)
+    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -117,7 +138,9 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
+                .allow_ambiguous_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
+                .add_systems(RenderStartup, collect_render_assets_to_reextract::<A>)
                 .add_systems(
                     ExtractSchedule,
                     extract_render_asset::<A>.in_set(AssetExtractionSystems),
@@ -220,6 +243,7 @@ struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
+        Option<Res<'static, RenderAssets<A>>>,
     )>,
 }
 
@@ -231,19 +255,52 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
-/// into the "render world".
-pub(crate) fn extract_render_asset<A: RenderAsset>(
+/// Resource inserted during [`RenderStartup`] containing asset IDs that need
+/// re-extraction from the main world after device recovery.
+#[derive(Resource)]
+pub(crate) struct RenderAssetsToReExtract<A: RenderAsset> {
+    ids: Vec<AssetId<A::SourceAsset>>,
+}
+
+/// Drains all asset IDs from [`RenderAssets<A>`] to mark for re-extraction.
+fn collect_render_assets_to_reextract<A: RenderAsset>(
     mut commands: Commands,
-    mut main_world: ResMut<MainWorld>,
+    mut render_assets: ResMut<RenderAssets<A>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
 ) {
+    let ids: Vec<_> = render_assets.0.drain().map(|(id, _)| id).collect();
+    prepare_next_frame.assets.clear();
+    if !ids.is_empty() {
+        commands.insert_resource(RenderAssetsToReExtract::<A> { ids });
+    }
+}
+
+/// Extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
+/// into the "render world", including any assets invalidated by device recovery.
+pub(crate) fn extract_render_asset<A: RenderAsset>(
+    mut to_reextract: Option<ResMut<RenderAssetsToReExtract<A>>>,
+    mut extracted_assets: ResMut<ExtractedAssets<A>>,
+    mut main_world: ResMut<MainWorld>,
+    mut needs_extracting: Local<HashSet<AssetId<A::SourceAsset>>>,
+) {
+    extracted_assets.extracted.clear();
+    extracted_assets.removed.clear();
+    extracted_assets.modified.clear();
+    extracted_assets.added.clear();
+    needs_extracting.clear();
+
+    let reextract_ids = to_reextract
+        .as_mut()
+        .map(|r| core::mem::take(&mut r.ids))
+        .filter(|ids| !ids.is_empty());
+
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
 
-            let mut needs_extracting = <HashSet<_>>::default();
-            let mut removed = <HashSet<_>>::default();
-            let mut modified = <HashSet<_>>::default();
+            if let Some(reextract_ids) = reextract_ids {
+                needs_extracting.extend(reextract_ids);
+            }
 
             for event in events.read() {
                 #[expect(
@@ -256,7 +313,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     }
                     AssetEvent::Modified { id } => {
                         needs_extracting.insert(*id);
-                        modified.insert(*id);
+                        extracted_assets.modified.insert(*id);
                     }
                     AssetEvent::Removed { .. } => {
                         // We don't care that the asset was removed from Assets<T> in the main world.
@@ -264,8 +321,8 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     }
                     AssetEvent::Unused { id } => {
                         needs_extracting.remove(id);
-                        modified.remove(id);
-                        removed.insert(*id);
+                        extracted_assets.modified.remove(id);
+                        extracted_assets.removed.insert(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
@@ -273,31 +330,31 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                 }
             }
 
-            let mut extracted_assets = Vec::new();
-            let mut added = <HashSet<_>>::default();
             for id in needs_extracting.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+                            if let Some(asset) = assets.get_mut_untracked(id) {
+                                let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
+                                match A::take_gpu_data(asset, previous_asset) {
+                                    Ok(gpu_data_asset) => {
+                                        extracted_assets.extracted.push((id, gpu_data_asset));
+                                        extracted_assets.added.insert(id);
+                                    }
+                                    Err(e) => {
+                                        error!("{} with RenderAssetUsages == RENDER_WORLD cannot be extracted: {e}", core::any::type_name::<A>());
+                                    }
+                                };
                             }
                         } else {
-                            extracted_assets.push((id, asset.clone()));
-                            added.insert(id);
+                            extracted_assets.extracted.push((id, asset.clone()));
+                            extracted_assets.added.insert(id);
                         }
                     }
                 }
             }
 
-            commands.insert_resource(ExtractedAssets::<A> {
-                extracted: extracted_assets,
-                removed,
-                modified,
-                added,
-            });
             cached_state.state.apply(world);
         },
     );

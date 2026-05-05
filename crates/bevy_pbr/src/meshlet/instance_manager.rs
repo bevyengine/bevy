@@ -110,8 +110,8 @@ impl InstanceManager {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
-            world_from_local: (&transform).into(),
-            previous_world_from_local: (&previous_transform).into(),
+            world_from_local: transform.into(),
+            previous_world_from_local: previous_transform.into(),
             flags: flags.bits(),
         };
 
@@ -130,6 +130,7 @@ impl InstanceManager {
             &transforms,
             0,
             mesh_material_binding_id.slot,
+            None,
             None,
             None,
             None,
@@ -219,7 +220,7 @@ pub fn extract_meshlet_mesh_entities(
     }
     let system_state = system_state.as_mut().unwrap();
     let (instances_query, asset_server, mut assets, mut asset_events) =
-        system_state.get_mut(&mut main_world);
+        system_state.get_mut(&mut main_world).unwrap();
 
     // Reset per-frame data
     instance_manager.reset(render_entities);

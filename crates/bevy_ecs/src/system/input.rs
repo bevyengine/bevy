@@ -13,6 +13,7 @@ use crate::{bundle::Bundle, event::Event, prelude::On, system::System};
 /// - [`InMut<T>`]: For mutable references to values
 /// - [`On<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
+/// - `Option<I>`: For optional inputs of some [`SystemInput`] `I`
 /// - Tuples of [`SystemInput`]s up to 8 elements
 ///
 /// For advanced usecases, you can implement this trait for your own types.
@@ -54,6 +55,30 @@ pub trait SystemInput: Sized {
 
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
 pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
+
+/// A type that may be constructed from the input of a [`System`].
+/// This is used to allow systems whose first parameter is a `StaticSystemInput<In>`
+/// to take an `In` as input, and can be implemented for user types to allow
+/// similar conversions.
+pub trait FromInput<In: SystemInput>: SystemInput {
+    /// Converts the system input's inner representation into this type's
+    /// inner representation.
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i>;
+}
+
+impl<In: SystemInput> FromInput<In> for In {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
+}
+
+impl<'a, In: SystemInput> FromInput<In> for StaticSystemInput<'a, In> {
+    #[inline]
+    fn from_inner<'i>(inner: In::Inner<'i>) -> Self::Inner<'i> {
+        inner
+    }
+}
 
 /// A [`SystemInput`] type which denotes that a [`System`] receives
 /// an input value of type `T` from its caller.
@@ -256,6 +281,15 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
     }
 }
 
+impl<I: SystemInput> SystemInput for Option<I> {
+    type Param<'i> = Option<I::Param<'i>>;
+    type Inner<'i> = Option<I::Inner<'i>>;
+
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+        this.map(I::wrap)
+    }
+}
+
 macro_rules! impl_system_input_tuple {
     ($(#[$meta:meta])* $($name:ident),*) => {
         $(#[$meta])*
@@ -294,7 +328,7 @@ all_tuples!(
 #[cfg(test)]
 mod tests {
     use crate::{
-        system::{In, InMut, InRef, IntoSystem, System},
+        system::{assert_is_system, In, InMut, InRef, IntoSystem, StaticSystemInput, System},
         world::World,
     };
 
@@ -326,5 +360,36 @@ mod tests {
         assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
         by_mut.run((&mut a, b), &mut world).unwrap();
         assert_eq!(a, 36);
+    }
+
+    #[test]
+    fn compatible_input() {
+        fn takes_usize(In(a): In<usize>) -> usize {
+            a
+        }
+
+        fn takes_static_usize(StaticSystemInput(b): StaticSystemInput<In<usize>>) -> usize {
+            b
+        }
+
+        assert_is_system::<In<usize>, usize, _>(takes_usize);
+        // test if StaticSystemInput is compatible with its inner type
+        assert_is_system::<In<usize>, usize, _>(takes_static_usize);
+    }
+
+    #[test]
+    fn option_input() {
+        fn takes_option_mut(a: Option<InMut<usize>>) -> usize {
+            a.map(|InMut(x)| *x).unwrap_or(0)
+        }
+
+        let mut world = World::new();
+
+        let mut system = IntoSystem::into_system(takes_option_mut);
+        system.initialize(&mut world);
+
+        let mut value = 12;
+        assert_eq!(system.run(Some(&mut value), &mut world).unwrap(), 12);
+        assert_eq!(system.run(None, &mut world).unwrap(), 0);
     }
 }

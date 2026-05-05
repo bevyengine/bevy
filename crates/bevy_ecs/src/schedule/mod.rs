@@ -13,7 +13,7 @@ mod stepping;
 
 pub use self::graph::GraphInfo;
 pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
-pub use pass::ScheduleBuildPass;
+pub use pass::{FlattenedDependencies, ScheduleBuildPass};
 
 /// An implementation of a graph data structure.
 pub mod graph;
@@ -35,6 +35,7 @@ mod tests {
 
     pub use crate::{
         prelude::World,
+        resource::IsResource,
         resource::Resource,
         schedule::{Schedule, SystemSet},
         system::{Res, ResMut},
@@ -259,7 +260,7 @@ mod tests {
 
         use crate::{
             change_detection::DetectChanges,
-            error::{ignore, DefaultErrorHandler, Result},
+            error::{ignore, FallbackErrorHandler, Result},
         };
 
         use super::*;
@@ -287,7 +288,7 @@ mod tests {
         #[test]
         fn system_with_condition_result_bool() {
             let mut world = World::default();
-            world.insert_resource(DefaultErrorHandler(ignore));
+            world.insert_resource(FallbackErrorHandler(ignore));
             let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
@@ -988,6 +989,16 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                resmut_system,
+                |_query: Query<EntityRef, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1001,6 +1012,17 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components and non_sends also do access with components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 2);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                res_system,
+                nonsend_system,
+                |_query: Query<EntityMut, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1262,45 +1284,42 @@ mod tests {
         #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
         pub struct TestSchedule;
 
-        macro_rules! assert_executor_supports_stepping {
-            ($executor:expr) => {
-                // create a test schedule
-                let mut schedule = Schedule::new(TestSchedule);
-                schedule
-                    .set_executor_kind($executor)
-                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
+        fn assert_executor_supports_stepping(executor: impl SystemExecutor + 'static) {
+            // create a test schedule
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.set_executor(executor);
+            schedule.add_systems(|| -> () { panic!("Executor ignored Stepping") });
 
-                // Add our schedule to stepping & and enable stepping; this should
-                // prevent any systems in the schedule from running
-                let mut stepping = Stepping::default();
-                stepping.add_schedule(TestSchedule).enable();
+            // Add our schedule to stepping & and enable stepping; this should
+            // prevent any systems in the schedule from running
+            let mut stepping = Stepping::default();
+            stepping.add_schedule(TestSchedule).enable();
 
-                // create a world, and add the stepping resource
-                let mut world = World::default();
-                world.insert_resource(stepping);
+            // create a world, and add the stepping resource
+            let mut world = World::default();
+            world.insert_resource(stepping);
 
-                // start a new frame by running ihe begin_frame() system
-                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
-                    SystemState::new(&mut world);
-                let res = system_state.get_mut(&mut world);
-                Stepping::begin_frame(res);
+            // start a new frame by running the begin_frame() system
+            let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                SystemState::new(&mut world);
+            let res = system_state.get_mut(&mut world).unwrap();
+            Stepping::begin_frame(res);
 
-                // now run the schedule; this will panic if the executor doesn't
-                // handle stepping
-                schedule.run(&mut world);
-            };
+            // now run the schedule; this will panic if the executor doesn't
+            // handle stepping
+            schedule.run(&mut world);
         }
 
         /// verify the [`SingleThreadedExecutor`] supports stepping
         #[test]
         fn single_threaded_executor() {
-            assert_executor_supports_stepping!(ExecutorKind::SingleThreaded);
+            assert_executor_supports_stepping(SingleThreadedExecutor::new());
         }
 
         /// verify the [`MultiThreadedExecutor`] supports stepping
         #[test]
         fn multi_threaded_executor() {
-            assert_executor_supports_stepping!(ExecutorKind::MultiThreaded);
+            assert_executor_supports_stepping(MultiThreadedExecutor::new());
         }
     }
 }

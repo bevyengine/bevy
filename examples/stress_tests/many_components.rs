@@ -28,8 +28,8 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::prelude::{IndexedRandom, RngExt, SeedableRng};
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 #[expect(unsafe_code, reason = "Reading dynamic components requires unsafe")]
@@ -45,8 +45,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // The time is takes to compute this depends on the number of entities and the values in
         // each entity. This is to ensure that each system takes a different amount of time.
         let mut total: Wrapping<u8> = Wrapping(0);
-        let mut exponent: u32 = 1;
-        for component_id in &access_components.0 {
+        for (exponent, component_id) in (1_u32..).zip(access_components.0.iter()) {
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
@@ -60,7 +59,6 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
                 }
                 total += product;
             }
-            exponent += 1;
         }
 
         // we assign this value to all the components we can write to
@@ -109,7 +107,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     for _ in 1..=num_systems {
         let num_access_components = rng.random_range(1..10);
         let access_components: Vec<ComponentId> = component_ids
-            .choose_multiple(&mut rng, num_access_components)
+            .sample(&mut rng, num_access_components)
             .copied()
             .collect();
         let system = (QueryParamBuilder::new(|builder| {
@@ -130,7 +128,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     for _ in 1..=num_entities {
         let num_components = rng.random_range(1..10);
         let components: Vec<ComponentId> = component_ids
-            .choose_multiple(&mut rng, num_components)
+            .sample(&mut rng, num_components)
             .copied()
             .collect();
 

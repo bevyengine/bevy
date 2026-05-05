@@ -7,10 +7,11 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::CascadeShadowConfigBuilder,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 #[derive(FromArgs, Resource)]
@@ -23,6 +24,10 @@ struct Args {
     /// total number of foxes.
     #[argh(option, default = "1000")]
     count: usize,
+
+    /// enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
 }
 
 #[derive(Resource)]
@@ -54,6 +59,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(StaticTransformOptimizations::Disabled)
         .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
@@ -61,6 +67,7 @@ fn main() {
             moving: true,
             sync: args.sync,
         })
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -108,6 +115,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
+    args: Res<Args>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -119,7 +127,7 @@ fn setup(
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
-        .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
+        .add_clips(animation_clips, 1.0, animation_graph.root)
         .collect();
     commands.insert_resource(Animations {
         node_indices,
@@ -171,7 +179,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder
                     .spawn((
-                        SceneRoot(fox_handle.clone()),
+                        WorldAssetRoot(fox_handle.clone()),
                         Transform::from_xyz(x, 0.0, z)
                             .with_scale(Vec3::splat(0.01))
                             .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
@@ -192,11 +200,24 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn((
+    let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
     ));
+
+    if args.motion_blur {
+        camera.insert((
+            MotionBlur {
+                // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                shutter_angle: 3.0,
+                ..Default::default()
+            },
+            // MSAA and MotionBlur are not compatible on WebGL.
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            Msaa::Off,
+        ));
+    }
 
     // Plane
     commands.spawn((
@@ -208,7 +229,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -228,7 +249,7 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
@@ -241,9 +262,10 @@ fn setup_scene_once_loaded(
             if !foxes.sync {
                 playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
-            commands
-                .entity(child)
-                .insert(AnimationGraphHandle(animations.graph.clone()));
+            commands.entity(child).insert((
+                AnimationGraphHandle(animations.graph.clone()),
+                AnimationTransitions::default(),
+            ));
         }
     }
 }

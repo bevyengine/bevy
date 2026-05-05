@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     }
 
     // Spawn the scene.
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
     )));
 
@@ -189,7 +189,7 @@ fn tweak_scene(
 ) {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
-        light.shadows_enabled = true;
+        light.shadow_maps_enabled = true;
     }
 
     // Add a nice lightmap to the circuit board.

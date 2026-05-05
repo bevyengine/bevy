@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
-    Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+    Asset, AssetLoader, AssetPath, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
@@ -145,6 +145,7 @@ pub struct MeshletBoundingSphere {
 }
 
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshSaver;
 
 impl AssetSaver for MeshletMeshSaver {
@@ -156,8 +157,9 @@ impl AssetSaver for MeshletMeshSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, MeshletMesh>,
+        asset: SavedAsset<'_, '_, MeshletMesh>,
         _settings: &(),
+        _asset_path: AssetPath<'_>,
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer
@@ -183,9 +185,6 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.meshlet_cull_data, &mut writer)?;
-        // BUG: Flushing helps with an async_fs bug, but it still fails sometimes. https://github.com/smol-rs/async-fs/issues/45
-        // ERROR bevy_asset::server: Failed to load asset with asset loader MeshletMeshLoader: failed to fill whole buffer
-        writer.flush()?;
         writer.finish()?;
 
         Ok(())
@@ -193,6 +192,7 @@ impl AssetSaver for MeshletMeshSaver {
 }
 
 /// An [`AssetLoader`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+#[derive(TypePath)]
 pub struct MeshletMeshLoader;
 
 impl AssetLoader for MeshletMeshLoader {
