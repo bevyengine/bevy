@@ -15,6 +15,7 @@ use bevy::{
         texture::{FallbackImage, GpuImage},
         RenderApp, RenderStartup,
     },
+    shader::ShaderRef,
 };
 use std::{num::NonZero, process::exit};
 
@@ -101,8 +102,9 @@ impl AsBindGroup for BindlessMaterial {
 
     fn as_bind_group(
         &self,
-        layout: &BindGroupLayout,
+        layout: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -127,8 +129,8 @@ impl AsBindGroup for BindlessMaterial {
         }
 
         let bind_group = render_device.create_bind_group(
-            "bindless_material_bind_group",
-            layout,
+            Self::label(),
+            &pipeline_cache.get_bind_group_layout(layout),
             &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
         );
 
@@ -164,7 +166,7 @@ impl AsBindGroup for BindlessMaterial {
             (
                 // Screen texture
                 //
-                // @group(3) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                // @group(#{MATERIAL_BIND_GROUP}) @binding(0) var textures: binding_array<texture_2d<f32>>;
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
@@ -172,7 +174,7 @@ impl AsBindGroup for BindlessMaterial {
                 ),
                 // Sampler
                 //
-                // @group(3) @binding(1) var nearest_sampler: sampler;
+                // @group(#{MATERIAL_BIND_GROUP}) @binding(1) var nearest_sampler: sampler;
                 //
                 // Note: as with textures, multiple samplers can also be bound
                 // onto one binding slot:
@@ -188,6 +190,10 @@ impl AsBindGroup for BindlessMaterial {
             ),
         )
         .to_vec()
+    }
+
+    fn label() -> &'static str {
+        "bindless_material_bind_group"
     }
 }
 

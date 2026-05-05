@@ -13,7 +13,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum AppState {
@@ -21,7 +21,6 @@ use super::{state_set::StateSet, states::States};
 ///     Menu,
 ///     InGame { paused: bool }
 /// }
-///
 ///
 /// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 /// struct InGame;
@@ -52,7 +51,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// # struct App;
 /// # impl App {
 /// #   fn new() -> Self { App }
@@ -61,10 +60,10 @@ use super::{state_set::StateSet, states::States};
 /// # }
 /// # struct AppState;
 /// # struct InGame;
-///
-///     App::new()
-///         .init_state::<AppState>()
-///         .add_computed_state::<InGame>();
+/// #
+/// App::new()
+///     .init_state::<AppState>()
+///     .add_computed_state::<InGame>();
 /// ```
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
@@ -75,6 +74,9 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     ///
     /// For example, `(MapState, EnemyState)` is valid, as is `(MapState, Option<EnemyState>)`
     type SourceStates: StateSet;
+
+    /// Whether state transition schedules should be run when the state changes to the same value. Default is `true`.
+    const ALLOW_SAME_STATE_TRANSITIONS: bool = true;
 
     /// Computes the next value of [`State<Self>`](crate::state::State).
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
@@ -92,15 +94,13 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
 
 impl<S: ComputedStates> States for S {
     const DEPENDENCY_DEPTH: usize = S::SourceStates::SET_DEPENDENCY_DEPTH + 1;
-
-    const SCOPED_ENTITIES_ENABLED: bool = true;
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         app::{AppExtStates, StatesPlugin},
-        prelude::DespawnOnEnterState,
+        prelude::DespawnOnEnter,
         state::{ComputedStates, StateTransition},
     };
     use bevy_app::App;
@@ -133,7 +133,7 @@ mod tests {
 
         let world = app.world_mut();
 
-        world.spawn((DespawnOnEnterState(TestComputedState), TestComponent));
+        world.spawn((DespawnOnEnter(TestComputedState), TestComponent));
 
         assert!(world.query::<&TestComponent>().single(world).is_ok());
         world.run_schedule(StateTransition);

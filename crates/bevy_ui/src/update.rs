@@ -3,19 +3,19 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip,
-    UiScale, UiTargetCamera,
+    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
+    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
 use bevy_app::Propagate;
+use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
-use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
 
 /// Updates clipping for all nodes
@@ -109,10 +109,8 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
-        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
+        clip_rect.min += clip_inset.min_inset;
+        clip_rect.max -= clip_inset.max_inset;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -133,7 +131,7 @@ fn update_clipping(
     }
 }
 
-pub fn update_ui_context_system(
+pub fn propagate_ui_target_cameras(
     mut commands: Commands,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
@@ -151,6 +149,10 @@ pub fn update_ui_context_system(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
+        commands
+            .entity(root_entity)
+            .try_insert(Propagate(ComputedUiTargetCamera { camera }));
+
         let (scale_factor, physical_size) = camera_query
             .get(camera)
             .ok()
@@ -164,8 +166,7 @@ pub fn update_ui_context_system(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedNodeTarget {
-                camera,
+            .try_insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
             }));
@@ -174,59 +175,47 @@ pub fn update_ui_context_system(
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::App;
-    use bevy_app::HierarchyPropagatePlugin;
-    use bevy_app::PostUpdate;
-    use bevy_app::PropagateSet;
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
-    use bevy_core_pipeline::core_2d::Camera2d;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoScheduleConfigs;
-    use bevy_image::Image;
-    use bevy_math::UVec2;
-    use bevy_render::camera::Camera;
-    use bevy_render::camera::RenderTarget;
-    use bevy_render::texture::ManualTextureViews;
-    use bevy_utils::default;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowRef;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
-
-    use crate::update::update_ui_context_system;
-    use crate::ComputedNodeTarget;
+    use crate::update::propagate_ui_target_cameras;
+    use crate::ComputedUiRenderTargetInfo;
+    use crate::ComputedUiTargetCamera;
     use crate::IsDefaultUiCamera;
     use crate::Node;
     use crate::UiScale;
     use crate::UiTargetCamera;
+    use bevy_app::App;
+    use bevy_app::HierarchyPropagatePlugin;
+    use bevy_app::PostUpdate;
+    use bevy_app::PropagateSet;
+    use bevy_camera::Camera;
+    use bevy_camera::Camera2d;
+    use bevy_camera::ComputedCameraValues;
+    use bevy_camera::RenderTargetInfo;
+    use bevy_ecs::hierarchy::ChildOf;
+    use bevy_math::UVec2;
+    use bevy_utils::default;
 
     fn setup_test_app() -> App {
         let mut app = App::new();
 
         app.init_resource::<UiScale>();
 
-        // init resources required by `camera_system`
-        app.init_resource::<Events<WindowScaleFactorChanged>>();
-        app.init_resource::<Events<WindowResized>>();
-        app.init_resource::<Events<WindowCreated>>();
-        app.init_resource::<Events<AssetEvent<Image>>>();
-        app.init_resource::<Assets<Image>>();
-        app.init_resource::<ManualTextureViews>();
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
-
-        app.configure_sets(PostUpdate, PropagateSet::<ComputedNodeTarget>::default());
-
-        app.add_systems(
-            bevy_app::Update,
-            (bevy_render::camera::camera_system, update_ui_context_system).chain(),
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiTargetCamera>::default(),
         );
+
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default(),
+        );
+
+        app.add_systems(bevy_app::Update, propagate_ui_target_cameras);
 
         app
     }
@@ -239,16 +228,21 @@ mod tests {
         let scale_factor = 10.;
         let physical_size = UVec2::new(1000, 500);
 
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(physical_size.x as f32, physical_size.y as f32)
-                    .with_scale_factor_override(10.),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let camera = world.spawn(Camera2d).id();
+        let camera = world
+            .spawn((
+                Camera2d,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size,
+                            scale_factor,
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
+            .id();
 
         let uinode = world.spawn(Node::default()).id();
 
@@ -256,9 +250,13 @@ mod tests {
         let world = app.world_mut();
 
         assert_eq!(
-            *world.get::<ComputedNodeTarget>(uinode).unwrap(),
-            ComputedNodeTarget {
-                camera,
+            *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
+            ComputedUiTargetCamera { camera }
+        );
+
+        assert_eq!(
+            *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+            ComputedUiRenderTargetInfo {
                 physical_size,
                 scale_factor,
             }
@@ -275,29 +273,33 @@ mod tests {
         let scale2 = 2.;
         let size2 = UVec2::new(200, 200);
 
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let window_2 = world
-            .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
-                ..Default::default()
-            },))
+        let camera1 = world
+            .spawn((
+                Camera2d,
+                IsDefaultUiCamera,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size1,
+                            scale_factor: scale1,
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
             .id();
-
-        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
             .spawn((
                 Camera2d,
                 Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size2,
+                            scale_factor: scale2,
+                        }),
+                        ..Default::default()
+                    },
                     ..default()
                 },
             ))
@@ -320,11 +322,15 @@ mod tests {
             (uinode2c, camera2, scale2, size2),
         ] {
             assert_eq!(
-                *world.get::<ComputedNodeTarget>(uinode).unwrap(),
-                ComputedNodeTarget {
-                    camera,
-                    scale_factor,
+                *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
+                ComputedUiTargetCamera { camera }
+            );
+
+            assert_eq!(
+                *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+                ComputedUiRenderTargetInfo {
                     physical_size,
+                    scale_factor,
                 }
             );
         }
@@ -340,29 +346,33 @@ mod tests {
         let scale2 = 2.;
         let size2 = UVec2::new(200, 200);
 
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let window_2 = world
-            .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
-                ..Default::default()
-            },))
+        let camera1 = world
+            .spawn((
+                Camera2d,
+                IsDefaultUiCamera,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size1,
+                            scale_factor: scale1,
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
             .id();
-
-        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
             .spawn((
                 Camera2d,
                 Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size2,
+                            scale_factor: scale2,
+                        }),
+                        ..Default::default()
+                    },
                     ..default()
                 },
             ))
@@ -375,7 +385,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale1
@@ -383,7 +393,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size1
@@ -391,9 +401,9 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiTargetCamera>(uinode)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera1
         );
@@ -405,7 +415,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale2
@@ -413,7 +423,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size2
@@ -421,9 +431,9 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiTargetCamera>(uinode)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera2
         );
@@ -439,29 +449,33 @@ mod tests {
         let scale2 = 2.;
         let size2 = UVec2::new(200, 200);
 
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let window_2 = world
-            .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
-                ..Default::default()
-            },))
+        let camera1 = world
+            .spawn((
+                Camera2d,
+                IsDefaultUiCamera,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size1,
+                            scale_factor: scale1,
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
             .id();
-
-        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
         let camera2 = world
             .spawn((
                 Camera2d,
                 Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size2,
+                            scale_factor: scale2,
+                        }),
+                        ..Default::default()
+                    },
                     ..default()
                 },
             ))
@@ -476,7 +490,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .scale_factor(),
             scale1
@@ -484,7 +498,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .physical_size(),
             size1
@@ -492,18 +506,18 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiTargetCamera>(uinode1)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera1
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode2)
+                .get::<ComputedUiTargetCamera>(uinode2)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera1
         );
@@ -516,7 +530,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .scale_factor(),
             scale2
@@ -524,7 +538,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .physical_size(),
             size2
@@ -532,18 +546,18 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode1)
+                .get::<ComputedUiTargetCamera>(uinode1)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera2
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode2)
+                .get::<ComputedUiTargetCamera>(uinode2)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera1
         );
@@ -557,16 +571,21 @@ mod tests {
         let scale = 1.;
         let size = UVec2::new(100, 100);
 
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(size.x as f32, size.y as f32)
-                    .with_scale_factor_override(scale),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let camera = world.spawn(Camera2d).id();
+        let camera = world
+            .spawn((
+                Camera2d,
+                Camera {
+                    computed: ComputedCameraValues {
+                        target_info: Some(RenderTargetInfo {
+                            physical_size: size,
+                            scale_factor: scale,
+                        }),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ))
+            .id();
 
         let uinode = world.spawn(Node::default()).id();
         world.spawn(Node::default()).with_children(|builder| {
@@ -580,7 +599,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale
@@ -588,7 +607,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size
@@ -596,9 +615,9 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiTargetCamera>(uinode)
                 .unwrap()
-                .camera()
+                .get()
                 .unwrap(),
             camera
         );
@@ -610,7 +629,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedNodeTarget>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor(),
             2.

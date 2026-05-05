@@ -6,6 +6,7 @@ pub mod primitives;
 mod projection;
 pub mod visibility;
 
+use bevy_ecs::schedule::SystemSet;
 pub use camera::*;
 pub use clear_color::*;
 pub use components::*;
@@ -25,3 +26,19 @@ impl Plugin for CameraPlugin {
         ));
     }
 }
+
+/// The camera prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        visibility::{InheritedVisibility, ViewVisibility, Visibility},
+        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, CompositingSpace, MsaaWriteback,
+        OrthographicProjection, PerspectiveProjection, Projection,
+    };
+}
+
+/// Label for `camera_system<T>`, shared across all `T`.
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct CameraUpdateSystems;

@@ -1,12 +1,13 @@
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, TextureFormat},
 };
+use bevy_shader::ShaderRef;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -31,8 +32,9 @@ use derive_more::derive::From;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+/// # use bevy_render::render_resource::AsBindGroup;
 /// # use bevy_color::LinearRgba;
+/// # use bevy_shader::ShaderRef;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 /// # use bevy_ui_render::prelude::*;
 ///
@@ -110,6 +112,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
+    fn stack_z_offset() -> f32 {
+        crate::stack_z_offsets::MATERIAL
+    }
+
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
@@ -119,7 +125,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     pub bind_group_data: M::Data,
 }
 
@@ -130,7 +136,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -140,8 +146,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hdr: self.hdr,
-            bind_group_data: self.bind_group_data,
+            target_format: self.target_format,
+            bind_group_data: self.bind_group_data.clone(),
         }
     }
 }
@@ -151,13 +157,23 @@ where
     M::Data: core::hash::Hash,
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.hdr.hash(state);
+        self.target_format.hash(state);
         self.bind_group_data.hash(state);
     }
 }
 
 #[derive(
-    Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
+    Component,
+    FromTemplate,
+    Clone,
+    Debug,
+    Deref,
+    DerefMut,
+    Reflect,
+    PartialEq,
+    Eq,
+    ExtractComponent,
+    From,
 )]
 #[reflect(Component, Default)]
 #[require(Node)]
