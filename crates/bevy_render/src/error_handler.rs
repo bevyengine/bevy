@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use std::sync::Mutex;
 use wgpu::ErrorSource;
-use wgpu_types::error::ErrorType;
+pub use wgpu_types::error::ErrorType;
 
 use crate::{
     insert_future_resources,

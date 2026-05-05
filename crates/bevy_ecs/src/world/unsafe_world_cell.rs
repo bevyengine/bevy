@@ -12,7 +12,7 @@ use crate::{
     entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
     },
-    error::{DefaultErrorHandler, ErrorHandler},
+    error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
@@ -466,7 +466,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have permission to access the resource of `component_id`.
         let entity = unsafe { self.resource_entities() }.get(component_id)?;
-        let entity_cell = self.get_entity(*entity).ok()?;
+        let entity_cell = self.get_entity(entity).ok()?;
         entity_cell.get_by_id(component_id)
     }
 
@@ -575,7 +575,7 @@ impl<'w> UnsafeWorldCell<'w> {
         self.assert_allows_mutable_access();
         // SAFETY: We have permission to access the resource of `component_id`.
         let entity = unsafe { self.resource_entities() }.get(component_id)?;
-        let entity_cell = self.get_entity(*entity).ok()?;
+        let entity_cell = self.get_entity(entity).ok()?;
         entity_cell.get_mut_by_id(component_id).ok()
     }
 
@@ -680,13 +680,13 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY: We have permission to access the resource of `component_id`.
         let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let storage_type = self.components().get_info(component_id)?.storage_type();
-        let location = self.get_entity(*entity).ok()?.location();
+        let location = self.get_entity(entity).ok()?.location();
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
         // - caller ensures that we have permission to access this resource
         // - storage_type and location are valid
-        get_component_and_ticks(self, component_id, storage_type, *entity, location)
+        get_component_and_ticks(self, component_id, storage_type, entity, location)
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
@@ -736,14 +736,14 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Convenience method for accessing the world's default error handler,
+    /// Convenience method for accessing the world's fallback error handler,
     ///
     /// # Safety
-    /// Must have read access to [`DefaultErrorHandler`].
+    /// Must have read access to [`FallbackErrorHandler`].
     #[inline]
-    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+    pub unsafe fn fallback_error_handler(&self) -> ErrorHandler {
         // SAFETY: Upheld by caller
-        unsafe { self.get_resource::<DefaultErrorHandler>() }
+        unsafe { self.get_resource::<FallbackErrorHandler>() }
             .copied()
             .unwrap_or_default()
             .0

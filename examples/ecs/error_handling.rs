@@ -1,7 +1,7 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 
-use bevy::ecs::{error::warn, world::DeferredWorld};
+use bevy::ecs::{entity::SpawnError, error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
@@ -11,9 +11,10 @@ use rand::SeedableRng;
 
 fn main() {
     let mut app = App::new();
-    // By default, fallible systems that return an error will panic.
+    // By default, fallible systems that return an error will respond according to the `Severity`` in the error.
+    // These will typically panic, unless `with_severity` is used to change the severity of the error.
     //
-    // We can change this by setting a custom error handler, which applies to the entire app
+    // We can change this by configuring the fallback error handler, which applies to the entire app
     // (you can also set it for specific `World`s).
     // Here we are using one of the built-in error handlers.
     // Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
@@ -153,7 +154,20 @@ fn failing_system(world: &mut World) -> Result {
         // which we can call `?` to propagate the error.
         .get_resource::<UninitializedResource>()
         // We can provide a `str` here because `BevyError` implements `From<&str>`.
-        .ok_or("Resource not initialized")?;
+        .ok_or("Resource not initialized")
+        // The default error severity is Severity::Panic.
+        // We can add a Severity level to any Result locally to downgrade it appropriately.
+        .with_severity(Severity::Warning)?;
+
+    world
+        // This entity doesn't exist!
+        .spawn_empty_at(Entity::from_raw_u32(12345678).unwrap())
+        .map_severity(|e| match e {
+            // Not that concerning, we just need to make sure to find a different entity
+            SpawnError::AlreadySpawned => Severity::Debug,
+            // Oh no
+            SpawnError::Invalid(_) => Severity::Error,
+        })?;
 
     Ok(())
 }

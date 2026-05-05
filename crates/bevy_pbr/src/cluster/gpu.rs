@@ -94,7 +94,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-    MainWorld, Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -147,14 +147,14 @@ impl Plugin for GpuClusteringPlugin {
         }
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<ClusteringRasterPipeline>>()
-            .init_resource::<SpecializedComputePipelines<ClusteringZSlicingPipeline>>()
-            .init_resource::<SpecializedComputePipelines<ClusteringAllocationPipeline>>()
-            .init_resource::<RenderViewClusteringReadbackData>()
-            .init_resource::<GpuClusteringMeshBuffers>()
-            .init_resource::<ClusteringRasterPipeline>()
-            .init_resource::<ClusteringZSlicingPipeline>()
-            .init_resource::<ClusteringAllocationPipeline>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ClusteringRasterPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<ClusteringZSlicingPipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<ClusteringAllocationPipeline>>()
+            .init_gpu_resource::<RenderViewClusteringReadbackData>()
+            .init_gpu_resource::<GpuClusteringMeshBuffers>()
+            .init_gpu_resource::<ClusteringRasterPipeline>()
+            .init_gpu_resource::<ClusteringZSlicingPipeline>()
+            .init_gpu_resource::<ClusteringAllocationPipeline>()
             .add_systems(
                 Render,
                 (prepare_clustering_pipelines, prepare_cluster_dummy_textures)
