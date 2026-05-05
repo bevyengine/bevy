@@ -19,7 +19,7 @@ pub use wgpu::{
 #[derive(Clone)]
 pub enum WgpuSettingsPriority {
     /// WebGPU default features and limits
-    Compatibility,
+    WebGPU,
     /// The maximum supported features and limits of the adapter and backend
     Functionality,
     /// WebGPU default limits plus additional constraints in order to be compatible with WebGL2
@@ -127,7 +127,10 @@ impl Default for WgpuSettings {
 
         let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
-        let instance_flags = InstanceFlags::default().with_env();
+        let mut instance_flags = InstanceFlags::default();
+        #[cfg(not(debug_assertions))]
+        instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+        instance_flags = instance_flags.with_env();
 
         Self {
             device_label: Default::default(),
@@ -312,7 +315,7 @@ pub fn settings_priority_from_env() -> Option<WgpuSettingsPriority> {
             .map(str::to_lowercase)
             .as_deref()
         {
-            Ok("compatibility") => WgpuSettingsPriority::Compatibility,
+            Ok("webgpu") => WgpuSettingsPriority::WebGPU,
             Ok("functionality") => WgpuSettingsPriority::Functionality,
             Ok("webgl2") => WgpuSettingsPriority::WebGL2,
             _ => return None,

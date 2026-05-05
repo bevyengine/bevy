@@ -97,7 +97,11 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    device: Res<bevy::render::renderer::RenderDevice>,
 ) {
+    bevy::log::info!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    bevy::log::info!("Configured wgpu adapter Features: {:#?}", device.features());
+
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
@@ -158,7 +162,7 @@ fn setup_scene(
                 ..default()
             },
             TextColor::BLACK,
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
         ));
 }
 

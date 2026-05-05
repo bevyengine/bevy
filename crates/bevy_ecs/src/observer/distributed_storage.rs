@@ -249,7 +249,7 @@ impl Observer {
             system: Box::new(IntoSystem::into_system(|| {})),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
-                let default_error_handler = world.default_error_handler();
+                let default_error_handler = world.fallback_error_handler();
                 world.commands().queue(move |world: &mut World| {
                     let entity = hook_context.entity;
                     let mut conditions = {
