@@ -7,7 +7,7 @@ use bevy_ecs::{
     entity::Entity,
     entity_disabling::Disabled,
     message::MessageReader,
-    query::Allow,
+    query::{Allow, With},
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -528,7 +528,7 @@ pub fn disable_entities_on_enter_state<S: States>(
 ///     commands.spawn((
 ///         EnableWhen::new(|transition| {
 ///             matches!(
-///                 transition.entered,
+///                 transition.exited,
 ///                 Some(GameState::MainMenu) | Some(GameState::GameOver)
 ///             )
 ///         }),
@@ -571,7 +571,7 @@ impl<S: States> EnableWhen<S> {
 pub fn enable_entities_when_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &EnableWhen<S>), Allow<Disabled>>,
+    query: Query<(Entity, &EnableWhen<S>), With<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -611,7 +611,7 @@ pub fn enable_entities_when_state<S: States>(
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         EnableOnExit(GameState::InGame),
+///         EnableOnExit(GameState::MainMenu),
 ///         Player
 ///     ));
 /// }
@@ -642,12 +642,12 @@ where
     }
 }
 
-/// Disables entities marked with [`DisableOnExit<S>`] when their state no
+/// Enables entities marked with [`EnableOnExit<S>`] when their state no
 /// longer matches the world state.
 pub fn enable_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &EnableOnExit<S>), Allow<Disabled>>,
+    query: Query<(Entity, &EnableOnExit<S>), With<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -690,7 +690,7 @@ pub fn enable_entities_on_exit_state<S: States>(
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         EnableOnEnter(GameState::MainMenu),
+///         EnableOnEnter(GameState::InGame),
 ///         Player
 ///     ));
 /// }
@@ -723,7 +723,7 @@ impl<S: States + Default> Default for EnableOnEnter<S> {
 pub fn enable_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &EnableOnEnter<S>), Allow<Disabled>>,
+    query: Query<(Entity, &EnableOnEnter<S>), With<Disabled>>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
