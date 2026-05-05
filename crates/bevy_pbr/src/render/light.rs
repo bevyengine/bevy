@@ -420,6 +420,7 @@ pub fn extract_lights(
         &mut RenderExtractedShadowMapVisibleEntities,
         &mut RenderShadowMapVisibleEntities,
     )>,
+    mut rect_light_missing_luts_warning_emitted: Local<bool>,
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -824,6 +825,12 @@ pub fn extract_lights(
     }
 
     for (main_entity, render_entity, rect_light, transform, view_visibility) in &rect_lights {
+        if !cfg!(feature = "area_light_luts") && !*rect_light_missing_luts_warning_emitted {
+            warn!(
+                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled."
+            );
+            *rect_light_missing_luts_warning_emitted = true;
+        }
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
                 entity_commands.remove::<ExtractedRectLight>();
