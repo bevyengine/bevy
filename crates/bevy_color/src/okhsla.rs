@@ -430,7 +430,12 @@ mod tests {
                 color.rgb,
                 rgb2
             );
-            let msg = alloc::format!(", color {:?}, got {:?}", color.okhsl, okhsl);
+            let msg = alloc::format!(
+                "{}: expected {:?}, got {:?}",
+                color.name,
+                color.okhsl,
+                okhsl
+            );
             // If lightness is approximately equal to 0.0 or 1.0, hue and saturation are arbitrary.
             if color.okhsl.lightness < 0.999 && color.okhsl.lightness > 0.001 {
                 // If saturation is approximately equal to 0.0, hue is arbitrary.
