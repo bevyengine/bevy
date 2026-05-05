@@ -62,6 +62,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
+|area_light_luts|Include Look Up Tables that are required for area lights.|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
@@ -78,6 +79,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_feathers|Feathers widget collection.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
 |bevy_gizmos_render|Adds support for rendering gizmos|
@@ -124,7 +126,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
-|experimental_bevy_feathers|Feathers widget collection.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|

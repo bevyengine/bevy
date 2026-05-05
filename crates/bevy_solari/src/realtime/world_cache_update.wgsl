@@ -78,10 +78,13 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
     let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
     let max_sample_count = mix(WORLD_CACHE_MAX_TEMPORAL_SAMPLES, 1.0, pow(saturate(alpha), 1.0 / 8.0));
-    let blend_amount = 1.0 / min(sample_count, max_sample_count);
+    var blend_amount = 1.0 / min(sample_count, max_sample_count);
+    if bool(constants.reset) {
+        blend_amount = 1.0;
+    }
 
     let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
-    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
+    let blended_luminance_delta = select(mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0), 0.0, bool(constants.reset));
 
     world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
@@ -119,7 +122,7 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
         let inverse_target_function = select(0.0, 1.0 / selected_sample_target_function, selected_sample_target_function > 0.0);
         unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        unbiased_contribution_weight *= trace_light_visibility(world_position + (world_position * RAY_T_MIN), selected_sample_world_position);
+        unbiased_contribution_weight *= trace_light_visibility(world_position + (world_normal * RAY_T_MIN), selected_sample_world_position);
     }
 
     return selected_sample_radiance * unbiased_contribution_weight;
