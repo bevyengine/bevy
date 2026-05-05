@@ -1,4 +1,7 @@
-use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
+use bevy_macro_utils::{
+    fq_std::{FQOption, FQResult},
+    get_lit_bool, get_lit_str, BevyManifest, Symbol,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -58,11 +61,14 @@ struct BindlessIndexTableRangeAttr {
 }
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
-    let manifest = BevyManifest::shared();
-    let render_path = manifest.get_path("bevy_render");
-    let image_path = manifest.get_path("bevy_image");
-    let asset_path = manifest.get_path("bevy_asset");
-    let ecs_path = manifest.get_path("bevy_ecs");
+    let (render_path, image_path, asset_path, ecs_path) = BevyManifest::shared(|manifest| {
+        let render_path = manifest.get_path("bevy_render");
+        let image_path = manifest.get_path("bevy_image");
+        let asset_path = manifest.get_path("bevy_asset");
+        let ecs_path = manifest.get_path("bevy_ecs");
+
+        (render_path, image_path, asset_path, ecs_path)
+    });
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
@@ -70,6 +76,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let mut non_bindless_binding_layouts = Vec::new();
     let mut bindless_resource_types = Vec::new();
     let mut bindless_buffer_descriptors = Vec::new();
+    // Whether this material needs buffer binding arrays (BUFFER_BINDING_ARRAY feature).
+    // False when only #[data(...)], textures, and samplers are used.
+    // NOTE: When wgpu adds support for buffer binding arrays on Metal
+    // (see https://github.com/gfx-rs/wgpu/pull/9081), this conditional
+    // can be removed and BUFFER_BINDING_ARRAY required unconditionally.
+    let mut has_buffer_binding_arrays = false;
     let mut attr_prepared_data_ident = None;
     // After the first attribute pass, this will be `None` if the object isn't
     // bindless and `Some` if it is.
@@ -154,26 +166,27 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // Read struct-level attributes, second pass.
     for attr in &ast.attrs {
-        if let Some(attr_ident) = attr.path().get_ident() {
-            if attr_ident == UNIFORM_ATTRIBUTE_NAME || attr_ident == DATA_ATTRIBUTE_NAME {
-                let UniformBindingAttr {
-                    binding_type,
-                    binding_index,
-                    converted_shader_type,
-                    binding_array: binding_array_binding,
-                } = get_uniform_binding_attr(attr)?;
-                match binding_type {
-                    UniformBindingAttrType::Uniform => {
-                        binding_impls.push(quote! {{
+        if let Some(attr_ident) = attr.path().get_ident()
+            && (attr_ident == UNIFORM_ATTRIBUTE_NAME || attr_ident == DATA_ATTRIBUTE_NAME)
+        {
+            let UniformBindingAttr {
+                binding_type,
+                binding_index,
+                converted_shader_type,
+                binding_array: binding_array_binding,
+            } = get_uniform_binding_attr(attr)?;
+            match binding_type {
+                UniformBindingAttrType::Uniform => {
+                    binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
-                            let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                            let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                             let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                             buffer.write(&converted).unwrap();
                             (
                                 #binding_index,
                                 #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                                     &#render_path::render_resource::BufferInitDescriptor {
-                                        label: None,
+                                        label: #FQOption::None,
                                         usage: #uniform_buffer_usages,
                                         contents: buffer.as_ref(),
                                     },
@@ -181,53 +194,54 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         }});
 
-                        match (&binding_array_binding, &attr_bindless_count) {
-                            (&None, &Some(_)) => {
-                                return Err(Error::new_spanned(
-                                    attr,
-                                    "Must specify `binding_array(...)` with `#[uniform]` if the \
+                    match (&binding_array_binding, &attr_bindless_count) {
+                        (&None, &Some(_)) => {
+                            return Err(Error::new_spanned(
+                                attr,
+                                "Must specify `binding_array(...)` with `#[uniform]` if the \
                                     object is bindless",
-                                ));
-                            }
-                            (&Some(_), &None) => {
-                                return Err(Error::new_spanned(
-                                    attr,
-                                    "`binding_array(...)` with `#[uniform]` requires the object to \
-                                    be bindless",
-                                ));
-                            }
-                            _ => {}
+                            ));
                         }
+                        (&Some(_), &None) => {
+                            return Err(Error::new_spanned(
+                                attr,
+                                "`binding_array(...)` with `#[uniform]` requires the object to \
+                                    be bindless",
+                            ));
+                        }
+                        _ => {}
+                    }
 
-                        let binding_array_binding = binding_array_binding.unwrap_or(0);
-                        bindless_binding_layouts.push(quote! {
+                    let binding_array_binding = binding_array_binding.unwrap_or(0);
+                    bindless_binding_layouts.push(quote! {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #uniform_binding_type,
                                         has_dynamic_offset: false,
-                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                        min_binding_size: #FQOption::Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                                     },
                                     count: #actual_bindless_slot_count,
                                 }
                             );
                         });
 
-                        add_bindless_resource_type(
-                            &render_path,
-                            &mut bindless_resource_types,
-                            binding_index,
-                            quote! { #render_path::render_resource::BindlessResourceType::Buffer },
-                        );
-                    }
+                    add_bindless_resource_type(
+                        &render_path,
+                        &mut bindless_resource_types,
+                        binding_index,
+                        quote! { #render_path::render_resource::BindlessResourceType::Buffer },
+                    );
+                    has_buffer_binding_arrays = true;
+                }
 
-                    UniformBindingAttrType::Data => {
-                        binding_impls.push(quote! {{
+                UniformBindingAttrType::Data => {
+                    binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
                             use #render_path::render_resource::encase::{ShaderType, internal::WriteInto};
-                            let mut buffer: Vec<u8> = Vec::new();
+                            let mut buffer: ::std::vec::Vec<u8> = ::std::vec::Vec::new();
                             let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                             converted.write_into(
                                 &mut #render_path::render_resource::encase::internal::Writer::new(
@@ -248,75 +262,74 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         }});
 
-                        let binding_array_binding = binding_array_binding.unwrap_or(0);
-                        bindless_binding_layouts.push(quote! {
+                    let binding_array_binding = binding_array_binding.unwrap_or(0);
+                    bindless_binding_layouts.push(quote! {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #uniform_binding_type,
                                         has_dynamic_offset: false,
-                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                        min_binding_size: #FQOption::Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                                     },
-                                    count: None,
+                                    count: #FQOption::None,
                                 }
                             );
                         });
 
-                        add_bindless_resource_type(
-                            &render_path,
-                            &mut bindless_resource_types,
-                            binding_index,
-                            quote! { #render_path::render_resource::BindlessResourceType::DataBuffer },
-                        );
-                    }
+                    add_bindless_resource_type(
+                        &render_path,
+                        &mut bindless_resource_types,
+                        binding_index,
+                        quote! { #render_path::render_resource::BindlessResourceType::DataBuffer },
+                    );
                 }
+            }
 
-                // Push the non-bindless binding layout.
+            // Push the non-bindless binding layout.
 
-                non_bindless_binding_layouts.push(quote!{
+            non_bindless_binding_layouts.push(quote!{
                     #bind_group_layout_entries.push(
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #uniform_binding_type,
                                 has_dynamic_offset: false,
-                                min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                min_binding_size: #FQOption::Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                             },
-                            count: None,
+                            count: #FQOption::None,
                         }
                     );
                 });
 
-                bindless_buffer_descriptors.push(quote! {
-                    #render_path::render_resource::BindlessBufferDescriptor {
-                        // Note that, because this is bindless, *binding
-                        // index* here refers to the index in the
-                        // bindless index table (`bindless_index`), and
-                        // the actual binding number is the *binding
-                        // array binding*.
-                        binding_number: #render_path::render_resource::BindingNumber(
-                            #binding_array_binding
-                        ),
-                        bindless_index:
-                            #render_path::render_resource::BindlessIndex(#binding_index),
-                                size: Some(
-                                    <
-                                        #converted_shader_type as
-                                        #render_path::render_resource::ShaderType
-                                    >::min_size().get() as usize
-                                ),
-                    }
-                });
-
-                let required_len = binding_index as usize + 1;
-                if required_len > binding_states.len() {
-                    binding_states.resize(required_len, BindingState::Free);
+            bindless_buffer_descriptors.push(quote! {
+                #render_path::render_resource::BindlessBufferDescriptor {
+                    // Note that, because this is bindless, *binding
+                    // index* here refers to the index in the
+                    // bindless index table (`bindless_index`), and
+                    // the actual binding number is the *binding
+                    // array binding*.
+                    binding_number: #render_path::render_resource::BindingNumber(
+                        #binding_array_binding
+                    ),
+                    bindless_index:
+                        #render_path::render_resource::BindlessIndex(#binding_index),
+                            size: #FQOption::Some(
+                                <
+                                    #converted_shader_type as
+                                    #render_path::render_resource::ShaderType
+                                >::min_size().get() as usize
+                            ),
                 }
-                binding_states[binding_index as usize] = BindingState::OccupiedConvertedUniform;
+            });
+
+            let required_len = binding_index as usize + 1;
+            if required_len > binding_states.len() {
+                binding_states.resize(required_len, BindingState::Free);
             }
+            binding_states[binding_index as usize] = BindingState::OccupiedConvertedUniform;
         }
     }
 
@@ -463,7 +476,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Buffer({
-                                let handle: &#asset_path::Handle<#render_path::storage::ShaderStorageBuffer> = (&self.#field_name);
+                                let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
                                 storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
                         )
@@ -478,7 +491,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 ty: #render_path::render_resource::BindingType::Buffer {
                                     ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                     has_dynamic_offset: false,
-                                    min_binding_size: None,
+                                    min_binding_size: #FQOption::None,
                                 },
                                 count: #actual_bindless_slot_count,
                             }
@@ -498,6 +511,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             bindless_resource_type,
                         );
 
+                        has_buffer_binding_arrays = true;
+
                         // Push the buffer descriptor.
                         bindless_buffer_descriptors.push(quote! {
                             #render_path::render_resource::BindlessBufferDescriptor {
@@ -510,7 +525,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 ),
                                 bindless_index:
                                     #render_path::render_resource::BindlessIndex(#binding_index),
-                                size: None,
+                                size: #FQOption::None,
                             }
                         });
 
@@ -519,13 +534,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #render_path::render_resource::BufferBindingType::Storage {
                                             read_only: #read_only
                                         },
                                         has_dynamic_offset: false,
-                                        min_binding_size: None,
+                                        min_binding_size: #FQOption::None,
                                     },
                                     count: #actual_bindless_slot_count,
                                 }
@@ -560,8 +575,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                           #render_path::render_resource::OwnedBindingResource::TextureView(
                                 #render_path::render_resource::#dimension,
                                 {
-                                    let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
-                                    if let Some(handle) = handle {
+                                    let handle: #FQOption<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
+                                    if let #FQOption::Some(handle) = handle {
                                         images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                                     } else {
                                         #fallback_image.texture_view.clone()
@@ -607,8 +622,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #render_path::render_resource::OwnedBindingResource::TextureView(
                                 #render_path::render_resource::#dimension,
                                 {
-                                    let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
-                                    if let Some(handle) = handle {
+                                    let handle: #FQOption<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
+                                    if let #FQOption::Some(handle) = handle {
                                         images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                                     } else {
                                         #fallback_image.texture_view.clone()
@@ -713,14 +728,14 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler(
                                 // TODO: Support other types.
-                                #render_path::render_resource::WgpuSamplerBindingType::Filtering,
+                                #render_path::render_resource::SamplerBindingType::Filtering,
                                 {
-                                let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
-                                if let Some(handle) = handle {
+                                let handle: #FQOption<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
+                                if let #FQOption::Some(handle) = handle {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
-                                    let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                    let #FQOption::Some(sample_type) = image.texture_descriptor.format.sample_type(#FQOption::None, #FQOption::Some(render_device.features())) else {
+                                        return #FQResult::Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
                                             #binding_index,
                                             "None".to_string(),
                                             format!("{:?}", #expected_samplers),
@@ -730,7 +745,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                     let valid = #expected_samplers.contains(&sample_type);
 
                                     if !valid {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                        return #FQResult::Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
                                             #binding_index,
                                             format!("{:?}", sample_type),
                                             format!("{:?}", #expected_samplers),
@@ -816,13 +831,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let field_name = field.ident.as_ref().unwrap();
                 let field_ty = &field.ty;
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                     buffer.write(&self.#field_name).unwrap();
                     (
                         #binding_index,
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
-                                label: None,
+                                label: #FQOption::None,
                                 usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
@@ -834,11 +849,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     #bind_group_layout_entries.push(
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #uniform_binding_type,
                                 has_dynamic_offset: false,
-                                min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
+                                min_binding_size: #FQOption::Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
                             },
                             count: #actual_bindless_slot_count,
                         }
@@ -862,7 +877,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                 let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(::std::vec::Vec::new());
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
@@ -870,7 +885,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #binding_index,
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
-                                label: None,
+                                label: #FQOption::None,
                                 usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
@@ -881,11 +896,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 non_bindless_binding_layouts.push(quote!{
                     #bind_group_layout_entries.push(#render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
+                        visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                         ty: #render_path::render_resource::BindingType::Buffer {
                             ty: #uniform_binding_type,
                             has_dynamic_offset: false,
-                            min_binding_size: Some(<#uniform_struct_name as #render_path::render_resource::ShaderType>::min_size()),
+                            min_binding_size: #FQOption::Some(<#uniform_struct_name as #render_path::render_resource::ShaderType>::min_size()),
                         },
                         count: #actual_bindless_slot_count,
                     });
@@ -950,16 +965,29 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let (bindless_slot_count, actual_bindless_slot_count_declaration, bindless_descriptor_syntax) =
         match attr_bindless_count {
             Some(ref bindless_count) => {
+                // Only require BUFFER_BINDING_ARRAY when the material actually uses
+                // buffer binding arrays. Materials using only textures, samplers, and
+                // data buffers can use bindless without it (e.g. on Metal).
+                let required_features = if has_buffer_binding_arrays {
+                    quote! {
+                        #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
+                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                    }
+                } else {
+                    quote! {
+                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                    }
+                };
+
                 let bindless_supported_syntax = quote! {
                         fn bindless_supported(
                             render_device: &#render_path::renderer::RenderDevice
                         ) -> bool {
                             render_device.features().contains(
-                                #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
-                                #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                                #required_features
                             ) &&
                             render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
-                                render_device.limits().max_samplers_per_shader_stage >=
+                                render_device.limits().max_binding_array_sampler_elements_per_shader_stage >=
                                     (#sampler_binding_count * #bindless_count_syntax)
                         }
                 };
@@ -968,25 +996,25 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             !force_no_bindless {
                         ::core::num::NonZeroU32::new(#bindless_count_syntax)
                     } else {
-                        None
+                        #FQOption::None
                     };
                 };
                 let bindless_slot_count_declaration = match bindless_count {
                     BindlessSlabResourceLimitAttr::Auto => {
                         quote! {
-                            fn bindless_slot_count() -> Option<
+                            fn bindless_slot_count() -> #FQOption<
                                 #render_path::render_resource::BindlessSlabResourceLimit
                             > {
-                                Some(#render_path::render_resource::BindlessSlabResourceLimit::Auto)
+                                #FQOption::Some(#render_path::render_resource::BindlessSlabResourceLimit::Auto)
                             }
                         }
                     }
                     BindlessSlabResourceLimitAttr::Limit(lit) => {
                         quote! {
-                            fn bindless_slot_count() -> Option<
+                            fn bindless_slot_count() -> #FQOption<
                                 #render_path::render_resource::BindlessSlabResourceLimit
                             > {
-                                Some(#render_path::render_resource::BindlessSlabResourceLimit::Custom(#lit))
+                                #FQOption::Some(#render_path::render_resource::BindlessSlabResourceLimit::Custom(#lit))
                             }
                         }
                     }
@@ -1014,7 +1042,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             binding_number: #bindless_index_table_binding_number,
                         }
                     ];
-                    Some(#render_path::render_resource::BindlessDescriptor {
+                    #FQOption::Some(#render_path::render_resource::BindlessDescriptor {
                         resources: ::std::borrow::Cow::Borrowed(RESOURCES),
                         buffers: ::std::borrow::Cow::Borrowed(&*BUFFERS),
                         index_tables: ::std::borrow::Cow::Borrowed(&*INDEX_TABLES),
@@ -1032,8 +1060,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             }
             None => (
                 TokenStream::new().into(),
-                quote! { let #actual_bindless_slot_count: Option<::core::num::NonZeroU32> = None; },
-                quote! { None },
+                quote! { let #actual_bindless_slot_count: #FQOption<::core::num::NonZeroU32> = #FQOption::None; },
+                quote! { #FQOption::None },
             ),
         };
 
@@ -1046,13 +1074,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             type Param = (
                 #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
                 #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
-                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderStorageBuffer>>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderBuffer>>,
             );
 
             #bindless_slot_count
 
-            fn label() -> Option<&'static str> {
-                Some(#struct_name_literal)
+            fn label() -> &'static str {
+                #struct_name_literal
             }
 
             fn unprepared_bind_group(
@@ -1061,46 +1089,54 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 render_device: &#render_path::renderer::RenderDevice,
                 (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
                 force_no_bindless: bool,
-            ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
+            ) -> #FQResult<#render_path::render_resource::UnpreparedBindGroup, #render_path::render_resource::AsBindGroupError> {
                 #uniform_binding_type_declarations
 
-                let bindings = #render_path::render_resource::BindingResources(vec![#(#binding_impls,)*]);
+                let bindings = #render_path::render_resource::BindingResources(::std::vec![#(#binding_impls,)*]);
 
-                Ok(#render_path::render_resource::UnpreparedBindGroup {
+                #FQResult::Ok(#render_path::render_resource::UnpreparedBindGroup {
                     bindings,
-                    data: #get_prepared_data,
                 })
+            }
+
+            #[allow(clippy::unused_unit)]
+            fn bind_group_data(&self) -> Self::Data {
+                #get_prepared_data
             }
 
             fn bind_group_layout_entries(
                 render_device: &#render_path::renderer::RenderDevice,
                 force_no_bindless: bool
-            ) -> Vec<#render_path::render_resource::BindGroupLayoutEntry> {
+            ) -> ::std::vec::Vec<#render_path::render_resource::BindGroupLayoutEntry> {
                 #actual_bindless_slot_count_declaration
                 #uniform_binding_type_declarations
 
-                let mut #bind_group_layout_entries = Vec::new();
+                let mut #bind_group_layout_entries = ::std::vec::Vec::new();
                 match #actual_bindless_slot_count {
-                    Some(bindless_slot_count) => {
+                    #FQOption::Some(bindless_slot_count) => {
                         let bindless_index_table_range = #bindless_index_table_range;
+                        let used_resource_types = &[
+                            #(#bindless_resource_types),*
+                        ];
                         #bind_group_layout_entries.extend(
                             #render_path::render_resource::create_bindless_bind_group_layout_entries(
                                 bindless_index_table_range.end.0 -
                                     bindless_index_table_range.start.0,
                                 bindless_slot_count.into(),
                                 #bindless_index_table_binding_number,
+                                used_resource_types,
                             ).into_iter()
                         );
                         #(#bindless_binding_layouts)*;
                     }
-                    None => {
+                    #FQOption::None => {
                         #(#non_bindless_binding_layouts)*;
                     }
                 };
                 #bind_group_layout_entries
             }
 
-            fn bindless_descriptor() -> Option<#render_path::render_resource::BindlessDescriptor> {
+            fn bindless_descriptor() -> #FQOption<#render_path::render_resource::BindlessDescriptor> {
                 #bindless_descriptor_syntax
             }
         }
@@ -1337,7 +1373,13 @@ impl VisibilityFlags {
 impl ShaderStageVisibility {
     fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
-            ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
+            ShaderStageVisibility::All => quote! {
+                if cfg!(feature = "webgpu") {
+                    todo!("Please use a more specific shader stage: https://github.com/gfx-rs/wgpu/issues/7708")
+                } else {
+                    #path::ShaderStages::all()
+                }
+            },
             ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
             ShaderStageVisibility::Flags(flags) => {
                 let mut quoted = Vec::new();
@@ -1380,13 +1422,13 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
         ));
     }
 
-    if flags.len() == 1 {
-        if let Some(flag) = flags.first() {
-            if flag == VISIBILITY_ALL {
-                return Ok(ShaderStageVisibility::All);
-            } else if flag == VISIBILITY_NONE {
-                return Ok(ShaderStageVisibility::None);
-            }
+    if flags.len() == 1
+        && let Some(flag) = flags.first()
+    {
+        if flag == VISIBILITY_ALL {
+            return Ok(ShaderStageVisibility::All);
+        } else if flag == VISIBILITY_NONE {
+            return Ok(ShaderStageVisibility::None);
         }
     }
 

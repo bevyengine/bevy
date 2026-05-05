@@ -2,7 +2,7 @@ use core::hint::black_box;
 use std::time::Duration;
 
 use benches::bench;
-use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
+use bevy_math::{Affine3A, Dir3, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast::{self, Backfaces};
 use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfiguration};
 
@@ -37,14 +37,14 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
     for p in 0..vertices_per_side.pow(2) {
         let (x, z) = p_to_xz_norm(p, vertices_per_side);
 
-        // Push a new vertice to the mesh. We translate all vertices so the final square is
+        // Push a new vertex to the mesh. We translate all vertices so the final square is
         // centered at (0, 0), instead of (0.5, 0.5).
         positions.push([x - 0.5, 0.0, z - 0.5]);
 
         // All vertices have the same normal.
         normals.push([0.0, 1.0, 0.0]);
 
-        // Extend the indices for for all vertices except for the final row and column, since
+        // Extend the indices for all vertices except for the final row and column, since
         // indices are "between" points.
         if p % vertices_per_side != vertices_per_side - 1
             && p / vertices_per_side != vertices_per_side - 1
@@ -103,8 +103,8 @@ impl Benchmarks {
         )
     }
 
-    fn mesh_to_world(&self) -> Mat4 {
-        Mat4::IDENTITY
+    fn mesh_to_world(&self) -> Affine3A {
+        Affine3A::IDENTITY
     }
 
     fn backface_culling(&self) -> Backfaces {
@@ -155,6 +155,7 @@ fn bench(c: &mut Criterion) {
                             &mesh.positions,
                             Some(&mesh.normals),
                             Some(&mesh.indices),
+                            None,
                             backface_culling,
                         );
 

@@ -11,6 +11,7 @@ pub struct EntityHash;
 impl BuildHasher for EntityHash {
     type Hasher = EntityHasher;
 
+    #[inline]
     fn build_hasher(&self) -> Self::Hasher {
         Self::Hasher::default()
     }
@@ -25,7 +26,7 @@ impl BuildHasher for EntityHash {
 ///
 /// If you have an unusual case -- say all your indices are multiples of 256
 /// or most of the entities are dead generations -- then you might want also to
-/// try [`DefaultHasher`](bevy_platform_support::hash::DefaultHasher) for a slower hash
+/// try [`DefaultHasher`](bevy_platform::hash::DefaultHasher) for a slower hash
 /// computation but fewer lookup conflicts.
 #[derive(Debug, Default)]
 pub struct EntityHasher {

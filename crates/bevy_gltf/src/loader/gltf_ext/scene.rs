@@ -8,7 +8,7 @@ use fixedbitset::FixedBitSet;
 use itertools::Itertools;
 
 #[cfg(feature = "bevy_animation")]
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 
 use crate::GltfError;
 
