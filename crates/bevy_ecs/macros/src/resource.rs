@@ -1,4 +1,4 @@
-use bevy_ecs_macro_logic::component::DeriveComponent;
+use bevy_ecs_macro_logic::component::{DeriveComponent, StorageTy};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -10,6 +10,7 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         Ok(value) => value,
         Err(e) => return e.into_compile_error(),
     };
+    derive_component.storage = StorageTy::SparseSet;
 
     let struct_name = &ast.ident;
     let (_, type_generics, _) = &ast.generics.split_for_impl();
