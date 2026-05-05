@@ -23,5 +23,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 variadics_please = "1.0"
+
 [lints]
 workspace = true
