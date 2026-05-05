@@ -10,6 +10,7 @@ use bevy_ecs::{
     query::{Changed, Has, Or, With},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
@@ -18,24 +19,36 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::AsBindGroup;
+use bevy_scene::prelude::*;
 use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
-    px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, Display,
-    InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiTransform, Val, Val2,
+    percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
+    Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
+    UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
 use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 
-/// Marker identifying a color plane widget.
+/// A "color plane" widget, which is a 2d picker that allows selecting two
+/// components of a color space.
 ///
-/// The variant selects which view of the color pane is shown.
-#[derive(Component, Default, Debug, Clone, Reflect, Copy, PartialEq, Eq, Hash)]
-#[reflect(Component, Clone, Default)]
+/// This is spawnable by inheriting it as a "scene component".
+///
+/// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
+/// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
+/// is used to provide the fixed constant channel for the background gradient.
+///
+/// The control does not do any color space conversions internally, other than the shader code
+/// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
+/// implementing a color picker for cylindrical color spaces such as HSL.
+#[derive(
+    SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
+)]
+#[reflect(Component)]
 #[require(ColorPlaneDragState)]
-pub enum ColorPlane {
+pub enum FeathersColorPlane {
     /// Show red on the horizontal axis and green on the vertical.
     RedGreen,
     /// Show red on the horizontal axis and blue on the vertical.
@@ -74,13 +87,13 @@ struct ColorPlaneDragState(bool);
 #[repr(C)]
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct ColorPlaneMaterialKey {
-    plane: ColorPlane,
+    plane: FeathersColorPlane,
 }
 
 #[derive(AsBindGroup, Asset, TypePath, Default, Debug, Clone)]
 #[bind_group_data(ColorPlaneMaterialKey)]
 struct ColorPlaneMaterial {
-    plane: ColorPlane,
+    plane: FeathersColorPlane,
 
     #[uniform(0)]
     fixed_channel: f32,
@@ -108,14 +121,58 @@ impl UiMaterial for ColorPlaneMaterial {
         key: bevy_ui_render::prelude::UiMaterialKey<Self>,
     ) {
         let plane_def = match key.bind_group_data.plane {
-            ColorPlane::RedGreen => "PLANE_RG",
-            ColorPlane::RedBlue => "PLANE_RB",
-            ColorPlane::GreenBlue => "PLANE_GB",
-            ColorPlane::HueSaturation => "PLANE_HS",
-            ColorPlane::HueLightness => "PLANE_HL",
+            FeathersColorPlane::RedGreen => "PLANE_RG",
+            FeathersColorPlane::RedBlue => "PLANE_RB",
+            FeathersColorPlane::GreenBlue => "PLANE_GB",
+            FeathersColorPlane::HueSaturation => "PLANE_HS",
+            FeathersColorPlane::HueLightness => "PLANE_HL",
         };
         descriptor.fragment.as_mut().unwrap().shader_defs =
             vec![ShaderDefVal::Bool(plane_def.into(), true)];
+    }
+}
+
+impl FeathersColorPlane {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                display: Display::Flex,
+                min_height: px(100.0),
+                align_self: AlignSelf::Stretch,
+                padding: UiRect::all(px(4)),
+                border_radius: BorderRadius::all(px(5)),
+            }
+            ColorPlaneValue
+            ThemeBackgroundColor(tokens::COLOR_PLANE_BG)
+            EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair)
+            Children [(
+                Node {
+                    align_self: AlignSelf::Stretch,
+                    flex_grow: 1.0,
+                }
+                ColorPlaneInner
+                Children [(
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: percent(0),
+                        top: percent(0),
+                        width: px(10),
+                        height: px(10),
+                        border: px(1),
+                        border_radius: BorderRadius::MAX,
+                    }
+                    ColorPlaneThumb
+                    BorderColor::all(palette::WHITE)
+                    Outline {
+                        width: px(1),
+                        offset: px(0),
+                        color: palette::BLACK
+                    }
+                    Pickable::IGNORE
+                    UiTransform::from_translation(Val2::percent(-50., -50.),)
+                )]
+            )]
+        }
     }
 }
 
@@ -132,7 +189,8 @@ impl UiMaterial for ColorPlaneMaterial {
 ///
 /// # Arguments
 /// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
+#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
+pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -157,23 +215,23 @@ pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
             children![(
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Percent(0.),
-                    top: Val::Percent(0.),
+                    left: percent(0),
+                    top: percent(0),
                     width: px(10),
                     height: px(10),
-                    border: UiRect::all(Val::Px(1.0)),
+                    border: UiRect::all(px(1)),
                     border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 ColorPlaneThumb,
                 BorderColor::all(palette::WHITE),
                 Outline {
-                    width: Val::Px(1.),
-                    offset: Val::Px(0.),
+                    width: px(1),
+                    offset: px(0),
                     color: palette::BLACK
                 },
                 Pickable::IGNORE,
-                UiTransform::from_translation(Val2::new(Val::Percent(-50.0), Val::Percent(-50.0),))
+                UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
             )],
         ),],
     )
@@ -181,8 +239,8 @@ pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
 
 fn update_plane_color(
     q_color_plane: Query<
-        (Entity, &ColorPlane, &ColorPlaneValue),
-        Or<(Changed<ColorPlane>, Changed<ColorPlaneValue>)>,
+        (Entity, &FeathersColorPlane, &ColorPlaneValue),
+        Or<(Changed<FeathersColorPlane>, Changed<ColorPlaneValue>)>,
     >,
     q_children: Query<&Children>,
     q_material_node: Query<&MaterialNode<ColorPlaneMaterial>>,
@@ -201,7 +259,7 @@ fn update_plane_color(
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if let Some(material) = r_materials.get_mut(material_node.id()) {
+            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
                 // Update properties
                 material.plane = *plane;
                 material.fixed_channel = plane_value.0.z;
@@ -229,14 +287,38 @@ fn update_plane_color(
             continue;
         };
 
-        thumb_node.left = Val::Percent(plane_value.0.x * 100.0);
-        thumb_node.top = Val::Percent(plane_value.0.y * 100.0);
+        thumb_node.left = percent(plane_value.0.x * 100.0);
+        thumb_node.top = percent(plane_value.0.y * 100.0);
     }
+}
+
+fn emit_color_plane_value_change(
+    commands: &mut Commands,
+    source: Entity,
+    node: &ComputedNode,
+    node_target: &ComputedUiRenderTargetInfo,
+    transform: &UiGlobalTransform,
+    pointer_position: Vec2,
+    ui_scale: f32,
+    is_final: bool,
+) {
+    let Some(pos) = node.normalize_point(
+        *transform,
+        pointer_position * node_target.scale_factor() / ui_scale,
+    ) else {
+        return;
+    };
+
+    commands.trigger(ValueChange {
+        source,
+        value: (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE),
+        is_final,
+    });
 }
 
 fn on_pointer_press(
     mut press: On<Pointer<Press>>,
-    q_color_planes: Query<Has<InteractionDisabled>, With<ColorPlane>>,
+    q_color_planes: Query<Has<InteractionDisabled>, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<
         (
             &ComputedNode,
@@ -254,15 +336,16 @@ fn on_pointer_press(
     {
         press.propagate(false);
         if !disabled {
-            let local_pos = transform.try_inverse().unwrap().transform_point2(
-                press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                press.pointer_location.position,
+                ui_scale.0,
+                false,
             );
-            let pos = local_pos / node.size() + Vec2::splat(0.5);
-            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
-            commands.trigger(ValueChange {
-                source: parent.0,
-                value: new_value,
-            });
         }
     }
 }
@@ -271,7 +354,7 @@ fn on_drag_start(
     mut drag_start: On<Pointer<DragStart>>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
-        With<ColorPlane>,
+        With<FeathersColorPlane>,
     >,
     q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
 ) {
@@ -287,7 +370,10 @@ fn on_drag_start(
 
 fn on_drag(
     mut drag: On<Pointer<Drag>>,
-    q_color_planes: Query<(&ColorPlaneDragState, Has<InteractionDisabled>), With<ColorPlane>>,
+    q_color_planes: Query<
+        (&ColorPlaneDragState, Has<InteractionDisabled>),
+        With<FeathersColorPlane>,
+    >,
     q_color_plane_inner: Query<
         (
             &ComputedNode,
@@ -305,35 +391,61 @@ fn on_drag(
     {
         drag.propagate(false);
         if state.0 && !disabled {
-            let local_pos = transform.try_inverse().unwrap().transform_point2(
-                drag.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                drag.pointer_location.position,
+                ui_scale.0,
+                false,
             );
-            let pos = local_pos / node.size() + Vec2::splat(0.5);
-            let new_value = pos.clamp(Vec2::ZERO, Vec2::ONE);
-            commands.trigger(ValueChange {
-                source: parent.0,
-                value: new_value,
-            });
         }
     }
 }
 
 fn on_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_color_planes: Query<&mut ColorPlaneDragState, With<ColorPlane>>,
-    q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
+    mut q_color_planes: Query<
+        (&mut ColorPlaneDragState, Has<InteractionDisabled>),
+        With<FeathersColorPlane>,
+    >,
+    q_color_plane_inner: Query<
+        (
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+            &ChildOf,
+        ),
+        With<ColorPlaneInner>,
+    >,
+    ui_scale: Res<UiScale>,
+    mut commands: Commands,
 ) {
-    if let Ok(parent) = q_color_plane_inner.get(drag_end.entity)
-        && let Ok(mut state) = q_color_planes.get_mut(parent.0)
+    if let Ok((node, node_target, transform, parent)) = q_color_plane_inner.get(drag_end.entity)
+        && let Ok((mut state, disabled)) = q_color_planes.get_mut(parent.0)
     {
         drag_end.propagate(false);
+        if state.0 && !disabled {
+            emit_color_plane_value_change(
+                &mut commands,
+                parent.0,
+                node,
+                node_target,
+                transform,
+                drag_end.pointer_location.position,
+                ui_scale.0,
+                true,
+            );
+        }
         state.0 = false;
     }
 }
 
 fn on_drag_cancel(
     drag_cancel: On<Pointer<Cancel>>,
-    mut q_color_planes: Query<&mut ColorPlaneDragState, With<ColorPlane>>,
+    mut q_color_planes: Query<&mut ColorPlaneDragState, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
 ) {
     if let Ok(parent) = q_color_plane_inner.get(drag_cancel.entity)

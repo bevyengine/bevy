@@ -13,7 +13,7 @@ use bevy::{
 };
 use crossbeam_channel::{Receiver, Sender};
 use futures_timer::Delay;
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 
 const NUM_CUBES: i32 = 6;

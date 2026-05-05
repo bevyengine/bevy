@@ -111,7 +111,9 @@ fn setup(
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb"))),
+        WorldAssetRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+        ),
         CubesScene,
     ));
 }
@@ -195,7 +197,7 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.specular_environment_map.clone(),
+                image: Some(cubemaps.specular_environment_map.clone()),
                 brightness: ENV_MAP_INTENSITY,
                 ..default()
             });
@@ -371,7 +373,7 @@ impl FromWorld for Cubemaps {
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map)
+    if let Some(mut image) = images.get_mut(&cubemaps.specular_environment_map)
         && !image
             .texture_descriptor
             .usage
@@ -419,7 +421,7 @@ fn change_sphere_roughness(
 
         // Update the sphere material
         for material_handle in sphere_query.iter() {
-            if let Some(material) = materials.get_mut(&material_handle.0) {
+            if let Some(mut material) = materials.get_mut(&material_handle.0) {
                 material.perceptual_roughness = app_status.sphere_roughness;
             }
         }

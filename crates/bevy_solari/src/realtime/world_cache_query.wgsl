@@ -2,7 +2,7 @@ enable wgpu_ray_query;
 
 #define_import_path bevy_solari::world_cache
 
-#import bevy_pbr::utils::rand_vec2f
+#import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::orthonormalize
 #import bevy_solari::realtime_bindings::{
     world_cache_life,
@@ -17,8 +17,8 @@ enable wgpu_ray_query;
     WorldCacheGeometryData,
 }
 
-/// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 20.0;
+/// How responsive the world cache is to changes in lighting (higher is less responsive but more stable, lower is more responsive but less stable)
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
 /// How many direct light samples each cell takes when updating each frame
 const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 /// Maximum amount of distance to trace GI rays between two cache cells
@@ -42,7 +42,7 @@ const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, ray_t: f32, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
     var world_position = world_position_in;
-    var cell_size = get_cell_size(world_position, view_position);
+    var cell_size = get_cell_size(world_position, view_position, rng);
 
 #ifdef WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION
     if ray_t < cell_size {
@@ -57,7 +57,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
     world_position += offset.x * TBN[0] + offset.y * TBN[1];
-    cell_size = get_cell_size(world_position, view_position);
+    cell_size = get_cell_size(world_position, view_position, rng);
 #endif
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
@@ -95,10 +95,12 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 }
 #endif
 
-fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
+fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> f32 {
     let camera_distance = distance(view_position, world_position) / WORLD_CACHE_POSITION_LOD_SCALE;
-    let lod = exp2(floor(log2(1.0 + camera_distance)));
-    return WORLD_CACHE_POSITION_BASE_CELL_SIZE * lod;
+    let lod_f = log2(1.0 + camera_distance);
+    let lod_fract = fract(lod_f);
+    let lod = floor(lod_f) + select(0.0, 1.0, rand_f(rng) < lod_fract * lod_fract * lod_fract);
+    return WORLD_CACHE_POSITION_BASE_CELL_SIZE * exp2(lod);
 }
 
 fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
@@ -106,7 +108,7 @@ fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
-    return floor(world_normal + 0.0001);
+    return floor(world_normal * 2.0 + 0.0001);
 }
 
 // TODO: Clustering
