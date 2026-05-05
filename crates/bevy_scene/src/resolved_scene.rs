@@ -1,5 +1,5 @@
-use crate::{ResolveContext, ScenePatch};
-use bevy_asset::{AssetId, AssetPath, Assets, Handle, UntypedAssetId};
+use crate::{ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
+use bevy_asset::{AssetId, AssetPath, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     bundle::{Bundle, BundleScratch, BundleWriter},
     component::{Component, ComponentsRegistrator},
@@ -23,6 +23,31 @@ pub struct ResolvedSceneRoot {
 }
 
 impl ResolvedSceneRoot {
+    /// Resolves the current `scene` (using [`Scene::resolve`]). This should only be called after every dependency has loaded from the `scene`'s
+    /// [`Scene::register_dependencies`].
+    pub fn resolve(
+        scene: Box<dyn Scene>,
+        assets: &AssetServer,
+        patches: &Assets<ScenePatch>,
+    ) -> Result<Self, ResolveSceneError> {
+        let mut resolved_scene = ResolvedScene::default();
+        let mut entity_scopes = EntityScopes::default();
+        scene.resolve_box(
+            &mut ResolveContext {
+                assets,
+                patches,
+                current_scope: 0,
+                entity_scopes: &mut entity_scopes,
+                inherited: None,
+            },
+            &mut resolved_scene,
+        )?;
+        Ok(ResolvedSceneRoot {
+            scene: resolved_scene,
+            entity_scopes,
+        })
+    }
+
     /// This will spawn a new [`Entity`], then call [`ResolvedSceneRoot::apply`] on it.
     /// If this fails mid-spawn, the intermediate entity will be despawned.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<EntityWorldMut<'w>, ApplySceneError> {
@@ -75,6 +100,30 @@ pub struct ResolvedSceneListRoot {
 }
 
 impl ResolvedSceneListRoot {
+    /// Resolves the current `scene_list` (using [`SceneList::resolve_list`]). This should only be
+    /// called after every dependency has loaded from the `scene_list`'s [`SceneList::register_dependencies`].
+    pub fn resolve(
+        scene_list: Box<dyn SceneList>,
+        assets: &AssetServer,
+        patches: &Assets<ScenePatch>,
+    ) -> Result<Self, ResolveSceneError> {
+        let mut resolved_scenes = Vec::new();
+        let mut entity_scopes = EntityScopes::default();
+        scene_list.resolve_list_box(
+            &mut ResolveContext {
+                assets,
+                patches,
+                current_scope: 0,
+                entity_scopes: &mut entity_scopes,
+                inherited: None,
+            },
+            &mut resolved_scenes,
+        )?;
+        Ok(ResolvedSceneListRoot {
+            scenes: resolved_scenes,
+            entity_scopes,
+        })
+    }
     /// Spawns a new [`Entity`] for each [`ResolvedScene`] in the list, and applies that [`ResolvedScene`] to them.
     pub fn spawn<'w>(&self, world: &'w mut World) -> Result<Vec<Entity>, ApplySceneError> {
         self.spawn_with(world, |_| {})

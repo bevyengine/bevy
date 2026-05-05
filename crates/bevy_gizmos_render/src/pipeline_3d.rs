@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_pbr::{
-    MeshPipeline, MeshPipelineKey, MeshPipelineSet, SetMeshViewBindGroup, ViewKeyCache,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, SetMeshViewBindGroup, ViewKeyCache,
 };
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -54,7 +54,7 @@ impl Plugin for LineGizmo3dPlugin {
                 RenderStartup,
                 init_line_gizmo_pipelines
                     .after(init_line_gizmo_uniform_bind_group_layout)
-                    .after(MeshPipelineSet),
+                    .after(MeshPipelineSystems),
             )
             .add_systems(
                 Render,
@@ -136,10 +136,7 @@ impl Specializer<RenderPipeline> for LineGizmoPipelineSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
 
         descriptor.set_layout(0, view_layout.main_layout.clone());
         descriptor.vertex.buffers = line_gizmo_vertex_buffer_layouts(key.strip);
@@ -207,10 +204,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         let format = key.view_key.target_format();
 
-        let view_layout = self
-            .mesh_pipeline
-            .get_view_layout(key.view_key.into())
-            .clone();
+        let view_layout = self.mesh_pipeline.get_view_layout(key.view_key.into());
         let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {

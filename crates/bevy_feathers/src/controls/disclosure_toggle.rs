@@ -1,18 +1,15 @@
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
-    component::Component,
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
-    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::PickingSystems;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, Scene};
+use bevy_scene::{bsn, Scene, SceneComponent};
 use bevy_ui::{
     px, widget::ImageNode, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node,
     UiTransform,
@@ -25,32 +22,33 @@ use crate::{
     tokens,
 };
 
-/// Marker for the disclosure toggle widget
-#[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
-struct DisclosureToggleStyle;
-
 /// A toggle button which shows a chevron that points either right or down, used to expand or
 /// collapse a panel. Functionally, this is equivalent to a checkbox, and has a [`Checked`]
 /// state.
-pub fn disclosure_toggle() -> impl Scene {
-    bsn!(
-        Node {
-            width: px(12),
-            height: px(12),
-            display: Display::Flex,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-        }
-        Checkbox
-        DisclosureToggleStyle
-        EntityCursor::System(SystemCursorIcon::Pointer)
-        FocusIndicator
-        TabIndex(0)
-        Children [
-            :icon(icons::CHEVRON_RIGHT)
-        ]
-    )
+///
+/// This is spawnable by inheriting it as a "scene component".
+#[derive(SceneComponent, Default, Clone)]
+pub struct FeathersDisclosureToggle;
+
+impl FeathersDisclosureToggle {
+    fn scene() -> impl Scene {
+        bsn!(
+            Node {
+                width: px(12),
+                height: px(12),
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+            }
+            Checkbox
+            EntityCursor::System(SystemCursorIcon::Pointer)
+            FocusIndicator
+            TabIndex(0)
+            Children [
+                :icon(icons::CHEVRON_RIGHT)
+            ]
+        )
+    }
 }
 
 fn update_toggle_styles(
@@ -62,7 +60,7 @@ fn update_toggle_styles(
             &Children,
         ),
         (
-            With<DisclosureToggleStyle>,
+            With<FeathersDisclosureToggle>,
             Or<(Added<Checkbox>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
@@ -94,7 +92,7 @@ fn update_toggle_styles_remove(
             &mut UiTransform,
             &Children,
         ),
-        With<DisclosureToggleStyle>,
+        With<FeathersDisclosureToggle>,
     >,
     mut q_icon: Query<&mut ImageNode>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
