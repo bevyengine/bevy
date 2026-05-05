@@ -1,6 +1,7 @@
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::CompositingSpace;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -8,7 +9,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    RenderApp, RenderStartup,
+    GpuResourceAppExt, RenderApp, RenderStartup,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -26,14 +27,14 @@ impl Plugin for BlitPlugin {
 
         render_app
             .allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<BlitPipeline>>()
             .add_systems(RenderStartup, init_blit_pipeline);
     }
 }
 
 #[derive(Resource)]
 pub struct BlitPipeline {
-    pub layout: BindGroupLayout,
+    pub layout: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
@@ -45,7 +46,7 @@ pub fn init_blit_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "blit_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -71,10 +72,11 @@ impl BlitPipeline {
         &self,
         render_device: &RenderDevice,
         src_texture: &TextureView,
+        pipeline_cache: &PipelineCache,
     ) -> BindGroup {
         render_device.create_bind_group(
             None,
-            &self.layout,
+            &pipeline_cache.get_bind_group_layout(&self.layout),
             &BindGroupEntries::sequential((src_texture, &self.sampler)),
         )
     }
@@ -82,23 +84,34 @@ impl BlitPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct BlitPipelineKey {
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
+    /// Color space of the source texture. When `Some(Srgb)` or `Some(Oklab)`, the blit converts
+    /// to linear RGB before writing to the output target.
+    pub source_space: Option<CompositingSpace>,
 }
 
 impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = Vec::new();
+        match key.source_space {
+            Some(CompositingSpace::Srgb) => shader_defs.push("SRGB_TO_LINEAR".into()),
+            Some(CompositingSpace::Oklab) => shader_defs.push("OKLAB_TO_LINEAR".into()),
+            Some(CompositingSpace::Linear) | None => {}
+        }
+
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],

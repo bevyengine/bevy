@@ -10,10 +10,7 @@ use itertools::Itertools;
 #[cfg(feature = "bevy_animation")]
 use bevy_platform::collections::{HashMap, HashSet};
 
-use crate::{
-    convert_coordinates::{ConvertCameraCoordinates as _, ConvertCoordinates as _},
-    GltfError,
-};
+use crate::GltfError;
 
 pub(crate) fn node_name(node: &Node) -> Name {
     let name = node
@@ -29,8 +26,8 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transform {
-    let transform = match node.transform() {
+pub(crate) fn node_transform(node: &Node) -> Transform {
+    match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
         }
@@ -43,15 +40,6 @@ pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transfor
             rotation: bevy_math::Quat::from_array(rotation),
             scale: Vec3::from(scale),
         },
-    };
-    if convert_coordinates {
-        if node.camera().is_some() || node.light().is_some() {
-            transform.convert_camera_coordinates()
-        } else {
-            transform.convert_coordinates()
-        }
-    } else {
-        transform
     }
 }
 

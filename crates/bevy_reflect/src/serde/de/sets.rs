@@ -1,6 +1,7 @@
 use crate::{
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    DynamicSet, Set, SetInfo, TypeRegistry,
+    set::{DynamicSet, Set, SetInfo},
+    TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
@@ -9,7 +10,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Set`] values.
 ///
-/// [`Set`]: crate::Set
+/// [`Set`]: crate::set::Set
 pub(super) struct SetVisitor<'a, P> {
     pub set_info: &'static SetInfo,
     pub registry: &'a TypeRegistry,

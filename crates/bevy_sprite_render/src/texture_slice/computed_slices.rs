@@ -108,7 +108,7 @@ fn compute_sprite_slices(
 /// on sprite entities with a matching  [`SpriteImageMode`]
 pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<Image>>,
+    mut events: MessageReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     sprites: Query<(Entity, &Sprite)>,

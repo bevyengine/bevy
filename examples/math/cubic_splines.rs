@@ -293,18 +293,18 @@ struct MousePosition(Option<Vec2>);
 
 /// Update the current cursor position and track it in the [`MousePosition`] resource.
 fn handle_mouse_move(
-    mut cursor_events: EventReader<CursorMoved>,
+    mut cursor_moved_reader: MessageReader<CursorMoved>,
     mut mouse_position: ResMut<MousePosition>,
 ) {
-    if let Some(cursor_event) = cursor_events.read().last() {
-        mouse_position.0 = Some(cursor_event.position);
+    if let Some(cursor_moved) = cursor_moved_reader.read().last() {
+        mouse_position.0 = Some(cursor_moved.position);
     }
 }
 
 /// This system handles updating the [`MouseEditMove`] resource, orchestrating the logical part
 /// of the click-and-drag motion which actually creates new control points.
 fn handle_mouse_press(
-    mut button_events: EventReader<MouseButtonInput>,
+    mut mouse_button_input_reader: MessageReader<MouseButtonInput>,
     mouse_position: Res<MousePosition>,
     mut edit_move: ResMut<MouseEditMove>,
     mut control_points: ResMut<ControlPoints>,
@@ -315,12 +315,12 @@ fn handle_mouse_press(
     };
 
     // Handle click and drag behavior
-    for button_event in button_events.read() {
-        if button_event.button != MouseButton::Left {
+    for mouse_button_input in mouse_button_input_reader.read() {
+        if mouse_button_input.button != MouseButton::Left {
             continue;
         }
 
-        match button_event.state {
+        match mouse_button_input.state {
             ButtonState::Pressed => {
                 if edit_move.start.is_some() {
                     // If the edit move already has a start, press event should do nothing.
