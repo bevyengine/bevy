@@ -27,8 +27,8 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
-    BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
-    ResolvedBorderRadius, UiGlobalTransform, Val,
+    BoxShadow, CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo,
+    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -210,6 +210,7 @@ pub fn extract_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedStackIndex,
             &UiGlobalTransform,
             &InheritedVisibility,
             &BoxShadow,
@@ -222,7 +223,7 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target) in
+    for (entity, uinode, stack_index, transform, visibility, box_shadow, clip, camera, target) in
         &box_shadow_query
     {
         // Skip if no visible shadows
@@ -277,7 +278,7 @@ pub fn extract_shadows(
 
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
+                stack_index: stack_index.0,
                 transform: Affine2::from(transform) * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,

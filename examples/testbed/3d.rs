@@ -190,6 +190,18 @@ mod light {
         ));
 
         commands.spawn((
+            RectLight {
+                color: Color::srgb(0.5, 0.7, 1.0),
+                intensity: 100_000.0,
+                width: 1.5,
+                height: 4.0,
+                range: 20.0,
+            },
+            Transform::from_xyz(1.0, 2.0, -2.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Y),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+
+        commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExit(CURRENT_SCENE),
@@ -450,15 +462,17 @@ mod gltf_coordinate_conversion {
 
         commands
             .spawn((
-                WorldAssetRoot(asset_server.load_with_settings(
-                    GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
-                    |s: &mut GltfLoaderSettings| {
-                        s.convert_coordinates = Some(GltfConvertCoordinates {
-                            rotate_scene_entity: true,
-                            rotate_meshes: true,
-                        });
-                    },
-                )),
+                WorldAssetRoot(
+                    asset_server
+                        .load_builder()
+                        .with_settings(|s: &mut GltfLoaderSettings| {
+                            s.convert_coordinates = Some(GltfConvertCoordinates {
+                                rotate_scene_entity: true,
+                                rotate_meshes: true,
+                            });
+                        })
+                        .load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
+                ),
                 DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(show_aabbs);

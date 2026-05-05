@@ -15,7 +15,7 @@ use bevy_camera::{
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -64,9 +64,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
-    view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
-    },
+    view::{self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -80,7 +78,9 @@ use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
-use tracing::{error, info_span, warn};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -108,7 +108,6 @@ use bevy_tasks::ComputeTaskPool;
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -143,7 +142,7 @@ impl MeshRenderPlugin {
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct MeshPipelineSet;
+pub struct MeshPipelineSystems;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -321,7 +320,7 @@ impl Plugin for MeshRenderPlugin {
                 RenderStartup,
                 (init_mesh_pipeline_view_layouts, init_mesh_pipeline)
                     .chain()
-                    .in_set(MeshPipelineSet),
+                    .in_set(MeshPipelineSystems),
             );
         }
 
@@ -380,9 +379,12 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        Has<OrderIndependentTransparencySettings>,
-        Has<ExtractedAtmosphere>,
-        Has<ScreenSpaceReflectionsUniform>,
+        (
+            Has<OrderIndependentTransparencySettings>,
+            Has<ExtractedAtmosphere>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<ViewContactShadowsUniformOffset>,
+        ),
     )>,
 ) {
     for (
@@ -398,9 +400,7 @@ pub fn check_views_need_specialization(
         projection,
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
-        has_oit,
-        has_atmosphere,
-        has_ssr,
+        (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -444,6 +444,10 @@ pub fn check_views_need_specialization(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if has_contact_shadows {
+            view_key |= MeshPipelineKey::CONTACT_SHADOWS;
         }
 
         if view.invert_culling {
@@ -835,11 +839,7 @@ pub struct RenderMeshInstanceSharedFlat {
     asset_id: MeshAssetIdFlat,
     material_bindings_index: MaterialBindingId,
     lightmap_slab_index: LightmapSlabIndexFlat,
-    // FIXME: Remove this. This should be a field on `Mesh`.
-    model_space_center: Vec3,
     tag: u32,
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
     flags: RenderMeshInstanceFlags,
 }
@@ -858,7 +858,6 @@ impl_atomic_pod!(
         lightmap_slab_index_flat,
         set_lightmap_slab_index_flat
     ),
-    field(model_space_center: Vec3, model_space_center, set_model_space_center),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),
 );
@@ -896,15 +895,12 @@ impl RenderMeshInstanceSharedFlatBlob {
 #[derive(Clone, Copy, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct RenderMeshInstanceGpuFlat {
-    // FIXME: Remove this. This should be recomputed on demand, not cached here.
-    world_space_center: Vec3,
     current_uniform_index: u32,
 }
 
 impl_atomic_pod!(
     RenderMeshInstanceGpuFlat,
     RenderMeshInstanceGpuFlatBlob,
-    field(world_space_center: Vec3, world_space_center, set_world_space_center),
     field(current_uniform_index: u32, current_uniform_index, set_current_uniform_index),
 );
 
@@ -1105,7 +1101,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1115,7 +1110,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             no_cpu_culling,
-            aabb,
         )
     }
 
@@ -1127,7 +1121,6 @@ impl RenderMeshInstanceSharedFlat {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         Self::new(
             previous_transform,
@@ -1137,7 +1130,6 @@ impl RenderMeshInstanceSharedFlat {
             not_shadow_caster,
             no_automatic_batching,
             false,
-            aabb,
         )
     }
 
@@ -1149,7 +1141,6 @@ impl RenderMeshInstanceSharedFlat {
         not_shadow_caster: bool,
         no_automatic_batching: bool,
         no_cpu_culling: bool,
-        aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -1166,13 +1157,10 @@ impl RenderMeshInstanceSharedFlat {
         RenderMeshInstanceSharedFlat {
             asset_id: mesh.id().into(),
             material_bindings_index,
-            model_space_center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
             tag: tag.map_or(0, |i| **i),
             flags: mesh_instance_flags,
             // Filled in later.
             lightmap_slab_index: LightmapSlabIndexFlat::default(),
-            // Filled in later.
-            world_space_center: Vec3::ZERO,
             // Filled in later.
             current_uniform_index: 0,
         }
@@ -1254,20 +1242,12 @@ impl RenderMeshInstancesCpu {
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
-        self.get(&entity).map(|render_mesh_instance| {
-            let world_from_local = &render_mesh_instance.transforms.world_from_local;
-            let center = world_from_local
-                .matrix3
-                .mul_vec3(render_mesh_instance.shared.model_space_center())
-                + world_from_local.translation;
-
-            RenderMeshQueueData {
+        self.get(&entity)
+            .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center,
                 current_uniform_index: InputUniformIndex::default(),
-            }
-        })
+            })
     }
 
     /// Inserts the given flags into the render mesh instance data for the given
@@ -1290,7 +1270,6 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 render_layers: render_mesh_instance.render_layers.clone(),
-                center: render_mesh_instance.gpu_specific.world_space_center(),
                 current_uniform_index: InputUniformIndex(
                     render_mesh_instance.gpu_specific.current_uniform_index(),
                 ),
@@ -1528,16 +1507,9 @@ impl RenderMeshInstanceGpuBuilder {
             morph_descriptor_index,
         };
 
-        let world_from_local = &self.world_from_local;
-        let center = world_from_local
-            .matrix3
-            .mul_vec3(self.shared.model_space_center)
-            + world_from_local.translation;
-
         Some(RenderMeshInstanceGpuPrepared {
             shared: self.shared,
             mesh_input_uniform,
-            center,
             render_layers: self.render_layers,
         })
     }
@@ -1549,8 +1521,6 @@ pub struct RenderMeshInstanceGpuPrepared {
     shared: RenderMeshInstanceSharedFlat,
     /// The data that will be uploaded to the GPU as a [`MeshInputUniform`].
     mesh_input_uniform: MeshInputUniform,
-    /// The world-space center of the mesh instance, used for culling and sorting.
-    center: Vec3,
     /// The render layers that this mesh instance belongs to.
     render_layers: Option<RenderLayers>,
 }
@@ -1592,9 +1562,6 @@ impl RenderMeshInstanceGpuPrepared {
                 self.shared.write_to_blob(&existing_instance.shared);
                 existing_instance
                     .gpu_specific
-                    .set_world_space_center(self.center);
-                existing_instance
-                    .gpu_specific
                     .set_current_uniform_index(current_uniform_index);
                 existing_instance.render_layers = self.render_layers.clone();
             }
@@ -1610,7 +1577,6 @@ impl RenderMeshInstanceGpuPrepared {
                 });
                 self.shared.write_to_blob(&new_instance.shared);
                 RenderMeshInstanceGpuFlat {
-                    world_space_center: self.center,
                     current_uniform_index,
                 }
                 .write_to_blob(&new_instance.gpu_specific);
@@ -1690,11 +1656,6 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceSharedFlatBlob,
     /// The render layers that this mesh instance belongs to.
     pub render_layers: Option<RenderLayers>,
-    /// The representative position of the mesh instance in world-space.
-    ///
-    /// This world-space center is used as a spatial proxy for view-dependent
-    /// operations such as distance computation and render-order sorting.
-    pub center: Vec3,
     /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
     /// instance.
     pub current_uniform_index: InputUniformIndex,
@@ -1815,7 +1776,6 @@ pub fn extract_meshes_for_cpu_building(
             Has<NoAutomaticBatching>,
             Option<&VisibilityRange>,
             Option<&RenderLayers>,
-            Option<&Aabb>,
         )>,
     >,
 ) {
@@ -1836,7 +1796,6 @@ pub fn extract_meshes_for_cpu_building(
             no_automatic_batching,
             visibility_range,
             render_layers,
-            aabb,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1870,19 +1829,19 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
-                aabb,
             );
 
             let world_from_local = transform.affine();
+            let previous_world_from_local = previous_transform
+                .map(|previous_transform| previous_transform.0)
+                .unwrap_or(world_from_local);
+
             queue.push((
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
                         world_from_local: world_from_local.into(),
-                        previous_world_from_local: (previous_transform
-                            .map(|t| t.0)
-                            .unwrap_or(world_from_local))
-                        .into(),
+                        previous_world_from_local: previous_world_from_local.into(),
                         flags: mesh_flags.bits(),
                     },
                     shared: (&shared).into(),
@@ -2178,7 +2137,6 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         no_cpu_culling,
-        aabb,
     );
 
     // Calculate the lightmap UV rect, if applicable.
@@ -2528,6 +2486,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             changed
                                 .drain(..)
@@ -2566,6 +2525,7 @@ pub fn collect_meshes_for_gpu_building(
                         let reextract_tx = reextract_tx.clone();
                         let removed_tx = removed_tx.clone();
                         scope.spawn(async move {
+                            #[cfg(feature = "trace")]
                             let _span = info_span!("prepared_mesh_producer").entered();
                             for (entity, mesh_instance_builder, mesh_culling_builder) in
                                 changed_cpu_culling
@@ -2626,9 +2586,6 @@ pub fn collect_meshes_for_gpu_building(
                                 // only fields that changed are POD fields.
 
                                 prepared.shared.write_to_blob(&render_mesh_instance.shared);
-                                render_mesh_instance
-                                    .gpu_specific
-                                    .set_world_space_center(prepared.center);
 
                                 let current_uniform_index =
                                     render_mesh_instance.gpu_specific.current_uniform_index();
@@ -2772,10 +2729,7 @@ fn init_mesh_pipeline(
 }
 
 impl MeshPipeline {
-    pub fn get_view_layout(
-        &self,
-        layout_key: MeshPipelineViewLayoutKey,
-    ) -> &MeshPipelineViewLayout {
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -3067,7 +3021,8 @@ bitflags::bitflags! {
         const ATMOSPHERE                        = 1 << 21;
         const INVERT_CULLING                    = 1 << 22;
         const PREPASS_READS_MATERIAL            = 1 << 23;
-        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+        const CONTACT_SHADOWS                   = 1 << 24;
+        const LAST_FLAG                         = Self::CONTACT_SHADOWS.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3386,6 +3341,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "bluenoise_texture") {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         let bind_group_layout = self.get_view_layout(key.into());
         let mut bind_group_layout = vec![
@@ -3409,6 +3370,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
+        if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            shader_defs.push("CONTACT_SHADOWS".into());
         }
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
@@ -4225,50 +4190,22 @@ fn prepare_mesh_morph_target_bind_groups_for_phase_using_storage(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            view_ssr,
-            view_contact_shadows,
-            view_environment_map,
-            mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, '_, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_contact_shadows,
-            **view_environment_map,
-        ];
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.main,
+            &mesh_view_bind_group.main_offsets,
+        );
 
         RenderCommandResult::Success
     }

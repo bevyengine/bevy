@@ -322,6 +322,7 @@ fn resources_to_toml(
     manifest: &PreferenceFileManifest,
 ) -> toml::map::Map<String, toml::Value> {
     let mut table = toml::Table::new();
+
     for tid in manifest.resource_types.iter() {
         let ty = types.get(*tid).unwrap();
 
@@ -509,6 +510,7 @@ fn apply_settings_to_world(
                     // No settings key, so we can apply the whole section to the resource
                     value
                 };
+
                 load_properties(value, &mut *default_value, types);
             }
 
@@ -540,6 +542,37 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                             // Should be safe to unwrap here since we know the field exists (above).
                             st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
                         }
+                    }
+                }
+            }
+        }
+        TypeInfo::TupleStruct(tstinfo) => {
+            if let ReflectMut::TupleStruct(tst_reflect) = resource.reflect_mut() {
+                // tuple structs with length > 1 are always serialized as arrays
+                if tst_reflect.field_len() > 1
+                    && let Some(array) = value.as_array()
+                {
+                    for (idx, toml_field_value) in array.iter().enumerate() {
+                        if let Some(field_info) = tstinfo.field_at(idx)
+                            && let Some(field_type) = types.get(field_info.type_id())
+                        {
+                            let deserializer = TypedReflectDeserializer::new(field_type, types);
+                            if let Ok(field_value) =
+                                deserializer.deserialize(toml_field_value.clone())
+                            {
+                                // Should be safe to unwrap here since we know the field exists (above).
+                                tst_reflect.field_mut(idx).unwrap().apply(&*field_value);
+                            }
+                        }
+                    }
+                } else if tst_reflect.field_len() == 1
+                    && let Some(field_info) = tstinfo.field_at(0)
+                    && let Some(field_type) = types.get(field_info.type_id())
+                {
+                    let deserializer = TypedReflectDeserializer::new(field_type, types);
+                    if let Ok(field_value) = deserializer.deserialize(value.clone()) {
+                        // Should be safe to unwrap here since we know the field exists (above).
+                        tst_reflect.field_mut(0).unwrap().apply(&*field_value);
                     }
                 }
             }
@@ -705,9 +738,6 @@ mod tests {
         let counter_section = table.get("counter_settings").unwrap().as_table().unwrap();
 
         // Check that fields are present in the merged section
-        assert!(counter_section.contains_key("count"));
-        assert!(counter_section.contains_key("enabled"));
-        assert!(counter_section.contains_key("refresh_rate"));
         assert_eq!(
             counter_section.get("count").unwrap().as_integer().unwrap(),
             42
@@ -725,16 +755,136 @@ mod tests {
 
     #[test]
     fn test_round_trip_serialization() {
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug, Default)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        struct SingleFieldTupleStruct(u8);
+
+        #[derive(Reflect, PartialEq, Debug, Default)]
+        #[reflect(Default)]
+        struct NestedStruct {
+            a: u8,
+            b: u16,
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug, Default)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        struct MultiFieldTupleStruct(u8, NestedStruct);
+
+        #[derive(Resource, SettingsGroup, Reflect, Default)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        struct NewTypeSingleTupleStruct(SingleFieldTupleStruct);
+
+        #[derive(Resource, SettingsGroup, Reflect, Default)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        struct NewTypeMultiTupleStruct(SingleFieldTupleStruct, MultiFieldTupleStruct);
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug, Default)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumUnitVariant {
+            #[default]
+            A,
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumSingleTupleVariant {
+            A(u8),
+        }
+
+        impl Default for EnumSingleTupleVariant {
+            fn default() -> Self {
+                EnumSingleTupleVariant::A(0)
+            }
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumMultiTupleVariant {
+            A(u16, u32),
+        }
+
+        impl Default for EnumMultiTupleVariant {
+            fn default() -> Self {
+                EnumMultiTupleVariant::A(0, 0)
+            }
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumStructVariant {
+            A { x: u8, y: u16 },
+        }
+
+        impl Default for EnumStructVariant {
+            fn default() -> Self {
+                EnumStructVariant::A { x: 0, y: 0 }
+            }
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumSingleNewTypeVariant {
+            A(SingleFieldTupleStruct),
+        }
+
+        impl Default for EnumSingleNewTypeVariant {
+            fn default() -> Self {
+                EnumSingleNewTypeVariant::A(SingleFieldTupleStruct(0))
+            }
+        }
+
+        #[derive(Resource, SettingsGroup, Reflect, PartialEq, Debug)]
+        #[reflect(Resource, SettingsGroup, Default)]
+        enum EnumMultiNewTypeVariant {
+            A(SingleFieldTupleStruct, MultiFieldTupleStruct),
+        }
+
+        impl Default for EnumMultiNewTypeVariant {
+            fn default() -> Self {
+                EnumMultiNewTypeVariant::A(
+                    SingleFieldTupleStruct(0),
+                    MultiFieldTupleStruct(0, NestedStruct { a: 0, b: 0 }),
+                )
+            }
+        }
+
         let mut world = World::new();
         let mut types = TypeRegistry::default();
+
         types.register::<CounterSettings>();
         types.register::<ExtraCounterSettings>();
         types.register::<CounterRefreshRateSettings>();
+        types.register::<SingleFieldTupleStruct>();
+        types.register::<MultiFieldTupleStruct>();
+        types.register::<NewTypeSingleTupleStruct>();
+        types.register::<NewTypeMultiTupleStruct>();
+        types.register::<EnumUnitVariant>();
+        types.register::<EnumSingleTupleVariant>();
+        types.register::<EnumMultiTupleVariant>();
+        types.register::<EnumStructVariant>();
+        types.register::<EnumSingleNewTypeVariant>();
+        types.register::<EnumMultiNewTypeVariant>();
 
         // Insert resources with specific values
         world.insert_resource(CounterSettings { count: 123 });
         world.insert_resource(ExtraCounterSettings { enabled: false });
         world.insert_resource(CounterRefreshRateSettings::Fast);
+        world.insert_resource(SingleFieldTupleStruct(1));
+        world.insert_resource(MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }));
+        world.insert_resource(NewTypeSingleTupleStruct(SingleFieldTupleStruct(1)));
+        world.insert_resource(NewTypeMultiTupleStruct(
+            SingleFieldTupleStruct(1),
+            MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }),
+        ));
+        world.insert_resource(EnumUnitVariant::A);
+        world.insert_resource(EnumSingleTupleVariant::A(1));
+        world.insert_resource(EnumMultiTupleVariant::A(1, 2));
+        world.insert_resource(EnumStructVariant::A { x: 1, y: 2 });
+        world.insert_resource(EnumSingleNewTypeVariant::A(SingleFieldTupleStruct(1)));
+        world.insert_resource(EnumMultiNewTypeVariant::A(
+            SingleFieldTupleStruct(1),
+            MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 }),
+        ));
 
         // Build a manifest with both resource types
         let manifest = PreferenceFileManifest {
@@ -743,6 +893,16 @@ mod tests {
                 TypeId::of::<CounterSettings>(),
                 TypeId::of::<ExtraCounterSettings>(),
                 TypeId::of::<CounterRefreshRateSettings>(),
+                TypeId::of::<SingleFieldTupleStruct>(),
+                TypeId::of::<MultiFieldTupleStruct>(),
+                TypeId::of::<NewTypeSingleTupleStruct>(),
+                TypeId::of::<NewTypeMultiTupleStruct>(),
+                TypeId::of::<EnumUnitVariant>(),
+                TypeId::of::<EnumSingleTupleVariant>(),
+                TypeId::of::<EnumMultiTupleVariant>(),
+                TypeId::of::<EnumStructVariant>(),
+                TypeId::of::<EnumSingleNewTypeVariant>(),
+                TypeId::of::<EnumMultiNewTypeVariant>(),
             ],
         };
 
@@ -764,6 +924,56 @@ mod tests {
             .get_resource::<CounterRefreshRateSettings>()
             .unwrap();
         assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
+
+        let single_field_tuple_struct = new_world.get_resource::<SingleFieldTupleStruct>().unwrap();
+        assert_eq!(single_field_tuple_struct.0, 1);
+
+        let multi_field_tuple_struct = new_world.get_resource::<MultiFieldTupleStruct>().unwrap();
+        assert_eq!(multi_field_tuple_struct.0, 2);
+        assert_eq!(multi_field_tuple_struct.1.a, 1);
+        assert_eq!(multi_field_tuple_struct.1.b, 2);
+
+        let new_type_single_tuple_struct = new_world
+            .get_resource::<NewTypeSingleTupleStruct>()
+            .unwrap();
+        assert_eq!(new_type_single_tuple_struct.0 .0, 1);
+
+        let new_type_multi_tuple_struct =
+            new_world.get_resource::<NewTypeMultiTupleStruct>().unwrap();
+        assert_eq!(new_type_multi_tuple_struct.0 .0, 1);
+        assert_eq!(new_type_multi_tuple_struct.1 .0, 2);
+        assert_eq!(new_type_multi_tuple_struct.1 .1.a, 1);
+        assert_eq!(new_type_multi_tuple_struct.1 .1.b, 2);
+
+        let enum_unit_variant = new_world.get_resource::<EnumUnitVariant>().unwrap();
+        assert_eq!(*enum_unit_variant, EnumUnitVariant::A);
+
+        let enum_single_tuple_variant = new_world.get_resource::<EnumSingleTupleVariant>().unwrap();
+        assert_eq!(*enum_single_tuple_variant, EnumSingleTupleVariant::A(1));
+
+        let enum_multi_tuple_variant = new_world.get_resource::<EnumMultiTupleVariant>().unwrap();
+        assert_eq!(*enum_multi_tuple_variant, EnumMultiTupleVariant::A(1, 2));
+
+        let enum_struct_variant = new_world.get_resource::<EnumStructVariant>().unwrap();
+        assert_eq!(*enum_struct_variant, EnumStructVariant::A { x: 1, y: 2 });
+
+        let enum_single_new_type_variant = new_world
+            .get_resource::<EnumSingleNewTypeVariant>()
+            .unwrap();
+        assert_eq!(
+            *enum_single_new_type_variant,
+            EnumSingleNewTypeVariant::A(SingleFieldTupleStruct(1))
+        );
+
+        let enum_multi_new_type_variant =
+            new_world.get_resource::<EnumMultiNewTypeVariant>().unwrap();
+        assert_eq!(
+            *enum_multi_new_type_variant,
+            EnumMultiNewTypeVariant::A(
+                SingleFieldTupleStruct(1),
+                MultiFieldTupleStruct(2, NestedStruct { a: 1, b: 2 })
+            )
+        );
     }
 
     #[test]
