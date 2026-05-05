@@ -93,10 +93,12 @@ bcdefghijkl\n\
 mnopqrstuvw\n\
 xyz{|}~";
 
-const EXTENDED_GLYPHS: &str = "ÄÀÁÂÃÅÆ\n\
+const EXTENDED_GLYPHS: &str = "ÀÁÂÃÄÅ\n\
 ÇÈÉÊËÌÍÎÏ\n\
-ÒÓÔÕÖØÙÚÛÜÝÞß\n\
-";
+ÑÒÓÔÕÖÙÚÛÜÝ\n\
+àáâãäå\n\
+çèéêëìíîï\n\
+ñòóôõöùúûüýÿ";
 
 fn draw_all_glyphs(mut text_gizmos: Gizmos) {
     text_gizmos.text_2d(
@@ -110,7 +112,7 @@ fn draw_all_glyphs(mut text_gizmos: Gizmos) {
 
 fn draw_extended_glyphs(mut text_gizmos: Gizmos) {
     text_gizmos.text_2d(
-        Isometry2d::from_xy(600., -350.),
+        Isometry2d::from_xy(600., -400.),
         EXTENDED_GLYPHS,
         30.0,
         Vec2::ZERO,
