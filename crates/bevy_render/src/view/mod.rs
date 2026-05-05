@@ -667,8 +667,8 @@ pub struct ViewUniform {
     /// This is useful for directional shadow views, where visibility range culling should
     /// be executed in relation to its non-shadow camera's world position.
     ///
-    /// If this ViewUniform already represents a camera view or has no associated camera view,
-    /// this field will be set to world_position.
+    /// If this `ViewUniform` already represents a camera view or has no associated camera view,
+    /// this field will be set to `world_position`.
     pub primary_world_position: Vec3,
     /// Flags associated with this View.
     pub flags: u32,
@@ -679,9 +679,8 @@ bitflags::bitflags! {
     /// Various flags and tightly-packed values on a View.
     #[repr(transparent)]
     pub struct ViewFlags: u32 {
-        /// Whether the primary_world_position can be used for visibility range cullling.
-        ///
-        /// If false, this view should not be used for visibility range culling.
+        /// Whether the `primary_world_position` of this `ViewUniform` can be used
+        /// for visibility range cullling.
         const USABLE_PRIMARY_WORLD_POSITION = 1 << 0;
     }
 }
