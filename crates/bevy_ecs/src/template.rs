@@ -4,7 +4,7 @@ pub use bevy_ecs_macros::FromTemplate;
 
 use crate::{
     entity::Entity,
-    error::Result,
+    error::{BevyError, Result},
     resource::Resource,
     world::{EntityWorldMut, Mut, World},
 };
@@ -407,6 +407,8 @@ pub enum EntityTemplate {
     Entity(Entity),
     /// A reference to an entity via a [`ScopedEntityIndex`]
     ScopedEntityIndex(ScopedEntityIndex),
+    /// An entity has not been specified. Building a template with this variant will result in an error.
+    None,
 }
 
 /// An entity index within the current [`TemplateContext`], which is defined by a scope
@@ -425,7 +427,7 @@ pub struct ScopedEntityIndex {
 
 impl Default for EntityTemplate {
     fn default() -> Self {
-        Self::ScopedEntityIndex(ScopedEntityIndex { scope: 0, index: 0 })
+        Self::None
     }
 }
 
@@ -444,6 +446,11 @@ impl Template for EntityTemplate {
             Self::ScopedEntityIndex(scoped_entity_index) => {
                 context.get_scoped_entity(*scoped_entity_index)
             }
+            Self::None => {
+                return Err(BevyError::error(
+                    "Failed to specify an entity for this EntityTemplate",
+                ))
+            }
         })
     }
 
@@ -453,6 +460,7 @@ impl Template for EntityTemplate {
             Self::ScopedEntityIndex(scoped_entity_index) => {
                 Self::ScopedEntityIndex(*scoped_entity_index)
             }
+            Self::None => Self::None,
         }
     }
 }
