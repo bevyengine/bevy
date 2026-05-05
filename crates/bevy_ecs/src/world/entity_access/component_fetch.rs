@@ -140,21 +140,24 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Ref<'_>, EntityComponentError> {
-        <&Self>::fetch_ref(&self, cell)
+        // SAFETY: Uphelp by caller.
+        unsafe { <&Self>::fetch_ref(&self, cell) }
     }
 
     unsafe fn fetch_mut(
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        <&Self>::fetch_mut(&self, cell)
+        // SAFETY: Uphelp by caller.
+        unsafe { <&Self>::fetch_mut(&self, cell) }
     }
 
     unsafe fn fetch_mut_assume_mutable(
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        <&Self>::fetch_mut_assume_mutable(&self, cell)
+        // SAFETY: Uphelp by caller.
+        unsafe { <&Self>::fetch_mut_assume_mutable(&self, cell) }
     }
 }
 
