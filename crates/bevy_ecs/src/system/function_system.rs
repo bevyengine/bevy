@@ -64,6 +64,11 @@ impl SystemMeta {
         &self.name
     }
 
+    /// Returns the system's state flags
+    pub fn flags(&self) -> SystemStateFlags {
+        self.flags
+    }
+
     /// Sets the name of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
@@ -77,6 +82,18 @@ impl SystemMeta {
             self.commands_span = info_span!(parent: None, "system_commands", name = name);
         }
         self.name = new_name.into();
+    }
+
+    /// Gets the last time this system was run.
+    #[inline]
+    pub fn get_last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Sets the last time this system was run.
+    #[inline]
+    pub fn set_last_run(&mut self, last_run: Tick) {
+        self.last_run = last_run;
     }
 
     /// Returns true if the system is [`Send`].
@@ -109,11 +126,6 @@ impl SystemMeta {
     /// Mark the system to run exclusively. i.e. no other systems will run at the same time.
     pub fn set_exclusive(&mut self) {
         self.flags |= SystemStateFlags::EXCLUSIVE;
-    }
-
-    /// Expose a read only copy of `last_run`.
-    pub fn get_last_run(&self) -> Tick {
-        self.last_run
     }
 }
 
@@ -171,7 +183,7 @@ impl SystemMeta {
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
-/// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world).unwrap();
 ///
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
@@ -201,7 +213,7 @@ impl SystemMeta {
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
-///     let mut message_reader = cached_state.message_state.get_mut(world);
+///     let mut message_reader = cached_state.message_state.get_mut(world).unwrap();
 ///
 ///     for message in message_reader.read() {
 ///         println!("Hello World!");
@@ -217,7 +229,7 @@ impl SystemMeta {
 /// # struct MyMessage;
 /// #
 /// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
-///     let mut message_reader = system_state.get_mut(world);
+///     let mut message_reader = system_state.get_mut(world).unwrap();
 ///
 ///     for message in message_reader.read() {
 ///         println!("Hello World!");
@@ -355,8 +367,13 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    ///
+    /// Returns an error if system parameter validation fails.
     #[inline]
-    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    pub fn get<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
     where
         Param: ReadOnlySystemParam,
     {
@@ -367,9 +384,14 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
+    ///
+    /// Returns an error if system parameter validation fails.
     #[inline]
     #[track_caller]
-    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
         self.validate_world(world.id());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked(world.as_unsafe_world_cell()) }
@@ -381,21 +403,6 @@ impl<Param: SystemParam> SystemState<Param> {
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
         Param::apply(&mut self.param_state, &self.meta, world);
-    }
-
-    /// Wrapper over [`SystemParam::validate_param`].
-    ///
-    /// # Safety
-    ///
-    /// - The passed [`UnsafeWorldCell`] must have read-only access to
-    ///   world data in `component_access_set`.
-    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    pub unsafe fn validate_param(
-        state: &mut Self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { Param::validate_param(&mut state.param_state, &state.meta, world) }
     }
 
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
@@ -423,6 +430,8 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values.
     ///
+    /// Returns an error if system parameter validation fails.
+    ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
@@ -432,7 +441,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
         let change_tick = world.increment_change_tick();
         // SAFETY: The invariants are upheld by the caller.
         unsafe { self.fetch(world, change_tick) }
@@ -448,12 +457,12 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
         // SAFETY: The invariants are upheld by the caller.
         let param =
-            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
+            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) }?;
         self.meta.last_run = change_tick;
-        param
+        Ok(param)
     }
 
     /// Returns a reference to the current system param states.
@@ -511,7 +520,7 @@ struct FunctionSystemState<P: SystemParam> {
     /// The cached state of the system's [`SystemParam`]s.
     param: P::State,
     /// The id of the [`World`] this system was initialized with. If the world
-    /// passed to [`System::run_unsafe`] or [`System::validate_param_unsafe`] does not match
+    /// passed to [`System::run_unsafe`] does not match
     /// this id, a panic will occur.
     world_id: WorldId,
 }
@@ -668,8 +677,9 @@ where
         // - The above assert ensures the world matches.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let params =
-            unsafe { F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick) };
+        let params = unsafe {
+            F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
+        }?;
 
         #[cfg(feature = "hotpatching")]
         let out = {
@@ -709,20 +719,6 @@ where
     fn queue_deferred(&mut self, world: DeferredWorld) {
         let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
         F::Param::queue(param_state, &self.system_meta, world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
-        assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
-        // SAFETY:
-        // - The above assert ensures the world matches.
-        // - All world accesses used by `F::Param` have been registered, so the caller
-        //   will ensure that there are no data access conflicts.
-        unsafe { F::Param::validate_param(&mut state.param, &self.system_meta, world) }
     }
 
     #[inline]
@@ -970,20 +966,20 @@ mod tests {
             let system = IntoSystem::into_system(function);
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 function.system_type_id(),
-                "System::type_id should be consistent with IntoSystem::system_type_id"
+                "System::system_type should be consistent with IntoSystem::system_type_id"
             );
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 TypeId::of::<T::System>(),
-                "System::type_id should be consistent with TypeId::of::<T::System>()"
+                "System::system_type should be consistent with TypeId::of::<T::System>()"
             );
 
             assert_ne!(
-                system.type_id(),
-                IntoSystem::into_system(reference_system).type_id(),
+                system.system_type(),
+                IntoSystem::into_system(reference_system).system_type(),
                 "Different systems should have different TypeIds"
             );
         }

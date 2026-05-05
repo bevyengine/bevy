@@ -28,7 +28,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::{default, TypeIdMap};
-use bytemuck::Pod;
+use bytemuck::{Pod, Zeroable};
 use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};
 use tracing::{error, trace};
@@ -256,8 +256,9 @@ enum BindingResourceArray<'a> {
 
 /// The location of a material (either bindless or non-bindless) within the
 /// slabs.
-#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[derive(Clone, Copy, Debug, Default, Pod, Zeroable, Reflect)]
 #[reflect(Clone, Default)]
+#[repr(C)]
 pub struct MaterialBindingId {
     /// The index of the bind group (slab) where the GPU data is located.
     pub group: MaterialBindGroupIndex,
@@ -271,8 +272,11 @@ pub struct MaterialBindingId {
 ///
 /// In bindless mode, each bind group contains multiple materials. In
 /// non-bindless mode, each bind group contains only one material.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Reflect, Deref, DerefMut)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Pod, Zeroable, Reflect, Deref, DerefMut,
+)]
 #[reflect(Default, Clone, PartialEq, Hash)]
+#[repr(C)]
 pub struct MaterialBindGroupIndex(pub u32);
 
 impl From<u32> for MaterialBindGroupIndex {
@@ -287,8 +291,9 @@ impl From<u32> for MaterialBindGroupIndex {
 /// In bindless mode, this slot is needed to locate the material data in each
 /// bind group, since multiple materials are packed into a single slab. In
 /// non-bindless mode, this slot is always 0.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Pod, Zeroable, Reflect, Deref, DerefMut)]
 #[reflect(Default, Clone, PartialEq)]
+#[repr(C)]
 pub struct MaterialBindGroupSlot(pub u32);
 
 /// The CPU/GPU synchronization state of a buffer that we maintain.
@@ -935,10 +940,18 @@ impl MaterialBindlessSlab {
         }
 
         // OK, we can allocate in this slab. Assign a slot ID.
-        let slot = self
-            .free_slots
-            .pop()
-            .unwrap_or(MaterialBindGroupSlot(self.live_allocation_count));
+        let slot = match self.free_slots.pop() {
+            Some(slot) => slot,
+            None => {
+                // The material bind group slot is packed into 16 bits on
+                // the GPU, so spill to a new slab before we would overflow.
+                if self.live_allocation_count > 0xFFFF {
+                    trace!("Slab material bind group slot would overflow, can't allocate");
+                    return Err(unprepared_bind_group);
+                }
+                MaterialBindGroupSlot(self.live_allocation_count)
+            }
+        };
 
         // Bump the live allocation count.
         self.live_allocation_count += 1;
@@ -1350,6 +1363,7 @@ impl MaterialBindlessSlab {
         self.create_sampler_binding_resource_arrays(
             &mut binding_resource_arrays,
             fallback_bindless_resources,
+            bindless_descriptor,
             required_binding_array_size,
         );
 
@@ -1357,6 +1371,7 @@ impl MaterialBindlessSlab {
         self.create_texture_binding_resource_arrays(
             &mut binding_resource_arrays,
             fallback_image,
+            bindless_descriptor,
             required_binding_array_size,
         );
 
@@ -1377,6 +1392,7 @@ impl MaterialBindlessSlab {
         &'a self,
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_bindless_resources: &'a FallbackBindlessResources,
+        bindless_descriptor: &'a BindlessDescriptor,
         required_binding_array_size: Option<u32>,
     ) {
         // We have one binding resource array per sampler type.
@@ -1394,6 +1410,14 @@ impl MaterialBindlessSlab {
                 &fallback_bindless_resources.comparison_sampler,
             ),
         ] {
+            // Skip resource types not used by this material.
+            if !bindless_descriptor
+                .resources
+                .contains(&bindless_resource_type)
+            {
+                continue;
+            }
+
             let mut sampler_bindings = vec![];
 
             match self.samplers.get(&bindless_resource_type) {
@@ -1438,6 +1462,7 @@ impl MaterialBindlessSlab {
         &'a self,
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_image: &'a FallbackImage,
+        bindless_descriptor: &'a BindlessDescriptor,
         required_binding_array_size: Option<u32>,
     ) {
         for (bindless_resource_type, fallback_image) in [
@@ -1454,6 +1479,14 @@ impl MaterialBindlessSlab {
                 &fallback_image.cube_array,
             ),
         ] {
+            // Skip texture types that this material doesn't use.
+            if !bindless_descriptor
+                .resources
+                .contains(&bindless_resource_type)
+            {
+                continue;
+            }
+
             let mut texture_bindings = vec![];
 
             let binding_number = bindless_resource_type
@@ -1625,6 +1658,7 @@ where
                 if self.bindings.len() < slot as usize + 1 {
                     self.bindings.resize_with(slot as usize + 1, || None);
                 }
+                debug_assert!(self.bindings[slot as usize].is_none());
                 self.bindings[slot as usize] = Some(MaterialBindlessBinding::new(resource));
 
                 self.len += 1;

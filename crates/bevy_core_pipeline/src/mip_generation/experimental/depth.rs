@@ -17,6 +17,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -40,7 +41,6 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::default;
 use bitflags::bitflags;
-use tracing::debug;
 
 /// The maximum number of mip levels that we can produce.
 ///
@@ -697,7 +697,15 @@ pub fn prepare_view_depth_pyramids(
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
     views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
+    stale_views: Query<Entity, (With<ViewDepthPyramid>, Without<OcclusionCulling>)>,
 ) {
+    // Remove old resources when occlusion culling gets disabled
+    for view_entity in &stale_views {
+        commands
+            .entity(view_entity)
+            .remove::<(ViewDepthPyramid, ViewDownsampleDepthBindGroup)>();
+    }
+
     for (view_entity, view) in &views {
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
             &render_device,

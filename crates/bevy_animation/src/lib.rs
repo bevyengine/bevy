@@ -39,7 +39,7 @@ use crate::{
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, world::EntityMutExcept};
+use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -748,10 +748,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_platform::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_platform::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -781,7 +781,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain() {
+        for (key, _) in self.type_ids.drain(..) {
             (visit)(EvaluatorId::Type(key))?;
         }
 
@@ -1032,7 +1032,10 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
+    mut targets: Query<
+        (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
+        Without<IsResource>,
+    >,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
@@ -1241,11 +1244,6 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    #[cfg(feature = "bevy_mesh")]
-                    animate_targets
-                        .before(bevy_mesh::InheritWeightSystems)
-                        .ambiguous_with_all(),
-                    #[cfg(not(feature = "bevy_mesh"))]
                     animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,

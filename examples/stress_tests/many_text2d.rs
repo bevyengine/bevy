@@ -12,11 +12,11 @@ use bevy::{
 };
 
 use argh::FromArgs;
+use chacha20::ChaCha8Rng;
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
-use rand_chacha::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
-                TextLayout::new_with_justify(if args.center {
+                TextLayout::justify(if args.center {
                     Justify::Center
                 } else {
                     Justify::Left
@@ -219,7 +219,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .choose(rng)
         .unwrap()
         .clone()
-        .choose_multiple(rng, 4)
+        .sample(rng, 4)
         .into_iter()
         .map(|cp| char::from_u32(cp).unwrap())
         .collect::<String>()
