@@ -9,7 +9,7 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Okhsv color space with alpha.
-/// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
+/// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -276,97 +276,97 @@ impl From<Okhsva> for LinearRgba {
 
 impl From<Srgba> for Okhsva {
     fn from(value: Srgba) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Srgba {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Lcha> for Okhsva {
     fn from(value: Lcha) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Lcha {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Xyza> for Okhsva {
     fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Xyza {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Okhsva {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Okhsla {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Hsla> for Okhsva {
     fn from(value: Hsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Hsla {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Hsva> for Okhsva {
     fn from(value: Hsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Hsva {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Laba> for Okhsva {
     fn from(value: Laba) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Laba {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Oklcha> for Okhsva {
     fn from(value: Oklcha) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsva> for Oklcha {
     fn from(value: Okhsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
@@ -400,16 +400,17 @@ mod tests {
                 color.rgb,
                 rgb2,
             );
+            let msg = alloc::format!(", color {:?}, got {:?}", color.okhsv, okhsv);
             // If value is approximately equal to 0.0, hue and saturation are arbitrary.
             if color.okhsv.value > 0.001 {
                 // If saturation is approximately equal to 0.0, hue is arbitrary.
                 if color.okhsv.saturation > 0.001 {
-                    assert_approx_eq!(color.okhsv.hue, okhsv.hue, 0.001);
+                    assert_approx_eq!(color.okhsv.hue, okhsv.hue, 0.001, msg);
                 }
-                assert_approx_eq!(color.okhsv.saturation, okhsv.saturation, 0.001);
+                assert_approx_eq!(color.okhsv.saturation, okhsv.saturation, 0.001, msg);
             }
-            assert_approx_eq!(color.okhsv.value, okhsv.value, 0.001);
-            assert_approx_eq!(color.okhsv.alpha, okhsv.alpha, 0.001);
+            assert_approx_eq!(color.okhsv.value, okhsv.value, 0.001, msg);
+            assert_approx_eq!(color.okhsv.alpha, okhsv.alpha, 0.001, msg);
         }
     }
 

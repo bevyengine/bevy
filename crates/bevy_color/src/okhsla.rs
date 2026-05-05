@@ -9,6 +9,7 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Okhsl color space, with alpha
+/// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -305,97 +306,97 @@ impl From<Okhsla> for LinearRgba {
 
 impl From<Hsla> for Okhsla {
     fn from(value: Hsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Hsla {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Hsva> for Okhsla {
     fn from(value: Hsva) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Hsva {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Hwba> for Okhsla {
     fn from(value: Hwba) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Hwba {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Lcha> for Okhsla {
     fn from(value: Lcha) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Lcha {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Srgba> for Okhsla {
     fn from(value: Srgba) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Srgba {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Xyza> for Okhsla {
     fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Xyza {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Laba> for Okhsla {
     fn from(value: Laba) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Laba {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Oklcha> for Okhsla {
     fn from(value: Oklcha) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
 impl From<Okhsla> for Oklcha {
     fn from(value: Okhsla) -> Self {
-        LinearRgba::from(value).into()
+        Oklaba::from(value).into()
     }
 }
 
@@ -429,16 +430,17 @@ mod tests {
                 color.rgb,
                 rgb2
             );
+            let msg = alloc::format!(", color {:?}, got {:?}", color.okhsl, okhsl);
             // If lightness is approximately equal to 0.0 or 1.0, hue and saturation are arbitrary.
             if color.okhsl.lightness < 0.999 && color.okhsl.lightness > 0.001 {
                 // If saturation is approximately equal to 0.0, hue is arbitrary.
                 if color.okhsl.saturation > 0.001 {
-                    assert_approx_eq!(color.okhsl.hue, okhsl.hue, 0.001);
+                    assert_approx_eq!(color.okhsl.hue, okhsl.hue, 0.001, msg);
                 }
-                assert_approx_eq!(color.okhsl.saturation, okhsl.saturation, 0.001);
+                assert_approx_eq!(color.okhsl.saturation, okhsl.saturation, 0.001, msg);
             }
-            assert_approx_eq!(color.okhsl.lightness, okhsl.lightness, 0.001);
-            assert_approx_eq!(color.okhsl.alpha, okhsl.alpha, 0.001);
+            assert_approx_eq!(color.okhsl.lightness, okhsl.lightness, 0.001, msg);
+            assert_approx_eq!(color.okhsl.alpha, okhsl.alpha, 0.001, msg);
         }
     }
 
