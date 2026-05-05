@@ -333,7 +333,7 @@ impl ScopedEntities {
 /// ```
 pub trait FromTemplate: Sized {
     /// The [`Template`] for this type.
-    type Template: Template;
+    type Template: Template<Output = Self>;
 }
 
 macro_rules! template_impl {

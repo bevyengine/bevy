@@ -310,6 +310,7 @@ pub(crate) fn changed_windows(
     >,
     monitors: Res<WinitMonitors>,
     mut window_resized: MessageWriter<WindowResized>,
+    mut window_event: MessageWriter<WindowEvent>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
@@ -423,7 +424,9 @@ pub(crate) fn changed_windows(
 
                 if physical_size != cached_physical_size
                     && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
-                        react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
+                        let event = react_to_resize(entity, &mut window, new_physical_size);
+                        window_resized.write(event.clone());
+                        window_event.write(WindowEvent::WindowResized(event));
                     }
             }
 

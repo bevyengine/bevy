@@ -526,25 +526,7 @@ impl AssetServer {
             .load(path.into())
     }
 
-    pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
-        guard: G,
-        override_unapproved: bool,
-    ) -> Handle<A> {
-        self.load_with_meta_transform_erased(
-            path,
-            TypeId::of::<A>(),
-            Some(type_name::<A>()),
-            meta_transform,
-            guard,
-            override_unapproved,
-        )
-        .typed_unchecked()
-    }
-
-    pub(crate) fn load_with_meta_transform_erased<'a, G: Send + Sync + 'static>(
+    pub(crate) fn load_with_meta_transform<'a, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
@@ -1633,16 +1615,11 @@ impl AssetServer {
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
-                    let loader = {
-                        self.read_loaders()
-                            .find(None, asset_type_id, None, Some(asset_path))
-                    };
+                    let loader = { self.read_loaders().find(asset_type_id, asset_path) };
 
                     let error = || AssetLoadError::MissingAssetLoader {
-                        loader_name: None,
                         asset_type_id,
-                        extension: None,
-                        asset_path: Some(asset_path.to_string()),
+                        asset_path: asset_path.to_string(),
                     };
 
                     let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
@@ -1653,16 +1630,11 @@ impl AssetServer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let loader = {
-                self.read_loaders()
-                    .find(None, asset_type_id, None, Some(asset_path))
-            };
+            let loader = { self.read_loaders().find(asset_type_id, asset_path) };
 
             let error = || AssetLoadError::MissingAssetLoader {
-                loader_name: None,
                 asset_type_id,
-                extension: None,
-                asset_path: Some(asset_path.to_string()),
+                asset_path: asset_path.to_string(),
             };
 
             let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
@@ -2069,7 +2041,7 @@ impl<'a> LoadBuilder<'a> {
         type_name: Option<&str>,
         asset_path: AssetPath<'_>,
     ) -> UntypedHandle {
-        self.asset_server.load_with_meta_transform_erased(
+        self.asset_server.load_with_meta_transform(
             asset_path,
             type_id,
             type_name,
@@ -2393,12 +2365,10 @@ pub enum AssetLoadError {
         actual_asset_name: &'static str,
         loader_name: &'static str,
     },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {asset_type_id:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[error("Could not find an asset loader matching: Asset Type: {asset_type_id:?}; Path: {asset_path:?};")]
     MissingAssetLoader {
-        loader_name: Option<String>,
         asset_type_id: Option<TypeId>,
-        extension: Option<String>,
-        asset_path: Option<String>,
+        asset_path: String,
     },
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
