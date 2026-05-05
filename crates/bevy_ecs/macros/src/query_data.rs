@@ -1,4 +1,8 @@
-use bevy_macro_utils::{ensure_no_collision, get_struct_fields};
+use bevy_macro_utils::{
+    ensure_no_collision,
+    fq_std::{FQIterator, FQOption},
+    get_struct_fields,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
@@ -60,21 +64,21 @@ fn contiguous_item_struct(
     };
 
     match fields {
-        Fields::Named(_) => quote! {
+        Fields::Named(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state {
                 #(#(#field_attrs)* #field_visibilities #field_members: <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>,)*
             }
         },
-        Fields::Unnamed(_) => quote! {
+        Fields::Unnamed(_) if !fields.is_empty() => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
                 #( #field_visibilities <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>, )*
             ) #user_where_clauses_with_world_and_state;
         },
-        Fields::Unit => quote! {
+        Fields::Unit | Fields::Named(_) | Fields::Unnamed(_) => quote! {
             #item_attrs
             #visibility type #item_struct_name #user_ty_generics_with_world_and_state = #struct_name #user_ty_generics;
         },
@@ -456,15 +460,15 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
-                        ::core::option::Option::Some(Self::Item {
+                    ) -> #FQOption<Self::Item<'__w, '__s>> {
+                        #FQOption::Some(Self::Item {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
 
                     fn iter_access(
                         _state: &Self::State,
-                    ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                    ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
                         ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                     }
                 }
@@ -538,15 +542,15 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> ::core::option::Option<Self::Item<'__w, '__s>> {
-                    ::core::option::Option::Some(Self::Item {
+                ) -> #FQOption<Self::Item<'__w, '__s>> {
+                    #FQOption::Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
                 }
 
                 fn iter_access(
                     _state: &Self::State,
-                ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
                     ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                 }
             }

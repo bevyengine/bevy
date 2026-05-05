@@ -3,6 +3,23 @@
 
 use super::InputFocus;
 use bevy_ecs::prelude::*;
+use bevy_reflect::Reflect;
+
+/// The cause for a [`FocusGained`]
+///
+/// Sometimes widgets would like to know how their focus was gained so they can act accordingly.
+///
+/// For example, a text input may want to select all text when navigated into, but not when pressed.
+#[derive(Reflect, PartialEq, Eq, Debug, Clone, Copy)]
+pub enum FocusCause {
+    /// The input was navigated into by the keyboard, gamepad, or default behavior when unknown.
+    Navigated,
+
+    /// The input was pressed into with the mouse or touchpad
+    ///
+    /// This is only sent for primary mouse presses. Focus gained from other mouse buttons or gestures will be `Navigated`.
+    Pressed,
+}
 
 /// An [`EntityEvent`] that is sent when an entity gains [`InputFocus`].
 ///
@@ -10,8 +27,10 @@ use bevy_ecs::prelude::*;
 #[derive(EntityEvent, Debug, Clone)]
 #[entity_event(auto_propagate)]
 pub struct FocusGained {
-    /// The entity that gained focus.
+    /// The entity that gained focus
     pub entity: Entity,
+    /// What caused this focus
+    pub cause: FocusCause,
 }
 
 /// An [`EntityEvent`] that is sent when an entity loses [`InputFocus`].
@@ -38,12 +57,26 @@ pub fn process_recorded_focus_changes(mut focus: ResMut<InputFocus>, mut command
     // so we can send the correct FocusLost events when focus changes.
     let mut previous_focus = focus.original_focus;
     for change in focus.bypass_change_detection().recorded_changes.drain(..) {
+        let changed_ent = {
+            if let Some((changed_ent, _cause)) = change {
+                Some(changed_ent)
+            } else {
+                None
+            }
+        };
+        // Only send focus change events if the focused entity actually changed.
+        if changed_ent == previous_focus {
+            continue;
+        }
         match change {
-            Some(new_focus) => {
+            Some((new_focus, cause)) => {
                 if let Some(old_focus) = previous_focus {
                     commands.trigger(FocusLost { entity: old_focus });
                 }
-                commands.trigger(FocusGained { entity: new_focus });
+                commands.trigger(FocusGained {
+                    entity: new_focus,
+                    cause,
+                });
                 previous_focus = Some(new_focus);
             }
             None => {
@@ -113,7 +146,9 @@ mod tests {
         let mut app = setup_app();
 
         let entity = app.world_mut().spawn_empty().id();
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(entity, FocusCause::Navigated);
         app.update();
 
         assert_eq!(take_log(&mut app), vec![FocusEvent::Gained(entity)]);
@@ -125,7 +160,9 @@ mod tests {
         let entity = app.world_mut().spawn_empty().id();
 
         // Establish initial focus.
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(entity, FocusCause::Navigated);
         app.update();
         take_log(&mut app);
 
@@ -141,11 +178,15 @@ mod tests {
         let a = app.world_mut().spawn_empty().id();
         let b = app.world_mut().spawn_empty().id();
 
-        app.world_mut().resource_mut::<InputFocus>().set(a);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(a, FocusCause::Navigated);
         app.update();
         take_log(&mut app);
 
-        app.world_mut().resource_mut::<InputFocus>().set(b);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(b, FocusCause::Navigated);
         app.update();
 
         assert_eq!(
@@ -164,10 +205,10 @@ mod tests {
         let c = app.world_mut().spawn_empty().id();
 
         let mut focus = app.world_mut().resource_mut::<InputFocus>();
-        focus.set(a);
-        focus.set(b);
+        focus.set(a, FocusCause::Navigated);
+        focus.set(b, FocusCause::Navigated);
         focus.clear();
-        focus.set(c);
+        focus.set(c, FocusCause::Navigated);
 
         app.update();
 
@@ -180,25 +221,6 @@ mod tests {
                 FocusEvent::Lost(b),
                 FocusEvent::Gained(c),
             ]
-        );
-    }
-
-    #[test]
-    fn set_focus_to_same_entity() {
-        let mut app = setup_app();
-        let entity = app.world_mut().spawn_empty().id();
-
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-        take_log(&mut app);
-
-        // Setting focus to the already-focused entity still records a change.
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
-        app.update();
-
-        assert_eq!(
-            take_log(&mut app),
-            vec![FocusEvent::Lost(entity), FocusEvent::Gained(entity)]
         );
     }
 
@@ -219,7 +241,9 @@ mod tests {
         let mut app = setup_app();
         let entity = app.world_mut().spawn_empty().id();
 
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(entity, FocusCause::Navigated);
         app.update();
         take_log(&mut app);
 
@@ -240,7 +264,9 @@ mod tests {
         let child = app.world_mut().spawn_empty().id();
         let parent = app.world_mut().spawn_empty().add_child(child).id();
 
-        app.world_mut().resource_mut::<InputFocus>().set(child);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(child, FocusCause::Navigated);
         app.update();
 
         // The event fires on the child, then bubbles to the parent.
@@ -273,7 +299,9 @@ mod tests {
         let mut app = setup_app();
         let entity = app.world_mut().spawn_empty().id();
 
-        app.world_mut().resource_mut::<InputFocus>().set(entity);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(entity, FocusCause::Navigated);
         app.update();
         take_log(&mut app);
 
