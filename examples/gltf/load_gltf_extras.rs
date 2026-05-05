@@ -23,12 +23,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     commands.spawn(DirectionalLight {
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         ..default()
     });
 
     // a barebones scene containing one of each gltf_extra type
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/extras/gltf_extras.glb"),
     )));
 
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::default(),
         TextFont {
-            font_size: 15.,
+            font_size: FontSize::Px(15.),
             ..default()
         },
         Node {

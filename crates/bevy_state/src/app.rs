@@ -5,10 +5,14 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
+        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
+        States, SubStates,
     },
-    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
+    state_scoped::{
+        despawn_entities_on_enter_state, despawn_entities_on_exit_state,
+        despawn_entities_when_state,
+    },
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -215,6 +219,7 @@ impl AppExtStates for SubApp {
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self
     }
@@ -227,6 +232,7 @@ impl AppExtStates for SubApp {
         self.register_type::<S>();
         self.register_type::<State<S>>();
         self.register_type::<NextState<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
         self
@@ -255,6 +261,10 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
     .add_systems(
         StateTransition,
         despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+    )
+    .add_systems(
+        StateTransition,
+        despawn_entities_when_state::<S>.in_set(StateTransitionSystems::TransitionSchedules),
     );
 }
 

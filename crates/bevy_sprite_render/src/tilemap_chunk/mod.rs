@@ -11,6 +11,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
+    template::FromTemplate,
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -25,6 +26,10 @@ use tracing::warn;
 mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
+
+mod tile_orientation;
+
+pub use tile_orientation::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
@@ -44,7 +49,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
@@ -95,6 +100,8 @@ pub struct TileData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileData {
@@ -113,13 +120,14 @@ impl Default for TileData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
@@ -182,7 +190,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
-fn update_tilemap_chunk_indices(
+pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
@@ -219,7 +227,7 @@ fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity

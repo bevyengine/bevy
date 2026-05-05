@@ -1,9 +1,9 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use cosmic_text::skrifa::raw::ReadError;
+use bevy_reflect::TypePath;
 use thiserror::Error;
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 /// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`](bevy_asset::AssetServer)
 pub struct FontLoader;
 
@@ -12,8 +12,8 @@ pub struct FontLoader;
 #[derive(Debug, Error)]
 pub enum FontLoaderError {
     /// The contents that could not be parsed
-    #[error(transparent)]
-    Content(#[from] ReadError),
+    #[error("Failed to parse font.")]
+    Content,
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -27,11 +27,12 @@ impl AssetLoader for FontLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Font, Self::Error> {
+        let path = load_context.path();
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let font = Font::try_from_bytes(bytes)?;
+        let font = Font::from_bytes(bytes, &path.to_string());
         Ok(font)
     }
 

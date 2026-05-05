@@ -21,11 +21,9 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-#![deny(missing_docs)]
-
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
-use bevy_camera::{visibility::InheritedVisibility, Camera};
+use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
@@ -102,7 +100,7 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
@@ -122,13 +120,16 @@ pub fn ui_picking(
     {
         // This pointer is associated with a render target, which could be used by multiple
         // cameras. We want to ensure we return all cameras with a matching target.
-        for (entity, camera, _) in camera_query.iter().filter(|(_, camera, cam_can_pick)| {
-            (!settings.require_markers || *cam_can_pick)
-                && camera
-                    .target
-                    .normalize(primary_window.single().ok())
-                    .is_some_and(|target| target == pointer_location.target)
-        }) {
+        for (entity, camera, _, _) in
+            camera_query
+                .iter()
+                .filter(|(_, _, render_target, cam_can_pick)| {
+                    (!settings.require_markers || *cam_can_pick)
+                        && render_target
+                            .normalize(primary_window.single().ok())
+                            .is_some_and(|target| target == pointer_location.target)
+                })
+        {
             let mut pointer_pos =
                 pointer_location.position * camera.target_scaling_factor().unwrap_or(1.);
             if let Some(viewport) = camera.physical_viewport_rect() {
@@ -146,7 +147,8 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Entity, Vec2)>>::default();
+    let mut hit_nodes =
+        HashMap::<(Entity, PointerId), Vec<(Entity, Entity, Option<Pickable>, Vec2)>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -201,42 +203,39 @@ pub fn ui_picking(
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
-                if let Some((text_layout_info, text_block)) = node.text_node {
-                    if let Some(text_entity) = pick_ui_text_section(
-                        node.node,
-                        node.transform,
-                        *cursor_position,
-                        text_layout_info,
-                        text_block,
-                    ) {
-                        if settings.require_markers && !pickable_query.contains(text_entity) {
-                            continue;
-                        }
-
-                        hit_nodes
-                            .entry((camera_entity, *pointer_id))
-                            .or_default()
-                            .push((
-                                text_entity,
-                                camera_entity,
-                                node.transform.inverse().transform_point2(*cursor_position)
-                                    / node.node.size(),
-                            ));
-                    }
-                } else if node.node.contains_point(*node.transform, *cursor_position)
+                if node.node.contains_point(*node.transform, *cursor_position)
                     && clip_check_recursive(
                         *cursor_position,
                         node_entity,
                         &clipping_query,
                         &child_of_query,
                     )
+                    && let Some(target) = node
+                        .text_node
+                        .and_then(|(text_layout_info, text_block)| {
+                            pick_ui_text_section(
+                                node.node,
+                                node.transform,
+                                *cursor_position,
+                                text_layout_info,
+                                text_block,
+                            )
+                            .filter(|&text_entity| {
+                                !settings.require_markers || pickable_query.contains(text_entity)
+                            })
+                        })
+                        .or_else(|| {
+                            (!settings.require_markers || node.pickable.is_some())
+                                .then_some(node_entity)
+                        })
                 {
                     hit_nodes
                         .entry((camera_entity, *pointer_id))
                         .or_default()
                         .push((
-                            node_entity,
+                            target,
                             camera_entity,
+                            node.pickable.cloned(),
                             node.transform.inverse().transform_point2(*cursor_position)
                                 / node.node.size(),
                         ));
@@ -251,13 +250,13 @@ pub fn ui_picking(
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        for (hovered_node, camera_entity, position) in hovered {
+        for (hovered_node, camera_entity, pickable, position) in hovered {
             picks.push((
                 *hovered_node,
                 HitData::new(*camera_entity, depth, Some(position.extend(0.0)), None),
             ));
 
-            if let Ok(pickable) = pickable_query.get(*hovered_node) {
+            if let Some(pickable) = pickable {
                 // If an entity has a `Pickable` component, we will use that as the source of truth.
                 if pickable.should_block_lower {
                     break;
@@ -272,7 +271,7 @@ pub fn ui_picking(
 
         let order = camera_query
             .get(*camera)
-            .map(|(_, cam, _)| cam.order)
+            .map(|(_, cam, _, _)| cam.order)
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
@@ -289,12 +288,11 @@ fn pick_ui_text_section(
 ) -> Option<Entity> {
     let local_point = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())?;
-
-    for run in text_layout_info.run_geometry.iter() {
-        if run.bounds.contains(local_point) {
-            return text_block.entities().get(run.span_index).map(|e| e.entity);
-        }
-    }
-    None
+        .map(|transform| transform.transform_point2(point) - uinode.content_box().min)?;
+    let section_index = text_layout_info
+        .run_geometry
+        .iter()
+        .find(|run| run.bounds.contains(local_point))
+        .map(|run| run.section_index)?;
+    text_block.entities().get(section_index).map(|e| e.entity)
 }
