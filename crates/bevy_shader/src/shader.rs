@@ -192,13 +192,13 @@ impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> 
             .iter()
             .map(|def| match def {
                 ShaderDefVal::Bool(name, b) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::Bool(*b))
+                    (name.to_string(), naga_oil::compose::ShaderDefValue::Bool(*b))
                 }
                 ShaderDefVal::Int(name, i) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::Int(*i))
+                    (name.to_string(), naga_oil::compose::ShaderDefValue::Int(*i))
                 }
                 ShaderDefVal::UInt(name, i) => {
-                    (name.clone(), naga_oil::compose::ShaderDefValue::UInt(*i))
+                    (name.to_string(), naga_oil::compose::ShaderDefValue::UInt(*i))
                 }
             })
             .collect();

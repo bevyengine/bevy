@@ -1,4 +1,5 @@
 use crate::shader::*;
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_asset::AssetId;
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
@@ -86,20 +87,20 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
 #[expect(missing_docs, reason = "Enum variants are self-explanatory")]
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
-    Bool(String, bool),
-    Int(String, i32),
-    UInt(String, u32),
+    Bool(Cow<'static, str>, bool),
+    Int(Cow<'static, str>, i32),
+    UInt(Cow<'static, str>, u32),
 }
 
-impl From<&str> for ShaderDefVal {
-    fn from(key: &str) -> Self {
-        ShaderDefVal::Bool(key.to_string(), true)
+impl From<&'static str> for ShaderDefVal {
+    fn from(key: &'static str) -> Self {
+        ShaderDefVal::Bool(key.into(), true)
     }
 }
 
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
+        ShaderDefVal::Bool(key.into(), true)
     }
 }
 
@@ -242,7 +243,10 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             for shader_def in shader_defs {
                                 match shader_def {
                                     ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.flags.insert(key.clone(), (*value).into());
+                                        compiler_options
+                                            .features
+                                            .flags
+                                            .insert(key.as_ref().to_owned(), (*value).into());
                                     }
                                     _ => debug!(
                                         "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
@@ -276,15 +280,15 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                         let shader_defs = shader_defs
                             .iter()
                             .chain(shader.shader_defs.iter())
-                            .map(|def| match def.clone() {
+                            .map(|def| match def {
                                 ShaderDefVal::Bool(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::Bool(*v))
                                 }
                                 ShaderDefVal::Int(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::Int(*v))
                                 }
                                 ShaderDefVal::UInt(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
+                                    (k.to_string(), naga_oil::compose::ShaderDefValue::UInt(*v))
                                 }
                             })
                             .collect::<std::collections::HashMap<_, _>>();
