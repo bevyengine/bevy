@@ -87,7 +87,7 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push(&mut self, command: impl Command) {
+    pub fn push(&mut self, command: impl Command<Out = ()>) {
         // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
             self.get_raw().push(command);
@@ -98,9 +98,6 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
-        // flush the previously queued entities
-        world.flush_entities();
-
         // flush the world's internal queue
         world.flush_commands();
 
@@ -163,12 +160,12 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub unsafe fn push<C: Command>(&mut self, command: C) {
+    pub unsafe fn push<C: Command<Out = ()>>(&mut self, command: C) {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
-        struct Packed<C: Command> {
+        struct Packed<C: Command<Out = ()>> {
             meta: CommandMeta,
             command: C,
         }
@@ -380,6 +377,8 @@ mod test {
     }
 
     impl Command for DropCheck {
+        type Out = ();
+
         fn apply(self, _: &mut World) {}
     }
 
@@ -430,6 +429,8 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
+        type Out = ();
+
         fn apply(self, world: &mut World) {
             world.spawn(A);
         }
@@ -459,6 +460,8 @@ mod test {
     )]
     struct PanicCommand(String);
     impl Command for PanicCommand {
+        type Out = ();
+
         fn apply(self, _: &mut World) {
             panic!("command is panicking");
         }
@@ -538,6 +541,8 @@ mod test {
     )]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
+        type Out = ();
+
         fn apply(self, _: &mut World) {}
     }
 

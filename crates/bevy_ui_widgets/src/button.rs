@@ -20,9 +20,14 @@ use crate::Activate;
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct Button;
+
+/// Optional marker component that indicates we want the button to activate on the pointer down
+/// event, this is used for menu buttons.
+#[derive(Component, Default, Debug, Clone)]
+pub struct ActivateOnPress;
 
 fn button_on_key_event(
     mut event: On<FocusedInput<KeyboardInput>>,
@@ -47,12 +52,15 @@ fn button_on_key_event(
 
 fn button_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<Button>>,
+    mut q_state: Query<
+        (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
+        With<Button>,
+    >,
     mut commands: Commands,
 ) {
-    if let Ok((pressed, disabled)) = q_state.get_mut(click.entity) {
+    if let Ok((pressed, disabled, activate_on_press)) = q_state.get_mut(click.entity) {
         click.propagate(false);
-        if pressed && !disabled {
+        if pressed && !disabled && !activate_on_press {
             commands.trigger(Activate {
                 entity: click.entity,
             });
@@ -62,13 +70,24 @@ fn button_on_pointer_click(
 
 fn button_on_pointer_down(
     mut press: On<Pointer<Press>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
+    mut q_state: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Pressed>,
+            Has<ActivateOnPress>,
+        ),
+        With<Button>,
+    >,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(press.entity) {
+    if let Ok((button, disabled, pressed, activate_on_press)) = q_state.get_mut(press.entity) {
         press.propagate(false);
         if !disabled && !pressed {
             commands.entity(button).insert(Pressed);
+            if activate_on_press {
+                commands.trigger(Activate { entity: button });
+            }
         }
     }
 }

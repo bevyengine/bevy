@@ -3,15 +3,13 @@ use crate::{
     gpu_readback,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
-        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
+        BindGroup, BindGroupEntries, Buffer, BufferUsages, PipelineCache,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
@@ -22,6 +20,14 @@ use bevy_ecs::{
     entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
+use bevy_log::{error, info, warn};
+use bevy_material::{
+    bind_group_layout_entries::{binding_types::texture_2d, BindGroupLayoutEntries},
+    descriptor::{
+        BindGroupLayoutDescriptor, CachedRenderPipelineId, FragmentState, RenderPipelineDescriptor,
+        VertexState,
+    },
+};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_shader::Shader;
@@ -36,11 +42,10 @@ use std::{
         Mutex,
     },
 };
-use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
-#[reflect(Debug)]
+#[reflect(Debug, Event)]
 pub struct ScreenshotCaptured {
     pub entity: Entity,
     #[deref]
@@ -151,11 +156,13 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>
                             let mut image_buffer = std::io::Cursor::new(Vec::new());
                             img.write_to(&mut image_buffer, format)
                                 .map_err(|e| JsValue::from_str(&format!("{e}")))?;
-                            // SAFETY: `image_buffer` only exist in this closure, and is not used after this line
-                            let parts = js_sys::Array::of1(&unsafe {
-                                js_sys::Uint8Array::view(image_buffer.into_inner().as_bytes())
-                                    .into()
-                            });
+
+                            let parts = js_sys::Array::of1(
+                                &js_sys::Uint8Array::new_from_slice(
+                                    image_buffer.into_inner().as_bytes(),
+                                )
+                                .into(),
+                            );
                             let blob = web_sys::Blob::new_with_u8_array_sequence(&parts)?;
                             let url = web_sys::Url::create_object_url_with_blob(&blob)?;
                             let window = web_sys::window().unwrap();
@@ -222,7 +229,8 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+    let (mut commands, primary_window, screenshots) =
+        system_state.get_mut(&mut main_world).unwrap();
 
     targets.clear();
     seen_targets.clear();
@@ -276,7 +284,9 @@ fn prepare_screenshots(
                     warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
-                let format = surface_data.configuration.format.add_srgb_suffix();
+                let view_format = surface_data
+                    .texture_view_format
+                    .unwrap_or(surface_data.configuration.format);
                 let size = Extent3d {
                     width: surface_data.configuration.width,
                     height: surface_data.configuration.height,
@@ -284,7 +294,7 @@ fn prepare_screenshots(
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -293,7 +303,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -301,10 +311,10 @@ fn prepare_screenshots(
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let format = gpu_image.texture_format;
+                let view_format = gpu_image.view_format();
                 let (texture_view, state) = prepare_screenshot_state(
-                    gpu_image.size,
-                    format,
+                    gpu_image.texture_descriptor.size,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -313,7 +323,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
@@ -324,11 +334,11 @@ fn prepare_screenshots(
                     );
                     continue;
                 };
-                let format = manual_texture_view.format;
+                let view_format = manual_texture_view.view_format;
                 let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -337,7 +347,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::None { .. } => {
@@ -400,7 +410,9 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>()
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
             .add_systems(
                 First,
                 clear_screenshots
@@ -417,7 +429,7 @@ impl Plugin for ScreenshotPlugin {
             .insert_resource(RenderScreenshotsSender(tx))
             .init_resource::<RenderScreenshotTargets>()
             .init_resource::<RenderScreenshotsPrepared>()
-            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
             .add_systems(RenderStartup, init_screenshot_to_screen_pipeline)
             .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
             .add_systems(
@@ -425,7 +437,7 @@ impl Plugin for ScreenshotPlugin {
                 prepare_screenshots
                     .after(prepare_view_attachments)
                     .before(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             );
     }
 }
@@ -500,13 +512,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = window.physical_width;
                 let height = window.physical_height;
-                let Some(texture_format) = window.swap_chain_texture_format else {
+                let Some(texture_format) = window.swap_chain_texture_view_format else {
                     continue;
                 };
-                let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
+                let Some(swap_chain_texture_view) = window.swap_chain_texture_view.as_ref() else {
                     continue;
                 };
-                let texture_view = swap_chain_texture.texture.create_view(&Default::default());
                 render_screenshot(
                     encoder,
                     prepared,
@@ -515,7 +526,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     width,
                     height,
                     texture_format,
-                    &texture_view,
+                    swap_chain_texture_view,
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -523,9 +534,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.width;
-                let height = gpu_image.size.height;
-                let texture_format = gpu_image.texture_format;
+                let width = gpu_image.texture_descriptor.size.width;
+                let height = gpu_image.texture_descriptor.size.height;
+                let texture_format = gpu_image.texture_descriptor.format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
                     encoder,
@@ -548,7 +559,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = texture_view.size.x;
                 let height = texture_view.size.y;
-                let texture_format = texture_view.format;
+                let texture_format = texture_view.view_format;
                 let texture_view = texture_view.texture_view.deref();
                 render_screenshot(
                     encoder,
@@ -608,6 +619,7 @@ fn render_screenshot(
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &prepared_state.bind_group, &[]);
@@ -618,7 +630,7 @@ fn render_screenshot(
 
 pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
-    let _span = tracing::info_span!("collect_screenshots").entered();
+    let _span = bevy_log::info_span!("collect_screenshots").entered();
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();
@@ -678,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetUsages::MAIN_WORLD,
                 ),
             )) {
                 error!("Failed to send screenshot: {}", e);

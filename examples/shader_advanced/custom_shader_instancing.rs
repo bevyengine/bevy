@@ -7,7 +7,11 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
-use bevy::pbr::SetMeshViewBindingArrayBindGroup;
+use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
+use bevy::pbr::{
+    self, MeshInputUniform, MeshPipelineSystems, MeshUniform, SetMeshViewBindingArrayBindGroup,
+    ViewKeyCache,
+};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -21,6 +25,7 @@ use bevy::{
     },
     prelude::*,
     render::{
+        batching::gpu_preprocessing::BatchedInstanceBuffers,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
@@ -30,6 +35,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_component::SyncComponent,
         sync_world::MainEntity,
         view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
@@ -84,6 +90,10 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 
+impl SyncComponent for InstanceMaterialData {
+    type Target = Self;
+}
+
 impl ExtractComponent for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
@@ -102,7 +112,10 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_custom_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(
                 Render,
                 (
@@ -128,40 +141,62 @@ fn queue_custom(
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&ExtractedView, &Msaa)>,
+    views: Query<&ExtractedView>,
+    view_key_cache: Res<ViewKeyCache>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view, msaa) in &views {
+    for view in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
-        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
-        let rangefinder = view.rangefinder3d();
         for (entity, main_entity) in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
             else {
                 continue;
             };
-            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
-            let key =
-                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            let key = view_key
+                | MeshPipelineKey::from_primitive_topology_and_strip_index(
+                    mesh.primitive_topology(),
+                    mesh.index_format(),
+                );
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
+                sorting_info: TransparentSortingInfo3d::Sorted {
+                    mesh_center: pbr::get_mesh_instance_world_from_local(
+                        *main_entity,
+                        mesh_instance.current_uniform_index,
+                        &render_mesh_instances,
+                        maybe_batched_instance_buffers.as_deref(),
+                    )
+                    .transform_point3(
+                        meshes
+                            .get(mesh_instance.mesh_asset_id())
+                            .unwrap()
+                            .aabb_center,
+                    ),
+                    depth_bias: 0.0,
+                },
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance_translation(&mesh_instance.translation),
+                distance: 0.0,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
@@ -277,14 +312,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         else {
             return RenderCommandResult::Skip;
         };
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id()) else {
             return RenderCommandResult::Skip;
         };
         let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) =
-            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -298,7 +333,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                 count,
             } => {
                 let Some(index_buffer_slice) =
-                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id())
                 else {
                     return RenderCommandResult::Skip;
                 };

@@ -7,11 +7,11 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
+use bevy_material::AlphaMode;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
-    alpha::AlphaMode,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
@@ -115,13 +115,17 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         Some(AlphaMode::Blend)
     }
 
+    fn enable_shadows() -> bool {
+        false
+    }
+
     fn specialize(
         _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.depth_stencil.as_mut().unwrap().depth_compare = CompareFunction::Always;
+        descriptor.depth_stencil.as_mut().unwrap().depth_compare = Some(CompareFunction::Always);
 
         descriptor.vertex.shader_defs.push("FORWARD_DECAL".into());
 

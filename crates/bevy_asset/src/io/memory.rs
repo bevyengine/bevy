@@ -1,4 +1,7 @@
-use crate::io::{AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader};
+use crate::io::{
+    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
+    ReaderNotSeekableError, SeekableReader,
+};
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
 use bevy_platform::{
     collections::HashMap,
@@ -6,13 +9,13 @@ use bevy_platform::{
 };
 use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncWrite};
-use futures_lite::{ready, Stream};
+use futures_lite::Stream;
 use std::{
-    io::{Error, ErrorKind},
+    io::{Error, ErrorKind, SeekFrom},
     path::{Path, PathBuf},
 };
 
-use super::AsyncSeekForward;
+use super::AsyncSeek;
 
 #[derive(Default, Debug)]
 struct DirInternal {
@@ -45,6 +48,12 @@ impl Dir {
     }
 
     pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_asset_internal(path, value.into());
+    }
+
+    // Implements `insert_asset`, but with a non-generic `value` parameter. This
+    // stops the function from being duplicated many times by monomorphization.
+    fn insert_asset_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -56,7 +65,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );
@@ -79,6 +88,11 @@ impl Dir {
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
+        self.insert_meta_internal(path, value.into());
+    }
+
+    // Implements `insert_meta` - see `insert_asset_internal` for rationale.
+    fn insert_meta_internal(&self, path: &Path, value: Value) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
@@ -90,7 +104,7 @@ impl Dir {
             .insert(
                 path.file_name().unwrap().to_string_lossy().into(),
                 Data {
-                    value: value.into(),
+                    value,
                     path: path.to_owned(),
                 },
             );
@@ -314,41 +328,33 @@ struct DataReader {
 
 impl AsyncRead for DataReader {
     fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
+        self: Pin<&mut Self>,
+        _cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
-        if self.bytes_read >= self.data.value().len() {
-            Poll::Ready(Ok(0))
-        } else {
-            let n =
-                ready!(Pin::new(&mut &self.data.value()[self.bytes_read..]).poll_read(cx, buf))?;
-            self.bytes_read += n;
-            Poll::Ready(Ok(n))
-        }
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(Ok(crate::io::slice_read(
+            this.data.value(),
+            &mut this.bytes_read,
+            buf,
+        )))
     }
 }
 
-impl AsyncSeekForward for DataReader {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
+impl AsyncSeek for DataReader {
+    fn poll_seek(
+        self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let result = self
-            .bytes_read
-            .try_into()
-            .map(|bytes_read: u64| bytes_read + offset);
-
-        if let Ok(new_pos) = result {
-            self.bytes_read = new_pos as _;
-            Poll::Ready(Ok(new_pos as _))
-        } else {
-            Poll::Ready(Err(Error::new(
-                ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(crate::io::slice_seek(
+            this.data.value(),
+            &mut this.bytes_read,
+            pos,
+        ))
     }
 }
 
@@ -357,16 +363,11 @@ impl Reader for DataReader {
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
-        stackfuture::StackFuture::from(async {
-            if self.bytes_read >= self.data.value().len() {
-                Ok(0)
-            } else {
-                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
-                let n = self.data.value().len() - self.bytes_read;
-                self.bytes_read = self.data.value().len();
-                Ok(n)
-            }
-        })
+        crate::io::read_to_end(self.data.value(), &mut self.bytes_read, buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
 
