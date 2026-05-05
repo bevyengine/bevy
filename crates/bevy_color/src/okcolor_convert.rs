@@ -1,4 +1,5 @@
-//! Functions for Okhsl/Okhsv <-> Oklab conversion. See <https://bottosson.github.io/misc/ok_color.h>
+//! Functions for Okhsl/Okhsv <-> Oklab conversion.
+//! See <https://github.com/bottosson/bottosson.github.io/blob/master/misc/ok_color.h>
 
 #![expect(
     non_snake_case,
@@ -130,7 +131,7 @@ pub(crate) fn find_cusp(a: f32, b: f32) -> LC {
 // C = t * C1;
 // a and b must be normalized so a^2 + b^2 == 1
 fn find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: LC) -> f32 {
-    // Find the intersection for upper and lower half seprately
+    // Find the intersection for upper and lower half separately
     let mut t;
     if ((L1 - L0) * cusp.C - (cusp.L - L0) * C1) <= 0. {
         // Lower half
@@ -234,9 +235,9 @@ fn get_Cs(L: f32, a_: f32, b_: f32) -> Cs {
         let C_b = (1. - L) * ST_mid.T;
         C_mid = 0.9
             * k
-            * (1. / (1. / (C_a * C_a * C_a * C_a) + 1. / (C_b * C_b * C_b * C_b)))
-                .sqrt()
-                .sqrt();
+            * ops::sqrt(ops::sqrt(
+                1. / (1. / (C_a * C_a * C_a * C_a) + 1. / (C_b * C_b * C_b * C_b)),
+            ));
     }
 
     let C_0;
@@ -246,7 +247,7 @@ fn get_Cs(L: f32, a_: f32, b_: f32) -> Cs {
         let C_b = (1. - L) * 0.8;
 
         // Use a soft minimum function, instead of a sharp triangle shape to get a smooth value for chroma.
-        C_0 = (1. / (1. / (C_a * C_a) + 1. / (C_b * C_b))).sqrt();
+        C_0 = ops::sqrt(1. / (1. / (C_a * C_a) + 1. / (C_b * C_b)));
     }
 
     Cs { C_0, C_mid, C_max }
@@ -279,7 +280,7 @@ pub(crate) fn toe(x: f32) -> f32 {
     let k_1: f32 = 0.206;
     let k_2: f32 = 0.03;
     let k_3: f32 = (1. + k_1) / (1. + k_2);
-    0.5 * (k_3 * x - k_1 + ((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x).sqrt())
+    0.5 * (k_3 * x - k_1 + ops::sqrt((k_3 * x - k_1) * (k_3 * x - k_1) + 4. * k_2 * k_3 * x))
 }
 
 pub(crate) fn toe_inv(x: f32) -> f32 {
@@ -296,7 +297,7 @@ pub(crate) fn oklab_to_okhsl(value: Oklaba) -> Okhsla {
         b: lab_b,
         alpha,
     } = value;
-    let C = (lab_a * lab_a + lab_b * lab_b).sqrt();
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     let a_ = lab_a / C;
     let b_ = lab_b / C;
 
@@ -393,7 +394,7 @@ pub(crate) fn oklab_to_okhsv(value: Oklaba) -> Okhsva {
         b: lab_b,
         alpha,
     } = value;
-    let C = (lab_a * lab_a + lab_b * lab_b).sqrt();
+    let C = ops::sqrt(lab_a * lab_a + lab_b * lab_b);
     let a_ = lab_a / C;
     let b_ = lab_b / C;
 

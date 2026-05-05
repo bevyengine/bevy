@@ -20,9 +20,15 @@ const TEST_COLORS: &[(f32, f32, f32, &str)] = &[
     (0.5, 0., 0.5, "fuchsia"),
     (0., 0.5, 0.5, "aqua"),
 ];
+
 /// Pre-computed okhsl results of [`TEST_COLORS`].
+/// See <https://github.com/bevyengine/bevy/pull/24137> for how this was computed.
+#[expect(
+    clippy::excessive_precision,
+    reason = "The results are copied from output of script"
+)]
 const TEST_COLORS_OKHSL: &[[f32; 3]] = &[
-    [0., 0., 0.], // The result of original javascript implemention is [0, NaN, 0].
+    [0., 0., 0.], // The result of original javascript implementation is [0, NaN, 0].
     [89.87556309590242, 0.5582831888483675, 0.9999999923961898],
     [29.23388519234263, 1.0000000001433997, 0.5680846525040862],
     [142.49533888780996, 0.9999999700728788, 0.8445289645307816],
@@ -41,9 +47,15 @@ const TEST_COLORS_OKHSL: &[[f32; 3]] = &[
     [328.36341792345144, 1.0006210729018223, 0.33011042396630463],
     [194.7689479319638, 0.9999994637526137, 0.4687233442820504],
 ];
+
 /// Pre-computed okhsv results of [`TEST_COLORS`].
+/// See <https://github.com/bevyengine/bevy/pull/24137> for how this was computed.
+#[expect(
+    clippy::excessive_precision,
+    reason = "The results are copied from output of script"
+)]
 const TEST_COLORS_OKHSV: &[[f32; 3]] = &[
-    [0., 0., 0.], // The result of original javascript implemention is [0, NaN, NaN].
+    [0., 0., 0.], // The result of original javascript implementation is [0, NaN, NaN].
     [89.87556309590242, 1.0347523928230576e-7, 1.000000027003774],
     [29.23388519234263, 0.9995219692256989, 1.0000000001685625],
     [142.49533888780996, 0.9999997210415695, 0.9999999884428648],

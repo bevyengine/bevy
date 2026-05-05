@@ -86,11 +86,11 @@ impl Okhsla {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_color::Hsla;
+    /// # use bevy_color::Okhsla;
     /// // Unique color for an entity
     /// # let entity_index = 123;
     /// // let entity_index = entity.index();
-    /// let color = Hsla::sequential_dispersed(entity_index);
+    /// let color = Okhsla::sequential_dispersed(entity_index);
     ///
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Okhsla::sequential_dispersed).collect::<Vec<_>>();
@@ -429,8 +429,8 @@ mod tests {
                 color.rgb,
                 rgb2
             );
-            // If lightness is approximately equal to 1.0, hue and saturation are arbitrary.
-            if color.okhsl.lightness < 0.999 {
+            // If lightness is approximately equal to 0.0 or 1.0, hue and saturation are arbitrary.
+            if color.okhsl.lightness < 0.999 && color.okhsl.lightness > 0.001 {
                 // If saturation is approximately equal to 0.0, hue is arbitrary.
                 if color.okhsl.saturation > 0.001 {
                     assert_approx_eq!(color.okhsl.hue, okhsl.hue, 0.001);

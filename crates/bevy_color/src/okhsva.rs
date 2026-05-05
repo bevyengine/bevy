@@ -394,17 +394,20 @@ mod tests {
             let rgb2: Srgba = (color.okhsv).into();
             let okhsv: Okhsva = (color.rgb).into();
             assert!(
-                color.rgb.distance(&rgb2) < 0.01,
+                color.rgb.distance(&rgb2) < 0.003,
                 "{}: {:?} != {:?}",
                 color.name,
                 color.rgb,
                 rgb2,
             );
-            // If saturation is approximately equal to 0.0, hue is arbitrary.
-            if color.okhsv.saturation > 0.001 {
-                assert_approx_eq!(color.okhsv.hue, okhsv.hue, 0.001);
+            // If value is approximately equal to 0.0, hue and saturation are arbitrary.
+            if color.okhsv.value > 0.001 {
+                // If saturation is approximately equal to 0.0, hue is arbitrary.
+                if color.okhsv.saturation > 0.001 {
+                    assert_approx_eq!(color.okhsv.hue, okhsv.hue, 0.001);
+                }
+                assert_approx_eq!(color.okhsv.saturation, okhsv.saturation, 0.001);
             }
-            assert_approx_eq!(color.okhsv.saturation, okhsv.saturation, 0.001);
             assert_approx_eq!(color.okhsv.value, okhsv.value, 0.001);
             assert_approx_eq!(color.okhsv.alpha, okhsv.alpha, 0.001);
         }
