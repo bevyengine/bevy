@@ -1,8 +1,8 @@
 diff --git a/crates/bevy_asset/src/lib.rs b/crates/bevy_asset/src/lib.rs
-index 004f87a85..3c8656efc 100644
+index 81deeff145..7792d9f1ed 100644
 --- a/crates/bevy_asset/src/lib.rs
 +++ b/crates/bevy_asset/src/lib.rs
-@@ -105,7 +105,7 @@ impl Default for AssetPlugin {
+@@ -335,7 +335,7 @@
      fn default() -> Self {
          Self {
              mode: AssetMode::Unprocessed,
@@ -10,4 +10,4 @@ index 004f87a85..3c8656efc 100644
 +            file_path: "/assets/examples".to_string(),
              processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
              watch_for_changes_override: None,
-         }
+             use_asset_processor_override: None,

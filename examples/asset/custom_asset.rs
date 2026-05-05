@@ -1,28 +1,29 @@
 //! Implements loader for a custom asset type.
 
-use bevy::utils::thiserror;
 use bevy::{
-    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
 };
 use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Deserialize)]
 struct CustomAsset {
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Used to show how the data inside an asset file will be loaded into the struct"
+    )]
     value: i32,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CustomAssetLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum CustomAssetLoaderError {
+enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -35,18 +36,16 @@ impl AssetLoader for CustomAssetLoader {
     type Asset = CustomAsset;
     type Settings = ();
     type Error = CustomAssetLoaderError;
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
-            Ok(custom_asset)
-        })
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
+        Ok(custom_asset)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -59,13 +58,13 @@ struct Blob {
     bytes: Vec<u8>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct BlobAssetLoader;
 
-/// Possible errors that can be produced by [`CustomAssetLoader`]
+/// Possible errors that can be produced by [`BlobAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum BlobAssetLoaderError {
+enum BlobAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load file: {0}")]
     Io(#[from] std::io::Error),
@@ -76,19 +75,17 @@ impl AssetLoader for BlobAssetLoader {
     type Settings = ();
     type Error = BlobAssetLoaderError;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            info!("Loading Blob...");
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        info!("Loading Blob...");
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
 
-            Ok(Blob { bytes })
-        })
+        Ok(Blob { bytes })
     }
 }
 
@@ -155,7 +152,7 @@ fn print_on_load(
 
     info!("Custom asset loaded: {:?}", custom_asset.unwrap());
     info!("Custom asset loaded: {:?}", other_custom_asset.unwrap());
-    info!("Blob Size: {:?} Bytes", blob.unwrap().bytes.len());
+    info!("Blob Size: {} Bytes", blob.unwrap().bytes.len());
 
     // Once printed, we won't print again
     state.printed = true;

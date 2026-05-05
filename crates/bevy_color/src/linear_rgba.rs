@@ -1,18 +1,28 @@
-use std::ops::{Div, Mul};
-
-use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
-use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use crate::{
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    ColorToPacked, Gray, Luminance, Mix, StandardColor,
+};
+use bevy_math::{ops, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]
@@ -26,6 +36,8 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
+
+impl_componentwise_vector_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.
@@ -114,18 +126,6 @@ impl LinearRgba {
         }
     }
 
-    /// Construct a new [`LinearRgba`] color with the same value for all channels and an alpha of 1.0.
-    ///
-    /// A value of 0.0 is black, and a value of 1.0 is white.
-    pub const fn gray(value: f32) -> Self {
-        Self {
-            red: value,
-            green: value,
-            blue: value,
-            alpha: 1.0,
-        }
-    }
-
     /// Return a copy of this color with the red channel set to the given value.
     pub const fn with_red(self, red: f32) -> Self {
         Self { red, ..self }
@@ -154,24 +154,12 @@ impl LinearRgba {
         }
     }
 
-    /// Converts the color into a [f32; 4] array in RGBA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
-    }
-
     /// Converts this color to a u32.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_u32(&self) -> u32 {
-        u32::from_le_bytes([
-            (self.red * 255.0) as u8,
-            (self.green * 255.0) as u8,
-            (self.blue * 255.0) as u8,
-            (self.alpha * 255.0) as u8,
-        ])
+        u32::from_le_bytes(self.to_u8_array())
     }
 }
 
@@ -229,6 +217,11 @@ impl Mix for LinearRgba {
     }
 }
 
+impl Gray for LinearRgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
+}
+
 impl Alpha for LinearRgba {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -256,21 +249,83 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
+impl ColorToComponents for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
-impl From<LinearRgba> for Vec4 {
-    fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
+impl ColorToPacked for LinearRgba {
+    fn to_u8_array(self) -> [u8; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+            .map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
+    }
+
+    fn to_u8_array_no_alpha(self) -> [u8; 3] {
+        [self.red, self.green, self.blue].map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
+    }
+
+    fn from_u8_array(color: [u8; 4]) -> Self {
+        Self::from_f32_array(color.map(|u| u as f32 / 255.0))
+    }
+
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self {
+        Self::from_f32_array_no_alpha(color.map(|u| u as f32 / 255.0))
     }
 }
 
-impl From<LinearRgba> for wgpu::Color {
+#[cfg(feature = "wgpu-types")]
+impl From<LinearRgba> for wgpu_types::Color {
     fn from(color: LinearRgba) -> Self {
-        wgpu::Color {
+        wgpu_types::Color {
             r: color.red as f64,
             g: color.green as f64,
             b: color.blue as f64,
@@ -279,50 +334,9 @@ impl From<LinearRgba> for wgpu::Color {
     }
 }
 
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for LinearRgba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Self {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-impl Mul<LinearRgba> for f32 {
-    type Output = LinearRgba;
-
-    fn mul(self, rhs: LinearRgba) -> LinearRgba {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for LinearRgba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self {
-        Self {
-            red: self.red / rhs,
-            green: self.green / rhs,
-            blue: self.blue / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
 // [`LinearRgba`] is intended to be used with shaders
 // So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+#[cfg(feature = "encase")]
 impl encase::ShaderType for LinearRgba {
     type ExtraMetadata = ();
 
@@ -335,6 +349,7 @@ impl encase::ShaderType for LinearRgba {
         encase::private::Metadata {
             alignment,
             has_uniform_min_alignment: false,
+            is_pod: true,
             min_size: size,
             extra: (),
         }
@@ -343,6 +358,7 @@ impl encase::ShaderType for LinearRgba {
     const UNIFORM_COMPAT_ASSERT: fn() = || {};
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::WriteInto for LinearRgba {
     fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
         for el in &[self.red, self.green, self.blue, self.alpha] {
@@ -351,6 +367,7 @@ impl encase::private::WriteInto for LinearRgba {
     }
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::ReadFrom for LinearRgba {
     fn read_from<B: encase::private::BufferRef>(
         &mut self,
@@ -370,6 +387,7 @@ impl encase::private::ReadFrom for LinearRgba {
     }
 }
 
+#[cfg(feature = "encase")]
 impl encase::private::CreateFrom for LinearRgba {
     fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
     where
@@ -390,33 +408,7 @@ impl encase::private::CreateFrom for LinearRgba {
     }
 }
 
-/// A [`Zeroable`] type is one whose bytes can be filled with zeroes while remaining valid.
-///
-/// SAFETY: [`LinearRgba`] is inhabited
-/// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
-unsafe impl Zeroable for LinearRgba {
-    fn zeroed() -> Self {
-        LinearRgba {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-            alpha: 0.0,
-        }
-    }
-}
-
-/// The [`Pod`] trait is [`bytemuck`]'s marker for types that can be safely transmuted from a byte array.
-///
-/// It is intended to only be implemented for types which are "Plain Old Data".
-///
-/// SAFETY: [`LinearRgba`] is inhabited.
-/// SAFETY: [`LinearRgba`] permits any bit value.
-/// SAFETY: [`LinearRgba`] does not have padding bytes.
-/// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
-/// SAFETY: [`LinearRgba`] is `repr(C)`
-/// SAFETY: [`LinearRgba`] does not permit interior mutability.
-unsafe impl Pod for LinearRgba {}
-
+#[cfg(feature = "encase")]
 impl encase::ShaderSize for LinearRgba {}
 
 #[cfg(test)]
@@ -439,6 +431,34 @@ mod tests {
         let a = LinearRgba::new(0.0, 0.0, 0.0, 1.0);
         let b = LinearRgba::new(1.0, 0.0, 0.0, 1.0);
         assert_eq!(a.distance_squared(&b), 1.0);
+    }
+
+    #[test]
+    fn to_and_from_u8() {
+        // from_u8_array
+        let a = LinearRgba::from_u8_array([255, 0, 0, 255]);
+        let b = LinearRgba::new(1.0, 0.0, 0.0, 1.0);
+        assert_eq!(a, b);
+
+        // from_u8_array_no_alpha
+        let a = LinearRgba::from_u8_array_no_alpha([255, 255, 0]);
+        let b = LinearRgba::rgb(1.0, 1.0, 0.0);
+        assert_eq!(a, b);
+
+        // to_u8_array
+        let a = LinearRgba::new(0.0, 0.0, 1.0, 1.0).to_u8_array();
+        let b = [0, 0, 255, 255];
+        assert_eq!(a, b);
+
+        // to_u8_array_no_alpha
+        let a = LinearRgba::rgb(0.0, 1.0, 1.0).to_u8_array_no_alpha();
+        let b = [0, 255, 255];
+        assert_eq!(a, b);
+
+        // clamping
+        let a = LinearRgba::rgb(0.0, 100.0, -100.0).to_u8_array_no_alpha();
+        let b = [0, 255, 0];
+        assert_eq!(a, b);
     }
 
     #[test]

@@ -1,14 +1,27 @@
-use crate::{Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{
+    Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
+    Xyza,
+};
+use bevy_math::{ops, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Lcha {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
@@ -56,11 +69,6 @@ impl Lcha {
         }
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the chroma channel set to the given value.
     pub const fn with_chroma(self, chroma: f32) -> Self {
         Self { chroma, ..self }
@@ -88,7 +96,7 @@ impl Lcha {
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Lcha::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequential_dispersed(index: u32) -> Self {
+    pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 
@@ -114,10 +122,15 @@ impl Mix for Lcha {
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
             chroma: self.chroma * n_factor + other.chroma * factor,
-            hue: self.hue * n_factor + other.hue * factor,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Lcha {
+    const BLACK: Self = Self::new(0.0, 0.0, 0.0000136603785, 1.0);
+    const WHITE: Self = Self::new(1.0, 0.0, 0.0000136603785, 1.0);
 }
 
 impl Alpha for Lcha {
@@ -134,6 +147,23 @@ impl Alpha for Lcha {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Lcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
@@ -166,6 +196,60 @@ impl Luminance for Lcha {
     }
 }
 
+impl ColorToComponents for Lcha {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.chroma, self.hue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.chroma, self.hue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.chroma, self.hue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.chroma, self.hue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl From<Lcha> for Laba {
     fn from(
         Lcha {
@@ -177,8 +261,9 @@ impl From<Lcha> for Laba {
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
         let l = lightness;
-        let a = chroma * hue.to_radians().cos();
-        let b = chroma * hue.to_radians().sin();
+        let (sin, cos) = ops::sin_cos(hue.to_radians());
+        let a = chroma * cos;
+        let b = chroma * sin;
 
         Laba::new(l, a, b, alpha)
     }
@@ -194,9 +279,9 @@ impl From<Laba> for Lcha {
         }: Laba,
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
-        let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
+        let c = ops::hypot(a, b);
         let h = {
-            let h = b.to_radians().atan2(a.to_radians()).to_degrees();
+            let h = ops::atan2(b.to_radians(), a.to_radians()).to_degrees();
 
             if h < 0.0 {
                 h + 360.0
@@ -255,7 +340,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]

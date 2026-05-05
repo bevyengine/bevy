@@ -1,3 +1,11 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
+#![no_std]
+
 //! Representations of colors in various color spaces.
 //!
 //! This crate provides a number of color representations, including:
@@ -50,7 +58,6 @@
 //! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
-//!
 #![doc = include_str!("../docs/conversion.md")]
 //! <div>
 #![doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -65,6 +72,12 @@
 //! types in this crate. This is useful when you need to store a color in a data structure
 //! that can't be generic over the color type.
 //!
+//! Color types that are either physically or perceptually linear also implement `Add<Self>`, `Sub<Self>`, `Mul<f32>` and `Div<f32>`
+//! allowing you to use them with splines.
+//!
+//! Please note that most often adding or subtracting colors is not what you may want.
+//! Please have a look at other operations like blending, lightening or mixing colors using e.g. [`Mix`] or [`Luminance`] instead.
+//!
 //! # Example
 //!
 //! ```
@@ -77,13 +90,22 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod color;
 pub mod color_difference;
+#[cfg(feature = "alloc")]
+mod color_gradient;
 mod color_ops;
 mod color_range;
 mod hsla;
 mod hsva;
 mod hwba;
+mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
@@ -97,23 +119,19 @@ mod test_colors;
 mod testing;
 mod xyza;
 
-/// Commonly used color types and traits.
+/// The color prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    pub use crate::color::*;
-    pub use crate::color_ops::*;
-    pub use crate::hsla::*;
-    pub use crate::hsva::*;
-    pub use crate::hwba::*;
-    pub use crate::laba::*;
-    pub use crate::lcha::*;
-    pub use crate::linear_rgba::*;
-    pub use crate::oklaba::*;
-    pub use crate::oklcha::*;
-    pub use crate::srgba::*;
-    pub use crate::xyza::*;
+    pub use crate::{
+        color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
+        oklaba::*, oklcha::*, srgba::*, xyza::*,
+    };
 }
 
 pub use color::*;
+#[cfg(feature = "alloc")]
+pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
 pub use hsla::*;
@@ -128,14 +146,19 @@ pub use srgba::*;
 pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
-#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
+#[expect(
+    clippy::allow_attributes,
+    reason = "If the below attribute on `dead_code` is removed, then rustc complains that `StandardColor` is dead code. However, if we `expect` the `dead_code` lint, then rustc complains of an unfulfilled expectation."
+)]
+#[allow(
+    dead_code,
+    reason = "This is an internal marker trait used to ensure that our color types impl the required traits"
+)]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,
     Self: Clone + Copy,
     Self: PartialEq,
-    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
-    Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
     Self: From<Srgba> + Into<Srgba>,
@@ -151,3 +174,106 @@ where
     Self: Alpha,
 {
 }
+
+macro_rules! impl_componentwise_vector_space {
+    ($ty: ident, [$($element: ident),+]) => {
+        impl core::ops::Add<Self> for $ty {
+            type Output = Self;
+
+            fn add(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element + rhs.$element,)+
+                }
+            }
+        }
+
+        impl core::ops::AddAssign<Self> for $ty {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
+        impl core::ops::Neg for $ty {
+            type Output = Self;
+
+            fn neg(self) -> Self::Output {
+                Self::Output {
+                    $($element: -self.$element,)+
+                }
+            }
+        }
+
+        impl core::ops::Sub<Self> for $ty {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element - rhs.$element,)+
+                }
+            }
+        }
+
+        impl core::ops::SubAssign<Self> for $ty {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
+            }
+        }
+
+        impl core::ops::Mul<f32> for $ty {
+            type Output = Self;
+
+            fn mul(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element * rhs,)+
+                }
+            }
+        }
+
+        impl core::ops::Mul<$ty> for f32 {
+            type Output = $ty;
+
+            fn mul(self, rhs: $ty) -> Self::Output {
+                Self::Output {
+                    $($element: self * rhs.$element,)+
+                }
+            }
+        }
+
+        impl core::ops::MulAssign<f32> for $ty {
+            fn mul_assign(&mut self, rhs: f32) {
+                *self = *self * rhs;
+            }
+        }
+
+        impl core::ops::Div<f32> for $ty {
+            type Output = Self;
+
+            fn div(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element / rhs,)+
+                }
+            }
+        }
+
+        impl core::ops::DivAssign<f32> for $ty {
+            fn div_assign(&mut self, rhs: f32) {
+                *self = *self / rhs;
+            }
+        }
+
+        impl bevy_math::VectorSpace for $ty {
+            type Scalar = f32;
+            const ZERO: Self = Self {
+                $($element: 0.0,)+
+            };
+        }
+
+        impl bevy_math::StableInterpolate for $ty {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                bevy_math::VectorSpace::lerp(*self, *other, t)
+            }
+        }
+    };
+}
+
+pub(crate) use impl_componentwise_vector_space;

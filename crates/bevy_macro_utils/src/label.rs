@@ -1,9 +1,11 @@
+use crate::fq_std::{FQClone, FQSend, FQSync};
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use rustc_hash::FxHashSet;
+use std::collections::HashSet;
 use syn::{spanned::Spanned, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.
+///
 /// If the identifier is present in `haystack`, extra characters will be added
 /// to it until it no longer conflicts with anything.
 ///
@@ -15,7 +17,7 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
         // List of token streams that will be visited in future loop iterations.
         let mut unvisited = vec![haystack];
         // Identifiers we have found while searching tokens.
-        let mut found = FxHashSet::default();
+        let mut found = HashSet::new();
         while let Some(tokens) = unvisited.pop() {
             for t in tokens {
                 match t {
@@ -57,12 +59,11 @@ pub fn derive_label(
     input: syn::DeriveInput,
     trait_name: &str,
     trait_path: &syn::Path,
-    dyn_eq_path: &syn::Path,
 ) -> TokenStream {
     if let syn::Data::Union(_) = &input.data {
         let message = format!("Cannot derive {trait_name} for unions.");
         return quote_spanned! {
-            input.span() => compile_error!(#message);
+            input.span() => ::core::compile_error!(#message);
         }
         .into();
     }
@@ -75,26 +76,54 @@ pub fn derive_label(
     });
     where_clause.predicates.push(
         syn::parse2(quote! {
-            Self: 'static + Send + Sync + Clone + Eq + ::std::fmt::Debug + ::std::hash::Hash
+            Self: 'static + #FQSend + #FQSync + #FQClone + ::core::cmp::Eq + ::core::fmt::Debug + ::core::hash::Hash
         })
         .unwrap(),
     );
     quote! {
-        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
-                ::std::boxed::Box::new(::std::clone::Clone::clone(self))
-            }
+        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
+        const _: () = {
+            extern crate alloc;
 
-            fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
-                self
+            impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+                fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
+                    alloc::boxed::Box::new(#FQClone::clone(self))
+                }
             }
-
-            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
-                let ty_id = ::std::any::TypeId::of::<Self>();
-                ::std::hash::Hash::hash(&ty_id, &mut state);
-                ::std::hash::Hash::hash(self, &mut state);
-            }
-        }
+        };
     }
     .into()
+}
+
+/// Convert a string from ``PascalCase`` to ``snake_case``.
+pub fn pascal_to_snake_case(s: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = s.chars().collect();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch.is_uppercase() {
+            let prev_is_lower = i > 0 && chars[i - 1].is_lowercase();
+            let next_is_lower = chars.get(i + 1).is_some_and(|c| c.is_lowercase());
+
+            if i > 0 && (prev_is_lower || next_is_lower) {
+                out.push('_');
+            }
+            out.push(ch.to_lowercase().next().unwrap());
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pascal_to_snake_case() {
+        assert_eq!(pascal_to_snake_case("PascalCase"), "pascal_case");
+        assert_eq!(pascal_to_snake_case("lowercase"), "lowercase");
+        assert_eq!(pascal_to_snake_case("HTTPServer"), "http_server");
+    }
 }

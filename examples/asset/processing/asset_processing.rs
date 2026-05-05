@@ -5,14 +5,12 @@ use bevy::{
         embedded_asset,
         io::{Reader, Writer},
         processor::LoadTransformAndSave,
-        ron,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+        AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
-    utils::{thiserror, BoxedFuture},
 };
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
@@ -52,7 +50,7 @@ fn main() {
 /// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
 /// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.
 /// This illustrates that when you process an asset, you can change its type! However you don't _need_ to change the type.
-pub struct TextPlugin;
+struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
@@ -71,10 +69,10 @@ impl Plugin for TextPlugin {
 #[derive(Asset, TypePath, Debug)]
 struct Text(String);
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct TextLoader;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 struct TextSettings {
     text_override: Option<String>,
 }
@@ -83,22 +81,20 @@ impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
     type Error = std::io::Error;
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        settings: &'a TextSettings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let value = if let Some(ref text) = settings.text_override {
-                text.clone()
-            } else {
-                String::from_utf8(bytes).unwrap()
-            };
-            Ok(Text(value))
-        })
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &TextSettings,
+        _load_context: &mut LoadContext<'_>,
+    ) -> Result<Text, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let value = if let Some(ref text) = settings.text_override {
+            text.clone()
+        } else {
+            String::from_utf8(bytes).unwrap()
+        };
+        Ok(Text(value))
     }
 
     fn extensions(&self) -> &[&str] {
@@ -111,16 +107,20 @@ struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
+    dependencies_with_settings: Vec<(String, TextSettings)>,
 }
 
 #[derive(Asset, TypePath, Debug)]
 struct CoolText {
     text: String,
-    #[allow(unused)]
+    #[expect(
+        dead_code,
+        reason = "Used to show that our assets can hold handles to other assets"
+    )]
     dependencies: Vec<Handle<Text>>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextLoader;
 
 #[derive(Debug, Error)]
@@ -138,30 +138,40 @@ impl AssetLoader for CoolTextLoader {
     type Settings = ();
     type Error = CoolTextLoaderError;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
-            let mut base_text = ron.text;
-            for embedded in ron.embedded_dependencies {
-                let loaded = load_context.load_direct(&embedded).await?;
-                let text = loaded.get::<Text>().unwrap();
-                base_text.push_str(&text.0);
-            }
-            Ok(CoolText {
-                text: base_text,
-                dependencies: ron
-                    .dependencies
-                    .iter()
-                    .map(|p| load_context.load(p))
-                    .collect(),
-            })
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<CoolText, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
+        let mut base_text = ron.text;
+        for embedded in ron.embedded_dependencies {
+            let loaded = load_context
+                .load_builder()
+                .load_value::<Text>(&embedded)
+                .await?;
+            base_text.push_str(&loaded.get().0);
+        }
+        for (path, settings_override) in ron.dependencies_with_settings {
+            let loaded = load_context
+                .load_builder()
+                .with_settings(move |settings| {
+                    *settings = settings_override.clone();
+                })
+                .load_value::<Text>(&path)
+                .await?;
+            base_text.push_str(&loaded.get().0);
+        }
+        Ok(CoolText {
+            text: base_text,
+            dependencies: ron
+                .dependencies
+                .iter()
+                .map(|p| load_context.load(p))
+                .collect(),
         })
     }
 
@@ -170,7 +180,7 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -184,18 +194,17 @@ impl AssetTransformer for CoolTextTransformer {
     type Settings = CoolTextTransformerSettings;
     type Error = Infallible;
 
-    fn transform<'a>(
+    async fn transform<'a>(
         &'a self,
         mut asset: TransformedAsset<Self::AssetInput>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>> {
-        Box::pin(async move {
-            asset.text = format!("{}{}", asset.text, settings.appended);
-            Ok(asset)
-        })
+    ) -> Result<TransformedAsset<Self::AssetOutput>, Self::Error> {
+        asset.text = format!("{}{}", asset.text, settings.appended);
+        Ok(asset)
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -204,16 +213,15 @@ impl AssetSaver for CoolTextSaver {
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
-    fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        _settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
-        Box::pin(async move {
-            writer.write_all(asset.text.as_bytes()).await?;
-            Ok(TextSettings::default())
-        })
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, '_, Self::Asset>,
+        _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<TextSettings, Self::Error> {
+        writer.write_all(asset.text.as_bytes()).await?;
+        Ok(TextSettings::default())
     }
 }
 
@@ -241,7 +249,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 fn print_text(
     handles: Res<TextAssets>,
     texts: Res<Assets<Text>>,
-    mut asset_events: EventReader<AssetEvent<Text>>,
+    mut asset_events: MessageReader<AssetEvent<Text>>,
 ) {
     if !asset_events.is_empty() {
         // This prints the current values of the assets

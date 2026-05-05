@@ -1,17 +1,27 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
+    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 
 /// Color in Oklch color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Oklcha {
     /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
@@ -50,24 +60,18 @@ impl Oklcha {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `chroma` - Chroma channel. [0.0, 1.0]
     /// * `hue` - Hue channel. [0.0, 360.0]
-    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::new(lightness, chroma, hue, 1.0)
     }
 
     /// Return a copy of this color with the 'lightness' channel set to the given value.
-    pub const fn with_l(self, lightness: f32) -> Self {
+    pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
 
     /// Return a copy of this color with the 'chroma' channel set to the given value.
-    pub const fn with_c(self, chroma: f32) -> Self {
+    pub const fn with_chroma(self, chroma: f32) -> Self {
         Self { chroma, ..self }
-    }
-
-    /// Return a copy of this color with the 'hue' channel set to the given value.
-    pub const fn with_h(self, hue: f32) -> Self {
-        Self { hue, ..self }
     }
 
     /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
@@ -87,7 +91,7 @@ impl Oklcha {
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Oklcha::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequential_dispersed(index: u32) -> Self {
+    pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 
@@ -113,10 +117,15 @@ impl Mix for Oklcha {
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
             chroma: self.chroma * n_factor + other.chroma * factor,
-            hue: self.hue * n_factor + other.hue * factor,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Oklcha {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1.0, 0.000000059604645, 90.0, 1.0);
 }
 
 impl Alpha for Oklcha {
@@ -133,6 +142,23 @@ impl Alpha for Oklcha {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Oklcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
@@ -168,17 +194,77 @@ impl Luminance for Oklcha {
 impl EuclideanDistance for Oklcha {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2)
-            + (self.chroma - other.chroma).powi(2)
-            + (self.hue - other.hue).powi(2)
+        (self.lightness - other.lightness).squared()
+            + (self.chroma - other.chroma).squared()
+            + (self.hue - other.hue).squared()
+    }
+}
+
+impl ColorToComponents for Oklcha {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.chroma, self.hue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.chroma, self.hue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.chroma, self.hue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.chroma, self.hue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
 impl From<Oklaba> for Oklcha {
-    fn from(Oklaba { l, a, b, alpha }: Oklaba) -> Self {
-        let lightness = l;
-        let chroma = a.hypot(b);
-        let hue = b.atan2(a).to_degrees();
+    fn from(
+        Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Oklaba,
+    ) -> Self {
+        let chroma = ops::hypot(a, b);
+        let hue = ops::atan2(b, a).to_degrees();
 
         let hue = if hue < 0.0 { hue + 360.0 } else { hue };
 
@@ -196,8 +282,9 @@ impl From<Oklcha> for Oklaba {
         }: Oklcha,
     ) -> Self {
         let l = lightness;
-        let a = chroma * hue.to_radians().cos();
-        let b = chroma * hue.to_radians().sin();
+        let (sin, cos) = ops::sin_cos(hue.to_radians());
+        let a = chroma * cos;
+        let b = chroma * sin;
 
         Oklaba::new(l, a, b, alpha)
     }
@@ -304,7 +391,7 @@ impl From<Oklcha> for Xyza {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_colors::TEST_COLORS, testing::assert_approx_eq, Srgba};
+    use crate::{test_colors::TEST_COLORS, testing::assert_approx_eq};
 
     #[test]
     fn test_to_from_srgba() {

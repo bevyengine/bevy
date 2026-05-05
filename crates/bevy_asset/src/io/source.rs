@@ -1,17 +1,22 @@
 use crate::{
-    io::{
-        processor_gated::ProcessorGatedReader, AssetReader, AssetSourceEvent, AssetWatcher,
-        AssetWriter,
-    },
-    processor::AssetProcessorData,
+    io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
+    processor::ProcessingState,
 };
-use bevy_ecs::system::Resource;
-use bevy_utils::tracing::{error, warn};
-use bevy_utils::{CowArc, Duration, HashMap};
-use std::{fmt::Display, hash::Hash, sync::Arc};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+};
+use atomicow::CowArc;
+use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashMap;
+use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
+use tracing::warn;
 
-/// A reference to an "asset source", which maps to an [`AssetReader`] and/or [`AssetWriter`].
+use super::{ErasedAssetReader, ErasedAssetWriter};
+
+/// A reference to an "asset source", which maps to an [`AssetReader`](crate::io::AssetReader) and/or [`AssetWriter`](crate::io::AssetWriter).
 ///
 /// * [`AssetSourceId::Default`] corresponds to "default asset paths" that don't specify a source: `/path/to/asset.png`
 /// * [`AssetSourceId::Name`] corresponds to asset paths that _do_ specify a source: `remote://path/to/asset.png`, where `remote` is the name.
@@ -25,7 +30,7 @@ pub enum AssetSourceId<'a> {
 }
 
 impl<'a> Display for AssetSourceId<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.as_str() {
             None => write!(f, "AssetSourceId::Default"),
             Some(v) => write!(f, "AssetSourceId::Name({v})"),
@@ -67,6 +72,9 @@ impl<'a> AssetSourceId<'a> {
     }
 }
 
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
 impl From<&'static str> for AssetSourceId<'static> {
     fn from(value: &'static str) -> Self {
         AssetSourceId::Name(value.into())
@@ -95,7 +103,7 @@ impl From<String> for AssetSourceId<'static> {
 }
 
 impl<'a> Hash for AssetSourceId<'a> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }
@@ -106,34 +114,57 @@ impl<'a> PartialEq for AssetSourceId<'a> {
     }
 }
 
-/// Metadata about an "asset source", such as how to construct the [`AssetReader`] and [`AssetWriter`] for the source,
+/// Metadata about an "asset source", such as how to construct the [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) for the source,
 /// and whether or not the source is processed.
-#[derive(Default)]
 pub struct AssetSourceBuilder {
-    pub reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
-    pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+    /// The [`ErasedAssetReader`] to use on the unprocessed asset.
+    pub reader: Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>,
+    /// The [`ErasedAssetWriter`] to use on the unprocessed asset.
+    pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+    /// The [`AssetWatcher`] to use for unprocessed assets, if any.
     pub watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
     >,
-    pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
+    /// The [`ErasedAssetReader`] to use for processed assets.
+    pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    /// The [`ErasedAssetWriter`] to use for processed assets.
     pub processed_writer:
-        Option<Box<dyn FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+        Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+    /// The [`AssetWatcher`] to use for processed assets, if any.
     pub processed_watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
     >,
+    /// The warning message to display when watching an unprocessed asset fails.
     pub watch_warning: Option<&'static str>,
+    /// The warning message to display when watching a processed asset fails.
     pub processed_watch_warning: Option<&'static str>,
 }
 
 impl AssetSourceBuilder {
+    /// Creates a new builder, starting with the provided reader.
+    pub fn new(
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
+    ) -> AssetSourceBuilder {
+        Self {
+            reader: Box::new(reader),
+            writer: None,
+            watcher: None,
+            processed_reader: None,
+            processed_writer: None,
+            processed_watcher: None,
+            watch_warning: None,
+            processed_watch_warning: None,
+        }
+    }
+
     /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
     /// If `watch_processed` is true, the processed source will watch for changes.
     pub fn build(
@@ -141,15 +172,20 @@ impl AssetSourceBuilder {
         id: AssetSourceId<'static>,
         watch: bool,
         watch_processed: bool,
-    ) -> Option<AssetSource> {
-        let reader = self.reader.as_mut()?();
+    ) -> AssetSource {
+        let reader = self.reader.as_mut()();
         let writer = self.writer.as_mut().and_then(|w| w(false));
         let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| r()),
+            processed_reader: self
+                .processed_reader
+                .as_mut()
+                .map(|r| r())
+                .map(Into::<Arc<_>>::into),
+            ungated_processed_reader: None,
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -158,7 +194,7 @@ impl AssetSourceBuilder {
         };
 
         if watch {
-            let (sender, receiver) = crossbeam_channel::unbounded();
+            let (sender, receiver) = async_channel::unbounded();
             match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
@@ -173,7 +209,7 @@ impl AssetSourceBuilder {
         }
 
         if watch_processed {
-            let (sender, receiver) = crossbeam_channel::unbounded();
+            let (sender, receiver) = async_channel::unbounded();
             match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
@@ -186,22 +222,22 @@ impl AssetSourceBuilder {
                 }
             }
         }
-        Some(source)
+        source
     }
 
-    /// Will use the given `reader` function to construct unprocessed [`AssetReader`] instances.
+    /// Will use the given `reader` function to construct unprocessed [`AssetReader`](crate::io::AssetReader) instances.
     pub fn with_reader(
         mut self,
-        reader: impl FnMut() -> Box<dyn AssetReader> + Send + Sync + 'static,
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
     ) -> Self {
-        self.reader = Some(Box::new(reader));
+        self.reader = Box::new(reader);
         self
     }
 
-    /// Will use the given `writer` function to construct unprocessed [`AssetWriter`] instances.
+    /// Will use the given `writer` function to construct unprocessed [`AssetWriter`](crate::io::AssetWriter) instances.
     pub fn with_writer(
         mut self,
-        writer: impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.writer = Some(Box::new(writer));
         self
@@ -210,7 +246,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -219,19 +255,19 @@ impl AssetSourceBuilder {
         self
     }
 
-    /// Will use the given `reader` function to construct processed [`AssetReader`] instances.
+    /// Will use the given `reader` function to construct processed [`AssetReader`](crate::io::AssetReader) instances.
     pub fn with_processed_reader(
         mut self,
-        reader: impl FnMut() -> Box<dyn AssetReader> + Send + Sync + 'static,
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
     ) -> Self {
         self.processed_reader = Some(Box::new(reader));
         self
     }
 
-    /// Will use the given `writer` function to construct processed [`AssetWriter`] instances.
+    /// Will use the given `writer` function to construct processed [`AssetWriter`](crate::io::AssetWriter) instances.
     pub fn with_processed_writer(
         mut self,
-        writer: impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.processed_writer = Some(Box::new(writer));
         self
@@ -240,7 +276,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -265,8 +301,7 @@ impl AssetSourceBuilder {
     /// For most platforms, this will use [`FileAssetReader`](crate::io::file::FileAssetReader) / [`FileAssetWriter`](crate::io::file::FileAssetWriter),
     /// but some platforms (such as Android) have their own default readers / writers / watchers.
     pub fn platform_default(path: &str, processed_path: Option<&str>) -> Self {
-        let default = Self::default()
-            .with_reader(AssetSource::get_default_reader(path.to_string()))
+        let default = Self::new(AssetSource::get_default_reader(path.to_string()))
             .with_writer(AssetSource::get_default_writer(path.to_string()))
             .with_watcher(AssetSource::get_default_watcher(
                 path.to_string(),
@@ -288,7 +323,7 @@ impl AssetSourceBuilder {
     }
 }
 
-/// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`] and [`AssetWriter`] instances
+/// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) instances
 /// for a given asset source.
 #[derive(Resource, Default)]
 pub struct AssetSourceBuilders {
@@ -323,15 +358,14 @@ impl AssetSourceBuilders {
     /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
     /// If `watch_processed` is true, the processed sources will watch for changes.
     pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
-        let mut sources = HashMap::new();
+        let mut sources = <HashMap<_, _>>::default();
         for (id, source) in &mut self.sources {
-            if let Some(data) = source.build(
+            let source = source.build(
                 AssetSourceId::Name(id.clone_owned()),
                 watch,
                 watch_processed,
-            ) {
-                sources.insert(id.clone_owned(), data);
-            }
+            );
+            sources.insert(id.clone_owned(), source);
         }
 
         AssetSources {
@@ -339,7 +373,7 @@ impl AssetSourceBuilders {
             default: self
                 .default
                 .as_mut()
-                .and_then(|p| p.build(AssetSourceId::Default, watch, watch_processed))
+                .map(|p| p.build(AssetSourceId::Default, watch, watch_processed))
                 .expect(MISSING_DEFAULT_SOURCE),
         }
     }
@@ -351,57 +385,68 @@ impl AssetSourceBuilders {
     }
 }
 
-/// A collection of unprocessed and processed [`AssetReader`], [`AssetWriter`], and [`AssetWatcher`] instances
+/// A collection of unprocessed and processed [`AssetReader`](crate::io::AssetReader), [`AssetWriter`](crate::io::AssetWriter), and [`AssetWatcher`] instances
 /// for a specific asset source, identified by an [`AssetSourceId`].
 pub struct AssetSource {
     id: AssetSourceId<'static>,
-    reader: Box<dyn AssetReader>,
-    writer: Option<Box<dyn AssetWriter>>,
-    processed_reader: Option<Box<dyn AssetReader>>,
-    processed_writer: Option<Box<dyn AssetWriter>>,
+    reader: Box<dyn ErasedAssetReader>,
+    writer: Option<Box<dyn ErasedAssetWriter>>,
+    processed_reader: Option<Arc<dyn ErasedAssetReader>>,
+    /// The ungated version of `processed_reader`.
+    ///
+    /// This allows the processor to read all the processed assets to initialize itself without
+    /// being gated on itself (causing a deadlock).
+    ungated_processed_reader: Option<Arc<dyn ErasedAssetReader>>,
+    processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
-    event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
-    processed_event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
+    event_receiver: Option<async_channel::Receiver<AssetSourceEvent>>,
+    processed_event_receiver: Option<async_channel::Receiver<AssetSourceEvent>>,
 }
 
 impl AssetSource {
-    /// Starts building a new [`AssetSource`].
-    pub fn build() -> AssetSourceBuilder {
-        AssetSourceBuilder::default()
-    }
-
     /// Returns this source's id.
     #[inline]
     pub fn id(&self) -> AssetSourceId<'static> {
         self.id.clone()
     }
 
-    /// Return's this source's unprocessed [`AssetReader`].
+    /// Return's this source's unprocessed [`AssetReader`](crate::io::AssetReader).
     #[inline]
-    pub fn reader(&self) -> &dyn AssetReader {
+    pub fn reader(&self) -> &dyn ErasedAssetReader {
         &*self.reader
     }
 
-    /// Return's this source's unprocessed [`AssetWriter`], if it exists.
+    /// Return's this source's unprocessed [`AssetWriter`](crate::io::AssetWriter), if it exists.
     #[inline]
-    pub fn writer(&self) -> Result<&dyn AssetWriter, MissingAssetWriterError> {
+    pub fn writer(&self) -> Result<&dyn ErasedAssetWriter, MissingAssetWriterError> {
         self.writer
             .as_deref()
             .ok_or_else(|| MissingAssetWriterError(self.id.clone_owned()))
     }
 
-    /// Return's this source's processed [`AssetReader`], if it exists.
+    /// Return's this source's processed [`AssetReader`](crate::io::AssetReader), if it exists.
     #[inline]
-    pub fn processed_reader(&self) -> Result<&dyn AssetReader, MissingProcessedAssetReaderError> {
+    pub fn processed_reader(
+        &self,
+    ) -> Result<&dyn ErasedAssetReader, MissingProcessedAssetReaderError> {
         self.processed_reader
             .as_deref()
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
     }
 
-    /// Return's this source's processed [`AssetWriter`], if it exists.
+    /// Return's this source's ungated processed [`AssetReader`](crate::io::AssetReader), if it
+    /// exists.
     #[inline]
-    pub fn processed_writer(&self) -> Result<&dyn AssetWriter, MissingProcessedAssetWriterError> {
+    pub(crate) fn ungated_processed_reader(&self) -> Option<&dyn ErasedAssetReader> {
+        self.ungated_processed_reader.as_deref()
+    }
+
+    /// Return's this source's processed [`AssetWriter`](crate::io::AssetWriter), if it exists.
+    #[inline]
+    pub fn processed_writer(
+        &self,
+    ) -> Result<&dyn ErasedAssetWriter, MissingProcessedAssetWriterError> {
         self.processed_writer
             .as_deref()
             .ok_or_else(|| MissingProcessedAssetWriterError(self.id.clone_owned()))
@@ -409,15 +454,13 @@ impl AssetSource {
 
     /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
         self.event_receiver.as_ref()
     }
 
     /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn processed_event_receiver(
-        &self,
-    ) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn processed_event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
         self.processed_event_receiver.as_ref()
     }
 
@@ -427,9 +470,11 @@ impl AssetSource {
         self.processed_writer.is_some()
     }
 
-    /// Returns a builder function for this platform's default [`AssetReader`]. `path` is the relative path to
+    /// Returns a builder function for this platform's default [`AssetReader`](crate::io::AssetReader). `path` is the relative path to
     /// the asset root.
-    pub fn get_default_reader(_path: String) -> impl FnMut() -> Box<dyn AssetReader> + Send + Sync {
+    pub fn get_default_reader(
+        _path: String,
+    ) -> impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync {
         move || {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
             return Box::new(super::file::FileAssetReader::new(&_path));
@@ -440,11 +485,11 @@ impl AssetSource {
         }
     }
 
-    /// Returns a builder function for this platform's default [`AssetWriter`]. `path` is the relative path to
+    /// Returns a builder function for this platform's default [`AssetWriter`](crate::io::AssetWriter). `path` is the relative path to
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
         _path: String,
-    ) -> impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync {
+    ) -> impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
         move |_create_root: bool| {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
             return Some(Box::new(super::file::FileAssetWriter::new(
@@ -462,8 +507,18 @@ impl AssetSource {
         return "Web does not currently support watching assets.";
         #[cfg(target_os = "android")]
         return "Android does not currently support watching assets.";
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(feature = "file_watcher")
+        ))]
         return "Consider enabling the `file_watcher` feature.";
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            feature = "file_watcher"
+        ))]
+        return "Consider adding an \"assets\" directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
@@ -471,29 +526,46 @@ impl AssetSource {
     /// `file_debounce_time` is the amount of time to wait (and debounce duplicate events) before returning an event.
     /// Higher durations reduce duplicates but increase the amount of time before a change event is processed. If the
     /// duration is set too low, some systems might surface events _before_ their filesystem has the changes.
-    #[allow(unused)]
+    #[cfg_attr(
+        any(
+            not(feature = "file_watcher"),
+            target_arch = "wasm32",
+            target_os = "android"
+        ),
+        expect(
+            unused_variables,
+            reason = "The `path` and `file_debounce_wait_time` arguments are unused when on WASM, Android, or if the `file_watcher` feature is disabled."
+        )
+    )]
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
-    ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
-           + Send
-           + Sync {
-        move |sender: crossbeam_channel::Sender<AssetSourceEvent>| {
+    ) -> impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>> + Send + Sync
+    {
+        move |sender: async_channel::Sender<AssetSourceEvent>| {
             #[cfg(all(
                 feature = "file_watcher",
                 not(target_arch = "wasm32"),
                 not(target_os = "android")
             ))]
-            return Some(Box::new(
-                super::file::FileWatcher::new(
-                    std::path::PathBuf::from(path.clone()),
-                    sender,
-                    file_debounce_wait_time,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("Failed to create file watcher from path {path:?}, {e:?}")
-                }),
-            ));
+            {
+                let path = super::file::get_base_path().join(path.clone());
+                if path.exists() {
+                    Some(Box::new(
+                        super::file::FileWatcher::new(
+                            path.clone(),
+                            sender,
+                            file_debounce_wait_time,
+                        )
+                        .unwrap_or_else(|e| {
+                            panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                        }),
+                    ))
+                } else {
+                    warn!("Skip creating file watcher because path {path:?} does not exist.");
+                    None
+                }
+            }
             #[cfg(any(
                 not(feature = "file_watcher"),
                 target_arch = "wasm32",
@@ -503,20 +575,21 @@ impl AssetSource {
         }
     }
 
-    /// This will cause processed [`AssetReader`] futures (such as [`AssetReader::read`]) to wait until
+    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         if let Some(reader) = self.processed_reader.take() {
-            self.processed_reader = Some(Box::new(ProcessorGatedReader::new(
+            self.ungated_processed_reader = Some(reader.clone());
+            self.processed_reader = Some(Arc::new(ProcessorGatedReader::new(
                 self.id(),
                 reader,
-                processor_data,
+                processing_state,
             )));
         }
     }
 }
 
-/// A collection of [`AssetSources`].
+/// A collection of [`AssetSource`]s.
 pub struct AssetSources {
     sources: HashMap<CowArc<'static, str>, AssetSource>,
     default: AssetSource,
@@ -533,7 +606,7 @@ impl AssetSources {
             AssetSourceId::Name(name) => self
                 .sources
                 .get(&name)
-                .ok_or_else(|| MissingAssetSourceError(AssetSourceId::Name(name))),
+                .ok_or(MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 
@@ -565,31 +638,31 @@ impl AssetSources {
             .chain(Some(AssetSourceId::Default))
     }
 
-    /// This will cause processed [`AssetReader`] futures (such as [`AssetReader::read`]) to wait until
+    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         for source in self.iter_processed_mut() {
-            source.gate_on_processor(processor_data.clone());
+            source.gate_on_processor(processing_state.clone());
         }
     }
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
-/// An error returned when an [`AssetWriter`] does not exist for a given id.
+/// An error returned when an [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
 #[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
-/// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug, Clone)]
+/// An error returned when a processed [`AssetReader`](crate::io::AssetReader) does not exist for a given id.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
-/// An error returned when a processed [`AssetWriter`] does not exist for a given id.
+/// An error returned when a processed [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
 #[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);

@@ -1,6 +1,10 @@
-use crate::{Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{
+    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Saturation,
+    Srgba, StandardColor, Xyza,
+};
+use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -8,8 +12,17 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Hsla {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -52,11 +65,6 @@ impl Hsla {
         Self::new(hue, saturation, lightness, 1.0)
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the saturation channel set to the given value.
     pub const fn with_saturation(self, saturation: f32) -> Self {
         Self { saturation, ..self }
@@ -84,7 +92,7 @@ impl Hsla {
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Hsla::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequential_dispersed(index: u32) -> Self {
+    pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 
@@ -107,21 +115,18 @@ impl Mix for Hsla {
     #[inline]
     fn mix(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
-        // TODO: Refactor this into EuclideanModulo::lerp_modulo
-        let shortest_angle = ((((other.hue - self.hue) % 360.) + 540.) % 360.) - 180.;
-        let mut hue = self.hue + shortest_angle * factor;
-        if hue < 0. {
-            hue += 360.;
-        } else if hue >= 360. {
-            hue -= 360.;
-        }
         Self {
-            hue,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             saturation: self.saturation * n_factor + other.saturation * factor,
             lightness: self.lightness * n_factor + other.lightness * factor,
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Hsla {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0., 0., 1., 1.);
 }
 
 impl Alpha for Hsla {
@@ -138,6 +143,43 @@ impl Alpha for Hsla {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hsla {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
+    }
+}
+
+impl Saturation for Hsla {
+    #[inline]
+    fn with_saturation(&self, saturation: f32) -> Self {
+        Self {
+            saturation,
+            ..*self
+        }
+    }
+
+    #[inline]
+    fn saturation(&self) -> f32 {
+        self.saturation
+    }
+
+    #[inline]
+    fn set_saturation(&mut self, saturation: f32) {
+        self.saturation = saturation;
     }
 }
 
@@ -162,6 +204,60 @@ impl Luminance for Hsla {
         Self {
             lightness: (self.lightness + amount).min(1.),
             ..*self
+        }
+    }
+}
+
+impl ColorToComponents for Hsla {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.saturation, self.lightness, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.saturation, self.lightness]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.saturation, self.lightness, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.saturation, self.lightness)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
         }
     }
 }
@@ -275,7 +371,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]

@@ -1,71 +1,68 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{Dir3, Ray3d, Vec3};
+use crate::{
+    ops::{self, FloatPow},
+    Dir3A, Ray3d, Vec3A,
+};
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// A raycast intersection test for 3D bounding volumes
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct RayCast3d {
-    /// The ray for the test
-    pub ray: Ray3d,
+    /// The origin of the ray.
+    pub origin: Vec3A,
+    /// The direction of the ray.
+    pub direction: Dir3A,
     /// The maximum distance for the ray
     pub max: f32,
     /// The multiplicative inverse direction of the ray
-    direction_recip: Vec3,
+    direction_recip: Vec3A,
 }
 
 impl RayCast3d {
-    /// Construct a [`RayCast3d`] from an origin, [`Dir3`], and max distance.
-    pub fn new(origin: Vec3, direction: Dir3, max: f32) -> Self {
-        Self::from_ray(Ray3d { origin, direction }, max)
-    }
-
-    /// Construct a [`RayCast3d`] from a [`Ray3d`] and max distance.
-    pub fn from_ray(ray: Ray3d, max: f32) -> Self {
+    /// Construct a [`RayCast3d`] from an origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
+    pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
+        let direction = direction.into();
         Self {
-            ray,
-            direction_recip: ray.direction.recip(),
+            origin: origin.into(),
+            direction,
+            direction_recip: direction.recip(),
             max,
         }
     }
 
+    /// Construct a [`RayCast3d`] from a [`Ray3d`] and max distance.
+    pub fn from_ray(ray: Ray3d, max: f32) -> Self {
+        Self::new(ray.origin, ray.direction, max)
+    }
+
     /// Get the cached multiplicative inverse of the direction of the ray.
-    pub fn direction_recip(&self) -> Vec3 {
+    pub fn direction_recip(&self) -> Vec3A {
         self.direction_recip
     }
 
     /// Get the distance of an intersection with an [`Aabb3d`], if any.
     pub fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
-        let (min_x, max_x) = if self.ray.direction.x.is_sign_positive() {
-            (aabb.min.x, aabb.max.x)
-        } else {
-            (aabb.max.x, aabb.min.x)
-        };
-        let (min_y, max_y) = if self.ray.direction.y.is_sign_positive() {
-            (aabb.min.y, aabb.max.y)
-        } else {
-            (aabb.max.y, aabb.min.y)
-        };
-        let (min_z, max_z) = if self.ray.direction.z.is_sign_positive() {
-            (aabb.min.z, aabb.max.z)
-        } else {
-            (aabb.max.z, aabb.min.z)
-        };
+        let positive = self.direction.signum().cmpgt(Vec3A::ZERO);
+        let min = Vec3A::select(positive, aabb.min, aabb.max);
+        let max = Vec3A::select(positive, aabb.max, aabb.min);
 
         // Calculate the minimum/maximum time for each axis based on how much the direction goes that
         // way. These values can get arbitrarily large, or even become NaN, which is handled by the
         // min/max operations below
-        let tmin_x = (min_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmin_y = (min_y - self.ray.origin.y) * self.direction_recip.y;
-        let tmin_z = (min_z - self.ray.origin.z) * self.direction_recip.z;
-        let tmax_x = (max_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmax_y = (max_y - self.ray.origin.y) * self.direction_recip.y;
-        let tmax_z = (max_z - self.ray.origin.z) * self.direction_recip.z;
+        let tmin = (min - self.origin) * self.direction_recip;
+        let tmax = (max - self.origin) * self.direction_recip;
 
         // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
         // to min/max is NaN, the other argument is used.
         // An axis for which the direction is the wrong way will return an arbitrarily large
         // negative value.
-        let tmin = tmin_x.max(tmin_y).max(tmin_z).max(0.);
-        let tmax = tmax_z.min(tmax_y).min(tmax_x).min(self.max);
+        let tmin = tmin.max_element().max(0.);
+        let tmax = tmax.min_element().min(self.max);
 
         if tmin <= tmax {
             Some(tmin)
@@ -76,14 +73,16 @@ impl RayCast3d {
 
     /// Get the distance of an intersection with a [`BoundingSphere`], if any.
     pub fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32> {
-        let offset = self.ray.origin - sphere.center;
-        let projected = offset.dot(*self.ray.direction);
-        let closest_point = offset - projected * *self.ray.direction;
-        let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
-        if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
+        let offset = self.origin - sphere.center;
+        let projected = offset.dot(*self.direction);
+        let closest_point = offset - projected * *self.direction;
+        let distance_squared = sphere.radius().squared() - closest_point.length_squared();
+        if distance_squared < 0.
+            || ops::copysign(projected.squared(), -projected) < -distance_squared
+        {
             None
         } else {
-            let toi = -projected - distance_squared.sqrt();
+            let toi = -projected - ops::sqrt(distance_squared);
             if toi > self.max {
                 None
             } else {
@@ -107,6 +106,7 @@ impl IntersectsVolume<BoundingSphere> for RayCast3d {
 
 /// An intersection test that casts an [`Aabb3d`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
@@ -115,17 +115,24 @@ pub struct AabbCast3d {
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Dir3`], and max distance.
-    pub fn new(aabb: Aabb3d, origin: Vec3, direction: Dir3, max: f32) -> Self {
-        Self::from_ray(aabb, Ray3d { origin, direction }, max)
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
+    pub fn new(
+        aabb: Aabb3d,
+        origin: impl Into<Vec3A>,
+        direction: impl Into<Dir3A>,
+        max: f32,
+    ) -> Self {
+        Self {
+            ray: RayCast3d::new(origin, direction, max),
+            aabb,
+        }
     }
 
     /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`], and max distance.
     pub fn from_ray(aabb: Aabb3d, ray: Ray3d, max: f32) -> Self {
-        Self {
-            ray: RayCast3d::from_ray(ray, max),
-            aabb,
-        }
+        Self::new(aabb, ray.origin, ray.direction, max)
     }
 
     /// Get the distance at which the [`Aabb3d`]s collide, if at all.
@@ -144,6 +151,7 @@ impl IntersectsVolume<Aabb3d> for AabbCast3d {
 
 /// An intersection test that casts a [`BoundingSphere`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct BoundingSphereCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
@@ -152,17 +160,24 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Dir3`], and max distance.
-    pub fn new(sphere: BoundingSphere, origin: Vec3, direction: Dir3, max: f32) -> Self {
-        Self::from_ray(sphere, Ray3d { origin, direction }, max)
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
+    pub fn new(
+        sphere: BoundingSphere,
+        origin: impl Into<Vec3A>,
+        direction: impl Into<Dir3A>,
+        max: f32,
+    ) -> Self {
+        Self {
+            ray: RayCast3d::new(origin, direction, max),
+            sphere,
+        }
     }
 
     /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], [`Ray3d`], and max distance.
     pub fn from_ray(sphere: BoundingSphere, ray: Ray3d, max: f32) -> Self {
-        Self {
-            ray: RayCast3d::from_ray(ray, max),
-            sphere,
-        }
+        Self::new(sphere, ray.origin, ray.direction, max)
     }
 
     /// Get the distance at which the [`BoundingSphere`]s collide, if at all.
@@ -182,6 +197,7 @@ impl IntersectsVolume<BoundingSphere> for BoundingSphereCast {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Dir3, Vec3};
 
     const EPSILON: f32 = 0.001;
 
@@ -225,21 +241,21 @@ mod tests {
                 4.996,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.sphere_intersection_at(volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
-            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            let inverted_ray = RayCast3d::new(test.origin, -test.direction, test.max);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -264,9 +280,7 @@ mod tests {
         ] {
             assert!(
                 !test.intersects(volume),
-                "Case:\n  Test: {:?}\n  Volume: {:?}",
-                test,
-                volume,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}",
             );
         }
     }
@@ -279,14 +293,17 @@ mod tests {
                 for max in &[0., 1., 900.] {
                     let test = RayCast3d::new(*origin, *direction, *max);
 
-                    let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
-                        origin, direction, max,
+                    assert!(
+                        test.intersects(&volume),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-                    assert!(test.intersects(&volume), "{}", case);
 
                     let actual_distance = test.sphere_intersection_at(&volume);
-                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                    assert_eq!(
+                        actual_distance,
+                        Some(0.),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
+                    );
                 }
             }
         }
@@ -332,21 +349,21 @@ mod tests {
                 1.732,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.aabb_intersection_at(volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
-            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            let inverted_ray = RayCast3d::new(test.origin, -test.direction, test.max);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -371,9 +388,7 @@ mod tests {
         ] {
             assert!(
                 !test.intersects(volume),
-                "Case:\n  Test: {:?}\n  Volume: {:?}",
-                test,
-                volume,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}",
             );
         }
     }
@@ -386,14 +401,17 @@ mod tests {
                 for max in &[0., 1., 900.] {
                     let test = RayCast3d::new(*origin, *direction, *max);
 
-                    let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
-                        origin, direction, max,
+                    assert!(
+                        test.intersects(&volume),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-                    assert!(test.intersects(&volume), "{}", case);
 
                     let actual_distance = test.aabb_intersection_at(&volume);
-                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                    assert_eq!(
+                        actual_distance,
+                        Some(0.),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
+                    );
                 }
             }
         }
@@ -442,22 +460,21 @@ mod tests {
                 3.,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.aabb_collision_at(*volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
-            let inverted_ray =
-                RayCast3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.ray.max);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -509,22 +526,21 @@ mod tests {
                 3.677,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.sphere_collision_at(*volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
-            let inverted_ray =
-                RayCast3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.ray.max);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 }

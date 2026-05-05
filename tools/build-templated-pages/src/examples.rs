@@ -1,9 +1,10 @@
-use std::{cmp::Ordering, fs::File};
+use core::cmp::Ordering;
+use std::fs::File;
 
 use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::Document;
+use toml_edit::{DocumentMut, Item};
 
 use crate::Command;
 
@@ -25,10 +26,7 @@ struct Example {
 
 impl Ord for Example {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.category.cmp(&other.category) {
-            Ordering::Equal => self.name.cmp(&other.name),
-            ordering => ordering,
-        }
+        (&self.category, &self.name).cmp(&(&other.category, &other.name))
     }
 }
 
@@ -40,7 +38,7 @@ impl PartialOrd for Example {
 
 fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()
@@ -58,13 +56,15 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
             if panic_on_missing && metadatas.get(&technical_name).is_none() {
                 panic!("Missing metadata for example {technical_name}");
             }
+            if panic_on_missing && val.get("doc-scrape-examples").is_none() {
+                panic!("Example {technical_name} is missing doc-scrape-examples");
+            }
 
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
-                .and_then(|hidden| hidden.as_bool())
-                .and_then(|hidden| hidden.then_some(()))
-                .is_some()
+                .and_then(Item::as_bool)
+                .unwrap_or(false)
             {
                 return None;
             }
@@ -83,7 +83,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
 
 fn parse_categories() -> HashMap<Box<str>, String> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     manifest
         .get("package")
         .unwrap()

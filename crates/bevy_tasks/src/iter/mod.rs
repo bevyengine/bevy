@@ -1,4 +1,5 @@
 use crate::TaskPool;
+use alloc::vec::Vec;
 
 mod adapters;
 pub use adapters::*;
@@ -267,7 +268,7 @@ where
             }
         })
         .into_iter()
-        .all(std::convert::identity)
+        .all(core::convert::identity)
     }
 
     /// Tests if any element of the parallel iterator matches a predicate.
@@ -286,7 +287,7 @@ where
             }
         })
         .into_iter()
-        .any(std::convert::identity)
+        .any(core::convert::identity)
     }
 
     /// Searches for an element in a parallel iterator, returning its index.
@@ -385,7 +386,7 @@ where
     /// See [`Iterator::max_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max_by)
     fn max_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
-        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
@@ -425,7 +426,7 @@ where
     /// See [`Iterator::min_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min_by)
     fn min_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
-        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
@@ -479,8 +480,8 @@ where
     /// See [`Iterator::sum()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.sum)
     fn sum<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Sum<BatchIter::Item> + Send + 'static,
-        R: std::iter::Sum<S>,
+        S: core::iter::Sum<BatchIter::Item> + Send + 'static,
+        R: core::iter::Sum<S>,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -496,8 +497,8 @@ where
     /// See [`Iterator::product()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.product)
     fn product<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Product<BatchIter::Item> + Send + 'static,
-        R: std::iter::Product<S>,
+        S: core::iter::Product<BatchIter::Item> + Send + 'static,
+        R: core::iter::Product<S>,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {

@@ -1,3 +1,4 @@
+//! Helpers for mapping between winit and bevy types
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
@@ -5,10 +6,15 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_math::Vec2;
-use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
+use bevy_math::{CompassOctant, Vec2};
+use bevy_window::SystemCursorIcon;
+use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
+#[cfg(target_os = "ios")]
+use bevy_window::ScreenEdge;
+
+/// Converts a [`winit::event::KeyEvent`] and a window [`Entity`] to a Bevy [`KeyboardInput`]
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyEvent,
     window: Entity,
@@ -17,10 +23,13 @@ pub fn convert_keyboard_input(
         state: convert_element_state(keyboard_input.state),
         key_code: convert_physical_key_code(keyboard_input.physical_key),
         logical_key: convert_logical_key(&keyboard_input.logical_key),
+        text: keyboard_input.text.clone(),
+        repeat: keyboard_input.repeat,
         window,
     }
 }
 
+/// Converts a [`winit::event::ElementState`] to a Bevy [`ButtonState`]
 pub fn convert_element_state(element_state: winit::event::ElementState) -> ButtonState {
     match element_state {
         winit::event::ElementState::Pressed => ButtonState::Pressed,
@@ -28,6 +37,7 @@ pub fn convert_element_state(element_state: winit::event::ElementState) -> Butto
     }
 }
 
+/// Converts a [`winit::event::MouseButton`] to a Bevy [`MouseButton`]
 pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButton {
     match mouse_button {
         winit::event::MouseButton::Left => MouseButton::Left,
@@ -39,18 +49,24 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
     }
 }
 
+/// Converts a [`winit::event::TouchPhase`] to a Bevy [`TouchPhase`].
+pub fn convert_touch_phase(phase: winit::event::TouchPhase) -> TouchPhase {
+    match phase {
+        winit::event::TouchPhase::Started => TouchPhase::Started,
+        winit::event::TouchPhase::Moved => TouchPhase::Moved,
+        winit::event::TouchPhase::Ended => TouchPhase::Ended,
+        winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
+    }
+}
+
+/// Converts a [`winit::event::Touch`], [`winit::dpi::LogicalPosition<f64>`] and window [`Entity`] to a Bevy [`TouchInput`]
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
     location: winit::dpi::LogicalPosition<f64>,
     window_entity: Entity,
 ) -> TouchInput {
     TouchInput {
-        phase: match touch_input.phase {
-            winit::event::TouchPhase::Started => TouchPhase::Started,
-            winit::event::TouchPhase::Moved => TouchPhase::Moved,
-            winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
-        },
+        phase: convert_touch_phase(touch_input.phase),
         position: Vec2::new(location.x as f32, location.y as f32),
         window: window_entity,
         force: touch_input.force.map(|f| match f {
@@ -69,6 +85,7 @@ pub fn convert_touch_input(
     }
 }
 
+/// Converts a [`winit::keyboard::NativeKeyCode`] to a Bevy [`NativeKeyCode`]
 pub fn convert_physical_native_key_code(
     native_key_code: winit::keyboard::NativeKeyCode,
 ) -> NativeKeyCode {
@@ -80,6 +97,7 @@ pub fn convert_physical_native_key_code(
         winit::keyboard::NativeKeyCode::Xkb(key_code) => NativeKeyCode::Xkb(key_code),
     }
 }
+/// Converts a [`winit::keyboard::PhysicalKey`] to a Bevy [`KeyCode`]
 pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey) -> KeyCode {
     match virtual_key_code {
         winit::keyboard::PhysicalKey::Unidentified(native_key_code) => {
@@ -285,7 +303,8 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey)
     }
 }
 
-pub fn convert_logical_key(logical_key_code: &winit::keyboard::Key) -> bevy_input::keyboard::Key {
+///Converts a [`winit::keyboard::Key`] to a Bevy [`bevy_input::keyboard::Key`]
+pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key {
     match logical_key_code {
         Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
         Key::Unidentified(nk) => bevy_input::keyboard::Key::Unidentified(convert_native_key(nk)),
@@ -616,6 +635,7 @@ pub fn convert_logical_key(logical_key_code: &winit::keyboard::Key) -> bevy_inpu
     }
 }
 
+///Converts a [`winit::keyboard::NativeKey`] to a Bevy [`NativeKey`](bevy_input::keyboard::NativeKey)
 pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::NativeKey {
     match native_key {
         NativeKey::Unidentified => bevy_input::keyboard::NativeKey::Unidentified,
@@ -627,45 +647,47 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
     }
 }
 
-pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon {
+/// Converts a Bevy [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
+pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::window::CursorIcon {
     match cursor_icon {
-        CursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
-        CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
-        CursorIcon::Move => winit::window::CursorIcon::Move,
-        CursorIcon::Text => winit::window::CursorIcon::Text,
-        CursorIcon::Wait => winit::window::CursorIcon::Wait,
-        CursorIcon::Help => winit::window::CursorIcon::Help,
-        CursorIcon::Progress => winit::window::CursorIcon::Progress,
-        CursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
-        CursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
-        CursorIcon::Cell => winit::window::CursorIcon::Cell,
-        CursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
-        CursorIcon::Alias => winit::window::CursorIcon::Alias,
-        CursorIcon::Copy => winit::window::CursorIcon::Copy,
-        CursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
-        CursorIcon::Grab => winit::window::CursorIcon::Grab,
-        CursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
-        CursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
-        CursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
-        CursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
-        CursorIcon::EResize => winit::window::CursorIcon::EResize,
-        CursorIcon::NResize => winit::window::CursorIcon::NResize,
-        CursorIcon::NeResize => winit::window::CursorIcon::NeResize,
-        CursorIcon::NwResize => winit::window::CursorIcon::NwResize,
-        CursorIcon::SResize => winit::window::CursorIcon::SResize,
-        CursorIcon::SeResize => winit::window::CursorIcon::SeResize,
-        CursorIcon::SwResize => winit::window::CursorIcon::SwResize,
-        CursorIcon::WResize => winit::window::CursorIcon::WResize,
-        CursorIcon::EwResize => winit::window::CursorIcon::EwResize,
-        CursorIcon::NsResize => winit::window::CursorIcon::NsResize,
-        CursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
-        CursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
-        CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
-        CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
+        SystemCursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
+        SystemCursorIcon::Pointer => winit::window::CursorIcon::Pointer,
+        SystemCursorIcon::Move => winit::window::CursorIcon::Move,
+        SystemCursorIcon::Text => winit::window::CursorIcon::Text,
+        SystemCursorIcon::Wait => winit::window::CursorIcon::Wait,
+        SystemCursorIcon::Help => winit::window::CursorIcon::Help,
+        SystemCursorIcon::Progress => winit::window::CursorIcon::Progress,
+        SystemCursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
+        SystemCursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
+        SystemCursorIcon::Cell => winit::window::CursorIcon::Cell,
+        SystemCursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
+        SystemCursorIcon::Alias => winit::window::CursorIcon::Alias,
+        SystemCursorIcon::Copy => winit::window::CursorIcon::Copy,
+        SystemCursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
+        SystemCursorIcon::Grab => winit::window::CursorIcon::Grab,
+        SystemCursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
+        SystemCursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
+        SystemCursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
+        SystemCursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
+        SystemCursorIcon::EResize => winit::window::CursorIcon::EResize,
+        SystemCursorIcon::NResize => winit::window::CursorIcon::NResize,
+        SystemCursorIcon::NeResize => winit::window::CursorIcon::NeResize,
+        SystemCursorIcon::NwResize => winit::window::CursorIcon::NwResize,
+        SystemCursorIcon::SResize => winit::window::CursorIcon::SResize,
+        SystemCursorIcon::SeResize => winit::window::CursorIcon::SeResize,
+        SystemCursorIcon::SwResize => winit::window::CursorIcon::SwResize,
+        SystemCursorIcon::WResize => winit::window::CursorIcon::WResize,
+        SystemCursorIcon::EwResize => winit::window::CursorIcon::EwResize,
+        SystemCursorIcon::NsResize => winit::window::CursorIcon::NsResize,
+        SystemCursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
+        SystemCursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
+        SystemCursorIcon::ColResize => winit::window::CursorIcon::ColResize,
+        SystemCursorIcon::RowResize => winit::window::CursorIcon::RowResize,
         _ => winit::window::CursorIcon::Default,
     }
 }
 
+/// Converts a Bevy [`WindowLevel`] to a [`winit::window::WindowLevel`]
 pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
     match window_level {
         WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
@@ -674,6 +696,7 @@ pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowL
     }
 }
 
+/// Converts a [`winit::window::Theme`] to a Bevy [`WindowTheme`]
 pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
     match theme {
         winit::window::Theme::Light => WindowTheme::Light,
@@ -681,6 +704,7 @@ pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
     }
 }
 
+/// Converts a Bevy [`WindowTheme`] to a [`winit::window::Theme`]
 pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
     match theme {
         WindowTheme::Light => winit::window::Theme::Light,
@@ -688,6 +712,7 @@ pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
     }
 }
 
+/// Converts a Bevy [`EnabledButtons`] to a [`winit::window::WindowButtons`]
 pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window::WindowButtons {
     let mut window_buttons = winit::window::WindowButtons::empty();
     if enabled_buttons.minimize {
@@ -700,4 +725,31 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
         window_buttons.insert(winit::window::WindowButtons::CLOSE);
     }
     window_buttons
+}
+
+/// Converts a Bevy [`CompassOctant`] to a [`winit::window::ResizeDirection`]
+pub fn convert_resize_direction(resize_direction: CompassOctant) -> winit::window::ResizeDirection {
+    match resize_direction {
+        CompassOctant::West => winit::window::ResizeDirection::West,
+        CompassOctant::North => winit::window::ResizeDirection::North,
+        CompassOctant::East => winit::window::ResizeDirection::East,
+        CompassOctant::South => winit::window::ResizeDirection::South,
+        CompassOctant::NorthWest => winit::window::ResizeDirection::NorthWest,
+        CompassOctant::NorthEast => winit::window::ResizeDirection::NorthEast,
+        CompassOctant::SouthWest => winit::window::ResizeDirection::SouthWest,
+        CompassOctant::SouthEast => winit::window::ResizeDirection::SouthEast,
+    }
+}
+
+#[cfg(target_os = "ios")]
+/// Converts a [`bevy_window::ScreenEdge`] to a [`winit::platform::ios::ScreenEdge`].
+pub(crate) fn convert_screen_edge(edge: ScreenEdge) -> winit::platform::ios::ScreenEdge {
+    match edge {
+        ScreenEdge::None => winit::platform::ios::ScreenEdge::NONE,
+        ScreenEdge::Top => winit::platform::ios::ScreenEdge::TOP,
+        ScreenEdge::Bottom => winit::platform::ios::ScreenEdge::BOTTOM,
+        ScreenEdge::Left => winit::platform::ios::ScreenEdge::LEFT,
+        ScreenEdge::Right => winit::platform::ios::ScreenEdge::RIGHT,
+        ScreenEdge::All => winit::platform::ios::ScreenEdge::ALL,
+    }
 }

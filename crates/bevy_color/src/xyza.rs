@@ -1,14 +1,27 @@
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
+    StandardColor,
+};
+use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Xyza {
     /// The x-axis. [0.0, 1.0]
     pub x: f32,
@@ -21,6 +34,8 @@ pub struct Xyza {
 }
 
 impl StandardColor for Xyza {}
+
+impl_componentwise_vector_space!(Xyza, [x, y, z, alpha]);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.
@@ -130,6 +145,65 @@ impl Mix for Xyza {
             y: self.y * n_factor + other.y * factor,
             z: self.z * n_factor + other.z * factor,
             alpha: self.alpha * n_factor + other.alpha * factor,
+        }
+    }
+}
+
+impl Gray for Xyza {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0.95047, 1.0, 1.08883, 1.0);
+}
+
+impl ColorToComponents for Xyza {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.x, self.y, self.z, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.x, self.y, self.z]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: 1.0,
         }
     }
 }

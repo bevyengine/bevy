@@ -1,9 +1,12 @@
 #define TONEMAPPING_PASS
 
-#import bevy_render::view::View
+#import bevy_render::{
+    view::View,
+    maths::powsafe,
+}
 #import bevy_core_pipeline::{
     fullscreen_vertex_shader::FullscreenVertexOutput,
-    tonemapping::{tone_mapping, powsafe, screen_space_dither},
+    tonemapping::{tone_mapping, screen_space_dither},
 }
 
 @group(0) @binding(0) var<uniform> view: View;

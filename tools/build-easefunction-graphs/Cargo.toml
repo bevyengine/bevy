@@ -1,0 +1,13 @@
+[package]
+name = "build-easefunction-graphs"
+edition = "2024"
+description = "Tool that generates a svg for each EaseFunction to be included in the docs"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy_math = { path = "../../crates/bevy_math" }
+svg = "0.18.0"
+
+[lints]
+workspace = true
