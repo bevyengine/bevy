@@ -33,9 +33,9 @@ use wgpu_types::{BlendState, TextureUsages};
 ///
 /// ```no_run
 /// # use bevy_camera::{Camera, Projection, Viewport};
-/// # use bevy::preluede::*;
+/// # use bevy_transform::prelude::Transform;
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_math::Vec2;
+/// # use bevy_math::UVec2;
 /// # use bevy_window::Window;
 /// # use bevy_utils::default;
 ///
