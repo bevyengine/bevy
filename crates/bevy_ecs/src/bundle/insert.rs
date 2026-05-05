@@ -7,7 +7,10 @@ use crate::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
         ComponentStatus,
     },
-    bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{
+        archetype_after_fallible_resource_insertion, ArchetypeMoveType, Bundle, BundleId,
+        BundleInfo, DynamicBundle, InsertMode,
+    },
     change_detection::{MaybeLocation, Tick},
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -128,10 +131,11 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-        mut archetype: NonNull<Archetype>,
+        archetype: &mut NonNull<Archetype>,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
+        contains_resources: bool,
     ) -> (
         &'a Archetype,
         EntityLocation,
@@ -178,24 +182,22 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        // SAFETY: Archetype gets borrowed when running the on_discard observers above,
-        // so this reference can only be promoted from shared to &mut down here, after they have been ran
-        let archetype = archetype.as_mut();
-
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
+                let archetype_ref = archetype.as_ref();
+
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let (sparse_sets, resource_storages, table) = {
                     let world = world.world_mut();
                     (
                         &mut world.storages.sparse_sets,
                         &mut world.storages.resources,
-                        &mut world.storages.tables[archetype.table_id()],
+                        &mut world.storages.tables[archetype_ref.table_id()],
                     )
                 };
 
                 (
-                    &*archetype,
+                    archetype_ref,
                     location,
                     sparse_sets,
                     resource_storages,
@@ -204,7 +206,22 @@ impl<'w> BundleInserter<'w> {
                 )
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
+                // Inserting a resource will fail if it already exists on another entity.
+                // Check whether this is the case and determine the correct resulting archetype if so.
+                let mut new_archetype = if contains_resources {
+                    archetype_after_fallible_resource_insertion(
+                        world,
+                        entity,
+                        archetype_after_insert.added(),
+                        Some(archetype),
+                        new_archetype,
+                    )
+                } else {
+                    *new_archetype
+                };
+                // SAFETY: No more references to archetypes are life
                 let new_archetype = new_archetype.as_mut();
+                let archetype_ref = archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let (sparse_sets, resource_storages, table, entities) = {
@@ -217,7 +234,7 @@ impl<'w> BundleInserter<'w> {
                     )
                 };
 
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype_ref.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -245,6 +262,22 @@ impl<'w> BundleInserter<'w> {
                 )
             }
             ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
+                // Inserting a resource will fail if it already exists on another entity.
+                // Check whether this is the case and determine the correct resulting archetype if so.
+                let mut new_archetype = if contains_resources {
+                    archetype_after_fallible_resource_insertion(
+                        world,
+                        entity,
+                        archetype_after_insert.added(),
+                        Some(archetype),
+                        new_archetype,
+                    )
+                } else {
+                    *new_archetype
+                };
+                // SAFETY: Archetype gets borrowed when running the on_discard observers above,
+                // so this reference can only be promoted from shared to &mut down here, after they have been ran
+                let archetype_ref = archetype.as_mut();
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
@@ -259,7 +292,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.entities,
                     )
                 };
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype_ref.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -311,8 +344,8 @@ impl<'w> BundleInserter<'w> {
                         }),
                     );
 
-                    if archetype.id() == swapped_location.archetype_id {
-                        archetype
+                    if archetype_ref.id() == swapped_location.archetype_id {
+                        archetype_ref
                             .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                     } else if new_archetype.id() == swapped_location.archetype_id {
                         new_archetype
@@ -367,10 +400,11 @@ impl<'w> BundleInserter<'w> {
                     insert_mode,
                     caller,
                     relationship_hook_mode,
-                    self.archetype,
+                    &mut self.archetype,
                     archetype_after_insert,
                     &self.world,
                     &mut self.archetype_move_type,
+                    self.bundle_info.as_ref().contains_resources,
                 );
 
             self.bundle_info.as_ref().write_components(

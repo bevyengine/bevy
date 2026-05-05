@@ -885,6 +885,37 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    /// # Safety
+    /// - all ids must be valid and pairwise unequal
+    pub(crate) unsafe fn get_disjoint_unchecked_mut(
+        &mut self,
+        id_a: ArchetypeId,
+        id_b: ArchetypeId,
+        id_c: Option<ArchetypeId>,
+    ) -> (&mut Archetype, &mut Archetype, Option<&mut Archetype>) {
+        match id_c {
+            Some(id_c) => {
+                // SAFETY: Same preconditions
+                let [a, b, c] = unsafe {
+                    self.archetypes.get_disjoint_unchecked_mut([
+                        id_a.index(),
+                        id_b.index(),
+                        id_c.index(),
+                    ])
+                };
+                (a, b, Some(c))
+            }
+            None => {
+                // SAFETY: Same preconditions
+                let [a, b] = unsafe {
+                    self.archetypes
+                        .get_disjoint_unchecked_mut([id_a.index(), id_b.index()])
+                };
+                (a, b, None)
+            }
+        }
+    }
+
     /// Tries to fetch mutable references to two disjoint archetypes.
     ///
     /// Returns `(&mut Archetype, None)` if the same [`ArchetypeId`] was provided twice.

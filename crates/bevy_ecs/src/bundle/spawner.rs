@@ -4,7 +4,10 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
-    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{
+        info::archetype_after_fallible_resource_insertion, Bundle, BundleId, BundleInfo,
+        DynamicBundle, InsertMode,
+    },
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
@@ -96,9 +99,22 @@ impl<'w> BundleSpawner<'w> {
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
+
+        let mut archetype = if bundle_info.contains_resources {
+            archetype_after_fallible_resource_insertion(
+                &self.world,
+                entity,
+                bundle_info.contributed_components(),
+                None,
+                &mut self.archetype,
+            )
+        } else {
+            self.archetype
+        };
+
         let location = {
             let table = self.table.as_mut();
-            let archetype = self.archetype.as_mut();
+            let archetype = archetype.as_mut();
 
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let (sparse_sets, resource_storages, entities) = {

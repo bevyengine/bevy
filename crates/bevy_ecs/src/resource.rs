@@ -86,7 +86,7 @@ pub trait Resource: Component<Mutability = Mutable> {}
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
-#[component(on_insert, on_discard, on_despawn)]
+#[component(on_discard, on_despawn)]
 pub struct IsResource(ComponentId);
 
 impl IsResource {
@@ -98,33 +98,6 @@ impl IsResource {
     /// The [`ComponentId`] of the resource component (the _actual_ resource value component, not the [`IsResource`] component).
     pub fn resource_component_id(&self) -> ComponentId {
         self.0
-    }
-
-    pub(crate) fn on_insert(mut world: DeferredWorld, context: HookContext) {
-        let resource_component_id = world
-            .entity(context.entity)
-            .get::<Self>()
-            .unwrap()
-            .resource_component_id();
-        // Storage guaranteed to exist after insertion
-        let storage = world.storages.resources.get(resource_component_id).unwrap();
-        // SAFETY: We have exclusive world (and therefore resource storage) access
-        if unsafe { storage.check_and_clear_failed_insert() } {
-            // Resource was already present, but new instance got inserted into a different entity.
-            // Undo the move.
-            world
-                .commands()
-                .entity(context.entity)
-                .remove_by_id(resource_component_id)
-                .remove_by_id(context.component_id);
-            let name = world
-                .components()
-                .get_name(resource_component_id)
-                .expect("resource is registered");
-            warn!("Tried inserting the resource {name} while one already exists.
-            Resources are unique components stored on a single entity.
-            Inserting on a different entity, when one already exists, causes the new value to be removed.");
-        }
     }
 
     pub(crate) fn on_discard(mut world: DeferredWorld, context: HookContext) {

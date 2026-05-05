@@ -1,6 +1,5 @@
 use core::{cell::UnsafeCell, panic::Location};
 
-use bevy_platform::cell::SyncUnsafeCell;
 use bevy_ptr::{OwningPtr, Ptr};
 use nonmax::NonMaxU32;
 
@@ -87,12 +86,6 @@ use ResourceState::*;
 /// Storage for an individual resource.
 pub struct ResourceStorage {
     state: ResourceState,
-    /// When the resource already exists but gets inserted into a different
-    /// entity, we discard the new insertion. The storage itself can't
-    /// stop the archetype move, but marks the failed insert;
-    /// the `IsResource::on_insert` hook then moves the entity back into
-    /// the archetype without the resource and clears the flag.
-    insert_just_failed: SyncUnsafeCell<bool>,
     /// capacity: 1
     /// length: 1 if populated, 0 otherwise
     data: Column,
@@ -102,7 +95,6 @@ impl ResourceStorage {
     fn new(component_info: &ComponentInfo) -> Self {
         Self {
             state: NoEntity,
-            insert_just_failed: SyncUnsafeCell::new(false),
             data: Column::with_capacity(component_info, 1),
         }
     }
@@ -156,16 +148,8 @@ impl ResourceStorage {
                         drop(value);
                     }
                 }
-                self.insert_just_failed = SyncUnsafeCell::new(true);
             }
         }
-    }
-
-    /// # SAFETY
-    /// Must have exclusive access to this storage
-    pub(crate) unsafe fn check_and_clear_failed_insert(&self) -> bool {
-        // SAFETY: No other references
-        unsafe { self.insert_just_failed.get().replace(false) }
     }
 
     /// Returns a reference to the entity's component value.

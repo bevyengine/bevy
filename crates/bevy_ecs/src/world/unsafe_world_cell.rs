@@ -280,6 +280,17 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.archetypes
     }
 
+    /// Mutably retrieves this world's [`Archetypes`] collection.
+    ///
+    /// # Safety
+    /// No other reference to the archetypes may exist
+    #[inline]
+    pub(crate) fn archetypes_mut(self) -> &'w mut Archetypes {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { &mut (*self.ptr).archetypes }
+    }
+
     /// Retrieves this world's [`Components`] collection.
     #[inline]
     pub fn components(self) -> &'w Components {

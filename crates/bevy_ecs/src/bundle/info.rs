@@ -17,7 +17,10 @@ use crate::{
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
-    storage::{ResourceStorages, SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    storage::{
+        ResourceStorage, ResourceStorages, SparseSetIndex, SparseSets, Storages, Table, TableRow,
+    },
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
@@ -75,6 +78,9 @@ pub struct BundleInfo {
 
     /// The list of constructors for all required components indirectly contributed by this bundle.
     pub(super) required_component_constructors: Box<[RequiredComponentConstructor]>,
+
+    /// Whether any of the components are resources.
+    pub(super) contains_resources: bool,
 }
 
 impl BundleInfo {
@@ -143,6 +149,11 @@ impl BundleInfo {
             .map(|(_, required_component)| required_component.constructor)
             .collect::<Box<_>>();
 
+        let contains_resources = component_ids.iter().any(|&id|
+
+            // SAFETY: caller has verified that all ids are valid
+        unsafe{components.get_descriptor(id).unwrap_unchecked()}.storage_type() == StorageType::Resource);
+
         // SAFETY: The caller ensures that component_ids:
         // - is valid for the associated world
         // - has had its storage initialized
@@ -151,6 +162,7 @@ impl BundleInfo {
             id,
             contributed_component_ids: component_ids.into(),
             required_component_constructors: required_components,
+            contains_resources,
         }
     }
 
@@ -302,6 +314,9 @@ impl BundleInfo {
                         unsafe { resource_storages.get_mut(component_id).debug_checked_unwrap() };
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
+                            // Try to insert the resource.
+                            // If the resource already exists on another entity this will fail,
+                            // but in that case we've already adjusted the target archetype.
                             resource_storage.insert(entity, component_ptr, change_tick, caller);
                         }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
@@ -625,4 +640,74 @@ fn initialize_dynamic_bundle(
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
+}
+
+/// Checks whether any of the component insertions will fail
+/// due to being resources that are already present on a different
+/// entity in the world and returns the actual new archetype.
+///
+/// This may invalidate archetype pointers, in which case it will update
+/// `archetype` and `new_archetype` to be valid again.
+///
+/// # Safety
+/// - `archetype` and `new_archetype` must be valid for reading
+/// - world must have write access to archetypes after `archetype` and
+///   `new_archetype` are not life anymore, and read access to resources
+pub(super) unsafe fn archetype_after_fallible_resource_insertion(
+    world: &UnsafeWorldCell,
+    entity: Entity,
+    component_ids_to_check: &[ComponentId],
+    mut archetype: Option<&mut NonNull<Archetype>>,
+    new_archetype: &mut NonNull<Archetype>,
+) -> NonNull<Archetype> {
+    let mut resulting_archetype = *new_archetype;
+    for &component_id in component_ids_to_check {
+        if world
+            .storages()
+            .resources
+            .get(component_id)
+            .and_then(ResourceStorage::entity)
+            .is_some_and(|existing| existing != entity)
+        {
+            // Writing this resource will fail
+
+            let archetype_id = archetype.as_ref().map(|a| a.as_ref().id());
+            let new_archetype_id = new_archetype.as_ref().id();
+
+            let resulting_archetype_ref = resulting_archetype.as_ref();
+            let table_id = resulting_archetype_ref.table_id();
+            let table_components = resulting_archetype_ref.table_components().collect();
+            let non_table_components = resulting_archetype_ref
+                .non_table_components()
+                .filter(|&id| id == component_id)
+                .collect();
+            // SAFETY:
+            // We do not hold any references to/into the world
+            let (new_archetype_without_resource, _) = world.archetypes_mut().get_id_or_insert(
+                world.components(),
+                world.observers(),
+                table_id,
+                table_components,
+                non_table_components,
+            );
+            // The previous archtype pointers are now invalid
+            // SAFETY:
+            // - archetype id came from a valid archetype above
+            // - world reference not used anymore
+            unsafe {
+                let (new_archetype_ref, resulting_archetype_ref, relocated_archetype_ref) =
+                    world.archetypes_mut().get_disjoint_unchecked_mut(
+                        new_archetype_id,
+                        new_archetype_without_resource,
+                        archetype_id,
+                    );
+                if let Some(archetype) = &mut archetype {
+                    **archetype = NonNull::from(relocated_archetype_ref.unwrap_unchecked());
+                }
+                *new_archetype = NonNull::from(new_archetype_ref);
+                resulting_archetype = NonNull::from(resulting_archetype_ref);
+            }
+        }
+    }
+    resulting_archetype
 }
