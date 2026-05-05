@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -69,7 +69,7 @@ impl Plugin for TextPlugin {
 #[derive(Asset, TypePath, Debug)]
 struct Text(String);
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct TextLoader;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ struct CoolText {
     dependencies: Vec<Handle<Text>>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextLoader;
 
 #[derive(Debug, Error)]
@@ -150,20 +150,18 @@ impl AssetLoader for CoolTextLoader {
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
             let loaded = load_context
-                .loader()
-                .immediate()
-                .load::<Text>(&embedded)
+                .load_builder()
+                .load_value::<Text>(&embedded)
                 .await?;
             base_text.push_str(&loaded.get().0);
         }
         for (path, settings_override) in ron.dependencies_with_settings {
             let loaded = load_context
-                .loader()
+                .load_builder()
                 .with_settings(move |settings| {
                     *settings = settings_override.clone();
                 })
-                .immediate()
-                .load::<Text>(&path)
+                .load_value::<Text>(&path)
                 .await?;
             base_text.push_str(&loaded.get().0);
         }
@@ -182,7 +180,7 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -206,6 +204,7 @@ impl AssetTransformer for CoolTextTransformer {
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -217,8 +216,9 @@ impl AssetSaver for CoolTextSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, Self::Asset>,
+        asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<TextSettings, Self::Error> {
         writer.write_all(asset.text.as_bytes()).await?;
         Ok(TextSettings::default())
@@ -249,7 +249,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 fn print_text(
     handles: Res<TextAssets>,
     texts: Res<Assets<Text>>,
-    mut asset_events: EventReader<AssetEvent<Text>>,
+    mut asset_events: MessageReader<AssetEvent<Text>>,
 ) {
     if !asset_events.is_empty() {
         // This prints the current values of the assets

@@ -172,7 +172,7 @@ impl Plugin for PipelinedRenderingPlugin {
             }
 
             #[cfg(feature = "trace")]
-            let _span = tracing::info_span!("render thread").entered();
+            let _span = bevy_log::info_span!("render thread").entered();
 
             let compute_task_pool = ComputeTaskPool::get();
             loop {
@@ -188,7 +188,8 @@ impl Plugin for PipelinedRenderingPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _sub_app_span = tracing::info_span!("sub app", name = ?RenderApp).entered();
+                    let _sub_app_span =
+                        bevy_log::info_span!("sub app", name = ?RenderApp).entered();
                     render_app.update();
                 }
 
@@ -197,7 +198,7 @@ impl Plugin for PipelinedRenderingPlugin {
                 }
             }
 
-            tracing::debug!("exiting pipelined rendering thread");
+            bevy_log::debug!("exiting pipelined rendering thread");
         });
     }
 }
@@ -221,7 +222,7 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
                 render_channels.send_blocking(render_app);
             } else {
                 // Renderer thread panicked
-                world.write_event(AppExit::error());
+                world.write_message(AppExit::error());
             }
         });
     });

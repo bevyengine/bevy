@@ -4,7 +4,7 @@ mod file_watcher;
 #[cfg(feature = "multi_threaded")]
 mod file_asset;
 #[cfg(not(feature = "multi_threaded"))]
-mod sync_file_asset;
+pub(crate) mod sync_file_asset;
 
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
@@ -52,7 +52,7 @@ impl FileAssetReader {
     /// Returns the base path of the assets directory, which is normally the executable's parent
     /// directory.
     ///
-    /// To change this, set [`AssetPlugin.file_path`].
+    /// To change this, set [`AssetPlugin::file_path`][crate::AssetPlugin::file_path].
     pub fn get_base_path() -> PathBuf {
         get_base_path()
     }

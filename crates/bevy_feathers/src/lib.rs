@@ -11,6 +11,14 @@
 //! Consider copying this code into your own project,
 //! and refining the styles and abstractions provided to meet your needs.
 //!
+//! ## Best practices for event propagation
+//!
+//! Generally, when a widget handles an event,
+//! propagation of that event to parent entities should be stopped.
+//! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
+//!
+//! For more guidance on this, see the documentation for [`EntityEvent`](bevy_ecs::event::EntityEvent).
+//!
 //! ## Warning: Experimental!
 //! All that said, this crate is still experimental and unfinished!
 //! It will change in breaking ways, and there will be both bugs and limitations.
@@ -18,9 +26,14 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PropagateSet};
+extern crate alloc;
+
+use bevy_app::{
+    HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
+};
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_input_focus::tab_navigation::TabNavigationPlugin;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
@@ -34,20 +47,22 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+pub mod display;
+pub mod focus;
 pub mod font_styles;
-pub mod handle_or_path;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
-pub struct FeathersPlugin;
+pub struct FeathersCorePlugin;
 
-impl Plugin for FeathersPlugin {
+impl Plugin for FeathersCorePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
@@ -58,8 +73,14 @@ impl Plugin for FeathersPlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
 
+        // Embedded icons
+        embedded_asset!(app, "assets/icons/chevron-down.png");
+        embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/x.png");
+
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
+        embedded_asset!(app, "assets/shaders/color_plane.wgsl");
 
         app.add_plugins((
             ControlsPlugin,
@@ -67,6 +88,7 @@ impl Plugin for FeathersPlugin {
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
+            focus::FocusOutlinesPlugin,
         ));
 
         // This needs to run in UiSystems::Propagate so the fonts are up-to-date for `measure_text_system`
@@ -84,8 +106,20 @@ impl Plugin for FeathersPlugin {
             .add_observer(theme::on_changed_background)
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
+            .add_observer(theme::on_changed_text_color)
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+    }
+}
+
+/// A plugin group that adds all dependencies for Feathers
+pub struct FeathersPlugins;
+
+impl PluginGroup for FeathersPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(TabNavigationPlugin)
+            .add(FeathersCorePlugin)
     }
 }
