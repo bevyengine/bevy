@@ -6,7 +6,9 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
@@ -158,7 +160,7 @@ impl Default for SubCameraView {
 }
 
 /// Information about the current [`RenderTarget`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Reflect, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
@@ -179,7 +181,7 @@ impl Default for RenderTargetInfo {
 }
 
 /// Holds internally computed [`Camera`] values.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Reflect, Clone)]
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,
@@ -355,7 +357,6 @@ pub struct Camera {
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
@@ -496,6 +497,42 @@ impl Camera {
         self.computed.clip_from_view
     }
 
+    /// Core conversion logic to compute viewport coordinates
+    ///
+    /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
+    /// to avoid code duplication.
+    ///
+    /// Returns a tuple `(viewport_position, depth)`.
+    fn world_to_viewport_core(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Result<(Vec2, f32), ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut ndc_space_coords = self
+            .world_to_ndc(camera_transform, world_position)
+            .ok_or(ViewportConversionError::InvalidData)?;
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 {
+            return Err(ViewportConversionError::PastFarPlane);
+        }
+        if ndc_space_coords.z > 1.0 {
+            return Err(ViewportConversionError::PastNearPlane);
+        }
+
+        let depth = ndc_space_coords.z;
+
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
+        Ok((viewport_position, depth))
+    }
+
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -511,27 +548,9 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position)
+        Ok(self
+            .world_to_viewport_core(camera_transform, world_position)?
+            .0)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -549,30 +568,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
+        let result = self.world_to_viewport_core(camera_transform, world_position)?;
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
-        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position.extend(depth))
+        let depth = -self.depth_ndc_to_view_z(result.1);
+        Ok(result.0.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -840,9 +839,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -887,7 +884,20 @@ pub enum NormalizedRenderTarget {
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
 /// See `ManualTextureViews` in `bevy_camera` for more details.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 

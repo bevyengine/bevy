@@ -159,6 +159,17 @@ impl Plane3d {
         )
     }
 }
+impl Measured2d for Plane3d {
+    #[inline]
+    fn area(&self) -> f32 {
+        self.half_size.element_product() * 4.0
+    }
+
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        self.half_size.element_sum() * 4.0
+    }
+}
 
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far

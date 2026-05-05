@@ -1,24 +1,26 @@
-//! Spatial clustering of objects, currently just point and spot lights.
+//! Spatial clustering of objects to accelerate rendering performance.
 
 use bevy_asset::Handle;
 use bevy_camera::{
+    prelude::ViewVisibility,
+    primitives::Aabb,
     visibility::{self, Visibility, VisibilityClass},
-    Camera, Camera3d,
 };
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    query::{Or, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     system::{Commands, Query},
 };
 use bevy_image::Image;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec3Swizzles as _};
-use bevy_platform::collections::HashSet;
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec3A, Vec3Swizzles as _};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use tracing::warn;
+
+use crate::LightProbe;
 
 pub mod assign;
 
@@ -34,12 +36,45 @@ mod test;
 // The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
-#[derive(Resource)]
+/// Cluster configuration depends on rendering capabilities, these are exposed here.
+/// They are automatically set by `bevy_pbr`, but a custom renderer may configure these too.
+#[derive(Clone, Resource, Debug)]
+#[expect(missing_docs, reason = "self explanatory")]
 pub struct GlobalClusterSettings {
     pub supports_storage_buffers: bool,
     pub clustered_decals_are_usable: bool,
+    /// Settings relating to GPU clustering, if GPU clustering is enabled.
+    ///
+    /// To disable GPU light clustering, set this to `None`.
+    pub gpu_clustering: Option<GlobalClusterGpuSettings>,
     pub max_uniform_buffer_clusterable_objects: usize,
     pub view_cluster_bindings_max_indices: usize,
+}
+
+/// Settings relating to GPU clustering.
+#[derive(Clone, Copy, Debug)]
+pub struct GlobalClusterGpuSettings {
+    /// The initial capacity of the list of Z slices.
+    ///
+    /// If there are too many clusterable objects on screen, this can overflow.
+    /// Bevy will detect this situation and resize it, but you might see a few
+    /// incorrect frames before Bevy resizes the list. To avoid this issue, you
+    /// can set this to a higher value.
+    ///
+    /// The default value is
+    /// `bevy::pbr::cluster::GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_SIZE`.
+    pub initial_z_slice_list_capacity: usize,
+
+    /// The initial capacity of the list of clusterable objects.
+    ///
+    /// If there are too many clusterable objects on screen, this can overflow.
+    /// Bevy will detect this situation and resize it, but you might see a few
+    /// incorrect frames before Bevy resizes the list. To avoid this issue, you
+    /// can set this to a higher value.
+    ///
+    /// The default value is
+    /// `bevy::pbr::cluster::GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY`.
+    pub initial_index_list_capacity: usize,
 }
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
@@ -47,9 +82,9 @@ pub struct GlobalClusterSettings {
 #[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Clone)]
 pub enum ClusterFarZMode {
-    /// Calculate the required maximum z-depth based on currently visible
-    /// clusterable objects.  Makes better use of available clusters, speeding
-    /// up GPU lighting operations at the expense of some CPU time and using
+    /// Calculate the required maximum z-depth based on the clusterable objects
+    /// that were visible on the previous frame. Makes better use of available
+    /// clusters, speeding up GPU lighting operations at the expense of using
     /// more indices in the clusterable object index lists.
     MaxClusterableObjectRange,
     /// Constant max z-depth
@@ -77,7 +112,9 @@ pub enum ClusterConfig {
     Single,
     /// Explicit `X`, `Y` and `Z` counts (may yield non-square `X/Y` clusters depending on the aspect ratio)
     XYZ {
+        /// The dimensions of the cluster grid.
         dimensions: UVec3,
+        /// How to distribute the `Z` slices spatially.
         z_config: ClusterZConfig,
         /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
         /// the available cluster-object index limit
@@ -89,8 +126,11 @@ pub enum ClusterConfig {
     /// would reduce the number of lights per cluster by distributing more clusters in screen space
     /// `X/Y` which matches how lights are distributed in the scene.
     FixedZ {
+        /// The total number of clusters to distribute.
         total: u32,
+        /// The number of `Z` slices to distribute the clusters over.
         z_slices: u32,
+        /// How to distribute the `Z` slices spatially.
         z_config: ClusterZConfig,
         /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
         /// the available clusterable object index limit
@@ -98,33 +138,58 @@ pub enum ClusterConfig {
     },
 }
 
-#[derive(Component, Debug, Default)]
+/// The cluster geometry generated by [`ClusterConfig`].
+#[derive(Component, Debug)]
 pub struct Clusters {
-    /// Tile size
+    /// The dimensions of the rectangle the cluster occupies in screen-space, rounded up to the nearest pixel.
     pub tile_size: UVec2,
     /// Number of clusters in `X` / `Y` / `Z` in the view frustum
     pub dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub near: f32,
+    /// Distance to the far plane of the last depth slice. This may change depending on [`ClusterZConfig`] used.
     pub far: f32,
-    pub clusterable_objects: Vec<VisibleClusterableObjects>,
+    /// The farthest Z value of any bounding sphere of any clusterable object on
+    /// the previous frame.
+    ///
+    /// This is used for the [`ClusterFarZMode::MaxClusterableObjectRange`]
+    /// feature.
+    pub last_frame_farthest_z: Option<f32>,
+    /// The sum of the number of objects that all clusters contained last frame.
+    ///
+    /// This is used for the `dynamic_resizing` feature, which automatically
+    /// grows the number of clusters if clusters have likely become too large.
+    pub last_frame_total_cluster_index_count: Option<usize>,
+    /// All objects within the cluster.
+    pub clusterable_objects: ClusterableObjects,
 }
 
-/// The [`VisibilityClass`] used for clusterables (decals, point lights, directional lights, and spot lights).
+/// The list of objects within a cluster, if known to the CPU.
+#[derive(Debug)]
+pub enum ClusterableObjects {
+    /// The list of objects in the cluster is known to the CPU.
+    Cpu(Vec<ObjectsInClusterCpu>),
+    /// The list of objects in the cluster is unknown to the CPU, because GPU
+    /// clustering is being used.
+    Gpu,
+}
+
+/// The [`VisibilityClass`] used for clusterables (decals, point lights, spot
+/// lights, and light probes).
 ///
 /// [`VisibilityClass`]: bevy_camera::visibility::VisibilityClass
 pub struct ClusterVisibilityClass;
 
-#[derive(Clone, Component, Debug, Default)]
-pub struct VisibleClusterableObjects {
-    pub entities: Vec<Entity>,
-    pub counts: ClusterableObjectCounts,
-}
+/// All objects that potentially intersect a single cluster.
+#[derive(Clone, Default, Debug)]
+pub struct ObjectsInClusterCpu {
+    /// A list of all clusterable objects that are potentially visible from this
+    /// view.
+    clusterables: Vec<Entity>,
 
-#[derive(Resource, Default)]
-pub struct GlobalVisibleClusterableObjects {
-    pub(crate) entities: HashSet<Entity>,
+    /// The number of each clusterable object type.
+    pub counts: ClusterableObjectCounts,
 }
 
 /// Stores the number of each type of clusterable object in a single cluster.
@@ -163,7 +228,7 @@ pub struct ClusterableObjectCounts {
 /// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Debug, Clone, Default)]
-#[require(Transform, Visibility, VisibilityClass)]
+#[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct ClusteredDecal {
     /// The image that the clustered decal projects onto the base color of the
@@ -311,6 +376,22 @@ impl ClusterConfig {
     }
 }
 
+impl Default for Clusters {
+    fn default() -> Clusters {
+        Clusters {
+            tile_size: UVec2::ZERO,
+            dimensions: UVec3::ZERO,
+            near: 0.0,
+            far: 0.0,
+            last_frame_farthest_z: None,
+            last_frame_total_cluster_index_count: None,
+            // Although we start with CPU clustering, this will be switched to
+            // GPU clustering if that's enabled.
+            clusterable_objects: ClusterableObjects::Cpu(vec![]),
+        }
+    }
+}
+
 impl Clusters {
     fn update(&mut self, screen_size: UVec2, requested_dimensions: UVec3) {
         debug_assert!(
@@ -331,58 +412,118 @@ impl Clusters {
         // NOTE: Maximum 4096 clusters due to uniform buffer size constraints
         debug_assert!(self.dimensions.x * self.dimensions.y * self.dimensions.z <= 4096);
     }
-    fn clear(&mut self) {
+
+    fn clear(&mut self, global_cluster_settings: &GlobalClusterSettings) {
         self.tile_size = UVec2::ONE;
         self.dimensions = UVec3::ZERO;
         self.near = 0.0;
         self.far = 0.0;
-        self.clusterable_objects.clear();
-    }
-}
 
-pub fn add_clusters(
-    mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
-) {
-    for (entity, config, camera) in &cameras {
-        if !camera.is_active {
-            continue;
+        match (
+            &mut self.clusterable_objects,
+            &global_cluster_settings.gpu_clustering,
+        ) {
+            (ClusterableObjects::Cpu(_), Some(_)) => {
+                self.clusterable_objects = ClusterableObjects::Gpu;
+            }
+            (ClusterableObjects::Cpu(objects_in_cluster_cpu), None) => {
+                objects_in_cluster_cpu.clear();
+            }
+            (ClusterableObjects::Gpu, Some(_)) => {
+                self.clusterable_objects = ClusterableObjects::Cpu(vec![]);
+            }
+            (ClusterableObjects::Gpu, None) => {}
         }
+    }
 
-        let config = config.copied().unwrap_or_default();
-        // actual settings here don't matter - they will be overwritten in
-        // `assign_objects_to_clusters``
-        commands
-            .entity(entity)
-            .insert((Clusters::default(), config));
+    fn reset_for_new_frame(
+        &mut self,
+        cluster_count: usize,
+        global_cluster_settings: &GlobalClusterSettings,
+    ) {
+        match (
+            &mut self.clusterable_objects,
+            &global_cluster_settings.gpu_clustering,
+        ) {
+            (ClusterableObjects::Cpu(_), Some(_)) => {
+                self.clusterable_objects = ClusterableObjects::Gpu;
+            }
+
+            (ClusterableObjects::Cpu(objects_in_cluster_cpu), None) => {
+                for clusterable_objects in objects_in_cluster_cpu.iter_mut() {
+                    clusterable_objects.clear();
+                }
+                objects_in_cluster_cpu.resize_with(cluster_count, ObjectsInClusterCpu::default);
+            }
+
+            (ClusterableObjects::Gpu, Some(_)) => {}
+
+            (ClusterableObjects::Gpu, None) => {
+                self.clusterable_objects =
+                    ClusterableObjects::Cpu(vec![ObjectsInClusterCpu::default(); cluster_count]);
+            }
+        }
     }
 }
 
-impl VisibleClusterableObjects {
-    #[inline]
+impl ObjectsInClusterCpu {
+    /// Clears out all objects in this cluster in preparation for a new frame.
+    pub fn clear(&mut self) {
+        self.clusterables.clear();
+        self.counts = ClusterableObjectCounts::default();
+    }
+
+    /// Adds a spot light to the list.
+    pub fn add_spot_light(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.spot_lights += 1;
+    }
+
+    /// Adds a point light to the list.
+    pub fn add_point_light(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.point_lights += 1;
+    }
+
+    /// Adds a reflection probe to the list.
+    pub fn add_reflection_probe(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.reflection_probes += 1;
+    }
+
+    /// Adds an irradiance volume to the list.
+    pub fn add_irradiance_volume(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.irradiance_volumes += 1;
+    }
+
+    /// Adds a decal to the list.
+    pub fn add_decal(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.decals += 1;
+    }
+
+    /// Iterates through all objects in this cluster.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
-        self.entities.iter()
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.entities.is_empty()
+        self.clusterables.iter()
     }
 }
 
-impl GlobalVisibleClusterableObjects {
-    #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
-        self.entities.iter()
-    }
-
-    #[inline]
-    pub fn contains(&self, entity: Entity) -> bool {
-        self.entities.contains(&entity)
+/// A system that adds AABBs to light probes and decals so that the visibility
+/// determination works for them.
+pub fn add_light_probe_and_decal_aabbs(
+    mut commands: Commands,
+    light_probes_and_decals_query: Query<
+        Entity,
+        (Or<(With<ClusteredDecal>, With<LightProbe>)>, Without<Aabb>),
+    >,
+) {
+    for entity in &light_probes_and_decals_query {
+        commands.entity(entity).insert(Aabb {
+            center: Vec3A::ZERO,
+            // Light probes are always unit-cube sized, the transform scale is what gives them their size.
+            // Scale should not be included in the Aabb because it gets transformed by the GlobalTransform.
+            half_extents: Vec3A::splat(0.5),
+        });
     }
 }

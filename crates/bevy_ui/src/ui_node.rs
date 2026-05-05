@@ -1,12 +1,12 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -25,12 +25,8 @@ use tracing::warn;
 /// handle size without any delays.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(ComputedStackIndex)]
 pub struct ComputedNode {
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-    pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
@@ -106,14 +102,6 @@ impl ComputedNode {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.size.x <= 0. || self.size.y <= 0.
-    }
-
-    /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
-    pub const fn stack_index(&self) -> u32 {
-        self.stack_index
     }
 
     /// The calculated node size as width and height in physical pixels before rounding.
@@ -196,18 +184,13 @@ impl ComputedNode {
             let sm = s.x.min(s.y);
             r.min(sm)
         }
-        let b = vec4(
-            self.border.left,
-            self.border.top,
-            self.border.right,
-            self.border.bottom,
-        );
+        let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
+            bottom_right: clamp_corner(self.border_radius.bottom_right, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_left, s, b.zw()),
         }
     }
 
@@ -223,8 +206,7 @@ impl ComputedNode {
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
         let mut content_inset = self.border + self.padding;
-        content_inset.right += self.scrollbar_size.x;
-        content_inset.bottom += self.scrollbar_size.y;
+        content_inset.max_inset += self.scrollbar_size;
         content_inset
     }
 
@@ -285,10 +267,8 @@ impl ComputedNode {
             OverflowClipBox::PaddingBox => self.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.min += clip_inset.min_inset;
+        clip_rect.max -= clip_inset.max_inset;
 
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -314,10 +294,8 @@ impl ComputedNode {
     #[inline]
     pub fn padding_box(&self) -> Rect {
         let mut out = self.border_box();
-        out.min.x += self.border.left;
-        out.max.x -= self.border.right;
-        out.min.y += self.border.top;
-        out.max.y -= self.border.bottom;
+        out.min += self.border.min_inset;
+        out.max -= self.border.max_inset;
         out
     }
 
@@ -327,10 +305,8 @@ impl ComputedNode {
     pub fn content_box(&self) -> Rect {
         let mut out = self.border_box();
         let content_inset = self.content_inset();
-        out.min.x += content_inset.left;
-        out.max.x -= content_inset.right;
-        out.min.y += content_inset.top;
-        out.max.y -= content_inset.bottom;
+        out.min += content_inset.min_inset;
+        out.max -= content_inset.max_inset;
         out
     }
 
@@ -356,9 +332,9 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let min_x = -half_size.x + content_inset.left;
-        let max_x = half_size.x - content_inset.right;
-        let min_y = half_size.y - content_inset.bottom;
+        let min_x = -half_size.x + content_inset.min_inset.x;
+        let max_x = half_size.x - content_inset.max_inset.x;
+        let min_y = half_size.y - content_inset.max_inset.y;
         let max_y = min_y + self.scrollbar_size.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
@@ -383,10 +359,10 @@ impl ComputedNode {
         }
         let content_inset = self.content_inset();
         let half_size = 0.5 * self.size;
-        let min_x = half_size.x - content_inset.right;
+        let min_x = half_size.x - content_inset.max_inset.x;
         let max_x = min_x + self.scrollbar_size.x;
-        let min_y = -half_size.y + content_inset.top;
-        let max_y = half_size.y - content_inset.bottom;
+        let min_y = -half_size.y + content_inset.min_inset.y;
+        let max_y = half_size.y - content_inset.max_inset.y;
         let gutter = Rect {
             min: Vec2::new(min_x, min_y),
             max: Vec2::new(max_x, max_y),
@@ -405,7 +381,6 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
-        stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
         scrollbar_size: Vec2::ZERO,
@@ -493,6 +468,8 @@ impl From<BVec2> for IgnoreScroll {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedStackIndex,
+    ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
@@ -659,6 +636,11 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
+
+    /// Sets the inline axis direction (LTR or RTL) used for layout.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/direction>
+    pub direction: InlineDirection,
 
     /// The amount of space around a node outside its border.
     ///
@@ -850,6 +832,7 @@ impl Node {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
@@ -883,6 +866,22 @@ impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Sets the inline axis direction (LTR or RTL) used for layout.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InlineDirection {
+    /// Left-to-right
+    #[default]
+    Ltr,
+    /// Right-to-left
+    Rtl,
 }
 
 /// Used to control how each individual item is aligned by default within the space they're given.
@@ -2217,7 +2216,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2401,7 +2400,7 @@ pub struct CalculatedClip {
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
 /// the node will not be clipped regardless of its ancestors' `Overflow` setting.
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct OverrideClip;
 
 #[expect(
@@ -2435,6 +2434,36 @@ pub struct ZIndex(pub i32);
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
+
+/// Sets a color to fill the regions outside the Node's border created when a border radius is set.
+///
+/// This can be useful to create artistic "inner radius" effects when used with extra nodes beside existing nodes,
+/// such as when creating tab widgets.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OuterColor(pub Color);
+
+impl OuterColor {
+    /// Outer color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
+}
+
+impl Default for OuterColor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl<T: Into<Color>> From<T> for OuterColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
 /// rounded corners or specify different radii for each corner. If a given radius exceeds half
@@ -2744,6 +2773,12 @@ impl BorderRadius {
                 viewport_size,
             ),
         }
+    }
+}
+
+impl From<Val> for BorderRadius {
+    fn from(value: Val) -> Self {
+        Self::all(value)
     }
 }
 
@@ -3165,10 +3200,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(100.0, 60.0),
             border: BorderRect {
-                left: 5.0,
-                right: 7.0,
-                top: 3.0,
-                bottom: 9.0,
+                min_inset: Vec2::new(5.0, 3.0),
+                max_inset: Vec2::new(7.0, 9.0),
             },
             ..Default::default()
         };
@@ -3183,10 +3216,8 @@ mod tests {
         let node = ComputedNode {
             size: Vec2::new(80.0, 40.0),
             padding: BorderRect {
-                left: 4.0,
-                right: 6.0,
-                top: 2.0,
-                bottom: 8.0,
+                min_inset: Vec2::new(4.0, 2.0),
+                max_inset: Vec2::new(6.0, 8.0),
             },
             ..Default::default()
         };

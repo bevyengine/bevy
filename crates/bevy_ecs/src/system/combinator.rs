@@ -8,7 +8,7 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -43,7 +43,7 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
 ///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a((), data)? ^ b((), data)?)
+///         Ok(a((), data).unwrap_or(false) ^ b((), data).unwrap_or(false))
 ///     }
 /// }
 ///
@@ -168,13 +168,11 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match (|| unsafe {
-                system.validate_param_unsafe(world.0)?;
-                system.run_unsafe(input, world.0)
-            })() {
+            match unsafe { system.run_unsafe(input, world.0) } {
+                // let the world's fallback error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
-                    // let the world's default error handler handle the error if `Failed(_)`
-                    (world.0.default_error_handler())(
+                    // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
+                    (unsafe { world.0.fallback_error_handler() })(
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -198,12 +196,15 @@ where
             input,
             &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `FallbackErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
+            // The closure's access to the FallbackErrorHandler does not
+            // conflict with any potential access to the FallbackErrorHandler by
+            // the systems since the closures are not run in parallel.
             |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
             |input, world| unsafe { run_system(&mut self.b, input, world) },
@@ -229,21 +230,15 @@ where
         self.b.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // Both systems are validated in `Self::run_unsafe`, so that we get the
-        // chance to run the second system even if the first one fails to
-        // validate.
-        Ok(())
-    }
-
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
+
+        // We might need to read the fallback error handler after the component
+        // systems have run to report failures.
+        let error_resource = world.register_resource::<crate::error::FallbackErrorHandler>();
+        a_access.add_resource_read(error_resource);
         a_access
     }
 
@@ -268,7 +263,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
 unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
@@ -406,9 +401,6 @@ where
         // SAFETY: Upheld by caller
         unsafe {
             let value = self.a.run_unsafe(input, world)?;
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
-            self.b.validate_param_unsafe(world)?;
             self.b.run_unsafe(value, world)
         }
     }
@@ -428,18 +420,6 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
@@ -470,7 +450,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
 unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
     A: ReadOnlySystem,
@@ -481,11 +461,50 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::error::FallbackErrorHandler;
+    use crate::prelude::*;
+    use bevy_utils::prelude::DebugName;
+
+    use crate::{
+        schedule::OrElseMarker,
+        system::{assert_system_does_not_conflict, CombinatorSystem},
+    };
+
+    #[test]
+    fn combinator_with_error_handler_access() {
+        fn my_system(_: ResMut<FallbackErrorHandler>) {}
+        fn a() -> bool {
+            true
+        }
+        fn b(_: ResMut<FallbackErrorHandler>) -> bool {
+            true
+        }
+        fn asdf(_: In<bool>) {}
+
+        let mut world = World::new();
+        world.insert_resource(FallbackErrorHandler::default());
+
+        let system = CombinatorSystem::<OrElseMarker, _, _>::new(
+            IntoSystem::into_system(a),
+            IntoSystem::into_system(b),
+            DebugName::borrowed("a OR b"),
+        );
+
+        // `system` should not conflict with itself by mutably accessing the error handler resource.
+        assert_system_does_not_conflict(system.clone());
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((my_system, system.pipe(asdf)));
+        schedule.initialize(&mut world).unwrap();
+
+        // `my_system` should conflict with the combinator system because the combinator reads the error handler resource.
+        assert!(!schedule.graph().conflicting_systems().is_empty());
+
+        schedule.run(&mut world);
+    }
 
     #[test]
     fn exclusive_system_piping_is_possible() {
-        use crate::prelude::*;
-
         fn my_exclusive_system(_world: &mut World) -> u32 {
             1
         }

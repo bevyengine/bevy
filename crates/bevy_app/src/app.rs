@@ -10,18 +10,20 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{DefaultErrorHandler, ErrorHandler},
-    event::Event,
+    error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
     message::{message_update_system, MessageCursor},
+    observer::IntoObserver,
     prelude::*,
     schedule::{
         InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
         ScheduleLabel,
     },
-    system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
+    system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -91,7 +93,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
-    default_error_handler: Option<ErrorHandler>,
+    fallback_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -151,7 +153,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
-            default_error_handler: None,
+            fallback_error_handler: None,
         }
     }
 
@@ -471,11 +473,18 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
+    /// of the same type.
+    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.insert_non_send(resource)
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
-    /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
-    /// resources that implement [`Default`]
+    /// There is also an [`init_non_send`](Self::init_non_send) for [`!Send`](Send) data
+    /// that implement [`Default`]
     ///
     /// # Examples
     ///
@@ -488,20 +497,26 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
+    ///     .insert_non_send(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+    pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world_mut().insert_non_send(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.init_non_send::<R>()
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.
     ///
     /// `R` must implement [`FromWorld`].
     /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
     /// initialize the [`Resource`] with [`Default::default`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
+    pub fn init_non_send<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.world_mut().init_non_send::<R>();
         self
     }
 
@@ -637,7 +652,7 @@ impl App {
     }
 
     /// Registers the type `T` in the [`AppTypeRegistry`] resource,
-    /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
+    /// adding reflect data as specified in the [`Reflect`] derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
@@ -653,7 +668,7 @@ impl App {
     /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
-    /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
+    /// type you derived [`Reflect`] for. However, in cases where you want to
     /// add a piece of type data that was not included in the list of `#[reflect(...)]` type data in
     /// the derive, or where the type is generic and cannot register e.g. `ReflectSerialize`
     /// unconditionally without knowing the specific type parameters, this method can be used to
@@ -672,13 +687,63 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<
-        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
-        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
-    >(
+    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
         &mut self,
     ) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
+        self
+    }
+
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<i32>()
+    ///     .register_type::<String>()
+    ///     .register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        self.main_mut().register_type_conversion(function);
+        self
+    }
+
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// App::new()
+    ///     .register_type::<u8>()
+    ///     .register_type::<u32>()
+    ///     .register_into_type_conversion::<u8, u32>();
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        self.main_mut().register_into_type_conversion::<T, U>();
         self
     }
 
@@ -1169,10 +1234,10 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
-        if let Some(handler) = self.default_error_handler {
+        if let Some(handler) = self.fallback_error_handler {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
@@ -1225,6 +1290,9 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to any custom schedules
+    /// that might be added in the future.
     pub fn configure_schedules(
         &mut self,
         schedule_build_settings: ScheduleBuildSettings,
@@ -1389,10 +1457,7 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn add_observer<E: Event, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> &mut Self {
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
         self.world_mut().add_observer(observer);
         self
     }
@@ -1401,10 +1466,10 @@ impl App {
     ///
     /// Note that the error handler of existing subapps may differ.
     pub fn get_error_handler(&self) -> Option<ErrorHandler> {
-        self.default_error_handler
+        self.fallback_error_handler
     }
 
-    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// Set the [fallback error handler] for the all subapps (including the main one and future ones)
     /// that do not have one.
     ///
     /// May only be called once and should be set by the application, not by libraries.
@@ -1425,17 +1490,17 @@ impl App {
     ///     .run();
     /// ```
     ///
-    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
+    /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
-            self.default_error_handler.is_none(),
+            self.fallback_error_handler.is_none(),
             "`set_error_handler` called multiple times on same `App`"
         );
-        self.default_error_handler = Some(handler);
+        self.fallback_error_handler = Some(handler);
         for sub_app in self.sub_apps.iter_mut() {
             sub_app
                 .world_mut()
-                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+                .get_resource_or_insert_with(|| FallbackErrorHandler(handler));
         }
         self
     }
@@ -1473,6 +1538,11 @@ fn run_once(mut app: App) -> AppExit {
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
 #[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone, Message)
+)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1961,7 +2031,7 @@ mod tests {
         }
 
         App::new()
-            .init_non_send_resource::<NonSendTestResource>()
+            .init_non_send::<NonSendTestResource>()
             .init_resource::<TestResource>();
     }
 

@@ -4,7 +4,7 @@ use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
@@ -14,12 +14,12 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
+        FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
+        MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -30,6 +30,12 @@ use bevy::{
 #[derive(Resource, Default)]
 struct GameState {
     paused: bool,
+}
+
+#[derive(Resource)]
+struct AtmospherePresets {
+    earth: Handle<ScatteringMedium>,
+    mars: Handle<ScatteringMedium>,
 }
 
 fn main() {
@@ -56,26 +62,46 @@ fn print_controls() {
     println!("Atmosphere Example Controls:");
     println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
+    println!("    3          - Switch to Earth atmosphere");
+    println!("    4          - Switch to Mars atmosphere");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
 
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut atmosphere_settings: Query<&mut AtmosphereSettings>,
+    mut planet_atmosphere: Query<(&mut Atmosphere, &mut Transform)>,
+    mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
+    atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Digit3) {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
+            *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            println!("Switched to Earth atmosphere");
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Digit4) {
+        for (mut atmosphere, mut transform) in &mut planet_atmosphere {
+            *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            transform.translation = -Vec3::Y * atmosphere.inner_radius;
+            println!("Switched to Mars atmosphere");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Digit1) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
             println!("Switched to lookup texture rendering method");
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::Digit2) {
-        for mut settings in &mut atmosphere_settings {
+        for mut settings in &mut camera_settings {
             settings.rendering_method = AtmosphereMode::Raymarched;
             println!("Switched to raymarched rendering method");
         }
@@ -98,13 +124,27 @@ fn atmosphere_controls(
     }
 }
 
-fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
+fn setup_camera_fog(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    asset_server: Res<AssetServer>,
+) {
+    let earth_medium = scattering_mediums.add(ScatteringMedium::earth(256, 256));
+    let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
+    let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
+
+    commands.insert_resource(AtmospherePresets {
+        earth: earth_medium.clone(),
+        mars: mars_medium.clone(),
+    });
+
+    // Spawn earth atmosphere
+    commands.spawn(Atmosphere::earth(earth_medium));
+
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // get the default `Atmosphere` component
-        earth_atmosphere.get(),
-        // Can be adjusted to change the scene scale and rendering quality
+        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Can be adjusted to change the rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
@@ -125,8 +165,11 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
-        ScreenSpaceReflections::default(),
+        TemporalAntiAliasing::default(),
+        ScreenSpaceReflections {
+            min_perceptual_roughness: 0.0..0.0,
+            ..default()
+        },
     ));
 }
 
@@ -169,22 +212,13 @@ impl MaterialExtension for Water {
 fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        first_cascade_far_bound: 0.3,
-        maximum_distance: 15.0,
-        ..default()
-    }
-    .build();
-
     // Sun
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             // lux::RAW_SUNLIGHT is recommended for use with this feature, since
             // other values approximate sunlight *post-scattering* in various
             // conditions. RAW_SUNLIGHT in comparison is the illuminance of the
@@ -195,7 +229,6 @@ fn setup_terrain_scene(
         },
         Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        cascade_shadow_config,
     ));
 
     // spawn the fog volume
@@ -204,35 +237,10 @@ fn setup_terrain_scene(
         Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     ));
 
-    let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
-
-    // light probe spheres
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 1.0,
-            perceptual_roughness: 0.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
-    ));
-
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 0.0,
-            perceptual_roughness: 1.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
-    ));
-
     // Terrain
     commands.spawn((
         Terrain,
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
         Transform::from_xyz(-1.0, 0.0, -0.5)
@@ -257,38 +265,40 @@ fn spawn_water(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterial3d(water_materials.add(ExtendedMaterial {
-            base: StandardMaterial {
-                base_color: BLACK.into(),
-                perceptual_roughness: 0.0,
-                ..default()
-            },
-            extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        });
-                    },
-                ),
-                // These water settings are just random values to create some
-                // variety.
-                settings: WaterSettings {
-                    octave_vectors: [
-                        vec4(0.080, 0.059, 0.073, -0.062),
-                        vec4(0.153, 0.138, -0.149, -0.195),
-                    ],
-                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
-                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+        MeshMaterial3d(
+            water_materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color: BLACK.into(),
+                    perceptual_roughness: 0.0,
+                    ..default()
                 },
-            },
-        })),
+                extension: Water {
+                    normals: asset_server
+                        .load_builder()
+                        .with_settings(|settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = false;
+                            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                mag_filter: ImageFilterMode::Linear,
+                                min_filter: ImageFilterMode::Linear,
+                                ..default()
+                            });
+                        })
+                        .load("textures/water_normals.png"),
+                    // These water settings are just random values to create some
+                    // variety.
+                    settings: WaterSettings {
+                        octave_vectors: [
+                            vec4(0.080, 0.059, 0.073, -0.062),
+                            vec4(0.153, 0.138, -0.149, -0.195),
+                        ],
+                        octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
+                        octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+                    },
+                },
+            }),
+        ),
         Transform::from_scale(Vec3::splat(100.0)),
     ));
 }

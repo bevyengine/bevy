@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Storage layouts for ECS data.
 //!
 //! This module implements the low-level collections that store data in a [`World`]. These all offer minimal and often
@@ -11,7 +16,7 @@
 //!  - [`Tables`] - columnar contiguous blocks of memory, optimized for fast iteration.
 //!  - [`SparseSets`] - sparse `HashMap`-like mappings from entities to components, optimized for random
 //!    lookup and regular insertion/removal of components.
-//!  - [`Resources`] - singleton storage for the resources in the world
+//!  - [`NonSends`] - singleton storage for non send data in the world.
 //!
 //! # Safety
 //! To avoid trivially unsound use of the APIs in this module, it is explicitly impossible to get a mutable
@@ -21,12 +26,12 @@
 //! [`World::storages`]: crate::world::World::storages
 
 mod blob_array;
-mod resource;
+mod non_send;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
-pub use resource::*;
+pub use non_send::*;
 pub use sparse_set::*;
 pub use table::*;
 
@@ -41,10 +46,8 @@ pub struct Storages {
     pub sparse_sets: SparseSets,
     /// Backing storage for [`Table`] components.
     pub tables: Tables,
-    /// Backing storage for resources.
-    pub resources: Resources<true>,
-    /// Backing storage for `!Send` resources.
-    pub non_send_resources: Resources<false>,
+    /// Backing storage for `!Send` data.
+    pub non_sends: NonSends,
 }
 
 impl Storages {

@@ -163,9 +163,14 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
         }
     }
     fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
+        ron::ser::to_string_pretty(
+            &self,
+            // This defaults to \r\n on Windows, so hard-code it to \n so it's consistent for
+            // testing.
+            PrettyConfig::default().new_line("\n"),
+        )
+        .expect("type is convertible to ron")
+        .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info
@@ -220,10 +225,6 @@ impl AssetLoader for () {
         _settings: &Self::Settings,
         _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        unreachable!();
-    }
-
-    fn reader_required_features(_settings: &Self::Settings) -> crate::io::ReaderRequiredFeatures {
         unreachable!();
     }
 

@@ -48,7 +48,6 @@ use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
-        ReaderRequiredFeatures,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -77,8 +76,6 @@ use tracing::{debug, error, trace, warn};
 #[cfg(feature = "trace")]
 use {
     alloc::string::ToString,
-    bevy_reflect::TypePath,
-    bevy_tasks::ConditionalSendFuture,
     tracing::{info_span, instrument::Instrument},
 };
 
@@ -439,7 +436,7 @@ impl AssetProcessor {
         let path = path.into();
         let Some(processor) = path
             .get_full_extension()
-            .and_then(|extension| self.get_default_processor(&extension))
+            .and_then(|extension| self.get_default_processor(extension))
         else {
             return self
                 .server
@@ -447,7 +444,16 @@ impl AssetProcessor {
                 .await;
         };
 
-        let meta = processor.default_meta();
+        let short_type_path = processor.short_type_path();
+        // Try to get the processor using the short type - if it fails, that must mean that the
+        // short type path is insufficient, so we'll have to fall back to the long path.
+        let processor_path_kind = if self.get_processor(short_type_path).is_ok() {
+            MetaTypePathKind::Short
+        } else {
+            MetaTypePathKind::Long
+        };
+
+        let meta = processor.default_meta(processor_path_kind);
         let serialized_meta = meta.serialize();
 
         let source = self.get_source(path.source())?;
@@ -458,7 +464,6 @@ impl AssetProcessor {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }
@@ -559,10 +564,6 @@ impl AssetProcessor {
                     }
                     Err(err) => {
                         match err {
-                            // There is never a reason for a path check to return an
-                            // `UnsupportedFeature` error. This must be an incorrectly programmed
-                            // `AssetReader`, so just panic to make this clearly unsupported.
-                            AssetReaderError::UnsupportedFeature(feature) => panic!("checking whether a path is a file or folder resulted in unsupported feature: {feature}"),
                             AssetReaderError::NotFound(_) => {
                                 // if the path is not found, a processed version does not exist
                             }
@@ -634,12 +635,6 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
-                // There is never a reason for a directory read to return an `UnsupportedFeature`
-                // error. This must be an incorrectly programmed `AssetReader`, so just panic to
-                // make this clearly unsupported.
-                AssetReaderError::UnsupportedFeature(feature) => {
-                    panic!("reading a directory resulted in unsupported feature: {feature}")
-                }
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
                 }
@@ -754,8 +749,6 @@ impl AssetProcessor {
             .processors
             .write()
             .unwrap_or_else(PoisonError::into_inner);
-        #[cfg(feature = "trace")]
-        let processor = InstrumentedAssetProcessor(processor);
         let processor = Arc::new(processor);
         processors
             .type_path_to_processor
@@ -991,13 +984,14 @@ impl AssetProcessor {
             .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
+            path = parent;
             if parent == Path::new("") {
                 break;
             }
@@ -1080,9 +1074,12 @@ impl AssetProcessor {
             Err(AssetReaderError::NotFound(_path)) => {
                 let (meta, processor) = if let Some(processor) = asset_path
                     .get_full_extension()
-                    .and_then(|ext| self.get_default_processor(&ext))
+                    .and_then(|ext| self.get_default_processor(ext))
                 {
-                    let meta = processor.default_meta();
+                    // Note: It doesn't matter whether we use the Long or Short kind, since we're
+                    // returning the processor here anyway, and we're only using this meta to pass
+                    // along the processor settings.
+                    let meta = processor.default_meta(MetaTypePathKind::Long);
                     (meta, Some(processor))
                 } else {
                     match server.get_path_asset_loader(asset_path.clone()).await {
@@ -1110,10 +1107,7 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader
-                .read(path, ReaderRequiredFeatures::default())
-                .await
-                .map_err(reader_err)?;
+            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
 
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
@@ -1172,7 +1166,6 @@ impl AssetProcessor {
             // `AssetAction::Process` (which includes its settings).
             let settings = source_meta.process_settings().unwrap();
 
-            let reader_features = processor.reader_required_features(settings)?;
             // Create a reader just for the actual process. Note: this means that we're performing
             // two reads for the same file (but we avoid having to load the whole file into memory).
             // For some sources (like local file systems), this is not a big deal, but for other
@@ -1182,10 +1175,7 @@ impl AssetProcessor {
             // it's not likely to be too big a deal. If in the future, we decide we want to avoid
             // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
             // reads or not.
-            let reader_for_process = reader
-                .read(path, reader_features)
-                .await
-                .map_err(reader_err)?;
+            let reader_for_process = reader.read(path).await.map_err(reader_err)?;
 
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
@@ -1195,9 +1185,17 @@ impl AssetProcessor {
                     reader_for_process,
                     &mut new_processed_info,
                 );
-                processor
-                    .process(&mut context, settings, &mut *writer)
-                    .await?
+                let process = processor.process(&mut context, settings, &mut *writer);
+                #[cfg(feature = "trace")]
+                let process = {
+                    let span = info_span!(
+                        "asset processing",
+                        processor = processor.type_path(),
+                        asset = asset_path.to_string(),
+                    );
+                    process.instrument(span)
+                };
+                process.await?
             };
 
             writer
@@ -1225,10 +1223,7 @@ impl AssetProcessor {
                 .map_err(writer_err)?;
         } else {
             // See the reasoning for processing why it's ok to do a second read here.
-            let mut reader_for_copy = reader
-                .read(path, ReaderRequiredFeatures::default())
-                .await
-                .map_err(reader_err)?;
+            let mut reader_for_copy = reader.read(path).await.map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await
@@ -1501,32 +1496,6 @@ impl ProcessingState {
         if let Some(mut receiver) = receiver {
             receiver.recv().await.unwrap();
         }
-    }
-}
-
-#[cfg(feature = "trace")]
-#[derive(TypePath)]
-struct InstrumentedAssetProcessor<T>(T);
-
-#[cfg(feature = "trace")]
-impl<T: Process> Process for InstrumentedAssetProcessor<T> {
-    type Settings = T::Settings;
-    type OutputLoader = T::OutputLoader;
-
-    fn process(
-        &self,
-        context: &mut ProcessContext,
-        settings: &Self::Settings,
-        writer: &mut crate::io::Writer,
-    ) -> impl ConditionalSendFuture<
-        Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
-    > {
-        let span = info_span!(
-            "asset processing",
-            processor = T::type_path(),
-            asset = context.path().to_string(),
-        );
-        self.0.process(context, settings, writer).instrument(span)
     }
 }
 

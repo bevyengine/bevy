@@ -1,7 +1,13 @@
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    array::{ArrayInfo, DynamicArray},
+    enums::{DynamicEnum, EnumInfo},
+    list::{DynamicList, ListInfo},
+    map::{DynamicMap, MapInfo},
+    set::{DynamicSet, SetInfo},
+    structs::{DynamicStruct, StructInfo},
+    tuple::{DynamicTuple, TupleInfo},
+    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    Generics, PartialReflect, Reflect, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -33,7 +39,7 @@ use thiserror::Error;
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -134,6 +140,8 @@ impl MaybeTyped for DynamicStruct {}
 
 impl MaybeTyped for DynamicMap {}
 
+impl MaybeTyped for DynamicSet {}
+
 impl MaybeTyped for DynamicList {}
 
 impl MaybeTyped for DynamicArray {}
@@ -203,35 +211,35 @@ pub enum TypeInfoError {
 pub enum TypeInfo {
     /// Type information for a [struct-like] type.
     ///
-    /// [struct-like]: crate::Struct
+    /// [struct-like]: crate::structs::Struct
     Struct(StructInfo),
     /// Type information for a [tuple-struct-like] type.
     ///
-    /// [tuple-struct-like]: crate::TupleStruct
+    /// [tuple-struct-like]: crate::tuple_struct::TupleStruct
     TupleStruct(TupleStructInfo),
     /// Type information for a [tuple-like] type.
     ///
-    /// [tuple-like]: crate::Tuple
+    /// [tuple-like]: crate::tuple::Tuple
     Tuple(TupleInfo),
     /// Type information for a [list-like] type.
     ///
-    /// [list-like]: crate::List
+    /// [list-like]: crate::list::List
     List(ListInfo),
     /// Type information for an [array-like] type.
     ///
-    /// [array-like]: crate::Array
+    /// [array-like]: crate::array::Array
     Array(ArrayInfo),
     /// Type information for a [map-like] type.
     ///
-    /// [map-like]: crate::Map
+    /// [map-like]: crate::map::Map
     Map(MapInfo),
     /// Type information for a [set-like] type.
     ///
-    /// [set-like]: crate::Set
+    /// [set-like]: crate::set::Set
     Set(SetInfo),
     /// Type information for an [enum-like] type.
     ///
-    /// [enum-like]: crate::Enum
+    /// [enum-like]: crate::enums::Enum
     Enum(EnumInfo),
     /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
     /// a discussion of opaque types.
@@ -360,6 +368,7 @@ impl TypeInfo {
     impl_cast_method!(as_list: List => ListInfo);
     impl_cast_method!(as_array: Array => ArrayInfo);
     impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_set: Set => SetInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
     impl_cast_method!(as_opaque: Opaque => OpaqueInfo);
 }
@@ -616,6 +625,7 @@ impl OpaqueInfo {
 mod tests {
     use super::*;
     use alloc::vec::Vec;
+    use bevy_platform::collections::HashSet;
 
     #[test]
     fn should_return_error_on_invalid_cast() {
@@ -627,5 +637,11 @@ mod tests {
                 received: ReflectKind::List
             })
         ));
+    }
+
+    #[test]
+    fn should_cast_to_set() {
+        let info = <HashSet<u64> as Typed>::type_info();
+        assert!(info.as_set().is_ok());
     }
 }

@@ -28,7 +28,7 @@ impl SerializationData {
     ///
     /// ```
     /// # use core::any::TypeId;
-    /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
+    /// # use bevy_reflect::{Reflect, structs::Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
     ///   serialize_me: i32,
@@ -68,7 +68,7 @@ impl SerializationData {
     ///
     /// ```
     /// # use core::any::TypeId;
-    /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
+    /// # use bevy_reflect::{Reflect, structs::Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
     ///   serialize_me: i32,
