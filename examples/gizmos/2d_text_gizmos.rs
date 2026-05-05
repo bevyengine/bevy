@@ -29,7 +29,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_labels, draw_all_glyphs))
+        .add_systems(Update, (draw_labels, draw_all_glyphs, draw_extended_glyphs))
         .run();
 }
 
@@ -93,10 +93,25 @@ bcdefghijkl\n\
 mnopqrstuvw\n\
 xyz{|}~";
 
+const EXTENDED_GLYPHS: &str = "ÄÀÁÂÃÅÆ\n\
+ÇÈÉÊËÌÍÎÏ\n\
+ÒÓÔÕÖØÙÚÛÜÝÞß\n\
+";
+
 fn draw_all_glyphs(mut text_gizmos: Gizmos) {
     text_gizmos.text_2d(
         Isometry2d::from_xy(600., 0.),
         ALL_GLYPHS,
+        30.0,
+        Vec2::ZERO,
+        Color::WHITE,
+    );
+}
+
+fn draw_extended_glyphs(mut text_gizmos: Gizmos) {
+    text_gizmos.text_2d(
+        Isometry2d::from_xy(600., -350.),
+        EXTENDED_GLYPHS,
         30.0,
         Vec2::ZERO,
         Color::WHITE,
