@@ -150,6 +150,12 @@ impl ResourceStorage {
                 self.data.replace(ROW, value, change_tick, caller);
             }
             Populated(_) => {
+                if let Some(drop) = self.get_drop() {
+                    // SAFETY: Drop function came from value's component descriptor
+                    unsafe {
+                        drop(value);
+                    }
+                }
                 self.insert_just_failed = SyncUnsafeCell::new(true);
             }
         }
