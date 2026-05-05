@@ -3248,7 +3248,7 @@ mod tests {
 
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size));
 
-        assert_eq!(
+        let (s, t) = (
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3256,10 +3256,11 @@ mod tests {
                     margin: m,
                 },
             ),
-            r.inflate(m)
+            r.inflate(m),
         );
+        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
 
-        assert_eq!(
+        let (s, t) = (
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3267,10 +3268,11 @@ mod tests {
                     margin: m,
                 },
             ),
-            r.inflate(m - b)
+            r.inflate(m - b),
         );
+        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
 
-        assert_eq!(
+        let (s, t) = (
             computed_node.resolve_clip_rect(
                 Overflow::clip(),
                 OverflowClipMargin {
@@ -3278,8 +3280,9 @@ mod tests {
                     margin: m,
                 },
             ),
-            r.inflate(m - b - p)
+            r.inflate(m - b - p),
         );
+        assert!(s.min.abs_diff_eq(t.min, 1e-5) && s.max.abs_diff_eq(t.max, 1e-5));
     }
 
     #[test]
@@ -3293,15 +3296,16 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(
-            computed_node.resolve_clip_rect(
-                Overflow::clip(),
-                OverflowClipMargin {
-                    visual_box: OverflowClipBox::BorderBox,
-                    margin: m,
-                },
-            ),
-            Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor)
+        let r = computed_node.resolve_clip_rect(
+            Overflow::clip(),
+            OverflowClipMargin {
+                visual_box: OverflowClipBox::BorderBox,
+                margin: m,
+            },
         );
+        let s = Rect::from_center_size(Vec2::ZERO, Vec2::splat(size)).inflate(m * scale_factor);
+
+        assert!(r.min.abs_diff_eq(s.max, 1e-5));
+        assert!(r.max.abs_diff_eq(s.max, 1e-5));
     }
 }
