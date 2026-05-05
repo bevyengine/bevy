@@ -13,7 +13,9 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
 };
 
-use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
+use crate::prepass::background_motion_vectors::{
+    BackgroundMotionVectorsBindGroup, BackgroundMotionVectorsPipelineId,
+};
 
 use super::{
     AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, PreviousViewUniformOffset,
@@ -31,16 +33,12 @@ type PrepassViewQueryData = (
     ),
     (
         Option<&'static DeferredPrepass>,
-        Option<&'static RenderSkyboxPrepassPipeline>,
-        Option<&'static SkyboxPrepassBindGroup>,
+        Option<&'static BackgroundMotionVectorsPipelineId>,
+        Option<&'static BackgroundMotionVectorsBindGroup>,
         Option<&'static PreviousViewUniformOffset>,
         Option<&'static MainPassResolutionOverride>,
     ),
-    (
-        Has<OcclusionCulling>,
-        Has<NoIndirectDrawing>,
-        Has<DeferredPrepass>,
-    ),
+    (Has<OcclusionCulling>, Has<NoIndirectDrawing>),
 );
 
 pub fn early_prepass(
@@ -56,12 +54,12 @@ pub fn early_prepass(
         (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
-            skybox_prepass_pipeline,
-            skybox_prepass_bind_group,
+            background_motion_vectors_pipeline,
+            background_motion_vectors_bind_group,
             view_prev_uniform_offset,
             resolution_override,
         ),
-        (_, _, has_deferred),
+        (_, _),
     ) = view.into_inner();
 
     run_prepass_system(
@@ -73,11 +71,10 @@ pub fn early_prepass(
         view_prepass_textures,
         view_uniform_offset,
         deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
-        has_deferred,
         &opaque_prepass_phases,
         &alpha_mask_prepass_phases,
         &pipeline_cache,
@@ -99,12 +96,12 @@ pub fn late_prepass(
         (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
-            skybox_prepass_pipeline,
-            skybox_prepass_bind_group,
+            background_motion_vectors_pipeline,
+            background_motion_vectors_bind_group,
             view_prev_uniform_offset,
             resolution_override,
         ),
-        (occlusion_culling, no_indirect_drawing, has_deferred),
+        (occlusion_culling, no_indirect_drawing),
     ) = view.into_inner();
 
     if !occlusion_culling || no_indirect_drawing {
@@ -120,11 +117,10 @@ pub fn late_prepass(
         view_prepass_textures,
         view_uniform_offset,
         deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
         resolution_override,
-        has_deferred,
         &opaque_prepass_phases,
         &alpha_mask_prepass_phases,
         &pipeline_cache,
@@ -147,24 +143,16 @@ fn run_prepass_system(
     view_prepass_textures: &ViewPrepassTextures,
     view_uniform_offset: &ViewUniformOffset,
     deferred_prepass: Option<&DeferredPrepass>,
-    skybox_prepass_pipeline: Option<&RenderSkyboxPrepassPipeline>,
-    skybox_prepass_bind_group: Option<&SkyboxPrepassBindGroup>,
+    background_motion_vectors_pipeline: Option<&BackgroundMotionVectorsPipelineId>,
+    background_motion_vectors_bind_group: Option<&BackgroundMotionVectorsBindGroup>,
     view_prev_uniform_offset: Option<&PreviousViewUniformOffset>,
     resolution_override: Option<&MainPassResolutionOverride>,
-    has_deferred: bool,
     opaque_prepass_phases: &ViewBinnedRenderPhases<Opaque3dPrepass>,
     alpha_mask_prepass_phases: &ViewBinnedRenderPhases<AlphaMask3dPrepass>,
     pipeline_cache: &PipelineCache,
     ctx: &mut RenderContext,
     label: &'static str,
 ) {
-    // If we're using deferred rendering, there will be a deferred prepass
-    // instead of this one. Just bail out so we don't have to bother looking at
-    // the empty bins.
-    if has_deferred {
-        return;
-    }
-
     let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
         opaque_prepass_phases.get(&extracted_view.retained_view_entity),
         alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
@@ -232,19 +220,20 @@ fn run_prepass_system(
     }
 
     if let (
-        Some(skybox_prepass_pipeline),
-        Some(skybox_prepass_bind_group),
+        Some(background_motion_vectors_pipeline),
+        Some(background_motion_vectors_bind_group),
         Some(view_prev_uniform_offset),
     ) = (
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
+        background_motion_vectors_pipeline,
+        background_motion_vectors_bind_group,
         view_prev_uniform_offset,
-    ) && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_prepass_pipeline.0)
+    ) && let Some(pipeline) =
+        pipeline_cache.get_render_pipeline(background_motion_vectors_pipeline.0)
     {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &skybox_prepass_bind_group.0,
+            &background_motion_vectors_bind_group.0,
             &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
         );
         render_pass.draw(0..3, 0..1);
@@ -256,6 +245,7 @@ fn run_prepass_system(
     if deferred_prepass.is_none()
         && let Some(prepass_depth_texture) = &view_prepass_textures.depth
     {
+        // TODO: Copy depth texture fails for WebGL2, https://github.com/bevyengine/bevy/issues/9710
         ctx.command_encoder().copy_texture_to_texture(
             view_depth_texture.texture.as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),

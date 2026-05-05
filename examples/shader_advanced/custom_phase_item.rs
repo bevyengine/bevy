@@ -22,6 +22,7 @@ use bevy::{
     render::{
         camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::allocator::MeshSlabs,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
@@ -266,7 +267,7 @@ fn queue_custom_phase_item(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for entity_pair in dirty_specializations.iter_to_queue(
+        for (render_entity, main_entity) in dirty_specializations.iter_to_queue(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_phase_item_queues.prev_frame,
@@ -296,13 +297,12 @@ fn queue_custom_phase_item(
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
                     lightmap_slab: None,
-                    vertex_slab: default(),
-                    index_slab: None,
+                    slabs: MeshSlabs::default(),
                 },
                 Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
-                *entity_pair,
+                (*render_entity, *main_entity),
                 InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
             );
@@ -352,7 +352,7 @@ impl FromWorld for CustomPhasePipeline {
                     // Ordinarily, you'd want to check whether the view has the
                     // HDR format and substitute the appropriate texture format
                     // here, but we omit that for simplicity.
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -362,8 +362,8 @@ impl FromWorld for CustomPhasePipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: default(),
                 bias: default(),
             }),

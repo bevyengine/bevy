@@ -21,7 +21,11 @@ struct MeshInput {
     timestamp: u32,
     // User supplied index to identify the mesh instance
     tag: u32,
-    pad: u32,
+    // The index of the morph descriptor for this mesh instance in the
+    // `morph_descriptors` table.
+    //
+    // If the mesh has no morph targets, this is `u32::MAX`.
+    morph_descriptor_index: u32,
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
@@ -66,4 +70,15 @@ struct IndirectParametersGpuMetadata {
 struct IndirectBatchSet {
     indirect_parameters_count: atomic<u32>,
     indirect_parameters_base: u32,
+}
+
+// One invocation of this compute shader: i.e. one mesh instance in a view.
+struct PreprocessWorkItem {
+    // The index of the `MeshInput` in the `current_input` buffer that we read
+    // from.
+    input_index: u32,
+    // In direct mode, the index of the `Mesh` in `output` that we write to. In
+    // indirect mode, the index of the `IndirectParameters` in
+    // `indirect_parameters` that we write to.
+    output_or_indirect_parameters_index: u32,
 }
