@@ -11,14 +11,14 @@ license = "MIT OR Apache-2.0"
 anyhow = "1"
 bevy = { path = "../../../", default-features = false, features = [
   "bevy_asset",
-  "bevy_scene",
+  "bevy_world_serialization",
   "bevy_pbr",
   "ktx2",
   "jpeg",
   "multi_threaded",
 ] }
 image = { version = "0.25.2", default-features = false }
-fast_image_resize = { version = "5.4", features = ["image"] }
+fast_image_resize = { version = "6.0", features = ["image"] }
 futures-lite = "2.0.1"
 tracing = "0.1"
 intel_tex_2 = { version = "0.5.0", optional = true }

@@ -5,6 +5,9 @@
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
+//!
+//! It also demonstrates dynamic observers: registering events and observers at
+//! runtime without compile-time event types, and triggering them with raw data.
 
 use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
@@ -13,18 +16,22 @@ use bevy::{
         component::{
             ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
         },
+        event::EventKey,
+        observer::{Observer, ObserverRunner},
         query::{ComponentAccessKind, QueryData},
         world::FilteredEntityMut,
     },
     prelude::*,
-    ptr::{Aligned, OwningPtr},
+    ptr::{Aligned, OwningPtr, PtrMut},
 };
 
 const PROMPT: &str = "
 Commands:
-    comp, c   Create new components
-    spawn, s  Spawn entities
-    query, q  Query for entities
+    comp, c    Create new components
+    spawn, s   Spawn entities
+    query, q   Query for entities
+    event, e   Register dynamic events and observers
+    emit, t    Trigger a dynamic event
 Enter a command with no parameters for usage.";
 
 const COMPONENT_PROMPT: &str = "
@@ -48,11 +55,23 @@ query, q  Query for entities
 
     e.g. &A || &B, &mut C, D, ?E";
 
+const EVENT_PROMPT: &str = "
+event, e  Register dynamic events and observers
+    Enter a comma separated list of event names.
+    Each event gets a dynamic observer that prints when fired.
+    e.g. OnDamage, OnHeal, OnDeath";
+
+const EMIT_PROMPT: &str = "
+emit, t   Trigger a dynamic event
+    Enter the name of a previously registered event.
+    e.g. OnDamage";
+
 fn main() {
     let mut world = World::new();
     let mut lines = std::io::stdin().lines();
     let mut component_names = HashMap::<String, ComponentId>::new();
     let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
+    let mut event_names = HashMap::<String, EventKey>::new();
 
     println!("{PROMPT}");
     loop {
@@ -71,6 +90,8 @@ fn main() {
                 Some('c') => println!("{COMPONENT_PROMPT}"),
                 Some('s') => println!("{ENTITY_PROMPT}"),
                 Some('q') => println!("{QUERY_PROMPT}"),
+                Some('e') => println!("{EVENT_PROMPT}"),
+                Some('t') => println!("{EMIT_PROMPT}"),
                 _ => println!("{PROMPT}"),
             }
             continue;
@@ -158,7 +179,7 @@ fn main() {
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
                         .access()
-                        .try_iter_component_access()
+                        .try_iter_access()
                         .unwrap()
                         .map(|component_access| {
                             let id = *component_access.index();
@@ -191,10 +212,85 @@ fn main() {
                     println!("{}: {}", filtered_entity.id(), terms);
                 });
             }
+            "e" => {
+                rest.split(',').for_each(|event| {
+                    let name = event.trim();
+                    if name.is_empty() {
+                        return;
+                    }
+
+                    // Register a ComponentId for this event, no Rust type needed.
+                    // SAFETY: ZST with no drop
+                    let event_component_id = world.register_component_with_descriptor(unsafe {
+                        ComponentDescriptor::new_with_layout(
+                            format!("event:{name}"),
+                            StorageType::Table,
+                            Layout::new::<()>(),
+                            None,
+                            false,
+                            ComponentCloneBehavior::Ignore,
+                            None,
+                        )
+                    });
+                    // SAFETY: event_component_id was just registered for this event
+                    let event_key = unsafe { EventKey::new(event_component_id) };
+                    event_names.insert(name.to_string(), event_key);
+
+                    // Build a dynamic observer that prints when the event fires.
+                    let runner: ObserverRunner = |mut world, _observer, ctx, _event, _trigger| {
+                        println!("  Observer fired!");
+                        if let Some(mut counts) = world.get_resource_mut::<EventFireCount>() {
+                            *counts.0.entry(ctx.event_key).or_insert(0) += 1;
+                        }
+                    };
+
+                    // SAFETY: event_key was just registered, runner ignores pointers
+                    let observer =
+                        unsafe { Observer::with_dynamic_runner(runner).with_event_key(event_key) };
+                    world.spawn(observer);
+
+                    println!(
+                        "Event '{name}' registered (key: {}) with a dynamic observer",
+                        event_component_id.index()
+                    );
+                });
+
+                // Ensure the counter resource exists.
+                world.init_resource::<EventFireCount>();
+            }
+            "t" => {
+                let name = rest.trim();
+                let Some(&event_key) = event_names.get(name) else {
+                    println!(
+                        "Event '{name}' does not exist. Register it first with 'event {name}'"
+                    );
+                    continue;
+                };
+
+                let mut event_data = ();
+                let mut trigger_data = ();
+                // SAFETY: event_key was registered in this world, both pointers are valid ZSTs
+                unsafe {
+                    world.trigger_dynamic(
+                        event_key,
+                        PtrMut::from(&mut event_data),
+                        PtrMut::from(&mut trigger_data),
+                    );
+                }
+
+                let count = world
+                    .get_resource::<EventFireCount>()
+                    .map_or(0, |c| c.0.get(&event_key).copied().unwrap_or(0));
+                println!("Event '{name}' triggered ({count} fires)");
+            }
             _ => continue,
         }
     }
 }
+
+/// Tracks how many times each dynamic event's observer has fired.
+#[derive(Resource, Default)]
+struct EventFireCount(HashMap<EventKey, u32>);
 
 // Constructs `OwningPtr` for each item in `components`
 // By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use

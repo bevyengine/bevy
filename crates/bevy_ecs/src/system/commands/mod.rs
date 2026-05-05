@@ -23,15 +23,15 @@ use crate::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
     },
-    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, ErrorContext},
     event::{EntityEvent, Event},
     message::Message,
-    observer::Observer,
+    observer::{IntoEntityObserver, IntoObserver},
+    relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
-        SystemParamValidationError,
+        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -93,8 +93,8 @@ use crate::{
 /// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured via
-/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
+/// The fallback error handler panics. It can be configured via
+/// the [`FallbackErrorHandler`](crate::error::FallbackErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -178,29 +178,13 @@ const _: () = {
         }
 
         #[inline]
-        unsafe fn validate_param(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell,
-        ) -> Result<(), SystemParamValidationError> {
-            // SAFETY: Upheld by caller
-            unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                    &mut state.state,
-                    system_meta,
-                    world,
-                )
-            }
-        }
-
-        #[inline]
         #[track_caller]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
-        ) -> Self::Item<'w, 's> {
+        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
             // SAFETY: Upheld by caller
             let params = unsafe {
                 <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
@@ -208,13 +192,13 @@ const _: () = {
                     system_meta,
                     world,
                     change_tick,
-                )
+                )?
             };
-            Commands {
+            Ok(Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,
                 entities: params.2,
-            }
+            })
         }
     }
     // SAFETY: Only reads Entities
@@ -234,7 +218,7 @@ enum InternalQueue<'s> {
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, &world.allocator, &world.entities)
+        Self::new_from_entities(queue, &world.entity_allocator, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -267,6 +251,20 @@ impl<'w, 's> Commands<'w, 's> {
             allocator,
             entities,
         }
+    }
+
+    /// Returns a new [`Commands`] that writes commands to the provided [`CommandQueue`] instead of the one from `self`.
+    ///
+    /// This is useful if you have a `Commands` that writes to one queue and you want one that writes to another.
+    ///
+    /// Note that you're responsible for ensuring the queue eventually writes its commands to the world. One way to
+    /// do this is calling [`Commands::append`] on a `Commands` that writes to the world queue. Failure to write a
+    /// queue may result in entities being allocated but never spawned, which means those entity IDs are never
+    /// freed for reuse.
+    ///
+    /// The original `Commands` isn't mutated or borrowed after this returns, so you can keep using it.
+    pub fn rebound_to<'q>(&self, queue: &'q mut CommandQueue) -> Commands<'w, 'q> {
+        Commands::new_from_entities(queue, self.allocator, self.entities)
     }
 
     /// Returns a [`Commands`] with a smaller lifetime.
@@ -597,7 +595,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// If the [`Command`] returns a [`Result`],
-    /// it will be handled using the [default error handler](crate::error::DefaultErrorHandler).
+    /// it will be handled using the [fallback error handler](crate::error::FallbackErrorHandler).
     ///
     /// To use a custom error handler, see [`Commands::queue_handled`].
     ///
@@ -616,7 +614,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -638,7 +638,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue(&mut self, command: impl Command) {
         self.queue_internal(command.handle_error());
     }
 
@@ -647,7 +647,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If the [`Command`] returns a [`Result`],
     /// the given `error_handler` will be used to handle error cases.
     ///
-    /// To implicitly use the default error handler, see [`Commands::queue`].
+    /// To implicitly use the fallback error handler, see [`Commands::queue`].
     ///
     /// The command can be:
     /// - A custom struct that implements [`Command`].
@@ -667,7 +667,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command<Result> for AddToCounter {
+    /// impl Command for AddToCounter {
+    ///     type Out = Result;
+    ///
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         let amount: u64 = self.0.parse()?;
@@ -689,20 +691,20 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl Command,
         error_handler: fn(BevyError, ErrorContext),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
 
     /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
-    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+    pub fn queue_silenced(&mut self, command: impl Command) {
         self.queue_internal(command.ignore_error());
     }
 
-    fn queue_internal(&mut self, command: impl Command) {
+    fn queue_internal(&mut self, command: impl Command<Out = ()>) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -737,7 +739,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
+    /// which will be handled by the [fallback error handler](crate::error::FallbackErrorHandler).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -768,7 +770,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
+    /// which will be handled by the [fallback error handler](crate::error::FallbackErrorHandler).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -892,6 +894,22 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
         self.queue(command::insert_resource(resource));
+    }
+
+    /// Inserts a [`Resource`] into the [`World`] with a specific value
+    /// if the resource is different or missing.
+    #[track_caller]
+    pub fn insert_resource_if_neq<R: Resource + PartialEq>(&mut self, resource: R) {
+        let caller = MaybeLocation::caller();
+
+        self.queue(move |world: &mut World| {
+            if world
+                .get_resource::<R>()
+                .is_none_or(|old_resource| *old_resource != resource)
+            {
+                world.insert_resource_with_caller(resource, caller);
+            }
+        });
     }
 
     /// Removes a [`Resource`] from the [`World`].
@@ -1112,6 +1130,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+    ///
     /// The first time this method is called for a particular system,
     /// it will register the system and store its [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
@@ -1160,7 +1180,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger_with(event, trigger));
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
+    /// Spawns an [`Observer`](crate::observer::Observer) and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
     /// `observer` can be any system whose first parameter is [`On`].
@@ -1174,11 +1194,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityCommands<'_> {
-        self.spawn(Observer::new(observer))
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> EntityCommands<'_> {
+        self.spawn(observer.into_observer())
     }
 
     /// Writes an arbitrary [`Message`].
@@ -1274,8 +1291,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured via
-/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
+/// The fallback error handler panics. It can be configured via
+/// the [`FallbackErrorHandler`](crate::error::FallbackErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].
@@ -1479,6 +1496,28 @@ impl<'a> EntityCommands<'a> {
         } else {
             self
         }
+    }
+
+    /// Adds a [`Component`] to the entity if the component is different or
+    /// missing.
+    #[track_caller]
+    pub fn insert_if_neq<T: Component + PartialEq>(&mut self, component: T) -> &mut Self {
+        let caller = MaybeLocation::caller();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            if entity
+                .get::<T>()
+                .is_none_or(|old_component| *old_component != component)
+            {
+                move_as_ptr!(component);
+                entity.insert_with_caller(
+                    component,
+                    InsertMode::Replace,
+                    caller,
+                    RelationshipHookMode::Run,
+                );
+            }
+        })
     }
 
     /// Adds a dynamic [`Component`] to the entity.
@@ -1883,7 +1922,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue,
     /// which will get executed for the current [`Entity`].
     ///
-    /// The [default error handler](crate::error::DefaultErrorHandler)
+    /// The [fallback error handler](crate::error::FallbackErrorHandler)
     /// will be used to handle error cases.
     /// Every [`EntityCommand`] checks whether the entity exists at the time of execution
     /// and returns an error if it does not.
@@ -1911,10 +1950,7 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands.queue(command.with_entity(self.entity));
         self
     }
@@ -1926,7 +1962,7 @@ impl<'a> EntityCommands<'a> {
     /// Every [`EntityCommand`] checks whether the entity exists at the time of execution
     /// and returns an error if it does not.
     ///
-    /// To implicitly use the default error handler, see [`EntityCommands::queue`].
+    /// To implicitly use the fallback error handler, see [`EntityCommands::queue`].
     ///
     /// The command can be:
     /// - A custom struct that implements [`EntityCommand`].
@@ -1956,9 +1992,9 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+    pub fn queue_handled(
         &mut self,
-        command: C,
+        command: impl EntityCommand,
         error_handler: fn(BevyError, ErrorContext),
     ) -> &mut Self {
         self.commands
@@ -1969,10 +2005,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
-    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
-        &mut self,
-        command: C,
-    ) -> &mut Self {
+    pub fn queue_silenced(&mut self, command: impl EntityCommand) -> &mut Self {
         self.commands
             .queue_silenced(command.with_entity(self.entity));
         self
@@ -2030,12 +2063,9 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// Creates an [`Observer`](crate::observer::Observer) watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> &mut Self {
+    pub fn observe<M>(&mut self, observer: impl IntoEntityObserver<M>) -> &mut Self {
         self.queue(entity_command::observe(observer))
     }
 
@@ -2352,6 +2382,16 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Returns a [`EntityEntryCommands`] with a smaller lifetime.
+    ///
+    /// This is useful if you have `&mut EntityEntryCommands` but need `EntityEntryCommands`.
+    pub fn reborrow(&mut self) -> EntityEntryCommands<'_, T> {
+        EntityEntryCommands {
+            entity_commands: self.entity_commands.reborrow(),
+            marker: PhantomData,
+        }
+    }
+
     /// [Insert](EntityCommands::insert) `default` into this entity,
     /// if `T` is not already present.
     #[track_caller]
@@ -2668,6 +2708,104 @@ mod tests {
     }
 
     #[test]
+    fn insert_component_if_not_equal() {
+        use crate::query::Added;
+
+        #[derive(Component, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn(P(41u8))
+            .id();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 1);
+        assert_eq!(world.get::<P>(entity).unwrap().0, 42);
+
+        world.clear_trackers();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 0);
+        assert_eq!(world.get::<P>(entity).unwrap().0, 42);
+
+        world.clear_trackers();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .insert_if_neq(P(42u8));
+
+        let entity2 = Commands::new(&mut command_queue, &world).spawn_empty().id();
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity2)
+            .insert_if_neq(P(42u8));
+        command_queue.apply(&mut world);
+
+        let n_added = world.query_filtered::<(), Added<P>>().iter(&world).count();
+
+        assert_eq!(n_added, 1);
+        assert_eq!(world.get::<P>(entity2).unwrap().0, 42);
+    }
+
+    #[cfg(feature = "track_location")]
+    #[test]
+    fn insert_component_if_not_equal_tracks_caller() {
+        use core::panic::Location;
+
+        #[derive(Component, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn(P(41u8))
+            .id();
+        command_queue.apply(&mut world);
+        world.clear_trackers();
+
+        macro_rules! insert_if_neq_with_expected_caller {
+            ($commands:expr, $entity:expr, $component:expr) => {{
+                $commands.entity($entity).insert_if_neq($component);
+                Location::caller()
+            }};
+        }
+
+        let expected = insert_if_neq_with_expected_caller!(
+            Commands::new(&mut command_queue, &world),
+            entity,
+            P(42u8)
+        );
+        command_queue.apply(&mut world);
+
+        assert_eq!(
+            world
+                .entity(entity)
+                .get_changed_by::<P>()
+                .unwrap()
+                .into_option(),
+            Some(expected)
+        );
+    }
+
+    #[test]
     fn remove_components() {
         let mut world = World::default();
 
@@ -2788,6 +2926,111 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<V<i32>>());
         assert!(world.contains_resource::<V<f64>>());
+    }
+
+    #[test]
+    fn insert_resource_if_not_equal() {
+        #[derive(Resource, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(41));
+        }
+
+        queue.apply(&mut world);
+        assert!(world.is_resource_added::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 41);
+
+        world.clear_trackers();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(42));
+        }
+
+        queue.apply(&mut world);
+        assert!(world.is_resource_changed::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 42);
+
+        world.clear_trackers();
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.insert_resource_if_neq(P(42));
+        }
+
+        queue.apply(&mut world);
+        assert!(!world.is_resource_changed::<P>());
+        assert_eq!(world.get_resource::<P>().unwrap().0, 42);
+    }
+
+    #[cfg(feature = "track_location")]
+    #[test]
+    fn insert_resource_if_not_equal_tracks_caller() {
+        use crate::change_detection::DetectChanges;
+        use core::panic::Location;
+
+        #[derive(Resource, PartialEq)]
+        struct P(u8);
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        macro_rules! insert_resource_if_neq_with_expected_caller {
+            ($commands:expr, $resource:expr) => {{
+                $commands.insert_resource_if_neq($resource);
+                Location::caller()
+            }};
+        }
+        let expected1 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(41));
+
+        queue.apply(&mut world);
+
+        assert_eq!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected1)
+        );
+
+        world.clear_trackers();
+
+        let expected2 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(42));
+
+        queue.apply(&mut world);
+
+        assert_eq!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected2)
+        );
+
+        world.clear_trackers();
+
+        let expected3 =
+            insert_resource_if_neq_with_expected_caller!(Commands::new(&mut queue, &world), P(42));
+
+        queue.apply(&mut world);
+
+        assert_ne!(
+            world
+                .get_resource_ref::<P>()
+                .unwrap()
+                .changed_by()
+                .into_option(),
+            Some(expected3)
+        );
     }
 
     #[test]

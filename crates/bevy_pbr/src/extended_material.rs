@@ -2,11 +2,11 @@ use alloc::borrow::Cow;
 
 use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
+use bevy_material::{AlphaMode, OpaqueRendererMethod};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    alpha::AlphaMode,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
         BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
@@ -335,7 +335,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
         B::opaque_render_method(&self.base)
     }
 

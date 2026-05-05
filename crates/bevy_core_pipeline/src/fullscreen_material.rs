@@ -1,55 +1,52 @@
 //! This is mostly a pluginified version of the `custom_post_processing` example
 //!
-//! The plugin will create a new node that runs a fullscreen triangle.
+//! The plugin will create a new system that runs a fullscreen triangle.
 //!
-//! Users need to use the [`FullscreenMaterial`] trait to define the parameters like the graph label or the graph ordering.
+//! Users need to use the [`FullscreenMaterial`] trait to define the parameters like ordering.
 
 use core::any::type_name;
 use core::marker::PhantomData;
 
-use crate::{core_2d::graph::Core2d, core_3d::graph::Core3d, FullscreenShader};
+use crate::{schedule::Core3d, tonemapping::tonemapping, Core3dSystems, FullscreenShader};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
-use bevy_camera::{Camera2d, Camera3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Added, Has, QueryItem},
+    error::BevyError,
+    query::With,
     resource::Resource,
-    system::{Commands, Res},
-    world::{FromWorld, World},
+    schedule::{IntoScheduleConfigs, ScheduleConfigs, ScheduleLabel},
+    system::{BoxedSystem, Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault;
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
     },
-    render_graph::{
-        InternedRenderLabel, InternedRenderSubGraph, NodeRunError, RenderGraph, RenderGraphContext,
-        RenderGraphError, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
-    },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         encase::internal::WriteInto,
-        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
-        TextureSampleType,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FragmentState,
+        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, Specializer, SpecializerKey, TextureFormat, TextureSampleType, TextureView,
+        TextureViewId, Variants,
     },
-    renderer::{RenderContext, RenderDevice},
-    view::ViewTarget,
-    ExtractSchedule, MainWorld, RenderApp, RenderStartup,
+    renderer::{RenderContext, RenderDevice, ViewQuery},
+    view::{ExtractedView, ViewTarget},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
 use bevy_utils::default;
-use tracing::warn;
 
 #[derive(Default)]
 pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
     _marker: PhantomData<T>,
 }
+
 impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_plugins((
@@ -61,139 +58,77 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
             return;
         };
 
-        render_app.add_systems(RenderStartup, init_pipeline::<T>);
-
-        if let Some(sub_graph) = T::sub_graph() {
-            render_app.add_render_graph_node::<ViewNodeRunner<FullscreenMaterialNode<T>>>(
-                sub_graph,
-                T::node_label(),
+        render_app
+            .add_systems(RenderStartup, init_pipeline::<T>)
+            .add_systems(
+                Render,
+                (
+                    prepare_fullscreen_material_pipelines::<T>.in_set(RenderSystems::Prepare),
+                    prepare_bind_groups::<T>.in_set(RenderSystems::PrepareBindGroups),
+                ),
             );
 
-            // We can't use add_render_graph_edges because it doesn't accept a Vec<RenderLabel>
-            if let Some(mut render_graph) = render_app.world_mut().get_resource_mut::<RenderGraph>()
-                && let Some(graph) = render_graph.get_sub_graph_mut(sub_graph)
-            {
-                for window in T::node_edges().windows(2) {
-                    let [a, b] = window else {
-                        break;
-                    };
-                    let Err(err) = graph.try_add_node_edge(*a, *b) else {
-                        continue;
-                    };
-                    match err {
-                        // Already existing edges are very easy to produce with this api
-                        // and shouldn't cause a panic
-                        RenderGraphError::EdgeAlreadyExists(_) => {}
-                        _ => panic!("{err:?}"),
-                    }
-                }
-            } else {
-                warn!("Failed to add edges for FullscreenMaterial");
-            };
-        } else {
-            // If there was no sub_graph specified we try to determine the graph based on the camera
-            // it gets added to.
-            render_app.add_systems(ExtractSchedule, extract_on_add::<T>);
-        }
+        let system = T::schedule_configs(fullscreen_material_system::<T>.into_configs());
+        render_app.add_systems(T::schedule(), system);
     }
 }
 
-fn extract_on_add<T: FullscreenMaterial>(world: &mut World) {
-    world.resource_scope::<MainWorld, ()>(|world, mut main_world| {
-        // Extract the material from the main world
-        let mut query =
-            main_world.query_filtered::<(Entity, Has<Camera3d>, Has<Camera2d>), Added<T>>();
-
-        // Create the node and add it to the render graph
-        world.resource_scope::<RenderGraph, ()>(|world, mut render_graph| {
-            for (_entity, is_3d, is_2d) in query.iter(&main_world) {
-                let graph = if is_3d && let Some(graph) = render_graph.get_sub_graph_mut(Core3d) {
-                    graph
-                } else if is_2d && let Some(graph) = render_graph.get_sub_graph_mut(Core2d) {
-                    graph
-                } else {
-                    warn!("FullscreenMaterial was added to an entity that isn't a camera");
-                    continue;
-                };
-
-                let node = ViewNodeRunner::<FullscreenMaterialNode<T>>::from_world(world);
-                graph.add_node(T::node_label(), node);
-
-                for window in T::node_edges().windows(2) {
-                    let [a, b] = window else {
-                        break;
-                    };
-                    let Err(err) = graph.try_add_node_edge(*a, *b) else {
-                        continue;
-                    };
-                    match err {
-                        // Already existing edges are very easy to produce with this api
-                        // and shouldn't cause a panic
-                        RenderGraphError::EdgeAlreadyExists(_) => {}
-                        _ => panic!("{err:?}"),
-                    }
-                }
-            }
-        });
-    });
-}
-
-/// A trait to define a material that will render to the entire screen using a fullscrene triangle
+/// A trait to define a material that will render to the entire screen using a fullscreen triangle.
 pub trait FullscreenMaterial:
     Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
 {
-    /// The shader that will run on the entire screen using a fullscreen triangle
+    /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;
 
-    /// The list of `node_edges`. In 3d, for a post processing effect, it would look like this:
+    /// The schedule this effect runs in.
     ///
-    /// ```compile_fail
-    /// # use bevy_core_pipeline::core_3d::graph::Node3d;
-    /// # use bevy_render::render_graph::RenderLabel;
-    /// vec![
-    ///     Node3d::Tonemapping.intern(),
-    ///     // Self::sub_graph().intern(), // <--- your own label here
-    ///     Node3d::EndMainPassPostProcessing.intern(),
-    /// ]
-    /// ```
-    ///
-    /// This tell the render graph to run your fullscreen effect after the tonemapping pass but
-    /// before the end of post processing. For 2d, it would be the same but using Node2d. You can
-    /// specify any edges you want but make sure to include your own label.
-    fn node_edges() -> Vec<InternedRenderLabel>;
-
-    /// The [`bevy_render::render_graph::RenderSubGraph`] the effect will run in
-    ///
-    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's
-    /// [`crate::core_3d::graph::Core3d`]
-    fn sub_graph() -> Option<InternedRenderSubGraph> {
-        None
+    /// Defaults to [`Core3d`] for 3D post-processing effects.
+    fn schedule() -> impl ScheduleLabel + Clone {
+        Core3d
     }
 
-    /// The label used to represent the render node that will run the pass
-    fn node_label() -> impl RenderLabel {
-        FullscreenMaterialLabel(type_name::<Self>())
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
-struct FullscreenMaterialLabel(&'static str);
-
-impl RenderLabel for FullscreenMaterialLabel
-where
-    Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash,
-{
-    fn dyn_clone(&self) -> Box<dyn RenderLabel> {
-        Box::new(::core::clone::Clone::clone(self))
+    /// Configures this effect's system set and system order.
+    ///
+    /// By default it's in [`Core3dSystems::PostProcess`] and before [`tonemapping`].
+    fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
+        system
+            .in_set(Core3dSystems::PostProcess)
+            .before(tonemapping)
     }
 }
 
 #[derive(Resource)]
-struct FullscreenMaterialPipeline {
+pub struct FullscreenMaterialPipeline<T: FullscreenMaterial> {
     layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
-    pipeline_id_hdr: CachedRenderPipelineId,
+    variants: Variants<RenderPipeline, FullscreenMaterialPipelineSpecializer>,
+    _marker: PhantomData<T>,
+}
+
+struct FullscreenMaterialPipelineSpecializer;
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
+struct FullscreenMaterialPipelineKey {
+    target_format: TextureFormat,
+}
+
+impl Specializer<RenderPipeline> for FullscreenMaterialPipelineSpecializer {
+    type Key = FullscreenMaterialPipelineKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let fragment = descriptor.fragment_mut()?;
+        let color_target_state = ColorTargetState {
+            format: key.target_format,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        };
+        fragment.set_target(0, color_target_state);
+        Ok(key)
+    }
 }
 
 fn init_pipeline<T: FullscreenMaterial>(
@@ -201,19 +136,14 @@ fn init_pipeline<T: FullscreenMaterial>(
     render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
     fullscreen_shader: Res<FullscreenShader>,
-    pipeline_cache: Res<PipelineCache>,
 ) {
     let layout = BindGroupLayoutDescriptor::new(
-        "post_process_bind_group_layout",
+        "fullscreen_material_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
-                // The screen texture
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // The sampler that will be used to sample the screen texture
                 sampler(SamplerBindingType::Filtering),
-                // We use a uniform buffer so users can pass some data to the effect
-                // Eventually we should just use a separate bind group for user data
                 uniform_buffer::<T>(true),
             ),
         ),
@@ -221,8 +151,6 @@ fn init_pipeline<T: FullscreenMaterial>(
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
     let shader = match T::fragment_shader() {
         ShaderRef::Default => {
-            // TODO not sure what an actual fallback should be. An empty shader or output a solid
-            // color to indicate a missing shader?
             unimplemented!(
                 "FullscreenMaterial::fragment_shader() must not return ShaderRef::Default"
             )
@@ -230,16 +158,16 @@ fn init_pipeline<T: FullscreenMaterial>(
         ShaderRef::Handle(handle) => handle,
         ShaderRef::Path(path) => asset_server.load(path),
     };
-    // Setup a fullscreen triangle for the vertex state.
+
     let vertex_state = fullscreen_shader.to_vertex_state();
-    let mut desc = RenderPipelineDescriptor {
-        label: Some("post_process_pipeline".into()),
+    let desc = RenderPipelineDescriptor {
+        label: Some(format!("fullscreen_material_pipeline<{}>", type_name::<T>()).into()),
         layout: vec![layout.clone()],
         vertex: vertex_state,
         fragment: Some(FragmentState {
             shader,
             targets: vec![Some(ColorTargetState {
-                format: TextureFormat::bevy_default(),
+                format: TextureFormat::Rgba8UnormSrgb,
                 blend: None,
                 write_mask: ColorWrites::ALL,
             })],
@@ -247,83 +175,152 @@ fn init_pipeline<T: FullscreenMaterial>(
         }),
         ..default()
     };
-    let pipeline_id = pipeline_cache.queue_render_pipeline(desc.clone());
-    desc.fragment.as_mut().unwrap().targets[0]
-        .as_mut()
-        .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
-    let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
-    commands.insert_resource(FullscreenMaterialPipeline {
+
+    commands.insert_resource(FullscreenMaterialPipeline::<T> {
         layout,
         sampler,
-        pipeline_id,
-        pipeline_id_hdr,
+        variants: Variants::new(FullscreenMaterialPipelineSpecializer, desc),
+        _marker: PhantomData,
     });
 }
 
-#[derive(Default)]
-struct FullscreenMaterialNode<T: FullscreenMaterial> {
+#[derive(Component)]
+pub struct FullscreenMaterialPipelineId(pub CachedRenderPipelineId);
+
+fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
+    views: Query<(Entity, &ExtractedView), With<ExtractedCamera>>,
+) -> Result<(), BevyError> {
+    for (entity, view) in &views {
+        let pipeline_key = FullscreenMaterialPipelineKey {
+            target_format: view.target_format,
+        };
+        let pipeline_id = pipeline
+            .variants
+            .specialize(&pipeline_cache, pipeline_key)?;
+
+        commands
+            .entity(entity)
+            .insert(FullscreenMaterialPipelineId(pipeline_id));
+    }
+
+    Ok(())
+}
+
+/// Holds the bind groups for both main textures
+///
+/// We can't know ahead of time which one is the source or destination so we create a bind group
+/// for both
+#[derive(Component)]
+pub struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
+    a: (TextureViewId, BindGroup),
+    b: (TextureViewId, BindGroup),
+    // This is in case someone wants multiple `FullscreenMaterial` per camera
     _marker: PhantomData<T>,
 }
 
-impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
-    // TODO we should expose the depth buffer and the gbuffer if using deferred
-    type ViewQuery = (&'static ViewTarget, &'static DynamicUniformIndex<T>);
+/// Prepare the bind groups for both main textures for all views that have a [`FullscreenMaterial`]
+fn prepare_bind_groups<T: FullscreenMaterial>(
+    mut commands: Commands,
+    mut view: Query<(
+        Entity,
+        &ViewTarget,
+        Option<&mut FullscreenMaterialBindGroup<T>>,
+    )>,
+    fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
+    pipeline_cache: Res<PipelineCache>,
+    data_uniforms: Res<ComponentUniforms<T>>,
+    render_device: Res<RenderDevice>,
+) {
+    let Some(fullscreen_pipeline) = fullscreen_pipeline else {
+        return;
+    };
+    let Some(settings_binding) = data_uniforms.uniforms().binding() else {
+        return;
+    };
 
-    fn run<'w>(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (view_target, settings_index): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let fullscreen_pipeline = world.resource::<FullscreenMaterialPipeline>();
+    for (entity, view_target, mut maybe_bind_groups) in &mut view {
+        let main_texture_view = view_target.main_texture_view();
+        let main_texture_other_view = view_target.main_texture_other_view();
 
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline_id = if view_target.is_hdr() {
-            fullscreen_pipeline.pipeline_id_hdr
+        let create_bind_group = |texture: &TextureView| {
+            (
+                texture.id(),
+                render_device.create_bind_group(
+                    "fullscreen_material_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
+                    &BindGroupEntries::sequential((
+                        texture,
+                        &fullscreen_pipeline.sampler,
+                        settings_binding.clone(),
+                    )),
+                ),
+            )
+        };
+
+        if let Some(bind_groups) = &mut maybe_bind_groups {
+            if bind_groups.a.0 != main_texture_view.id() {
+                bind_groups.a = create_bind_group(main_texture_view);
+            }
+            if bind_groups.b.0 != main_texture_other_view.id() {
+                bind_groups.b = create_bind_group(main_texture_other_view);
+            }
         } else {
-            fullscreen_pipeline.pipeline_id
-        };
+            commands.entity(entity).insert(FullscreenMaterialBindGroup {
+                a: create_bind_group(main_texture_view),
+                b: create_bind_group(main_texture_other_view),
+                _marker: PhantomData::<T>,
+            });
+        }
+    }
+}
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) else {
-            return Ok(());
-        };
+pub fn fullscreen_material_system<T: FullscreenMaterial>(
+    view: ViewQuery<(
+        &ViewTarget,
+        &DynamicUniformIndex<T>,
+        &FullscreenMaterialBindGroup<T>,
+        &FullscreenMaterialPipelineId,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let (view_target, settings_index, bind_groups, pipeline_id) = view.into_inner();
 
-        let data_uniforms = world.resource::<ComponentUniforms<T>>();
-        let Some(settings_binding) = data_uniforms.uniforms().binding() else {
-            return Ok(());
-        };
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
+        return;
+    };
 
-        let post_process = view_target.post_process_write();
+    let post_process = view_target.post_process_write();
+    let source = post_process.source;
+    let destination = post_process.destination;
 
-        let bind_group = render_context.render_device().create_bind_group(
-            "post_process_bind_group",
-            &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &fullscreen_pipeline.sampler,
-                settings_binding.clone(),
-            )),
-        );
+    let (_, bind_group) = if bind_groups.a.0 == source.id() {
+        &bind_groups.a
+    } else {
+        &bind_groups.b
+    };
 
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("post_process_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("fullscreen_material_pass"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations::default(),
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    };
 
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
+    {
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        render_pass.set_pipeline(pipeline);
+        render_pass.set_bind_group(0, bind_group, &[settings_index.index()]);
         render_pass.draw(0..3, 0..1);
-
-        Ok(())
     }
 }

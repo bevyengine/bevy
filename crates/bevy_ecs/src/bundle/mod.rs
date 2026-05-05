@@ -14,6 +14,7 @@ mod remove;
 mod spawner;
 #[cfg(test)]
 mod tests;
+mod writer;
 
 pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
@@ -22,6 +23,7 @@ pub(crate) use spawner::BundleSpawner;
 use bevy_ptr::MovingPtr;
 use core::mem::MaybeUninit;
 pub use info::*;
+pub use writer::*;
 
 /// Derive the [`Bundle`] trait
 ///
@@ -287,6 +289,8 @@ pub trait DynamicBundle: Sized {
     ///  - If any part of `ptr` is to be accessed in this function, it must *not* be dropped at any point in
     ///    `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically
     ///    ensures this is the case.
+    ///  - Note that `entity` may already have been despawned by hooks or observers at this point,
+    ///    so check [`EntityWorldMut::is_spawned`] before trusting it.
     ///
     /// [`World`]: crate::world::World
     // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
