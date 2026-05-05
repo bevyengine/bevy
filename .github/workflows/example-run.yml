@@ -104,11 +104,24 @@ jobs:
           persist-credentials: false
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        continue-on-error: true
+        with:
+          path: |
+            ~/apt-cache/
+          key: ${{ runner.os }}-apt-kisak_turtle-
+          restore-keys: ${{ runner.os }}-apt-kisak_turtle-
       # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
       - name: Install additional Linux dependencies for Vulkan
         run: |
-          sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libxcb-xfixes0-dev
+
+          if [ -d ~/apt-cache ] && [ -n "$(ls -A ~/apt-cache 2>/dev/null)" ]; then
+            sudo cp --verbose --force --recursive ~/apt-cache/* /
+          else
+            sudo add-apt-repository ppa:kisak/turtle -y
+            sudo apt-get install --no-install-recommends libgl1-mesa-dri mesa-vulkan-drivers
+          fi
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: stable

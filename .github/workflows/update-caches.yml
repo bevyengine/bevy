@@ -158,3 +158,34 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+
+  build-apt-cache:
+    name: Build apt kisak/turtle Cache
+    runs-on: ubuntu-24.04
+
+    steps:
+      # prepare the date - used to rebuild the cache daily to catch new versions
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:kisak/turtle -y
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
+            libgl1-mesa-dri mesa-vulkan-drivers
+          rm -rf ~/apt-cache; mkdir ~/apt-cache
+          for package in libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium mesa-vulkan-drivers; do
+              echo $package
+              dpkg -L $package | while IFS= read -r f; do if test -f "$f"; then echo "$f"; fi; done | xargs -d '\n' cp --parents --target-directory ~/apt-cache/
+          done
+
+      - name: Save cache
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/apt-cache/
+          key: ${{ runner.os }}-apt-kisak_turtle-${{ steps.get-date.outputs.date }}
