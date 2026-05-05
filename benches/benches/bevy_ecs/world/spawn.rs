@@ -2,6 +2,8 @@ use bevy_ecs::prelude::*;
 use criterion::Criterion;
 use glam::*;
 
+use crate::world_builder::WorldBuilder;
+
 #[derive(Component, Clone)]
 struct A(Mat4);
 #[derive(Component, Clone)]
@@ -14,7 +16,10 @@ pub fn world_spawn(criterion: &mut Criterion) {
 
     for entity_count in [1, 100, 10_000] {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
-            let mut world = World::default();
+            let mut world = WorldBuilder::new()
+                .with_max_expected_entities(entity_count)
+                .warm_up_entity_allocator()
+                .build();
             bencher.iter(|| {
                 for _ in 0..entity_count {
                     world.spawn((A(Mat4::default()), B(Vec4::default())));
@@ -33,12 +38,15 @@ pub fn world_spawn_batch(criterion: &mut Criterion) {
 
     for batch_count in [1, 100, 1000, 10_000] {
         group.bench_function(format!("{batch_count}_entities"), |bencher| {
-            let mut world = World::default();
+            let mut world = WorldBuilder::new()
+                .with_max_expected_entities(batch_count)
+                .warm_up_entity_allocator()
+                .build();
             bencher.iter(|| {
                 for _ in 0..(10_000 / batch_count) {
                     world.spawn_batch(std::iter::repeat_n(
                         (A(Mat4::default()), B(Vec4::default())),
-                        batch_count,
+                        batch_count as usize,
                     ));
                 }
             });
