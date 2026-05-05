@@ -4,8 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_platform::collections::hash_map::Entry;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdMap, TypeIdMapEntry as Entry};
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -368,7 +367,7 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).unwrap(),
+                plugins.shift_remove(&plugin_id).unwrap(),
                 self.order.len(),
             );
 
@@ -517,7 +516,7 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty)
+            if let Some(entry) = self.plugins.shift_remove(ty)
                 && entry.enabled
             {
                 debug!("added plugin: {}", entry.plugin.name());

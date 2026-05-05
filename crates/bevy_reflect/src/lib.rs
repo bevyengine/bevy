@@ -645,6 +645,7 @@ mod impls {
 }
 
 pub mod attributes;
+pub mod convert;
 pub mod enums;
 mod generics;
 pub mod serde;
@@ -773,7 +774,7 @@ pub mod __macro_exports {
         mod __automatic_type_registration_impl {
             use super::*;
 
-            pub use inventory;
+            pub use ::inventory;
 
             /// Stores type registration functions
             pub struct AutomaticReflectRegistrations(pub fn(&mut TypeRegistry));
@@ -1717,6 +1718,29 @@ mod tests {
             PartialReflect::reflect_partial_cmp(&c1, &b),
             Some(Ordering::Equal)
         );
+    }
+
+    #[test]
+    fn enum_from_reflect_does_not_panic() {
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        enum A {
+            Hot,
+            Cold,
+        }
+
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        enum B {
+            Hot,
+            Cold,
+            Warm,
+        }
+
+        // There's no difference between the reflected data of these enum variants - they are named
+        // the same, so we are able to convert them.
+        assert_eq!(A::from_reflect(&B::Hot), Some(A::Hot));
+        assert_eq!(A::from_reflect(&B::Cold), Some(A::Cold));
+        // This variant doesn't exist in `A`, so it should not be converted.
+        assert_eq!(A::from_reflect(&B::Warm), None);
     }
 
     #[test]

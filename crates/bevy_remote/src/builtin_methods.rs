@@ -1,8 +1,11 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
+use alloc::sync::Arc;
 use core::any::TypeId;
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Result as AnyhowResult};
+use bevy_dev_tools::schedule_data::serde::ScheduleData;
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
@@ -11,16 +14,17 @@ use bevy_ecs::{
     message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    resource::Resource,
     schedule::Schedules,
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
+    world::{DeferredWorld, EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     structs::DynamicStruct,
-    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -31,7 +35,7 @@ use crate::{
         json_schema::{export_type, JsonSchemaBevyType},
         open_rpc::OpenRpcDocument,
     },
-    BrpError, BrpResult,
+    BrpError, BrpResult, PreviousScheduleBuildMetadata,
 };
 
 #[cfg(all(feature = "http", not(target_family = "wasm")))]
@@ -96,6 +100,9 @@ pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
 
 /// The method path for a `schedule.list` request.
 pub const BRP_SCHEDULE_LIST: &str = "schedule.list";
+
+/// The method path for a `world.observe+watch` request.
+pub const BRP_OBSERVE_METHOD: &str = "world.observe+watch";
 
 /// The method path for a `schedule.graph` request.
 pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
@@ -339,6 +346,26 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
+/// `world.observe+watch`: Registers an observer for the given event type and
+/// streams event data back to the client each time the event is triggered.
+///
+/// If `entity` is provided, observes only events targeting that entity.
+/// Otherwise, observes all global triggers of the event.
+///
+/// The server responds with serialized event data when events are observed.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpObserveParams {
+    /// The [full path] of the event type to observe.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub event: String,
+
+    /// An optional entity to scope the observer to.
+    /// When set, only events targeting this entity will be observed.
+    #[serde(default)]
+    pub entity: Option<Entity>,
+}
+
 /// `schedule.graph`:
 ///
 /// The server responds with [`BrpScheduleGraphResponse`] if the schedule is found,
@@ -526,25 +553,10 @@ pub struct BrpScheduleListResponse {
 /// If a system (f2) is placed in a developer-created set (S1), then there is a hierarchy edge (S1 -> f2).
 ///
 /// If a schedule adds a condition f1.after(S1) , then a dependency edge is added (S1 -> f1)
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpScheduleGraphResponse {
-    systemsets: Vec<BrpSystemSet>,
-
-    hierarchy_nodes: Vec<String>,
-    hierarchy_edges: Vec<(String, String)>,
-
-    dependency_nodes: Vec<String>,
-    dependency_edges: Vec<(String, String)>,
-}
-
-/// Details on a system set
-///
-/// The `key` is used in the nodes and edges in [`BrpScheduleGraphResponse`]
-/// The `method` is either the fully qualified system name, or the system set name
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpSystemSet {
-    key: String,
-    method: String,
+    /// The extracted data for the requested schedule.
+    pub schedule_data: ScheduleData,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -1541,6 +1553,117 @@ pub fn process_remote_write_message_request(
     })
 }
 
+/// Stores observer state for `world.observe+watch` requests.
+#[derive(Resource, Default)]
+pub struct BrpEventObservers {
+    /// Map from observer key to buffered serialized events.
+    /// The key encodes both event type and optional entity scope.
+    observers: HashMap<String, Arc<Mutex<Vec<Value>>>>,
+}
+
+/// Handles a `world.observe+watch` request coming from a client.
+///
+/// On the first call for a given event/entity combination, this registers an observer that captures triggered
+/// events. On each subsequent poll, it returns any events that have been captured since the last poll.
+///
+/// When `entity` is provided, the observer is scoped to that entity. Otherwise a global observer is registered.
+pub fn process_remote_observe_watching_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult<Option<Value>> {
+    let BrpObserveParams { event, entity } = parse_some(params)?;
+
+    let key = match entity {
+        Some(e) => format!("{event}@{e}"),
+        None => event.clone(),
+    };
+
+    if !world.contains_resource::<BrpEventObservers>() {
+        world.init_resource::<BrpEventObservers>();
+    }
+
+    let already_registered = world
+        .resource::<BrpEventObservers>()
+        .observers
+        .contains_key(&key);
+
+    if !already_registered {
+        let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+        let reflect_event = {
+            let type_registry = app_type_registry.read();
+            let Some(registration) = type_registry.get_with_type_path(&event) else {
+                return Err(BrpError::resource_error(format!(
+                    "Unknown event type: `{event}`"
+                )));
+            };
+            let Some(reflect_event) = registration.data::<ReflectEvent>() else {
+                return Err(BrpError::resource_error(format!(
+                    "Event `{event}` is not reflectable"
+                )));
+            };
+            reflect_event.clone()
+        };
+
+        let buffer: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+        let buffer_clone = buffer.clone();
+        let registry_clone = app_type_registry.clone();
+        let event_clone = event.clone();
+
+        let callback = Box::new(move |event_data: &dyn Reflect, _world: DeferredWorld| {
+            let reg = registry_clone.read();
+            let serializer = ReflectSerializer::new(event_data, &reg);
+            match serde_json::to_value(&serializer) {
+                Ok(value) => {
+                    buffer_clone.lock().unwrap().push(value);
+                }
+                Err(err) => {
+                    warn_once!("Failed to serialize observed event `{event_clone}`: {err}");
+                    // Push a placeholder so the client still gets notified.
+                    buffer_clone
+                        .lock()
+                        .unwrap()
+                        .push(serde_json::json!({ "event": event_clone }));
+                }
+            }
+        });
+
+        let observer = reflect_event.create_observer(callback);
+        if let Some(target) = entity {
+            world.spawn(observer.with_entity(target));
+        } else {
+            world.spawn(observer);
+        }
+
+        world
+            .resource_mut::<BrpEventObservers>()
+            .observers
+            .insert(key.clone(), buffer);
+    }
+
+    let observers = world.resource::<BrpEventObservers>();
+    let Some(buffer) = observers.observers.get(&key) else {
+        return Err(BrpError::internal(anyhow!("Observer state missing")));
+    };
+
+    let mut events = buffer.lock().unwrap();
+    if events.is_empty() {
+        return Ok(None);
+    }
+
+    let captured: Vec<Value> = events
+        .drain(..)
+        .map(|json_event| {
+            json_event
+                .get(&event)
+                .expect("event keyed by its type path")
+                .to_owned()
+        })
+        .collect();
+    serde_json::to_value(captured)
+        .map(Some)
+        .map_err(BrpError::internal)
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1627,50 +1750,52 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
 
     let schedules = world.resource::<Schedules>();
 
-    let matching_schedule = schedules
+    let Some((_, mut schedule)) = schedules
         .iter()
-        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label);
-
-    if matching_schedule.is_none() {
+        .find(|(label, _schedule)| format!("{:?}", label) == schedule_label)
+    else {
         return Err(BrpError::resource_error(format!(
-            "Schedule with label={:} not found",
+            "Schedule with label={:} not found. This may be because this schedule is currently running",
             schedule_label
         )));
+    };
+    // Get the interned label.
+    let label = schedule.label();
+
+    if schedule.is_changed() {
+        match world.schedule_scope(label, |world, schedule| schedule.initialize(world)) {
+            Ok(build_metadata) => {
+                assert!(build_metadata.is_some());
+            }
+            Err(err) => {
+                return Err(BrpError::internal(format!(
+                    "Failed to initialize schedule with label={label:?}: {err}"
+                )))
+            }
+        }
+        // Note: we don't need to insert into the `PreviousScheduleBuildMetadata`, since the
+        // metadata caching observer already does that for us.
+
+        schedule = world.resource::<Schedules>().get(label).unwrap();
     }
 
-    let mut response: BrpScheduleGraphResponse = BrpScheduleGraphResponse::default();
+    let metadata = world
+        .get_resource::<PreviousScheduleBuildMetadata>()
+        .and_then(|res| res.0.get(&label));
 
-    let (_label, schedule) = matching_schedule.unwrap();
+    // TODO: We should consider saving all the `ScheduleBuilt` events when BRP is enabled, and
+    // looking it up here (or even building the schedule here to get the metadata to fill it in).
+    let schedule_data = match ScheduleData::from_schedule(schedule, world.components(), metadata) {
+        Ok(schedule_data) => schedule_data,
+        Err(err) => {
+            return Err(BrpError::internal(format!(
+                "Failed to collect the schedule data for {:?}: {err}",
+                label
+            )));
+        }
+    };
 
-    let g = schedule.graph();
-    for (systemsetkey, method, _b) in g.system_sets.iter() {
-        response.systemsets.push(BrpSystemSet {
-            key: format!("{:?}", systemsetkey),
-            method: format!("{:?}", method),
-        });
-    }
-
-    let hie = g.hierarchy();
-    for node in hie.nodes() {
-        response.hierarchy_nodes.push(format!("{:?}", node));
-    }
-    for (n1, n2) in hie.all_edges() {
-        response
-            .hierarchy_edges
-            .push((format!("{:?}", n1), format!("{:?}", n2)));
-    }
-
-    let dep = g.dependency();
-    for node in dep.nodes() {
-        response.dependency_nodes.push(format!("{:?}", node));
-    }
-    for (n1, n2) in dep.all_edges() {
-        response
-            .dependency_edges
-            .push((format!("{:?}", n1), format!("{:?}", n2)));
-    }
-
-    serde_json::to_value(response).map_err(BrpError::internal)
+    serde_json::to_value(BrpScheduleGraphResponse { schedule_data }).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
@@ -1893,7 +2018,7 @@ fn get_resource_entity_pair(
         .resource_entities()
         .get(component_id)
         .ok_or(anyhow!("Resource entity does not exist."))?;
-    Ok((*entity, component_id))
+    Ok((entity, component_id))
 }
 
 #[cfg(test)]
@@ -1918,7 +2043,11 @@ mod tests {
     }
 
     use super::*;
-    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
+    use crate::{
+        cache_schedule_build_metadata,
+        schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
+    };
+    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -1988,6 +2117,59 @@ mod tests {
             Ok(Null)
         );
         assert!(world.resource::<TestResult>().0);
+    }
+
+    #[test]
+    fn observe_watching_captures_triggered_events() {
+        #[derive(Event, Reflect)]
+        #[reflect(Event)]
+        struct Ping {
+            value: u32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Ping>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+
+        let observe_params = serde_json::to_value(&BrpObserveParams {
+            event: "bevy_remote::builtin_methods::tests::Ping".to_owned(),
+            entity: None,
+        })
+        .expect("FAIL");
+
+        assert_eq!(
+            process_remote_observe_watching_request(In(Some(observe_params.clone())), &mut world,),
+            Ok(None)
+        );
+        assert!(world.contains_resource::<BrpEventObservers>());
+
+        let trigger_params = serde_json::to_value(&BrpTriggerEventParams {
+            event: "bevy_remote::builtin_methods::tests::Ping".to_owned(),
+            value: Some(serde_json::json!({ "value": 42 })),
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_trigger_event_request(In(Some(trigger_params)), &mut world),
+            Ok(Null)
+        );
+
+        let captured =
+            process_remote_observe_watching_request(In(Some(observe_params.clone())), &mut world)
+                .expect("poll should succeed")
+                .expect("events should be returned");
+        let events: Vec<Value> =
+            serde_json::from_value(captured).expect("captured events are a JSON array");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].get("value"), Some(&serde_json::json!(42)));
+
+        assert_eq!(
+            process_remote_observe_watching_request(In(Some(observe_params)), &mut world),
+            Ok(None)
+        );
     }
 
     #[test]
@@ -2176,7 +2358,7 @@ mod tests {
     }
 
     #[test]
-    fn test_schedule_graph() {
+    fn schedule_graph_for_uninitialized_schedule() {
         #[derive(Resource)]
         struct Resource1;
 
@@ -2203,9 +2385,12 @@ mod tests {
         schedule.add_systems(f4.in_set(S2).after(S1));
 
         let mut world = World::default();
-
-        let _ = schedule.initialize(&mut world);
         world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
 
         let params = serde_json::to_value(&BrpScheduleGraphParams {
             schedule_label: "MySchedule".to_string(),
@@ -2215,20 +2400,91 @@ mod tests {
         // Each system creates a corresponding system set.
         // In the below notation we use f1 for the system, and F1 for the corresponding system set.
         // Above schedule should have the following layout:
-        // - 4 systems (f1, f2, f3, f4)
+        // - 5 systems (f1, f2, f3, f4, apply_deferred)
         // - 6 system sets (F1, F2, F3, F4, S1, S2)
-        // - 10 hierarchy nodes and 10 dependency nodes (4 + 6)
         // - 6 hierarchy edges: F1 -> f1, F2 -> f2, F3 -> f3, F4 -> f4, S1 -> f3, S2 -> f4
-        // - 2 dependency edges: f1 -> f2, S1 -> f4
+        // - 4 dependency edges: f1 -> f2, S1 -> f4, f1 -> apply_deferred, apply_deferred -> f2
 
         let res = schedule_graph(In(Some(params)), &mut world);
         let res2 = res.expect("expect to work");
         let res3 = serde_json::from_value::<BrpScheduleGraphResponse>(res2).unwrap();
 
-        assert_eq!(res3.systemsets.len(), 6);
-        assert_eq!(res3.hierarchy_nodes.len(), 10);
-        assert_eq!(res3.dependency_nodes.len(), 10);
-        assert_eq!(res3.hierarchy_edges.len(), 6);
-        assert_eq!(res3.dependency_edges.len(), 2);
+        assert_eq!(res3.schedule_data.systems.len(), 5);
+        assert_eq!(res3.schedule_data.system_sets.len(), 6);
+        assert_eq!(res3.schedule_data.hierarchy.len(), 6);
+        assert_eq!(res3.schedule_data.dependency.len(), 4);
+        // Components are only currently recorded for conflicts - this may change in the future.
+        assert_eq!(res3.schedule_data.components.len(), 0);
+        assert_eq!(res3.schedule_data.conflicts.len(), 0);
+    }
+
+    #[test]
+    fn schedule_graph_for_initialized_schedule() {
+        #[derive(Resource)]
+        struct Resource1;
+
+        fn f1(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn f2(_r: Res<Resource1>) {}
+
+        #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+        struct MySchedule;
+
+        let mut schedule = Schedule::new(MySchedule);
+
+        schedule.add_systems((f1, f2).chain());
+
+        let mut world = World::default();
+        world.add_schedule(schedule);
+
+        // Normally, this is done by the `RemotePlugin`, but we don't actually want to start a
+        // server here, so just manually init these.
+        world.init_resource::<PreviousScheduleBuildMetadata>();
+        world.add_observer(cache_schedule_build_metadata);
+
+        // Initialize the schedule early. Now `schedule_graph` should still report the metadata.
+        world
+            .schedule_scope(MySchedule, |world, schedule| schedule.initialize(world))
+            .unwrap();
+
+        let params = serde_json::to_value(&BrpScheduleGraphParams {
+            schedule_label: "MySchedule".to_string(),
+        })
+        .unwrap();
+
+        let response = schedule_graph(In(Some(params)), &mut world).unwrap();
+        let response = serde_json::from_value::<BrpScheduleGraphResponse>(response).unwrap();
+
+        // We expect 3 edges thanks to the cached metadata: f1 -> f2, f1 -> apply_deferred -> f2
+        fn system_index(
+            response: &BrpScheduleGraphResponse,
+            name_suffix: &str,
+        ) -> Option<ScheduleIndex> {
+            response
+                .schedule_data
+                .systems
+                .iter()
+                .enumerate()
+                .find(|(_, system)| system.name.ends_with(name_suffix))
+                .map(|(index, _)| index as _)
+                .map(ScheduleIndex::System)
+        }
+        let f1_index = system_index(&response, "f1").unwrap();
+        let f2_index = system_index(&response, "f2").unwrap();
+        let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
+        assert_eq!(response.schedule_data.dependency.len(), 3);
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, f2_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(f1_index, apply_deferred_index)));
+        assert!(response
+            .schedule_data
+            .dependency
+            .contains(&(apply_deferred_index, f2_index)));
     }
 }
