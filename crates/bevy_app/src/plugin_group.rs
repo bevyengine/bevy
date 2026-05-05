@@ -4,8 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_platform::collections::hash_map::Entry;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdMap, TypeIdMapEntry as Entry};
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -143,7 +142,7 @@ macro_rules! plugin_group {
        $($(#[doc = concat!(
             " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
-        )]),+)?
+        )])+)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -368,7 +367,7 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).unwrap(),
+                plugins.shift_remove(&plugin_id).unwrap(),
                 self.order.len(),
             );
 
@@ -517,18 +516,18 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty) {
-                if entry.enabled {
-                    debug!("added plugin: {}", entry.plugin.name());
-                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
-                        app.add_boxed_plugin(entry.plugin)
-                    {
-                        panic!(
-                            "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
-                        );
-                    }
+            if let Some(entry) = self.plugins.shift_remove(ty)
+                && entry.enabled
+            {
+                debug!("added plugin: {}", entry.plugin.name());
+                if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                    app.add_boxed_plugin(entry.plugin)
+                {
+                    panic!(
+                        "Error adding plugin {} in group {}: plugin was already added in application",
+                        plugin_name,
+                        self.group_name
+                    );
                 }
             }
         }
@@ -559,18 +558,21 @@ mod tests {
     use core::{any::TypeId, fmt::Debug};
 
     use super::PluginGroupBuilder;
-    use crate::{App, NoopPluginGroup, Plugin};
+    use crate::{App, NoopPluginGroup, Plugin, PluginGroup};
 
+    #[derive(Default)]
     struct PluginA;
     impl Plugin for PluginA {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginB;
     impl Plugin for PluginB {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginC;
     impl Plugin for PluginC {
         fn build(&self, _: &mut App) {}
@@ -872,5 +874,31 @@ mod tests {
                 TypeId::of::<PluginC>(),
             ]
         );
+    }
+
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupA {
+            :PluginA
+        }
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupB {
+            :PluginB
+        }
+    }
+    plugin_group! {
+        struct PluginGroupC {
+            :PluginC
+            #[plugin_group]
+            :PluginGroupA,
+            #[plugin_group]
+            :PluginGroupB,
+        }
+    }
+    #[test]
+    fn construct_nested_plugin_groups() {
+        PluginGroupC {}.build();
     }
 }

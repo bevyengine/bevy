@@ -1,6 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control how it's played.
 
-use bevy::{audio::Volume, math::ops, prelude::*};
+use bevy::{math::ops, prelude::*};
 
 fn main() {
     App::new()
@@ -23,8 +23,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new(""),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ProgressText,
@@ -35,8 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("-/=: Volume Down/Up\nSpace: Toggle Playback\nM: Toggle Mute"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -105,9 +105,9 @@ fn volume(
 
     if keyboard_input.just_pressed(KeyCode::Equal) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume + Volume::Linear(0.1));
+        sink.set_volume(current_volume.increase_by_percentage(10.0));
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume - Volume::Linear(0.1));
+        sink.set_volume(current_volume.increase_by_percentage(-10.0));
     }
 }

@@ -3,11 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
+    light::Skybox,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// Entry point.
@@ -66,18 +67,24 @@ fn spawn_sphere(
 ) {
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            clearcoat: 1.0,
-            clearcoat_perceptual_roughness: 0.3,
-            clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                "textures/ScratchedGold-Normal.png",
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            )),
-            metallic: 0.9,
-            perceptual_roughness: 0.1,
-            base_color: GOLD.into(),
-            ..default()
-        })),
+        MeshMaterial3d(
+            materials.add(StandardMaterial {
+                clearcoat: 1.0,
+                clearcoat_perceptual_roughness: 0.3,
+                clearcoat_normal_texture: Some(
+                    asset_server
+                        .load_builder()
+                        .with_settings(|settings: &mut ImageLoaderSettings| {
+                            settings.is_srgb = false;
+                        })
+                        .load("textures/ScratchedGold-Normal.png"),
+                ),
+                metallic: 0.9,
+                perceptual_roughness: 0.1,
+                base_color: GOLD.into(),
+                ..default()
+            }),
+        ),
         Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
     ));
 }
@@ -106,7 +113,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ))
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {

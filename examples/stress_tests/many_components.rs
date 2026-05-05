@@ -28,8 +28,8 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{Rng, SeedableRng, SliceRandom};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::prelude::{IndexedRandom, RngExt, SeedableRng};
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 #[expect(unsafe_code, reason = "Reading dynamic components requires unsafe")]
@@ -45,8 +45,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // The time is takes to compute this depends on the number of entities and the values in
         // each entity. This is to ensure that each system takes a different amount of time.
         let mut total: Wrapping<u8> = Wrapping(0);
-        let mut exponent: u32 = 1;
-        for component_id in &access_components.0 {
+        for (exponent, component_id) in (1_u32..).zip(access_components.0.iter()) {
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
@@ -60,7 +59,6 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
                 }
                 total += product;
             }
-            exponent += 1;
         }
 
         // we assign this value to all the components we can write to
@@ -91,12 +89,13 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 // * u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
-                        format!("Component{}", i).to_string(),
+                        format!("Component{i}").to_string(),
                         StorageType::Table,
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable
                         ComponentCloneBehavior::Default,
+                        None,
                     )
                 },
             )
@@ -106,9 +105,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // fill the schedule with systems
     let mut schedule = Schedule::new(Update);
     for _ in 1..=num_systems {
-        let num_access_components = rng.gen_range(1..10);
+        let num_access_components = rng.random_range(1..10);
         let access_components: Vec<ComponentId> = component_ids
-            .choose_multiple(&mut rng, num_access_components)
+            .sample(&mut rng, num_access_components)
             .copied()
             .collect();
         let system = (QueryParamBuilder::new(|builder| {
@@ -127,9 +126,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
     // spawn a bunch of entities
     for _ in 1..=num_entities {
-        let num_components = rng.gen_range(1..10);
+        let num_components = rng.random_range(1..10);
         let components: Vec<ComponentId> = component_ids
-            .choose_multiple(&mut rng, num_components)
+            .sample(&mut rng, num_components)
             .copied()
             .collect();
 
@@ -139,7 +138,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         // But we do want to deallocate the memory when values is dropped.
         let mut values: Vec<ManuallyDrop<u8>> = components
             .iter()
-            .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
+            .map(|_id| ManuallyDrop::new(rng.random_range(0..255)))
             .collect();
         let ptrs: Vec<OwningPtr> = values
             .iter_mut()
@@ -180,10 +179,7 @@ fn main() {
         .nth(1)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of entities provided, using default {}",
-                DEFAULT_NUM_ENTITIES
-            );
+            println!("No valid number of entities provided, using default {DEFAULT_NUM_ENTITIES}");
             DEFAULT_NUM_ENTITIES
         });
     let num_components = std::env::args()
@@ -192,8 +188,7 @@ fn main() {
         .and_then(|n| if n >= 10 { Some(n) } else { None })
         .unwrap_or_else(|| {
             println!(
-                "No valid number of components provided (>= 10), using default {}",
-                DEFAULT_NUM_COMPONENTS
+                "No valid number of components provided (>= 10), using default {DEFAULT_NUM_COMPONENTS}"
             );
             DEFAULT_NUM_COMPONENTS
         });
@@ -201,10 +196,7 @@ fn main() {
         .nth(3)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of systems provided, using default {}",
-                DEFAULT_NUM_SYSTEMS
-            );
+            println!("No valid number of systems provided, using default {DEFAULT_NUM_SYSTEMS}");
             DEFAULT_NUM_SYSTEMS
         });
 

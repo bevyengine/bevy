@@ -1,13 +1,13 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 
 /// Configuration information for this crate.
 pub mod cfg {
@@ -19,6 +19,10 @@ pub mod cfg {
         #[cfg(feature = "parallel")] => {
             /// Indicates the `Parallel` type is available.
             parallel
+        }
+        #[cfg(feature = "buffered_channel")] => {
+            /// Indicates the `BufferedChannel` type is available.
+            buffered_channel
         }
     }
 }
@@ -39,26 +43,32 @@ cfg::parallel! {
     pub use parallel_queue::*;
 }
 
+cfg::buffered_channel! {
+    mod buffered_channel;
+    pub use buffered_channel::*;
+}
+
 /// The utilities prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    pub use crate::debug_info::DebugName;
     pub use crate::default;
+    pub use disqualified::ShortName;
 }
 
-#[cfg(feature = "wgpu_wrapper")]
-mod wgpu_wrapper;
-
+mod atomic_id;
+mod bloom_filter;
+pub use bloom_filter::*;
+mod debug_info;
 mod default;
 mod once;
 
 #[doc(hidden)]
 pub use once::OnceFlag;
 
+pub use debug_info::DebugName;
 pub use default::default;
-
-#[cfg(feature = "wgpu_wrapper")]
-pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
 

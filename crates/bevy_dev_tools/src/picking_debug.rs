@@ -1,15 +1,16 @@
 //! Text and on-screen debugging tools
 
 use bevy_app::prelude::*;
+use bevy_camera::visibility::Visibility;
+use bevy_camera::{Camera, RenderTarget};
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
-use bevy_picking::pointer::{Location, PointerId, PointerPress};
+use bevy_picking::pointer::{Location, PointerId, PointerInput, PointerLocation, PointerPress};
 use bevy_picking::prelude::*;
-use bevy_picking::{pointer, PickingSystems};
+use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
@@ -91,20 +92,20 @@ impl Plugin for DebugPickingPlugin {
                 (
                     // This leaves room to easily change the log-level associated
                     // with different events, should that be desired.
-                    log_event_debug::<pointer::PointerInput>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<Over>,
-                    log_pointer_event_debug::<Out>,
-                    log_pointer_event_debug::<Pressed>,
-                    log_pointer_event_debug::<Released>,
-                    log_pointer_event_debug::<Click>,
+                    log_message_debug::<PointerInput>.run_if(DebugPickingMode::is_noisy),
+                    log_pointer_message_debug::<Over>,
+                    log_pointer_message_debug::<Out>,
+                    log_pointer_message_debug::<Press>,
+                    log_pointer_message_debug::<Release>,
+                    log_pointer_message_debug::<Click>,
                     log_pointer_event_trace::<Move>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragStart>,
+                    log_pointer_message_debug::<DragStart>,
                     log_pointer_event_trace::<Drag>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragEnd>,
-                    log_pointer_event_debug::<DragEnter>,
+                    log_pointer_message_debug::<DragEnd>,
+                    log_pointer_message_debug::<DragEnter>,
                     log_pointer_event_trace::<DragOver>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_event_debug::<DragLeave>,
-                    log_pointer_event_debug::<DragDrop>,
+                    log_pointer_message_debug::<DragLeave>,
+                    log_pointer_message_debug::<DragDrop>,
                 )
                     .distributive_run_if(DebugPickingMode::is_enabled)
                     .in_set(PickingSystems::Last),
@@ -120,28 +121,28 @@ impl Plugin for DebugPickingPlugin {
     }
 }
 
-/// Listen for any event and logs it at the debug level
-pub fn log_event_debug<E: Event + Debug>(mut events: EventReader<pointer::PointerInput>) {
+/// Listen for any message and logs it at the debug level
+pub fn log_message_debug<M: Message + Debug>(mut events: MessageReader<PointerInput>) {
     for event in events.read() {
         debug!("{event:?}");
     }
 }
 
 /// Listens for pointer events of type `E` and logs them at "debug" level
-pub fn log_pointer_event_debug<E: Debug + Clone + Reflect>(
-    mut pointer_events: EventReader<Pointer<E>>,
+pub fn log_pointer_message_debug<E: Debug + Clone + Reflect>(
+    mut pointer_reader: MessageReader<Pointer<E>>,
 ) {
-    for event in pointer_events.read() {
-        debug!("{event}");
+    for pointer in pointer_reader.read() {
+        debug!("{pointer}");
     }
 }
 
 /// Listens for pointer events of type `E` and logs them at "trace" level
 pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
-    mut pointer_events: EventReader<Pointer<E>>,
+    mut pointer_reader: MessageReader<Pointer<E>>,
 ) {
-    for event in pointer_events.read() {
-        trace!("{event}");
+    for pointer in pointer_reader.read() {
+        trace!("{pointer}");
     }
 }
 
@@ -214,7 +215,7 @@ pub fn update_debug_data(
     entity_names: Query<NameOrEntity>,
     mut pointers: Query<(
         &PointerId,
-        &pointer::PointerLocation,
+        &PointerLocation,
         &PointerPress,
         &mut PointerDebug,
     )>,
@@ -242,7 +243,7 @@ pub fn update_debug_data(
 /// Draw text on each cursor with debug info
 pub fn debug_draw(
     mut commands: Commands,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
     pointers: Query<(Entity, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
@@ -253,9 +254,8 @@ pub fn debug_draw(
         };
         let text = format!("{id:?}\n{debug}");
 
-        for (camera, _) in camera_query.iter().filter(|(_, camera)| {
-            camera
-                .target
+        for (camera, _, _) in camera_query.iter().filter(|(_, _, render_target)| {
+            render_target
                 .normalize(primary_window.single().ok())
                 .is_some_and(|target| target == pointer_location.target)
         }) {
@@ -263,7 +263,7 @@ pub fn debug_draw(
             if let Some(viewport) = camera_query
                 .get(camera)
                 .ok()
-                .and_then(|(_, camera)| camera.logical_viewport_rect())
+                .and_then(|(_, camera, _)| camera.logical_viewport_rect())
             {
                 pointer_pos -= viewport.min;
             }

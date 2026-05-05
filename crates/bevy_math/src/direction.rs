@@ -4,6 +4,7 @@ use crate::{
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
+use core::fmt;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -106,6 +107,8 @@ impl Dir2 {
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 4] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y];
 
     /// The "north" direction, equivalent to [`Dir2::Y`].
     pub const NORTH: Self = Self(Vec2::Y);
@@ -123,6 +126,25 @@ impl Dir2 {
     pub const SOUTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
     pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+
+    /// The diagonals between the cardinal directions.
+    pub const DIAGONALS: [Self; 4] = [
+        Self::NORTH_EAST,
+        Self::NORTH_WEST,
+        Self::SOUTH_EAST,
+        Self::SOUTH_WEST,
+    ];
+    /// All neighbors of a tile on a square grid in a 3x3 neighborhood. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
+    pub const ALL_NEIGHBORS: [Self; 8] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::NORTH_EAST,
+        Self::NORTH_WEST,
+        Self::SOUTH_EAST,
+        Self::SOUTH_WEST,
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
@@ -176,6 +198,12 @@ impl Dir2 {
     /// The vector produced from `x` and `y` must be normalized, i.e its length must be `1.0`.
     pub fn from_xy_unchecked(x: f32, y: f32) -> Self {
         Self::new_unchecked(Vec2::new(x, y))
+    }
+
+    /// Creates a 2D direction containing `[angle.cos(), angle.sin()]`.
+    #[inline]
+    pub fn from_angle(angle: f32) -> Self {
+        Self(Vec2::from_angle(angle))
     }
 
     /// Returns the inner [`Vec2`]
@@ -325,6 +353,12 @@ impl core::ops::Mul<Dir2> for Rot2 {
     }
 }
 
+impl fmt::Display for Dir2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Dir2 {
     type Epsilon = f32;
@@ -388,6 +422,139 @@ impl Dir3 {
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 6] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::Z,
+        Self::NEG_Z,
+    ];
+
+    // Adding this allow here to make sure that the precision in FRAC_1_SQRT_2
+    // and here is the same
+    /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
+    const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456_f32;
+    /// The directions pointing towards the vertices of a cube centered at the origin.
+    pub const ALL_VERTICES: [Self; 8] = [
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+    ];
+    /// The directions towards centers of each edge of a cube
+    pub const ALL_EDGES: [Self; 12] = [
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+    ];
+    /// All neighbors of a tile on a cube grid a 3x3x3 neighborhood. A combination of [`Self::CARDINALS`], [`Self::ALL_EDGES`] and [`Self::ALL_VERTICES`]
+    pub const ALL_NEIGHBORS: [Self; 26] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::Z,
+        Self::NEG_Z,
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
@@ -584,6 +751,12 @@ impl core::ops::Mul<Dir3> for Quat {
         );
 
         Dir3(rotated)
+    }
+}
+
+impl fmt::Display for Dir3 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -834,6 +1007,12 @@ impl core::ops::Mul<Dir3A> for Quat {
     }
 }
 
+impl fmt::Display for Dir3A {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir3A {
     type Epsilon = f32;
@@ -1019,6 +1198,12 @@ impl core::ops::Mul<Dir4> for f32 {
     type Output = Vec4;
     fn mul(self, rhs: Dir4) -> Self::Output {
         self * rhs.0
+    }
+}
+
+impl fmt::Display for Dir4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

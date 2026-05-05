@@ -13,18 +13,6 @@ mod pipelines;
 mod resource_manager;
 mod visibility_buffer_raster_node;
 
-pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum NodeMeshlet {
-        VisibilityBufferRasterPass,
-        Prepass,
-        DeferredPrepass,
-        MainOpaquePass,
-    }
-}
-
 pub(crate) use self::{
     instance_manager::{queue_material_meshlet_meshes, InstanceManager},
     material_pipeline_prepare::{
@@ -40,28 +28,30 @@ pub use self::from_mesh::{
     MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
 };
 use self::{
-    graph::NodeMeshlet,
     instance_manager::extract_meshlet_mesh_entities,
     material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
     material_shade_nodes::{
-        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
+        meshlet_deferred_gbuffer_prepass, meshlet_main_opaque_pass, meshlet_prepass,
     },
-    meshlet_mesh_manager::{perform_pending_meshlet_mesh_writes, MeshletMeshManager},
+    meshlet_mesh_manager::perform_pending_meshlet_mesh_writes,
     pipelines::*,
     resource_manager::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
-    visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
+    visibility_buffer_raster_node::meshlet_visibility_buffer_raster,
 };
-use crate::{graph::NodePbr, PreviousGlobalTransform};
+use crate::render::{per_view_shadow_pass, EARLY_SHADOW_PASS};
+use crate::{meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
+use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
+    core_3d::main_opaque_pass_3d,
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -70,25 +60,20 @@ use bevy_ecs::{
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
+    template::FromTemplate,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    view::{prepare_view_targets, Msaa},
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
-
-const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d90ac78c-500f-48aa-b488-cc98eb3f6314");
-const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("db8d9001-6ca7-4d00-968a-d5f5b96b89c3");
 
 /// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
@@ -138,7 +123,7 @@ impl MeshletPlugin {
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
             | WgpuFeatures::DEPTH_CLIP_CONTROL
-            | WgpuFeatures::PUSH_CONSTANTS
+            | WgpuFeatures::IMMEDIATES
     }
 }
 
@@ -152,127 +137,48 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
-        load_internal_asset!(
-            app,
-            MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
-            "clear_visibility_buffer.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_BINDINGS_SHADER_HANDLE,
-            "meshlet_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "visibility_buffer_resolve.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
-            "fill_cluster_buffers.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_CULLING_SHADER_HANDLE,
-            "cull_clusters.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_software_raster.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_hardware_raster.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-            "meshlet_mesh_material.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
-            "resolve_render_targets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
-            "remap_1d_to_2d_dispatch.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "meshlet_bindings.wgsl");
+        load_shader_library!(app, "visibility_buffer_resolve.wgsl");
+        load_shader_library!(app, "meshlet_cull_shared.wgsl");
+        embedded_asset!(app, "clear_visibility_buffer.wgsl");
+        embedded_asset!(app, "cull_instances.wgsl");
+        embedded_asset!(app, "cull_bvh.wgsl");
+        embedded_asset!(app, "cull_clusters.wgsl");
+        embedded_asset!(app, "visibility_buffer_software_raster.wgsl");
+        embedded_asset!(app, "visibility_buffer_hardware_raster.wgsl");
+        embedded_asset!(app, "meshlet_mesh_material.wgsl");
+        embedded_asset!(app, "resolve_render_targets.wgsl");
+        embedded_asset!(app, "remap_1d_to_2d_dispatch.wgsl");
+        embedded_asset!(app, "fill_counts.wgsl");
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
-        let features = render_device.features();
-        if !features.contains(Self::required_wgpu_features()) {
-            error!(
-                "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
-                Self::required_wgpu_features().difference(features)
-            );
-            std::process::exit(1);
-        }
+        // Create a variable here so we can move-capture it.
+        let cluster_buffer_slots = self.cluster_buffer_slots;
+        let init_resource_manager_system =
+            move |mut commands: Commands, render_device: Res<RenderDevice>| {
+                commands
+                    .insert_resource(ResourceManager::new(cluster_buffer_slots, &render_device));
+            };
 
         render_app
-            .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
-                Core3d,
-                NodeMeshlet::VisibilityBufferRasterPass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(
-                Core3d,
-                NodeMeshlet::Prepass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletDeferredGBufferPrepassNode>>(
-                Core3d,
-                NodeMeshlet::DeferredPrepass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
-                Core3d,
-                NodeMeshlet::MainOpaquePass,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::EarlyShadowPass,
-                    //
-                    NodeMeshlet::Prepass,
-                    //
-                    NodeMeshlet::DeferredPrepass,
-                    Node3d::EndPrepasses,
-                    //
-                    Node3d::StartMainPass,
-                    NodeMeshlet::MainOpaquePass,
-                    Node3d::MainOpaquePass,
-                    Node3d::EndMainPass,
-                ),
-            )
-            .init_resource::<MeshletMeshManager>()
             .insert_resource(InstanceManager::new())
-            .insert_resource(ResourceManager::new(
-                self.cluster_buffer_slots,
-                &render_device,
-            ))
-            .init_resource::<MeshletPipelines>()
+            .add_systems(
+                RenderStartup,
+                (
+                    check_meshlet_features,
+                    (
+                        (init_resource_manager_system, init_meshlet_pipelines).chain(),
+                        init_meshlet_mesh_manager,
+                    ),
+                )
+                    .chain(),
+            )
             .add_systems(ExtractSchedule, extract_meshlet_mesh_entities)
             .add_systems(
                 Render,
@@ -280,19 +186,52 @@ impl Plugin for MeshletPlugin {
                     perform_pending_meshlet_mesh_writes.in_set(RenderSystems::PrepareAssets),
                     configure_meshlet_views
                         .after(prepare_view_targets)
-                        .in_set(RenderSystems::ManageViews),
+                        .in_set(RenderSystems::PrepareViews),
                     prepare_meshlet_per_frame_resources.in_set(RenderSystems::PrepareResources),
                     prepare_meshlet_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    queue_material_meshlet_meshes.in_set(RenderSystems::QueueMeshes),
+                    prepare_material_meshlet_meshes_main_opaque_pass
+                        .in_set(RenderSystems::QueueMeshes)
+                        .before(queue_material_meshlet_meshes),
+                ),
+            )
+            .add_systems(
+                Core3d,
+                (
+                    meshlet_visibility_buffer_raster
+                        .before(per_view_shadow_pass::<EARLY_SHADOW_PASS>),
+                    meshlet_prepass
+                        .after(per_view_shadow_pass::<EARLY_SHADOW_PASS>)
+                        .in_set(Core3dSystems::Prepass),
+                    meshlet_deferred_gbuffer_prepass
+                        .after(meshlet_prepass)
+                        .in_set(Core3dSystems::Prepass),
+                    meshlet_main_opaque_pass
+                        .before(main_opaque_pass_3d)
+                        .in_set(Core3dSystems::MainPass),
                 ),
             );
     }
 }
 
-/// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+fn check_meshlet_features(render_device: Res<RenderDevice>) {
+    let features = render_device.features();
+    if !features.contains(MeshletPlugin::required_wgpu_features()) {
+        error!(
+            "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
+            MeshletPlugin::required_wgpu_features().difference(features)
+        );
+        std::process::exit(1);
+    }
+}
+
+/// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
+#[component(on_add = visibility::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {

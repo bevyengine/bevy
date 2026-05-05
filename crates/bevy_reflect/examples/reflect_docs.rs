@@ -4,7 +4,7 @@
 //! For example, you may want to generate schemas or other external documentation for scripting.
 //! Or perhaps you want your custom editor to display tooltips for certain properties that match the documentation.
 //!
-//! These scenarios can readily be achieved by using `bevy_reflect` with the `documentation` feature.
+//! These scenarios can readily be achieved by using `bevy_reflect` with the `reflect_documentation` feature.
 
 #![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 

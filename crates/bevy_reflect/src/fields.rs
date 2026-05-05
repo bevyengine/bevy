@@ -14,7 +14,7 @@ pub struct NamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     ty: Type,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -26,13 +26,13 @@ impl NamedField {
             type_info: T::maybe_type_info,
             ty: Type::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this field.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -62,7 +62,7 @@ impl NamedField {
     impl_type_methods!(ty);
 
     /// The docstring of this field, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -77,24 +77,25 @@ pub struct UnnamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     ty: Type,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
 impl UnnamedField {
+    /// Create a new [`UnnamedField`].
     pub fn new<T: PartialReflect + MaybeTyped + TypePath>(index: usize) -> Self {
         Self {
             index,
             type_info: T::maybe_type_info,
             ty: Type::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this field.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -124,7 +125,7 @@ impl UnnamedField {
     impl_type_methods!(ty);
 
     /// The docstring of this field, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -135,7 +136,9 @@ impl UnnamedField {
 /// A representation of a field's accessor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FieldId {
+    /// Access a field by name.
     Named(Cow<'static, str>),
+    /// Access a field by index.
     Unnamed(usize),
 }
 
