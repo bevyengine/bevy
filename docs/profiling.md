@@ -80,6 +80,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 4. Run your bevy app with `--features bevy/trace_tracy --release`
    - `--release` as theres little point to profiling unoptimized code
    - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
+   - To see debug names for Bevy's own systems, add the `bevy/debug` feature with `--features bevy/trace_tracy,bevy/debug`.
 
 #### Finding the correct Tracy version
 

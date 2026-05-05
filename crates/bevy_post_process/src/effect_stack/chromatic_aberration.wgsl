@@ -2,9 +2,9 @@
 //
 // This makes edges of objects turn into multicolored streaks.
 
-#define_import_path bevy_core_pipeline::post_processing::chromatic_aberration
+#define_import_path bevy_post_process::effect_stack::chromatic_aberration
 
-// See `bevy_core_pipeline::post_process::ChromaticAberration` for more
+// See `bevy_post_process::effect_stack::ChromaticAberration` for more
 // information on these fields.
 struct ChromaticAberrationSettings {
     intensity: f32,
@@ -14,15 +14,13 @@ struct ChromaticAberrationSettings {
 }
 
 // The source framebuffer texture.
-@group(0) @binding(0) var chromatic_aberration_source_texture: texture_2d<f32>;
+@group(0) @binding(0) var source_texture: texture_2d<f32>;
 // The sampler used to sample the source framebuffer texture.
-@group(0) @binding(1) var chromatic_aberration_source_sampler: sampler;
+@group(0) @binding(1) var common_sampler: sampler;
 // The 1D lookup table for chromatic aberration.
 @group(0) @binding(2) var chromatic_aberration_lut_texture: texture_2d<f32>;
-// The sampler used to sample that lookup table.
-@group(0) @binding(3) var chromatic_aberration_lut_sampler: sampler;
 // The settings supplied by the developer.
-@group(0) @binding(4) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
+@group(0) @binding(3) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
 
 fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     // Radial chromatic aberration implemented using the *Inside* technique:
@@ -35,7 +33,7 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     // that's higher than the developer-specified maximum number of samples, in
     // which case we choose the maximum number of samples.
     let texel_length = length((end_pos - start_pos) *
-        vec2<f32>(textureDimensions(chromatic_aberration_source_texture)));
+        vec2<f32>(textureDimensions(source_texture)));
     let sample_count = min(u32(ceil(texel_length)), chromatic_aberration_settings.max_samples);
 
     var color: vec3<f32>;
@@ -55,8 +53,8 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
             // Sample the framebuffer.
             let sample_uv = mix(start_pos, end_pos, t);
             let sample = textureSampleLevel(
-                chromatic_aberration_source_texture,
-                chromatic_aberration_source_sampler,
+                source_texture,
+                common_sampler,
                 sample_uv,
                 0.0,
             ).rgb;
@@ -65,7 +63,7 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
             let lut_u = mix(lut_u_offset, 1.0 - lut_u_offset, t);
             let modulate = textureSampleLevel(
                 chromatic_aberration_lut_texture,
-                chromatic_aberration_lut_sampler,
+                common_sampler,
                 vec2(lut_u, 0.5),
                 0.0,
             ).rgb;
@@ -81,8 +79,8 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
         // then this shader will apply whatever tint is in the center of the LUT
         // texture to such pixels, which is wrong.
         color = textureSampleLevel(
-            chromatic_aberration_source_texture,
-            chromatic_aberration_source_sampler,
+            source_texture,
+            common_sampler,
             start_pos,
             0.0,
         ).rgb;

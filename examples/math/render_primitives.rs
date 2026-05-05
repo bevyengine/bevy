@@ -41,8 +41,9 @@ fn main() {
                 switch_to_previous_primitive.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 draw_gizmos_2d.run_if(in_mode(CameraActive::Dim2)),
                 draw_gizmos_3d.run_if(in_mode(CameraActive::Dim3)),
-                update_primitive_meshes
-                    .run_if(state_changed::<PrimitiveSelected>.or(state_changed::<CameraActive>)),
+                update_primitive_meshes.run_if(
+                    state_changed::<PrimitiveSelected>.or_eager(state_changed::<CameraActive>),
+                ),
                 rotate_primitive_2d_meshes,
                 rotate_primitive_3d_meshes,
             ),
@@ -377,7 +378,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         children![(
             Text::default(),
             HeaderText,
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
             children![
                 TextSpan::new("Primitive: "),
                 TextSpan(format!("{text}", text = PrimitiveSelected::default())),

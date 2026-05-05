@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, num::NonZero};
 
 use crate::{
-    render_resource::Buffer,
+    render_resource::{make_buffer_label, Buffer},
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
@@ -131,7 +131,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
         if self.changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -296,7 +296,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
         if capacity < size || (self.changed && size > 0) {
             let buffer = device.create_buffer(&BufferDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 size,
                 mapped_at_creation: false,
@@ -307,9 +307,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
 
         if let Some(buffer) = self.buffer.as_deref() {
-            let buffer_view = queue
-                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
-                .unwrap();
+            let buffer_view =
+                queue.write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)?;
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
                     QueueWriteBufferViewWrapper {
@@ -385,12 +384,16 @@ impl BufferMut for QueueWriteBufferViewWrapper {
 
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
-        self.buffer_view.write(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 
     #[inline]
     fn write_slice(&mut self, offset: usize, val: &[u8]) {
-        self.buffer_view.write_slice(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 }
 
