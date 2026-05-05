@@ -1454,6 +1454,11 @@ impl Image {
                 },
             );
         }
+        // Must have at least two tiles. Otherwise, interpreting an image as a grid
+        // creates unnesasaary overhead and can cause errors in the transformation function.
+        if rows * columns < 2 {
+            return Err(TextureReinterpretationError::InvalidTileCount);
+        }
 
         let tile_width = self.width() / columns;
         let tile_height = self.height() / rows;
@@ -2187,6 +2192,9 @@ pub enum TextureReinterpretationError {
     /// The texture format is not supported.
     #[error("Cannot process texture in its current format. Is it compressed?")]
     InvalidTextureFormat,
+    /// Tilesets should contains at least two tiles.
+    #[error("Tilesets need to contain at least two tiles.")]
+    InvalidTileCount,
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
