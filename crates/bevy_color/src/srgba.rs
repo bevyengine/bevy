@@ -415,6 +415,18 @@ impl From<Srgba> for Xyza {
     }
 }
 
+#[cfg(feature = "wgpu-types")]
+impl From<Srgba> for wgpu_types::Color {
+    fn from(color: Srgba) -> Self {
+        wgpu_types::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
+    }
+}
+
 /// Error returned if a hex string could not be parsed as a color.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {

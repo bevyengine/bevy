@@ -7,11 +7,9 @@
     mesh_view_types,
     lighting,
     lighting::{LAYER_BASE, LAYER_CLEARCOAT},
-    transmission,
     clustered_forward as clustering,
     shadows,
     ambient,
-    irradiance_volume,
     view_transformations,
     raymarch,
     utils,
@@ -20,6 +18,14 @@
 #import bevy_pbr::mesh_view_bindings::globals
 #import bevy_pbr::view_transformations::{position_world_to_ndc}
 #import bevy_render::maths::{E, powsafe}
+
+#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
+#import bevy_pbr::transmission
+#endif
+
+#ifdef IRRADIANCE_VOLUME
+#import bevy_pbr::irradiance_volume
+#endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
@@ -287,6 +293,7 @@ fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) ->
     return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }
 
+#ifdef CONTACT_SHADOWS
 #ifdef DEPTH_PREPASS
 fn calculate_contact_shadow(
     world_position: vec3<f32>,
@@ -322,6 +329,7 @@ fn calculate_contact_shadow(
     }
     return 1.0;
 }
+#endif
 #endif
 
 #ifndef PREPASS_FRAGMENT
@@ -451,8 +459,10 @@ fn apply_pbr_lighting(
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
+#ifdef CONTACT_SHADOWS
     let contact_shadow_steps = view_bindings::contact_shadows_settings.linear_steps;
     let contact_shadow_enabled = contact_shadow_steps > 0u;
+#endif
 
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
@@ -476,6 +486,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal, in.frag_coord.xy);
         }
 
+#ifdef CONTACT_SHADOWS
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::clustered_lights.data[light_id].flags &
@@ -483,6 +494,7 @@ fn apply_pbr_lighting(
             let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
             shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
+#endif
 #endif
 
         let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
@@ -539,6 +551,7 @@ fn apply_pbr_lighting(
             );
         }
 
+#ifdef CONTACT_SHADOWS
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::clustered_lights.data[light_id].flags &
@@ -546,6 +559,7 @@ fn apply_pbr_lighting(
             let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
             shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
+#endif
 #endif
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
@@ -603,6 +617,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z, in.frag_coord.xy);
         }
 
+#ifdef CONTACT_SHADOWS
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
                 (view_bindings::lights.directional_lights[i].flags &
@@ -610,6 +625,7 @@ fn apply_pbr_lighting(
             let L = view_bindings::lights.directional_lights[i].direction_to_light;
             shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
+#endif
 #endif
 
         var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
@@ -641,6 +657,7 @@ fn apply_pbr_lighting(
 #endif
     }
 
+#ifdef AREA_LIGHT_LUTS
     // Rect lights
     let n_rect_lights = view_bindings::lights.n_rect_lights;
     for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
@@ -654,6 +671,7 @@ fn apply_pbr_lighting(
         transmitted_light += transmitted_light_contrib;
     #endif
     }
+#endif
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated

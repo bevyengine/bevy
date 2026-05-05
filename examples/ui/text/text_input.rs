@@ -4,8 +4,26 @@
 //! In most cases, this should be combined with other entities to create a compound widget
 //! that includes e.g. a background, border, and text label.
 //!
+//! Note that while Bevy does offer clipboard support, access to the system clipboard is gated
+//! behind an off-by-default feature (`system_clipboard` on `bevy_clipboard`).
+//! When this is disabled, clipboard operations (copy, cut, paste) will operate on a simple in-memory buffer
+//! that is not shared with the operating system.
+//! This means that, unless you enable this feature,
+//! you will not be able to copy text from your application and paste it into another application, or vice versa.
+//!
+//! Most applications that use text input will want to enable system clipboard support to meet user expectations for copy/paste behavior.
+//! It is off by default to avoid forcing clipboard permissions on applications that do not need it but wish to use Bevy's UI solution for other widgets,
+//! and to avoid including the `arboard` dependency on platforms where it is not supported or where clipboard access is not desired.
+//! While desktop platforms generally support clipboard access without special permissions, some platforms (notably web and mobile)
+//! may require additional permissions or user gestures to allow clipboard access;
+//! this approach allows developers to opt in to full clipboard support only when they genuinely need it.
+//!
+//! To test this example using the system feature, run `cargo run --example text_input --features="system_clipboard"`.
+//! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
+//!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::{DARK_GREY, YELLOW};
+use bevy::color::palettes::css::DARK_GREY;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
@@ -27,44 +45,38 @@ fn main() {
 struct TextOutput;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Set up a camera
-    // We need a camera to see the UI
     commands.spawn(Camera2d);
 
-    // Create a root UI node, so we can place the input above the output in a column
     let root = commands
         .spawn(Node {
-            display: Display::Block,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            padding: px(20).all(),
+            row_gap: px(16),
             ..default()
         })
         .id();
 
     let text_instructions = commands
         .spawn((
-            Node {
-                width: px(400),
-                height: px(100),
-                ..Default::default()
-            },
-            BorderColor::from(Color::from(YELLOW)),
             Text::new("Ctrl+Enter to submit text"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: FontSize::Px(30.0),
                 ..default()
             },
-            UiTransform::from_translation(Val2::ZERO),
         ))
         .id();
 
-    let text_input_left = build_input_text(&mut commands, true, 30.0);
-    let text_input_right = build_input_text(&mut commands, false, 50.0);
+    let text_input_left = build_input_text(&mut commands, true, 24.0);
+    let text_input_right = build_input_text(&mut commands, false, 24.0);
 
     let input_container = commands
         .spawn((
             Node {
                 display: Display::Flex,
                 align_items: AlignItems::Start,
+                column_gap: px(16),
                 ..default()
             },
             AutoFocus,
@@ -76,23 +88,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_output = commands
         .spawn((
             Node {
-                width: px(400),
-                height: px(100),
-                border: px(5).all(),
+                width: px(416),
+                border: px(2).all(),
+                padding: px(8).all(),
                 ..Default::default()
             },
-            BorderColor::from(Color::from(YELLOW)),
-            Text::new("testing"),
+            BorderColor::from(Color::from(SLATE_300)),
+            Text::new(""),
             TextOutput,
             TextFont {
-                font_size: FontSize::Px(70.0),
+                font_size: FontSize::Px(24.0),
                 ..default()
             },
-            UiTransform::from_translation(Val2::px(5.0, 200.0)),
         ))
         .id();
 
-    // Assemble our hierarchy
     commands
         .entity(input_container)
         .add_children(&[text_input_left, text_input_right]);
@@ -107,11 +117,11 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
         .spawn((
             Node {
                 width: px(200),
-                border: px(5).all(),
-                padding: px(5).all(),
+                border: px(2).all(),
+                padding: px(8).all(),
                 ..Default::default()
             },
-            BorderColor::from(Color::from(YELLOW)),
+            BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
             EditableText {
                 max_characters: (!is_left).then_some(7),
@@ -124,7 +134,6 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
             TextCursorStyle::default(),
             TabIndex(if is_left { 0 } else { 1 }),
             BackgroundColor(DARK_GREY.into()),
-            UiTransform::from_translation(Val2::px(if is_left { 0.0 } else { 300.0 }, 50.0)),
         ))
         .id()
 }
