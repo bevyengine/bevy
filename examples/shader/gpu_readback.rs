@@ -2,20 +2,20 @@
 //! using both a storage buffer and texture.
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
-        render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph::{self, RenderGraph, RenderLabel},
+        render_asset::RenderAssets,
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
         },
-        renderer::{RenderContext, RenderDevice},
-        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+        renderer::{RenderContext, RenderDevice, RenderGraph},
+        storage::{GpuShaderBuffer, ShaderBuffer},
         texture::GpuImage,
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
 
@@ -41,29 +41,25 @@ fn main() {
 // We need a plugin to organize all the systems and render node required for this example
 struct GpuReadbackPlugin;
 impl Plugin for GpuReadbackPlugin {
-    fn build(&self, _app: &mut App) {}
-
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.init_resource::<ComputePipeline>().add_systems(
-            Render,
-            prepare_bind_group
-                .in_set(RenderSet::PrepareBindGroups)
-                // We don't need to recreate the bind group every frame
-                .run_if(not(resource_exists::<GpuBufferBindGroup>)),
-        );
-
-        // Add the compute node as a top level node to the render graph
-        // This means it will only execute once per frame
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
         render_app
-            .world_mut()
-            .resource_mut::<RenderGraph>()
-            .add_node(ComputeNodeLabel, ComputeNode::default());
+            .add_systems(RenderStartup, init_compute_pipeline)
+            .add_systems(
+                Render,
+                prepare_bind_group
+                    .in_set(RenderSystems::PrepareBindGroups)
+                    // We don't need to recreate the bind group every frame
+                    .run_if(not(resource_exists::<GpuBufferBindGroup>)),
+            )
+            .add_systems(RenderGraph, compute);
     }
 }
 
 #[derive(Resource, ExtractResource, Clone)]
-struct ReadbackBuffer(Handle<ShaderStorageBuffer>);
+struct ReadbackBuffer(Handle<ShaderBuffer>);
 
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);
@@ -71,11 +67,11 @@ struct ReadbackImage(Handle<Image>);
 fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
 ) {
     // Create a storage buffer with some data
-    let buffer = vec![0u32; BUFFER_LEN];
-    let mut buffer = ShaderStorageBuffer::from(buffer);
+    let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
+    let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
@@ -102,28 +98,41 @@ fn setup(
     // Spawn the readback components. For each frame, the data will be read back from the GPU
     // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity
     // to stop reading back the data.
-    commands.spawn(Readback::buffer(buffer.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
-            // This matches the type which was used to create the `ShaderStorageBuffer` above,
+    commands
+        .spawn(Readback::buffer(buffer.clone()))
+        .observe(|event: On<ReadbackComplete>| {
+            // This matches the type which was used to create the `ShaderBuffer` above,
             // and is a convenient way to interpret the data.
-            let data: Vec<u32> = trigger.event().to_shader_type();
+            let data: Vec<u32> = event.to_shader_type();
             info!("Buffer {:?}", data);
-        },
-    );
+        });
+
+    // It is also possible to read only a range of the buffer.
+    commands
+        .spawn(Readback::buffer_range(
+            buffer.clone(),
+            4 * u32::SHADER_SIZE.get(), // skip the first four elements
+            8 * u32::SHADER_SIZE.get(), // read eight elements
+        ))
+        .observe(|event: On<ReadbackComplete>| {
+            let data: Vec<u32> = event.to_shader_type();
+            info!("Buffer range {:?}", data);
+        });
+
     // This is just a simple way to pass the buffer handle to the render app for our compute node
     commands.insert_resource(ReadbackBuffer(buffer));
 
     // Textures can also be read back from the GPU. Pay careful attention to the format of the
     // texture, as it will affect how the data is interpreted.
-    commands.spawn(Readback::texture(image.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
+    commands
+        .spawn(Readback::texture(image.clone()))
+        .observe(|event: On<ReadbackComplete>| {
             // You probably want to interpret the data as a color rather than a `ShaderType`,
             // but in this case we know the data is a single channel storage texture, so we can
             // interpret it as a `Vec<u32>`
-            let data: Vec<u32> = trigger.event().to_shader_type();
+            let data: Vec<u32> = event.to_shader_type();
             info!("Image {:?}", data);
-        },
-    );
+        });
     commands.insert_resource(ReadbackImage(image));
 }
 
@@ -134,16 +143,17 @@ fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<ComputePipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     buffer: Res<ReadbackBuffer>,
     image: Res<ReadbackImage>,
-    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    buffers: Res<RenderAssets<GpuShaderBuffer>>,
     images: Res<RenderAssets<GpuImage>>,
 ) {
     let buffer = buffers.get(&buffer.0).unwrap();
     let image = images.get(&image.0).unwrap();
     let bind_group = render_device.create_bind_group(
         None,
-        &pipeline.layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
         &BindGroupEntries::sequential((
             buffer.buffer.as_entire_buffer_binding(),
             image.texture_view.into_binding(),
@@ -154,69 +164,52 @@ fn prepare_bind_group(
 
 #[derive(Resource)]
 struct ComputePipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     pipeline: CachedComputePipelineId,
 }
 
-impl FromWorld for ComputePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(
-            None,
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    storage_buffer::<Vec<u32>>(false),
-                    texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
-                ),
+fn init_compute_pipeline(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    pipeline_cache: Res<PipelineCache>,
+) {
+    let layout = BindGroupLayoutDescriptor::new(
+        "",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                storage_buffer::<Vec<u32>>(false),
+                texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
             ),
-        );
-        let shader = world.load_asset(SHADER_ASSET_PATH);
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("GPU readback compute shader".into()),
-            layout: vec![layout.clone()],
-            push_constant_ranges: Vec::new(),
-            shader: shader.clone(),
-            shader_defs: Vec::new(),
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
-        });
-        ComputePipeline { layout, pipeline }
-    }
+        ),
+    );
+    let shader = asset_server.load(SHADER_ASSET_PATH);
+    let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("GPU readback compute shader".into()),
+        layout: vec![layout.clone()],
+        shader: shader.clone(),
+        ..default()
+    });
+    commands.insert_resource(ComputePipeline { layout, pipeline });
 }
 
-/// Label to identify the node in the render graph
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct ComputeNodeLabel;
+fn compute(
+    mut render_context: RenderContext,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<ComputePipeline>,
+    bind_group: Res<GpuBufferBindGroup>,
+) {
+    if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
+        let mut pass =
+            render_context
+                .command_encoder()
+                .begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("GPU readback compute pass"),
+                    ..default()
+                });
 
-/// The node that will execute the compute shader
-#[derive(Default)]
-struct ComputeNode {}
-impl render_graph::Node for ComputeNode {
-    fn run(
-        &self,
-        _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<ComputePipeline>();
-        let bind_group = world.resource::<GpuBufferBindGroup>();
-
-        if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("GPU readback compute pass"),
-                        ..default()
-                    });
-
-            pass.set_bind_group(0, &bind_group.0, &[]);
-            pass.set_pipeline(init_pipeline);
-            pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
-        }
-        Ok(())
+        pass.set_bind_group(0, &bind_group.0, &[]);
+        pass.set_pipeline(init_pipeline);
+        pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
     }
 }

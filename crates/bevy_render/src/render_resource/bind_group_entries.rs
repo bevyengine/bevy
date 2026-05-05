@@ -147,6 +147,13 @@ impl<'a> IntoBinding<'a> for &'a TextureView {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a wgpu::TextureView {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::TextureView(self)
+    }
+}
+
 impl<'a> IntoBinding<'a> for &'a [&'a wgpu::TextureView] {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
@@ -161,6 +168,13 @@ impl<'a> IntoBinding<'a> for &'a Sampler {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a [&'a wgpu::Sampler] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::SamplerArray(self)
+    }
+}
+
 impl<'a> IntoBinding<'a> for BindingResource<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
@@ -172,6 +186,13 @@ impl<'a> IntoBinding<'a> for wgpu::BufferBinding<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
         BindingResource::Buffer(self)
+    }
+}
+
+impl<'a> IntoBinding<'a> for &'a [wgpu::BufferBinding<'a>] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::BufferArray(self)
     }
 }
 
@@ -220,7 +241,13 @@ macro_rules! impl_to_indexed_binding_slice {
 all_tuples_with_size!(impl_to_indexed_binding_slice, 1, 32, T, n, s);
 
 pub struct DynamicBindGroupEntries<'b> {
-    entries: Vec<BindGroupEntry<'b>>,
+    pub entries: Vec<BindGroupEntry<'b>>,
+}
+
+impl<'b> Default for DynamicBindGroupEntries<'b> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'b> DynamicBindGroupEntries<'b> {
@@ -263,6 +290,12 @@ impl<'b> DynamicBindGroupEntries<'b> {
                 .into_iter()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource })
                 .collect(),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
         }
     }
 

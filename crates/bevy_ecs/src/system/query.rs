@@ -1,11 +1,15 @@
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     batching::BatchingStrategy,
-    component::Tick,
-    entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
+    change_detection::Tick,
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
+        ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
+        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -115,7 +119,7 @@ use core::{
 /// ```
 ///
 /// Note that the filter is `With<ComponentB>`, not `With<&ComponentB>`. Unlike query data, `With`
-/// does require components to be behind a reference.
+/// does not require components to be behind a reference.
 ///
 /// ## `QueryData` or `QueryFilter` tuples
 ///
@@ -209,7 +213,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// #
-/// // A queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
+/// // Queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
 /// // be fetched as well.
 /// fn optional_component_query(query: Query<(&ComponentA, Option<&ComponentB>)>) {
 ///     // ...
@@ -440,7 +444,7 @@ use core::{
 /// |[`get_many`]|O(k)|
 /// |[`get_many_mut`]|O(k<sup>2</sup>)|
 /// |Archetype-based filtering ([`With`], [`Without`], [`Or`])|O(a)|
-/// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
+/// |Change detection filtering ([`Added`], [`Changed`], [`Spawned`])|O(a + n)|
 ///
 /// [component storage types]: crate::component::StorageType
 /// [`Table`]: crate::storage::Table
@@ -449,6 +453,7 @@ use core::{
 /// [`Or`]: crate::query::Or
 /// [`Added`]: crate::query::Added
 /// [`Changed`]: crate::query::Changed
+/// [`Spawned`]: crate::query::Spawned
 ///
 /// # `Iterator::for_each`
 ///
@@ -546,6 +551,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns another `Query` from this does not return any data, which can be faster.
+    ///
+    /// The resulting query will ignore any non-archetypal filters in `D`,
+    /// so this is only equivalent if `D::IS_ARCHETYPAL` is `true`.
     fn as_nop(&self) -> Query<'_, 's, NopWorldQuery<D>, F> {
         let new_state = self.state.as_nop();
         // SAFETY:
@@ -676,6 +684,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// # Example
     ///
     /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
@@ -699,7 +714,46 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`iter`](Self::iter) for read-only query items.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F> {
-        self.reborrow().into_iter()
+        self.reborrow().iter_inner()
+    }
+
+    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
+    /// # Example
+    ///
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in &query {
+    ///         println!("Say hello to {}!", player.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
+    /// ```
+    #[inline]
+    pub fn iter_inner(self) -> QueryIter<'w, 's, D, F> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - We consume the query, so mutable queries cannot alias.
+        //   Read-only queries are `Copy`, but may alias themselves.
+        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
@@ -756,9 +810,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_inner`](Self::iter_combinations_inner) for mutable query item combinations with the full `'world` lifetime.
     #[inline]
-    pub fn iter_combinations_mut<const K: usize>(
-        &mut self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    pub fn iter_combinations_mut<const K: usize>(&mut self) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_combinations_inner()
     }
 
@@ -787,7 +842,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
     #[inline]
-    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K> {
+    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe { QueryCombinationIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
@@ -933,10 +991,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     type Item = &'a Entity;
     ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
-    ///  
+    ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///        unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -991,7 +1049,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1016,7 +1074,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_many_unique_mut<EntityList: EntitySet>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_many_unique_inner(entities)
     }
 
@@ -1047,7 +1108,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1071,7 +1132,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_many_unique_inner<EntityList: EntitySet>(
         self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             QueryManyUniqueIter::new(
@@ -1089,6 +1153,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// # Safety
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
@@ -1098,7 +1169,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
     #[inline]
-    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, D, F> {
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.into_iter()
     }
@@ -1119,7 +1193,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    ) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_combinations_inner()
     }
@@ -1163,7 +1240,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub unsafe fn iter_many_unique_unsafe<EntityList: EntitySet>(
         &self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_many_unique_inner(entities)
     }
@@ -1184,7 +1264,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter(&self) -> QueryParIter<'_, '_, D::ReadOnly, F> {
+    pub fn par_iter(&self) -> QueryParIter<'_, 's, D::ReadOnly, F> {
         self.as_readonly().par_iter_inner()
     }
 
@@ -1219,7 +1299,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, D, F> {
+    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().par_iter_inner()
     }
 
@@ -1250,7 +1333,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
-    pub fn par_iter_inner(self) -> QueryParIter<'w, 's, D, F> {
+    pub fn par_iter_inner(self) -> QueryParIter<'w, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         QueryParIter {
             world: self.world,
             state: self.state,
@@ -1279,7 +1365,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many<EntityList: IntoIterator<Item: EntityEquivalent>>(
         &self,
         entities: EntityList,
-    ) -> QueryParManyIter<'_, '_, D::ReadOnly, F, EntityList::Item> {
+    ) -> QueryParManyIter<'_, 's, D::ReadOnly, F, EntityList::Item> {
         QueryParManyIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -1308,7 +1394,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many_unique<EntityList: EntitySet<Item: Sync>>(
         &self,
         entities: EntityList,
-    ) -> QueryParManyUniqueIter<'_, '_, D::ReadOnly, F, EntityList::Item> {
+    ) -> QueryParManyUniqueIter<'_, 's, D::ReadOnly, F, EntityList::Item> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -1337,7 +1423,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many_unique_mut<EntityList: EntitySet<Item: Sync>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryParManyUniqueIter<'_, '_, D, F, EntityList::Item> {
+    ) -> QueryParManyUniqueIter<'_, 's, D, F, EntityList::Item>
+    where
+        D: IterQueryData,
+    {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state,
@@ -1346,6 +1435,103 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system despawns all entities which health is negative.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    ///
+    /// fn despawn_all_dead_entities(mut commands: Commands, query: Query<(Entity, &Health)>) {
+    ///     for (entities, health) in query.contiguous_iter().unwrap() {
+    ///         // For each entity there is one component, hence it always holds true
+    ///         assert!(entities.len() == health.len());
+    ///         for (entity, health) in entities.iter().zip(health.iter()) {
+    ///             if health.0 < 0.0 {
+    ///                 commands.entity(*entity).despawn();
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// ```
+    ///
+    /// A mutable version: [`Self::contiguous_iter_mut`]
+    pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.as_readonly().contiguous_iter_inner().ok()
+    }
+
+    /// Returns a mutable contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system applies a "health decay" effect on all entities, which reduces their
+    /// health by some fraction.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    /// #
+    /// # #[derive(Component)]
+    /// # struct HealthDecay(pub f32);
+    ///
+    /// fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
+    ///     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
+    ///         // all data slices returned by component queries are the same size
+    ///         assert!(health.len() == decay.len());
+    ///         // we could have used health.bypass_change_detection() to do less work.
+    ///         for (health, decay) in health.iter_mut().zip(decay) {
+    ///             health.0 *= decay.0;
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    /// An immutable version: [`Self::contiguous_iter`]
+    pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.reborrow().contiguous_iter_inner().ok()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`Err`] with this [`Query`] if the query is not dense hence not contiguously
+    /// iterable.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
+    pub fn contiguous_iter_inner(self) -> Result<QueryContiguousIter<'w, 's, D, F>, Self>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components
+        // - `self.world` was used to initialize `self.state`
+        unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+            .ok_or(self)
     }
 
     /// Returns the read-only query item for the given [`Entity`].
@@ -1382,7 +1568,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, D>, QueryEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, 's, D>, QueryEntityError> {
         self.as_readonly().get_inner(entity)
     }
 
@@ -1414,11 +1600,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1429,12 +1615,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many_mut`](Self::get_many_mut) to get mutable query items.
     /// - [`get_many_unique`](Self::get_many_unique) to only handle unique inputs.
-    /// - [`many`](Self::many) for the panicking version.
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'_, 's, D>; N], QueryEntityError> {
         // Note that we call a separate `*_inner` method from `get_many_mut`
         // because we don't need to check for duplicates.
         self.as_readonly().get_many_inner(entities)
@@ -1466,11 +1651,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1485,62 +1670,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_unique<const N: usize>(
         &self,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'_, 's, D>; N], QueryEntityError> {
         self.as_readonly().get_many_unique_inner(entities)
-    }
-
-    /// Returns the read-only query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
-    ///
-    /// # Examples
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Targets([Entity; 3]);
-    ///
-    /// #[derive(Component)]
-    /// struct Position{
-    ///     x: i8,
-    ///     y: i8
-    /// };
-    ///
-    /// impl Position {
-    ///     fn distance(&self, other: &Position) -> i8 {
-    ///         // Manhattan distance is way easier to compute!
-    ///         (self.x - other.x).abs() + (self.y - other.y).abs()
-    ///     }
-    /// }
-    ///
-    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
-    ///     for (targeting_entity, targets, origin) in &targeting_query {
-    ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
-    ///
-    ///         assert!(target_1.distance(origin) <= 5);
-    ///         assert!(target_2.distance(origin) <= 5);
-    ///         assert!(target_3.distance(origin) <= 5);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) for the non-panicking version.
-    #[inline]
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `get_many` instead and handle the Result."
-    )]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
-        match self.get_many(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query results: {error}"),
-        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1573,7 +1704,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_, 's>, QueryEntityError> {
         self.reborrow().get_inner(entity)
     }
 
@@ -1588,15 +1719,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get the item using a mutable borrow of the [`Query`].
     #[inline]
-    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
+    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w, 's>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            let location = self
-                .world
-                .entities()
-                .get(entity)
-                .ok_or(EntityDoesNotExistError::new(entity, self.world.entities()))?;
+            let location = self.world.entities().get_spawned(entity)?;
             if !self
                 .state
                 .matched_archetypes
@@ -1634,8 +1761,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
             F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
 
-            if F::filter_fetch(&mut filter, entity, location.table_row) {
-                Ok(D::fetch(&mut fetch, entity, location.table_row))
+            if F::filter_fetch(
+                &self.state.filter_state,
+                &mut filter,
+                entity,
+                location.table_row,
+            ) && let Some(item) = D::fetch(
+                &self.state.fetch_state,
+                &mut fetch,
+                entity,
+                location.table_row,
+            ) {
+                Ok(item)
             } else {
                 Err(QueryEntityError::QueryDoesNotMatch(
                     entity,
@@ -1665,7 +1802,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1687,7 +1824,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_mut([wrong_entity])
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1712,12 +1849,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().get_many_mut_inner(entities)
     }
 
@@ -1740,7 +1879,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1762,7 +1901,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_unique_mut(UniqueEntityArray::from([wrong_entity]))
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::NotSpawned(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1785,7 +1924,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_unique_mut<const N: usize>(
         &mut self,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().get_many_unique_inner(entities)
     }
 
@@ -1804,7 +1946,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_mut_inner<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -1832,7 +1977,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_inner<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError>
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
     where
         D: ReadOnlyQueryData,
     {
@@ -1854,7 +1999,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_unique_inner<const N: usize>(
         self,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: All entities are unique, so the results don't alias.
         unsafe { self.get_many_impl(entities.into_inner()) }
     }
@@ -1869,78 +2017,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     unsafe fn get_many_impl<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
-            // SAFETY: The caller asserts that the results don't alias
+            // SAFETY: The caller asserts that the results don't alias,
+            // and `D: IterQueryData` so its valid to have items alive for different entitiess
             let item = unsafe { self.copy_unsafe() }.get_inner(entity)?;
             *value = MaybeUninit::new(item);
         }
 
         // SAFETY: Each value has been fully initialized.
         Ok(values.map(|x| unsafe { x.assume_init() }))
-    }
-
-    /// Returns the query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
-    ///
-    /// # Examples
-    ///
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Spring{
-    ///     connected_entities: [Entity; 2],
-    ///     strength: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Force {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
-    ///     for spring in &spring_query {
-    ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
-    ///
-    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
-    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
-    ///
-    ///          // Silence borrow-checker: I have split your mutable borrow!
-    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
-    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
-    /// - [`many`](Self::many) to get read-only query items.
-    #[inline]
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `get_many_mut` instead and handle the Result."
-    )]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
-        match self.get_many_mut(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query result: {error}"),
-        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1958,7 +2049,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) for the safe version.
     #[inline]
-    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub unsafe fn get_unchecked(
+        &self,
+        entity: Entity,
+    ) -> Result<D::Item<'_, 's>, QueryEntityError> {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.get_inner(entity)
     }
@@ -1994,14 +2088,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
     #[inline]
-    pub fn single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
+    pub fn single(&self) -> Result<ROQueryItem<'_, 's, D>, QuerySingleError> {
         self.as_readonly().single_inner()
-    }
-
-    /// A deprecated alias for [`single`](Self::single).
-    #[deprecated(since = "0.16.0", note = "Please use `single` instead")]
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
-        self.single()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -2029,14 +2117,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single`](Self::single) to get the read-only query item.
     #[inline]
-    pub fn single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
+    pub fn single_mut(&mut self) -> Result<D::Item<'_, 's>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().single_inner()
-    }
-
-    /// A deprecated alias for [`single_mut`](Self::single_mut).
-    #[deprecated(since = "0.16.0", note = "Please use `single_mut` instead")]
-    pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
-        self.single_mut()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -2065,17 +2150,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    /// - [`single_inner`](Self::single_inner) for the panicking version.
     #[inline]
-    pub fn single_inner(self) -> Result<D::Item<'w>, QuerySingleError> {
+    pub fn single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         let mut query = self.into_iter();
         let first = query.next();
         let extra = query.next().is_some();
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(core::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(core::any::type_name::<
+            (None, _) => Err(QuerySingleError::NoEntities(DebugName::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(DebugName::type_name::<
                 Self,
             >())),
         }
@@ -2085,8 +2172,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Example
     ///
@@ -2109,9 +2196,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.as_nop().iter().next().is_none()
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if D::IS_ARCHETYPAL {
+            self.as_nop().iter().next().is_none()
+        } else {
+            self.iter().next().is_none()
+        }
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
@@ -2140,20 +2234,113 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        self.as_nop().get(entity).is_ok()
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if D::IS_ARCHETYPAL {
+            self.as_nop().get(entity).is_ok()
+        } else {
+            self.get(entity).is_ok()
+        }
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// Counts the number of entities that match the query.
     ///
-    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
-    /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// This is equivalent to `self.iter().count()` but may be more efficient in some cases.
+    ///
+    /// If [`D::IS_ARCHETYPAL`](QueryData::IS_ARCHETYPAL) && [`F::IS_ARCHETYPAL`](QueryFilter::IS_ARCHETYPAL) is `true`,
+    /// this will do work proportional to the number of matched archetypes or tables, but will not iterate each entity.
+    /// If it is `false`, it will have to do work for each entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct InRange;
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>) {
+    ///     let count = in_range_query.count();
+    ///     println!("{count} targets in range!");
+    /// }
+    /// # bevy_ecs::system::assert_is_system(targeting_system);
+    /// ```
+    pub fn count(&self) -> usize {
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if !D::IS_ARCHETYPAL {
+            self.into_iter().count()
+        } else if !F::IS_ARCHETYPAL {
+            // If we have non-archetypal filters, we have to check each entity.
+            self.as_nop().into_iter().count()
+        } else {
+            // For archetypal queries, the `size_hint()` is exact,
+            // and we can get the count from the archetype and table counts.
+            self.as_nop().into_iter().size_hint().0
+        }
+    }
+
+    /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more
+    /// restrictive access to the entities matched by the current query.
+    ///
+    /// A transmute is valid only if `NewD` has a subset of the read, write, and required access
+    /// of the current query. A precise description of the access required by each parameter
+    /// type is given in the table below, but typical uses are to:
+    /// * Remove components, e.g. `Query<(&A, &B)>` to `Query<&A>`.
+    /// * Retrieve an existing component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
+    ///   or `Query<&T>` to `Query<Ref<T>>`.
+    /// * Add parameters with no new access, for example adding an `Entity` parameter.
+    ///
+    /// Note that since filter terms are dropped, non-archetypal filters like
+    /// [`Added`], [`Changed`] and [`Spawned`] will not be respected. To maintain or change filter
+    /// terms see [`Self::transmute_lens_filtered`].
+    ///
+    /// |`QueryData` parameter type|Access required|
+    /// |----|----|
+    /// |[`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], [`PhantomData<T>`]|No access|
+    /// |[`EntityMut`]|Read and write access to all components, but no required access|
+    /// |[`EntityRef`]|Read access to all components, but no required access|
+    /// |`&T`, [`Ref<T>`]|Read and required access to `T`|
+    /// |`&mut T`, [`Mut<T>`]|Read, write and required access to `T`|
+    /// |[`Option<T>`], [`AnyOf<(D, ...)>`]|Read and write access to `T`, but no required access|
+    /// |Tuples of query data and<br/>`#[derive(QueryData)]` structs|The union of the access of their subqueries|
+    /// |[`FilteredEntityRef`], [`FilteredEntityMut`]|Determined by the [`QueryBuilder`] used to construct them. Any query can be transmuted to them, and they will receive the access of the source query. When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data|
+    ///
+    /// `transmute_lens` drops filter terms, but [`Self::transmute_lens_filtered`] supports returning a [`QueryLens`] with a new
+    /// filter type - the access required by filter parameters are as follows.
+    ///
+    /// |`QueryFilter` parameter type|Access required|
+    /// |----|----|
+    /// |[`Added<T>`], [`Changed<T>`]|Read and required access to `T`|
+    /// |[`With<T>`], [`Without<T>`]|No access|
+    /// |[`Or<(T, ...)>`]|Read access of the subqueries, but no required access|
+    /// |Tuples of query filters and `#[derive(QueryFilter)]` structs|The union of the access of their subqueries|
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Added<T>`]: crate::query::Added
+    /// [`AnyOf<(D, ...)>`]: crate::query::AnyOf
+    /// [`&Archetype`]: crate::archetype::Archetype
+    /// [`Changed`]: crate::query::Changed
+    /// [`Changed<T>`]: crate::query::Changed
+    /// [`EntityMut`]: crate::world::EntityMut
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`EntityRef`]: crate::world::EntityRef
+    /// [`FilteredEntityRef`]: crate::world::FilteredEntityRef
+    /// [`FilteredEntityMut`]: crate::world::FilteredEntityMut
+    /// [`Has<T>`]: crate::query::Has
+    /// [`Mut<T>`]: crate::world::Mut
+    /// [`Or<(T, ...)>`]: crate::query::Or
+    /// [`QueryBuilder`]: crate::query::QueryBuilder
+    /// [`Ref<T>`]: crate::world::Ref
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
+    /// [`Spawned`]: crate::query::Spawned
+    /// [`With<T>`]: crate::query::With
+    /// [`Without<T>`]: crate::query::Without
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `D`
+    /// This will panic if the access required by `NewD` is not a subset of that required by
+    /// the original fetch `D`.
     ///
     /// ## Example
     ///
@@ -2192,30 +2379,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # schedule.run(&mut world);
     /// ```
     ///
-    /// ## Allowed Transmutes
-    ///
-    /// Besides removing parameters from the query,
-    /// you can also make limited changes to the types of parameters.
-    /// The new query must have a subset of the *read*, *write*, and *required* access of the original query.
-    ///
-    /// * `&mut T` and [`Mut<T>`](crate::change_detection::Mut) have read, write, and required access to `T`
-    /// * `&T` and [`Ref<T>`](crate::change_detection::Ref) have read and required access to `T`
-    /// * [`Option<D>`] and [`AnyOf<(D, ...)>`](crate::query::AnyOf) have the read and write access of the subqueries, but no required access
-    /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
-    /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
-    /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
-    ///   so can be added to any query
-    /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
-    ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
-    ///   Any query can be transmuted to them, and they will receive the access of the source query.
-    ///   When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data.
-    /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
-    /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
-    ///   so can be added to any query
-    /// * Tuples of query filters and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
-    /// * [`Or<(F, ...)>`](crate::query::Or) filters have the read access of the subqueries, but no required access
-    ///
     /// ### Examples of valid transmutes
     ///
     /// ```rust
@@ -2223,16 +2386,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #     prelude::*,
     /// #     archetype::Archetype,
     /// #     entity::EntityLocation,
-    /// #     query::{QueryData, QueryFilter},
+    /// #     query::{QueryData, QueryFilter, SingleEntityQueryData},
     /// #     world::{FilteredEntityMut, FilteredEntityRef},
     /// # };
     /// # use std::marker::PhantomData;
     /// #
-    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: SingleEntityQueryData>() {
     /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
     /// # }
     /// #
-    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: SingleEntityQueryData, NewF: QueryFilter>() {
     /// #     let mut world = World::new();
     /// #     // Make sure all components in the new query are initialized
     /// #     let state = world.query_filtered::<NewD, NewF>();
@@ -2292,27 +2455,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // Nested inside of an `Or` filter, they have the same access as `Option<&T>`.
     /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
     /// ```
-    ///
-    /// [`EntityLocation`]: crate::entity::EntityLocation
-    /// [`&Archetype`]: crate::archetype::Archetype
-    /// [`Has<T>`]: crate::query::Has
     #[track_caller]
-    pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
+    pub fn transmute_lens<NewD: SingleEntityQueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// Returns a [`QueryLens`] that can be used to construct a new `Query` giving more restrictive
+    /// access to the entities matched by the current query.
+    ///
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
-    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
-    /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    /// This will panic if `NewD` is not a subset of the original fetch `D`
     ///
     /// ## Example
     ///
@@ -2351,38 +2508,25 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # schedule.run(&mut world);
     /// ```
     ///
-    /// ## Allowed Transmutes
-    ///
-    /// Besides removing parameters from the query, you can also
-    /// make limited changes to the types of parameters.
-    ///
-    /// * Can always add/remove [`Entity`]
-    /// * Can always add/remove [`EntityLocation`]
-    /// * Can always add/remove [`&Archetype`]
-    /// * `Ref<T>` <-> `&T`
-    /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
-    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
-    /// [`EntityLocation`]: crate::entity::EntityLocation
-    /// [`&Archetype`]: crate::archetype::Archetype
-    ///
     /// # See also
     ///
     /// - [`transmute_lens`](Self::transmute_lens) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_inner<NewD: QueryData>(self) -> QueryLens<'w, NewD> {
+    pub fn transmute_lens_inner<NewD: SingleEntityQueryData>(self) -> QueryLens<'w, NewD> {
         self.transmute_lens_filtered_inner::<NewD, ()>()
     }
 
     /// Equivalent to [`Self::transmute_lens`] but also includes a [`QueryFilter`] type.
     ///
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
+    ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     #[track_caller]
-    pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
         self.reborrow().transmute_lens_filtered_inner()
@@ -2391,16 +2535,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Equivalent to [`Self::transmute_lens_inner`] but also includes a [`QueryFilter`] type.
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
+    ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
     /// - [`transmute_lens_filtered`](Self::transmute_lens_filtered) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_filtered_inner<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered_inner<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         self,
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
@@ -2413,7 +2560,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
-    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
+    pub fn as_query_lens(&mut self) -> QueryLens<'_, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens()
     }
 
@@ -2422,7 +2572,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`as_query_lens`](Self::as_query_lens) to convert to a lens using a mutable borrow of the [`Query`].
-    pub fn into_query_lens(self) -> QueryLens<'w, D> {
+    pub fn into_query_lens(self) -> QueryLens<'w, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens_inner()
     }
 
@@ -2430,7 +2583,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -2480,7 +2633,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
     /// See [`Self::transmute_lens`] for more details.
-    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+    pub fn join<'a, OtherD: QueryData, NewD: SingleEntityQueryData>(
         &'a mut self,
         other: &'a mut Query<OtherD>,
     ) -> QueryLens<'a, NewD> {
@@ -2492,7 +2645,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Panics
@@ -2507,7 +2660,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`join`](Self::join) to join using a mutable borrow of the [`Query`].
-    pub fn join_inner<OtherD: QueryData, NewD: QueryData>(
+    pub fn join_inner<OtherD: QueryData, NewD: SingleEntityQueryData>(
         self,
         other: Query<'w, '_, OtherD>,
     ) -> QueryLens<'w, NewD> {
@@ -2519,13 +2672,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     pub fn join_filtered<
         'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         &'a mut self,
@@ -2540,8 +2693,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
@@ -2549,7 +2702,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn join_filtered_inner<
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         self,
@@ -2567,21 +2720,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
-    type Item = D::Item<'w>;
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
+    type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        // SAFETY:
-        // - `self.world` has permission to access the required components.
-        // - We consume the query, so mutable queries cannot alias.
-        //   Read-only queries are `Copy`, but may alias themselves.
-        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
+        self.iter_inner()
     }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D, F> {
-    type Item = ROQueryItem<'w, D>;
+    type Item = ROQueryItem<'w, 's, D>;
     type IntoIter = QueryIter<'w, 's, D::ReadOnly, F>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -2589,42 +2738,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D,
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_, 's, D, F> {
-    type Item = D::Item<'w>;
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_, 's, D, F> {
+    type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
-    }
-}
-
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
-    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
-    ///
-    /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
-    ///
-    /// # Example
-    ///
-    /// Here, the `report_names_system` iterates over the `Player` component of every entity
-    /// that contains it:
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player { name: String }
-    /// #
-    /// fn report_names_system(query: Query<&Player>) {
-    ///     for player in &query {
-    ///         println!("Say hello to {}!", player.name);
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(report_names_system);
-    /// ```
-    #[inline]
-    pub fn iter_inner(&self) -> QueryIter<'w, 's, D::ReadOnly, F> {
-        (*self).into_iter()
     }
 }
 
@@ -2672,7 +2791,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
     }
 }
 
-impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
+impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
     for QueryLens<'q, Q, F>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
@@ -2687,31 +2806,48 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 ///
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
+/// Note that [`Single`] is not used as a search optimization. It is used as a validation with slight overhead compared to [`Query`].
+///
 /// See [`Query`] for more details.
 ///
 /// [System parameter]: crate::system::SystemParam
-pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
-    pub(crate) item: D::Item<'w>,
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct Boss {
+///    health: f32
+/// };
+///
+/// fn hurt_boss(mut boss: Single<&mut Boss>) {
+///    boss.health -= 4.0;
+/// }
+/// ```
+/// Note that because [`Single`] implements [`Deref`] and [`DerefMut`], methods and fields like `health` can be accessed directly.
+/// You can also access the underlying data manually, by calling `.deref`/`.deref_mut`, or by using the `*` operator.
+pub struct Single<'w, 's, D: IterQueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w, 's>,
     pub(crate) _filter: PhantomData<F>,
 }
 
-impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
-    type Target = D::Item<'w>;
+impl<'w, 's, D: IterQueryData, F: QueryFilter> Deref for Single<'w, 's, D, F> {
+    type Target = D::Item<'w, 's>;
 
     fn deref(&self) -> &Self::Target {
         &self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> DerefMut for Single<'w, 's, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> Single<'w, 's, D, F> {
     /// Returns the inner item with ownership.
-    pub fn into_inner(self) -> D::Item<'w> {
+    pub fn into_inner(self) -> D::Item<'w, 's> {
         self.item
     }
 }
@@ -2722,10 +2858,14 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
-/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
-/// which must individually check each query result for a match.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
+/// [`Changed`](crate::query::Changed) of [`Spawned`](crate::query::Spawned) which must individually check each query
+/// result for a match.
 ///
 /// See [`Query`] for more details.
+///
+/// If the system doesn't need to perform the query but should still be skipped if it is empty,
+/// you may use the [`any_with_component`](crate::schedule::common_conditions::any_with_component) or [`any_match_filter`](crate::schedule::common_conditions::any_match_filter) run conditions.
 ///
 /// [System parameter]: crate::system::SystemParam
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
@@ -2748,6 +2888,38 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> Query<'w, 's, D, F> {
         self.0
+    }
+}
+
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Populated<'w, 's, D, F> {
+    type Item = <Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a Populated<'w, 's, D, F> {
+    type Item = <&'a Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator
+    for &'a mut Populated<'w, 's, D, F>
+{
+    type Item = <&'a mut Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a mut Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref_mut().into_iter()
     }
 }
 

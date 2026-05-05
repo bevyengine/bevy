@@ -167,7 +167,7 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
     let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time>| {
         timer.tick(time.delta());
-        timer.finished()
+        timer.is_finished()
     }
 }
 
@@ -199,7 +199,7 @@ pub fn repeating_after_real_delay(
     let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time<Real>>| {
         timer.tick(time.delta());
-        timer.finished()
+        timer.is_finished()
     }
 }
 

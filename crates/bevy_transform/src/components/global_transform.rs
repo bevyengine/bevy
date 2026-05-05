@@ -8,7 +8,7 @@ use derive_more::derive::From;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -31,12 +31,14 @@ use {
 /// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
-/// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// entity which has a Transform. This is done automatically by Bevy-internal systems in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
+///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
 ///
 /// # Examples
 ///
@@ -45,11 +47,7 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy-support",
-    derive(Component),
-    component(on_insert = validate_parent_has_component::<GlobalTransform>)
-)]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -113,7 +111,7 @@ impl GlobalTransform {
 
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+    pub fn to_matrix(&self) -> Mat4 {
         Mat4::from(self.0)
     }
 
@@ -137,8 +135,9 @@ impl GlobalTransform {
         }
     }
 
-    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
-    /// transformation will be ignored.
+    /// Computes a Scale-Rotation-Translation decomposition of the transformation and returns
+    /// the isometric part as an [isometry]. Any scaling done by the transformation will be ignored.
+    /// Note: this is a somewhat costly and lossy conversion.
     ///
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.
@@ -159,7 +158,7 @@ impl GlobalTransform {
     ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, ChildOf};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -174,7 +173,7 @@ impl GlobalTransform {
     ///             *transform = initial.reparented_to(parent_transform);
     ///             commands.entity(entity)
     ///                 .remove::<ToReparent>()
-    ///                 .set_parent(to_reparent.new_parent);
+    ///                 .insert(ChildOf(to_reparent.new_parent));
     ///         }
     ///     }
     /// }

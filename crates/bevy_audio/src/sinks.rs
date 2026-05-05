@@ -4,7 +4,7 @@ use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use core::time::Duration;
 pub use rodio::source::SeekError;
-use rodio::{Sink, SpatialSink};
+use rodio::{Player, SpatialPlayer};
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
@@ -41,6 +41,14 @@ pub trait AudioSinkPlayback {
     ///
     /// No effect if not paused.
     fn play(&self);
+
+    /// Returns the position of the sound that's being played.
+    ///
+    /// This takes into account any speedup or delay applied.
+    ///
+    /// Example: if you [`set_speed(2.0)`](Self::set_speed) and [`position()`](Self::position) returns *5s*,
+    /// then the position in the recording is *10s* from its start.
+    fn position(&self) -> Duration;
 
     /// Attempts to seek to a given position in the current source.
     ///
@@ -129,7 +137,7 @@ pub trait AudioSinkPlayback {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct AudioSink {
-    pub(crate) sink: Sink,
+    pub(crate) sink: Player,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -147,7 +155,7 @@ pub struct AudioSink {
 
 impl AudioSink {
     /// Create a new audio sink.
-    pub fn new(sink: Sink) -> Self {
+    pub fn new(sink: Player) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -179,6 +187,10 @@ impl AudioSinkPlayback for AudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn position(&self) -> Duration {
+        self.sink.get_pos()
     }
 
     fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
@@ -229,7 +241,7 @@ impl AudioSinkPlayback for AudioSink {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct SpatialAudioSink {
-    pub(crate) sink: SpatialSink,
+    pub(crate) sink: SpatialPlayer,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -247,7 +259,7 @@ pub struct SpatialAudioSink {
 
 impl SpatialAudioSink {
     /// Create a new spatial audio sink.
-    pub fn new(sink: SpatialSink) -> Self {
+    pub fn new(sink: SpatialPlayer) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -279,6 +291,10 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn position(&self) -> Duration {
+        self.sink.get_pos()
     }
 
     fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
@@ -340,7 +356,7 @@ impl SpatialAudioSink {
 
 #[cfg(test)]
 mod tests {
-    use rodio::Sink;
+    use rodio::Player;
 
     use super::*;
 
@@ -396,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_audio_sink() {
-        let (sink, _queue_rx) = Sink::new_idle();
+        let (sink, _queue_rx) = Player::new();
         let audio_sink = AudioSink::new(sink);
         test_audio_sink_playback(audio_sink);
     }

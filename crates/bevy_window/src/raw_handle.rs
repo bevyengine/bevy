@@ -138,7 +138,7 @@ unsafe impl Sync for RawHandleWrapper {}
 pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 
 impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
-    fn window_handle(&self) -> Result<WindowHandle, HandleError> {
+    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
         // SAFETY: the caller has validated that this is a valid context to get [`RawHandleWrapper`]
         // as otherwise an instance of this type could not have been constructed
         // NOTE: we cannot simply impl HasRawWindowHandle for RawHandleWrapper,
@@ -150,7 +150,7 @@ impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
 }
 
 impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
-    fn display_handle(&self) -> Result<DisplayHandle, HandleError> {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
         // SAFETY: the caller has validated that this is a valid context to get [`RawDisplayHandle`]
         // as otherwise an instance of this type could not have been constructed
         // NOTE: we cannot simply impl HasRawDisplayHandle for RawHandleWrapper,

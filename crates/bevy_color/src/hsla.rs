@@ -92,7 +92,7 @@ impl Hsla {
     /// // Palette with 5 distinct hues
     /// let palette = (0..5).map(Hsla::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequential_dispersed(index: u32) -> Self {
+    pub const fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 

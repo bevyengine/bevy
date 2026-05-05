@@ -61,7 +61,7 @@ impl Interval {
     /// but cannot be empty (so `start` must be less than `end`) and neither endpoint can be NaN; invalid
     /// parameters will result in an error.
     #[inline]
-    pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
+    pub const fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
         if start >= end || start.is_nan() || end.is_nan() {
             Err(InvalidIntervalError)
         } else {
@@ -103,7 +103,7 @@ impl Interval {
 
     /// Get the length of this interval. Note that the result may be infinite (`f32::INFINITY`).
     #[inline]
-    pub fn length(self) -> f32 {
+    pub const fn length(self) -> f32 {
         self.end - self.start
     }
 
@@ -111,19 +111,19 @@ impl Interval {
     ///
     /// Equivalently, an interval is bounded if its length is finite.
     #[inline]
-    pub fn is_bounded(self) -> bool {
+    pub const fn is_bounded(self) -> bool {
         self.length().is_finite()
     }
 
     /// Returns `true` if this interval has a finite start.
     #[inline]
-    pub fn has_finite_start(self) -> bool {
+    pub const fn has_finite_start(self) -> bool {
         self.start.is_finite()
     }
 
     /// Returns `true` if this interval has a finite end.
     #[inline]
-    pub fn has_finite_end(self) -> bool {
+    pub const fn has_finite_end(self) -> bool {
         self.end.is_finite()
     }
 
@@ -137,13 +137,13 @@ impl Interval {
     ///
     /// This is non-strict: each interval will contain itself.
     #[inline]
-    pub fn contains_interval(self, other: Self) -> bool {
+    pub const fn contains_interval(self, other: Self) -> bool {
         self.start <= other.start && self.end >= other.end
     }
 
     /// Clamp the given `value` to lie within this interval.
     #[inline]
-    pub fn clamp(self, value: f32) -> f32 {
+    pub const fn clamp(self, value: f32) -> f32 {
         value.clamp(self.start, self.end)
     }
 
@@ -196,7 +196,7 @@ impl TryFrom<RangeInclusive<f32>> for Interval {
 
 /// Create an [`Interval`] with a given `start` and `end`. Alias of [`Interval::new`].
 #[inline]
-pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> {
+pub const fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> {
     Interval::new(start, end)
 }
 
