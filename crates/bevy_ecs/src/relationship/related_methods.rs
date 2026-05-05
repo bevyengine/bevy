@@ -624,6 +624,17 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
         }
     }
 
+    /// Returns a [`RelatedSpawnerCommands`] with a smaller lifetime.
+    ///
+    /// This is useful if you have `&mut RelatedSpawnerCommands` but need `RelatedSpawnerCommands`.
+    pub fn reborrow(&mut self) -> RelatedSpawnerCommands<'_, R> {
+        RelatedSpawnerCommands {
+            target: self.target,
+            commands: self.commands.reborrow(),
+            _marker: PhantomData,
+        }
+    }
+
     /// Spawns an entity with the given `bundle` and an `R` relationship targeting the `target`
     /// entity this spawner was initialized with.
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {

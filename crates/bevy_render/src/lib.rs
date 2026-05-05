@@ -8,7 +8,7 @@
 //! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering. This typically matches what is used in CI.
 //! - `WGPU_ADAPTER_NAME` allows selecting a specific adapter by name.
 //! - `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits.
-//! - `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits.
+//! - `WGPU_SETTINGS_PRIO=webgpu` uses webgpu limits.
 //! - `VERBOSE_SHADER_ERROR=1` prints more detailed information about WGSL compilation errors, such as shader defs and shader entrypoint.
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
@@ -185,6 +185,9 @@ pub enum RenderSystems {
     PrepareResources,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
     PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that writes batches
+    /// for render phases to the GPU.
+    PrepareResourcesWritePhaseBuffers,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
     /// [`PrepareResourcesBatchPhases`](RenderSystems::PrepareResourcesBatchPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
@@ -242,6 +245,8 @@ impl GpuResourceAppExt for SubApp {
 struct RenderRecovery;
 
 /// Defines the schedules to be run for the rendering, including their order.
+///
+/// This is the same approach as [`MainScheduleOrder`](`bevy_app::MainScheduleOrder`).
 #[derive(Resource, Debug)]
 pub struct RenderScheduleOrder {
     /// The labels to run for the rendering schedule (in the order they will be run).
@@ -320,6 +325,7 @@ impl Render {
             (
                 PrepareResources,
                 PrepareResourcesBatchPhases,
+                PrepareResourcesWritePhaseBuffers,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
@@ -394,6 +400,15 @@ impl Plugin for RenderPlugin {
                     PipelineCache::extract_shaders,
                 ),
             );
+
+            #[cfg(not(feature = "reflect_auto_register"))]
+            render_app.init_resource::<AppTypeRegistry>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            render_app.insert_resource(AppTypeRegistry::new_with_derived_types());
+
+            #[cfg(feature = "reflect_functions")]
+            render_app.init_resource::<AppFunctionRegistry>();
 
             render_app.add_schedule(RenderGraph::base_schedule());
 
@@ -549,6 +564,19 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
     }
 
     None
+}
+
+pub fn get_pixel10_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    if adapter_info.name != "PowerVR D-Series DXT-48-1536 MC1" {
+        return None;
+    }
+
+    let (_, driver_version) = adapter_info.driver_info.split_once('@')?;
+    driver_version.parse::<u32>().ok()
 }
 
 /// Returns true if storage buffers are unsupported on this platform or false
