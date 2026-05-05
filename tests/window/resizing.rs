@@ -22,7 +22,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32)
+                    resolution: WindowResolution::new(MAX_WIDTH as u32, MAX_HEIGHT as u32)
                         .with_scale_factor_override(1.0),
                     title: "Resizing".into(),
                     ..default()
@@ -122,7 +122,7 @@ fn setup_3d(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

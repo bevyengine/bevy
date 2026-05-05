@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Cuboid`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct CuboidMeshBuilder {
     half_size: Vec3,
 }

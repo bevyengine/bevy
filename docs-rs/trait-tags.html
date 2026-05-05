@@ -13,9 +13,12 @@
         'Resource',
         'Asset',
         'Event',
+        'Message',
         'ScheduleLabel',
         'SystemSet',
         'SystemParam',
+        'Relationship',
+        'RelationshipTarget'
     ];
 
     // Find all traits that are implemented by the current type.
@@ -134,11 +137,11 @@
 
     .component-tag,
     .immutable-component-tag {
-        --tag-color: oklch(50% 27% 95);
+        --tag-color: oklch(50% 27% 80);
     }
 
     .resource-tag {
-        --tag-color: oklch(50% 27% 130);
+        --tag-color: oklch(50% 27% 110);
     }
 
     .asset-tag {
@@ -147,6 +150,10 @@
 
     .event-tag {
         --tag-color: oklch(50% 27% 310);
+    }
+
+    .message-tag {
+        --tag-color: oklch(50% 27% 190);
     }
 
     .plugin-tag,
@@ -160,6 +167,11 @@
     }
 
     .systemparam-tag {
-        --tag-color: oklch(50% 27% 200);
+        --tag-color: oklch(50% 27% 240);
+    }
+
+    .relationship-tag,
+    .relationshiptarget-tag {
+        --tag-color: oklch(50% 27% 150);
     }
 </style>

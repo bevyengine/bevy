@@ -8,7 +8,10 @@ use criterion::{
 criterion_group!(benches, segment_ease, curve_position, curve_iter_positions);
 
 fn segment_ease(c: &mut Criterion) {
-    let segment = black_box(CubicSegment::new_bezier(vec2(0.25, 0.1), vec2(0.25, 1.0)));
+    let segment = black_box(CubicSegment::new_bezier_easing(
+        vec2(0.25, 0.1),
+        vec2(0.25, 1.0),
+    ));
 
     c.bench_function(bench!("segment_ease"), |b| {
         let mut t = 0;
@@ -29,7 +32,7 @@ fn segment_ease(c: &mut Criterion) {
 
 fn curve_position(c: &mut Criterion) {
     /// A helper function that benchmarks calling [`CubicCurve::position()`] over a generic [`VectorSpace`].
-    fn bench_curve<M: Measurement, P: VectorSpace>(
+    fn bench_curve<M: Measurement, P: VectorSpace<Scalar = f32>>(
         group: &mut BenchmarkGroup<M>,
         name: &str,
         curve: CubicCurve<P>,

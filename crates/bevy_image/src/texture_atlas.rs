@@ -1,7 +1,10 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
-use bevy_math::{URect, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_ecs::template::FromTemplate;
+use bevy_math::{Rect, URect, UVec2};
+use bevy_platform::collections::HashMap;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
@@ -17,8 +20,7 @@ impl Plugin for TextureAtlasPlugin {
         app.init_asset::<TextureAtlasLayout>();
 
         #[cfg(feature = "bevy_reflect")]
-        app.register_asset_reflect::<TextureAtlasLayout>()
-            .register_type::<TextureAtlas>();
+        app.register_asset_reflect::<TextureAtlasLayout>();
     }
 }
 
@@ -32,6 +34,7 @@ pub struct TextureAtlasSources {
     /// Maps from a specific image handle to the index in `textures` where they can be found.
     pub texture_ids: HashMap<AssetId<Image>, usize>,
 }
+
 impl TextureAtlasSources {
     /// Retrieves the texture *section* index of the given `texture` handle.
     pub fn texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {
@@ -51,13 +54,27 @@ impl TextureAtlasSources {
         })
     }
 
-    /// Retrieves the texture *section* rectangle of the given `texture` handle.
+    /// Retrieves the texture *section* rectangle of the given `texture` handle in pixels.
     pub fn texture_rect(
         &self,
         layout: &TextureAtlasLayout,
         texture: impl Into<AssetId<Image>>,
     ) -> Option<URect> {
         layout.textures.get(self.texture_index(texture)?).cloned()
+    }
+
+    /// Retrieves the texture *section* rectangle of the given `texture` handle in UV coordinates.
+    /// These are within the range [0..1], as a fraction of the entire texture atlas' size.
+    pub fn uv_rect(
+        &self,
+        layout: &TextureAtlasLayout,
+        texture: impl Into<AssetId<Image>>,
+    ) -> Option<Rect> {
+        self.texture_rect(layout, texture).map(|rect| {
+            let rect = rect.as_rect();
+            let size = layout.size.as_vec2();
+            Rect::from_corners(rect.min / size, rect.max / size)
+        })
     }
 }
 
@@ -73,12 +90,17 @@ impl TextureAtlasSources {
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Asset, PartialEq, Eq, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct TextureAtlasLayout {
     /// Total size of texture atlas.
     pub size: UVec2,
@@ -165,6 +187,7 @@ impl TextureAtlasLayout {
         self.textures.len()
     }
 
+    /// Returns `true` if the atlas contains no textures.
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
@@ -182,11 +205,11 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, FromTemplate)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Default, Debug, PartialEq, Hash)
+    reflect(Default, Debug, PartialEq, Hash, Clone)
 )]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
@@ -200,6 +223,18 @@ impl TextureAtlas {
     pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<URect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified index.
+    pub fn with_index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified [`TextureAtlasLayout`] handle.
+    pub fn with_layout(mut self, layout: Handle<TextureAtlasLayout>) -> Self {
+        self.layout = layout;
+        self
     }
 }
 

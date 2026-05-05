@@ -12,7 +12,11 @@ use bevy_reflect::prelude::*;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -212,6 +216,18 @@ impl ColorToComponents for Oklaba {
             a: color[1],
             b: color[2],
             alpha: 1.0,
+        }
+    }
+}
+
+#[cfg(feature = "wgpu-types")]
+impl From<Oklaba> for wgpu_types::Color {
+    fn from(color: Oklaba) -> Self {
+        wgpu_types::Color {
+            r: color.lightness as f64,
+            g: color.a as f64,
+            b: color.b as f64,
+            a: color.alpha as f64,
         }
     }
 }
