@@ -2,6 +2,8 @@
 
 use std::f32::consts::FRAC_PI_2;
 
+use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
+use bevy::camera::RenderTarget;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::css::GREEN,
@@ -15,8 +17,6 @@ use bevy::{
     shader::ShaderRef,
     window::{PrimaryWindow, WindowResized},
 };
-
-use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -263,13 +263,13 @@ fn spawn_mirror_camera(
         Camera3d::default(),
         Camera {
             order: -1,
-            target: mirror_render_target.clone().into(),
             // Reflecting the model across the mirror will flip the winding of
             // all the polygons. Therefore, in order to properly backface cull,
             // we need to turn on `invert_culling`.
             invert_culling: true,
             ..default()
         },
+        RenderTarget::Image(mirror_render_target.clone().into()),
         mirror_camera_transform,
         Projection::Perspective(mirror_camera_projection),
         MirrorCamera,
@@ -282,7 +282,7 @@ fn spawn_mirror_camera(
 /// [`play_fox_animation`].
 fn spawn_fox(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_ASSET_PATH))),
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_ASSET_PATH))),
         Transform::from_xyz(-50.0, 0.0, -100.0),
     ));
 }
@@ -387,7 +387,7 @@ fn calculate_mirror_camera_transform_and_projection(
 /// material whenever the window size changes.
 fn handle_window_resize_messages(
     windows_query: Query<&Window>,
-    mut mirror_cameras_query: Query<&mut Camera, With<MirrorCamera>>,
+    mut mirror_cameras_query: Query<&mut RenderTarget, With<MirrorCamera>>,
     mut images: ResMut<Assets<Image>>,
     mut mirror_image: ResMut<MirrorImage>,
     mut screen_space_texture_materials: ResMut<
@@ -410,8 +410,8 @@ fn handle_window_resize_messages(
 
     mirror_image.0 = image.clone();
 
-    for mut mirror_camera in mirror_cameras_query.iter_mut() {
-        mirror_camera.target = image.clone().into();
+    for mut target in mirror_cameras_query.iter_mut() {
+        *target = image.clone().into();
     }
 
     for (_, material) in screen_space_texture_materials.iter_mut() {
@@ -441,7 +441,7 @@ fn create_mirror_texture_image(images: &mut Assets<Image>, window_size: UVec2) -
 
 // Moves the fox when the user moves the mouse with the left button down.
 fn move_fox_on_mouse_down(
-    mut scene_roots_query: Query<&mut Transform, With<SceneRoot>>,
+    mut scene_roots_query: Query<&mut Transform, With<WorldAssetRoot>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     cameras_query: Query<(&Camera, &GlobalTransform)>,
     interactions_query: Query<&Interaction, With<RadioButton>>,

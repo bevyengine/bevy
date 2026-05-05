@@ -1,5 +1,10 @@
+#[cfg(feature = "bevy_picking")]
+use crate::UiGlobalTransform;
+use crate::{ComputedNode, Node};
 use bevy_asset::Assets;
+#[cfg(feature = "bevy_picking")]
 use bevy_camera::Camera;
+use bevy_camera::RenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,6 +14,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
+    entity::EntityHashMap,
     message::MessageReader,
     system::{Commands, Res},
 };
@@ -22,11 +28,7 @@ use bevy_picking::{
 };
 use bevy_reflect::Reflect;
 
-#[cfg(feature = "bevy_picking")]
-use crate::UiGlobalTransform;
-use crate::{ComputedNode, Node};
-
-/// Component used to render a [`Camera::target`]  to a node.
+/// Component used to render a [`RenderTarget`]  to a node.
 ///
 /// # See Also
 ///
@@ -41,15 +43,22 @@ use crate::{ComputedNode, Node};
 pub struct ViewportNode {
     /// The entity representing the [`Camera`] associated with this viewport.
     ///
-    /// Note that removing the [`ViewportNode`] component will not despawn this entity.
-    pub camera: Entity,
+    /// Note: Removing the [`ViewportNode`] component will not despawn this
+    /// entity.
+    ///
+    /// Note: Despawning the camera entity will leave a viewport node with an
+    /// invalid camera. It will automatically be set to none when
+    /// [`update_viewport_render_target_size`] runs next.
+    pub camera: Option<Entity>,
 }
 
 impl ViewportNode {
     /// Creates a new [`ViewportNode`] with a given `camera`.
     #[inline]
     pub const fn new(camera: Entity) -> Self {
-        Self { camera }
+        Self {
+            camera: Some(camera),
+        }
     }
 }
 
@@ -61,22 +70,21 @@ pub fn viewport_picking(
     mut commands: Commands,
     mut viewport_query: Query<(
         Entity,
-        &ViewportNode,
+        &mut ViewportNode,
         &PointerId,
         &mut PointerLocation,
         &ComputedNode,
         &UiGlobalTransform,
     )>,
-    camera_query: Query<&Camera>,
+    camera_query: Query<(&Camera, &RenderTarget)>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: MessageReader<PointerInput>,
 ) {
     use bevy_camera::NormalizedRenderTarget;
     use bevy_math::Rect;
-    use bevy_platform::collections::HashMap;
     // Handle hovered entities.
-    let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
+    let mut viewport_picks: EntityHashMap<PointerId> = hover_map
         .iter()
         .flat_map(|(hover_pointer_id, hits)| {
             hits.iter()
@@ -98,7 +106,7 @@ pub fn viewport_picking(
 
     for (
         viewport_entity,
-        &viewport,
+        mut viewport,
         &viewport_pointer_id,
         mut viewport_pointer_location,
         computed_node,
@@ -110,7 +118,11 @@ pub fn viewport_picking(
             viewport_pointer_location.location = None;
             continue;
         };
-        let Ok(camera) = camera_query.get(viewport.camera) else {
+        let Some(camera_entity) = viewport.camera else {
+            continue;
+        };
+        let Ok((camera, render_target)) = camera_query.get(camera_entity) else {
+            viewport.camera = None;
             continue;
         };
         let Some(cam_viewport_size) = camera.logical_viewport_size() else {
@@ -124,7 +136,7 @@ pub fn viewport_picking(
         let top_left = node_rect.min * computed_node.inverse_scale_factor();
         let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
 
-        let Some(target) = camera.target.as_image() else {
+        let Some(target) = render_target.as_image() else {
             continue;
         };
 
@@ -152,18 +164,24 @@ pub fn viewport_picking(
 
 /// Updates the size of the associated render target for viewports when the node size changes.
 pub fn update_viewport_render_target_size(
-    viewport_query: Query<
-        (&ViewportNode, &ComputedNode),
+    mut viewport_query: Query<
+        (&mut ViewportNode, &ComputedNode),
         Or<(Changed<ComputedNode>, Changed<ViewportNode>)>,
     >,
-    camera_query: Query<&Camera>,
+    camera_query: Query<&RenderTarget>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (viewport, computed_node) in &viewport_query {
-        let camera = camera_query.get(viewport.camera).unwrap();
+    for (mut viewport, computed_node) in &mut viewport_query {
+        let Some(camera) = viewport.camera else {
+            continue;
+        };
+        let Ok(render_target) = camera_query.get(camera) else {
+            viewport.camera = None;
+            continue;
+        };
         let size = computed_node.size();
 
-        let Some(image_handle) = camera.target.as_image() else {
+        let Some(image_handle) = render_target.as_image() else {
             continue;
         };
         let size = size.as_uvec2().max(UVec2::ONE).to_extents();

@@ -5,6 +5,8 @@ use bevy_asset::{
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+#[cfg(not(feature = "tonemapping_luts"))]
+use bevy_log::error;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -17,17 +19,15 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
-#[cfg(not(feature = "tonemapping_luts"))]
-use tracing::error;
 
 mod node;
 
 use bevy_utils::default;
-pub use node::TonemappingNode;
+pub use node::tonemapping;
 
 use crate::FullscreenShader;
 
@@ -93,7 +93,7 @@ impl Plugin for TonemappingPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
@@ -160,6 +160,9 @@ pub enum Tonemapping {
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
+    /// Designed to faithfully reproduce base color under neutral lighting. Suitable for e-commerce, architecture and CAD applications.
+    /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
+    PbrNeutral,
 }
 
 impl Tonemapping {
@@ -186,6 +189,7 @@ bitflags! {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
+    target_format: TextureFormat,
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
@@ -264,6 +268,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
+            Tonemapping::PbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -273,7 +278,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -354,6 +359,7 @@ pub fn prepare_view_tonemapping_pipelines(
         );
 
         let key = TonemappingPipelineKey {
+            target_format: view.target_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
@@ -390,6 +396,7 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
         | Tonemapping::AgX
+        | Tonemapping::PbrNeutral
         | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
@@ -427,7 +434,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         CompressedImageFormats::NONE,
         false,
         image_sampler,
-        RenderAssetUsages::RENDER_WORLD,
+        // LUT must be kept in main world for render recovery reasons
+        RenderAssetUsages::default(),
     )
     .unwrap()
 }

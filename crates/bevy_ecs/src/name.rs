@@ -6,9 +6,9 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_platform::hash::FixedHasher;
+use bevy_platform::hash::Hashed;
 use core::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     ops::Deref,
 };
 
@@ -47,14 +47,28 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
-pub struct Name {
-    hash: u64, // Won't be serialized
-    name: Cow<'static, str>,
-}
+pub struct Name(pub HashedStr);
 
 impl Default for Name {
     fn default() -> Self {
         Name::new("")
+    }
+}
+
+/// A wrapper over Hashed. This exists to make Name("value".into()) possible, which plays nicely with contexts like the `bsn!` macro.
+#[derive(Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct HashedStr(Hashed<Cow<'static, str>>);
+
+impl From<&'static str> for HashedStr {
+    fn from(value: &'static str) -> Self {
+        Self(Hashed::new(Cow::Borrowed(value)))
+    }
+}
+
+impl From<String> for HashedStr {
+    fn from(value: String) -> Self {
+        Self(Hashed::new(Cow::Owned(value)))
     }
 }
 
@@ -63,10 +77,7 @@ impl Name {
     ///
     /// The internal hash will be computed immediately.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-        let name = name.into();
-        let mut name = Name { name, hash: 0 };
-        name.update_hash();
-        name
+        Self(HashedStr(Hashed::new(name.into())))
     }
 
     /// Sets the entity's name.
@@ -82,33 +93,37 @@ impl Name {
     /// This will allocate a new string if the name was previously
     /// created from a borrow.
     #[inline(always)]
-    pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
-        f(self.name.to_mut());
-        self.update_hash();
+    pub fn mutate(&mut self, func: impl FnOnce(&mut String)) {
+        self.0 .0.mutate(|cow_str| match cow_str {
+            Cow::Borrowed(borrowed) => {
+                let mut owned = borrowed.to_owned();
+                func(&mut owned);
+                *cow_str = Cow::Owned(owned);
+            }
+            Cow::Owned(owned) => {
+                func(owned);
+            }
+        });
     }
 
     /// Gets the name of the entity as a `&str`.
     #[inline(always)]
     pub fn as_str(&self) -> &str {
-        &self.name
-    }
-
-    fn update_hash(&mut self) {
-        self.hash = FixedHasher.hash_one(&self.name);
+        &self.0 .0
     }
 }
 
 impl core::fmt::Display for Name {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        core::fmt::Display::fmt(&self.name, f)
+        core::fmt::Display::fmt(&*self.0 .0, f)
     }
 }
 
 impl core::fmt::Debug for Name {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        core::fmt::Debug::fmt(&self.name, f)
+        core::fmt::Debug::fmt(&self.0 .0, f)
     }
 }
 
@@ -172,7 +187,7 @@ impl From<String> for Name {
 impl AsRef<str> for Name {
     #[inline(always)]
     fn as_ref(&self) -> &str {
-        &self.name
+        &self.0 .0
     }
 }
 
@@ -186,24 +201,24 @@ impl From<&Name> for String {
 impl From<Name> for String {
     #[inline(always)]
     fn from(val: Name) -> String {
-        val.name.into_owned()
+        val.as_str().to_owned()
     }
 }
 
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
+        Hash::hash(&self.0 .0, state);
     }
 }
 
 impl PartialEq for Name {
     fn eq(&self, other: &Self) -> bool {
-        if self.hash != other.hash {
+        if self.0 .0.hash() != other.0 .0.hash() {
             // Makes the common case of two strings not been equal very fast
             return false;
         }
 
-        self.name.eq(&other.name)
+        self.0 .0.eq(&other.0 .0)
     }
 }
 
@@ -217,7 +232,7 @@ impl PartialOrd for Name {
 
 impl Ord for Name {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.name.cmp(&other.name)
+        self.0 .0.cmp(&other.0 .0)
     }
 }
 
@@ -225,7 +240,7 @@ impl Deref for Name {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.name.as_ref()
+        self.as_str()
     }
 }
 
@@ -278,7 +293,7 @@ mod tests {
         let mut query = world.query::<NameOrEntity>();
         let d1 = query.get(&world, e1).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}
-        assert_eq!(d1.to_string(), "0v0");
+        assert_eq!(d1.to_string(), "1v0");
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");

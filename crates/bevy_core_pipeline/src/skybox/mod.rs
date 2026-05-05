@@ -3,135 +3,84 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::Exposure;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryItem, With},
-    reflect::ReflectComponent,
+    query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image};
-use bevy_math::{Mat4, Quat};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_light::Skybox;
+use bevy_log::warn_once;
+use bevy_math::Mat4;
 use bevy_render::{
-    extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
-    },
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_cube, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
+    sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_transform::components::Transform;
 use bevy_utils::default;
-use prepass::SkyboxPrepassPipeline;
 
-use crate::{
-    core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms,
-    skybox::prepass::init_skybox_prepass_pipeline,
-};
-
-pub mod prepass;
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
 pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "skybox.wgsl");
-        embedded_asset!(app, "skybox_prepass.wgsl");
 
-        app.add_plugins((
-            ExtractComponentPlugin::<Skybox>::default(),
-            UniformComponentPlugin::<SkyboxUniforms>::default(),
-        ));
+        app.add_plugins(UniformComponentPlugin::<SkyboxUniforms>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
-            .init_resource::<PreviousViewUniforms>()
-            .add_systems(
-                RenderStartup,
-                (init_skybox_pipeline, init_skybox_prepass_pipeline),
-            )
+            .init_gpu_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
+            .add_systems(ExtractSchedule, extract_skybox)
+            .add_systems(RenderStartup, init_skybox_pipeline)
             .add_systems(
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSystems::Prepare),
-                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSystems::Prepare),
                     prepare_skybox_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    prepass::prepare_skybox_prepass_bind_groups
-                        .in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
 }
 
-/// Adds a skybox to a 3D camera, based on a cubemap texture.
-///
-/// Note that this component does not (currently) affect the scene's lighting.
-/// To do so, use `EnvironmentMapLight` alongside this component.
-///
-/// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default, Clone)]
-pub struct Skybox {
-    pub image: Handle<Image>,
-    /// Scale factor applied to the skybox image.
-    /// After applying this multiplier to the image samples, the resulting values should
-    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
-    pub brightness: f32,
-
-    /// View space rotation applied to the skybox cubemap.
-    /// This is useful for users who require a different axis, such as the Z-axis, to serve
-    /// as the vertical axis.
-    pub rotation: Quat,
-}
-
-impl Default for Skybox {
-    fn default() -> Self {
-        Skybox {
-            image: Handle::default(),
-            brightness: 0.0,
-            rotation: Quat::IDENTITY,
-        }
-    }
-}
-
-impl ExtractComponent for Skybox {
-    type QueryData = (&'static Self, Option<&'static Exposure>);
-    type QueryFilter = ();
-    type Out = (Self, SkyboxUniforms);
-
-    fn extract_component(
-        (skybox, exposure): QueryItem<'_, '_, Self::QueryData>,
-    ) -> Option<Self::Out> {
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type Skybox
+pub fn extract_skybox(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &Skybox, Option<&Exposure>)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, skybox, exposure) in &query {
         let exposure = exposure
             .map(Exposure::exposure)
             .unwrap_or_else(|| Exposure::default().exposure());
-
-        Some((
-            skybox.clone(),
-            SkyboxUniforms {
-                brightness: skybox.brightness * exposure,
-                transform: Transform::from_rotation(skybox.rotation.inverse()).to_matrix(),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_8b: 0,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_12b: 0,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _wasm_padding_16b: 0,
-            },
-        ))
+        let uniforms = SkyboxUniforms {
+            brightness: skybox.brightness * exposure,
+            transform: Transform::from_rotation(skybox.rotation.inverse()).to_matrix(),
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding_8b: 0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding_12b: 0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding_16b: 0,
+        };
+        values.push((entity, (skybox.clone(), uniforms)));
     }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 // TODO: Replace with a push constant once WebGPU gets support for that
@@ -140,11 +89,11 @@ pub struct SkyboxUniforms {
     brightness: f32,
     transform: Mat4,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_8b: u32,
+    _webgl2_padding_8b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_12b: u32,
+    _webgl2_padding_12b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _wasm_padding_16b: u32,
+    _webgl2_padding_16b: u32,
 }
 
 #[derive(Resource)]
@@ -181,7 +130,7 @@ fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -199,8 +148,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: key.depth_format,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -221,11 +170,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -245,14 +190,14 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    cameras: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
 ) {
-    for (entity, view, msaa) in &views {
+    for (entity, view, msaa) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },
@@ -278,17 +223,19 @@ fn prepare_skybox_bind_groups(
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
-        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
-            images.get(&skybox.image),
+        if let (Some(image_handle), Some(view_uniforms), Some(skybox_uniforms)) = (
+            &skybox.image,
             view_uniforms.uniforms.binding(),
             skybox_uniforms.binding(),
-        ) {
+        ) && let Some(image) = images.get(image_handle)
+            && sanity_check_skybox_image_and_warn(entity, skybox, image)
+        {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
                 &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
-                    &skybox.texture_view,
-                    &skybox.sampler,
+                    &image.texture_view,
+                    &image.sampler,
                     view_uniforms,
                     skybox_uniforms,
                 )),
@@ -297,6 +244,30 @@ fn prepare_skybox_bind_groups(
             commands
                 .entity(entity)
                 .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
+        } else {
+            commands.entity(entity).remove::<SkyboxBindGroup>();
         }
     }
+}
+
+fn sanity_check_skybox_image_and_warn(entity: Entity, skybox: &Skybox, image: &GpuImage) -> bool {
+    let texture_view_dimension: Option<TextureViewDimension> = image
+        .texture_view_descriptor
+        .as_ref()
+        .and_then(|desc| desc.dimension);
+    let dimension_ok = texture_view_dimension == Some(TextureViewDimension::Cube);
+    if !dimension_ok {
+        // The texture view is not a cubemap and will fail validation if rendered.
+        // In this case, we ignore the skybox so as not to break rendering.
+        //
+        // There are other possible misconfigurations which will fail and which we do not
+        // catch here, but this is a common mistake (passing an unaltered 2D image to `Skybox`).
+        warn_once!(
+            "skybox {entity}'s image {image:?} has texture view dimension \
+                        {texture_view_dimension:?}, but it must be TextureViewDimension::Cube \
+                        to render a skybox",
+            image = skybox.image
+        );
+    }
+    dimension_ok
 }

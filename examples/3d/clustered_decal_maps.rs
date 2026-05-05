@@ -5,13 +5,14 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     asset::io::web::WebAssetPlugin,
+    camera::Hdr,
     color::palettes::css::{CRIMSON, GOLD},
     image::ImageLoaderSettings,
     light::ClusteredDecal,
     prelude::*,
-    render::view::Hdr,
 };
-use rand::Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 
@@ -49,14 +50,14 @@ impl FromWorld for AppTextures {
         let asset_server = world.resource::<AssetServer>();
         AppTextures {
             decal_base_color_texture: asset_server.load("branding/bevy_bird_dark.png"),
-            decal_normal_map_texture: asset_server.load_with_settings(
-                get_web_asset_url("BevyLogo-Normal.png"),
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            ),
-            decal_metallic_roughness_map_texture: asset_server.load_with_settings(
-                get_web_asset_url("BevyLogo-MetallicRoughness.png"),
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            ),
+            decal_normal_map_texture: asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+                .load(get_web_asset_url("BevyLogo-Normal.png")),
+            decal_metallic_roughness_map_texture: asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+                .load(get_web_asset_url("BevyLogo-MetallicRoughness.png")),
             decal_emissive_texture: asset_server.load(get_web_asset_url("BevyLogo-Emissive.png")),
         }
     }
@@ -159,8 +160,12 @@ fn main() {
             Update,
             handle_emission_type_change.after(widgets::handle_ui_interactions::<AppSetting>),
         )
+        .insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467712)))
         .run();
 }
+
+#[derive(Resource)]
+struct SeededRng(ChaCha8Rng);
 
 /// Spawns all the objects in the scene.
 fn setup(
@@ -202,10 +207,10 @@ fn spawn_plane_mesh(
     // Give the plane some texture.
     //
     // Note that, as this is a normal map, we must disable sRGB when loading.
-    let normal_map_texture = asset_server.load_with_settings(
-        "textures/ScratchedGold-Normal.png",
-        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-    );
+    let normal_map_texture = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| settings.is_srgb = false)
+        .load("textures/ScratchedGold-Normal.png");
 
     // Actually spawn the plane.
     commands.spawn((
@@ -279,6 +284,7 @@ fn spawn_decal(
     app_textures: Res<AppTextures>,
     time: Res<Time>,
     mut decal_spawn_timer: Local<Option<Timer>>,
+    mut seeded_rng: ResMut<SeededRng>,
 ) {
     // Tick the decal spawn timer. Check to see if we should spawn a new decal,
     // and bail out if it's not yet time to.
@@ -290,18 +296,17 @@ fn spawn_decal(
     }
 
     // Generate a random position along the plane.
-    let mut rng = rand::rng();
     let decal_position = vec3(
-        rng.random_range(-PLANE_HALF_SIZE..PLANE_HALF_SIZE),
-        rng.random_range(-PLANE_HALF_SIZE..PLANE_HALF_SIZE),
+        seeded_rng.0.random_range(-PLANE_HALF_SIZE..PLANE_HALF_SIZE),
+        seeded_rng.0.random_range(-PLANE_HALF_SIZE..PLANE_HALF_SIZE),
         0.0,
     );
 
     // Generate a random size for the decal.
-    let decal_size = rng.random_range(DECAL_MIN_SIZE..DECAL_MAX_SIZE);
+    let decal_size = seeded_rng.0.random_range(DECAL_MIN_SIZE..DECAL_MAX_SIZE);
 
     // Generate a random rotation for the decal.
-    let theta = rng.random_range(0.0f32..PI);
+    let theta = seeded_rng.0.random_range(0.0f32..PI);
 
     // Now spawn the decal.
     commands.spawn((

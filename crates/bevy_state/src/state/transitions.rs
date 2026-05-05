@@ -7,7 +7,10 @@ use bevy_ecs::{
     world::World,
 };
 
-use super::{resources::State, states::States};
+use super::{
+    resources::{PreviousState, State},
+    states::States,
+};
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
@@ -136,6 +139,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
     mut event: MessageWriter<StateTransitionEvent<S>>,
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
+    mut previous_state: Option<ResMut<PreviousState<S>>>,
     new_state: Option<S>,
     allow_same_state_transitions: bool,
 ) {
@@ -158,6 +162,12 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                         entered: Some(entered.clone()),
                         allow_same_state_transitions,
                     });
+
+                    if let Some(ref mut previous_state) = previous_state {
+                        previous_state.0 = exited;
+                    } else {
+                        commands.insert_resource(PreviousState(exited));
+                    }
                 }
                 None => {
                     // If the [`State<S>`] resource does not exist, we create it, compute dependent states, send a transition event and register the `OnEnter` schedule.
@@ -168,19 +178,32 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                         entered: Some(entered.clone()),
                         allow_same_state_transitions,
                     });
+
+                    // When [`State<S>`] is initialized, there can be stale data in
+                    // [`PreviousState<S>`] from a prior transition to `None`, so we remove it.
+                    if previous_state.is_some() {
+                        commands.remove_resource::<PreviousState<S>>();
+                    }
                 }
             };
         }
         None => {
             // We first remove the [`State<S>`] resource, and if one existed we compute dependent states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = current_state {
+                let exited = resource.get().clone();
                 commands.remove_resource::<State<S>>();
 
                 event.write(StateTransitionEvent {
-                    exited: Some(resource.get().clone()),
+                    exited: Some(exited.clone()),
                     entered: None,
                     allow_same_state_transitions,
                 });
+
+                if let Some(ref mut previous_state) = previous_state {
+                    previous_state.0 = exited;
+                } else {
+                    commands.insert_resource(PreviousState(exited));
+                }
             }
         }
     }
@@ -206,6 +229,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
         )
             .chain(),
     );
+
     schedules.insert(schedule);
 }
 

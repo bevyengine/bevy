@@ -77,7 +77,7 @@ fn setup(
 
     commands.spawn((
         Name::new("Fox"),
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         // Note: the scale adjustment is purely an accident of our fox model, which renders
