@@ -1,7 +1,7 @@
 //! A tool for exporting release content.
 //!
 //! This terminal-based tool generates a release content file
-//! from the content of the `release-content` directory.
+//! from the content of the `_release-content` directory.
 //!
 //! To run this tool, use the following command from the `bevy` repository root:
 //!
@@ -25,9 +25,17 @@ use ratatui::{
     prelude::*,
 };
 
+use crate::app::Content;
+
 mod app;
 
 fn main() -> Result<()> {
+    let check = std::env::args().any(|arg| arg == "--check");
+    if check {
+        Content::load().unwrap();
+        return Ok(());
+    }
+
     init_panic_hook();
     let mut terminal = init_terminal().unwrap();
     let res = run_app(&mut terminal);

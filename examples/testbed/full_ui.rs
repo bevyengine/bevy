@@ -9,11 +9,11 @@ use bevy::{
         basic::LIME,
         css::{DARK_GRAY, NAVY},
     },
-    core_widgets::CoreScrollbar,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
+    ui_widgets::Scrollbar,
 };
 
 fn main() {
@@ -71,8 +71,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Text Example"),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: 25.0,
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    font_size: FontSize::Px(25.0),
                                     ..default()
                                 },
                                 // Because this is a distinct label widget and
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("Press Space to toggle debug outlines."),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                         ..default()
                                     },
                                     Label,
@@ -96,8 +96,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("V: toggle UI root's visibility"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -106,8 +106,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("S: toggle outlines for hidden nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -115,8 +115,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     Text::new("C: toggle outlines for clipped nodes"),
                                     TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Text::new("Try enabling feature \"bevy_ui_debug\"."),
                                 TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                     ..default()
                                 },
                                 Label,
@@ -147,8 +147,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Scrolling list"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 21.,
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(21.),
                             ..default()
                         },
                         Label,
@@ -189,7 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 Text(format!("Item {i}")),
                                                 TextFont {
                                                     font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                        .load("fonts/FiraSans-Bold.ttf")
+                                                        .into(),
                                                     ..default()
                                                 },
                                                 Label,
@@ -230,13 +231,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
                                 Node {
+                                    border_radius: BorderRadius::all(px(10)),
                                     ..Default::default()
                                 },
                                 UiTransform {
                                     rotation: Rot2::radians(0.25 * PI),
                                     ..Default::default()
                                 },
-                                BorderRadius::all(px(10)),
                                 Outline {
                                     width: px(2),
                                     offset: px(4),
@@ -407,7 +408,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
-    mut debug_options: ResMut<UiDebugOptions>,
+    mut debug_options: ResMut<GlobalUiDebugOptions>,
     mut root_node_query: Query<&mut Visibility, (With<Node>, Without<ChildOf>)>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
@@ -436,15 +437,15 @@ fn toggle_debug_overlay(
 
 /// Updates the scroll position of scrollable nodes in response to mouse input
 pub fn update_scroll_position(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
+    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    for mouse_wheel_event in mouse_wheel_events.read() {
-        let (mut dx, mut dy) = match mouse_wheel_event.unit {
-            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
-            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let (mut dx, mut dy) = match mouse_wheel.unit {
+            MouseScrollUnit::Line => (mouse_wheel.x * 20., mouse_wheel.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel.x, mouse_wheel.y),
         };
 
         if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)

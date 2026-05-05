@@ -31,6 +31,7 @@ use super::{
 /// and some [`TryFrom`] implementations.
 ///
 /// When `T` is [`Entity`], use [`UniqueEntityArray`].
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniqueEntityEquivalentArray<T: EntityEquivalent, const N: usize>([T; N]);
 
@@ -113,7 +114,7 @@ impl<T: EntityEquivalent, const N: usize> UniqueEntityEquivalentArray<T, N> {
     }
 
     /// Returns a reference to the inner array.
-    pub fn as_inner(&self) -> &[T; N] {
+    pub const fn as_inner(&self) -> &[T; N] {
         &self.0
     }
 
@@ -125,7 +126,7 @@ impl<T: EntityEquivalent, const N: usize> UniqueEntityEquivalentArray<T, N> {
 
     /// Returns a mutable slice containing the entire array. Equivalent to
     /// `&mut s[..]`.
-    pub fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
+    pub const fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original array are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.0.as_mut_slice()) }
     }
@@ -143,21 +144,20 @@ impl<T: EntityEquivalent, const N: usize> Deref for UniqueEntityEquivalentArray<
     type Target = UniqueEntityEquivalentSlice<T>;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(&self.0) }
+        self.as_slice()
     }
 }
 
 impl<T: EntityEquivalent, const N: usize> DerefMut for UniqueEntityEquivalentArray<T, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(&mut self.0) }
+        self.as_mut_slice()
     }
 }
 
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentArray<T, 0> {
     fn default() -> Self {
-        Self(Default::default())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked([]) }
     }
 }
 
@@ -170,7 +170,7 @@ impl<'a, T: EntityEquivalent, const N: usize> IntoIterator
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.iter()) }
     }
 }
 
@@ -181,7 +181,7 @@ impl<T: EntityEquivalent, const N: usize> IntoIterator for UniqueEntityEquivalen
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.into_iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.into_iter()) }
     }
 }
 
@@ -221,6 +221,7 @@ impl<T: EntityEquivalent, const N: usize> Index<(Bound<usize>, Bound<usize>)>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -231,6 +232,7 @@ impl<T: EntityEquivalent, const N: usize> Index<Range<usize>>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: Range<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -241,6 +243,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeFrom<usize>>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -249,6 +252,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeFrom<usize>>
 
 impl<T: EntityEquivalent, const N: usize> Index<RangeFull> for UniqueEntityEquivalentArray<T, N> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeFull) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -259,6 +263,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeInclusive<usize>>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -269,6 +274,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeTo<usize>>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeTo<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -279,6 +285,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeToInclusive<usize>>
     for UniqueEntityEquivalentArray<T, N>
 {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -287,6 +294,7 @@ impl<T: EntityEquivalent, const N: usize> Index<RangeToInclusive<usize>>
 
 impl<T: EntityEquivalent, const N: usize> Index<usize> for UniqueEntityEquivalentArray<T, N> {
     type Output = T;
+
     fn index(&self, key: usize) -> &T {
         self.0.index(key)
     }
@@ -357,37 +365,43 @@ impl<T: EntityEquivalent, const N: usize> IndexMut<RangeToInclusive<usize>>
 
 impl<T: EntityEquivalent + Clone> From<&[T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     fn from(value: &[T; 1]) -> Self {
-        Self(value.clone())
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&[T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     fn from(value: &[T; 0]) -> Self {
-        Self(value.clone())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     fn from(value: &mut [T; 1]) -> Self {
-        Self(value.clone())
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     fn from(value: &mut [T; 0]) -> Self {
-        Self(value.clone())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     fn from(value: [T; 1]) -> Self {
-        Self(value)
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     fn from(value: [T; 0]) -> Self {
-        Self(value)
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value) }
     }
 }
 

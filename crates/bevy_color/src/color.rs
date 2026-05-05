@@ -2,6 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{MismatchedUnitsError, TryStableInterpolate};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -165,6 +166,45 @@ impl Color {
             blue: blue as f32 / 255.0,
             alpha: 1.0,
         })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
+    ///
+    /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgb_u32(0x000000);
+    /// let red = Color::srgb_u32(0xff0000);
+    /// ```
+    pub fn srgb_u32(color: u32) -> Self {
+        Self::Srgba(Srgba::rgb(
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
+    ///
+    /// For example, a value of `0x000000ff` results in black with full opacity, and a value of `0xff000080` results in red with half opacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgba_u32(0x000000ff);
+    /// let semi_transparent_red = Color::srgba_u32(0xff000080);
+    /// ```
+    pub fn srgba_u32(color: u32) -> Self {
+        Self::Srgba(Srgba::new(
+            ((color >> 24) & 0xff) as f32 / 255.,
+            ((color >> 16) & 0xff) as f32 / 255.,
+            ((color >> 8) & 0xff) as f32 / 255.,
+            (color & 0xff) as f32 / 255.,
+        ))
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
@@ -886,6 +926,26 @@ impl EuclideanDistance for Color {
             Color::Oklaba(x) => x.distance_squared(&(*other).into()),
             Color::Oklcha(x) => x.distance_squared(&(*other).into()),
             Color::Xyza(x) => ChosenColorSpace::from(*x).distance_squared(&(*other).into()),
+        }
+    }
+}
+
+impl TryStableInterpolate for Color {
+    type Error = MismatchedUnitsError;
+
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Color::Srgba(a), Color::Srgba(b)) => Ok(Color::Srgba(a.mix(b, t))),
+            (Color::LinearRgba(a), Color::LinearRgba(b)) => Ok(Color::LinearRgba(a.mix(b, t))),
+            (Color::Hsla(a), Color::Hsla(b)) => Ok(Color::Hsla(a.mix(b, t))),
+            (Color::Hsva(a), Color::Hsva(b)) => Ok(Color::Hsva(a.mix(b, t))),
+            (Color::Hwba(a), Color::Hwba(b)) => Ok(Color::Hwba(a.mix(b, t))),
+            (Color::Laba(a), Color::Laba(b)) => Ok(Color::Laba(a.mix(b, t))),
+            (Color::Lcha(a), Color::Lcha(b)) => Ok(Color::Lcha(a.mix(b, t))),
+            (Color::Oklaba(a), Color::Oklaba(b)) => Ok(Color::Oklaba(a.mix(b, t))),
+            (Color::Oklcha(a), Color::Oklcha(b)) => Ok(Color::Oklcha(a.mix(b, t))),
+            (Color::Xyza(a), Color::Xyza(b)) => Ok(Color::Xyza(a.mix(b, t))),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }

@@ -43,7 +43,7 @@ fn setup_ui(mut commands: Commands) {
         .with_child((
             Text::new("Resolution"),
             TextFont {
-                font_size: 42.0,
+                font_size: FontSize::Px(42.0),
                 ..default()
             },
             ResolutionText,
@@ -74,7 +74,7 @@ fn toggle_resolution(
 /// Whenever the window is resized, the text will update with the new resolution.
 fn on_resize_system(
     mut text: Single<&mut Text, With<ResolutionText>>,
-    mut resize_reader: EventReader<WindowResized>,
+    mut resize_reader: MessageReader<WindowResized>,
 ) {
     for e in resize_reader.read() {
         // When resolution is being changed

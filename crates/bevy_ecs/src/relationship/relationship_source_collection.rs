@@ -155,7 +155,9 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+        // Scan from the back. Recently added entities live at the tail and are more likely to be
+        // despawned. This exploits temporal locality to keep the search cheap.
+        if let Some(index) = <[Entity]>::iter(self).rposition(|e| *e == entity) {
             Vec::remove(self, index);
             return true;
         }
@@ -242,7 +244,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.0.reserve(additional);
+        self.deref_mut().reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -254,9 +256,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        // We need to call the remove method on the underlying hash set,
-        // which takes its argument by reference
-        self.0.remove(&entity)
+        self.deref_mut().remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -264,15 +264,15 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        self.deref().len()
     }
 
     fn clear(&mut self) {
-        self.0.clear();
+        self.deref_mut().clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.0.shrink_to_fit();
+        self.deref_mut().shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {

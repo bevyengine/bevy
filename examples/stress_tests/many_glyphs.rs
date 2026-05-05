@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -51,10 +51,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup);
 
     if args.recompute_text {
@@ -70,7 +67,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
     let text_font = TextFont {
-        font_size: 4.,
+        font_size: FontSize::Px(4.),
         ..Default::default()
     };
     let text_block = TextLayout {
