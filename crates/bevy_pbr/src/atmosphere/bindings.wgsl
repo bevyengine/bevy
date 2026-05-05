@@ -18,10 +18,7 @@
 @group(0) @binding(7) var medium_sampler: sampler;
 
 @group(0) @binding(8) var transmittance_lut: texture_2d<f32>;
-@group(0) @binding(9) var transmittance_lut_sampler: sampler;
-@group(0) @binding(10) var multiscattering_lut: texture_2d<f32>;
-@group(0) @binding(11) var multiscattering_lut_sampler: sampler;
-@group(0) @binding(12) var sky_view_lut: texture_2d<f32>;
-@group(0) @binding(13) var sky_view_lut_sampler: sampler;
-@group(0) @binding(14) var aerial_view_lut: texture_3d<f32>;
-@group(0) @binding(15) var aerial_view_lut_sampler: sampler;
+@group(0) @binding(9) var multiscattering_lut: texture_2d<f32>;
+@group(0) @binding(10) var sky_view_lut: texture_2d<f32>;
+@group(0) @binding(11) var aerial_view_lut: texture_3d<f32>;
+@group(0) @binding(12) var atmosphere_lut_sampler: sampler;

@@ -1,6 +1,6 @@
 use crate::{
     resources::{
-        AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
+        AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset, GpuAtmosphere,
     },
     ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
@@ -9,10 +9,10 @@ use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUs
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryState, With, Without},
+    query::{With, Without},
     resource::Resource,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
@@ -20,9 +20,8 @@ use bevy_math::{Quat, UVec2};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{binding_types::*, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
 };
@@ -30,7 +29,7 @@ use bevy_utils::default;
 use tracing::warn;
 
 // Render world representation of an environment map light for the atmosphere
-#[derive(Component, ExtractComponent, Clone)]
+#[derive(Component, ExtractComponent, Clone, FromTemplate)]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
@@ -66,26 +65,21 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
             (
+                // uniforms
                 (0, uniform_buffer::<GpuAtmosphere>(true)),
                 (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
                 (2, uniform_buffer::<AtmosphereTransform>(true)),
                 (3, uniform_buffer::<ViewUniform>(true)),
                 (4, uniform_buffer::<GpuLights>(true)),
-                //transmittance lut and sampler
-                (8, texture_2d(TextureSampleType::default())),
-                (9, sampler(SamplerBindingType::Filtering)),
-                //multiscattering lut and sampler
-                (10, texture_2d(TextureSampleType::default())),
-                (11, sampler(SamplerBindingType::Filtering)),
-                //sky view lut and sampler
-                (12, texture_2d(TextureSampleType::default())),
-                (13, sampler(SamplerBindingType::Filtering)),
-                //aerial view lut ans sampler
-                (14, texture_3d(TextureSampleType::default())),
-                (15, sampler(SamplerBindingType::Filtering)),
+                // atmosphere luts and sampler
+                (8, texture_2d(TextureSampleType::default())), // transmittance
+                (9, texture_2d(TextureSampleType::default())), // multiscattering
+                (10, texture_2d(TextureSampleType::default())), // sky view
+                (11, texture_3d(TextureSampleType::default())), // aerial view
+                (12, sampler(SamplerBindingType::Filtering)),
                 // output 2D array texture
                 (
-                    16,
+                    13,
                     texture_storage_2d_array(
                         TextureFormat::Rgba16Float,
                         StorageTextureAccess::WriteOnly,
@@ -102,7 +96,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
-    samplers: Res<AtmosphereSamplers>,
+    atmosphere_sampler: Res<AtmosphereSampler>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -116,20 +110,20 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
             "environment_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::with_indices((
+                // uniforms
                 (0, atmosphere_uniforms.binding().unwrap()),
                 (1, settings_uniforms.binding().unwrap()),
                 (2, atmosphere_transforms.uniforms().binding().unwrap()),
                 (3, view_uniforms.uniforms.binding().unwrap()),
                 (4, lights_uniforms.view_gpu_lights.binding().unwrap()),
+                // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
-                (9, &samplers.transmittance_lut),
-                (10, &textures.multiscattering_lut.default_view),
-                (11, &samplers.multiscattering_lut),
-                (12, &textures.sky_view_lut.default_view),
-                (13, &samplers.sky_view_lut),
-                (14, &textures.aerial_view_lut.default_view),
-                (15, &samplers.aerial_view_lut),
-                (16, &textures.environment),
+                (9, &textures.multiscattering_lut.default_view),
+                (10, &textures.sky_view_lut.default_view),
+                (11, &textures.aerial_view_lut.default_view),
+                (12, &**atmosphere_sampler),
+                // output 2D array texture
+                (13, &textures.environment),
             )),
         );
 
@@ -248,91 +242,56 @@ pub fn prepare_atmosphere_probe_components(
             });
     }
 }
-
-pub(super) struct EnvironmentNode {
-    main_view_query: QueryState<(
-        Read<DynamicUniformIndex<GpuAtmosphere>>,
-        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
-        Read<AtmosphereTransformsOffset>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
+pub fn atmosphere_environment(
+    view: ViewQuery<(
+        &DynamicUniformIndex<GpuAtmosphere>,
+        &DynamicUniformIndex<GpuAtmosphereSettings>,
+        &AtmosphereTransformsOffset,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
     )>,
-    probe_query: QueryState<(
-        Read<AtmosphereProbeBindGroups>,
-        Read<AtmosphereEnvironmentMap>,
-    )>,
-}
+    probe_query: Query<(&AtmosphereProbeBindGroups, &AtmosphereEnvironmentMap)>,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Res<AtmosphereProbePipeline>,
+    mut ctx: RenderContext,
+) {
+    let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
+    else {
+        return;
+    };
 
-impl FromWorld for EnvironmentNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            probe_query: QueryState::new(world),
-        }
-    }
-}
+    let (
+        atmosphere_uniforms_offset,
+        settings_uniforms_offset,
+        atmosphere_transforms_offset,
+        view_uniforms_offset,
+        lights_uniforms_offset,
+    ) = view.into_inner();
 
-impl Node for EnvironmentNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.probe_query.update_archetypes(world);
-    }
+    for (bind_groups, env_map_light) in probe_query.iter() {
+        let command_encoder = ctx.command_encoder();
+        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("environment_pass"),
+            timestamp_writes: None,
+        });
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereProbePipeline>();
-        let view_entity = graph.view_entity();
+        pass.set_pipeline(environment_pipeline);
+        pass.set_bind_group(
+            0,
+            &bind_groups.environment,
+            &[
+                atmosphere_uniforms_offset.index(),
+                settings_uniforms_offset.index(),
+                atmosphere_transforms_offset.index(),
+                view_uniforms_offset.offset,
+                lights_uniforms_offset.offset,
+            ],
+        );
 
-        let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
-        else {
-            return Ok(());
-        };
-
-        let (Ok((
-            atmosphere_uniforms_offset,
-            settings_uniforms_offset,
-            atmosphere_transforms_offset,
-            view_uniforms_offset,
-            lights_uniforms_offset,
-        )),) = (self.main_view_query.get_manual(world, view_entity),)
-        else {
-            return Ok(());
-        };
-
-        for (bind_groups, env_map_light) in self.probe_query.iter_manual(world) {
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("environment_pass"),
-                        timestamp_writes: None,
-                    });
-
-            pass.set_pipeline(environment_pipeline);
-            pass.set_bind_group(
-                0,
-                &bind_groups.environment,
-                &[
-                    atmosphere_uniforms_offset.index(),
-                    settings_uniforms_offset.index(),
-                    atmosphere_transforms_offset.index(),
-                    view_uniforms_offset.offset,
-                    lights_uniforms_offset.offset,
-                ],
-            );
-
-            pass.dispatch_workgroups(
-                env_map_light.size.x / 8,
-                env_map_light.size.y / 8,
-                6, // 6 cubemap faces
-            );
-        }
-
-        Ok(())
+        pass.dispatch_workgroups(
+            env_map_light.size.x / 8,
+            env_map_light.size.y / 8,
+            6, // 6 cubemap faces
+        );
     }
 }

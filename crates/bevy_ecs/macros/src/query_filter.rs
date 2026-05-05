@@ -1,8 +1,8 @@
-use bevy_macro_utils::ensure_no_collision;
+use bevy_macro_utils::{ensure_no_collision, get_struct_fields};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Index};
+use syn::{parse_macro_input, parse_quote, DeriveInput};
 
 use crate::{bevy_ecs_path, world_query::world_query_impl};
 
@@ -41,40 +41,17 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
     let state_struct_name = ensure_no_collision(state_struct_name, tokens);
 
-    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
-        return syn::Error::new(
-            Span::call_site(),
-            "#[derive(WorldQuery)]` only supports structs",
-        )
-        .into_compile_error()
-        .into();
+    let fields = match get_struct_fields(&ast.data, "derive(WorldQuery)") {
+        Ok(fields) => fields,
+        Err(e) => return e.into_compile_error().into(),
     };
 
-    let mut field_attrs = Vec::new();
-    let mut field_visibilities = Vec::new();
-    let mut field_idents = Vec::new();
-    let mut named_field_idents = Vec::new();
-    let mut field_types = Vec::new();
-    for (i, field) in fields.iter().enumerate() {
-        let attrs = field.attrs.clone();
-
-        let named_field_ident = field
-            .ident
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| format_ident!("f{i}"));
-        let i = Index::from(i);
-        let field_ident = field
-            .ident
-            .as_ref()
-            .map_or(quote! { #i }, |i| quote! { #i });
-        field_idents.push(field_ident);
-        named_field_idents.push(named_field_ident);
-        field_attrs.push(attrs);
-        field_visibilities.push(field.vis.clone());
-        let field_ty = field.ty.clone();
-        field_types.push(quote!(#field_ty));
-    }
+    let field_members: Vec<_> = fields.members().collect();
+    let field_aliases = fields
+        .members()
+        .map(|m| format_ident!("field{}", m))
+        .collect();
+    let field_types = fields.iter().map(|f| f.ty.clone()).collect();
 
     let world_query_impl = world_query_impl(
         &path,
@@ -86,7 +63,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         &user_impl_generics_with_world,
         &user_ty_generics,
         &user_ty_generics_with_world,
-        &named_field_idents,
+        &field_aliases,
         &marker_name,
         &state_struct_name,
         user_where_clauses,
@@ -97,7 +74,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
-            const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
+            const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryFilter>::IS_ARCHETYPAL)*;
 
             #[allow(unused_variables)]
             #[inline(always)]
@@ -107,7 +84,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
                 _entity: #path::entity::Entity,
                 _table_row: #path::storage::TableRow,
             ) -> bool {
-                true #(&& <#field_types>::filter_fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row))*
+                true #(&& <#field_types>::filter_fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row))*
             }
         }
     };
@@ -128,7 +105,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
             )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
-                #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*
+                #(#field_aliases: <#field_types as #path::query::WorldQuery>::State,)*
             }
 
             #world_query_impl
@@ -160,8 +137,8 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
                 q: #struct_name #user_ty_generics,
                 q2: #struct_name #user_ty_generics
             ) #user_where_clauses {
-                #(q.#field_idents;)*
-                #(q2.#field_idents;)*
+                #(q.#field_members;)*
+                #(q2.#field_members;)*
             }
         };
     })

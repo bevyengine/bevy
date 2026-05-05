@@ -180,8 +180,6 @@ where
 {
     /// Draw a 2D grid in 3D.
     ///
-    /// This should be called for each frame the grid needs to be rendered.
-    ///
     /// The grid's default orientation aligns with the XY-plane.
     ///
     /// # Arguments
@@ -236,8 +234,6 @@ where
 
     /// Draw a 3D grid of voxel-like cells.
     ///
-    /// This should be called for each frame the grid needs to be rendered.
-    ///
     /// # Arguments
     ///
     /// - `isometry` defines the translation and rotation of the grid.
@@ -288,8 +284,6 @@ where
     }
 
     /// Draw a grid in 2D.
-    ///
-    /// This should be called for each frame the grid needs to be rendered.
     ///
     /// # Arguments
     ///

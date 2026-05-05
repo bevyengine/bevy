@@ -7,7 +7,9 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
-use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
+use bevy_pbr::{
+    DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
+};
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
@@ -38,6 +40,7 @@ pub fn prepare_raytracing_scene_bindings(
         &RaytracingMesh3d,
         &MeshMaterial3d<StandardMaterial>,
         &GlobalTransform,
+        Option<&PreviousGlobalTransform>,
     )>,
     directional_lights_query: Query<(Entity, &ExtractedDirectionalLight)>,
     mesh_allocator: Res<MeshAllocator>,
@@ -45,6 +48,7 @@ pub fn prepare_raytracing_scene_bindings(
     material_assets: Res<StandardMaterialAssets>,
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
+    dfg_lut: Res<DfgLut>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
@@ -76,6 +80,7 @@ pub fn prepare_raytracing_scene_bindings(
             max_instances: instances_query.iter().len() as u32,
         });
     let mut transforms = StorageBufferList::<Mat4>::default();
+    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
@@ -127,7 +132,7 @@ pub fn prepare_raytracing_scene_bindings(
             perceptual_roughness: material.perceptual_roughness,
             emissive: material.emissive.to_vec3(),
             metallic: material.metallic,
-            reflectance: LinearRgba::from(material.specular_tint).to_vec3() * material.reflectance,
+            reflectance: material.reflectance,
             _padding: Default::default(),
         });
 
@@ -145,7 +150,7 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     let mut instance_id = 0;
-    for (entity, mesh, material, transform) in &instances_query {
+    for (entity, mesh, material, transform, previous_frame_transform) in &instances_query {
         let Some(blas) = blas_manager.get(&mesh.id()) else {
             continue;
         };
@@ -171,6 +176,11 @@ pub fn prepare_raytracing_scene_bindings(
         ));
 
         transforms.get_mut().push(transform);
+        previous_frame_transforms.get_mut().push(
+            previous_frame_transform
+                .map(|t| Mat4::from(t.0))
+                .unwrap_or(transform),
+        );
 
         let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
             vertex_slice.buffer.as_entire_buffer_binding(),
@@ -244,6 +254,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
+    previous_frame_transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
     material_ids.write_buffer(&render_device, &render_queue);
     light_sources.write_buffer(&render_device, &render_queue);
@@ -256,6 +267,14 @@ pub fn prepare_raytracing_scene_bindings(
     command_encoder.build_acceleration_structures(&[], [&tlas]);
     render_queue.submit([command_encoder.finish()]);
 
+    let (dfg_view, dfg_sampler) = texture_assets
+        .get(&dfg_lut.texture)
+        .map(|img| (&img.texture_view, &img.sampler))
+        .unwrap_or((
+            &fallback_texture.d2.texture_view,
+            &fallback_texture.d2.sampler,
+        ));
+
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
         &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
@@ -267,11 +286,14 @@ pub fn prepare_raytracing_scene_bindings(
             materials.binding().unwrap(),
             tlas.as_binding(),
             transforms.binding().unwrap(),
+            previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
             light_sources.binding().unwrap(),
             directional_lights.binding().unwrap(),
             previous_frame_light_id_translations.binding().unwrap(),
+            dfg_view,
+            dfg_sampler,
         )),
     ));
 }
@@ -298,6 +320,9 @@ impl RaytracingSceneBindings {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
                     ),
                 ),
             ),
@@ -367,8 +392,8 @@ struct GpuMaterial {
     perceptual_roughness: f32,
     emissive: Vec3,
     metallic: f32,
-    reflectance: Vec3,
-    _padding: f32,
+    _padding: Vec3,
+    reflectance: f32,
 }
 
 #[derive(ShaderType)]

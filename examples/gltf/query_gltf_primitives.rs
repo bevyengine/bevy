@@ -26,7 +26,7 @@ fn find_top_material_and_mesh(
     for (mat_handle, mesh_handle, name) in mat_query.iter() {
         // locate a material by material name
         if name.0 == "Top" {
-            if let Some(material) = materials.get_mut(mat_handle) {
+            if let Some(mut material) = materials.get_mut(mat_handle) {
                 if let Color::Hsla(ref mut hsla) = material.base_color {
                     *hsla = hsla.rotate_hue(time.delta_secs() * 100.0);
                 } else {
@@ -34,7 +34,7 @@ fn find_top_material_and_mesh(
                 }
             }
 
-            if let Some(mesh) = meshes.get_mut(mesh_handle)
+            if let Some(mut mesh) = meshes.get_mut(mesh_handle)
                 && let Some(VertexAttributeValues::Float32x3(positions)) =
                     mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
             {
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         DirectionalLight::default(),
     ));
 
-    commands.spawn(SceneRoot(asset_server.load(
+    commands.spawn(WorldAssetRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb"),
     )));
 }

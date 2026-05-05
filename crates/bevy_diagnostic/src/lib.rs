@@ -8,7 +8,7 @@
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevy.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
-//! their ability to monitor and optimize their game's.
+//! their ability to monitor and optimize their games.
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -17,7 +17,7 @@ extern crate alloc;
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
-mod frame_count_diagnostics_plugin;
+mod frame_count;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 #[cfg(feature = "sysinfo_plugin")]
@@ -26,7 +26,7 @@ mod system_information_diagnostics_plugin;
 pub use diagnostic::*;
 
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
-pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
+pub use frame_count::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::{LogDiagnosticsPlugin, LogDiagnosticsState};
 #[cfg(feature = "sysinfo_plugin")]
