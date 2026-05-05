@@ -4,7 +4,7 @@ enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter}
-#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
+#import bevy_pbr::pbr_functions::calculate_F0
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
 #import bevy_render::maths::{PI, orthonormalize}
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid}
@@ -16,6 +16,22 @@ struct EvaluateAndSampleBrdfResult {
     pdf: f32,
 }
 
+struct LobeReflectances {
+    rho_spec: vec3<f32>,
+    rho_diff: vec3<f32>,
+}
+
+// Hemispherical reflectance of each lobe
+fn lobe_reflectances(F0: vec3<f32>, material: ResolvedMaterial, NdotV: f32) -> LobeReflectances {
+    let F_ab = F_AB(material.perceptual_roughness, NdotV);
+    let ms_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
+    let rho_spec = (F0 * F_ab.x + vec3(F_ab.y)) * (vec3(1.0) + F0 * ms_factor);
+    return LobeReflectances(
+        rho_spec,
+        (1.0 - material.metallic) * (vec3(1.0) - rho_spec) * material.base_color,
+    );
+}
+
 fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
@@ -25,10 +41,9 @@ fn evaluate_and_sample_brdf(
     let NdotV = dot(world_normal, wo);
     if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
-    let df = 1.0 - luminance(fresnel(F0, NdotV));
-
-    let diffuse_weight = mix(df, 0.0, material.metallic);
-    let specular_weight = 1.0 - diffuse_weight;
+    let rho = lobe_reflectances(F0, material, NdotV);
+    let specular_weight = luminance(rho.rho_spec) / luminance(rho.rho_spec + rho.rho_diff);
+    let diffuse_weight = 1 - specular_weight;
 
     let TBN = orthonormalize(world_normal);
     let T = TBN[0];
@@ -49,19 +64,17 @@ fn evaluate_and_sample_brdf(
             return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0);
         }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+
+        // Mirror specular is a delta function
+        if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
+            return EvaluateAndSampleBrdfResult(wi, rho.rho_spec / specular_weight, 1.0);
+        }
     }
 
     let diffuse_pdf = wi_tangent.z / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
-    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
-
-    var throughput = evaluate_brdf(wo, wi, world_normal, material);
-    if diffuse_selected || material.roughness > MIRROR_ROUGHNESS_THRESHOLD {
-        throughput /= pdf;
-    } else {
-        throughput /= specular_weight;
-    }
-
+    let pdf = specular_weight * specular_pdf + diffuse_weight * diffuse_pdf;
+    let throughput = evaluate_brdf(wo, wi, world_normal, material) / pdf;
     return EvaluateAndSampleBrdfResult(wi, throughput, pdf);
 }
 
@@ -75,15 +88,12 @@ fn evaluate_brdf(
 }
 
 fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
-    let diffuse_color = calculate_diffuse_color(material.base_color, material.metallic, 0.0, 0.0) / PI;
-
     let NdotL = dot(world_normal, wi);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
-    let layering = (1.0 - fresnel(F0, NdotL)) * (1.0 - fresnel(F0, NdotV));
-
-    return diffuse_color * layering * NdotL;
+    let rho = lobe_reflectances(F0, material, NdotV);
+    return rho.rho_diff / PI * NdotL;
 }
 
 fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
@@ -93,7 +103,6 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let LdotH = dot(wi, H);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
-
     let F0 = calculate_F0(material.base_color, material.metallic, vec3(material.reflectance));
     let F = fresnel(F0, LdotH);
 
