@@ -1418,6 +1418,89 @@ impl Image {
 
         Ok(())
     }
+    /// Takes a 2D image containing a grid of tiles of the specified size,
+    /// And transforms the image into a vertical stack of tile to be used as a 2D array texture.
+    ///
+    /// This is primarily for preparing grid based tilesets.
+    ///
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable by size_in_tiles.
+    pub fn reinterpret_grid_2d_as_array(
+        &mut self,
+        rows: u32,
+        columns: u32,
+    ) -> Result<(), TextureReinterpretationError> {
+        // Must be a grid image, and the image height and width must be divisible by the rows and columns.
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if !self.height().is_multiple_of(rows) {
+            return Err(
+                TextureReinterpretationError::GridHeightNotDivisibleByTileHeight {
+                    height: self.height(),
+                    tile_count_y: rows,
+                },
+            );
+        }
+        if !self.width().is_multiple_of(columns) {
+            return Err(
+                TextureReinterpretationError::GridWidthNotDivisibleByTileWidth {
+                    width: self.width(),
+                    tile_count_x: columns,
+                },
+            );
+        }
+
+        let tile_width = self.width() / columns;
+        let tile_height = self.height() / rows;
+        let tiles_x = columns as usize;
+        let tiles_y = rows as usize;
+        let image_width = self.width() as usize;
+        let total_tiles = tiles_x * tiles_y;
+
+        // Transform the grid of tiles into a single vertical stack of tiles.
+
+        if let Some(pixels) = self.data.take() {
+            let pixel_size = self
+                .texture_descriptor
+                .format
+                .pixel_size()
+                .map_err(|_| TextureReinterpretationError::InvalidTextureFormat)?;
+
+            let mut new_data = Vec::with_capacity(pixels.len());
+
+            // Iterate tiles in row-major order (left-to-right, top-to-bottom).
+            let tile_height_usize = tile_height as usize;
+            let tile_width_usize = tile_width as usize;
+
+            for ty in 0..tiles_y {
+                for tx in 0..tiles_x {
+                    for row in 0..tile_height_usize {
+                        let src_row = ty * tile_height_usize + row;
+                        let src_col = tx * tile_width_usize;
+                        let src_start = (src_row * image_width + src_col) * pixel_size;
+                        let src_end = src_start + tile_width_usize * pixel_size;
+                        new_data.extend_from_slice(&pixels[src_start..src_end]);
+                    }
+                }
+            }
+
+            self.data = Some(new_data);
+        }
+
+        // Update the texture descriptor to reflect the new tile dimensions and layer count.
+        self.reinterpret_size(Extent3d {
+            width: tile_width,
+            height: tile_height,
+            depth_or_array_layers: total_tiles as u32,
+        })?;
+
+        Ok(())
+    }
 
     /// Convert a texture from a format to another. Only a few formats are
     /// supported as input and output:
@@ -2085,6 +2168,25 @@ pub enum TextureReinterpretationError {
         /// The desired number of image layers.
         layers: u32,
     },
+    /// The grid height is not divisible by the number of tiles in the height.
+    #[error("can not evenly divide grid with height = {height} by tiles = {tile_count_y}")]
+    GridHeightNotDivisibleByTileHeight {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        tile_count_y: u32,
+    },
+    /// The grid width is not divisible by the number of tiles in the width.
+    #[error("can not evenly divide grid with width = {width} by tiles = {tile_count_x}")]
+    GridWidthNotDivisibleByTileWidth {
+        /// The total image height in pixels.
+        width: u32,
+        /// The desired number of image layers.
+        tile_count_x: u32,
+    },
+    /// The texture format is not supported.
+    #[error("Cannot process texture in its current format. Is it compressed?")]
+    InvalidTextureFormat,
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
