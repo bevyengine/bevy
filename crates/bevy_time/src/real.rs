@@ -103,7 +103,7 @@ impl Time<Real> {
             context.last_update = Some(instant);
             return;
         };
-        let delta = instant - last_update;
+        let delta = instant.saturating_duration_since(last_update);
         self.advance_by(delta);
         self.context_mut().last_update = Some(instant);
     }

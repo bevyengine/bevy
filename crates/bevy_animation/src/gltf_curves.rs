@@ -55,7 +55,7 @@ pub struct CubicKeyframeCurve<T> {
 
 impl<V> Curve<V> for CubicKeyframeCurve<V>
 where
-    V: VectorSpace,
+    V: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -179,7 +179,7 @@ pub struct WideLinearKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideLinearKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -289,7 +289,7 @@ pub struct WideCubicKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideCubicKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -353,7 +353,7 @@ impl<T> WideCubicKeyframeCurve<T> {
         let values: Vec<T> = values.into_iter().collect();
         let divisor = times.len() * 3;
 
-        if values.len() % divisor != 0 {
+        if !values.len().is_multiple_of(divisor) {
             return Err(WideKeyframeCurveError::LengthMismatch {
                 values_given: values.len(),
                 divisor,
@@ -364,32 +364,6 @@ impl<T> WideCubicKeyframeCurve<T> {
             core: ChunkedUnevenCore::new_width_inferred(times, values)?,
         })
     }
-}
-
-/// A curve specifying the [`MorphWeights`] for a mesh in animation. The variants are broken
-/// down by interpolation mode (with the exception of `Constant`, which never interpolates).
-///
-/// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
-/// recommended to use its implementation of the [`IterableCurve`] trait, which allows iterating
-/// directly over information derived from the curve without allocating.
-///
-/// [`MorphWeights`]: bevy_mesh::morph::MorphWeights
-#[derive(Debug, Clone, Reflect)]
-#[reflect(Clone)]
-pub enum WeightsCurve {
-    /// A curve which takes a constant value over its domain. Notably, this is how animations with
-    /// only a single keyframe are interpreted.
-    Constant(ConstantCurve<Vec<f32>>),
-
-    /// A curve which interpolates weights linearly between keyframes.
-    Linear(WideLinearKeyframeCurve<f32>),
-
-    /// A curve which interpolates weights between keyframes in steps.
-    Step(WideSteppedKeyframeCurve<f32>),
-
-    /// A curve which interpolates between keyframes by using auxiliary tangent data to join
-    /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
-    CubicSpline(WideCubicKeyframeCurve<f32>),
 }
 
 //---------//
@@ -406,7 +380,7 @@ fn cubic_spline_interpolation<T>(
     step_duration: f32,
 ) -> T
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     let coeffs = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
     value_start * (coeffs.x * lerp + 1.0)
@@ -415,7 +389,7 @@ where
         + tangent_in_end * step_duration * lerp * coeffs.w
 }
 
-fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
+fn cubic_spline_interpolate_slices<'a, T: VectorSpace<Scalar = f32>>(
     width: usize,
     first: &'a [T],
     second: &'a [T],

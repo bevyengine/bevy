@@ -1,14 +1,17 @@
 name: Dependencies
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
   push:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
     branches:
       - main
 
@@ -23,8 +26,12 @@ jobs:
   check-advisories:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for security advisories and unmaintained crates
@@ -33,8 +40,12 @@ jobs:
   check-bans:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for banned and duplicated dependencies
@@ -43,8 +54,12 @@ jobs:
   check-licenses:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for unauthorized licenses
@@ -53,8 +68,12 @@ jobs:
   check-sources:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Checked for unauthorized crate sources

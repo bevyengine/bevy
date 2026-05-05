@@ -1,7 +1,7 @@
 error[E0521]: borrowed data escapes outside of closure
   --> tests/ui/system_query_iter_sort_lifetime_safety.rs:12:9
    |
-9  |     let mut stored: Option<&A> = None;
+ 9 |     let mut stored: Option<&A> = None;
    |         ---------- `stored` declared here, outside of the closure body
 10 |     let mut sorted = iter.sort_by::<&A>(|left, _right| {
    |                                          ---- `left` is a reference that is only valid in the closure body

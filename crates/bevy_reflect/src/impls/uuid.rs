@@ -8,5 +8,15 @@ impl_reflect_opaque!(::uuid::Uuid(
     Clone,
     Debug,
     PartialEq,
+    PartialOrd,
+    Hash
+));
+
+impl_reflect_opaque!(::uuid::NonNilUuid(
+    Serialize,
+    Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
     Hash
 ));
