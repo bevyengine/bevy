@@ -335,12 +335,6 @@ fn main() {
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
 
-                for command in &to_run.setup {
-                    let exe = &command[0];
-                    let args = &command[1..];
-                    cmd!(sh, "{exe} {args...}").run().unwrap();
-                }
-
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -492,7 +486,8 @@ fn main() {
             content_folder,
             api,
         } => {
-            let examples_to_run = parse_examples();
+            let mut examples_to_run = parse_examples();
+            examples_to_run.sort_by_key(|e| format!("{}-{}", e.category, e.name));
 
             let root_path = Path::new(&content_folder);
 
@@ -601,6 +596,7 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
+required_features = {:?}
 +++
 
 {}
@@ -642,6 +638,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            to_show.required_features,
                             docblock,
                         )
                         .as_bytes(),
@@ -841,23 +838,6 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
-                setup: metadata
-                    .get("setup")
-                    .map(|setup| {
-                        setup
-                            .as_array()
-                            .unwrap()
-                            .into_iter()
-                            .map(|v| {
-                                v.as_array()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|v| v.as_str().unwrap().to_string())
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
                 example_type: match val.get("crate-type") {
                     Some(crate_type) => {
                         match crate_type
@@ -901,8 +881,6 @@ struct Example {
     /// Does this example work in Wasm?
     // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
     wasm: bool,
-    /// List of commands to run before the example. Can be used for example to specify data to download
-    setup: Vec<Vec<String>>,
     /// Type of example
     example_type: ExampleType,
 }

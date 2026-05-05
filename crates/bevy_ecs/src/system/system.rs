@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -55,8 +55,20 @@ pub trait System: Send + Sync + 'static {
     fn name(&self) -> DebugName;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
-    fn type_id(&self) -> TypeId {
+    fn system_type(&self) -> TypeId {
         TypeId::of::<Self>()
+    }
+
+    /// Returns the [`TypeId`] of the underlying system type.
+    ///
+    /// Use [`system_type`](System::system_type) instead.
+    #[deprecated(
+        since = "0.19.0",
+        note = "Use `system_type` instead. This method shadows `Any::type_id` and will be removed in a future release."
+    )]
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        self.system_type()
     }
 
     /// Returns the [`SystemStateFlags`] of the system.
@@ -132,10 +144,6 @@ pub trait System: Send + Sync + 'static {
         let world_cell = world.as_unsafe_world_cell();
         // SAFETY:
         // - We have exclusive access to the entire world.
-        unsafe { self.validate_param_unsafe(world_cell) }?;
-        // SAFETY:
-        // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -148,40 +156,10 @@ pub trait System: Send + Sync + 'static {
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
 
-    /// Validates that all parameters can be acquired and that system can run without panic.
-    /// Built-in executors use this to prevent invalid systems from running.
-    ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or its safe variant
-    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
-    /// should provide their own safety mechanism to prevent undefined behavior.
-    ///
-    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
-    /// world mutations in between. Otherwise, while it won't lead to any undefined behavior,
-    /// the validity of the param may change.
-    ///
-    /// # Safety
-    ///
-    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
-    ///   simultaneous accesses while the system is running.
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError>;
-
-    /// Safe version of [`System::validate_param_unsafe`].
-    /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
-        let world_cell = world.as_unsafe_world_cell_readonly();
-        // SAFETY:
-        // - We have exclusive access to the entire world.
-        unsafe { self.validate_param_unsafe(world_cell) }
-    }
-
     /// Initialize the system.
     ///
     /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -238,10 +216,6 @@ pub unsafe trait ReadOnlySystem: System {
         let world = world.as_unsafe_world_cell_readonly();
         // SAFETY:
         // - We have read-only access to the entire world.
-        unsafe { self.validate_param_unsafe(world) }?;
-        // SAFETY:
-        // - We have read-only access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }
@@ -444,10 +418,10 @@ where
         // Note that the `downcast_mut` check is based on the static type,
         // and can be optimized out after monomorphization.
         let any: &mut dyn Any = &mut value;
-        if let Some(err) = any.downcast_mut::<SystemParamValidationError>() {
-            if err.skipped {
-                return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
-            }
+        if let Some(err) = any.downcast_mut::<SystemParamValidationError>()
+            && err.skipped
+        {
+            return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
         }
         Self::Failed(From::from(value))
     }
@@ -461,9 +435,8 @@ mod tests {
 
     #[test]
     fn run_system_once() {
+        #[derive(Resource)]
         struct T(usize);
-
-        impl Resource for T {}
 
         fn system(In(n): In<usize>, mut commands: Commands) -> usize {
             commands.insert_resource(T(n));
@@ -510,22 +483,23 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resources() {
+    fn non_send() {
         fn non_send_count_down(mut ns: NonSendMut<Counter>) {
             ns.0 -= 1;
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
+        world.insert_non_send(Counter(10));
+        assert_eq!(*world.non_send::<Counter>(), Counter(10));
         world.run_system_once(non_send_count_down).unwrap();
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+        assert_eq!(*world.non_send::<Counter>(), Counter(9));
     }
 
     #[test]
     fn run_system_once_invalid_params() {
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::default();
@@ -533,7 +507,15 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
-        let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert!(result.unwrap_err().to_string().contains(expected));
+
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 }

@@ -1,6 +1,6 @@
-use crate::{UiPosition, Val};
+use crate::{UiPosition, Val, ValNum};
 use bevy_color::{Color, Srgba};
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
@@ -45,19 +45,19 @@ impl ColorStop {
     }
 
     /// A color stop with its position in logical pixels.
-    pub fn px(color: impl Into<Color>, px: f32) -> Self {
+    pub fn px<V: ValNum>(color: impl Into<Color>, px: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Px(px),
+            point: Val::Px(px.val_num_f32()),
             hint: 0.5,
         }
     }
 
     /// A color stop with a percentage position.
-    pub fn percent(color: impl Into<Color>, percent: f32) -> Self {
+    pub fn percent<V: ValNum>(color: impl Into<Color>, percent: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Percent(percent),
+            point: Val::Percent(percent.val_num_f32()),
             hint: 0.5,
         }
     }
@@ -468,11 +468,11 @@ pub enum Gradient {
     Linear(LinearGradient),
     /// A radial gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Radial(RadialGradient),
     /// A conic gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/conic-gradient>
     Conic(ConicGradient),
 }
 
@@ -524,7 +524,7 @@ impl From<ConicGradient> for Gradient {
 }
 
 #[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -540,7 +540,7 @@ impl<T: Into<Gradient>> From<T> for BackgroundGradient {
 }
 
 #[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

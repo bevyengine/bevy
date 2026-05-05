@@ -1,6 +1,7 @@
 use core::fmt::Display;
 
-use crate::{component::Tick, error::BevyError, prelude::Resource};
+use crate::{change_detection::Tick, error::BevyError, prelude::Resource};
+use bevy_ecs::error::Severity;
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
 
@@ -20,6 +21,10 @@ pub enum ErrorContext {
         name: DebugName,
         /// The last tick that the run condition was evaluated.
         last_run: Tick,
+        /// The system this run condition is attached to.
+        system: DebugName,
+        /// `true` if this run condition was on a set.
+        on_set: bool,
     },
     /// The error occurred in a command.
     Command {
@@ -45,8 +50,17 @@ impl Display for ErrorContext {
             Self::Observer { name, .. } => {
                 write!(f, "Observer `{name}` failed")
             }
-            Self::RunCondition { name, .. } => {
-                write!(f, "Run condition `{name}` failed")
+            Self::RunCondition {
+                name,
+                system,
+                on_set,
+                ..
+            } => {
+                write!(
+                    f,
+                    "Run condition `{name}` failed for{} system `{system}`",
+                    if *on_set { " set containing" } else { "" }
+                )
             }
         }
     }
@@ -90,19 +104,38 @@ macro_rules! inner {
 /// Defines how Bevy reacts to errors.
 pub type ErrorHandler = fn(BevyError, ErrorContext);
 
-/// Error handler to call when an error is not handled otherwise.
-/// Defaults to [`panic()`].
+/// Fallback error handler to call when an error is not handled otherwise.
+/// Defaults to [`match_severity()`].
 ///
 /// When updated while a [`Schedule`] is running, it doesn't take effect for
 /// that schedule until it's completed.
 ///
 /// [`Schedule`]: crate::schedule::Schedule
 #[derive(Resource, Deref, DerefMut, Copy, Clone)]
-pub struct DefaultErrorHandler(pub ErrorHandler);
+pub struct FallbackErrorHandler(pub ErrorHandler);
 
-impl Default for DefaultErrorHandler {
+impl Default for FallbackErrorHandler {
     fn default() -> Self {
-        Self(panic)
+        Self(match_severity)
+    }
+}
+
+/// Deprecated alias for [`FallbackErrorHandler`].
+#[deprecated(since = "0.19.0", note = "Renamed to `FallbackErrorHandler`.")]
+pub type DefaultErrorHandler = FallbackErrorHandler;
+
+/// Error handler that defers to an error's [`Severity`].
+#[track_caller]
+#[inline]
+pub fn match_severity(err: BevyError, ctx: ErrorContext) {
+    match err.severity() {
+        Severity::Ignore => ignore(err, ctx),
+        Severity::Trace => trace(err, ctx),
+        Severity::Debug => debug(err, ctx),
+        Severity::Info => info(err, ctx),
+        Severity::Warning => warn(err, ctx),
+        Severity::Error => error(err, ctx),
+        Severity::Panic => panic(err, ctx),
     }
 }
 

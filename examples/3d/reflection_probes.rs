@@ -11,11 +11,12 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::{
-    camera::Exposure,
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
+    camera::{Exposure, Hdr},
+    core_pipeline::tonemapping::Tonemapping,
+    light::{ParallaxCorrection, Skybox},
     pbr::generate::generate_environment_map_light,
     prelude::*,
-    render::{render_resource::TextureUsages, view::Hdr},
+    render::render_resource::TextureUsages,
 };
 
 use std::{
@@ -27,6 +28,8 @@ static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
 
 static REFLECTION_MODE_HELP_TEXT: &str = "Press Space to switch reflection mode";
+
+const ENV_MAP_INTENSITY: f32 = 5000.0;
 
 // The mode the application is in.
 #[derive(Resource)]
@@ -108,7 +111,9 @@ fn setup(
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb"))),
+        WorldAssetRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+        ),
         CubesScene,
     ));
 }
@@ -150,15 +155,18 @@ fn spawn_sphere(
 // Spawns the reflection probe.
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
-        LightProbe,
+        LightProbe::default(),
         EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse_environment_map.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
-            intensity: 5000.0,
+            intensity: ENV_MAP_INTENSITY,
             ..default()
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
+        // Disable parallax correction because the reflected scene is quite
+        // distant.
+        ParallaxCorrection::None,
     ));
 }
 
@@ -169,8 +177,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -189,8 +197,8 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.specular_environment_map.clone(),
-                brightness: 5000.0,
+                image: Some(cubemaps.specular_environment_map.clone()),
+                brightness: ENV_MAP_INTENSITY,
                 ..default()
             });
     }
@@ -253,9 +261,7 @@ fn change_reflection_type(
                     .entity(camera)
                     .insert(GeneratedEnvironmentMapLight {
                         environment_map: cubemaps.specular_environment_map.clone(),
-                        // compensate for the energy loss of the reverse tonemapping
-                        // during filtering by using a higher intensity
-                        intensity: 5000.0,
+                        intensity: ENV_MAP_INTENSITY,
                         ..default()
                     });
             }
@@ -328,7 +334,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
     EnvironmentMapLight {
         diffuse_map: cubemaps.diffuse_environment_map.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
-        intensity: 5000.0,
+        intensity: ENV_MAP_INTENSITY,
         ..default()
     }
 }
@@ -367,14 +373,13 @@ impl FromWorld for Cubemaps {
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map) {
-        if !image
+    if let Some(mut image) = images.get_mut(&cubemaps.specular_environment_map)
+        && !image
             .texture_descriptor
             .usage
             .contains(TextureUsages::COPY_SRC)
-        {
-            image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
-        }
+    {
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     }
 }
 
@@ -416,7 +421,7 @@ fn change_sphere_roughness(
 
         // Update the sphere material
         for material_handle in sphere_query.iter() {
-            if let Some(material) = materials.get_mut(&material_handle.0) {
+            if let Some(mut material) = materials.get_mut(&material_handle.0) {
                 material.perceptual_roughness = app_status.sphere_roughness;
             }
         }

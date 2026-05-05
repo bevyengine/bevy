@@ -104,6 +104,7 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     let z = normal.z + cos_theta;
     return vec3(x, y, z);
 }
+
 // https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
 fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let cos_theta = rand_f(rng);
@@ -113,6 +114,10 @@ fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3
     let y = sin_theta * sin(phi);
     let z = cos_theta;
     return orthonormalize(normal) * vec3(x, y, z);
+}
+
+fn uniform_hemisphere_inverse_pdf() -> f32 {
+    return PI_2;
 }
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
@@ -141,7 +146,7 @@ fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
 fn sample_cube_dir(uv: vec2f, face: u32) -> vec3f {
     // Convert from [0,1] to [-1,1]
     let uvc = 2.0 * uv - 1.0;
-    
+
     // Generate direction based on the cube face
     var dir: vec3f;
     switch(face) {
@@ -165,7 +170,7 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
     let abs_dir = abs(dir);
     var face: u32 = 0u;
     var uv: vec2f = vec2f(0.0);
-    
+
     // Find the dominant axis to determine face
     if (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) {
         // X axis is dominant
@@ -195,7 +200,13 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
             uv = vec2f(-dir.x, -dir.y) / abs_dir.z;
         }
     }
-    
+
     // Convert from [-1,1] to [0,1]
     return CubeUV(uv * 0.5 + 0.5, face);
+}
+
+// The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
+// result.
+fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
+    return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
 }

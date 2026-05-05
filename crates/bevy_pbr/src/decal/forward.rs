@@ -7,21 +7,20 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
+use bevy_material::AlphaMode;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
-use bevy_render::load_shader_library;
-use bevy_render::mesh::Mesh3d;
-use bevy_render::render_asset::RenderAssets;
-use bevy_render::render_resource::{AsBindGroupShaderType, ShaderType};
-use bevy_render::texture::GpuImage;
 use bevy_render::{
-    alpha::AlphaMode,
-    mesh::{Mesh, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
+    render_asset::RenderAssets,
     render_resource::{
-        AsBindGroup, CompareFunction, RenderPipelineDescriptor, SpecializedMeshPipelineError,
+        AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
+        SpecializedMeshPipelineError,
     },
+    texture::GpuImage,
     RenderDebugFlags,
 };
+use bevy_shader::load_shader_library;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
@@ -29,8 +28,6 @@ pub struct ForwardDecalPlugin;
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_decal.wgsl");
-
-        app.register_type::<ForwardDecal>();
 
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
@@ -44,8 +41,6 @@ impl Plugin for ForwardDecalPlugin {
         app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
@@ -63,6 +58,7 @@ impl Plugin for ForwardDecalPlugin {
 /// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
+/// * On Wasm, requires using WebGPU and disabling `Msaa` on your camera.
 #[derive(Component, Reflect)]
 #[require(Mesh3d)]
 #[component(on_add=forward_decal_set_mesh)]
@@ -119,13 +115,17 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         Some(AlphaMode::Blend)
     }
 
+    fn enable_shadows() -> bool {
+        false
+    }
+
     fn specialize(
         _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.depth_stencil.as_mut().unwrap().depth_compare = CompareFunction::Always;
+        descriptor.depth_stencil.as_mut().unwrap().depth_compare = Some(CompareFunction::Always);
 
         descriptor.vertex.shader_defs.push("FORWARD_DECAL".into());
 

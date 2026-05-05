@@ -7,8 +7,10 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
+use bevy_math::primitives::ViewFrustum;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
+use tracing::warn;
 
 use super::{
     cascade::CascadeShadowConfig, cluster::ClusterVisibilityClass, light_consts, Cascades,
@@ -44,9 +46,11 @@ use super::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 ///
+/// Some of these are provided as constants in [`light_consts::lux`].
+///
 /// ## Shadows
 ///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
+/// To enable shadows, set the `shadow_maps_enabled` property to `true`.
 ///
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
@@ -54,7 +58,7 @@ use super::{
 /// change the [`CascadeShadowConfig`] component of the entity with the [`DirectionalLight`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     Cascades,
@@ -78,6 +82,7 @@ pub struct DirectionalLight {
     /// more-or-less the same way (depending on the angle of incidence). Lumens
     /// can only be specified for light sources which emit light from a specific
     /// area.
+    /// The default is [`light_consts::lux::AMBIENT_DAYLIGHT`] = 10,000.
     pub illuminance: f32,
 
     /// Whether this light casts shadows.
@@ -85,7 +90,10 @@ pub struct DirectionalLight {
     /// Note that shadows are rather expensive and become more so with every
     /// light that casts them. In general, it's best to aggressively limit the
     /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+
+    /// Whether this light casts contact shadows.
+    pub contact_shadows_enabled: bool,
 
     /// Whether soft shadows are enabled, and if so, the size of the light.
     ///
@@ -141,7 +149,8 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
+            contact_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             affects_lightmapped_mesh_diffuse: true,
@@ -152,14 +161,16 @@ impl Default for DirectionalLight {
 }
 
 impl DirectionalLight {
+    /// The default value of [`DirectionalLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    /// The default value of [`DirectionalLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
 /// Add to a [`DirectionalLight`] to add a light texture effect.
 /// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(DirectionalLight)]
 pub struct DirectionalLightTexture {
@@ -182,6 +193,8 @@ pub struct DirectionalLightTexture {
 pub struct DirectionalLightShadowMap {
     // The width and height of each cascade.
     ///
+    /// Must be a power of two to avoid unstable cascade positioning.
+    ///
     /// Defaults to `2048`.
     pub size: usize,
 }
@@ -192,6 +205,15 @@ impl Default for DirectionalLightShadowMap {
     }
 }
 
+pub fn validate_shadow_map_size(mut shadow_map: ResMut<DirectionalLightShadowMap>) {
+    if shadow_map.is_changed() && !shadow_map.size.is_power_of_two() {
+        let new_size = shadow_map.size.next_power_of_two();
+        warn!("Non-power-of-two DirectionalLightShadowMap sizes are not supported, correcting {} to {new_size}", shadow_map.size);
+        shadow_map.size = new_size;
+    }
+}
+
+/// Updates the frusta for all visible shadow mapped [`DirectionalLight`]s.
 pub fn update_directional_light_frusta(
     mut views: Query<
         (
@@ -210,7 +232,7 @@ pub fn update_directional_light_frusta(
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.get() {
+        if !directional_light.shadow_maps_enabled || !visibility.get() {
             continue;
         }
 
@@ -222,10 +244,63 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .map(|c| Frustum(ViewFrustum::from_clip_from_world(&c.clip_from_world)))
                         .collect::<Vec<_>>(),
                 )
             })
             .collect();
+    }
+}
+
+/// Add to a [`DirectionalLight`] to control rendering of the visible solar disk in the sky.
+/// Affects only the disk’s appearance, not the light’s illuminance or shadows.
+/// Requires a `bevy::pbr::Atmosphere` component on a [`Camera3d`](bevy_camera::Camera3d) to have any effect.
+///
+/// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
+/// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
+/// disk entirely with [`SunDisk::OFF`].
+///
+/// In order to cause the sun to "glow" and light up the surrounding sky, enable bloom
+/// in your post-processing pipeline by adding a `Bloom` component to your camera.
+#[derive(Component, Clone)]
+#[require(DirectionalLight)]
+pub struct SunDisk {
+    /// The angular size (diameter) of the sun disk in radians, as observed from the scene.
+    pub angular_size: f32,
+    /// Multiplier for the brightness of the sun disk.
+    ///
+    /// `0.0` disables the disk entirely (atmospheric scattering still occurs),
+    /// `1.0` is the default physical intensity, and values `>1.0` overexpose it.
+    pub intensity: f32,
+}
+
+impl SunDisk {
+    /// Earth-like parameters for the sun disk.
+    ///
+    /// Uses the mean apparent size (~32 arcminutes) of the Sun at 1 AU distance
+    /// with default intensity.
+    pub const EARTH: SunDisk = SunDisk {
+        angular_size: 0.00930842,
+        intensity: 1.0,
+    };
+
+    /// No visible sun disk.
+    ///
+    /// Keeps scattering and directional light illumination, but hides the disk itself.
+    pub const OFF: SunDisk = SunDisk {
+        angular_size: 0.0,
+        intensity: 0.0,
+    };
+}
+
+impl Default for SunDisk {
+    fn default() -> Self {
+        Self::EARTH
+    }
+}
+
+impl Default for &SunDisk {
+    fn default() -> Self {
+        &SunDisk::EARTH
     }
 }

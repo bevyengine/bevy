@@ -1,10 +1,14 @@
-use bevy_macro_utils::ensure_no_collision;
+use bevy_macro_utils::{
+    ensure_no_collision,
+    fq_std::{FQIterator, FQOption},
+    get_struct_fields,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
-    DataStruct, DeriveInput, Field, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Attribute, DeriveInput,
+    Fields, ImplGenerics, Member, Meta, Type, TypeGenerics, Visibility, WhereClause,
 };
 
 use crate::{
@@ -16,17 +20,106 @@ use crate::{
 struct QueryDataAttributes {
     pub is_mutable: bool,
 
+    pub is_contiguous_mutable: bool,
+    pub is_contiguous_immutable: bool,
+
     pub derive_args: Punctuated<Meta, Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
 static DERIVE_ATTRIBUTE_NAME: &str = "derive";
+static CONTIGUOUS_ATTRIBUTE_NAME: &str = "contiguous";
 
 mod field_attr_keywords {
     syn::custom_keyword!(ignore);
 }
 
 pub static QUERY_DATA_ATTRIBUTE_NAME: &str = "query_data";
+
+fn contiguous_item_struct(
+    path: &syn::Path,
+    fields: &Fields,
+    derive_macro_call: &proc_macro2::TokenStream,
+    struct_name: &Ident,
+    visibility: &Visibility,
+    item_struct_name: &Ident,
+    field_types: &Vec<Type>,
+    user_impl_generics_with_world_and_state: &ImplGenerics,
+    field_attrs: &Vec<Vec<Attribute>>,
+    field_visibilities: &Vec<Visibility>,
+    field_members: &Vec<Member>,
+    user_ty_generics: &TypeGenerics,
+    user_ty_generics_with_world_and_state: &TypeGenerics,
+    user_where_clauses_with_world_and_state: Option<&WhereClause>,
+) -> proc_macro2::TokenStream {
+    let item_attrs = quote! {
+        #[doc = concat!(
+            "Automatically generated [`ContiguousQueryData`](",
+            stringify!(#path),
+            "::fetch::ContiguousQueryData) item type for [`",
+            stringify!(#struct_name),
+            "`], returned when iterating over contiguous query results",
+        )]
+        #[automatically_derived]
+    };
+
+    match fields {
+        Fields::Named(_) if !fields.is_empty() => quote! {
+            #derive_macro_call
+            #item_attrs
+            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state #user_where_clauses_with_world_and_state {
+                #(#(#field_attrs)* #field_visibilities #field_members: <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>,)*
+            }
+        },
+        Fields::Unnamed(_) if !fields.is_empty() => quote! {
+            #derive_macro_call
+            #item_attrs
+            #visibility struct #item_struct_name #user_impl_generics_with_world_and_state(
+                #( #field_visibilities <#field_types as #path::query::ContiguousQueryData>::Contiguous<'__w, '__s>, )*
+            ) #user_where_clauses_with_world_and_state;
+        },
+        Fields::Unit | Fields::Named(_) | Fields::Unnamed(_) => quote! {
+            #item_attrs
+            #visibility type #item_struct_name #user_ty_generics_with_world_and_state = #struct_name #user_ty_generics;
+        },
+    }
+}
+
+fn contiguous_query_data_impl(
+    path: &syn::Path,
+    struct_name: &Ident,
+    contiguous_item_struct_name: &Ident,
+    field_types: &Vec<Type>,
+    user_impl_generics: &ImplGenerics,
+    user_ty_generics: &TypeGenerics,
+    user_ty_generics_with_world_and_state: &TypeGenerics,
+    field_members: &Vec<Member>,
+    field_aliases: &Vec<Ident>,
+    user_where_clauses: Option<&WhereClause>,
+) -> proc_macro2::TokenStream {
+    quote! {
+        impl #user_impl_generics #path::query::ContiguousQueryData for #struct_name #user_ty_generics #user_where_clauses {
+            type Contiguous<'__w, '__s> = #contiguous_item_struct_name #user_ty_generics_with_world_and_state;
+
+            unsafe fn fetch_contiguous<'__w, '__s>(
+                _state: &'__s <Self as #path::query::WorldQuery>::State,
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                _entities: &'__w [#path::entity::Entity],
+            ) -> Self::Contiguous<'__w, '__s> {
+                #contiguous_item_struct_name {
+                    #(
+                        #field_members:
+                        <#field_types>::fetch_contiguous(
+                            &_state.#field_aliases,
+                            &mut _fetch.#field_aliases,
+                            _entities,
+                        ),
+                    )*
+                }
+            }
+        }
+    }
+}
 
 pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let tokens = input.clone();
@@ -36,31 +129,37 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if attr
-            .path()
-            .get_ident()
-            .is_none_or(|ident| ident != QUERY_DATA_ATTRIBUTE_NAME)
-        {
+        if !attr.path().is_ident(QUERY_DATA_ATTRIBUTE_NAME) {
             continue;
         }
 
         let result = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
                 attributes.is_mutable = true;
-                if meta.input.peek(token::Paren) {
-                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
-                } else {
-                    Ok(())
-                }
+                Ok(())
             } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
                 meta.parse_nested_meta(|meta| {
                     attributes.derive_args.push(Meta::Path(meta.path));
                     Ok(())
-                }).map_err(|_| {
-                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
+                })
+            } else if meta.path.is_ident(CONTIGUOUS_ATTRIBUTE_NAME) {
+                meta.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("all") {
+                        attributes.is_contiguous_mutable = true;
+                        attributes.is_contiguous_immutable = true;
+                        Ok(())
+                    } else if meta.path.is_ident("mutable") {
+                        attributes.is_contiguous_mutable = true;
+                        Ok(())
+                    } else if meta.path.is_ident("immutable") {
+                        attributes.is_contiguous_immutable = true;
+                        Ok(())
+                    } else {
+                        Err(meta.error("invalid target, expected `all`, `mutable` or `immutable`"))
+                    }
                 })
             } else {
-                Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))
+                Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}`, `{DERIVE_ATTRIBUTE_NAME}` or `{CONTIGUOUS_ATTRIBUTE_NAME}`")))
             }
         });
 
@@ -73,6 +172,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
+    let user_where_predicates = user_where_clauses.map(|clause| &clause.predicates);
     let user_generics_with_world = {
         let mut generics = ast.generics.clone();
         generics.params.insert(0, parse_quote!('__w));
@@ -105,6 +205,19 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     } else {
         item_struct_name.clone()
     };
+    let contiguous_item_struct_name = if attributes.is_contiguous_mutable {
+        Ident::new(&format!("{struct_name}ContiguousItem"), Span::call_site())
+    } else {
+        item_struct_name.clone()
+    };
+    let read_only_contiguous_item_struct_name = if attributes.is_contiguous_immutable {
+        Ident::new(
+            &format!("{struct_name}ReadOnlyContiguousItem"),
+            Span::call_site(),
+        )
+    } else {
+        item_struct_name.clone()
+    };
 
     let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
     let fetch_struct_name = ensure_no_collision(fetch_struct_name, tokens.clone());
@@ -123,45 +236,23 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
     let state_struct_name = ensure_no_collision(state_struct_name, tokens);
 
-    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
-        return syn::Error::new(
-            Span::call_site(),
-            "#[derive(QueryData)]` only supports structs",
-        )
-        .into_compile_error()
-        .into();
+    let fields = match get_struct_fields(&ast.data, "derive(QueryData)") {
+        Ok(fields) => fields,
+        Err(e) => return e.into_compile_error().into(),
     };
 
-    let mut field_attrs = Vec::new();
-    let mut field_visibilities = Vec::new();
-    let mut field_idents = Vec::new();
-    let mut named_field_idents = Vec::new();
-    let mut field_types = Vec::new();
-    let mut read_only_field_types = Vec::new();
-    for (i, field) in fields.iter().enumerate() {
-        let attrs = match read_world_query_field_info(field) {
-            Ok(QueryDataFieldInfo { attrs }) => attrs,
-            Err(e) => return e.into_compile_error().into(),
-        };
-
-        let named_field_ident = field
-            .ident
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| format_ident!("f{i}"));
-        let i = Index::from(i);
-        let field_ident = field
-            .ident
-            .as_ref()
-            .map_or(quote! { #i }, |i| quote! { #i });
-        field_idents.push(field_ident);
-        named_field_idents.push(named_field_ident);
-        field_attrs.push(attrs);
-        field_visibilities.push(field.vis.clone());
-        let field_ty = field.ty.clone();
-        field_types.push(quote!(#field_ty));
-        read_only_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnly));
-    }
+    let field_attrs = fields.iter().map(|f| f.attrs.clone()).collect();
+    let field_visibilities = fields.iter().map(|f| f.vis.clone()).collect();
+    let field_members = fields.members().collect();
+    let field_aliases = fields
+        .members()
+        .map(|m| format_ident!("field{}", m))
+        .collect();
+    let field_types: Vec<Type> = fields.iter().map(|f| f.ty.clone()).collect();
+    let read_only_field_types = field_types
+        .iter()
+        .map(|ty| parse_quote!(<#ty as #path::query::QueryData>::ReadOnly))
+        .collect();
 
     let derive_args = &attributes.derive_args;
     // `#[derive()]` is valid syntax
@@ -178,7 +269,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &user_impl_generics_with_world_and_state,
         &field_attrs,
         &field_visibilities,
-        &field_idents,
+        &field_members,
         &user_ty_generics,
         &user_ty_generics_with_world_and_state,
         user_where_clauses_with_world_and_state,
@@ -193,12 +284,49 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &user_impl_generics_with_world,
         &user_ty_generics,
         &user_ty_generics_with_world,
-        &named_field_idents,
+        &field_aliases,
         &marker_name,
         &state_struct_name,
         user_where_clauses,
         user_where_clauses_with_world,
     );
+
+    let (mutable_contiguous_item_struct, mutable_contiguous_impl) =
+        if attributes.is_contiguous_mutable {
+            let contiguous_item_struct = contiguous_item_struct(
+                &path,
+                fields,
+                &derive_macro_call,
+                &struct_name,
+                &visibility,
+                &contiguous_item_struct_name,
+                &field_types,
+                &user_impl_generics_with_world_and_state,
+                &field_attrs,
+                &field_visibilities,
+                &field_members,
+                &user_ty_generics,
+                &user_ty_generics_with_world_and_state,
+                user_where_clauses_with_world_and_state,
+            );
+
+            let contiguous_impl = contiguous_query_data_impl(
+                &path,
+                &struct_name,
+                &contiguous_item_struct_name,
+                &field_types,
+                &user_impl_generics,
+                &user_ty_generics,
+                &user_ty_generics_with_world_and_state,
+                &field_members,
+                &field_aliases,
+                user_where_clauses,
+            );
+
+            (contiguous_item_struct, contiguous_impl)
+        } else {
+            (quote! {}, quote! {})
+        };
 
     let (read_only_struct, read_only_impl) = if attributes.is_mutable {
         // If the query is mutable, we need to generate a separate readonly version of some things
@@ -213,7 +341,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &user_impl_generics_with_world_and_state,
             &field_attrs,
             &field_visibilities,
-            &field_idents,
+            &field_members,
             &user_ty_generics,
             &user_ty_generics_with_world_and_state,
             user_where_clauses_with_world_and_state,
@@ -228,7 +356,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &user_impl_generics_with_world,
             &user_ty_generics,
             &user_ty_generics_with_world,
-            &named_field_idents,
+            &field_aliases,
             &marker_name,
             &state_struct_name,
             user_where_clauses,
@@ -248,7 +376,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     #[doc = "Automatically generated read-only field for accessing `"]
                     #[doc = stringify!(#field_types)]
                     #[doc = "`."]
-                    #field_visibilities #named_field_idents: #read_only_field_types,
+                    #field_visibilities #field_members: #read_only_field_types,
                 )*
             }
 
@@ -259,13 +387,51 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         (quote! {}, quote! {})
     };
 
+    let (read_only_contiguous_item_struct, read_only_contiguous_impl) =
+        if attributes.is_mutable && attributes.is_contiguous_immutable {
+            let contiguous_item_struct = contiguous_item_struct(
+                &path,
+                fields,
+                &derive_macro_call,
+                &read_only_struct_name,
+                &visibility,
+                &read_only_contiguous_item_struct_name,
+                &read_only_field_types,
+                &user_impl_generics_with_world_and_state,
+                &field_attrs,
+                &field_visibilities,
+                &field_members,
+                &user_ty_generics,
+                &user_ty_generics_with_world_and_state,
+                user_where_clauses_with_world_and_state,
+            );
+
+            let contiguous_impl = contiguous_query_data_impl(
+                &path,
+                &read_only_struct_name,
+                &read_only_contiguous_item_struct_name,
+                &read_only_field_types,
+                &user_impl_generics,
+                &user_ty_generics,
+                &user_ty_generics_with_world_and_state,
+                &field_members,
+                &field_aliases,
+                user_where_clauses,
+            );
+
+            (contiguous_item_struct, contiguous_impl)
+        } else {
+            (quote! {}, quote! {})
+        };
+
     let data_impl = {
         let read_only_data_impl = if attributes.is_mutable {
             quote! {
-                /// SAFETY: we assert fields are readonly below
+                // SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
+                    const IS_ARCHETYPAL: bool = true #(&& <#read_only_field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -274,17 +440,17 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     ) -> Self::Item<'__wshort, '__s> {
                         #read_only_item_struct_name {
                             #(
-                                #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
+                                #field_members: <#read_only_field_types>::shrink(item.#field_members),
                             )*
                         }
                     }
 
                     fn provide_extra_access(
                         state: &mut Self::State,
-                        access: &mut #path::query::Access<#path::component::ComponentId>,
-                        available_access: &#path::query::Access<#path::component::ComponentId>,
+                        access: &mut #path::query::Access,
+                        available_access: &#path::query::Access,
                     ) {
-                        #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
+                        #(<#field_types>::provide_extra_access(&mut state.#field_aliases, access, available_access);)*
                     }
 
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
@@ -294,24 +460,47 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Self::Item<'__w, '__s> {
+                    ) -> #FQOption<Self::Item<'__w, '__s>> {
+                        #FQOption::Some(Self::Item {
+                            #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
+                        })
+                    }
+
+                    fn iter_access(
+                        _state: &Self::State,
+                    ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
+                        ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                    }
+                }
+
+                // SAFETY: Access is read-only
+                unsafe impl #user_impl_generics #path::query::IterQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses {}
+
+                // SAFETY: All fields only access the current entity
+                unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
+                for #read_only_struct_name #user_ty_generics
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::SingleEntityQueryData>,)* #user_where_predicates {}
+
+                impl #user_impl_generics #path::query::ReleaseStateQueryData
+                for #read_only_struct_name #user_ty_generics
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* #user_where_predicates {
+                    fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                         Self::Item {
-                            #(#field_idents: <#read_only_field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
+                            #(#field_members: <#read_only_field_types>::release_state(_item.#field_members),)*
                         }
                     }
                 }
 
-                impl #user_impl_generics #path::query::ReleaseStateQueryData
-                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                impl #user_impl_generics #path::query::ArchetypeQueryData
+                for #read_only_struct_name #user_ty_generics
                 // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
                 // See https://github.com/rust-lang/rust/issues/48214
-                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* {
-                    fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
-                        Self::Item {
-                            #(#field_idents: <#read_only_field_types>::release_state(_item.#field_idents),)*
-                        }
-                    }
-                }
+                where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* #user_where_predicates {}
             }
         } else {
             quote! {}
@@ -320,10 +509,11 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let is_read_only = !attributes.is_mutable;
 
         quote! {
-            /// SAFETY: we assert fields are readonly below
+            // SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
+                const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -332,17 +522,17 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 ) -> Self::Item<'__wshort, '__s> {
                     #item_struct_name {
                         #(
-                            #field_idents: <#field_types>::shrink(item.#field_idents),
+                            #field_members: <#field_types>::shrink(item.#field_members),
                         )*
                     }
                 }
 
                 fn provide_extra_access(
                     state: &mut Self::State,
-                    access: &mut #path::query::Access<#path::component::ComponentId>,
-                    available_access: &#path::query::Access<#path::component::ComponentId>,
+                    access: &mut #path::query::Access,
+                    available_access: &#path::query::Access,
                 ) {
-                    #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
+                    #(<#field_types>::provide_extra_access(&mut state.#field_aliases, access, available_access);)*
                 }
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
@@ -352,31 +542,57 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Self::Item<'__w, '__s> {
+                ) -> #FQOption<Self::Item<'__w, '__s>> {
+                    #FQOption::Some(Self::Item {
+                        #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
+                    })
+                }
+
+                fn iter_access(
+                    _state: &Self::State,
+                ) -> impl #FQIterator<Item = #path::query::EcsAccessType<'_>> {
+                    ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                }
+            }
+
+            // SAFETY: All fields are iterable
+            unsafe impl #user_impl_generics #path::query::IterQueryData
+            for #struct_name #user_ty_generics
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::IterQueryData,)* #user_where_predicates {}
+
+            // SAFETY: All fields only access the current entity
+            unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
+            for #struct_name #user_ty_generics
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::SingleEntityQueryData,)* #user_where_predicates {}
+
+            impl #user_impl_generics #path::query::ReleaseStateQueryData
+            for #struct_name #user_ty_generics
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* #user_where_predicates {
+                fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                     Self::Item {
-                        #(#field_idents: <#field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        #(#field_members: <#field_types>::release_state(_item.#field_members),)*
                     }
                 }
             }
 
-            impl #user_impl_generics #path::query::ReleaseStateQueryData
-            for #struct_name #user_ty_generics #user_where_clauses
+            impl #user_impl_generics #path::query::ArchetypeQueryData
+            for #struct_name #user_ty_generics
             // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
             // See https://github.com/rust-lang/rust/issues/48214
-            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* {
-                fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
-                    Self::Item {
-                        #(#field_idents: <#field_types>::release_state(_item.#field_idents),)*
-                    }
-                }
-            }
+            where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* #user_where_predicates {}
 
             #read_only_data_impl
         }
     };
 
     let read_only_data_impl = quote! {
-        /// SAFETY: we assert fields are readonly below
+        // SAFETY: we assert fields are readonly below
         unsafe impl #user_impl_generics #path::query::ReadOnlyQueryData
         for #read_only_struct_name #user_ty_generics #user_where_clauses {}
     };
@@ -410,6 +626,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         #read_only_struct
 
+        #mutable_contiguous_item_struct
+
+        #read_only_contiguous_item_struct
+
         const _: () = {
             #[doc(hidden)]
             #[doc = concat!(
@@ -421,7 +641,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
-                #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*
+                #(#field_aliases: <#field_types as #path::query::WorldQuery>::State,)*
             }
 
             #mutable_world_query_impl
@@ -431,6 +651,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             #data_impl
 
             #read_only_data_impl
+
+            #mutable_contiguous_impl
+
+            #read_only_contiguous_impl
         };
 
         #[allow(dead_code)]
@@ -463,33 +687,9 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 q: #struct_name #user_ty_generics,
                 q2: #read_only_struct_name #user_ty_generics
             ) #user_where_clauses {
-                #(q.#field_idents;)*
-                #(q2.#field_idents;)*
+                #(q.#field_members;)*
+                #(q2.#field_members;)*
             }
         };
     })
-}
-
-struct QueryDataFieldInfo {
-    /// All field attributes except for `query_data` ones.
-    attrs: Vec<Attribute>,
-}
-
-fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo> {
-    let mut attrs = Vec::new();
-    for attr in &field.attrs {
-        if attr
-            .path()
-            .get_ident()
-            .is_some_and(|ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
-        {
-            return Err(syn::Error::new_spanned(
-                attr,
-                "#[derive(QueryData)] does not support field attributes.",
-            ));
-        }
-        attrs.push(attr.clone());
-    }
-
-    Ok(QueryDataFieldInfo { attrs })
 }

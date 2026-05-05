@@ -1,14 +1,12 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
+    camera::visibility::RenderLayers,
+    camera::RenderTarget,
     color::palettes::css::GRAY,
     prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
+    render::render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
     window::WindowResized,
 };
@@ -118,10 +116,10 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Camera {
             // Render before the "main pass" camera
             order: -1,
-            target: RenderTarget::Image(image_handle.clone().into()),
             clear_color: ClearColorConfig::Custom(GRAY.into()),
             ..default()
         },
+        RenderTarget::Image(image_handle.clone().into()),
         Msaa::Off,
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
@@ -145,15 +143,15 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
-    mut resize_events: EventReader<WindowResized>,
+    mut resize_messages: MessageReader<WindowResized>,
     mut projection: Single<&mut Projection, With<OuterCamera>>,
 ) {
     let Projection::Orthographic(projection) = &mut **projection else {
         return;
     };
-    for event in resize_events.read() {
-        let h_scale = event.width / RES_WIDTH as f32;
-        let v_scale = event.height / RES_HEIGHT as f32;
+    for window_resized in resize_messages.read() {
+        let h_scale = window_resized.width / RES_WIDTH as f32;
+        let v_scale = window_resized.height / RES_HEIGHT as f32;
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }
