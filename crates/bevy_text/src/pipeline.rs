@@ -388,10 +388,12 @@ impl TextPipeline {
                     layout_info.run_geometry.push(RunGeometry {
                         section_index,
                         bounds: Rect::new(
-                            glyph_run.offset(),
-                            line.metrics().min_coord,
-                            glyph_run.offset() + glyph_run.advance(),
-                            line.metrics().max_coord,
+                            line.metrics().inline_min_coord + glyph_run.offset(),
+                            line.metrics().block_min_coord,
+                            line.metrics().inline_min_coord
+                                + glyph_run.offset()
+                                + glyph_run.advance(),
+                            line.metrics().block_max_coord,
                         ),
                         strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
                         strikethrough_thickness: run.metrics().strikethrough_size,
@@ -467,8 +469,8 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
-    /// Cursor size and position for editing
-    pub cursor: Option<Rect>,
+    /// Cursor visibility, size and position for editing
+    pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
     /// Underline rects for the active IME preedit/compose region.
@@ -561,21 +563,14 @@ impl TextMeasureInfo {
         // whenever a canonical state is required.
         let layout = &mut computed.layout;
         layout.break_all_lines(bounds.width);
-        layout.align(bounds.width, Alignment::Start, AlignmentOptions::default());
+        layout.align(Alignment::Start, AlignmentOptions::default());
         buffer_dimensions(layout)
     }
 }
 
 fn layout_with_bounds(layout: &mut Layout<TextBrush>, bounds: TextBounds, justify: Justify) {
     layout.break_all_lines(bounds.width);
-
-    let container_width = if bounds.width.is_none() && justify != Justify::Left {
-        Some(layout.width())
-    } else {
-        bounds.width
-    };
-
-    layout.align(container_width, justify.into(), AlignmentOptions::default());
+    layout.align(justify.into(), AlignmentOptions::default());
 }
 
 /// Calculate the size of the text area for the given buffer.

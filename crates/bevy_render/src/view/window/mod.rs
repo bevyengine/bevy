@@ -258,7 +258,7 @@ pub fn prepare_windows(
             matches!(
                 &c.target,
                 Some(bevy_camera::NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
-            )
+            ) && matches!(c.output_mode, bevy_camera::CameraOutputMode::Write { .. })
         });
         if !is_camera_target && !window.needs_initial_present {
             continue;

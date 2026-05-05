@@ -259,6 +259,7 @@ pub fn create_dark_theme() -> ThemeProps {
             ),
             (tokens::TEXT_INPUT_CURSOR, palette::ACCENT.lighter(0.2)),
             (tokens::TEXT_INPUT_SELECTION, palette::ACCENT),
+            (tokens::TEXT_INPUT_SELECTION_UNFOCUSED, palette::TRANSPARENT),
             (tokens::TEXT_INPUT_X_AXIS, palette::X_AXIS),
             (tokens::TEXT_INPUT_Y_AXIS, palette::Y_AXIS),
             (tokens::TEXT_INPUT_Z_AXIS, palette::Z_AXIS),

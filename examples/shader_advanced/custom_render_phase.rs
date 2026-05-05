@@ -204,9 +204,9 @@ impl SpecializedMeshPipeline for StencilPipeline {
             // mesh pipeline
             layout: vec![
                 // Bind group 0 is the view uniform
-                view_layout.main_layout.clone(),
+                view_layout.main_layout,
                 // Bind group 1 is empty
-                view_layout.empty_layout.clone(),
+                view_layout.empty_layout,
                 // Bind group 2 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
