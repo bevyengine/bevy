@@ -109,6 +109,8 @@ mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
+mod okhsla;
+mod okhsva;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
@@ -171,6 +173,7 @@ where
     Self: From<Oklaba> + Into<Oklaba>,
     Self: From<Oklcha> + Into<Oklcha>,
     Self: From<Xyza> + Into<Xyza>,
+    Self: From<Okhsla> + Into<Okhsla>,
     Self: Alpha,
 {
 }
@@ -277,3 +280,5 @@ macro_rules! impl_componentwise_vector_space {
 }
 
 pub(crate) use impl_componentwise_vector_space;
+
+use crate::okhsla::Okhsla;
