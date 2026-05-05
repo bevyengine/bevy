@@ -26,7 +26,7 @@ use bevy::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
         view::NoIndirectDrawing,
     },
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 use bevy::{
     camera::Hdr,
@@ -106,6 +106,10 @@ pub struct Args {
     /// disable CPU culling.
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// disable mip map generation.
+    #[argh(switch)]
+    no_mip_generation: bool,
 }
 
 pub fn main() {
@@ -127,41 +131,36 @@ pub fn main() {
             }),
             ..default()
         }))
-        // Generating mipmaps takes a minute
-        // Mipmap generation be skipped if ktx2 is used
-        .insert_resource(MipmapGeneratorSettings {
-            anisotropic_filtering: 16,
-            compression: args.compress.then(Default::default),
-            compressed_image_data_cache_path: if args.cache {
-                Some(PathBuf::from("compressed_texture_cache"))
-            } else {
-                None
-            },
-            low_quality: args.low_quality_compression,
-            ..default()
-        })
         .add_plugins((
             FrameTimeDiagnosticsPlugin {
                 max_history_length: 1000,
                 ..default()
             },
-            MipmapGeneratorPlugin,
-            MipmapGeneratorDebugTextPlugin,
             FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (
-                generate_mipmaps::<StandardMaterial>,
-                input,
-                run_animation,
-                spin,
-                frame_time_system,
-                benchmark,
-            )
-                .chain(),
+            (input, run_animation, spin, frame_time_system, benchmark).chain(),
         );
+
+    if !args.no_mip_generation {
+        app.add_plugins((MipmapGeneratorPlugin, MipmapGeneratorDebugTextPlugin))
+            // Generating mipmaps takes a minute
+            // Mipmap generation be skipped if ktx2 is used
+            .insert_resource(MipmapGeneratorSettings {
+                anisotropic_filtering: 16,
+                compression: args.compress.then(Default::default),
+                compressed_image_data_cache_path: if args.cache {
+                    Some(PathBuf::from("compressed_texture_cache"))
+                } else {
+                    None
+                },
+                low_quality: args.low_quality_compression,
+                ..default()
+            })
+            .add_systems(Update, generate_mipmaps::<StandardMaterial>);
+    }
 
     if args.no_frustum_culling {
         app.add_systems(Update, add_no_frustum_culling);
@@ -185,12 +184,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_exterior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_exterior.clone()), Spin))
         .observe(proc_scene);
 
     let bistro_interior = asset_server.load("bistro_interior_wine/BistroInterior_Wine.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_interior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_interior.clone()), Spin))
         .observe(proc_scene);
 
     let mut count = 0;
@@ -209,14 +208,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
                 }
                 commands
                     .spawn((
-                        SceneRoot(bistro_exterior.clone()),
+                        WorldAssetRoot(bistro_exterior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.0, z as f32 * 150.0),
                         Spin,
                     ))
                     .observe(proc_scene);
                 commands
                     .spawn((
-                        SceneRoot(bistro_interior.clone()),
+                        WorldAssetRoot(bistro_interior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.3, z as f32 * 150.0 - 0.2),
                         Spin,
                     ))
@@ -229,7 +228,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     if !args.no_gltf_lights {
         // In Repo glTF
         commands.spawn((
-            SceneRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
+            WorldAssetRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
             Spin,
         ));
     }
@@ -263,8 +262,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         Msaa::Off,
         Camera3d::default(),
         ScreenSpaceTransmission {
-            screen_space_specular_transmission_steps: 0,
-            screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality::Low,
+            steps: 0,
+            quality: ScreenSpaceTransmissionQuality::Low,
         },
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),
@@ -308,8 +307,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         commands
             .spawn((
                 Node {
-                    left: Val::Px(1.5),
-                    top: Val::Px(1.5),
+                    left: px(1.5),
+                    top: px(1.5),
                     ..default()
                 },
                 GlobalZIndex(-1),
@@ -338,7 +337,7 @@ pub fn all_children<F: FnMut(Entity)>(
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn proc_scene(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,
@@ -350,7 +349,7 @@ pub fn proc_scene(
     for entity in children.iter_descendants(scene_ready.entity) {
         // Sponza needs flipped normals
         if let Ok(mat_h) = has_std_mat.get(entity)
-            && let Some(mat) = materials.get_mut(mat_h)
+            && let Some(mut mat) = materials.get_mut(mat_h)
         {
             mat.flip_normal_map_y = true;
             match mat.alpha_mode {

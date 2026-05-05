@@ -16,11 +16,11 @@ use bevy_ecs::{
 use bevy_picking::Pickable;
 use bevy_reflect::Reflect;
 use bevy_render::storage::ShaderBuffer;
-use bevy_text::{TextColor, TextFont, TextSpan};
+use bevy_text::{RemSize, TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
-    FlexDirection, GlobalZIndex, Node, PositionType, Val,
+    ComputedUiRenderTargetInfo, FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
 #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
@@ -220,7 +220,8 @@ fn setup(
             }
             #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
             {
-                let font_size = overlay_config.text_config.font_size;
+                // Todo: Needs a better design that works with responsive sizing.
+                let font_size = 20.;
                 p.spawn((
                     Node {
                         width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
@@ -281,18 +282,25 @@ fn customize_overlay(
 
 fn toggle_display(
     overlay_config: Res<FpsOverlayConfig>,
-    mut text_node: Single<&mut Node, (With<FpsText>, Without<FrameTimeGraph>)>,
+    mut text_node: Single<
+        (&mut Node, &ComputedUiRenderTargetInfo),
+        (With<FpsText>, Without<FrameTimeGraph>),
+    >,
     mut graph_node: Single<&mut Node, (With<FrameTimeGraph>, Without<FpsText>)>,
+    rem_size: Res<RemSize>,
 ) {
     if overlay_config.enabled {
-        text_node.display = bevy_ui::Display::DEFAULT;
+        text_node.0.display = bevy_ui::Display::DEFAULT;
     } else {
-        text_node.display = bevy_ui::Display::None;
+        text_node.0.display = bevy_ui::Display::None;
     }
 
     if overlay_config.frame_time_graph_config.enabled {
         // Scale the frame time graph based on the font size of the overlay
-        let font_size = overlay_config.text_config.font_size;
+        let font_size = overlay_config
+            .text_config
+            .font_size
+            .eval(text_node.1.logical_size(), rem_size.0);
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
         graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 

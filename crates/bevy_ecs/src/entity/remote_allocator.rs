@@ -30,9 +30,10 @@
 //! These types are summed up in [`SharedAllocator`], which is highly unsafe.
 //! The interfaces [`Allocator`] and [`RemoteAllocator`] provide safe interfaces to them.
 
+use arrayvec::ArrayVec;
 use bevy_platform::{
     cell::SyncUnsafeCell,
-    prelude::Vec,
+    prelude::{Box, Vec},
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
         Arc,
@@ -571,31 +572,35 @@ impl FreeList {
         self.len.state(Ordering::Relaxed).length()
     }
 
-    /// Frees the `entity` allowing it to be reused.
+    /// Frees the `entities` allowing them to be reused.
     ///
     /// # Safety
     ///
     /// There must be a clear, strict order between this call and calls to [`Self::free`], [`Self::alloc_many`], and [`Self::alloc`].
     /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    unsafe fn free(&self, entity: Entity) {
+    unsafe fn free(&self, entities: &[Entity]) {
         // Disable remote allocation.
         // We don't need to acquire the most recent memory from remote threads because we never read it.
         // We do not need to release to remote threads because we only changed the disabled bit,
         // which the remote allocator would with relaxed ordering.
         let state = self.len.disable_len_for_state(Ordering::Relaxed);
 
-        // Push onto the buffer
-        let len = state.length();
-        // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
-        // and we just disabled remote allocation with a strict memory ordering.
-        // We only call `set` during a free, and the caller ensures that is not called concurrently.
-        unsafe {
-            self.buffer.set(len, entity);
-        }
+        // Append onto the buffer
+        let mut len = state.length();
+        // `for_each` is typically faster than `for` here.
+        entities.iter().for_each(|&entity| {
+            // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
+            // and we just disabled remote allocation with a strict memory ordering.
+            // We only call `set` during a free, and the caller ensures that is not called concurrently.
+            unsafe {
+                self.buffer.set(len, entity);
+            }
+            len += 1;
+        });
 
         // Update length
-        let new_state = state.with_length(len + 1);
+        let new_state = state.with_length(len);
         // This is safe because `alloc` is not being called and `remote_alloc` checks that it is not disabled.
         // We don't need to change the generation since this will change the length, which changes the value anyway.
         // If, from a `remote_alloc` perspective, this does not change the length (i.e. this changes it *back* to what it was),
@@ -880,8 +885,12 @@ impl SharedAllocator {
 /// The allocator assumes that it is the only one with [`FreeList::free`] permissions.
 /// If this were cloned, that assumption would be broken, leading to undefined behavior.
 /// This is in contrast to the [`RemoteAllocator`], which may be cloned freely.
-pub(super) struct Allocator {
+pub(crate) struct Allocator {
+    /// The shared allocator state, which we share with any [`RemoteAllocator`]s.
     shared: Arc<SharedAllocator>,
+    /// The local free list.
+    /// We use this to amortize the cost of freeing to the shared allocator since that is expensive.
+    local_free: Box<ArrayVec<Entity, 128>>,
 }
 
 impl Default for Allocator {
@@ -895,6 +904,7 @@ impl Allocator {
     pub(super) fn new() -> Self {
         Self {
             shared: Arc::new(SharedAllocator::new()),
+            local_free: Box::new(ArrayVec::new()),
         }
     }
 
@@ -907,7 +917,7 @@ impl Allocator {
 
     /// The total number of indices given out.
     #[inline]
-    fn total_entity_indices(&self) -> u32 {
+    pub(crate) fn total_entity_indices(&self) -> u32 {
         self.shared.fresh.total_entity_indices()
     }
 
@@ -918,12 +928,27 @@ impl Allocator {
         self.shared.free.num_free()
     }
 
+    /// Flushes the entities that have been freed locally into the full allocator.
+    /// This is not exposed publicly because it is subject to change.
+    /// It is sometimes useful to call this for tests that depend on the entity allocator behaving more predictably.
+    #[inline]
+    pub(crate) fn flush_freed(&mut self) {
+        // SAFETY: We have `&mut self`.
+        unsafe {
+            self.shared.free.free(self.local_free.as_slice());
+        }
+        self.local_free.clear();
+    }
+
     /// Frees the entity allowing it to be reused.
     #[inline]
     pub(super) fn free(&mut self, entity: Entity) {
-        // SAFETY: We have `&mut self`.
+        if self.local_free.is_full() {
+            self.flush_freed();
+        }
+        // SAFETY: The `ArrayVec` is not full or has just been cleared.
         unsafe {
-            self.shared.free.free(entity);
+            self.local_free.push_unchecked(entity);
         }
     }
 
@@ -932,6 +957,17 @@ impl Allocator {
     pub(super) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         // SAFETY: `free` takes `&mut self`, and this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
+    }
+
+    /// Frees the entities allowing them to be reused.
+    #[inline]
+    pub(super) fn free_many(&mut self, entities: &[Entity]) {
+        if self.local_free.try_extend_from_slice(entities).is_err() {
+            // SAFETY: We have `&mut self`.
+            unsafe {
+                self.shared.free.free(entities);
+            }
+        }
     }
 }
 
@@ -990,7 +1026,7 @@ impl Drop for AllocEntitiesIterator<'_> {
 }
 
 /// This is a stripped down entity allocator that operates on fewer assumptions than [`EntityAllocator`](super::EntityAllocator).
-/// As a result, using this will be slower than than the main allocator but this offers additional freedoms.
+/// As a result, using this will be slower than the main allocator but this offers additional freedoms.
 /// In particular, this type is fully owned, allowing you to allocate entities for a world without locking or holding reference to the world.
 /// This is especially useful in async contexts.
 #[derive(Clone)]
@@ -1132,6 +1168,7 @@ mod tests {
         allocator.free(e1);
         allocator.free(e2);
         allocator.free(e3);
+        allocator.flush_freed();
 
         let r0 = allocator.alloc();
         let mut many = allocator.alloc_many(2);

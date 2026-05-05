@@ -8,7 +8,7 @@
 )]
 
 use bevy_ecs::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 use std::ops::Deref;
 
 fn main() {

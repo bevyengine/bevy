@@ -8,22 +8,9 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
-
-/// The default vignette intensity amount.
-const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.00;
-
-/// The default vignette radius amount.
-const DEFAULT_VIGNETTE_RADIUS: f32 = 0.75;
-
-/// The default vignette smoothness amount.
-const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 5.0;
-
-/// The default vignette roundness amount.
-const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.00;
-
-/// The default vignette edge compensation
-const DEFAULT_VIGNETTE_EDGE_COMPENSATION: f32 = 1.00;
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// Adds a gradual shading effect to the edges of the screen, drawing focus
 /// towards the center.
@@ -45,25 +32,25 @@ pub struct Vignette {
     ///
     /// Range: `0.0` (No effect) to `1.0` (Fully black corners)
     ///
-    /// The default value is 0.50
+    /// The default value is 1.0
     pub intensity: f32,
     /// The size of the unvignetted center area.
     ///
     /// Range: `0.0` (Tiny center) to `2.0+` (Large center)
     ///
-    /// The default value is 1.00
+    /// The default value is 0.75
     pub radius: f32,
     /// The softness of the edge between the clear and dark areas.
     ///
     /// Range: `0.01` (Sharp edge) to `1.0+` (Very soft edge)
     ///
-    /// The default value is 0.50
+    /// The default value is 5.0
     pub smoothness: f32,
     /// The shape of the vignette.
     ///
     /// `1.0` represents a perfect circle.
     ///
-    /// The default value is 0.75
+    /// The default value is 1.0
     pub roundness: f32,
     /// The center of the vignette in UV coordinates (0.0 to 1.0).
     ///
@@ -76,7 +63,7 @@ pub struct Vignette {
     ///
     /// Range: `0.0`(No fit) to `1.0` (Perfect fit)
     ///
-    /// The default value is 1.00
+    /// The default value is 1.0
     pub edge_compensation: f32,
     /// The color of the vignette.
     ///
@@ -89,27 +76,29 @@ pub struct Vignette {
 impl Default for Vignette {
     fn default() -> Self {
         Self {
-            intensity: DEFAULT_VIGNETTE_INTENSITY,
-            radius: DEFAULT_VIGNETTE_RADIUS,
-            smoothness: DEFAULT_VIGNETTE_SMOOTHNESS,
-            roundness: DEFAULT_VIGNETTE_ROUNDNESS,
+            intensity: 1.0,
+            radius: 0.75,
+            smoothness: 5.0,
+            roundness: 1.0,
             color: Color::BLACK,
-            edge_compensation: DEFAULT_VIGNETTE_EDGE_COMPENSATION,
+            edge_compensation: 1.0,
             center: Vec2::new(0.5, 0.5),
         }
     }
 }
 
+impl SyncComponent for Vignette {
+    type Target = Self;
+}
+
 impl ExtractComponent for Vignette {
     type QueryData = Read<Vignette>;
-
     type QueryFilter = With<Camera>;
-
-    type Out = Vignette;
+    type Out = Self;
 
     fn extract_component(vignette: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        // Skip the postprocessing phase entirely if the intensity is zero.
-        if vignette.intensity > 0.0 {
+        // Skip the postprocessing phase entirely if the intensity is negligible.
+        if vignette.intensity > 1e-4 {
             Some(vignette.clone())
         } else {
             None
@@ -117,22 +106,18 @@ impl ExtractComponent for Vignette {
     }
 }
 
+/// The on-GPU version of the [`Vignette`] settings.
+///
+/// See the documentation for [`Vignette`] for more information on
+/// each of these fields.
 #[derive(ShaderType, Default)]
 pub struct VignetteUniform {
-    /// Controls the strength of the darkening effect.
     pub(super) intensity: f32,
-    /// The size of the unvignetted center area.
     pub(super) radius: f32,
-    /// The softness of the edge between the clear and dark areas.
     pub(super) smoothness: f32,
-    /// The shape of the vignette.
     pub(super) roundness: f32,
-    /// The center of the vignette.
     pub(super) center: Vec2,
-    /// The edge compensation of the vignette.
     pub(super) edge_compensation: f32,
-    /// Padding data.
     pub(super) unused: u32,
-    /// The color of the vignette.
     pub(super) color: Vec4,
 }

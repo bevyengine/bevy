@@ -152,7 +152,8 @@ impl WinitWindows {
                 .with_titlebar_hidden(!window.titlebar_shown)
                 .with_titlebar_transparent(window.titlebar_transparent)
                 .with_title_hidden(!window.titlebar_show_title)
-                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons)
+                .with_borderless_game(window.borderless_game);
         }
 
         #[cfg(target_os = "ios")]
@@ -385,8 +386,8 @@ pub fn get_selected_videomode(
 
 /// Gets a monitor's current video-mode.
 ///
-/// TODO: When Winit 0.31 releases this function can be removed and replaced with
-/// `MonitorHandle::current_video_mode()`
+// TODO: When Winit 0.31 releases this function can be removed and replaced with
+// `MonitorHandle::current_video_mode()`
 fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
     monitor
         .video_modes()

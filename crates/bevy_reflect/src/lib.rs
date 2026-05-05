@@ -5,7 +5,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -644,6 +645,7 @@ mod impls {
 }
 
 pub mod attributes;
+pub mod convert;
 pub mod enums;
 mod generics;
 pub mod serde;
@@ -772,7 +774,7 @@ pub mod __macro_exports {
         mod __automatic_type_registration_impl {
             use super::*;
 
-            pub use inventory;
+            pub use ::inventory;
 
             /// Stores type registration functions
             pub struct AutomaticReflectRegistrations(pub fn(&mut TypeRegistry));
@@ -1117,7 +1119,7 @@ mod tests {
 
         let values: Vec<u32> = foo
             .iter_fields()
-            .map(|value| *value.try_downcast_ref::<u32>().unwrap())
+            .map(|(_, value)| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
     }
@@ -1716,6 +1718,29 @@ mod tests {
             PartialReflect::reflect_partial_cmp(&c1, &b),
             Some(Ordering::Equal)
         );
+    }
+
+    #[test]
+    fn enum_from_reflect_does_not_panic() {
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        enum A {
+            Hot,
+            Cold,
+        }
+
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        enum B {
+            Hot,
+            Cold,
+            Warm,
+        }
+
+        // There's no difference between the reflected data of these enum variants - they are named
+        // the same, so we are able to convert them.
+        assert_eq!(A::from_reflect(&B::Hot), Some(A::Hot));
+        assert_eq!(A::from_reflect(&B::Cold), Some(A::Cold));
+        // This variant doesn't exist in `A`, so it should not be converted.
+        assert_eq!(A::from_reflect(&B::Warm), None);
     }
 
     #[test]

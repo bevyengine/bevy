@@ -17,7 +17,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
@@ -26,7 +26,7 @@
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
+//!         WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
 //!         Transform::from_xyz(2.0, 0.0, -5.0),
 //!     ));
@@ -42,7 +42,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::Gltf;
 //!
@@ -72,11 +72,11 @@
 //!     *loaded = true;
 //!
 //!     // Spawns the first scene in the file
-//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
+//!     commands.spawn(WorldAssetRoot(gltf.scenes[0].clone()));
 //!
 //!     // Spawns the scene named "Lenses_low"
 //!     commands.spawn((
-//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         WorldAssetRoot(gltf.named_scenes["Lenses_low"].clone()),
 //!         Transform::from_xyz(1.0, 2.0, 3.0),
 //!     ));
 //! }
@@ -131,7 +131,9 @@ mod assets;
 pub mod convert_coordinates;
 mod label;
 mod loader;
-mod vertex_attributes;
+mod material;
+/// A set of utilities for accessing and converting vertex attribute data
+pub mod vertex_attributes;
 
 extern crate alloc;
 
@@ -158,7 +160,13 @@ pub mod prelude {
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*};
+pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
+
+/// Re-exports for GLTF
+pub mod gltf {
+    #[doc(hidden)]
+    pub use gltf::{Animation, Document, Gltf, Material, Mesh, Primitive, Scene, Texture};
+}
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -265,6 +273,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
+            .init_asset::<GltfMaterial>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
             .init_resource::<GltfExtensionHandlers>();
     }

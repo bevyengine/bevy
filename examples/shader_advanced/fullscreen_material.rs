@@ -1,18 +1,14 @@
 //! Demonstrates how to write a custom fullscreen shader
 //!
-//! This is currently limited to 3d only but work is in progress to make it work in 2d
+//! This example demonstrates working in 3d. To make the example work in 2d,
+//! replace 3d components with their 2d counterparts, and schedule the work
+//! to run in the `Core2d` schedule as described in the `FullscreenMaterial`
+//! comment in this file.
 
 use bevy::{
-    core_pipeline::{
-        core_3d::graph::Node3d,
-        fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
-    },
+    core_pipeline::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     prelude::*,
-    render::{
-        extract_component::ExtractComponent,
-        render_graph::{InternedRenderLabel, RenderLabel},
-        render_resource::ShaderType,
-    },
+    render::{extract_component::ExtractComponent, render_resource::ShaderType},
     shader::ShaderRef,
 };
 
@@ -23,6 +19,7 @@ fn main() {
             FullscreenMaterialPlugin::<FullscreenEffect>::default(),
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, update_intensity)
         .run();
 }
 
@@ -31,59 +28,74 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
-        FullscreenEffect { intensity: 0.005 },
+        FullscreenEffect::new(FullscreenEffect::MAX_INTENSITY),
     ));
 
-    // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::default(),
     ));
 
-    // light
     commands.spawn(DirectionalLight {
         illuminance: 1_000.,
         ..default()
     });
 }
 
-// This is the struct that will be sent to your shader
-//
-// Currently, this doesn't support AsBindGroup so you can only use it to send a struct to your
-// shader. We are working on adding AsBindGroup support in the future so you can bind anything you
-// need.
+fn update_intensity(effects: Query<&mut FullscreenEffect>, time: Res<Time>) {
+    for mut effect in effects {
+        let phase = time.elapsed_secs() * FullscreenEffect::FREQUENCY;
+        // Make it loop periodically
+        let mut intensity = ops::sin(phase);
+
+        // We need to remap the intensity to be between 0 and 1 instead of -1 and 1
+        intensity = (intensity + 1.0) / 2.0;
+        effect.intensity = intensity * FullscreenEffect::MAX_INTENSITY;
+    }
+}
+
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
 struct FullscreenEffect {
-    // For this example, this is used as the intensity of the effect, but you can pass in any valid
-    // ShaderType
-    //
-    // In the future, you will be able to use a full bind group
     intensity: f32,
+    // WebGL2 structs must be 16 byte aligned.
+    // Intensity is an `f32`, which is 4 bytes, so 12 more bytes (3 floats) are needed.
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding: Vec3,
+}
+
+impl FullscreenEffect {
+    const FREQUENCY: f32 = 2.0;
+    const MAX_INTENSITY: f32 = 0.015;
+
+    fn new(intensity: f32) -> Self {
+        Self {
+            intensity,
+            ..Default::default()
+        }
+    }
 }
 
 impl FullscreenMaterial for FullscreenEffect {
-    // The shader that will be used
     fn fragment_shader() -> ShaderRef {
         "shaders/fullscreen_effect.wgsl".into()
     }
 
-    // This let's you specify a list of edges used to order when your effect pass will run
+    // The `FullscreenMaterial` uses 3d schedules by default.
+    // To make this work in 2d, you would need to schedule to
+    // run in `Core2d` and in a `Core2dSystems` set.
     //
-    // This example is a post processing effect so it will run after tonemapping but before the end
-    // post processing pass.
-    //
-    // In 2d you would need to use [`Node2d`] instead of [`Node3d`]
-    fn node_edges() -> Vec<InternedRenderLabel> {
-        vec![
-            Node3d::Tonemapping.intern(),
-            // The label is automatically generated from the name of the struct
-            Self::node_label().intern(),
-            Node3d::EndMainPassPostProcessing.intern(),
-        ]
-    }
+    // fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
+    //     bevy::core_pipeline::Core2d
+    // }
+    // fn schedule_configs(
+    //     system: bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::BoxedSystem>,
+    // ) -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::BoxedSystem> {
+    //     system
+    //         .in_set(bevy::core_pipeline::Core2dSystems::PostProcess)
+    //         .before(bevy::core_pipeline::tonemapping::tonemapping)
+    // }
 }

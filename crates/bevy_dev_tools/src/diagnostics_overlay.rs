@@ -307,7 +307,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic_overlay_item.path.to_string()),
                     TextFont {
-                        font_size: 10.,
+                        font_size: FontSize::Px(10.),
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -324,7 +324,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic),
                     TextFont {
-                        font_size: 10.,
+                        font_size: FontSize::Px(10.),
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -370,7 +370,7 @@ fn build_overlay(
                 children![(
                     Text::new(diagnostics_overlay.title.as_ref()),
                     TextFont {
-                        font_size: 12.,
+                        font_size: FontSize::Px(12.),
                         ..Default::default()
                     },
                     Pickable::IGNORE

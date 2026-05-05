@@ -84,13 +84,8 @@
 mod clone_entities;
 mod entity_set;
 mod map_entities;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
-#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 pub use clone_entities::*;
-use derive_more::derive::Display;
 pub use entity_set::*;
 pub use map_entities::*;
 
@@ -116,7 +111,6 @@ pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
 
-use nonmax::NonMaxU32;
 pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
 pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
 pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
@@ -128,8 +122,14 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use derive_more::derive::Display;
 use log::warn;
+use nonmax::NonMaxU32;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
@@ -704,7 +704,7 @@ impl SparseSetIndex for Entity {
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntityAllocator {
-    inner: remote_allocator::Allocator,
+    pub(crate) inner: remote_allocator::Allocator,
 }
 
 impl EntityAllocator {
@@ -715,7 +715,7 @@ impl EntityAllocator {
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
     /// This is useful when you need to allocate entities without holding a reference to the world (like in async).
-    pub fn build_remote_allocator(&mut self) -> RemoteAllocator {
+    pub fn build_remote_allocator(&self) -> RemoteAllocator {
         RemoteAllocator::new(&self.inner)
     }
 
@@ -731,6 +731,14 @@ impl EntityAllocator {
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub fn free(&mut self, freed: Entity) {
         self.inner.free(freed);
+    }
+
+    /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
+    ///
+    /// The same caveats of [`free`](Self::free) apply here.
+    /// (Eg. the slice should not contain duplicates.)
+    pub fn free_many(&mut self, freed: &[Entity]) {
+        self.inner.free_many(freed);
     }
 
     /// Allocates some [`Entity`].
@@ -1124,7 +1132,7 @@ pub struct InvalidEntityError {
     pub current_generation: EntityGeneration,
 }
 
-/// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is spawned.
+/// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is not spawned yet.
 /// This includes when an [`EntityIndex`] is requested but is not spawned, since each index always corresponds to exactly one valid entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EntityValidButNotSpawnedError {

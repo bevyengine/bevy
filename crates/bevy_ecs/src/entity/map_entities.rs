@@ -32,8 +32,6 @@ use super::EntityIndexSet;
 /// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
 /// to map each field (see those docs for usage).
 ///
-/// [`HashSet<Entity>`]: bevy_platform::collections::HashSet
-///
 /// ## Example
 ///
 /// ```
@@ -193,6 +191,10 @@ impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
             entities.map_entities(entity_mapper);
         }
     }
+}
+
+impl MapEntities for () {
+    fn map_entities<E: EntityMapper>(&mut self, _entity_mapper: &mut E) {}
 }
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
@@ -404,13 +406,12 @@ mod tests {
         );
 
         mapper.finish(&mut world);
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
-        assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity
+        let freed_dead_ref = world.entities().resolve_from_index(dead_ref.index());
+        assert!(freed_dead_ref
             .generation()
             .cmp_approx(&dead_ref.generation())
             .is_gt());
+        assert!(world.entities().check_can_spawn_at(freed_dead_ref).is_ok());
     }
 
     #[test]
@@ -422,12 +423,11 @@ mod tests {
             mapper.get_mapped(Entity::from_raw_u32(0).unwrap())
         });
 
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
-        assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity
+        let freed_dead_ref = world.entities().resolve_from_index(dead_ref.index());
+        assert!(freed_dead_ref
             .generation()
             .cmp_approx(&dead_ref.generation())
             .is_gt());
+        assert!(world.entities().check_can_spawn_at(freed_dead_ref).is_ok());
     }
 }
