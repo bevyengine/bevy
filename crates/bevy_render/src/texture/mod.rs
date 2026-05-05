@@ -34,6 +34,7 @@ impl Plugin for TexturePlugin {
         .init_resource::<ManualTextureViews>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ManualTextureViews>()
                 .init_gpu_resource::<TextureCache>()
                 .allow_ambiguous_resource::<TextureCache>()
                 .add_systems(

@@ -6,9 +6,9 @@ pull_requests: [23329]
 
 Asset handles are not just data: they are a reference to an asset that also keeps that asset alive.
 This poses a challenge for deserializing handles: there's no asset to keep alive when deserializing!
-In particular, our scene format (writable through `DynamicScene::serialize`) has been unfortunately
+In particular, our world serialization format (writable through `DynamicWorld::serialize`, previously called "scenes") has been unfortunately
 restricted by the fact that handles could not be serialized or deserialized. A lot of things you
-want to put into a scene, like 3D models or even other scenes, need to reference asset handles for
+want to put into a world asset, like 3D models or even other scenes, need to reference asset handles for
 their data.
 
 To resolve this, we've introduced `HandleSerializeProcessor` and `HandleDeserializeProcessor` to
@@ -17,7 +17,7 @@ respectively. These allow the reflection (de)serialization to store and load han
 handle will store its "identifying" information (e.g., asset path), and deserializing the handle
 will load the asset path to produce the handle.
 
-In addition, this now happens automatically for scene loading and saving!
+In addition, this now happens automatically for world asset loading and saving!
 
 While it isn't practical for us to directly support `serde::Serialize` and `serde::Deserialize`
 (since these don't allow passing the `AssetServer` needed to execute loads), reflection allows us to

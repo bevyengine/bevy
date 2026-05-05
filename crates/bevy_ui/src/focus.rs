@@ -5,7 +5,7 @@ use crate::{
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{ContainsEntity, Entity},
+    entity::{ContainsEntity, Entity, EntityHashMap},
     hierarchy::ChildOf,
     prelude::{Component, With},
     query::{QueryData, Without},
@@ -14,7 +14,6 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 
@@ -187,7 +186,7 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let camera_cursor_positions: EntityHashMap<Vec2> = camera_query
         .iter()
         .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
