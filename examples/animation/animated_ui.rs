@@ -2,12 +2,13 @@
 
 use bevy::{
     animation::{
-        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
-        AnimationTargetId,
+        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
     },
     prelude::*,
 };
-use std::any::TypeId;
+
+use core::any::TypeId;
+use core::f32::consts::TAU;
 
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
@@ -44,15 +45,15 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut animation_clip = AnimationClip::default();
 
-        // Create a curve that animates font size.
+        // Create a curve that animates `UiTransform::scale`.
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                animated_field!(TextFont::font_size),
+                animated_field!(UiTransform::scale),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
-                        .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+                        .zip([0.3, 1.0, 0.3, 1.0, 0.3, 1.0, 0.3].map(Vec2::splat)),
                 )
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
@@ -78,6 +79,24 @@ impl AnimationInfo {
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
                 ),
+            ),
+        );
+
+        // Create a curve that animates `UiTransform::rotation`.
+        //
+        // This animates the 2D rotation of the UI element using `Rot2`.
+        // Like other `Animatable` types, it uses shortest-path interpolation (slerp)
+        // to ensure smooth movement between keyframes.
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(
+                animated_field!(UiTransform::rotation),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 1.0, 2.0, 3.0]
+                        .into_iter()
+                        .zip([0., TAU / 3., TAU / 1.5, TAU].map(Rot2::radians)),
+                )
+                .expect("should be able to build rotation curve because we pass in valid samples"),
             ),
         );
 
@@ -111,7 +130,7 @@ fn setup(
         target_id: animation_target_id,
         graph: animation_graph,
         node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
+    } = AnimationInfo::create(animation_graphs.as_mut(), animation_clips.as_mut());
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();
@@ -140,21 +159,19 @@ fn setup(
     ));
 
     let player = entity.id();
-    entity.insert(children![(
+    entity.with_child((
         Text::new("Bevy"),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 24.0,
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+            font_size: FontSize::Px(80.),
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
-        TextLayout::new_with_justify(Justify::Center),
-        AnimationTarget {
-            id: animation_target_id,
-            player,
-        },
+        TextLayout::justify(Justify::Center),
+        animation_target_id,
+        AnimatedBy(player),
         animation_target_name,
-    )]);
+    ));
 }
 
 // A type that represents the color of the first text section.

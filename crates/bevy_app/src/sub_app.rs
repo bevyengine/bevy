@@ -2,15 +2,19 @@ use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     message::MessageRegistry,
+    observer::IntoObserver,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, warn};
 
 type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
@@ -219,6 +223,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
+    }
+
     /// See [`App::register_system`].
     pub fn register_system<I, O, M>(
         &mut self,
@@ -246,7 +262,16 @@ impl SubApp {
     /// See [`App::add_schedule`].
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
+        let _old_schedule = schedules.insert(schedule);
+
+        #[cfg(feature = "trace")]
+        if let Some(schedule) = _old_schedule {
+            warn!(
+                "Schedule {:?} was re-inserted, all previous configuration has been removed",
+                schedule.label()
+            );
+        }
+
         self
     }
 
@@ -335,13 +360,10 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_message`].
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
+    /// See [`App::add_observer`].
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
+        self.world_mut().add_observer(observer);
+        self
     }
 
     /// See [`App::add_message`].
@@ -460,6 +482,33 @@ impl SubApp {
     ) -> &mut Self {
         let registry = self.world.resource_mut::<AppTypeRegistry>();
         registry.write().register_type_data::<T, D>();
+        self
+    }
+
+    /// See [`App::register_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry
+            .write()
+            .register_type_conversion::<T, U, _>(function);
+        self
+    }
+
+    /// See [`App::register_into_type_conversion`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_into_type_conversion<T, U>(&mut self) -> &mut Self
+    where
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        U: bevy_reflect::Reflect + bevy_reflect::TypePath + From<T>,
+    {
+        let registry = self.world.resource_mut::<AppTypeRegistry>();
+        registry.write().register_into_type_conversion::<T, U>();
         self
     }
 

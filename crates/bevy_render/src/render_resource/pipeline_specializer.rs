@@ -1,9 +1,13 @@
-use crate::render_resource::{
-    CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
+use bevy_material::descriptor::{
+    CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor,
     RenderPipelineDescriptor,
 };
+
+use crate::render_resource::PipelineCache;
 use bevy_ecs::resource::Resource;
-use bevy_mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout};
+use bevy_log::error;
+use bevy_material::specialize::SpecializedMeshPipelineError;
+use bevy_mesh::{MeshVertexBufferLayoutRef, VertexBufferLayout};
 use bevy_platform::{
     collections::{
         hash_map::{Entry, RawEntryMut, VacantEntry},
@@ -12,9 +16,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_utils::default;
-use core::{fmt::Debug, hash::Hash};
-use thiserror::Error;
-use tracing::error;
+use core::hash::Hash;
 
 /// A trait that allows constructing different variants of a render pipeline from a key.
 ///
@@ -250,10 +252,4 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             }))
         }
     }
-}
-
-#[derive(Error, Debug)]
-pub enum SpecializedMeshPipelineError {
-    #[error(transparent)]
-    MissingVertexAttribute(#[from] MissingVertexAttributeError),
 }

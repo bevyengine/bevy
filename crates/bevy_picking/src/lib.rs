@@ -152,15 +152,13 @@
 //! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
-#![deny(missing_docs)]
-
 extern crate alloc;
 
 pub mod backend;
 pub mod events;
 pub mod hover;
 pub mod input;
-#[cfg(feature = "bevy_mesh_picking_backend")]
+#[cfg(feature = "mesh_picking")]
 pub mod mesh_picking;
 pub mod pointer;
 pub mod window;
@@ -174,7 +172,7 @@ use hover::{update_is_directly_hovered, update_is_hovered};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
@@ -193,7 +191,7 @@ pub mod prelude {
 /// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
 ///
 /// See the documentation on the fields for more details.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
@@ -274,10 +272,6 @@ pub enum PickingSystems {
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
-
-/// Deprecated alias for [`PickingSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
-pub type PickSet = PickingSystems;
 
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
@@ -436,6 +430,8 @@ impl Plugin for InteractionPlugin {
             .add_message::<Pointer<Move>>()
             .add_message::<Pointer<Out>>()
             .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Leave>>()
+            .add_message::<Pointer<Enter>>()
             .add_message::<Pointer<Release>>()
             .add_message::<Pointer<Scroll>>()
             .add_systems(
