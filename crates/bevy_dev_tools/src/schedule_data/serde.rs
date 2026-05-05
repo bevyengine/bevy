@@ -354,16 +354,12 @@ pub mod tests {
         let mut label_to_build_metadata = HashMap::new();
 
         for label in interned_labels {
-            let mut schedule = app
+            let build_metadata = app
                 .world_mut()
-                .resource_mut::<Schedules>()
-                .remove(label)
-                .expect("we just copied the label from this schedule");
-
-            let build_metadata = schedule.initialize(app.world_mut()).unwrap().unwrap();
+                .schedule_scope(label, |world, schedule| schedule.initialize(world))
+                .unwrap()
+                .unwrap();
             label_to_build_metadata.insert(label, build_metadata);
-
-            app.world_mut().resource_mut::<Schedules>().insert(schedule);
         }
 
         let mut app_data = AppData::from_schedules(

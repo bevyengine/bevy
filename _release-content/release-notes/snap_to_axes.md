@@ -4,7 +4,7 @@ authors: ["@taishi-sama"]
 pull_requests: [23674]
 ---
 
-``FreeCamera`` now able to align itself to axes on hotkey presses.
+``FreeCamera`` is now able to align itself to axes on hotkey presses.
 
 | Default Key Binding | Action                 |
 |:--------------------|:-----------------------|

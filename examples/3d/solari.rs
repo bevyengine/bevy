@@ -240,21 +240,23 @@ fn setup_many_lights(
     commands
         .spawn((
             RaytracingMesh3d(plane_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color_texture: Some(
-                    asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                        "textures/uv_checker_bw.png",
-                        |settings| {
-                            settings
-                                .sampler
-                                .get_or_init_descriptor()
-                                .set_address_mode(ImageAddressMode::Repeat);
-                        },
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    base_color_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings::<ImageLoaderSettings>(|settings| {
+                                settings
+                                    .sampler
+                                    .get_or_init_descriptor()
+                                    .set_address_mode(ImageAddressMode::Repeat);
+                            })
+                            .load("textures/uv_checker_bw.png"),
                     ),
-                ),
-                perceptual_roughness: 0.0,
-                ..default()
-            })),
+                    perceptual_roughness: 0.0,
+                    ..default()
+                }),
+            ),
         ))
         .insert_if(Mesh3d(plane_mesh), || args.pathtracer != Some(true));
 

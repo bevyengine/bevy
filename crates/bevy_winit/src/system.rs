@@ -270,13 +270,19 @@ pub(crate) fn despawn_windows(
         }
     }
 
-    // On macOS, when exiting, we need to tell the rendering thread the windows are about to
-    // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
+    // On macOS, many things need to be dropped on the main thread, or the app will hang:
+    // - notify the rendering thread the windows are about to close
+    // - take the `WindowWrapper`s out of `WINIT_WINDOWS` and into the local `windows_to_drop`
     if !exit_event_reader.is_empty() {
         exit_event_reader.clear();
-        for window in window_entities.iter() {
-            closing_event_writer.write(WindowClosing { window });
-        }
+        WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
+            for window in window_entities.iter() {
+                closing_event_writer.write(WindowClosing { window });
+                if let Some(wrapper) = winit_windows.remove_window(window) {
+                    windows_to_drop.push(wrapper);
+                }
+            }
+        });
     }
 }
 
@@ -304,6 +310,7 @@ pub(crate) fn changed_windows(
     >,
     monitors: Res<WinitMonitors>,
     mut window_resized: MessageWriter<WindowResized>,
+    mut window_event: MessageWriter<WindowEvent>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
@@ -417,7 +424,9 @@ pub(crate) fn changed_windows(
 
                 if physical_size != cached_physical_size
                     && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
-                        react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
+                        let event = react_to_resize(entity, &mut window, new_physical_size);
+                        window_resized.write(event.clone());
+                        window_event.write(WindowEvent::WindowResized(event));
                     }
             }
 
