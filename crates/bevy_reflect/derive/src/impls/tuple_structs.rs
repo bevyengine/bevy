@@ -3,7 +3,7 @@ use crate::{
     struct_utility::FieldAccessors,
     ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQDefault, FQIterator, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -111,7 +111,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) =
                     #bevy_reflect_path::PartialReflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::tuple_struct::TupleStruct::iter_fields(struct_value)) {
+                    for (i, value) in #FQIterator::enumerate(#bevy_reflect_path::tuple_struct::TupleStruct::iter_fields(struct_value)) {
                         if let #FQOption::Some(v) = #bevy_reflect_path::tuple_struct::TupleStruct::field_mut(self, i) {
                             #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
                         }

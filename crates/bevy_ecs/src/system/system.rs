@@ -55,8 +55,20 @@ pub trait System: Send + Sync + 'static {
     fn name(&self) -> DebugName;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
-    fn type_id(&self) -> TypeId {
+    fn system_type(&self) -> TypeId {
         TypeId::of::<Self>()
+    }
+
+    /// Returns the [`TypeId`] of the underlying system type.
+    ///
+    /// Use [`system_type`](System::system_type) instead.
+    #[deprecated(
+        since = "0.19.0",
+        note = "Use `system_type` instead. This method shadows `Any::type_id` and will be removed in a future release."
+    )]
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        self.system_type()
     }
 
     /// Returns the [`SystemStateFlags`] of the system.

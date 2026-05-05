@@ -23,7 +23,7 @@ use resolve::OitResolvePlugin;
 
 use crate::{
     core_3d::main_transparent_pass_3d,
-    oit::resolve::node::oit_resolve,
+    oit::resolve::{node::oit_resolve, OitResolvePipelineId},
     schedule::{Core3d, Core3dSystems},
 };
 
@@ -37,6 +37,7 @@ pub mod resolve;
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
 #[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType, Component)]
+#[extract_component_sync_target((Self, OrderIndependentTransparencySettingsOffset, OitResolvePipelineId))]
 #[reflect(Clone, Default)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many fragments will be exactly sorted.
