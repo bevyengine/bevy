@@ -3,7 +3,7 @@ use crate::{
     enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder},
     impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
 };
-use bevy_macro_utils::fq_std::{FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQInto, FQIterator, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{Fields, Path};
@@ -64,6 +64,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         reflect_enum.meta(),
         || Some(quote!(#bevy_reflect_path::enums::enum_partial_eq)),
         || Some(quote!(#bevy_reflect_path::enums::enum_hash)),
+        || Some(quote!(#bevy_reflect_path::enums::enum_partial_cmp)),
     );
     let clone_fn = reflect_enum.get_clone_impl();
 
@@ -156,7 +157,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_name(&self) -> &str {
                  match #match_this {
                     #(#enum_variant_name,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 
@@ -164,7 +165,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_index(&self) -> usize {
                  match #match_this {
                     #(#enum_variant_index,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 
@@ -172,7 +173,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn variant_type(&self) -> #bevy_reflect_path::enums::VariantType {
                  match #match_this {
                     #(#enum_variant_type,)*
-                    _ => unreachable!(),
+                    _ => ::core::unreachable!(),
                 }
             }
 
@@ -206,7 +207,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                                 }
                             }
                             #bevy_reflect_path::enums::VariantType::Tuple => {
-                                for (index, field) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::enums::Enum::iter_fields(#ref_value)) {
+                                for (index, field) in #FQIterator::enumerate(#bevy_reflect_path::enums::Enum::iter_fields(#ref_value)) {
                                     if let #FQOption::Some(v) = #bevy_reflect_path::enums::Enum::field_at_mut(self, index) {
                                         #bevy_reflect_path::PartialReflect::try_apply(v, field.value())?;
                                     }
@@ -223,8 +224,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             name => {
                                 return #FQResult::Err(
                                     #bevy_reflect_path::ApplyError::UnknownVariant {
-                                        enum_name: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(self)),
-                                        variant_name: ::core::convert::Into::into(name),
+                                        enum_name: #FQInto::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(self)),
+                                        variant_name: #FQInto::into(name),
                                     }
                                 );
                             }

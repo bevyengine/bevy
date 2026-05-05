@@ -86,6 +86,14 @@ impl PartialReflect for Cow<'static, str> {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
+        }
+    }
+
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -250,6 +258,10 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::list::list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {

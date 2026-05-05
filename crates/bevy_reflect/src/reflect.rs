@@ -9,6 +9,7 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::{
     any::{Any, TypeId},
+    cmp::Ordering,
     fmt::Debug,
 };
 
@@ -317,9 +318,6 @@ where
     /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
     /// `take` in a useful fashion, automatically constructing an appropriate
     /// [`ReflectCloneError`] if the downcast fails.
-    ///
-    /// This is an associated function, rather than a method, because methods
-    /// with generic types prevent dyn-compatibility.
     fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
     where
         Self: TypePath + Sized,
@@ -343,6 +341,13 @@ where
     ///
     /// If the underlying type does not support equality testing, returns `None`.
     fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+        None
+    }
+
+    /// Returns a "partial comparison" result.
+    ///
+    /// If the underlying type does not support it, returns `None`.
+    fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
 

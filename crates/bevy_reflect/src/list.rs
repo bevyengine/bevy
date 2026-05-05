@@ -320,6 +320,10 @@ impl PartialReflect for DynamicList {
         list_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        list_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicList(")?;
         list_debug(self, f)?;
@@ -489,6 +493,32 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [List] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn list_partial_cmp<L: List + ?Sized>(
+    a: &L,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::List(list) = b.reflect_ref() else {
+        return None;
+    };
+
+    let min_len = core::cmp::min(a.len(), list.len());
+
+    for (a_value, b_value) in a.iter().zip(list.iter()).take(min_len) {
+        match a_value.reflect_partial_cmp(b_value) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    Some(a.len().cmp(&list.len()))
 }
 
 /// The default debug formatter for [`List`] types.

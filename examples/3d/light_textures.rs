@@ -237,7 +237,7 @@ fn spawn_light_textures(
             intensity: 10e6,
             outer_angle: 0.25,
             inner_angle: 0.25,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_translation(Vec3::new(6.0, 1.0, 2.0)).looking_at(Vec3::ZERO, Vec3::Y),
@@ -253,7 +253,7 @@ fn spawn_light_textures(
         Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
         Selection::PointLight,
         children![
-            SceneRoot(
+            WorldAssetRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
             ),
             (
@@ -267,7 +267,7 @@ fn spawn_light_textures(
                 PointLight {
                     color: Color::srgb(0.0, 0.0, 1.0),
                     intensity: 1e6,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     ..default()
                 },
                 PointLightTexture {
