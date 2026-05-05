@@ -1,9 +1,10 @@
 use crate::{
-    okhsla::{find_cusp, to_ST, toe, toe_inv, Okhsla},
+    okcolor_convert::{okhsv_to_oklab, oklab_to_okhsv},
+    okhsla::Okhsla,
     Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba, Mix, Oklaba,
     Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -249,104 +250,13 @@ impl ColorToComponents for Okhsva {
 
 impl From<Oklaba> for Okhsva {
     fn from(value: Oklaba) -> Self {
-        let Oklaba {
-            lightness: lab_l,
-            a: lab_a,
-            b: lab_b,
-            alpha,
-        } = value;
-        let mut C = (lab_a * lab_a + lab_b * lab_b).sqrt();
-        let a_ = lab_a / C;
-        let b_ = lab_b / C;
-
-        let mut L = lab_l;
-        let h = 0.5 + 0.5 * ops::atan2(-lab_b, -lab_a) / core::f32::consts::PI;
-
-        let cusp = find_cusp(a_, b_);
-        let ST_max = to_ST(cusp);
-        let S_max = ST_max.S;
-        let T_max = ST_max.T;
-        let S_0 = 0.5;
-        let k = 1. - S_0 / S_max;
-
-        // first we find L_v, C_v, L_vt and C_vt
-
-        let t = T_max / (C + L * T_max);
-        let L_v = t * L;
-        let C_v = t * C;
-
-        let L_vt = toe_inv(L_v);
-        let C_vt = C_v * L_vt / L_v;
-
-        // we can then use these to invert the step that compensates for the toe and the curved top part of the triangle:
-        let rgb_scale: LinearRgba = Oklaba::lab(L_vt, a_ * C_vt, b_ * C_vt).into();
-        let scale_L =
-            ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max(rgb_scale.blue.max(0.))));
-
-        L = L / scale_L;
-        C = C / scale_L;
-
-        C = C * toe(L) / L;
-        L = toe(L);
-
-        // we can now compute v and s:
-
-        let v = L / L_v;
-        let s = (S_0 + T_max) * C_v / ((T_max * S_0) + T_max * k * C_v);
-
-        return Okhsva {
-            hue: h,
-            saturation: s,
-            value: v,
-            alpha,
-        };
+        oklab_to_okhsv(value)
     }
 }
 
 impl From<Okhsva> for Oklaba {
     fn from(value: Okhsva) -> Self {
-        let Okhsva {
-            hue: h,
-            saturation: s,
-            value: v,
-            alpha,
-        } = value;
-
-        let a_ = (2. * core::f32::consts::PI * h).cos();
-        let b_ = (2. * core::f32::consts::PI * h).sin();
-
-        let cusp = find_cusp(a_, b_);
-        let ST_max = to_ST(cusp);
-        let S_max = ST_max.S;
-        let T_max = ST_max.T;
-        let S_0 = 0.5;
-        let k = 1. - S_0 / S_max;
-
-        // first we compute L and V as if the gamut is a perfect triangle:
-
-        // L, C when v==1:
-        let L_v = 1. - s * S_0 / (S_0 + T_max - T_max * k * s);
-        let C_v = s * T_max * S_0 / (S_0 + T_max - T_max * k * s);
-
-        let mut L = v * L_v;
-        let mut C = v * C_v;
-
-        // then we compensate for both toe and the curved top part of the triangle:
-        let L_vt = toe_inv(L_v);
-        let C_vt = C_v * L_vt / L_v;
-
-        let L_new = toe_inv(L);
-        C = C * L_new / L;
-        L = L_new;
-
-        let rgb_scale: LinearRgba = Oklaba::lab(L_vt, a_ * C_vt, b_ * C_vt).into();
-        let scale_L =
-            ops::cbrt(1. / ((rgb_scale.red.max(rgb_scale.green)).max((rgb_scale.blue.max(0.)))));
-
-        L = L * scale_L;
-        C = C * scale_L;
-
-        Oklaba::new(L, C * a_, C * b_, alpha)
+        okhsv_to_oklab(value)
     }
 }
 
@@ -466,4 +376,48 @@ mod tests {
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
     };
+
+    #[test]
+    fn test_to_from_srgba() {
+        let okhsva = Okhsva::new(180.0, 0.5, 0.5, 1.0);
+        let srgba: Srgba = okhsva.into();
+        let okhsva2: Okhsva = srgba.into();
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(okhsva.saturation, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_to_from_srgba_2() {
+        for color in TEST_COLORS.iter() {
+            let rgb2: Srgba = (color.okhsv).into();
+            let okhsv: Okhsva = (color.rgb).into();
+            assert!(
+                color.rgb.distance(&rgb2) < 0.01,
+                "{}: {:?} != {:?}",
+                color.name,
+                color.rgb,
+                rgb2,
+            );
+            // If saturation is approximately equal to 0.0, hue is arbitrary.
+            if color.okhsv.saturation > 0.001 {
+                assert_approx_eq!(color.okhsv.hue, okhsv.hue, 0.001);
+            }
+            assert_approx_eq!(color.okhsv.saturation, okhsv.saturation, 0.001);
+            assert_approx_eq!(color.okhsv.value, okhsv.value, 0.001);
+            assert_approx_eq!(color.okhsv.alpha, okhsv.alpha, 0.001);
+        }
+    }
+
+    #[test]
+    fn test_to_from_linear() {
+        let okhsva = Okhsva::new(0.5, 0.5, 0.5, 1.0);
+        let linear: LinearRgba = okhsva.into();
+        let okhsva2: Okhsva = linear.into();
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(okhsva.saturation, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+    }
 }
