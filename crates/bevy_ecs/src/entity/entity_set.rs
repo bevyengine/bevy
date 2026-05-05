@@ -3,50 +3,71 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 use core::{
     array,
     fmt::{Debug, Formatter},
     hash::{BuildHasher, Hash},
     iter::{self, FusedIterator},
-    option, result,
+    option, ptr, result,
 };
 
-use super::{unique_slice::UniqueEntitySlice, Entity};
+use super::{Entity, UniqueEntityEquivalentSlice};
 
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 
-/// A trait for entity borrows.
+/// A trait for types that contain an [`Entity`].
 ///
-/// This trait can be thought of as `Borrow<Entity>`, but yielding `Entity` directly.
-pub trait EntityBorrow {
-    /// Returns the borrowed entity.
+/// This trait behaves similarly to `Borrow<Entity>`, but yielding `Entity` directly.
+///
+/// It should only be implemented when:
+/// - Retrieving the [`Entity`] is a simple operation.
+/// - The [`Entity`] contained by the type is unambiguous.
+pub trait ContainsEntity {
+    /// Returns the contained entity.
     fn entity(&self) -> Entity;
 }
 
-/// A trait for [`Entity`] borrows with trustworthy comparison behavior.
+/// A trait for types that represent an [`Entity`].
 ///
-/// Comparison trait behavior between a [`TrustedEntityBorrow`] type and its underlying entity will match.
+/// Comparison trait behavior between an [`EntityEquivalent`] type and its underlying entity will match.
 /// This property includes [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`] and [`Hash`],
 /// and remains even after [`Clone`] and/or [`Borrow`] calls.
 ///
 /// # Safety
-/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`] impls must be
-/// equivalent for `Self` and its underlying entity:
-/// `x.entity() == y.entity()` should give the same result as `x == y`.
-/// The above equivalence must also hold through and between calls to any [`Clone`]
-/// and [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`].
+/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must evaluate the same for `Self` and
+/// its underlying entity.
+/// `x.entity() == y.entity()` must be equivalent to `x == y`.
+///
+/// The above equivalence must also hold through and between calls to any [`Clone`] and
+/// [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`].
 ///
 /// The result of [`entity()`] must be unaffected by any interior mutability.
 ///
+/// The aforementioned properties imply determinism in both [`entity()`] calls
+/// and comparison trait behavior.
+///
+/// All [`Hash`] impls except that for [`Entity`] must delegate to the [`Hash`] impl of
+/// another [`EntityEquivalent`] type. All conversions to the delegatee within the [`Hash`] impl must
+/// follow [`entity()`] equivalence.
+///
+/// It should be noted that [`Hash`] is *not* a comparison trait, and with [`Hash::hash`] being forcibly
+/// generic over all [`Hasher`]s, **cannot** guarantee determinism or uniqueness of any final hash values
+/// on its own.
+/// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
+/// deterministic and concerning [`Entity`], collisionless.
+/// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
+/// determinism when [`BuildHasher`] is unspecified.
+///
 /// [`Hash`]: core::hash::Hash
+/// [`Hasher`]: core::hash::Hasher
 /// [`Borrow`]: core::borrow::Borrow
 /// [`BorrowMut`]: core::borrow::BorrowMut
-/// [`entity()`]: EntityBorrow::entity
-pub unsafe trait TrustedEntityBorrow: EntityBorrow + Eq {}
+/// [`entity()`]: ContainsEntity::entity
+pub unsafe trait EntityEquivalent: ContainsEntity + Eq {}
 
-impl EntityBorrow for Entity {
+impl ContainsEntity for Entity {
     fn entity(&self) -> Entity {
         *self
     }
@@ -54,9 +75,9 @@ impl EntityBorrow for Entity {
 
 // SAFETY:
 // The trait implementations of Entity are correct and deterministic.
-unsafe impl TrustedEntityBorrow for Entity {}
+unsafe impl EntityEquivalent for Entity {}
 
-impl<T: EntityBorrow> EntityBorrow for &T {
+impl<T: ContainsEntity> ContainsEntity for &T {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -66,9 +87,9 @@ impl<T: EntityBorrow> EntityBorrow for &T {
 // `&T` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone` and `Borrow` maintain equality.
 // `&T` is `Freeze`.
-unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for &T {}
+unsafe impl<T: EntityEquivalent> EntityEquivalent for &T {}
 
-impl<T: EntityBorrow> EntityBorrow for &mut T {
+impl<T: ContainsEntity> ContainsEntity for &mut T {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -78,9 +99,9 @@ impl<T: EntityBorrow> EntityBorrow for &mut T {
 // `&mut T` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Borrow` and `BorrowMut` maintain equality.
 //  `&mut T` is `Freeze`.
-unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for &mut T {}
+unsafe impl<T: EntityEquivalent> EntityEquivalent for &mut T {}
 
-impl<T: EntityBorrow> EntityBorrow for Box<T> {
+impl<T: ContainsEntity> ContainsEntity for Box<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -90,9 +111,9 @@ impl<T: EntityBorrow> EntityBorrow for Box<T> {
 // `Box<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
 // `Box<T>` is `Freeze`.
-unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Box<T> {}
+unsafe impl<T: EntityEquivalent> EntityEquivalent for Box<T> {}
 
-impl<T: EntityBorrow> EntityBorrow for Rc<T> {
+impl<T: ContainsEntity> ContainsEntity for Rc<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -102,9 +123,9 @@ impl<T: EntityBorrow> EntityBorrow for Rc<T> {
 // `Rc<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
 // `Rc<T>` is `Freeze`.
-unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Rc<T> {}
+unsafe impl<T: EntityEquivalent> EntityEquivalent for Rc<T> {}
 
-impl<T: EntityBorrow> EntityBorrow for Arc<T> {
+impl<T: ContainsEntity> ContainsEntity for Arc<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -114,7 +135,7 @@ impl<T: EntityBorrow> EntityBorrow for Arc<T> {
 // `Arc<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
 // `Arc<T>` is `Freeze`.
-unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
+unsafe impl<T: EntityEquivalent> EntityEquivalent for Arc<T> {}
 
 /// A set of unique entities.
 ///
@@ -122,12 +143,12 @@ unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
 /// As a consequence, [`into_iter()`] on `EntitySet` will always produce another `EntitySet`.
 ///
 /// Implementing this trait allows for unique query iteration over a list of entities.
-/// See [`iter_many_unique`] and [`iter_many_unique_mut`]
+/// See [`iter_many_unique`] and [`iter_many_unique_mut`].
 ///
 /// Note that there is no guarantee of the [`IntoIterator`] impl being deterministic,
 /// it might return different iterators when called multiple times.
 /// Neither is there a guarantee that the comparison trait impls of `EntitySet` match that
-/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements)
+/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements).
 ///
 /// [`Self::IntoIter`]: IntoIterator::IntoIter
 /// [`into_iter()`]: IntoIterator::into_iter
@@ -146,7 +167,7 @@ impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
 ///
 /// `x != y` must hold for any 2 elements returned by the iterator.
 /// This is always true for iterators that cannot return more than one element.
-pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {
+pub unsafe trait EntitySetIterator: Iterator<Item: EntityEquivalent> {
     /// Transforms an `EntitySetIterator` into a collection.
     ///
     /// This is a specialized form of [`collect`], for collections which benefit from the uniqueness guarantee.
@@ -164,89 +185,86 @@ pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
-unsafe impl<K: TrustedEntityBorrow, V> EntitySetIterator for btree_map::Keys<'_, K, V> {}
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
+unsafe impl<K: EntityEquivalent, V> EntitySetIterator for btree_map::Keys<'_, K, V> {}
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
-unsafe impl<K: TrustedEntityBorrow, V> EntitySetIterator for btree_map::IntoKeys<K, V> {}
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
+unsafe impl<K: EntityEquivalent, V> EntitySetIterator for btree_map::IntoKeys<K, V> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The sub-range maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::Range<'_, T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for btree_set::Range<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "intersection" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Intersection<'_, T> {}
+unsafe impl<T: EntityEquivalent + Ord> EntitySetIterator for btree_set::Intersection<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "union" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Union<'_, T> {}
+unsafe impl<T: EntityEquivalent + Ord> EntitySetIterator for btree_set::Union<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "difference" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Difference<'_, T> {}
+unsafe impl<T: EntityEquivalent + Ord> EntitySetIterator for btree_set::Difference<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "symmetric difference" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator
-    for btree_set::SymmetricDifference<'_, T>
-{
-}
+unsafe impl<T: EntityEquivalent + Ord> EntitySetIterator for btree_set::SymmetricDifference<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::Iter<'_, T> {}
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+unsafe impl<T: EntityEquivalent> EntitySetIterator for btree_set::Iter<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
-// TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::IntoIter<T> {}
+// EntityEquivalent guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
+unsafe impl<T: EntityEquivalent> EntitySetIterator for btree_set::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::Iter<'_, T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for option::Iter<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-// unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::IterMut<'_, T> {}
+// unsafe impl<T: EntityEquivalent> EntitySetIterator for option::IterMut<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::IntoIter<T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for option::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::Iter<'_, T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for result::Iter<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-// unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::IterMut<'_, T> {}
+// unsafe impl<T: EntityEquivalent> EntitySetIterator for result::IterMut<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::IntoIter<T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for result::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for array::IntoIter<T, 1> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for array::IntoIter<T, 1> {}
 
 // SAFETY: This iterator does not return any elements.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for array::IntoIter<T, 0> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for array::IntoIter<T, 0> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow, F: FnOnce() -> T> EntitySetIterator for iter::OnceWith<F> {}
+unsafe impl<T: EntityEquivalent, F: FnOnce() -> T> EntitySetIterator for iter::OnceWith<F> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for iter::Once<T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for iter::Once<T> {}
 
 // SAFETY: This iterator does not return any elements.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for iter::Empty<T> {}
+unsafe impl<T: EntityEquivalent> EntitySetIterator for iter::Empty<T> {}
 
 // SAFETY: Taking a mutable reference of an iterator has no effect on its elements.
 unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for &mut I {}
@@ -254,14 +272,14 @@ unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for &mut I {}
 // SAFETY: Boxing an iterator has no effect on its elements.
 unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for Box<I> {}
 
-// SAFETY: TrustedEntityBorrow ensures that Copy does not affect equality, via its restrictions on Clone.
-unsafe impl<'a, T: 'a + TrustedEntityBorrow + Copy, I: EntitySetIterator<Item = &'a T>>
+// SAFETY: EntityEquivalent ensures that Copy does not affect equality, via its restrictions on Clone.
+unsafe impl<'a, T: 'a + EntityEquivalent + Copy, I: EntitySetIterator<Item = &'a T>>
     EntitySetIterator for iter::Copied<I>
 {
 }
 
-// SAFETY: TrustedEntityBorrow ensures that Clone does not affect equality.
-unsafe impl<'a, T: 'a + TrustedEntityBorrow + Clone, I: EntitySetIterator<Item = &'a T>>
+// SAFETY: EntityEquivalent ensures that Clone does not affect equality.
+unsafe impl<'a, T: 'a + EntityEquivalent + Clone, I: EntitySetIterator<Item = &'a T>>
     EntitySetIterator for iter::Cloned<I>
 {
 }
@@ -277,7 +295,7 @@ unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::Fuse<I> {}
 
 // SAFETY:
 // Obtaining immutable references the elements of an iterator does not affect uniqueness.
-// TrustedEntityBorrow ensures the lack of interior mutability.
+// EntityEquivalent ensures the lack of interior mutability.
 unsafe impl<I: EntitySetIterator, F: FnMut(&<I as Iterator>::Item)> EntitySetIterator
     for iter::Inspect<I, F>
 {
@@ -316,17 +334,18 @@ unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
 ///
 /// See also: [`EntitySet`].
 // FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `FromIterator::from_iter`
-pub trait FromEntitySetIterator<A: TrustedEntityBorrow>: FromIterator<A> {
+pub trait FromEntitySetIterator<A: EntityEquivalent>: FromIterator<A> {
     /// Creates a value from an [`EntitySetIterator`].
     fn from_entity_set_iter<T: EntitySet<Item = A>>(set_iter: T) -> Self;
 }
 
-impl<T: TrustedEntityBorrow + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
+impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
     for HashSet<T, S>
 {
+    #[inline]
     fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
-        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        let set = HashSet::with_capacity_and_hasher(iter.size_hint().0, S::default());
         iter.fold(set, |mut set, e| {
             // SAFETY: Every element in self is unique.
             unsafe {
@@ -340,25 +359,51 @@ impl<T: TrustedEntityBorrow + Hash, S: BuildHasher + Default> FromEntitySetItera
 /// An iterator that yields unique entities.
 ///
 /// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
-pub struct UniqueEntityIter<I: Iterator<Item: TrustedEntityBorrow>> {
+#[repr(transparent)]
+pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
     iter: I,
 }
 
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
-    pub fn from_entity_set_iterator<S>(iter: I) -> Self {
-        Self { iter }
+    #[inline]
+    pub const fn from_entity_set_iter(iter: I) -> Self {
+        // SAFETY: iter implements `EntitySetIterator`.
+        unsafe { Self::from_iter_unchecked(iter) }
     }
 }
 
-impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
+impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
     ///
     /// # Safety
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
-    pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
+    #[inline]
+    pub const unsafe fn from_iter_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &*ptr::from_ref(iter).cast() }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &mut *ptr::from_mut(iter).cast() }
     }
 
     /// Returns the inner `I`.
@@ -367,7 +412,7 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     }
 
     /// Returns a reference to the inner `I`.
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -377,12 +422,12 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     ///
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }
 
-impl<I: Iterator<Item: TrustedEntityBorrow>> Iterator for UniqueEntityIter<I> {
+impl<I: Iterator<Item: EntityEquivalent>> Iterator for UniqueEntityIter<I> {
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -394,42 +439,41 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> Iterator for UniqueEntityIter<I> {
     }
 }
 
-impl<I: ExactSizeIterator<Item: TrustedEntityBorrow>> ExactSizeIterator for UniqueEntityIter<I> {}
+impl<I: ExactSizeIterator<Item: EntityEquivalent>> ExactSizeIterator for UniqueEntityIter<I> {}
 
-impl<I: DoubleEndedIterator<Item: TrustedEntityBorrow>> DoubleEndedIterator
-    for UniqueEntityIter<I>
-{
+impl<I: DoubleEndedIterator<Item: EntityEquivalent>> DoubleEndedIterator for UniqueEntityIter<I> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
     }
 }
 
-impl<I: FusedIterator<Item: TrustedEntityBorrow>> FusedIterator for UniqueEntityIter<I> {}
+impl<I: FusedIterator<Item: EntityEquivalent>> FusedIterator for UniqueEntityIter<I> {}
 
 // SAFETY: The underlying iterator is ensured to only return unique elements by its construction.
-unsafe impl<I: Iterator<Item: TrustedEntityBorrow>> EntitySetIterator for UniqueEntityIter<I> {}
+unsafe impl<I: Iterator<Item: EntityEquivalent>> EntitySetIterator for UniqueEntityIter<I> {}
 
-impl<T, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>> AsRef<[T]> for UniqueEntityIter<I> {
+impl<T, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>> AsRef<[T]> for UniqueEntityIter<I> {
     fn as_ref(&self) -> &[T] {
         self.iter.as_ref()
     }
 }
 
-impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>>
-    AsRef<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>>
+    AsRef<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    fn as_ref(&self) -> &UniqueEntitySlice<T> {
+    fn as_ref(&self) -> &UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.as_ref()) }
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.iter.as_ref()) }
     }
 }
 
-impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsMut<[T]>>
-    AsMut<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsMut<[T]>>
+    AsMut<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    fn as_mut(&mut self) -> &mut UniqueEntitySlice<T> {
+    fn as_mut(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.as_mut()) }
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.iter.as_mut()) }
     }
 }
 
@@ -451,7 +495,7 @@ impl<I: EntitySetIterator + Clone> Clone for UniqueEntityIter<I> {
     }
 }
 
-impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<I> {
+impl<I: Iterator<Item: EntityEquivalent> + Debug> Debug for UniqueEntityIter<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("UniqueEntityIter")
             .field("iter", &self.iter)
@@ -490,7 +534,7 @@ mod tests {
 
         // SAFETY: SpawnBatchIter is `EntitySetIterator`,
         let mut unique_entity_iter =
-            unsafe { UniqueEntityIter::from_iterator_unchecked(spawn_batch.iter()) };
+            unsafe { UniqueEntityIter::from_iter_unchecked(spawn_batch.iter()) };
 
         let entity_set = unique_entity_iter
             .by_ref()

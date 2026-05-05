@@ -10,9 +10,14 @@ use {bevy_utils::once, tracing::warn};
 
 use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
+/// Converts DDS bytes to a bevy [`Image`] using the given compressed format support.
+///
+/// # Errors
+///
+/// Returns an error if the provided buffer contained invalid data, decompression fails, or transcoding
+/// of unsupported data formats fails.
 #[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
-    #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
@@ -24,9 +29,9 @@ pub fn dds_buffer_to_image(
         Ok(format) => (format, None),
         Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8)) => {
             let format = if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
+                TextureFormat::Rgba8UnormSrgb
             } else {
-                TextureFormat::Bgra8Unorm
+                TextureFormat::Rgba8Unorm
             };
             (format, Some(TranscodeFormat::Rgb8))
         }
@@ -65,10 +70,7 @@ pub fn dds_buffer_to_image(
     let mip_map_level = match dds.get_num_mipmap_levels() {
         0 => {
             #[cfg(debug_assertions)]
-            once!(warn!(
-                "Mipmap levels for texture {} are 0, bumping them to 1",
-                name
-            ));
+            once!(warn!("Mipmap levels for texture are 0, bumping them to 1",));
             1
         }
         t => t,
@@ -103,10 +105,10 @@ pub fn dds_buffer_to_image(
     image.data = if let Some(transcode_format) = transcode_format {
         match transcode_format {
             TranscodeFormat::Rgb8 => {
-                let data = dds
-                    .data
-                    .chunks_exact(3)
-                    .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
+                let (chunks, _) = dds.data.as_chunks();
+                let data = chunks
+                    .iter()
+                    .flat_map(|&[r, g, b]| [r, g, b, u8::MAX])
                     .collect();
                 Some(data)
             }
@@ -123,6 +125,11 @@ pub fn dds_buffer_to_image(
     Ok(image)
 }
 
+/// Gets a [`TextureFormat`] from a [`Dds`] file.
+///
+/// # Errors
+///
+/// Returns an error for unsupported texture formats.
 #[cfg(feature = "dds")]
 pub fn dds_format_to_texture_format(
     dds: &Dds,
@@ -409,7 +416,7 @@ mod test {
             0x49, 0x92, 0x24, 0x16, 0x95, 0xae, 0x42, 0xfc, 0, 0xaa, 0x55, 0xff, 0xff, 0x49, 0x92,
             0x24, 0x49, 0x92, 0x24, 0xd8, 0xad, 0xae, 0x42, 0xaf, 0x0a, 0xaa, 0x55,
         ];
-        let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
+        let r = dds_buffer_to_image(&buffer, CompressedImageFormats::BC, true);
         assert!(r.is_ok());
         if let Ok(r) = r {
             fake_wgpu_create_texture_with_data(&r.texture_descriptor, r.data.as_ref().unwrap());

@@ -2,12 +2,11 @@
 
 use bevy::{
     ecs::{
-        component::{
-            ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType,
-        },
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
+        lifecycle::HookContext,
         world::DeferredWorld,
     },
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
 };
@@ -55,7 +54,7 @@ fn demo_1(world: &mut World) {
     // these component hooks. This allows for keeping other parts of the ECS synced
     // to a component's value at all times.
     on_insert = on_insert_name,
-    on_replace = on_replace_name,
+    on_discard = on_discard_name,
 )]
 pub struct Name(pub &'static str);
 
@@ -77,7 +76,7 @@ impl NameIndex {
 /// inserted in the index, and its value will not change without triggering a hook.
 fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnInsert hook guarantees `Name` is available on entity")
+        unreachable!("Insert hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -90,9 +89,9 @@ fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: Hook
 ///
 /// Since all mutations to [`Name`] are captured by hooks, we know it is currently
 /// inserted in the index.
-fn on_replace_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
+fn on_discard_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnReplace hook guarantees `Name` is available on entity")
+        unreachable!("Discard hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -155,6 +154,7 @@ fn demo_3(world: &mut World) {
                     None,
                     false,
                     ComponentCloneBehavior::Default,
+                    None,
                 )
             };
 

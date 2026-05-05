@@ -3,7 +3,7 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use core::time::Duration;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -118,8 +118,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         Ok(None)
                     };
 
-                    cfg_if::cfg_if! {
-                        if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                    cfg_select! {
+                        all(target_arch = "wasm32", feature = "web") => {
                             fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
                                 web_sys::window()
                                     .unwrap()
@@ -156,12 +156,12 @@ impl Plugin for ScheduleRunnerPlugin {
                             set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
 
                             exit.take()
-                        } else {
+                        }
+                        _ =>{
                             loop {
                                 match tick(&mut app, wait) {
-                                    Ok(Some(_delay)) => {
-                                        #[cfg(feature = "std")]
-                                        std::thread::sleep(_delay);
+                                    Ok(Some(delay)) => {
+                                        bevy_platform::thread::sleep(delay);
                                     }
                                     Ok(None) => continue,
                                     Err(exit) => return exit,

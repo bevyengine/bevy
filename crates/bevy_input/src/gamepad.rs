@@ -10,13 +10,13 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::{Event, EventReader, EventWriter},
+    message::{Message, MessageReader, MessageWriter},
     name::Name,
     system::{Commands, Query},
 };
 use bevy_math::ops;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -32,8 +32,12 @@ use thiserror::Error;
 /// the in-frame relative ordering of events is important.
 ///
 /// This event is produced by `bevy_input`.
-#[derive(Event, Debug, Clone, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, PartialEq, From)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -55,8 +59,12 @@ pub enum GamepadEvent {
 /// the in-frame relative ordering of events is important.
 ///
 /// This event type is used by `bevy_input` to feed its components.
-#[derive(Event, Debug, Clone, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, PartialEq, From)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -72,8 +80,12 @@ pub enum RawGamepadEvent {
 }
 
 /// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`].
-#[derive(Event, Debug, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -100,8 +112,12 @@ impl RawGamepadButtonChangedEvent {
 }
 
 /// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`].
-#[derive(Event, Debug, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -127,10 +143,14 @@ impl RawGamepadAxisChangedEvent {
     }
 }
 
-/// A Gamepad connection event. Created when a connection to a gamepad
+/// A [`Gamepad`] connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -164,8 +184,12 @@ impl GamepadConnectionEvent {
 }
 
 /// [`GamepadButton`] event triggered by a digital state change.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -192,8 +216,12 @@ impl GamepadButtonStateChangedEvent {
 }
 
 /// [`GamepadButton`] event triggered by an analog state change.
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -223,9 +251,13 @@ impl GamepadButtonChangedEvent {
 }
 
 /// [`GamepadAxis`] event triggered by an analog state change.
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
@@ -334,7 +366,11 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Component))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Component, Default)
+)]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     /// The USB vendor ID as assigned by the USB-IF, if available.
@@ -534,7 +570,7 @@ impl Default for Gamepad {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -623,7 +659,11 @@ impl GamepadButton {
 /// This is used to determine which axis has changed its value when receiving a
 /// gamepad axis event. It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -665,7 +705,11 @@ impl GamepadAxis {
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`].
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq, Clone)
+)]
 pub enum GamepadInput {
     /// A [`GamepadAxis`].
     Axis(GamepadAxis),
@@ -690,7 +734,7 @@ pub enum GamepadInput {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 pub struct GamepadSettings {
     /// The default button settings.
@@ -771,7 +815,11 @@ impl GamepadSettings {
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -931,7 +979,11 @@ impl ButtonSettings {
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default, Clone)
+)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -1355,7 +1407,11 @@ impl ScaledAxisPosition {
 ///
 /// The valid range is from 0.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -1449,7 +1505,7 @@ impl ButtonAxisSettings {
 /// Whenever a [`Gamepad`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
 pub fn gamepad_connection_system(
     mut commands: Commands,
-    mut connection_events: EventReader<GamepadConnectionEvent>,
+    mut connection_events: MessageReader<GamepadConnectionEvent>,
 ) {
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
@@ -1460,7 +1516,7 @@ pub fn gamepad_connection_system(
                 product_id,
             } => {
                 let Ok(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {} removed before handling connection event.", id);
+                    warn!("Gamepad {id} removed before handling connection event.");
                     continue;
                 };
                 gamepad.insert((
@@ -1471,18 +1527,18 @@ pub fn gamepad_connection_system(
                         ..Default::default()
                     },
                 ));
-                info!("Gamepad {} connected.", id);
+                info!("Gamepad {id} connected.");
             }
             GamepadConnection::Disconnected => {
                 let Ok(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    warn!("Gamepad {id} removed before handling disconnection event. You can ignore this if you manually removed it.");
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
                 // Instead of despawning, we remove Gamepad components that don't need to preserve state
                 // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
-                info!("Gamepad {} disconnected.", id);
+                info!("Gamepad {id} disconnected.");
             }
         }
     }
@@ -1493,7 +1549,11 @@ pub fn gamepad_connection_system(
 //
 /// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1523,11 +1583,11 @@ pub enum GamepadConnection {
 /// updates the [`Gamepad`] and sends [`GamepadAxisChangedEvent`], [`GamepadButtonStateChangedEvent`], [`GamepadButtonChangedEvent`] events.
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
-    mut raw_events: EventReader<RawGamepadEvent>,
-    mut processed_events: EventWriter<GamepadEvent>,
-    mut processed_axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
-    mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
+    mut raw_events: MessageReader<RawGamepadEvent>,
+    mut processed_events: MessageWriter<GamepadEvent>,
+    mut processed_axis_events: MessageWriter<GamepadAxisChangedEvent>,
+    mut processed_digital_events: MessageWriter<GamepadButtonStateChangedEvent>,
+    mut processed_analog_events: MessageWriter<GamepadButtonChangedEvent>,
 ) {
     // Clear digital buttons state
     for (mut gamepad, _) in gamepads.iter_mut() {
@@ -1623,7 +1683,11 @@ pub fn gamepad_event_processing_system(
 
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 pub struct GamepadRumbleIntensity {
     /// The rumble intensity of the strong gamepad motor.
     ///
@@ -1691,10 +1755,10 @@ impl GamepadRumbleIntensity {
 ///
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity};
-/// # use bevy_ecs::prelude::{EventWriter, Res, Query, Entity, With};
+/// # use bevy_ecs::prelude::{MessageWriter, Res, Query, Entity, With};
 /// # use core::time::Duration;
 /// fn rumble_gamepad_system(
-///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+///     mut rumble_requests: MessageWriter<GamepadRumbleRequest>,
 ///     gamepads: Query<Entity, With<Gamepad>>,
 /// ) {
 ///     for entity in gamepads.iter() {
@@ -1710,8 +1774,8 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "force feedback")]
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
-#[derive(Event, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[derive(Message, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///
@@ -1762,7 +1826,7 @@ mod tests {
     use alloc::string::ToString;
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
+    use bevy_ecs::message::Messages;
     use bevy_ecs::schedule::IntoScheduleConfigs;
 
     fn test_button_axis_settings_filter(
@@ -2139,14 +2203,14 @@ mod tests {
                     gamepad_event_processing_system.after(gamepad_connection_system),
                 ),
             )
-            .add_event::<GamepadEvent>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<RawGamepadEvent>();
+            .add_message::<GamepadEvent>()
+            .add_message::<GamepadConnectionEvent>()
+            .add_message::<RawGamepadButtonChangedEvent>()
+            .add_message::<GamepadButtonChangedEvent>()
+            .add_message::<GamepadButtonStateChangedEvent>()
+            .add_message::<GamepadAxisChangedEvent>()
+            .add_message::<RawGamepadAxisChangedEvent>()
+            .add_message::<RawGamepadEvent>();
             Self { app }
         }
 
@@ -2158,8 +2222,8 @@ mod tests {
             let gamepad = gamepad.unwrap_or_else(|| self.app.world_mut().spawn_empty().id());
             self.app
                 .world_mut()
-                .resource_mut::<Events<GamepadConnectionEvent>>()
-                .send(GamepadConnectionEvent::new(
+                .resource_mut::<Messages<GamepadConnectionEvent>>()
+                .write(GamepadConnectionEvent::new(
                     gamepad,
                     Connected {
                         name: "Test gamepad".to_string(),
@@ -2173,15 +2237,15 @@ mod tests {
         pub fn send_gamepad_disconnection_event(&mut self, gamepad: Entity) {
             self.app
                 .world_mut()
-                .resource_mut::<Events<GamepadConnectionEvent>>()
-                .send(GamepadConnectionEvent::new(gamepad, Disconnected));
+                .resource_mut::<Messages<GamepadConnectionEvent>>()
+                .write(GamepadConnectionEvent::new(gamepad, Disconnected));
         }
 
         pub fn send_raw_gamepad_event(&mut self, event: RawGamepadEvent) {
             self.app
                 .world_mut()
-                .resource_mut::<Events<RawGamepadEvent>>()
-                .send(event);
+                .resource_mut::<Messages<RawGamepadEvent>>()
+                .write(event);
         }
 
         pub fn send_raw_gamepad_event_batch(
@@ -2190,8 +2254,8 @@ mod tests {
         ) {
             self.app
                 .world_mut()
-                .resource_mut::<Events<RawGamepadEvent>>()
-                .send_batch(events);
+                .resource_mut::<Messages<RawGamepadEvent>>()
+                .write_batch(events);
         }
     }
 
@@ -2384,8 +2448,8 @@ mod tests {
         let entity = ctx.send_gamepad_connection_event(None);
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch([
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch([
                 RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
                     entity,
                     GamepadAxis::LeftStickY,
@@ -2411,7 +2475,7 @@ mod tests {
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             4
         );
@@ -2448,13 +2512,13 @@ mod tests {
         ];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             2
         );
@@ -2485,13 +2549,13 @@ mod tests {
         ];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             0
         );
@@ -2533,14 +2597,14 @@ mod tests {
         let results = [1.0, 0.0, 1.0, 0.0];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
 
         let events = ctx
             .app
             .world()
-            .resource::<Events<GamepadAxisChangedEvent>>();
+            .resource::<Messages<GamepadAxisChangedEvent>>();
         let mut event_reader = events.get_cursor();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
@@ -2548,7 +2612,7 @@ mod tests {
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             4
         );
@@ -2589,13 +2653,13 @@ mod tests {
         ];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             2
         );
@@ -2627,14 +2691,14 @@ mod tests {
         let results = [1.0, -1.0];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
 
         let events = ctx
             .app
             .world()
-            .resource::<Events<GamepadAxisChangedEvent>>();
+            .resource::<Messages<GamepadAxisChangedEvent>>();
         let mut event_reader = events.get_cursor();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
@@ -2642,7 +2706,7 @@ mod tests {
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadAxisChangedEvent>>()
+                .resource::<Messages<GamepadAxisChangedEvent>>()
                 .len(),
             2
         );
@@ -2663,21 +2727,21 @@ mod tests {
         ))];
         ctx.app
             .world_mut()
-            .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .resource_mut::<Messages<RawGamepadEvent>>()
+            .write_batch(events);
         ctx.update();
 
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonStateChangedEvent>>()
+                .resource::<Messages<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
         let events = ctx
             .app
             .world()
-            .resource::<Events<GamepadButtonStateChangedEvent>>();
+            .resource::<Messages<GamepadButtonStateChangedEvent>>();
         let mut event_reader = events.get_cursor();
         for event in event_reader.read(events) {
             assert_eq!(event.button, GamepadButton::DPadDown);
@@ -2693,14 +2757,14 @@ mod tests {
 
         ctx.app
             .world_mut()
-            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
+            .resource_mut::<Messages<GamepadButtonStateChangedEvent>>()
             .clear();
         ctx.update();
 
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonStateChangedEvent>>()
+                .resource::<Messages<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
         );
@@ -2764,7 +2828,7 @@ mod tests {
 
         ctx.app
             .world_mut()
-            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
+            .resource_mut::<Messages<GamepadButtonStateChangedEvent>>()
             .clear();
         ctx.send_raw_gamepad_event(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
             entity,
@@ -2775,14 +2839,14 @@ mod tests {
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonStateChangedEvent>>()
+                .resource::<Messages<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
         let events = ctx
             .app
             .world()
-            .resource::<Events<GamepadButtonStateChangedEvent>>();
+            .resource::<Messages<GamepadButtonStateChangedEvent>>();
         let mut event_reader = events.get_cursor();
         for event in event_reader.read(events) {
             assert_eq!(event.button, GamepadButton::DPadDown);
@@ -2797,14 +2861,14 @@ mod tests {
             .pressed(GamepadButton::DPadDown));
         ctx.app
             .world_mut()
-            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
+            .resource_mut::<Messages<GamepadButtonStateChangedEvent>>()
             .clear();
         ctx.update();
 
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonStateChangedEvent>>()
+                .resource::<Messages<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
         );
@@ -2899,14 +2963,14 @@ mod tests {
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonStateChangedEvent>>()
+                .resource::<Messages<GamepadButtonStateChangedEvent>>()
                 .len(),
             2
         );
         assert_eq!(
             ctx.app
                 .world()
-                .resource::<Events<GamepadButtonChangedEvent>>()
+                .resource::<Messages<GamepadButtonChangedEvent>>()
                 .len(),
             4
         );

@@ -22,9 +22,8 @@ use core::{
 
 use async_task::{Runnable, Task};
 use atomic_waker::AtomicWaker;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::{Arc, LazyLock};
 use futures_lite::FutureExt;
-use once_cell::sync::OnceCell;
 
 /// An async executor.
 ///
@@ -51,7 +50,7 @@ use once_cell::sync::OnceCell;
 ///     }));
 /// ```
 pub struct Executor<'a, const C: usize = 64> {
-    state: OnceCell<Arc<State<C>>>,
+    state: LazyLock<Arc<State<C>>>,
     _invariant: PhantomData<core::cell::UnsafeCell<&'a ()>>,
 }
 
@@ -67,7 +66,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub const fn new() -> Self {
         Self {
-            state: OnceCell::new(),
+            state: LazyLock::new(|| Arc::new(State::new())),
             _invariant: PhantomData,
         }
     }
@@ -189,7 +188,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     ///
     /// Returns
     /// - `None` - if no task was scheduled for execution
-    /// - `Some(Runnnable)` - the first task scheduled for execution. Calling `Runnable::run` will
+    /// - `Some(Runnable)` - the first task scheduled for execution. Calling `Runnable::run` will
     ///   execute the task. In other words, it will poll its future.
     fn try_runnable(&self) -> Option<Runnable> {
         let runnable;
@@ -284,7 +283,7 @@ impl<'a, const C: usize> Executor<'a, C> {
 
     /// Returns a reference to the inner state.
     fn state(&self) -> &Arc<State<C>> {
-        self.state.get_or_init(|| Arc::new(State::new()))
+        &self.state
     }
 }
 
@@ -450,7 +449,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     )))]
-    queue: heapless::mpmc::MpMcQueue<Runnable, C>,
+    queue: heapless::mpmc::Queue<Runnable, C>,
     waker: AtomicWaker,
 }
 
@@ -472,7 +471,8 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             )))]
-            queue: heapless::mpmc::MpMcQueue::new(),
+            #[allow(deprecated)]
+            queue: heapless::mpmc::Queue::new(),
             waker: AtomicWaker::new(),
         }
     }
@@ -482,7 +482,10 @@ impl<const C: usize> State<C> {
 mod different_executor_tests {
     use core::cell::Cell;
 
-    use futures_lite::future::{block_on, pending, poll_once};
+    use bevy_tasks::{
+        block_on,
+        futures_lite::{pending, poll_once},
+    };
     use futures_lite::pin;
 
     use super::LocalExecutor;
@@ -526,15 +529,15 @@ mod drop_tests {
     use core::task::{Poll, Waker};
     use std::sync::Mutex;
 
+    use bevy_platform::sync::LazyLock;
     use futures_lite::future;
-    use once_cell::sync::Lazy;
 
     use super::{Executor, Task};
 
     #[test]
     fn leaked_executor_leaks_everything() {
         static DROP: AtomicUsize = AtomicUsize::new(0);
-        static WAKER: Lazy<Mutex<Option<Waker>>> = Lazy::new(Default::default);
+        static WAKER: LazyLock<Mutex<Option<Waker>>> = LazyLock::new(Default::default);
 
         let ex: Executor = Default::default();
 
