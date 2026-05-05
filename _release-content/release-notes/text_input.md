@@ -11,16 +11,16 @@ In Bevy 0.19, we've added basic support for text entry, in the form of the `Edit
 Spawning an entity with this component will create a simple unstyled rectangle of editable text.
 Our initial text entry supports:
 
-- Press keys on your keyboard, get text (wow!)
+- Press keys on your keyboard, get text (wow!).
 - Navigation using the arrow keys and standard keyboard shortcuts.
-- Selection rectangles (hold shift)
+- Selection rectangles (hold shift).
 - Backspace and Delete, both for single characters and words.
-- Pointer support, click to place the cursor and drag to extend selection
-- Unicode-aware navigation and editing: 1 byte/char != 1 character
-- Bidirectional text support, allowing both left-to-right and right-to-left scripts
+- Pointer support, click to place the cursor and drag to extend selection.
+- Unicode-aware navigation and editing: 1 byte/char != 1 character.
+- Bidirectional text support, allowing both left-to-right and right-to-left scripts.
 - Placeholder clipboard implementation using a `Clipboard` resource. It can't access the OS clipboard, but allows local copy, cut and paste actions to be used inside a bevy app.
 
-`EditableText` integrate with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
+`EditableText` integrates with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
 `EditableText` entity is focused.
 
 The event `TextEditChange` is emitted *after* changes have been applied to the `EditableText`.

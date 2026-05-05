@@ -3,13 +3,16 @@
 //! Includes:
 //!
 //! - Chromatic Aberration
+//! - Lens Distortion
 //! - Vignette
 
 mod chromatic_aberration;
+mod lens_distortion;
 mod vignette;
 
 use bevy_color::ColorToComponents;
 pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
+pub use lens_distortion::{LensDistortion, LensDistortionUniform};
 pub use vignette::{Vignette, VignetteUniform};
 
 use crate::effect_stack::chromatic_aberration::{
@@ -29,8 +32,9 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_render::{
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
@@ -64,6 +68,7 @@ use bevy_core_pipeline::{
 /// Includes:
 ///
 /// - Chromatic Aberration
+/// - Lens Distortion
 /// - Vignette
 #[derive(Default)]
 pub struct EffectStackPlugin;
@@ -75,10 +80,8 @@ pub struct EffectStackPlugin;
 pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
     bind_group_layout: BindGroupLayoutDescriptor,
-    /// Specifies how to sample the source framebuffer texture.
-    source_sampler: Sampler,
-    /// Specifies how to sample the chromatic aberration gradient.
-    chromatic_aberration_lut_sampler: Sampler,
+    /// A shared sampler used to sample both the source framebuffer texture and the LUT texture.
+    common_sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -89,7 +92,7 @@ pub struct PostProcessingPipeline {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PostProcessingPipelineKey {
     /// The format of the source and destination textures.
-    texture_format: TextureFormat,
+    target_format: TextureFormat,
 }
 
 /// A component attached to cameras in the render world that stores the
@@ -106,6 +109,7 @@ pub struct PostProcessingPipelineId(CachedRenderPipelineId);
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
     vignette: DynamicUniformBuffer<VignetteUniform>,
+    lens_distortion: DynamicUniformBuffer<LensDistortionUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
@@ -115,11 +119,13 @@ pub struct PostProcessingUniformBuffers {
 pub struct PostProcessingUniformBufferOffsets {
     chromatic_aberration: u32,
     vignette: u32,
+    lens_distortion: u32,
 }
 
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "chromatic_aberration.wgsl");
+        load_shader_library!(app, "lens_distortion.wgsl");
         load_shader_library!(app, "vignette.wgsl");
 
         embedded_asset!(app, "post_process.wgsl");
@@ -139,6 +145,7 @@ impl Plugin for EffectStackPlugin {
         ));
 
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default())
+            .add_plugins(ExtractComponentPlugin::<LensDistortion>::default())
             .add_plugins(ExtractComponentPlugin::<Vignette>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -166,7 +173,7 @@ impl Plugin for EffectStackPlugin {
     }
 }
 
-pub fn init_post_processing_pipeline(
+pub(crate) fn init_post_processing_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
@@ -180,31 +187,23 @@ pub fn init_post_processing_pipeline(
             (
                 // Common source:
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Common source sampler:
+                // Common sampler:
                 sampler(SamplerBindingType::Filtering),
                 // Chromatic aberration LUT:
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Chromatic aberration LUT sampler:
-                sampler(SamplerBindingType::Filtering),
                 // Chromatic aberration settings:
                 uniform_buffer::<ChromaticAberrationUniform>(true),
                 // Vignette settings:
                 uniform_buffer::<VignetteUniform>(true),
+                // Lens Distortion settings:
+                uniform_buffer::<LensDistortionUniform>(true),
             ),
         ),
     );
 
     // Both source and chromatic aberration LUTs should be sampled
     // bilinearly.
-
-    let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: MipmapFilterMode::Linear,
-        min_filter: FilterMode::Linear,
-        mag_filter: FilterMode::Linear,
-        ..default()
-    });
-
-    let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
+    let common_sampler = render_device.create_sampler(&SamplerDescriptor {
         mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
@@ -213,8 +212,7 @@ pub fn init_post_processing_pipeline(
 
     commands.insert_resource(PostProcessingPipeline {
         bind_group_layout,
-        source_sampler,
-        chromatic_aberration_lut_sampler,
+        common_sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
     });
@@ -231,7 +229,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -246,7 +244,7 @@ pub(crate) fn post_processing(
     view: ViewQuery<(
         &ViewTarget,
         &PostProcessingPipelineId,
-        AnyOf<(&ChromaticAberration, &Vignette)>,
+        AnyOf<(&ChromaticAberration, &Vignette, &LensDistortion)>,
         &PostProcessingUniformBufferOffsets,
     )>,
     pipeline_cache: Res<PipelineCache>,
@@ -259,9 +257,12 @@ pub(crate) fn post_processing(
     let (view_target, pipeline_id, post_effects, post_processing_uniform_buffer_offsets) =
         view.into_inner();
 
-    let (maybe_chromatic_aberration, maybe_vignette) = post_effects;
+    let (maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) = post_effects;
 
-    if maybe_chromatic_aberration.is_none() && maybe_vignette.is_none() {
+    if maybe_chromatic_aberration.is_none()
+        && maybe_vignette.is_none()
+        && maybe_lens_distortion.is_none()
+    {
         return;
     }
 
@@ -292,6 +293,12 @@ pub(crate) fn post_processing(
         return;
     };
 
+    let Some(lens_distortion_uniform_buffer_binding) =
+        post_processing_uniform_buffers.lens_distortion.binding()
+    else {
+        return;
+    };
+
     // Use the [`PostProcessWrite`] infrastructure, since this is a full-screen pass.
     let post_process = view_target.post_process_write();
 
@@ -314,11 +321,11 @@ pub(crate) fn post_processing(
         &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
         &BindGroupEntries::sequential((
             post_process.source,
-            &post_processing_pipeline.source_sampler,
+            &post_processing_pipeline.common_sampler,
             &chromatic_aberration_lut.texture_view,
-            &post_processing_pipeline.chromatic_aberration_lut_sampler,
             chromatic_aberration_uniform_buffer_binding,
             vignette_uniform_buffer_binding,
+            lens_distortion_uniform_buffer_binding,
         )),
     );
 
@@ -335,6 +342,7 @@ pub(crate) fn post_processing(
         &[
             post_processing_uniform_buffer_offsets.chromatic_aberration,
             post_processing_uniform_buffer_offsets.vignette,
+            post_processing_uniform_buffer_offsets.lens_distortion,
         ],
     );
     render_pass.draw(0..3, 0..1);
@@ -343,23 +351,27 @@ pub(crate) fn post_processing(
 }
 
 /// Specializes the built-in postprocessing pipeline for each applicable view.
-pub fn prepare_post_processing_pipelines(
+pub(crate) fn prepare_post_processing_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedView), Or<(With<ChromaticAberration>, With<Vignette>)>>,
+    cameras: Query<
+        (Entity, &ExtractedView),
+        Or<(
+            With<ChromaticAberration>,
+            With<Vignette>,
+            With<LensDistortion>,
+            With<ExtractedCamera>,
+        )>,
+    >,
 ) {
-    for (entity, view) in views.iter() {
+    for (entity, view) in cameras.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                target_format: view.target_format,
             },
         );
 
@@ -371,21 +383,33 @@ pub fn prepare_post_processing_pipelines(
 
 /// Gathers the built-in postprocessing settings for every view and uploads them
 /// to the GPU.
-pub fn prepare_post_processing_uniforms(
+pub(crate) fn prepare_post_processing_uniforms(
     mut commands: Commands,
     mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut views: Query<
-        (Entity, Option<&ChromaticAberration>, Option<&Vignette>),
-        Or<(With<ChromaticAberration>, With<Vignette>)>,
+        (
+            Entity,
+            Option<&ChromaticAberration>,
+            Option<&Vignette>,
+            Option<&LensDistortion>,
+        ),
+        Or<(
+            With<ChromaticAberration>,
+            With<Vignette>,
+            With<LensDistortion>,
+        )>,
     >,
 ) {
     post_processing_uniform_buffers.chromatic_aberration.clear();
     post_processing_uniform_buffers.vignette.clear();
+    post_processing_uniform_buffers.lens_distortion.clear();
 
     // Gather up all the postprocessing settings.
-    for (view_entity, maybe_chromatic_aberration, maybe_vignette) in views.iter_mut() {
+    for (view_entity, maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) in
+        views.iter_mut()
+    {
         let chromatic_aberration_uniform_buffer_offset =
             if let Some(chromatic_aberration) = maybe_chromatic_aberration {
                 post_processing_uniform_buffers.chromatic_aberration.push(
@@ -406,10 +430,10 @@ pub fn prepare_post_processing_uniforms(
             post_processing_uniform_buffers
                 .vignette
                 .push(&VignetteUniform {
-                    intensity: vignette.intensity,
-                    radius: vignette.radius,
-                    smoothness: vignette.smoothness,
-                    roundness: vignette.roundness,
+                    intensity: vignette.intensity.min(1.0),
+                    radius: vignette.radius.max(1e-6),
+                    smoothness: vignette.smoothness.max(0.0),
+                    roundness: vignette.roundness.clamp(1e-6, 2.0 - 1e-6),
                     center: vignette.center,
                     edge_compensation: vignette.edge_compensation,
                     unused: 0,
@@ -421,11 +445,30 @@ pub fn prepare_post_processing_uniforms(
                 .push(&VignetteUniform::default())
         };
 
+        let lens_distortion_uniform_buffer_offset =
+            if let Some(lens_distortion) = maybe_lens_distortion {
+                post_processing_uniform_buffers
+                    .lens_distortion
+                    .push(&LensDistortionUniform {
+                        intensity: lens_distortion.intensity,
+                        scale: lens_distortion.scale.max(1e-6),
+                        multiplier: lens_distortion.multiplier,
+                        center: lens_distortion.center,
+                        edge_curvature: lens_distortion.edge_curvature,
+                        unused: 0,
+                    })
+            } else {
+                post_processing_uniform_buffers
+                    .lens_distortion
+                    .push(&LensDistortionUniform::default())
+            };
+
         commands
             .entity(view_entity)
             .insert(PostProcessingUniformBufferOffsets {
                 chromatic_aberration: chromatic_aberration_uniform_buffer_offset,
                 vignette: vignette_uniform_buffer_offset,
+                lens_distortion: lens_distortion_uniform_buffer_offset,
             });
     }
 
@@ -435,5 +478,8 @@ pub fn prepare_post_processing_uniforms(
         .write_buffer(&render_device, &render_queue);
     post_processing_uniform_buffers
         .vignette
+        .write_buffer(&render_device, &render_queue);
+    post_processing_uniform_buffers
+        .lens_distortion
         .write_buffer(&render_device, &render_queue);
 }

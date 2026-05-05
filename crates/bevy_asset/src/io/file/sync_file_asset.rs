@@ -16,7 +16,7 @@ use std::{
 
 use super::{FileAssetReader, FileAssetWriter};
 
-struct FileReader(File);
+pub(crate) struct FileReader(pub(crate) File);
 
 impl AsyncRead for FileReader {
     fn poll_read(
