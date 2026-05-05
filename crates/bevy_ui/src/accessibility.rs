@@ -1,84 +1,106 @@
 use crate::{
+    experimental::UiChildren,
     prelude::{Button, Label},
-    Node, UiImage,
+    ui_transform::UiGlobalTransform,
+    widget::{ImageNode, TextUiReader},
+    ComputedNode, UiSystems,
 };
-use bevy_a11y::{
-    accesskit::{NodeBuilder, Rect, Role},
-    AccessibilityNode,
-};
+use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity},
-    query::{Changed, Without},
-    schedule::IntoSystemConfigs,
+    change_detection::DetectChanges,
+    hierarchy::ChildOf,
+    prelude::Entity,
+    query::{Changed, With, Without},
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_hierarchy::Children;
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_text::Text;
-use bevy_transform::prelude::GlobalTransform;
+use bevy_math::Affine2;
 
-fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
+use accesskit::{Affine, Node, Rect, Role};
+
+fn calc_label(
+    text_reader: &mut TextUiReader,
+    children: impl Iterator<Item = Entity>,
+) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        if let Ok(text) = texts.get(*child) {
-            let values = text
-                .sections
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<String>>();
+        let values = text_reader
+            .iter(child)
+            .map(|(_, _, text, _, _, _, _)| text.into())
+            .collect::<Vec<String>>();
+        if !values.is_empty() {
             name = Some(values.join(" "));
         }
     }
-    name.map(|v| v.into_boxed_str())
+    name.map(String::into_boxed_str)
 }
 
-fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
-    mut nodes: Query<(&mut AccessibilityNode, Ref<Node>, Ref<GlobalTransform>)>,
+fn sync_bounds_and_transforms(
+    mut accessible_nodes_query: Query<(
+        &mut AccessibilityNode,
+        Ref<ComputedNode>,
+        Ref<UiGlobalTransform>,
+        Option<&ChildOf>,
+    )>,
+    accessible_transform_query: Query<Ref<UiGlobalTransform>, With<AccessibilityNode>>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.get_single() {
-        for (mut accessible, node, transform) in &mut nodes {
-            if node.is_changed() || transform.is_changed() {
-                if let Some(translation) =
-                    camera.world_to_viewport(camera_transform, transform.translation())
-                {
-                    let bounds = Rect::new(
-                        translation.x.into(),
-                        translation.y.into(),
-                        (translation.x + node.calculated_size.x).into(),
-                        (translation.y + node.calculated_size.y).into(),
-                    );
-                    accessible.set_bounds(bounds);
-                }
-            }
+    for (mut accessible, node, ui_transform, maybe_child_of) in &mut accessible_nodes_query {
+        let maybe_parent_transform = maybe_child_of
+            .and_then(|child_of| accessible_transform_query.get(child_of.parent()).ok());
+
+        if !(node.is_changed()
+            || ui_transform.is_changed()
+            || maybe_parent_transform.is_some_and(|transform| transform.is_changed()))
+        {
+            continue;
+        }
+
+        accessible.set_bounds(Rect::new(
+            -0.5 * node.size.x as f64,
+            -0.5 * node.size.y as f64,
+            0.5 * node.size.x as f64,
+            0.5 * node.size.y as f64,
+        ));
+
+        // If the node has an accessible parent, its transform in the accessibility tree must be relative to the parent.
+        let transform = maybe_parent_transform
+            .and_then(|transform| transform.try_inverse())
+            .unwrap_or_default()
+            * ui_transform.affine();
+
+        if transform.is_finite() && transform != Affine2::IDENTITY {
+            accessible.set_transform(Affine::new(transform.to_cols_array().map(f64::from)));
+        } else {
+            accessible.clear_transform();
         }
     }
 }
 
 fn button_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, &Children, Option<&mut AccessibilityNode>), Changed<Button>>,
-    texts: Query<&Text>,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
+    ui_children: UiChildren,
+    mut text_reader: TextUiReader,
 ) {
-    for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+    for (entity, accessible) in &mut query {
+        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            if let Some(name) = label {
+                accessible.set_label(name);
             } else {
-                accessible.clear_name();
+                accessible.clear_label();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::Button);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Button);
+            if let Some(label) = label {
+                node.set_label(label);
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -86,58 +108,59 @@ fn button_changed(
 fn image_changed(
     mut commands: Commands,
     mut query: Query<
-        (Entity, &Children, Option<&mut AccessibilityNode>),
-        (Changed<UiImage>, Without<Button>),
+        (Entity, Option<&mut AccessibilityNode>),
+        (Changed<ImageNode>, Without<Button>),
     >,
-    texts: Query<&Text>,
+    ui_children: UiChildren,
+    mut text_reader: TextUiReader,
 ) {
-    for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+    for (entity, accessible) in &mut query {
+        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            if let Some(label) = label {
+                accessible.set_label(label);
             } else {
-                accessible.clear_name();
+                accessible.clear_label();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::Image);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Image);
+            if let Some(label) = label {
+                node.set_label(label);
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
 
 fn label_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, &Text, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut text_reader: TextUiReader,
 ) {
-    for (entity, text, accessible) in &mut query {
-        let values = text
-            .sections
-            .iter()
-            .map(|v| v.value.to_string())
+    for (entity, accessible) in &mut query {
+        let values = text_reader
+            .iter(entity)
+            .map(|(_, _, text, _, _, _, _)| text.into())
             .collect::<Vec<String>>();
-        let name = Some(values.join(" ").into_boxed_str());
+        let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::StaticText);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            accessible.set_role(Role::Label);
+            if let Some(label) = label {
+                accessible.set_value(label);
             } else {
-                accessible.clear_name();
+                accessible.clear_value();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::StaticText);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Label);
+            if let Some(label) = label {
+                node.set_value(label);
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -150,16 +173,16 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
-                    // the listed systems do not affect calculated size
-                    .ambiguous_with(crate::resolve_outlines_system)
-                    .ambiguous_with(crate::ui_stack_system),
                 button_changed,
                 image_changed,
                 label_changed,
-            ),
+                sync_bounds_and_transforms
+                    .after(button_changed)
+                    .after(image_changed)
+                    .after(label_changed),
+            )
+                .in_set(UiSystems::PostLayout)
+                .before(AccessibilitySystems::Update),
         );
     }
 }

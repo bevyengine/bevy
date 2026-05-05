@@ -9,35 +9,22 @@ fn main() {
         .run();
 }
 
-fn gamepad_system(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<ButtonInput<GamepadButton>>,
-    button_axes: Res<Axis<GamepadButton>>,
-    axes: Res<Axis<GamepadAxis>>,
-) {
-    for gamepad in gamepads.iter() {
-        if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
-            info!("{:?} just pressed South", gamepad);
-        } else if button_inputs.just_released(GamepadButton::new(gamepad, GamepadButtonType::South))
-        {
-            info!("{:?} just released South", gamepad);
+fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
+    for (entity, gamepad) in &gamepads {
+        if gamepad.just_pressed(GamepadButton::South) {
+            info!("{} just pressed South", entity);
+        } else if gamepad.just_released(GamepadButton::South) {
+            info!("{} just released South", entity);
         }
 
-        let right_trigger = button_axes
-            .get(GamepadButton::new(
-                gamepad,
-                GamepadButtonType::RightTrigger2,
-            ))
-            .unwrap();
+        let right_trigger = gamepad.get(GamepadButton::RightTrigger2).unwrap();
         if right_trigger.abs() > 0.01 {
-            info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
+            info!("{} RightTrigger2 value is {}", entity, right_trigger);
         }
 
-        let left_stick_x = axes
-            .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickX))
-            .unwrap();
+        let left_stick_x = gamepad.get(GamepadAxis::LeftStickX).unwrap();
         if left_stick_x.abs() > 0.01 {
-            info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
+            info!("{} LeftStickX value is {}", entity, left_stick_x);
         }
     }
 }

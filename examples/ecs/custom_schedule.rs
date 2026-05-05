@@ -1,9 +1,11 @@
 //! Demonstrates how to add custom schedules that run in Bevy's `Main` schedule, ordered relative to Bevy's built-in
 //! schedules such as `Update` or `Last`.
 
-use bevy::app::MainScheduleOrder;
-use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
-use bevy::prelude::*;
+use bevy::{
+    app::MainScheduleOrder,
+    ecs::schedule::{ScheduleLabel, SingleThreadedExecutor},
+    prelude::*,
+};
 
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct SingleThreadedUpdate;
@@ -18,7 +20,7 @@ fn main() {
     // systems in this schedule are never run in parallel. However, this is not a requirement for custom schedules in
     // general.
     let mut custom_update_schedule = Schedule::new(SingleThreadedUpdate);
-    custom_update_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    custom_update_schedule.set_executor(SingleThreadedExecutor::new());
 
     // Adding the schedule to the app does not automatically run the schedule. This merely registers the schedule so
     // that systems can look it up using the `Schedules` resource.

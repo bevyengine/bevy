@@ -1,20 +1,24 @@
 #import bevy_pbr::{
     forward_io::VertexOutput,
+    mesh_functions,
     mesh_view_bindings::view,
     pbr_types::{STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new},
     pbr_functions as fns,
+    pbr_bindings,
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
-@group(2) @binding(0) var my_array_texture: texture_2d_array<f32>;
-@group(2) @binding(1) var my_array_texture_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var my_array_texture: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var my_array_texture_sampler: sampler;
 
 @fragment
 fn fragment(
     @builtin(front_facing) is_front: bool,
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let layer = i32(mesh.world_position.x) & 0x3;
+    // Determine which layer of the array texture to sample from based on the
+    // mesh tag which originates from the MeshTag component on the entity.
+    let layer = mesh_functions::get_tag(mesh.instance_index);
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
@@ -35,21 +39,22 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
 
+    pbr_input.N = normalize(pbr_input.world_normal);
+
+#ifdef VERTEX_TANGENTS
+    let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
+    let TBN = fns::calculate_tbn_mikktspace(mesh.world_normal, mesh.world_tangent);
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
-        mesh.world_normal,
+        TBN,
         double_sided,
         is_front,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARD_MATERIAL_NORMAL_MAP
-        mesh.world_tangent,
-#endif
-#endif
-        mesh.uv,
-        view.mip_bias,
+        Nt,
     );
+#endif
+
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
     return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);

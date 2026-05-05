@@ -1,77 +1,57 @@
-use crate::{
-    mesh::Mesh,
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
+use bevy_asset::AssetId;
+use bevy_ecs::{
+    resource::Resource,
+    world::{FromWorld, World},
 };
-use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Handle;
-use bevy_ecs::prelude::*;
-use bevy_hierarchy::Children;
-use bevy_math::Vec3;
-use bevy_reflect::prelude::*;
-use bytemuck::{Pod, Zeroable};
-use std::{iter, mem};
-use thiserror::Error;
+use bevy_log::error;
+use bevy_mesh::{
+    morph::{MorphAttributes, MorphBuildError, MAX_MORPH_WEIGHTS, MAX_TEXTURE_WIDTH},
+    Mesh,
+};
+use bevy_platform::collections::HashMap;
+use wgpu::{
+    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
+};
+use wgpu_types::TextureDataOrder;
 
-const MAX_TEXTURE_WIDTH: u32 = 2048;
-// NOTE: "component" refers to the element count of math objects,
-// Vec3 has 3 components, Mat2 has 4 components.
-const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
+use crate::{
+    render_resource::{Buffer, Texture, TextureView},
+    renderer::{RenderDevice, RenderQueue},
+};
 
-/// Max target count available for [morph targets](MorphWeights).
-pub const MAX_MORPH_WEIGHTS: usize = 64;
-
-/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
-/// bevy mesh child entities (ie: glTF primitive).
-pub struct MorphPlugin;
-impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
-    }
+/// An image formatted for use with [`bevy_mesh::morph::MorphWeights`] for
+/// rendering the morph target, containing the vertex displacements.
+///
+/// We only use these if storage buffers aren't supported on the current
+/// platform. Otherwise, we store the mesh displacements in a storage buffer,
+/// managed by the mesh allocator.
+#[derive(Clone, Debug)]
+pub struct MorphTargetImage {
+    /// The texture containing the vertex displacements.
+    pub texture: Texture,
+    /// A view into the texture, suitable for attaching to the vertex shader.
+    pub texture_view: TextureView,
 }
-
-#[derive(Error, Clone, Debug)]
-pub enum MorphBuildError {
-    #[error(
-        "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
-        got {vertex_count}×{component_count} = {}",
-        *vertex_count * *component_count as usize
-    )]
-    TooManyAttributes {
-        vertex_count: usize,
-        component_count: u32,
-    },
-    #[error(
-        "Bevy only supports up to {} morph targets (individual poses), tried to \
-        create a model with {target_count} morph targets",
-        MAX_MORPH_WEIGHTS
-    )]
-    TooManyTargets { target_count: usize },
-}
-
-/// An image formatted for use with [`MorphWeights`] for rendering the morph target.
-#[derive(Debug)]
-pub struct MorphTargetImage(pub Image);
 
 impl MorphTargetImage {
     /// Generate textures for each morph target.
     ///
-    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item iterated in the top level
-    /// iterator corresponds "the attributes of a specific morph target".
+    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item
+    /// iterated in the top level iterator corresponds "the attributes of a
+    /// specific morph target".
     ///
     /// Each pixel of the texture is a component of morph target animated
     /// attributes. So a set of 9 pixels is this morph's displacement for
     /// position, normal and tangents of a single vertex (each taking 3 pixels).
     pub fn new(
-        targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        targets: &[MorphAttributes],
         vertex_count: usize,
-        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
-        let target_count = targets.len();
+        let target_count = targets.len() / vertex_count;
         if target_count > MAX_MORPH_WEIGHTS {
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
@@ -82,18 +62,20 @@ impl MorphTargetImage {
                 component_count,
             });
         };
-        let data = targets
-            .flat_map(|mut attributes| {
-                let layer_byte_count = (padding + component_count) as usize * mem::size_of::<f32>();
+        let data: Vec<u8> = targets
+            .chunks(vertex_count)
+            .flat_map(|attributes| {
+                let layer_byte_count = (padding + component_count) as usize * size_of::<f32>();
                 let mut buffer = Vec::with_capacity(layer_byte_count);
-                for _ in 0..vertex_count {
-                    let Some(to_add) = attributes.next() else {
-                        break;
-                    };
-                    buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
+                for to_add in attributes {
+                    buffer.extend_from_slice(bytemuck::bytes_of(&[
+                        to_add.position,
+                        to_add.normal,
+                        to_add.tangent,
+                    ]));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * mem::size_of::<f32>()));
+                buffer.extend(core::iter::repeat_n(0, padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })
@@ -103,157 +85,164 @@ impl MorphTargetImage {
             height,
             depth_or_array_layers: target_count as u32,
         };
-        let image = Image::new(
-            extents,
-            TextureDimension::D3,
-            data,
-            TextureFormat::R32Float,
-            asset_usage,
+        let texture = render_device.create_texture_with_data(
+            render_queue,
+            &TextureDescriptor {
+                label: Some("morph target image"),
+                size: extents,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D3,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            TextureDataOrder::LayerMajor,
+            &data,
         );
-        Ok(MorphTargetImage(image))
-    }
-}
-
-/// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
-/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
-/// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
-/// [`MeshMorphWeights`] values.
-///
-/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
-/// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
-/// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
-///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
-///
-/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-#[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
-pub struct MorphWeights {
-    weights: Vec<f32>,
-    /// The first mesh primitive assigned to these weights
-    first_mesh: Option<Handle<Mesh>>,
-}
-impl MorphWeights {
-    pub fn new(
-        weights: Vec<f32>,
-        first_mesh: Option<Handle<Mesh>>,
-    ) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        Ok(MorphWeights {
-            weights,
-            first_mesh,
+        let texture_view = texture.create_view(&TextureViewDescriptor {
+            label: Some("morph target texture view"),
+            ..TextureViewDescriptor::default()
+        });
+        Ok(MorphTargetImage {
+            texture,
+            texture_view,
         })
     }
-    /// The first child [`Handle<Mesh>`] primitive controlled by these weights.
-    /// This can be used to look up metadata information such as [`Mesh::morph_target_names`].
-    pub fn first_mesh(&self) -> Option<&Handle<Mesh>> {
-        self.first_mesh.as_ref()
-    }
-    pub fn weights(&self) -> &[f32] {
-        &self.weights
-    }
-    pub fn weights_mut(&mut self) -> &mut [f32] {
-        &mut self.weights
-    }
 }
 
-/// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
-/// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
-/// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
-/// on a parent entity.
+/// Stores the images for all morph target displacement data, if the current
+/// platform doesn't support storage buffers.
 ///
-/// See [`MorphWeights`] for more details on Bevy's morph target implementation.
-///
-/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
-/// to control individual weights of each morph target.
-///
-/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-#[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
-pub struct MeshMorphWeights {
-    weights: Vec<f32>,
-}
-impl MeshMorphWeights {
-    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        Ok(MeshMorphWeights { weights })
-    }
-    pub fn weights(&self) -> &[f32] {
-        &self.weights
-    }
-    pub fn weights_mut(&mut self) -> &mut [f32] {
-        &mut self.weights
-    }
-}
-
-/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
-/// should be inherited by children meshes.
-///
-/// Only direct children are updated, to fulfill the expectations of glTF spec.
-pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Handle<Mesh>>>,
-) {
-    for (children, parent_weights) in &morph_nodes {
-        let mut iter = morph_primitives.iter_many_mut(children);
-        while let Some(mut child_weight) = iter.fetch_next() {
-            child_weight.weights.clear();
-            child_weight.weights.extend(&parent_weights.weights);
-        }
-    }
-}
-
-/// Attributes **differences** used for morph targets.
-///
-/// See [`MorphTargetImage`] for more information.
-#[derive(Copy, Clone, PartialEq, Pod, Zeroable, Default)]
-#[repr(C)]
-pub struct MorphAttributes {
-    /// The vertex position difference between base mesh and this target.
-    pub position: Vec3,
-    /// The vertex normal difference between base mesh and this target.
-    pub normal: Vec3,
-    /// The vertex tangent difference between base mesh and this target.
+/// If the current platform does support storage buffers, the mesh allocator
+/// stores displacement data instead.
+#[derive(Resource)]
+pub enum RenderMorphTargetAllocator {
+    /// The variant used when the current platform doesn't support storage
+    /// buffers.
+    Image {
+        /// Maps the ID of each mesh to the image containing its morph target
+        /// displacements.
+        mesh_id_to_image: HashMap<AssetId<Mesh>, MorphTargetImage>,
+    },
+    /// The variant used when the current platform does support storage buffers.
     ///
-    /// Note that tangents are a `Vec4`, but only the `xyz` components are
-    /// animated, as the `w` component is the sign and cannot be animated.
-    pub tangent: Vec3,
+    /// In this case, this resource is empty, because the mesh allocator stores
+    /// displacements instead.
+    Storage,
 }
-impl From<[Vec3; 3]> for MorphAttributes {
-    fn from([position, normal, tangent]: [Vec3; 3]) -> Self {
-        MorphAttributes {
-            position,
-            normal,
-            tangent,
+
+impl FromWorld for RenderMorphTargetAllocator {
+    fn from_world(world: &mut World) -> RenderMorphTargetAllocator {
+        let render_device = world.resource::<RenderDevice>();
+        if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
+            RenderMorphTargetAllocator::Image {
+                mesh_id_to_image: HashMap::default(),
+            }
+        } else {
+            RenderMorphTargetAllocator::Storage
         }
     }
 }
-impl MorphAttributes {
-    /// How many components `MorphAttributes` has.
+
+/// A reference to the resource in which morph displacements for a mesh are
+/// stored.
+#[derive(Clone, Copy)]
+pub enum MorphTargetsResource<'a> {
+    /// The [`MorphTargetImage`].
     ///
-    /// Each `Vec3` has 3 components, we have 3 `Vec3`, for a total of 9.
-    pub const COMPONENT_COUNT: usize = 9;
+    /// This variant is used when storage buffers aren't supported on the
+    /// current platform.
+    Texture(&'a TextureView),
 
-    pub fn new(position: Vec3, normal: Vec3, tangent: Vec3) -> Self {
-        MorphAttributes {
-            position,
-            normal,
-            tangent,
+    /// The slab containing the morph target displacements.
+    ///
+    /// This variant is used when storage buffers are supported on the current
+    /// platform.
+    Storage(&'a Buffer),
+}
+
+impl RenderMorphTargetAllocator {
+    /// Allocates morph target displacements for the given mesh.
+    ///
+    /// If storage buffers aren't supported on the current platform, this method
+    /// creates a new [`MorphTargetImage`] and stores it inside the allocator.
+    ///
+    /// If storage buffers are supported on the current platform, this method
+    /// does nothing, as morph target displacements are instead managed by the
+    /// mesh allocator.
+    pub fn allocate(
+        &mut self,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        mesh_id: AssetId<Mesh>,
+        targets: &[MorphAttributes],
+        vertex_count: usize,
+    ) {
+        match *self {
+            RenderMorphTargetAllocator::Image {
+                ref mut mesh_id_to_image,
+            } => {
+                if let Ok(morph_target_image) =
+                    MorphTargetImage::new(render_device, render_queue, targets, vertex_count)
+                {
+                    mesh_id_to_image.insert(mesh_id, morph_target_image);
+                }
+            }
+
+            RenderMorphTargetAllocator::Storage => {
+                // Do nothing. Morph target displacements are managed by the
+                // mesh allocator in this case.
+            }
+        }
+    }
+
+    /// Frees the storage associated with morph target displacements for the
+    /// mesh with the given ID.
+    ///
+    /// If the current platform doesn't support storage buffers, this drops the
+    /// reference to the [`MorphTargetImage`] that stores the data for the
+    /// mesh's morph target displacements. If the current platform does support
+    /// storage buffers, this method does nothing, as morph target displacements
+    /// are managed by the mesh allocator in this case.
+    ///
+    /// If passed a mesh without morph targets, this method does nothing.
+    pub fn free(&mut self, mesh_id: AssetId<Mesh>) {
+        match *self {
+            RenderMorphTargetAllocator::Image {
+                ref mut mesh_id_to_image,
+            } => {
+                if mesh_id_to_image.remove(&mesh_id).is_none() {
+                    error!(
+                        "Attempted to free a morph target allocation that wasn't allocated: {:?}",
+                        mesh_id
+                    );
+                }
+            }
+            RenderMorphTargetAllocator::Storage => {
+                // Do nothing. Morph target displacements are managed by the
+                // mesh allocator in this case.
+            }
+        }
+    }
+
+    /// Returns the [`MorphTargetImage`] containing the packed morph target
+    /// displacements for the mesh with the given ID, if that image is present.
+    ///
+    /// A [`MorphTargetImage`] is only available if storage buffers aren't
+    /// supported on the given platform. If storage buffers are supported, this
+    /// method returns `None`, as the mesh allocator stores the morph target
+    /// displacements in that case.
+    pub fn get_image(&self, mesh_id: AssetId<Mesh>) -> Option<MorphTargetImage> {
+        match *self {
+            RenderMorphTargetAllocator::Image {
+                ref mesh_id_to_image,
+            } => mesh_id_to_image.get(&mesh_id).cloned(),
+            RenderMorphTargetAllocator::Storage => None,
         }
     }
 }
 
-/// Integer division rounded up.
-const fn div_ceil(lhf: u32, rhs: u32) -> u32 {
-    (lhf + rhs - 1) / rhs
-}
 struct Rect(u32, u32);
 
 /// Find the smallest rectangle of maximum edge size `max_edge` that contains
@@ -276,7 +265,7 @@ struct Rect(u32, u32);
 fn lowest_2d(min_includes: u32, max_edge: u32) -> Option<(Rect, u32)> {
     (1..=max_edge)
         .filter_map(|a| {
-            let b = div_ceil(min_includes, a);
+            let b = min_includes.div_ceil(a);
             let diff = (a * b).checked_sub(min_includes)?;
             Some((Rect(a, b), diff))
         })

@@ -1,0 +1,4 @@
+disallowed-methods = [
+  { path = "UniqueEntityVec::from_iter", reason = "Use UniqueEntityVec::from_entity_set_iter if possible, it skips validation" },
+  { path = "EntitySetIterator::collect::<UniqueEntityVec>", reason = "Use EntitySetIterator::collect_set if possible, it skips validation" },
+]

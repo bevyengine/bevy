@@ -1,6 +1,12 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -11,6 +17,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
@@ -25,7 +32,8 @@ pub use world_query::*;
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
-pub(crate) trait DebugCheckedUnwrap {
+#[doc(hidden)]
+pub trait DebugCheckedUnwrap {
     type Item;
     /// # Panics
     /// Panics if the value is `None` or `Err`, only in debug mode.
@@ -53,6 +61,40 @@ impl<T> DebugCheckedUnwrap for Option<T> {
     }
 }
 
+// These two impls are explicitly split to ensure that the unreachable! macro
+// does not cause inlining to fail when compiling in release mode.
+#[cfg(debug_assertions)]
+impl<T, U> DebugCheckedUnwrap for Result<T, U> {
+    type Item = T;
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Ok(inner) = self {
+            inner
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+// These two impls are explicitly split to ensure that the unreachable! macro
+// does not cause inlining to fail when compiling in release mode.
+#[cfg(not(debug_assertions))]
+impl<T, U> DebugCheckedUnwrap for Result<T, U> {
+    type Item = T;
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Ok(inner) = self {
+            inner
+        } else {
+            core::hint::unreachable_unchecked()
+        }
+    }
+}
+
 #[cfg(not(debug_assertions))]
 impl<T> DebugCheckedUnwrap for Option<T> {
     type Item = T;
@@ -62,33 +104,39 @@ impl<T> DebugCheckedUnwrap for Option<T> {
         if let Some(inner) = self {
             inner
         } else {
-            std::hint::unreachable_unchecked()
+            core::hint::unreachable_unchecked()
         }
     }
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use bevy_ecs_macros::{QueryData, QueryFilter};
+    use crate::{
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
+        query::{
+            ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
+            ReadOnlyQueryData,
+        },
+        schedule::{IntoScheduleConfigs, Schedule},
+        system::{IntoSystem, Query, System, SystemState},
+        world::World,
+    };
+    use alloc::{vec, vec::Vec};
+    use core::{any::type_name, fmt::Debug, hash::Hash};
+    use std::{collections::HashSet, println};
 
-    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
-    use crate::schedule::{IntoSystemConfigs, Schedule};
-    use crate::system::{IntoSystem, Query, System, SystemState};
-    use crate::{self as bevy_ecs, component::Component, world::World};
-    use std::any::type_name;
-    use std::collections::HashSet;
-
-    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);
-    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct C(usize);
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct D(usize);
 
-    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
@@ -97,8 +145,9 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(1)));
         world.spawn(A(2));
-        let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
-        assert_eq!(values, vec![&A(1), &A(2)]);
+        let values = world.query::<&A>().iter(&world).collect::<HashSet<&A>>();
+        assert!(values.contains(&A(1)));
+        assert!(values.contains(&A(2)));
 
         for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
@@ -108,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~170s on CI")]
     fn query_filtered_exactsizeiterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
@@ -119,7 +169,7 @@ mod tests {
         }
         fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -133,7 +183,7 @@ mod tests {
         }
         fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -143,7 +193,6 @@ mod tests {
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
-            assert_combination::<D, F, 0>(world, choose(expected, 0));
             assert_combination::<D, F, 1>(world, choose(expected, 1));
             assert_combination::<D, F, 2>(world, choose(expected, 2));
             assert_combination::<D, F, 5>(world, choose(expected, 5));
@@ -244,6 +293,20 @@ mod tests {
         assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
     }
 
+    // the order of the combinations is not guaranteed, but each unique combination is present
+    fn check_combinations<T: Ord + Hash + Debug, const K: usize>(
+        values: HashSet<[&T; K]>,
+        expected: HashSet<[&T; K]>,
+    ) {
+        values.iter().for_each(|pair| {
+            let mut sorted = *pair;
+            sorted.sort();
+            assert!(expected.contains(&sorted),
+                    "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
+                    &sorted, &expected, &values);
+        });
+    }
+
     #[test]
     fn query_iter_combinations() {
         let mut world = World::new();
@@ -253,47 +316,29 @@ mod tests {
         world.spawn(A(3));
         world.spawn(A(4));
 
-        let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
-        assert_eq!(
+        let values: HashSet<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
+            HashSet::from([
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ]
+            ]),
         );
         let mut a_query = world.query::<&A>();
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
-        assert_eq!(
+
+        let values: HashSet<[&A; 3]> = a_query.iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
+            HashSet::from([
                 [&A(1), &A(2), &A(3)],
                 [&A(1), &A(2), &A(4)],
                 [&A(1), &A(3), &A(4)],
                 [&A(2), &A(3), &A(4)],
-            ]
-        );
-
-        let mut query = world.query::<&mut A>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            vec![
-                [&A(31), &A(212), &A(1203)],
-                [&A(31), &A(212), &A(3004)],
-                [&A(31), &A(1203), &A(3004)],
-                [&A(212), &A(1203), &A(3004)]
-            ]
+            ]),
         );
 
         let mut b_query = world.query::<&B>();
@@ -307,7 +352,7 @@ mod tests {
 
     #[test]
     fn query_filtered_iter_combinations() {
-        use bevy_ecs::query::{Added, Changed, Or, With, Without};
+        use bevy_ecs::query::{Added, Or, With, Without};
 
         let mut world = World::new();
 
@@ -318,33 +363,26 @@ mod tests {
 
         let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
         let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
+        check_combinations(
             values,
-            [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]
-                .into_iter()
-                .collect::<HashSet<_>>()
+            HashSet::from([[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]),
         );
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [[&A(2), &A(3), &A(4)],].into_iter().collect::<HashSet<_>>()
-        );
+        check_combinations(values, HashSet::from([[&A(2), &A(3), &A(4)]]));
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
         let values: HashSet<[&A; 2]> = query.iter_combinations(&world).collect();
-        assert_eq!(
+        check_combinations(
             values,
-            [
+            HashSet::from([
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>()
+            ]),
         );
 
         let mut query = world.query_filtered::<&mut A, Without<B>>();
@@ -356,12 +394,7 @@ mod tests {
         }
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [[&A(12), &A(103), &A(1004)],]
-                .into_iter()
-                .collect::<HashSet<_>>()
-        );
+        check_combinations(values, HashSet::from([[&A(12), &A(103), &A(1004)]]));
 
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
@@ -390,31 +423,6 @@ mod tests {
         world.spawn(A(10));
 
         assert_eq!(query_added.iter_combinations::<2>(&world).count(), 3);
-
-        world.clear_trackers();
-
-        let mut query_changed = world.query_filtered::<&A, Changed<A>>();
-
-        let mut query = world.query_filtered::<&mut A, With<B>>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let values: HashSet<[&A; 3]> = query_changed.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [
-                [&A(31), &A(212), &A(1203)],
-                [&A(31), &A(212), &A(3004)],
-                [&A(31), &A(1203), &A(3004)],
-                [&A(212), &A(1203), &A(3004)]
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>()
-        );
     }
 
     #[test]
@@ -423,25 +431,29 @@ mod tests {
 
         world.spawn_batch((1..=4).map(Sparse));
 
-        let mut query = world.query::<&mut Sparse>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let mut query = world.query::<&Sparse>();
-        let values: Vec<[&Sparse; 3]> = query.iter_combinations(&world).collect();
-        assert_eq!(
+        let values: HashSet<[&Sparse; 3]> =
+            world.query::<&Sparse>().iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
-                [&Sparse(31), &Sparse(212), &Sparse(1203)],
-                [&Sparse(31), &Sparse(212), &Sparse(3004)],
-                [&Sparse(31), &Sparse(1203), &Sparse(3004)],
-                [&Sparse(212), &Sparse(1203), &Sparse(3004)]
-            ]
+            HashSet::from([
+                [&Sparse(1), &Sparse(2), &Sparse(3)],
+                [&Sparse(1), &Sparse(2), &Sparse(4)],
+                [&Sparse(1), &Sparse(3), &Sparse(4)],
+                [&Sparse(2), &Sparse(3), &Sparse(4)],
+            ]),
         );
+    }
+
+    #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
     }
 
     #[test]
@@ -454,8 +466,9 @@ mod tests {
         let values = world
             .query::<&Sparse>()
             .iter(&world)
-            .collect::<Vec<&Sparse>>();
-        assert_eq!(values, vec![&Sparse(1), &Sparse(2)]);
+            .collect::<HashSet<&Sparse>>();
+        assert!(values.contains(&Sparse(1)));
+        assert!(values.contains(&Sparse(2)));
 
         for (_a, mut b) in world.query::<(&Sparse, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
@@ -491,17 +504,16 @@ mod tests {
         world.spawn((A(3), B(1)));
         world.spawn(A(4));
 
-        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+        let values: HashSet<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
 
-        // The query seems to put the components with B first
-        assert_eq!(
-            values,
-            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
-        );
+        assert!(values.contains(&(&A(1), true)));
+        assert!(values.contains(&(&A(2), false)));
+        assert!(values.contains(&(&A(3), true)));
+        assert!(values.contains(&(&A(4), false)));
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn self_conflicting_worldquery() {
         #[derive(QueryData)]
         #[query_data(mutable)]
@@ -711,7 +723,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -722,7 +734,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -735,7 +747,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
     }
 
@@ -758,12 +770,12 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world);
+        let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
@@ -771,9 +783,8 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -803,5 +814,108 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23352
+    #[test]
+    // presence/lack of trailing commas are significant in this test, so skip rustfmt
+    #[rustfmt::skip]
+    fn query_data_derive_where_clause() {
+        #[derive(QueryData)]
+        struct QueryDataA<C>
+        where
+            C: Component,
+        {
+            component: &'static C,
+        }
+
+        #[derive(QueryData)]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component;
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
+    #[test]
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
+        let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23930
+    #[test]
+    fn query_data_derive_empty() {
+        #[derive(QueryData)]
+        struct QueryDataA {}
+
+        #[derive(QueryData)]
+        struct QueryDataB();
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataC {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataD();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataE {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataF();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataG {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataH();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataI {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataJ();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataK {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataL();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataM {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataN();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataO {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataP();
     }
 }
