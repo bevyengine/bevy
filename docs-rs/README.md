@@ -18,7 +18,7 @@ rustdoc-args = [
 ]
 
 [lints.rust]
-unexpected_cfgs = { check-cfg = ['cfg(docsrs_dep)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 ```
 
 ## Local Testing

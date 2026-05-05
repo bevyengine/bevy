@@ -6,7 +6,7 @@
 use bevy::{
     prelude::*,
     window::{PresentMode, RequestRedraw, WindowPlugin},
-    winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
+    winit::{EventLoopProxyWrapper, WinitSettings, WinitUserEvent},
 };
 use core::time::Duration;
 
@@ -55,7 +55,7 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
+    event_loop_proxy: Res<EventLoopProxyWrapper>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     use ExampleMode::*;
@@ -96,7 +96,7 @@ fn update_winit(
             // `window/custom_user_event.rs` for an example usage from outside.
             // Note that in this example the `WakeUp` winit event will make the app run in the same
             // way as continuous
-            let _ = event_loop_proxy.send_event(WakeUp);
+            let _ = event_loop_proxy.send_event(WinitUserEvent::WakeUp);
             WinitSettings::desktop_app()
         }
     };

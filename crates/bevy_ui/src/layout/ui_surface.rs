@@ -4,6 +4,8 @@ use core::ops::{Deref, DerefMut};
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
+#[cfg(feature = "ghost_nodes")]
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
@@ -12,7 +14,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_text::CosmicFontSystem;
+use bevy_text::FontCx;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LayoutNode {
@@ -34,11 +36,11 @@ impl From<taffy::NodeId> for LayoutNode {
 pub(crate) struct UiTree<T>(TaffyTree<T>);
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
-/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 unsafe impl Send for UiTree<NodeMeasure> {}
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
-/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 unsafe impl Sync for UiTree<NodeMeasure> {}
 
 impl<T> Deref for UiTree<T> {
@@ -60,6 +62,8 @@ pub struct UiSurface {
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
+    #[cfg(feature = "ghost_nodes")]
+    pub(super) dirty_ghost_children_scratch: EntityHashSet,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -71,10 +75,16 @@ fn _assert_send_sync_ui_surface_impl_safe() {
 
 impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("UiSurface")
+        let mut debug = f.debug_struct("UiSurface");
+        debug
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("taffy_children_scratch", &self.taffy_children_scratch)
-            .finish()
+            .field("taffy_children_scratch", &self.taffy_children_scratch);
+        #[cfg(feature = "ghost_nodes")]
+        debug.field(
+            "dirty_ghost_children_scratch",
+            &self.dirty_ghost_children_scratch,
+        );
+        debug.finish()
     }
 }
 
@@ -86,6 +96,8 @@ impl Default for UiSurface {
             entity_to_taffy: Default::default(),
             taffy,
             taffy_children_scratch: Vec::new(),
+            #[cfg(feature = "ghost_nodes")]
+            dirty_ghost_children_scratch: EntityHashSet::new(),
         }
     }
 }
@@ -105,30 +117,21 @@ impl UiSurface {
         match self.entity_to_taffy.entry(entity) {
             Entry::Occupied(entry) => {
                 let taffy_node = *entry.get();
-                let has_measure = if new_node_context.is_some() {
+                if new_node_context.is_some() {
                     taffy
                         .set_node_context(taffy_node.id, new_node_context)
                         .unwrap();
-                    true
-                } else {
-                    taffy.get_node_context(taffy_node.id).is_some()
-                };
+                }
 
                 taffy
-                    .set_style(
-                        taffy_node.id,
-                        convert::from_node(node, layout_context, has_measure),
-                    )
+                    .set_style(taffy_node.id, convert::from_node(node, layout_context))
                     .unwrap();
             }
             Entry::Vacant(entry) => {
                 let taffy_node = if let Some(measure) = new_node_context.take() {
-                    taffy.new_leaf_with_context(
-                        convert::from_node(node, layout_context, true),
-                        measure,
-                    )
+                    taffy.new_leaf_with_context(convert::from_node(node, layout_context), measure)
                 } else {
-                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                    taffy.new_leaf(convert::from_node(node, layout_context))
                 };
                 entry.insert(taffy_node.unwrap().into());
             }
@@ -153,6 +156,7 @@ impl UiSurface {
                 if let Some(viewport_id) = taffy_node.viewport_id.take() {
                     self.taffy.remove(viewport_id).ok();
                 }
+                self.root_entity_to_viewport_node.remove(&child);
             }
         }
 
@@ -190,8 +194,8 @@ impl UiSurface {
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
                         // So this is setting width:100% and height:100%
                         size: taffy::geometry::Size {
-                            width: taffy::style_helpers::percent(1.0),
-                            height: taffy::style_helpers::percent(1.0),
+                            width: taffy::style_helpers::percent(1.0_f32),
+                            height: taffy::style_helpers::percent(1.0_f32),
                         },
                         align_items: Some(taffy::style::AlignItems::Start),
                         justify_items: Some(taffy::style::JustifyItems::Start),
@@ -210,7 +214,7 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-        font_system: &'a mut CosmicFontSystem,
+        font_system: &'a mut FontCx,
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 
@@ -239,17 +243,15 @@ impl UiSurface {
                                 ctx,
                                 buffer_query,
                             );
-                            let size = ctx.measure(
-                                MeasureArgs {
-                                    width: known_dimensions.width,
-                                    height: known_dimensions.height,
-                                    available_width: available_space.width,
-                                    available_height: available_space.height,
-                                    font_system,
-                                    buffer,
-                                },
+                            let size = ctx.measure(MeasureArgs {
+                                known_width: known_dimensions.width,
+                                known_height: known_dimensions.height,
+                                available_width: available_space.width,
+                                available_height: available_space.height,
+                                font_system,
+                                buffer,
                                 style,
-                            );
+                            });
                             taffy::Size {
                                 width: size.x,
                                 height: size.y,
@@ -270,6 +272,7 @@ impl UiSurface {
                     self.taffy.remove(viewport_node).ok();
                 }
             }
+            self.root_entity_to_viewport_node.remove(&entity);
         }
     }
 

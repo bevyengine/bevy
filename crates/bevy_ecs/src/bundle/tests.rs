@@ -6,7 +6,7 @@ use crate::{
 struct A;
 
 #[derive(Component)]
-#[component(on_add = a_on_add, on_insert = a_on_insert, on_replace = a_on_replace, on_remove = a_on_remove)]
+#[component(on_add = a_on_add, on_insert = a_on_insert, on_discard = a_on_discard, on_remove = a_on_remove)]
 struct AMacroHooks;
 
 fn a_on_add(mut world: DeferredWorld, _: HookContext) {
@@ -17,7 +17,7 @@ fn a_on_insert(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(1);
 }
 
-fn a_on_replace(mut world: DeferredWorld, _: HookContext) {
+fn a_on_discard(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(2);
 }
 
@@ -76,7 +76,7 @@ fn component_hook_order_spawn_despawn() {
         .register_component_hooks::<A>()
         .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
         .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
 
     let entity = world.spawn(A).id();
@@ -103,7 +103,7 @@ fn component_hook_order_insert_remove() {
         .register_component_hooks::<A>()
         .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
         .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
 
     let mut entity = world.spawn_empty();
@@ -118,7 +118,7 @@ fn component_hook_order_replace() {
     let mut world = World::new();
     world
         .register_component_hooks::<A>()
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(0))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| {
             if let Some(mut r) = world.get_resource_mut::<R>() {
                 r.assert_order(1);
@@ -129,7 +129,7 @@ fn component_hook_order_replace() {
     world.init_resource::<R>();
     let mut entity = world.entity_mut(entity);
     entity.insert(A);
-    entity.insert_if_new(A); // this will not trigger on_replace or on_insert
+    entity.insert_if_new(A); // this will not trigger on_discard or on_insert
     entity.flush();
     assert_eq!(2, world.resource::<R>().0);
 }

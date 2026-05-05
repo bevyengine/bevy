@@ -1,37 +1,43 @@
 //! Module containing logic for FPS overlay.
 
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::Local,
     query::{With, Without},
+    reflect::ReflectResource,
     resource::Resource,
-    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
+    schedule::{common_conditions::resource_changed, IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_picking::Pickable;
-use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
-use bevy_time::Time;
+use bevy_reflect::Reflect;
+use bevy_render::storage::ShaderBuffer;
+use bevy_text::{RemSize, TextColor, TextFont, TextSpan};
+use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
-    FlexDirection, GlobalZIndex, Node, PositionType, Val,
+    ComputedUiRenderTargetInfo, FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
+use tracing::warn;
 
-use crate::frame_time_graph::{
-    FrameTimeGraphConfigUniform, FrameTimeGraphPlugin, FrametimeGraphMaterial,
-};
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+use crate::frame_time_graph::FrameTimeGraphConfigUniform;
+use crate::frame_time_graph::{FrameTimeGraphPlugin, FrametimeGraphMaterial};
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
 /// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
 pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
+
+// Warn the user if the interval is below this threshold.
+const MIN_SAFE_INTERVAL: Duration = Duration::from_millis(50);
 
 // Used to scale the frame time graph based on the fps text size
 const FRAME_TIME_GRAPH_WIDTH_SCALE: f32 = 6.0;
@@ -50,6 +56,15 @@ pub struct FpsOverlayPlugin {
     pub config: FpsOverlayConfig,
 }
 
+/// System sets for FPS overlay updates.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FpsOverlaySystems {
+    /// Applies config changes to the overlay UI.
+    Customize,
+    /// Updates the overlay contents.
+    UpdateText,
+}
+
 impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
@@ -61,21 +76,37 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeGraphPlugin);
         }
 
+        if self.config.refresh_interval < MIN_SAFE_INTERVAL {
+            warn!(
+                "Low refresh interval ({:?}) may degrade performance. \
+                Min recommended: {:?}.",
+                self.config.refresh_interval, MIN_SAFE_INTERVAL
+            );
+        }
+
         app.insert_resource(self.config.clone())
+            .configure_sets(
+                Update,
+                FpsOverlaySystems::Customize.before(FpsOverlaySystems::UpdateText),
+            )
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
                 (
                     (toggle_display, customize_overlay)
-                        .run_if(resource_changed::<FpsOverlayConfig>),
-                    update_text,
+                        .run_if(resource_changed::<FpsOverlayConfig>)
+                        .in_set(FpsOverlaySystems::Customize),
+                    update_text
+                        .run_if(on_timer(self.config.refresh_interval))
+                        .in_set(FpsOverlaySystems::UpdateText),
                 ),
             );
     }
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextFont,
@@ -94,11 +125,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<Font>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
+            text_config: TextFont::from_font_size(32.),
             text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
@@ -109,7 +136,7 @@ impl Default for FpsOverlayConfig {
 }
 
 /// Configuration of the frame time graph
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
 pub struct FrameTimeGraphConfig {
     /// Is the graph visible
     pub enabled: bool,
@@ -152,8 +179,14 @@ struct FrameTimeGraph;
 fn setup(
     mut commands: Commands,
     overlay_config: Res<FpsOverlayConfig>,
-    mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(feature = "webgpu")),
+        expect(unused, reason = "Unused variables in wasm32 without webgpu feature")
+    )]
+    (mut frame_time_graph_materials, mut buffers): (
+        ResMut<Assets<FrametimeGraphMaterial>>,
+        ResMut<Assets<ShaderBuffer>>,
+    ),
 ) {
     commands
         .spawn((
@@ -177,35 +210,47 @@ fn setup(
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
 
-            let font_size = overlay_config.text_config.font_size;
-            p.spawn((
-                Node {
-                    width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
-                    height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
-                    display: if overlay_config.frame_time_graph_config.enabled {
-                        bevy_ui::Display::DEFAULT
-                    } else {
-                        bevy_ui::Display::None
-                    },
-                    ..Default::default()
-                },
-                Pickable::IGNORE,
-                MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                    values: buffers.add(ShaderStorageBuffer {
-                        // Initialize with dummy data because the default (`data: None`) will
-                        // cause a panic in the shader if the frame time graph is constructed
-                        // with `enabled: false`.
-                        data: Some(vec![0, 0, 0, 0]),
+            #[cfg(all(target_arch = "wasm32", not(feature = "webgpu")))]
+            {
+                if overlay_config.frame_time_graph_config.enabled {
+                    use tracing::warn;
+
+                    warn!("Frame time graph is not supported with WebGL. Consider if WebGPU is viable for your usecase.");
+                }
+            }
+            #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+            {
+                // Todo: Needs a better design that works with responsive sizing.
+                let font_size = 20.;
+                p.spawn((
+                    Node {
+                        width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
+                        height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
+                        display: if overlay_config.frame_time_graph_config.enabled {
+                            bevy_ui::Display::DEFAULT
+                        } else {
+                            bevy_ui::Display::None
+                        },
                         ..Default::default()
-                    }),
-                    config: FrameTimeGraphConfigUniform::new(
-                        overlay_config.frame_time_graph_config.target_fps,
-                        overlay_config.frame_time_graph_config.min_fps,
-                        true,
-                    ),
-                })),
-                FrameTimeGraph,
-            ));
+                    },
+                    Pickable::IGNORE,
+                    MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
+                        values: buffers.add(ShaderBuffer {
+                            // Initialize with dummy data because the default (`data: None`) will
+                            // cause a panic in the shader if the frame time graph is constructed
+                            // with `enabled: false`.
+                            data: Some(vec![0, 0, 0, 0]),
+                            ..Default::default()
+                        }),
+                        config: FrameTimeGraphConfigUniform::new(
+                            overlay_config.frame_time_graph_config.target_fps,
+                            overlay_config.frame_time_graph_config.min_fps,
+                            true,
+                        ),
+                    })),
+                    FrameTimeGraph,
+                ));
+            }
         });
 }
 
@@ -213,20 +258,12 @@ fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
-    time: Res<Time>,
-    config: Res<FpsOverlayConfig>,
-    mut time_since_rerender: Local<Duration>,
 ) {
-    *time_since_rerender += time.delta();
-    if *time_since_rerender >= config.refresh_interval {
-        *time_since_rerender = Duration::ZERO;
-        for entity in &query {
-            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
-                && let Some(value) = fps.smoothed()
-            {
-                *writer.text(entity, 1) = format!("{value:.2}");
-            }
-        }
+    if let Ok(entity) = query.single()
+        && let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
+        && let Some(value) = fps.smoothed()
+    {
+        *writer.text(entity, 1) = format!("{value:.2}");
     }
 }
 
@@ -245,18 +282,25 @@ fn customize_overlay(
 
 fn toggle_display(
     overlay_config: Res<FpsOverlayConfig>,
-    mut text_node: Single<&mut Node, (With<FpsText>, Without<FrameTimeGraph>)>,
+    mut text_node: Single<
+        (&mut Node, &ComputedUiRenderTargetInfo),
+        (With<FpsText>, Without<FrameTimeGraph>),
+    >,
     mut graph_node: Single<&mut Node, (With<FrameTimeGraph>, Without<FpsText>)>,
+    rem_size: Res<RemSize>,
 ) {
     if overlay_config.enabled {
-        text_node.display = bevy_ui::Display::DEFAULT;
+        text_node.0.display = bevy_ui::Display::DEFAULT;
     } else {
-        text_node.display = bevy_ui::Display::None;
+        text_node.0.display = bevy_ui::Display::None;
     }
 
     if overlay_config.frame_time_graph_config.enabled {
         // Scale the frame time graph based on the font size of the overlay
-        let font_size = overlay_config.text_config.font_size;
+        let font_size = overlay_config
+            .text_config
+            .font_size
+            .eval(text_node.1.logical_size(), rem_size.0);
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
         graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 

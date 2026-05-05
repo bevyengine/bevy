@@ -14,12 +14,18 @@
 //! | Default Key Binding | Action                 |
 //! |:--------------------|:-----------------------|
 //! | Mouse               | Look around            |
-//! | Left click          | Capture mouse (hold)   |
+//! | Right click         | Capture mouse (hold)   |
 //! | M                   | Capture mouse (toggle) |
 //! | WASD                | Horizontal movement    |
 //! | QE                  | Vertical movement      |
 //! | Left shift          | Run                    |
 //! | Scroll wheel        | Change movement speed  |
+//! | Numpad1             | Snap to front          |
+//! | `LCtrl` + Numpad1   | Snap to back           |
+//! | Numpad3             | Snap to right          |
+//! | `LCtrl` + Numpad3   | Snap to left           |
+//! | Numpad7             | Snap to top            |
+//! | `LCtrl` + Numpad7   | Snap to bottom         |
 //!
 //! The movement speed, sensitivity and friction can also be changed by the [`FreeCamera`] component.
 //!
@@ -103,7 +109,7 @@ fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
         },
         children![Text::new(format!(
             "{}",
-            free_camera_query.single().unwrap()
+            free_camera_query.single().unwrap(),
         ))],
     ));
     commands.spawn((
@@ -176,8 +182,8 @@ fn update_text(
         free_camera.sensitivity,
         free_camera.friction,
         free_camera.scroll_factor,
-        free_camera.walk_speed,
-        free_camera.run_speed,
+        free_camera.walk_speed * free_camera_state.speed_multiplier,
+        free_camera.run_speed * free_camera_state.speed_multiplier,
         free_camera_state.velocity.length(),
     );
 }
@@ -195,7 +201,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ORANGE_300),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 3.0, 0.0),
@@ -204,7 +210,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::WHITE,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-3.5, 3.0, 0.0),
@@ -213,7 +219,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::RED_300),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, -0.5, 0.0),
