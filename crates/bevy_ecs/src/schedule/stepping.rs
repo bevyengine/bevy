@@ -70,7 +70,7 @@ enum SystemIdentifier {
     Node(NodeId),
 }
 
-/// Updates to [`Stepping.schedule_states`] that will be applied at the start
+/// Updates to [`Stepping::schedule_states`] that will be applied at the start
 /// of the next render frame
 enum Update {
     /// Set the action stepping will perform for this render frame
@@ -365,13 +365,11 @@ impl Stepping {
 
     /// lookup the first system for the supplied schedule index
     fn first_system_index_for_schedule(&self, index: usize) -> usize {
-        let label = match self.schedule_order.get(index) {
-            None => return 0,
-            Some(label) => label,
+        let Some(label) = self.schedule_order.get(index) else {
+            return 0;
         };
-        let state = match self.schedule_states.get(label) {
-            None => return 0,
-            Some(state) => state,
+        let Some(state) = self.schedule_states.get(label) else {
+            return 0;
         };
         state.first.unwrap_or(0)
     }
@@ -663,7 +661,7 @@ impl ScheduleState {
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
         for (key, system) in schedule.systems().unwrap() {
-            let behavior = self.behavior_updates.get(&system.type_id());
+            let behavior = self.behavior_updates.get(&system.system_type());
             match behavior {
                 None => continue,
                 Some(None) => {
@@ -898,7 +896,7 @@ mod tests {
             // system TypeId, and name.
             let systems: Vec<(TypeId, alloc::string::String)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
-                    (system.type_id(), system.name().as_string())
+                    (system.system_type(), system.name().as_string())
                 })
             .collect();
 
@@ -907,7 +905,7 @@ mod tests {
             $(
                 let sys = IntoSystem::into_system($system);
                 for (i, (type_id, _)) in systems.iter().enumerate() {
-                    if sys.type_id() == *type_id {
+                    if sys.system_type() == *type_id {
                         expected.insert(i);
                     }
                 }

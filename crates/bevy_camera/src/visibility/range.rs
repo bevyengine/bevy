@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
@@ -21,8 +21,8 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::Parallel;
 
-use super::{check_visibility, VisibilitySystems};
-use crate::{camera::Camera, primitives::Aabb};
+use super::{check_visibility_cpu_culling, VisibilitySystems};
+use crate::{camera::Camera, primitives::Aabb, visibility::NoCpuCulling};
 
 /// A plugin that enables [`VisibilityRange`]s, which allow entities to be
 /// hidden or shown based on distance to the camera.
@@ -30,14 +30,12 @@ pub struct VisibilityRangePlugin;
 
 impl Plugin for VisibilityRangePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<VisibilityRange>()
-            .init_resource::<VisibleEntityRanges>()
-            .add_systems(
-                PostUpdate,
-                check_visibility_ranges
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility),
-            );
+        app.init_resource::<VisibleEntityRanges>().add_systems(
+            PostUpdate,
+            check_visibility_ranges
+                .in_set(VisibilitySystems::CheckVisibility)
+                .before(check_visibility_cpu_culling),
+        );
     }
 }
 
@@ -175,7 +173,7 @@ impl VisibilityRange {
 /// Stores which entities are in within the [`VisibilityRange`]s of views.
 ///
 /// This doesn't store the results of frustum or occlusion culling; use
-/// [`super::ViewVisibility`] for that. Thus entities in this list may not
+/// [`ViewVisibility`](`super::ViewVisibility`) for that. Thus entities in this list may not
 /// actually be visible.
 ///
 /// For efficiency, these tables only store entities that have
@@ -245,7 +243,10 @@ pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
     mut par_local: Local<Parallel<Vec<(Entity, u32)>>>,
-    entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
+    entity_query: Query<
+        (Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange),
+        Without<NoCpuCulling>,
+    >,
 ) {
     visible_entity_ranges.clear();
 

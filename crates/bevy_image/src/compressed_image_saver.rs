@@ -1,16 +1,25 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
-use bevy_asset::saver::{AssetSaver, SavedAsset};
+use bevy_asset::{
+    saver::{AssetSaver, SavedAsset},
+    AssetPath,
+};
+use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
+/// An [`AssetSaver`] that writes compressed basis universal (.ktx2) files.
+#[derive(TypePath)]
 pub struct CompressedImageSaver;
 
+/// Errors encountered when writing compressed images.
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
+    /// I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
 }
@@ -25,8 +34,9 @@ impl AssetSaver for CompressedImageSaver {
     async fn save(
         &self,
         writer: &mut bevy_asset::io::Writer,
-        image: SavedAsset<'_, Self::Asset>,
+        image: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let is_srgb = image.texture_descriptor.format.is_srgb();
 
@@ -69,6 +79,8 @@ impl AssetSaver for CompressedImageSaver {
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
+            texture_format: None,
+            array_layout: None,
         })
     }
 }

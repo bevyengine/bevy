@@ -1,16 +1,15 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHash;
-use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    lifecycle::{Add, Remove},
     observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
-    world::{Mut, World},
+    world::{EntityWorldMut, Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -94,15 +93,15 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         app.add_observer(
-            |trigger: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -120,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component, Default, Clone]]
+#[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
@@ -203,7 +202,7 @@ pub(crate) enum EntityRecord {
     Removed(RenderEntity),
     /// When a component is removed from an entity, notify the render world so that the corresponding component can be
     /// removed. This contains the main world entity.
-    ComponentRemoved(Entity),
+    ComponentRemoved(Entity, fn(EntityWorldMut<'_>)),
 }
 
 // Entity Record in MainWorld pending to Sync
@@ -236,17 +235,12 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         ec.despawn();
                     };
                 }
-                EntityRecord::ComponentRemoved(main_entity) => {
-                    let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
+                EntityRecord::ComponentRemoved(main_entity, removal_function) => {
+                    let Some(render_entity) = world.get::<RenderEntity>(main_entity) else {
                         continue;
                     };
                     if let Ok(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
-                        // In order to handle components that extract to derived components, we clear the entity
-                        // and let the extraction system re-add the components.
-                        render_world_entity.despawn();
-
-                        let id = render_world.spawn(MainEntity(main_entity)).id();
-                        render_entity.0 = id;
+                        removal_function(render_world_entity);
                     }
                 },
             }
@@ -259,7 +253,7 @@ pub(crate) fn despawn_temporary_render_entities(
     state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
     mut local: Local<Vec<Entity>>,
 ) {
-    let query = state.get(world);
+    let query = state.get(world).unwrap();
 
     local.extend(query.iter());
 
@@ -279,15 +273,19 @@ mod render_entities_world_query_impls {
 
     use bevy_ecs::{
         archetype::Archetype,
-        component::{ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{ComponentId, Components},
         entity::Entity,
-        query::{FilteredAccess, QueryData, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery},
+        query::{
+            ArchetypeQueryData, FilteredAccess, IterQueryData, QueryData, ReadOnlyQueryData,
+            ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
+        },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
         type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static RenderEntity as WorldQuery>::State;
@@ -336,10 +334,7 @@ mod render_entities_world_query_impls {
             unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
@@ -363,6 +358,7 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
         const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = RenderEntity;
         type Item<'w, 's> = Entity;
 
@@ -378,16 +374,30 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
+        ) -> Option<Self::Item<'w, 's>> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.id()
+            component.map(RenderEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&RenderEntity as QueryData>::iter_access(state)
         }
     }
 
-    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    /// SAFETY: access is read only and only on the current entity
+    unsafe impl IterQueryData for RenderEntity {}
+
+    /// SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for RenderEntity {}
+
+    /// SAFETY: access is only on the current entity
+    unsafe impl SingleEntityQueryData for RenderEntity {}
+
+    impl ArchetypeQueryData for RenderEntity {}
 
     impl ReleaseStateQueryData for RenderEntity {
         fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -395,8 +405,8 @@ mod render_entities_world_query_impls {
         }
     }
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
         type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static MainEntity as WorldQuery>::State;
@@ -445,10 +455,7 @@ mod render_entities_world_query_impls {
             unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
@@ -472,6 +479,7 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = MainEntity;
         type Item<'w, 's> = Entity;
 
@@ -487,16 +495,30 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
+        ) -> Option<Self::Item<'w, 's>> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.id()
+            component.map(MainEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&MainEntity as QueryData>::iter_access(state)
         }
     }
 
-    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    /// SAFETY: access is read only and only on the current entity
+    unsafe impl IterQueryData for MainEntity {}
+
+    /// SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    /// SAFETY: access is only on the current entity
+    unsafe impl SingleEntityQueryData for MainEntity {}
+
+    impl ArchetypeQueryData for MainEntity {}
 
     impl ReleaseStateQueryData for MainEntity {
         fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -532,15 +554,15 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |trigger: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

@@ -1,20 +1,25 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
+use crate::{
+    archetype::Archetype,
+    bundle::{Bundle, BundleRemover, InsertMode},
+    change_detection::MaybeLocation,
+    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
+    entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
+    query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
+    world::World,
+};
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::prelude::DebugName;
 use bumpalo::Bump;
 use core::{any::TypeId, cell::LazyCell, ops::Range};
-use derive_more::derive::From;
-
-use crate::{
-    archetype::Archetype,
-    bundle::{Bundle, BundleId, InsertMode},
-    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
-    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
-    query::DebugCheckedUnwrap,
-    relationship::RelationshipHookMode,
-    world::World,
-};
+use derive_more::From;
 
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
@@ -76,9 +81,10 @@ impl<'a> SourceComponent<'a> {
 pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     target_component_written: bool,
-    bundle_scratch: &'a mut BundleScratch<'b>,
+    target_component_moved: bool,
+    bundle_scratch: &'a mut BundleScratchSpace<'b>,
     bundle_scratch_allocator: &'b Bump,
-    entities: &'a Entities,
+    allocator: &'a EntityAllocator,
     source: Entity,
     target: Entity,
     component_info: &'a ComponentInfo,
@@ -103,8 +109,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         source: Entity,
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
-        bundle_scratch: &'a mut BundleScratch<'b>,
-        entities: &'a Entities,
+        bundle_scratch: &'a mut BundleScratchSpace<'b>,
+        allocator: &'a EntityAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityClonerState,
         mapper: &'a mut dyn EntityMapper,
@@ -117,8 +123,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target,
             bundle_scratch,
             target_component_written: false,
+            target_component_moved: false,
             bundle_scratch_allocator,
-            entities,
+            allocator,
             mapper,
             component_info,
             state: entity_cloner,
@@ -129,6 +136,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// Returns true if [`write_target_component`](`Self::write_target_component`) was called before.
     pub fn target_component_written(&self) -> bool {
         self.target_component_written
+    }
+
+    /// Returns `true` if used in moving context
+    pub fn moving(&self) -> bool {
+        self.state.move_components
     }
 
     /// Returns the current source entity.
@@ -271,7 +283,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 
     /// Queues the `entity` to be cloned by the current [`EntityCloner`]
     pub fn queue_entity_clone(&mut self, entity: Entity) {
-        let target = self.entities.reserve_entity();
+        let target = self.allocator.alloc();
         self.mapper.set_mapped(entity, target);
         self.state.clone_queue.push_back(entity);
     }
@@ -283,6 +295,12 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
     ) {
         self.state.deferred_commands.push_back(Box::new(deferred));
+    }
+
+    /// Marks component as moved and it's `drop` won't run.
+    fn move_component(&mut self) {
+        self.target_component_moved = true;
+        self.target_component_written = true;
     }
 }
 
@@ -340,6 +358,19 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// 2. component-defined handler using [`Component::clone_behavior`]
 /// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
 /// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
+///
+/// # Moving components
+/// [`EntityCloner`] can be configured to move components instead of cloning them by using [`EntityClonerBuilder::move_components`].
+/// In this mode components will be moved - removed from source entity and added to the target entity.
+///
+/// Components with [`ComponentCloneBehavior::Ignore`] clone behavior will not be moved, while components that
+/// have a [`ComponentCloneBehavior::Custom`] clone behavior will be cloned using it and then removed from the source entity.
+/// All other components will be bitwise copied from the source entity onto the target entity and then removed without dropping.
+///
+/// Choosing to move components instead of cloning makes [`EntityClonerBuilder::with_default_clone_fn`] ineffective since it's replaced by
+/// move handler for components that have [`ComponentCloneBehavior::Default`] clone behavior.
+///
+/// Note that moving components still triggers `on_remove` hooks/observers on source entity and `on_insert`/`on_add` hooks/observers on the target entity.
 #[derive(Default)]
 pub struct EntityCloner {
     filter: EntityClonerFilter,
@@ -347,12 +378,12 @@ pub struct EntityCloner {
 }
 
 /// An expandable scratch space for defining a dynamic bundle.
-struct BundleScratch<'a> {
+struct BundleScratchSpace<'a> {
     component_ids: Vec<ComponentId>,
     component_ptrs: Vec<PtrMut<'a>>,
 }
 
-impl<'a> BundleScratch<'a> {
+impl<'a> BundleScratchSpace<'a> {
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             component_ids: Vec::with_capacity(capacity),
@@ -391,6 +422,7 @@ impl<'a> BundleScratch<'a> {
     ///
     /// # Safety
     /// All [`ComponentId`] values in this instance must come from `world`.
+    #[track_caller]
     pub(crate) unsafe fn write(
         self,
         world: &mut World,
@@ -398,7 +430,7 @@ impl<'a> BundleScratch<'a> {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) {
         // SAFETY:
-        // - All `component_ids` are from the same world as `target` entity
+        // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
             world.entity_mut(entity).insert_by_ids_internal(
@@ -417,7 +449,7 @@ impl EntityCloner {
     /// explicitly denied, for example by using the [`deny`](EntityClonerBuilder<OptOut>::deny) method.
     ///
     /// Required components are not considered by denied components and must be explicitly denied as well if desired.
-    pub fn build_opt_out(world: &mut World) -> EntityClonerBuilder<OptOut> {
+    pub fn build_opt_out(world: &mut World) -> EntityClonerBuilder<'_, OptOut> {
         EntityClonerBuilder {
             world,
             filter: Default::default(),
@@ -433,7 +465,7 @@ impl EntityCloner {
     /// Components allowed to be cloned through this builder would also allow their required components,
     /// which will be cloned from the source entity only if the target entity does not contain them already.
     /// To skip adding required components see [`without_required_components`](EntityClonerBuilder<OptIn>::without_required_components).
-    pub fn build_opt_in(world: &mut World) -> EntityClonerBuilder<OptIn> {
+    pub fn build_opt_in(world: &mut World) -> EntityClonerBuilder<'_, OptIn> {
         EntityClonerBuilder {
             world,
             filter: Default::default(),
@@ -527,6 +559,7 @@ impl EntityCloner {
     }
 
     /// Clones and inserts components from the `source` entity into the entity mapped by `mapper` from `source` using the stored configuration.
+    #[track_caller]
     fn clone_entity_internal(
         state: &mut EntityClonerState,
         filter: &mut impl CloneByFilter,
@@ -536,12 +569,21 @@ impl EntityCloner {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
+        // The target may need to be constructed if it hasn't been already.
+        // If this fails, it either didn't need to be constructed (ok) or doesn't exist (caught better later).
+        let _ = world.spawn_empty_at(target);
+
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
-        let mut bundle_scratch: BundleScratch;
+        let mut bundle_scratch: BundleScratchSpace;
+        let mut moved_components: Vec<ComponentId> = Vec::new();
+        let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
         {
             let world = world.as_unsafe_world_cell();
-            let source_entity = world.get_entity(source).expect("Source entity must exist");
+            let source_entity = world
+                .get_entity(source)
+                .expect("Source entity must be valid and spawned.");
+            let source_archetype = source_entity.archetype();
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
@@ -554,24 +596,35 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let source_archetype = source_entity.archetype();
-            bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
+            bundle_scratch = BundleScratchSpace::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
                 world
                     .get_entity(target)
-                    .expect("Target entity must exist")
+                    .expect("Target entity must be valid and spawned.")
                     .archetype()
             });
 
+            if state.move_components {
+                moved_components.reserve(source_archetype.component_count());
+                // Replace default handler with special handler which would track if component was moved instead of cloned.
+                // This is later used to determine whether we need to run component's drop function when removing it from the source entity or not.
+                state.default_clone_fn = |_, ctx| ctx.move_component();
+            }
+
             filter.clone_components(source_archetype, target_archetype, |component| {
-                let handler = match state.clone_behavior_overrides.get(&component) {
-                    Some(clone_behavior) => clone_behavior.resolve(state.default_clone_fn),
-                    None => world
+                let handler = match state.clone_behavior_overrides.get(&component).or_else(|| {
+                    world
                         .components()
                         .get_info(component)
-                        .map(|info| info.clone_behavior().resolve(state.default_clone_fn))
-                        .unwrap_or(state.default_clone_fn),
+                        .map(ComponentInfo::clone_behavior)
+                }) {
+                    Some(behavior) => match behavior {
+                        ComponentCloneBehavior::Default => state.default_clone_fn,
+                        ComponentCloneBehavior::Ignore => return,
+                        ComponentCloneBehavior::Custom(custom) => *custom,
+                    },
+                    None => state.default_clone_fn,
                 };
 
                 // SAFETY: This component exists because it is present on the archetype.
@@ -598,7 +651,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities(),
+                        world.entity_allocator(),
                         info,
                         state,
                         mapper,
@@ -607,6 +660,19 @@ impl EntityCloner {
                 };
 
                 (handler)(&source_component, &mut ctx);
+
+                if ctx.state.move_components {
+                    if ctx.target_component_moved {
+                        moved_components.push(component);
+                    }
+                    // Component wasn't written by the clone handler, so assume it's going to be
+                    // cloned/processed using deferred_commands instead.
+                    // This means that it's ComponentId won't be present in BundleScratch's component_ids,
+                    // but it should still be removed when move_components is true.
+                    else if !ctx.target_component_written() {
+                        deferred_cloned_component_ids.push(component);
+                    }
+                }
             });
         }
 
@@ -621,9 +687,67 @@ impl EntityCloner {
         }
 
         if state.move_components {
-            world
-                .entity_mut(source)
-                .remove_by_ids(&bundle_scratch.component_ids);
+            let mut source_entity = world.entity_mut(source);
+
+            let cloned_components = if deferred_cloned_component_ids.is_empty() {
+                &bundle_scratch.component_ids
+            } else {
+                // Remove all cloned components with drop by concatenating both vectors
+                deferred_cloned_component_ids.extend(&bundle_scratch.component_ids);
+                &deferred_cloned_component_ids
+            };
+            source_entity.remove_by_ids_with_caller(
+                cloned_components,
+                MaybeLocation::caller(),
+                RelationshipHookMode::RunIfNotLinked,
+                BundleRemover::empty_pre_remove,
+            );
+
+            let table_row = source_entity.location().table_row;
+
+            // Copy moved components and then forget them without calling drop
+            source_entity.remove_by_ids_with_caller(
+                &moved_components,
+                MaybeLocation::caller(),
+                RelationshipHookMode::RunIfNotLinked,
+                |sparse_sets, mut table, components, bundle| {
+                    for &component_id in bundle {
+                        let Some(component_ptr) = sparse_sets
+                            .get(component_id)
+                            .and_then(|component| component.get(source))
+                            .or_else(|| {
+                                // SAFETY: table_row is within this table because we just got it from entity's current location
+                                table.as_mut().and_then(|table| unsafe {
+                                    table.get_component(component_id, table_row)
+                                })
+                            })
+                        else {
+                            // Component was removed by some other component's clone side effect before we got to it.
+                            continue;
+                        };
+
+                        // SAFETY: component_id is valid because remove_by_ids_with_caller checked it before calling this closure
+                        let info = unsafe { components.get_info_unchecked(component_id) };
+                        let layout = info.layout();
+                        let target_ptr = bundle_scratch_allocator.alloc_layout(layout);
+                        // SAFETY:
+                        // - component_ptr points to data with component layout
+                        // - target_ptr was just allocated with component layout
+                        // - component_ptr and target_ptr don't overlap
+                        // - component_ptr matches component_id
+                        unsafe {
+                            core::ptr::copy_nonoverlapping(
+                                component_ptr.as_ptr(),
+                                target_ptr.as_ptr(),
+                                layout.size(),
+                            );
+                            bundle_scratch.push_ptr(component_id, PtrMut::new(target_ptr));
+                        }
+                    }
+
+                    (/* should drop? */ false, ())
+                },
+            );
         }
 
         // SAFETY:
@@ -688,6 +812,8 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     }
 
     /// Sets the default clone function to use.
+    ///
+    /// Will be overridden if [`EntityClonerBuilder::move_components`] is enabled.
     pub fn with_default_clone_fn(&mut self, clone_fn: ComponentCloneFn) -> &mut Self {
         self.state.default_clone_fn = clone_fn;
         self
@@ -700,6 +826,8 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     ///
     /// The setting only applies to components that are allowed through the filter
     /// at the time [`EntityClonerBuilder::clone_entity`] is called.
+    ///
+    /// Enabling this overrides any custom function set with [`EntityClonerBuilder::with_default_clone_fn`].
     pub fn move_components(&mut self, enable: bool) -> &mut Self {
         self.state.move_components = enable;
         self
@@ -708,7 +836,7 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     /// Overrides the [`ComponentCloneBehavior`] for a component in this builder.
     /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](EntityCloner#clone-behaviors) to understand how this affects handler priority.
     pub fn override_clone_behavior<T: Component>(
         &mut self,
         clone_behavior: ComponentCloneBehavior,
@@ -724,7 +852,7 @@ impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
     /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in this builder.
     /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](EntityCloner#clone-behaviors) to understand how this affects handler priority.
     pub fn override_clone_behavior_with_id(
         &mut self,
         component_id: ComponentId,
@@ -799,7 +927,7 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     }
 
     /// Extends the list of components that shouldn't be cloned.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is denied here and component `B` requires `A`, then `A`
     /// is denied as well. See [`Self::without_required_by_components`] to alter
@@ -867,7 +995,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     }
 
     /// Extends the list of components to clone.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
@@ -878,7 +1006,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     }
 
     /// Extends the list of components to clone if the target does not contain them.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
@@ -998,14 +1126,14 @@ impl CloneByFilter for OptOut {
     ) {
         match self.insert_mode {
             InsertMode::Replace => {
-                for component in source_archetype.components() {
+                for component in source_archetype.iter_components() {
                     if !self.deny.contains(&component) {
                         clone_component(component);
                     }
                 }
             }
             InsertMode::Keep => {
-                for component in source_archetype.components() {
+                for component in source_archetype.iter_components() {
                     if !target_archetype.contains(component) && !self.deny.contains(&component) {
                         clone_component(component);
                     }
@@ -1021,11 +1149,11 @@ impl OptOut {
     #[inline]
     fn filter_deny(&mut self, id: ComponentId, world: &World) {
         self.deny.insert(id);
-        if self.attach_required_by_components {
-            if let Some(required_by) = world.components().get_required_by(id) {
-                self.deny.extend(required_by.iter());
-            };
-        }
+        if self.attach_required_by_components
+            && let Some(required_by) = world.components().get_required_by(id)
+        {
+            self.deny.extend(required_by.iter());
+        };
     }
 }
 
@@ -1258,7 +1386,9 @@ impl Required {
 }
 
 mod private {
-    use super::*;
+    use crate::{bundle::BundleId, component::ComponentId};
+    use core::any::TypeId;
+    use derive_more::From;
 
     /// Marker trait to allow multiple blanket implementations for [`FilterableIds`].
     pub trait Marker {}
@@ -1269,7 +1399,7 @@ mod private {
     pub struct VectorType {}
     impl Marker for VectorType {}
 
-    /// Defines types of ids that [`EntityClonerBuilder`] can filter components by.
+    /// Defines types of ids that [`EntityClonerBuilder`](`super::EntityClonerBuilder`) can filter components by.
     #[derive(From)]
     pub enum FilterableId {
         Type(TypeId),
@@ -1287,7 +1417,7 @@ mod private {
         }
     }
 
-    /// A trait to allow [`EntityClonerBuilder`] filter by any supported id type and their iterators,
+    /// A trait to allow [`EntityClonerBuilder`](`super::EntityClonerBuilder`) filter by any supported id type and their iterators,
     /// reducing the number of method permutations required for all id types.
     ///
     /// The supported id types that can be used to filter components are defined by [`FilterableId`], which allows following types: [`TypeId`], [`ComponentId`] and [`BundleId`].
@@ -1333,8 +1463,9 @@ mod tests {
     use super::*;
     use crate::{
         component::{ComponentDescriptor, StorageType},
+        lifecycle::HookContext,
         prelude::{ChildOf, Children, Resource},
-        world::{FromWorld, World},
+        world::{DeferredWorld, FromWorld, World},
     };
     use bevy_ptr::OwningPtr;
     use core::marker::PhantomData;
@@ -1978,6 +2109,7 @@ mod tests {
                 None,
                 true,
                 ComponentCloneBehavior::Custom(test_handler),
+                None,
             )
         };
         let component_id = world.register_component_with_descriptor(descriptor);
@@ -2030,10 +2162,21 @@ mod tests {
 
         assert!(root_children.iter().all(|e| *e != child1 && *e != child2));
         assert_eq!(root_children.len(), 2);
+        assert_eq!(
+            (
+                world.get::<ChildOf>(root_children[0]),
+                world.get::<ChildOf>(root_children[1])
+            ),
+            (Some(&ChildOf(clone_root)), Some(&ChildOf(clone_root)))
+        );
         let child1_children = world.entity(root_children[0]).get::<Children>().unwrap();
         assert_eq!(child1_children.len(), 1);
         assert_ne!(child1_children[0], grandchild);
         assert!(world.entity(root_children[1]).get::<Children>().is_none());
+        assert_eq!(
+            world.get::<ChildOf>(child1_children[0]),
+            Some(&ChildOf(root_children[0]))
+        );
 
         assert_eq!(
             world.entity(root).get::<Children>().unwrap().deref(),
@@ -2061,5 +2204,404 @@ mod tests {
 
         assert_eq!(world.entity(e_clone).get::<A>(), Some(&A));
         assert_eq!(world.entity(e_clone).get::<B>(), Some(&B(1)));
+    }
+
+    #[test]
+    fn move_without_clone() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(storage = "SparseSet")]
+        struct A;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(Vec<u8>);
+
+        let mut world = World::default();
+        let e = world.spawn((A, B(alloc::vec![1, 2, 3]))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<A>(e), None);
+        assert_eq!(world.get::<B>(e), None);
+
+        assert_eq!(world.get::<A>(e_clone), Some(&A));
+        assert_eq!(world.get::<B>(e_clone), Some(&B(alloc::vec![1, 2, 3])));
+    }
+
+    #[test]
+    fn move_with_remove_hook() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(on_remove=remove_hook)]
+        struct B(Option<Vec<u8>>);
+
+        fn remove_hook(mut world: DeferredWorld, ctx: HookContext) {
+            world.get_mut::<B>(ctx.entity).unwrap().0.take();
+        }
+
+        let mut world = World::default();
+        let e = world.spawn(B(Some(alloc::vec![1, 2, 3]))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<B>(e), None);
+        assert_eq!(world.get::<B>(e_clone), Some(&B(None)));
+    }
+
+    #[test]
+    fn move_with_deferred() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(clone_behavior=Custom(custom))]
+        struct A(u32);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(u32);
+
+        fn custom(_src: &SourceComponent, ctx: &mut ComponentCloneCtx) {
+            // Clone using deferred
+            let source = ctx.source();
+            ctx.queue_deferred(move |world, mapper| {
+                let target = mapper.get_mapped(source);
+                world.entity_mut(target).insert(A(10));
+            });
+        }
+
+        let mut world = World::default();
+        let e = world.spawn((A(0), B(1))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<A>(e), None);
+        assert_eq!(world.get::<A>(e_clone), Some(&A(10)));
+        assert_eq!(world.get::<B>(e), None);
+        assert_eq!(world.get::<B>(e_clone), Some(&B(1)));
+    }
+
+    #[test]
+    fn move_relationship() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct A(u32);
+
+        let mut world = World::default();
+        let e_target = world.spawn(A(1)).id();
+        let e_source = world.spawn((A(2), Source(e_target))).id();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        let e_source_moved = world.spawn_empty().id();
+
+        cloner.clone_entity(&mut world, e_source, e_source_moved);
+
+        assert_eq!(world.get::<A>(e_source), None);
+        assert_eq!(world.get::<A>(e_source_moved), Some(&A(2)));
+        assert_eq!(world.get::<Source>(e_source), None);
+        assert_eq!(world.get::<Source>(e_source_moved), Some(&Source(e_target)));
+        assert_eq!(
+            world.get::<Target>(e_target),
+            Some(&Target(alloc::vec![e_source_moved]))
+        );
+
+        let e_target_moved = world.spawn_empty().id();
+
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<A>(e_target), None);
+        assert_eq!(world.get::<A>(e_target_moved), Some(&A(1)));
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(
+            world.get::<Target>(e_target_moved),
+            Some(&Target(alloc::vec![e_source_moved]))
+        );
+        assert_eq!(
+            world.get::<Source>(e_source_moved),
+            Some(&Source(e_target_moved))
+        );
+    }
+
+    #[test]
+    fn move_hierarchy() {
+        #[derive(Component, PartialEq, Debug)]
+        struct A(u32);
+
+        let mut world = World::default();
+        let e_parent = world.spawn(A(1)).id();
+        let e_child1 = world.spawn((A(2), ChildOf(e_parent))).id();
+        let e_child2 = world.spawn((A(3), ChildOf(e_parent))).id();
+        let e_child1_1 = world.spawn((A(4), ChildOf(e_child1))).id();
+
+        let e_parent_clone = world.spawn_empty().id();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true).linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e_parent, e_parent_clone);
+
+        assert_eq!(world.get::<A>(e_parent), None);
+        assert_eq!(world.get::<A>(e_child1), None);
+        assert_eq!(world.get::<A>(e_child2), None);
+        assert_eq!(world.get::<A>(e_child1_1), None);
+
+        let mut children = world.get::<Children>(e_parent_clone).unwrap().iter();
+        let e_child1_clone = *children.next().unwrap();
+        let e_child2_clone = *children.next().unwrap();
+        let mut children = world.get::<Children>(e_child1_clone).unwrap().iter();
+        let e_child1_1_clone = *children.next().unwrap();
+
+        assert_eq!(world.get::<A>(e_parent_clone), Some(&A(1)));
+        assert_eq!(world.get::<A>(e_child1_clone), Some(&A(2)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child1_clone),
+            Some(&ChildOf(e_parent_clone))
+        );
+        assert_eq!(world.get::<A>(e_child2_clone), Some(&A(3)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child2_clone),
+            Some(&ChildOf(e_parent_clone))
+        );
+        assert_eq!(world.get::<A>(e_child1_1_clone), Some(&A(4)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child1_1_clone),
+            Some(&ChildOf(e_child1_clone))
+        );
+    }
+
+    // Original: E1 Target{target: [E2], data: [4,5,6]}
+    //            | E2 Source{target: E1, data: [1,2,3]}
+    //
+    // Cloned:   E3 Target{target: [], data: [4,5,6]}
+    #[test]
+    fn clone_relationship_with_data() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship=Source)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: alloc::vec![1, 2, 3],
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = alloc::vec![4, 5, 6];
+
+        let builder = EntityCloner::build_opt_out(&mut world);
+        let mut cloner = builder.finish();
+
+        let e_target_clone = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_clone);
+
+        let target = world.get::<Target>(e_target).unwrap();
+        let cloned_target = world.get::<Target>(e_target_clone).unwrap();
+
+        assert_eq!(cloned_target.data, target.data);
+        assert_eq!(target.target, alloc::vec![e_source]);
+        assert_eq!(cloned_target.target.len(), 0);
+
+        let source = world.get::<Source>(e_source).unwrap();
+
+        assert_eq!(source.data, alloc::vec![1, 2, 3]);
+    }
+
+    // Original: E1 Target{target: [E2], data: [4,5,6]}
+    //            | E2 Source{target: E1, data: [1,2,3]}
+    //
+    // Cloned:   E3 Target{target: [E4], data: [4,5,6]}
+    //            | E4 Source{target: E3, data: [1,2,3]}
+    #[test]
+    fn clone_linked_relationship_with_data() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship=Source, linked_spawn)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: alloc::vec![1, 2, 3],
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = alloc::vec![4, 5, 6];
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        let e_target_clone = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_clone);
+
+        let target = world.get::<Target>(e_target).unwrap();
+        let cloned_target = world.get::<Target>(e_target_clone).unwrap();
+
+        assert_eq!(cloned_target.data, target.data);
+        assert_eq!(target.target, alloc::vec![e_source]);
+        assert_eq!(cloned_target.target.len(), 1);
+
+        let source = world.get::<Source>(e_source).unwrap();
+        let cloned_source = world.get::<Source>(cloned_target.target[0]).unwrap();
+
+        assert_eq!(cloned_source.data, source.data);
+        assert_eq!(source.target, e_target);
+        assert_eq!(cloned_source.target, e_target_clone);
+    }
+
+    // Original: E1
+    //           E2
+    //
+    // Moved:    E3 Target{target: [], data: [4,5,6]}
+    #[test]
+    fn move_relationship_with_data() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let source_data = alloc::vec![1, 2, 3];
+        let target_data = alloc::vec![4, 5, 6];
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: source_data.clone(),
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = target_data.clone();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        let e_target_moved = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(
+            world.get::<Source>(e_source),
+            Some(&Source {
+                data: source_data,
+                target: e_target_moved,
+            })
+        );
+        assert_eq!(
+            world.get::<Target>(e_target_moved),
+            Some(&Target {
+                target: alloc::vec![e_source],
+                data: target_data
+            })
+        );
+    }
+
+    // Original: E1
+    //           E2
+    //
+    // Moved:    E3 Target{target: [E4], data: [4,5,6]}
+    //            | E4 Source{target: E3, data: [1,2,3]}
+    #[test]
+    fn move_linked_relationship_with_data() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source, linked_spawn)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let source_data = alloc::vec![1, 2, 3];
+        let target_data = alloc::vec![4, 5, 6];
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: source_data.clone(),
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = target_data.clone();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true).linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        let e_target_moved = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(world.get::<Source>(e_source), None);
+
+        let moved_target = world.get::<Target>(e_target_moved).unwrap();
+        assert_eq!(moved_target.data, target_data);
+        assert_eq!(moved_target.target.len(), 1);
+
+        let moved_source = world.get::<Source>(moved_target.target[0]).unwrap();
+        assert_eq!(moved_source.data, source_data);
+        assert_eq!(moved_source.target, e_target_moved);
     }
 }

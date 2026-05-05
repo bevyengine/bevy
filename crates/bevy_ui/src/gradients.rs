@@ -1,6 +1,6 @@
-use crate::{UiPosition, Val};
+use crate::{UiPosition, Val, ValNum};
 use bevy_color::{Color, Srgba};
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
@@ -45,25 +45,25 @@ impl ColorStop {
     }
 
     /// A color stop with its position in logical pixels.
-    pub fn px(color: impl Into<Color>, px: f32) -> Self {
+    pub fn px<V: ValNum>(color: impl Into<Color>, px: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Px(px),
+            point: Val::Px(px.val_num_f32()),
             hint: 0.5,
         }
     }
 
     /// A color stop with a percentage position.
-    pub fn percent(color: impl Into<Color>, percent: f32) -> Self {
+    pub fn percent<V: ValNum>(color: impl Into<Color>, percent: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Percent(percent),
+            point: Val::Percent(percent.val_num_f32()),
             hint: 0.5,
         }
     }
 
     // Set the interpolation midpoint between this and the following stop
-    pub fn with_hint(mut self, hint: f32) -> Self {
+    pub const fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
@@ -175,7 +175,7 @@ impl AngularColorStop {
     }
 
     // Set the interpolation midpoint between this and the following stop
-    pub fn with_hint(mut self, hint: f32) -> Self {
+    pub const fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
@@ -387,7 +387,7 @@ impl RadialGradient {
         }
     }
 
-    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+    pub const fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
     }
@@ -437,18 +437,18 @@ impl ConicGradient {
     }
 
     /// Sets the starting angle of the gradient in radians
-    pub fn with_start(mut self, start: f32) -> Self {
+    pub const fn with_start(mut self, start: f32) -> Self {
         self.start = start;
         self
     }
 
     /// Sets the position of the gradient
-    pub fn with_position(mut self, position: UiPosition) -> Self {
+    pub const fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
 
-    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+    pub const fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
     }
@@ -468,17 +468,17 @@ pub enum Gradient {
     Linear(LinearGradient),
     /// A radial gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Radial(RadialGradient),
     /// A conic gradient
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/conic-gradient>
     Conic(ConicGradient),
 }
 
 impl Gradient {
     /// Returns true if the gradient has no stops.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         match self {
             Gradient::Linear(gradient) => gradient.stops.is_empty(),
             Gradient::Radial(gradient) => gradient.stops.is_empty(),
@@ -524,7 +524,7 @@ impl From<ConicGradient> for Gradient {
 }
 
 #[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -540,7 +540,7 @@ impl<T: Into<Gradient>> From<T> for BackgroundGradient {
 }
 
 #[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -578,19 +578,19 @@ pub enum RadialGradientShape {
     Ellipse(Val, Val),
 }
 
-fn close_side(p: f32, h: f32) -> f32 {
+const fn close_side(p: f32, h: f32) -> f32 {
     (-h - p).abs().min((h - p).abs())
 }
 
-fn far_side(p: f32, h: f32) -> f32 {
+const fn far_side(p: f32, h: f32) -> f32 {
     (-h - p).abs().max((h - p).abs())
 }
 
-fn close_side2(p: Vec2, h: Vec2) -> f32 {
+const fn close_side2(p: Vec2, h: Vec2) -> f32 {
     close_side(p.x, h.x).min(close_side(p.y, h.y))
 }
 
-fn far_side2(p: Vec2, h: Vec2) -> f32 {
+const fn far_side2(p: Vec2, h: Vec2) -> f32 {
     far_side(p.x, h.x).max(far_side(p.y, h.y))
 }
 
@@ -638,25 +638,25 @@ impl RadialGradientShape {
     reflect(Serialize, Deserialize)
 )]
 pub enum InterpolationColorSpace {
-    /// Interpolates in `OKLab` space.
+    /// Interpolates in OKLABA space.
     #[default]
-    OkLab,
-    /// Interpolates in OKLCH space, taking the shortest hue path.
-    OkLch,
-    /// Interpolates in OKLCH space, taking the longest hue path.
-    OkLchLong,
-    /// Interpolates in sRGB space.
-    Srgb,
-    /// Interpolates in linear sRGB space.
-    LinearRgb,
-    /// Interpolates in HSL space, taking the shortest hue path.
-    Hsl,
-    /// Interpolates in HSL space, taking the longest hue path.
-    HslLong,
-    /// Interpolates in HSV space, taking the shortest hue path.
-    Hsv,
-    /// Interpolates in HSV space, taking the longest hue path.
-    HsvLong,
+    Oklaba,
+    /// Interpolates in OKLCHA space, taking the shortest hue path.
+    Oklcha,
+    /// Interpolates in OKLCHA space, taking the longest hue path.
+    OklchaLong,
+    /// Interpolates in sRGBA space.
+    Srgba,
+    /// Interpolates in linear sRGBA space.
+    LinearRgba,
+    /// Interpolates in HSLA space, taking the shortest hue path.
+    Hsla,
+    /// Interpolates in HSLA space, taking the longest hue path.
+    HslaLong,
+    /// Interpolates in HSVA space, taking the shortest hue path.
+    Hsva,
+    /// Interpolates in HSVA space, taking the longest hue path.
+    HsvaLong,
 }
 
 /// Set the color space used for interpolation.
@@ -665,28 +665,28 @@ pub trait InColorSpace: Sized {
     fn in_color_space(self, color_space: InterpolationColorSpace) -> Self;
 
     /// Interpolate in `OKLab` space.
-    fn in_oklab(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLab)
+    fn in_oklaba(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::Oklaba)
     }
 
     /// Interpolate in OKLCH space (short hue path).
     fn in_oklch(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLch)
+        self.in_color_space(InterpolationColorSpace::Oklcha)
     }
 
     /// Interpolate in OKLCH space (long hue path).
     fn in_oklch_long(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLchLong)
+        self.in_color_space(InterpolationColorSpace::OklchaLong)
     }
 
     /// Interpolate in sRGB space.
     fn in_srgb(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::Srgb)
+        self.in_color_space(InterpolationColorSpace::Srgba)
     }
 
     /// Interpolate in linear sRGB space.
     fn in_linear_rgb(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::LinearRgb)
+        self.in_color_space(InterpolationColorSpace::LinearRgba)
     }
 }
 

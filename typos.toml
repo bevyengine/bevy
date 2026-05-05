@@ -14,6 +14,7 @@ reparametrization = "reparametrization" # Mathematical term in curve context (re
 reparametrize = "reparametrize"
 reparametrized = "reparametrized"
 mis = "mis"                             # mis - multiple importance sampling
+caf = "caf"                             # CAF - Core Audio Format
 
 # Match a Whole Word - Case Sensitive
 [default.extend-identifiers]
@@ -22,6 +23,7 @@ ba = "ba"         # Part of an accessor in WGSL - weights.ba
 fLenOt = "fLenOt"
 iFO_a = "iFO_a"
 iFO_b = "iFO_b"
+Nd = "Nd"         # Normal of Decal
 ser = "ser"       # ron::ser - Serializer
 toi = "toi"       # Time of impact
 vOt = "vOt"
@@ -37,4 +39,5 @@ extend-ignore-re = [
   "\\bmetalness\\b",              # Rendering term (metallicity)
   "\\bNDKs\\b",                   # NDK - Native  Development Kit
   "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
+  "b\"wdth\"",                    # OpenType feature identifier for "width"
 ]

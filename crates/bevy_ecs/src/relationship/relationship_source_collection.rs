@@ -69,16 +69,16 @@ pub trait RelationshipSourceCollection {
         self.len() == 0
     }
 
+    /// For one-to-one relationships, returns the entity that should be removed before adding a new one.
+    /// Returns `None` for one-to-many relationships or when no entity needs to be removed.
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        None
+    }
+
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
-        // would always conflict with it.
-        for entity in entities {
-            self.add(entity);
-        }
-    }
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
 }
 
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
@@ -155,7 +155,9 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+        // Scan from the back. Recently added entities live at the tail and are more likely to be
+        // despawned. This exploits temporal locality to keep the search cheap.
+        if let Some(index) = <[Entity]>::iter(self).rposition(|e| *e == entity) {
             Vec::remove(self, index);
             return true;
         }
@@ -242,7 +244,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.0.reserve(additional);
+        self.deref_mut().reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -254,9 +256,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        // We need to call the remove method on the underlying hash set,
-        // which takes its argument by reference
-        self.0.remove(&entity)
+        self.deref_mut().remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -264,15 +264,15 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        self.deref().len()
     }
 
     fn clear(&mut self) {
-        self.0.clear();
+        self.deref_mut().clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.0.shrink_to_fit();
+        self.deref_mut().shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
@@ -345,14 +345,7 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        assert_eq!(
-            *self,
-            Entity::PLACEHOLDER,
-            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-            *self
-        );
         *self = entity;
-
         true
     }
 
@@ -389,13 +382,15 @@ impl RelationshipSourceCollection for Entity {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            assert_eq!(
-                *self,
-                Entity::PLACEHOLDER,
-                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-                *self
-            );
             *self = entity;
+        }
+    }
+
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        if *self != Entity::PLACEHOLDER {
+            Some(*self)
+        } else {
+            None
         }
     }
 }
@@ -581,6 +576,10 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
     fn shrink_to_fit(&mut self) {
         // BTreeSet doesn't have a capacity
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 #[cfg(test)]
@@ -724,7 +723,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
         #[relationship(relationship_target = Below)]
@@ -740,6 +738,22 @@ mod tests {
 
         world.entity_mut(a).insert(Above(c));
         world.entity_mut(b).insert(Above(c));
+
+        // The original relationship (a -> c) should be removed and the new relationship (b -> c) should be established
+        assert!(
+            world.get::<Above>(a).is_none(),
+            "Original relationship should be removed"
+        );
+        assert_eq!(
+            world.get::<Above>(b).unwrap().0,
+            c,
+            "New relationship should be established"
+        );
+        assert_eq!(
+            world.get::<Below>(c).unwrap().0,
+            b,
+            "Target should point to new source"
+        );
     }
 
     #[test]

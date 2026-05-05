@@ -7,7 +7,7 @@ use core::{
 use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -15,12 +15,12 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::prelude::*;
 use bevy_math::{
     ops::{cos, sin},
     FloatOrd, Rect, Vec2,
 };
 use bevy_math::{Affine2, Vec2Swizzles};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -29,11 +29,13 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render::{sync_world::MainEntity, GpuResourceAppExt, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
-    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedStackIndex, ComputedUiRenderTargetInfo,
+    ConicGradient, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
+    ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -49,8 +51,8 @@ impl Plugin for GradientPlugin {
                 .add_render_command::<TransparentUi, DrawGradientFns>()
                 .init_resource::<ExtractedGradients>()
                 .init_resource::<ExtractedColorStops>()
-                .init_resource::<GradientMeta>()
-                .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
+                .init_gpu_resource::<GradientMeta>()
+                .init_gpu_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(RenderStartup, init_gradient_pipeline)
                 .add_systems(
                     ExtractSchedule,
@@ -93,16 +95,12 @@ impl Default for GradientMeta {
 
 #[derive(Resource)]
 pub struct GradientPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_gradient_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_gradient_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -140,7 +138,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 pub struct UiGradientPipelineKey {
     anti_alias: bool,
     color_space: InterpolationColorSpace,
-    pub hdr: bool,
+    pub target_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for GradientPipeline {
@@ -181,15 +179,15 @@ impl SpecializedRenderPipeline for GradientPipeline {
             ],
         );
         let color_space = match key.color_space {
-            InterpolationColorSpace::OkLab => "IN_OKLAB",
-            InterpolationColorSpace::OkLch => "IN_OKLCH",
-            InterpolationColorSpace::OkLchLong => "IN_OKLCH_LONG",
-            InterpolationColorSpace::Srgb => "IN_SRGB",
-            InterpolationColorSpace::LinearRgb => "IN_LINEAR_RGB",
-            InterpolationColorSpace::Hsl => "IN_HSL",
-            InterpolationColorSpace::HslLong => "IN_HSL_LONG",
-            InterpolationColorSpace::Hsv => "IN_HSV",
-            InterpolationColorSpace::HsvLong => "IN_HSV_LONG",
+            InterpolationColorSpace::Oklaba => "IN_OKLAB",
+            InterpolationColorSpace::Oklcha => "IN_OKLCH",
+            InterpolationColorSpace::OklchaLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Srgba => "IN_SRGB",
+            InterpolationColorSpace::LinearRgba => "IN_LINEAR_RGB",
+            InterpolationColorSpace::Hsla => "IN_HSL",
+            InterpolationColorSpace::HslaLong => "IN_HSL_LONG",
+            InterpolationColorSpace::Hsva => "IN_HSV",
+            InterpolationColorSpace::HsvaLong => "IN_HSV_LONG",
         };
 
         let shader_defs = if key.anti_alias {
@@ -209,11 +207,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -350,7 +344,9 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
-            &ComputedNodeTarget,
+            &ComputedStackIndex,
+            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -365,6 +361,8 @@ pub fn extract_gradients(
     for (
         entity,
         uinode,
+        stack_index,
+        camera,
         target,
         transform,
         inherited_visibility,
@@ -377,7 +375,7 @@ pub fn extract_gradients(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -395,27 +393,27 @@ pub fn extract_gradients(
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        z_order: uinode.stack_index as f32
+                        z_order: stack_index.0 as f32
                             + match node_type {
-                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
-                        color: color.into(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        transform: transform.into(),
                         item: ExtractedUiItem::Node {
+                            color: color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
                             atlas_scaling: None,
                             flip_x: false,
                             flip_y: false,
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,
-                            transform: transform.into(),
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -443,7 +441,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
@@ -493,7 +491,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
@@ -549,7 +547,7 @@ pub fn extract_gradients(
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
+                            stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
@@ -612,18 +610,18 @@ pub fn queue_gradient(
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 color_space: gradient.color_space,
-                hdr: view.hdr,
+                target_format: view.target_format,
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
             sort_key: FloatOrd(
                 gradient.stack_index as f32
                     + match gradient.node_type {
-                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                         NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                     },
             ),
@@ -654,10 +652,45 @@ struct UiGradientVertex {
     hint: f32,
 }
 
+fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> [f32; 4] {
+    match space {
+        InterpolationColorSpace::Oklaba => {
+            let oklaba: Oklaba = color.into();
+            [oklaba.lightness, oklaba.a, oklaba.b, oklaba.alpha]
+        }
+        InterpolationColorSpace::Oklcha | InterpolationColorSpace::OklchaLong => {
+            let oklcha: Oklcha = color.into();
+            [
+                oklcha.lightness,
+                oklcha.chroma,
+                // The shader expects normalized hues
+                oklcha.hue / 360.,
+                oklcha.alpha,
+            ]
+        }
+        InterpolationColorSpace::Srgba => {
+            let srgba: Srgba = color.into();
+            [srgba.red, srgba.green, srgba.blue, srgba.alpha]
+        }
+        InterpolationColorSpace::LinearRgba => color.to_f32_array(),
+        InterpolationColorSpace::Hsla | InterpolationColorSpace::HslaLong => {
+            let hsla: Hsla = color.into();
+            // The shader expects normalized hues
+            [hsla.hue / 360., hsla.saturation, hsla.lightness, hsla.alpha]
+        }
+        InterpolationColorSpace::Hsva | InterpolationColorSpace::HsvaLong => {
+            let hsva: Hsva = color.into();
+            // The shader expects normalized hues
+            [hsva.hue / 360., hsva.saturation, hsva.value, hsva.alpha]
+        }
+    }
+}
+
 pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
@@ -673,7 +706,7 @@ pub fn prepare_gradient(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "gradient_view_bind_group",
-            &gradients_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&gradients_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -742,7 +775,8 @@ pub fn prepare_gradient(
                         corner_points[3] + positions_diff[3],
                     ];
 
-                    let transformed_rect_size = gradient.transform.transform_vector2(rect_size);
+                    let transformed_rect_size =
+                        gradient.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -804,8 +838,9 @@ pub fn prepare_gradient(
                                 continue;
                             }
                         }
-                        let start_color = start_stop.0.to_f32_array();
-                        let end_color = end_stop.0.to_f32_array();
+                        let start_color =
+                            convert_color_to_space(start_stop.0, gradient.color_space);
+                        let end_color = convert_color_to_space(end_stop.0, gradient.color_space);
                         let mut stop_flags = flags;
                         if 0. < start_stop.1
                             && (stop_index == gradient.stops_range.start || segment_count == 0)
@@ -828,10 +863,10 @@ pub fn prepare_gradient(
                                     gradient.border_radius.bottom_left,
                                 ],
                                 border: [
-                                    gradient.border.left,
-                                    gradient.border.top,
-                                    gradient.border.right,
-                                    gradient.border.bottom,
+                                    gradient.border.min_inset.x,
+                                    gradient.border.min_inset.y,
+                                    gradient.border.max_inset.x,
+                                    gradient.border.max_inset.y,
                                 ],
                                 size: rect_size.xy().into(),
                                 g_start,
@@ -927,7 +962,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawGradient {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

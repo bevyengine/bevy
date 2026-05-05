@@ -1,4 +1,5 @@
-pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
+//! Provides shadow cascade configuration and construction helpers.
+
 use bevy_camera::{Camera, Projection};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -162,6 +163,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
+/// A [`DirectionalLight`]'s per-view list of [`Cascade`]s.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct Cascades {
@@ -169,6 +171,11 @@ pub struct Cascades {
     pub cascades: EntityHashMap<Vec<Cascade>>,
 }
 
+/// A single cascade of a view's shadow map cascade. Several of these are
+/// used to cover most of the view to ensure most geometry gets shadows, with
+/// some overlap for blending at cascade transitions. Farther away cascades
+/// are larger and have a lower effective shadowmap texel per world unit
+/// resolution. All cascades have the same pixel dimensions however.
 #[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Clone, Default)]
 pub struct Cascade {
@@ -184,15 +191,7 @@ pub struct Cascade {
     pub texel_size: f32,
 }
 
-pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
-    for (directional_light, mut cascades) in lights.iter_mut() {
-        if !directional_light.shadows_enabled {
-            continue;
-        }
-        cascades.cascades.clear();
-    }
-}
-
+/// Sets up [`Cascades`] for all shadow mapped [`DirectionalLight`]s.
 pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
@@ -215,42 +214,38 @@ pub fn build_directional_light_cascades(
         .collect::<Vec<_>>();
 
     for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
-        if !directional_light.shadows_enabled {
+        if !directional_light.shadow_maps_enabled {
             continue;
         }
+        cascades.cascades.clear();
 
         // It is very important to the numerical and thus visual stability of shadows that
-        // light_to_world has orthogonal upper-left 3x3 and zero translation.
+        // `world_from_light` has orthogonal upper-left 3x3 and zero translation.
         // Even though only the direction (i.e. rotation) of the light matters, we don't constrain
         // users to not change any other aspects of the transform - there's no guarantee
         // `transform.to_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
-        let world_from_light = Mat4::from_quat(transform.compute_transform().rotation);
-        let light_to_world_inverse = world_from_light.inverse();
+        let world_from_light = Mat4::from_quat(transform.rotation());
+        // The transpose is the inverse for orthogonal matrices.
+        let light_from_world = world_from_light.transpose();
 
-        for (view_entity, projection, view_to_world) in views.iter().copied() {
-            let camera_to_light_view = light_to_world_inverse * view_to_world;
-            let view_cascades = cascades_config
-                .bounds
-                .iter()
-                .enumerate()
-                .map(|(idx, far_bound)| {
+        for (view_entity, projection, world_from_view) in views.iter().copied() {
+            let light_view_from_camera = light_from_world * world_from_view;
+            let overlap_factor = 1.0 - cascades_config.overlap_proportion;
+            let far_bounds = cascades_config.bounds.iter();
+            let near_bounds = [cascades_config.minimum_distance]
+                .into_iter()
+                .chain(far_bounds.clone().map(|bound| overlap_factor * bound));
+            let view_cascades = near_bounds
+                .zip(far_bounds)
+                .map(|(near_bound, far_bound)| {
                     // Negate bounds as -z is camera forward direction.
-                    let z_near = if idx > 0 {
-                        (1.0 - cascades_config.overlap_proportion)
-                            * -cascades_config.bounds[idx - 1]
-                    } else {
-                        -cascades_config.minimum_distance
-                    };
-                    let z_far = -far_bound;
-
-                    let corners = projection.get_frustum_corners(z_near, z_far);
-
+                    let corners = projection.get_frustum_corners(-near_bound, -far_bound);
                     calculate_cascade(
                         corners,
                         directional_light_shadow_map.size as f32,
                         world_from_light,
-                        camera_to_light_view,
+                        light_view_from_camera,
                     )
                 })
                 .collect();
@@ -263,6 +258,8 @@ pub fn build_directional_light_cascades(
 ///
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
+///
+/// See this [reference](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf) for more details.
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
@@ -284,10 +281,9 @@ fn calculate_cascade(
     //       as even though the lengths using corner_light_view above should be the same, precision can
     //       introduce small but significant differences.
     // NOTE: The size remains the same unless the view frustum or cascade configuration is modified.
-    let cascade_diameter = (frustum_corners[0] - frustum_corners[6])
-        .length()
-        .max((frustum_corners[4] - frustum_corners[6]).length())
-        .ceil();
+    let body_diagonal = (frustum_corners[0] - frustum_corners[6]).length_squared();
+    let far_plane_diagonal = (frustum_corners[4] - frustum_corners[6]).length_squared();
+    let cascade_diameter = body_diagonal.max(far_plane_diagonal).sqrt().ceil();
 
     // NOTE: If we ensure that cascade_texture_size is a power of 2, then as we made cascade_diameter an
     //       integer, cascade_texel_size is then an integer multiple of a power of 2 and can be
@@ -302,15 +298,21 @@ fn calculate_cascade(
         max.z,
     );
 
-    // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
+    // It is critical for `cascade_from_world` to be stable. So rather than forming `world_from_cascade`
     // and inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascade` as the reference material suggests.
-    let light_to_world_transpose = world_from_light.transpose();
+    // `cascade_from_world` as the reference material suggests.
+    let world_from_light_transpose = world_from_light.transpose();
     let cascade_from_world = Mat4::from_cols(
-        light_to_world_transpose.x_axis,
-        light_to_world_transpose.y_axis,
-        light_to_world_transpose.z_axis,
+        world_from_light_transpose.x_axis,
+        world_from_light_transpose.y_axis,
+        world_from_light_transpose.z_axis,
         (-near_plane_center).extend(1.0),
+    );
+    let world_from_cascade = Mat4::from_cols(
+        world_from_light.x_axis,
+        world_from_light.y_axis,
+        world_from_light.z_axis,
+        world_from_light * near_plane_center.extend(1.0),
     );
 
     // Right-handed orthographic projection, centered at `near_plane_center`.
@@ -325,7 +327,7 @@ fn calculate_cascade(
 
     let clip_from_world = clip_from_cascade * cascade_from_world;
     Cascade {
-        world_from_cascade: cascade_from_world.inverse(),
+        world_from_cascade,
         clip_from_cascade,
         clip_from_world,
         texel_size: cascade_texel_size,

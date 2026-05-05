@@ -1,7 +1,9 @@
 use crate::{
+    change_detection::MaybeLocation,
     system::{Command, SystemBuffer, SystemMeta},
     world::{DeferredWorld, World},
 };
+
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
@@ -29,7 +31,6 @@ struct CommandMeta {
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
-#[derive(Default)]
 pub struct CommandQueue {
     // This buffer densely stores all queued commands.
     //
@@ -39,6 +40,19 @@ pub struct CommandQueue {
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
+    pub(crate) caller: MaybeLocation,
+}
+
+impl Default for CommandQueue {
+    #[track_caller]
+    fn default() -> Self {
+        Self {
+            bytes: Default::default(),
+            cursor: Default::default(),
+            panic_recovery: Default::default(),
+            caller: MaybeLocation::caller(),
+        }
+    }
 }
 
 /// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
@@ -59,6 +73,7 @@ impl Debug for CommandQueue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandQueue")
             .field("len_bytes", &self.bytes.len())
+            .field("caller", &self.caller)
             .finish_non_exhaustive()
     }
 }
@@ -72,7 +87,7 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push(&mut self, command: impl Command) {
+    pub fn push(&mut self, command: impl Command<Out = ()>) {
         // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
             self.get_raw().push(command);
@@ -83,9 +98,6 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
-        // flush the previously queued entities
-        world.flush_entities();
-
         // flush the world's internal queue
         world.flush_commands();
 
@@ -148,12 +160,12 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub unsafe fn push<C: Command>(&mut self, command: C) {
+    pub unsafe fn push<C: Command<Out = ()>>(&mut self, command: C) {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
-        struct Packed<C: Command> {
+        struct Packed<C: Command<Out = ()>> {
             meta: CommandMeta,
             command: C,
         }
@@ -311,7 +323,11 @@ impl RawCommandQueue {
 impl Drop for CommandQueue {
     fn drop(&mut self) {
         if !self.bytes.is_empty() {
-            warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
+            if let Some(caller) = self.caller.into_option() {
+                warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
+            } else {
+                warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
+            }
         }
         // SAFETY: A reference is always a valid pointer
         unsafe { self.get_raw().apply_or_drop_queued(None) };
@@ -335,7 +351,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::resource::Resource;
+    use crate::{component::Component, resource::Resource};
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -361,6 +377,8 @@ mod test {
     }
 
     impl Command for DropCheck {
+        type Out = ();
+
         fn apply(self, _: &mut World) {}
     }
 
@@ -405,11 +423,16 @@ mod test {
         assert_eq!(drops_b.load(Ordering::Relaxed), 1);
     }
 
+    #[derive(Component)]
+    struct A;
+
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
+        type Out = ();
+
         fn apply(self, world: &mut World) {
-            world.spawn_empty();
+            world.spawn(A);
         }
     }
 
@@ -423,12 +446,12 @@ mod test {
         let mut world = World::new();
         queue.apply(&mut world);
 
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&A>().query(&world).count(), 2);
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&A>().query(&world).count(), 2);
     }
 
     #[expect(
@@ -437,6 +460,8 @@ mod test {
     )]
     struct PanicCommand(String);
     impl Command for PanicCommand {
+        type Out = ();
+
         fn apply(self, _: &mut World) {
             panic!("command is panicking");
         }
@@ -462,7 +487,7 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entity_count(), 3);
+        assert_eq!(world.query::<&A>().query(&world).count(), 3);
     }
 
     #[test]
@@ -516,6 +541,8 @@ mod test {
     )]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
+        type Out = ();
+
         fn apply(self, _: &mut World) {}
     }
 

@@ -48,7 +48,7 @@ macro_rules! impl_reflect_for_veclike {
                 }
 
                 #[inline]
-                fn iter(&self) -> $crate::list::ListIter {
+                fn iter(&self) -> $crate::list::ListIter<'_>  {
                     $crate::list::ListIter::new(self)
                 }
 
@@ -98,11 +98,11 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::kind::ReflectKind::List
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_> {
                     $crate::kind::ReflectRef::List(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_> {
                     $crate::kind::ReflectMut::List(self)
                 }
 
@@ -124,6 +124,10 @@ macro_rules! impl_reflect_for_veclike {
 
                 fn reflect_partial_eq(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<bool> {
                     $crate::list::list_partial_eq(self, value)
+                }
+
+                fn reflect_partial_cmp(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<::core::cmp::Ordering> {
+                    $crate::list::list_partial_cmp(self, value)
                 }
 
                 fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
