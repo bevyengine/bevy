@@ -8,10 +8,9 @@ use crate::{converters::convert_system_cursor_icon, state::WinitAppRunnerState, 
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
 use bevy_asset::Assets;
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_platform::collections::HashSet;
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
 use bevy_window::{CursorIcon, SystemCursorIcon, Window};
@@ -56,7 +55,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<M: Message> WinitAppRunnerState<M> {
+impl WinitAppRunnerState {
     pub(crate) fn update_cursors(
         &mut self,
         #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop,
@@ -67,13 +66,13 @@ impl<M: Message> WinitAppRunnerState<M> {
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(feature = "custom_cursor")]
-        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut());
+        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut()).unwrap();
         #[cfg(not(feature = "custom_cursor"))]
         let mut windows_state: SystemState<(
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
-        let (mut windows,) = windows_state.get_mut(self.world_mut());
+        let (mut windows,) = windows_state.get_mut(self.world_mut()).unwrap();
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             for (entity, mut pending_cursor) in windows.iter_mut() {
@@ -113,7 +112,7 @@ fn update_cursors(
     #[cfg(feature = "custom_cursor")] cursor_cache: Res<WinitCustomCursorCache>,
     #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
     #[cfg(feature = "custom_cursor")] texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
 ) {
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {

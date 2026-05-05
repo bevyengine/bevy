@@ -138,8 +138,14 @@ macro_rules! tuple_impl {
                 bevy_ptr::deconstruct_moving_ptr!({
                     let tuple { $($index: $alias,)* } = ptr;
                 });
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalatent to (); however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+                )]
                 // SAFETY: Caller ensures requirements for calling `get_components` are met.
-                $( $name::get_components($alias, func); )*
+                unsafe {
+                    $( $name::get_components($alias, func); )*
+                }
             }
 
             #[allow(
@@ -151,8 +157,14 @@ macro_rules! tuple_impl {
                 bevy_ptr::deconstruct_moving_ptr!({
                     let MaybeUninit::<tuple> { $($index: $alias,)* } = ptr;
                 });
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+                )]
                 // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
-                $( $name::apply_effect($alias, entity); )*
+                unsafe {
+                    $( $name::apply_effect($alias, entity); )*
+                }
             }
         }
 

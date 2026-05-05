@@ -91,6 +91,17 @@ fn setup(
         meshes.add(Extrusion::new(Ellipse::default(), 1.)),
         meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
         meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
+        meshes.add(Extrusion::new(
+            ConvexPolygon::new(vec![
+                Vec2::new(0.0, 0.8),
+                Vec2::new(-0.47, 0.25),
+                Vec2::new(-0.47, -0.65),
+                Vec2::new(0.47, -0.65),
+                Vec2::new(0.47, 0.25),
+            ])
+            .unwrap(),
+            1.0,
+        )),
     ];
 
     let ring_extrusions = [
@@ -173,7 +184,7 @@ fn setup(
 
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
