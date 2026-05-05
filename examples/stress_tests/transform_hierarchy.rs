@@ -23,7 +23,7 @@ use bevy::{
     prelude::*,
     window::ExitCondition,
 };
-use rand::Rng;
+use rand::RngExt;
 
 /// pre-defined test configurations with name
 const CONFIGS: [(&str, Cfg); 9] = [

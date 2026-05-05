@@ -135,8 +135,6 @@
 //! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
 //! Once your asset type is loaded, you can use it in your game like any other asset type!
 //!
-//! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
-//! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -167,8 +165,8 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        asset_value, Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer,
+        Assets, DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
@@ -187,18 +185,16 @@ mod render_asset;
 mod server;
 
 pub use assets::*;
-pub use bevy_asset_macros::Asset;
+pub use bevy_asset_macros::{Asset, VisitAssetDependencies};
 use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
 pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
 pub use folder::*;
-pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
+pub use futures_lite::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
-pub use loader_builders::{
-    Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
-};
+pub use loader_builders::NestedLoadBuilder;
 pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
@@ -222,7 +218,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
@@ -279,8 +275,8 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is unapproved, unless an override method is used, like
-    /// [`AssetServer::load_override`].
+    /// Fails to load any asset that is unapproved, unless [`LoadBuilder::override_unapproved`] is
+    /// used.
     Deny,
     /// Fails to load any asset that is unapproved.
     #[default]
@@ -375,7 +371,7 @@ impl Plugin for AssetPlugin {
                     let sources = builders.build_sources(watch, false);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
-                        sources,
+                        Arc::new(sources),
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
@@ -388,9 +384,7 @@ impl Plugin for AssetPlugin {
                         .unwrap_or(cfg!(feature = "asset_processor"));
                     if use_asset_processor {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let processor = AssetProcessor::new(&mut builders);
-                        let mut sources = builders.build_sources(false, watch);
-                        sources.gate_on_processor(processor.data.clone());
+                        let (processor, sources) = AssetProcessor::new(&mut builders, watch);
                         // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
                             sources,
@@ -406,7 +400,7 @@ impl Plugin for AssetPlugin {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
-                            sources,
+                            Arc::new(sources),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
@@ -502,6 +496,12 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
     }
 }
 
+impl VisitAssetDependencies for UntypedAssetId {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        visit(*self);
+    }
+}
+
 impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
@@ -518,33 +518,33 @@ impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
     }
 }
 
-impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Vec<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for HashSet<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self.values() {
             visit(dependency.id().untyped());
         }
     }
 }
 
-impl VisitAssetDependencies for Vec<UntypedHandle> {
+impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id());
-        }
-    }
-}
-
-impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id().untyped());
-        }
-    }
-}
-
-impl VisitAssetDependencies for HashSet<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
+        for dependency in self.values() {
             visit(dependency.id());
         }
     }
@@ -680,8 +680,11 @@ impl AssetApp for App {
 
             type_registry.register::<A>();
             type_registry.register::<Handle<A>>();
+            type_registry.register::<HandleTemplate<A>>();
             type_registry.register_type_data::<A, ReflectAsset>();
             type_registry.register_type_data::<Handle<A>, ReflectHandle>();
+            type_registry
+                .register_type_conversion::<String, HandleTemplate<A>, _>(|s| Ok(s.into()));
         }
 
         self
@@ -712,14 +715,14 @@ mod tests {
         handle::Handle,
         io::{
             gated::{GateOpener, GatedReader},
-            memory::{Dir, MemoryAssetReader},
+            memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
             AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
             AssetWatcher, Reader,
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
-        UntypedHandle,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
+        UnapprovedPathMode, UntypedHandle, VisitAssetDependencies, WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -741,13 +744,16 @@ mod tests {
         collections::{HashMap, HashSet},
         sync::Mutex,
     };
-    use bevy_reflect::TypePath;
-    use core::time::Duration;
+    use bevy_reflect::{Reflect, TypePath};
+    use bevy_tasks::block_on;
+    use core::{any::TypeId, time::Duration};
+    use futures_lite::AsyncReadExt;
+    use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
 
-    #[derive(Asset, TypePath, Debug, Default)]
+    #[derive(Asset, Debug, Default, Reflect)]
     pub struct CoolText {
         pub text: String,
         pub embedded: String,
@@ -762,7 +768,7 @@ mod tests {
         pub text: String,
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Default)]
     pub struct CoolTextRon {
         pub text: String,
         pub dependencies: Vec<String>,
@@ -770,7 +776,7 @@ mod tests {
         pub sub_texts: Vec<String>,
     }
 
-    #[derive(Default)]
+    #[derive(Default, TypePath)]
     pub struct CoolTextLoader;
 
     #[derive(Error, Debug)]
@@ -802,9 +808,8 @@ mod tests {
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
-                    .loader()
-                    .immediate()
-                    .load::<CoolText>(&dep)
+                    .load_builder()
+                    .load_value::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
@@ -901,7 +906,38 @@ mod tests {
         }
     }
 
-    fn test_app(dir: Dir) -> (App, GateOpener) {
+    /// Creates a basic asset app and an in-memory file system.
+    pub(crate) fn create_app() -> (App, Dir) {
+        let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        let dir_clone2 = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            })
+            .with_writer(move |_| {
+                Some(Box::new(MemoryAssetWriter {
+                    root: dir_clone2.clone(),
+                }))
+            }),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
+            DiagnosticsPlugin,
+        ));
+        (app, dir)
+    }
+
+    fn create_app_with_gate(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
@@ -910,7 +946,11 @@ mod tests {
         )
         .add_plugins((
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
             DiagnosticsPlugin,
         ));
         (app, gate_opener)
@@ -949,6 +989,20 @@ mod tests {
         mut storage: ResMut<StoredEvents>,
     ) {
         storage.0.extend(reader.read().cloned());
+    }
+
+    /// Serializes `text` into a `CoolText` that can be loaded.
+    ///
+    /// This doesn't support all the features of `CoolText`, so more complex scenarios may require
+    /// doing this manually.
+    pub(crate) fn serialize_as_cool_text(text: &str) -> String {
+        let cool_text_ron = CoolTextRon {
+            text: text.into(),
+            dependencies: vec![],
+            embedded_dependencies: vec![],
+            sub_texts: vec![],
+        };
+        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
     }
 
     #[test]
@@ -1007,7 +1061,7 @@ mod tests {
             d_id: AssetId<CoolText>,
         }
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1195,7 +1249,7 @@ mod tests {
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let a = texts.get_mut(a_id).unwrap();
+            let mut a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
@@ -1312,7 +1366,7 @@ mod tests {
         dir.insert_asset_text(Path::new(c_path), c_ron);
         dir.insert_asset_text(Path::new(d_path), d_ron);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -1437,7 +1491,7 @@ mod tests {
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -1514,7 +1568,7 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
 
-        let (mut app, _) = test_app(dir);
+        let (mut app, _) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1551,7 +1605,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1692,7 +1746,7 @@ mod tests {
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener) = create_app_with_gate(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
@@ -1844,10 +1898,27 @@ mod tests {
 
         let mut app = App::new();
         app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                // This reader is unused, but we set it here so we don't accidentally use the
+                // filesystem.
+                Box::new(MemoryAssetReader {
+                    root: Dir::default(),
+                })
+            }),
+        )
+        .register_asset_source(
             "unstable",
             AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
+        ))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -1878,9 +1949,8 @@ mod tests {
 
     #[test]
     fn ignore_system_ambiguities_on_assets() {
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default())
-            .init_asset::<CoolText>();
+        let mut app = create_app().0;
+        app.init_asset::<CoolText>();
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, uses_assets));
@@ -1899,9 +1969,7 @@ mod tests {
     // not capable of loading subassets when doing nested immediate loads.
     #[test]
     fn error_on_nested_immediate_load_of_subasset() {
-        let mut app = App::new();
-
-        let dir = Dir::default();
+        let (mut app, dir) = create_app();
         dir.insert_asset_text(
             Path::new("a.cool.ron"),
             r#"(
@@ -1913,16 +1981,11 @@ mod tests {
         );
         dir.insert_asset_text(Path::new("empty.txt"), "");
 
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() })),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
-
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
+        #[derive(TypePath)]
         struct NestedLoadOfSubassetLoader;
 
         impl AssetLoader for NestedLoadOfSubassetLoader {
@@ -1938,9 +2001,8 @@ mod tests {
             ) -> Result<Self::Asset, Self::Error> {
                 // We expect this load to fail.
                 load_context
-                    .loader()
-                    .immediate()
-                    .load::<SubText>("a.cool.ron#A")
+                    .load_builder()
+                    .load_value::<SubText>("a.cool.ron#A")
                     .await?;
                 Ok(TestAsset)
             }
@@ -1971,6 +2033,12 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
+    // Test that `VisitAssetDependencies` can be derived without deriving
+    // `Asset`, and that the type can be used as a `#[dependency]` within an
+    // asset.
+    #[derive(VisitAssetDependencies)]
+    pub struct TestNonAssetType(#[dependency] Handle<TestAsset>);
+
     #[derive(Asset, TypePath)]
     #[expect(
         dead_code,
@@ -1989,6 +2057,12 @@ mod tests {
             set_handles: HashSet<Handle<TestAsset>>,
             #[dependency]
             untyped_set_handles: HashSet<UntypedHandle>,
+            #[dependency]
+            map_handles: HashMap<String, Handle<TestAsset>>,
+            #[dependency]
+            untyped_map_handles: HashMap<String, UntypedHandle>,
+            #[dependency]
+            non_asset_type: TestNonAssetType,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -2012,6 +2086,12 @@ mod tests {
         set_handles: HashSet<Handle<TestAsset>>,
         #[dependency]
         untyped_set_handles: HashSet<UntypedHandle>,
+        #[dependency]
+        map_handles: HashMap<String, Handle<TestAsset>>,
+        #[dependency]
+        untyped_map_handles: HashMap<String, UntypedHandle>,
+        #[dependency]
+        non_asset_type: TestNonAssetType,
     }
 
     #[expect(
@@ -2044,76 +2124,74 @@ mod tests {
             TaskPoolPlugin::default(),
             AssetPlugin {
                 unapproved_path_mode: mode,
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
                 ..Default::default()
             },
         ));
-        app.init_asset::<CoolText>();
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
 
         app
     }
 
-    fn load_a_asset(assets: Res<AssetServer>) {
-        let a = assets.load::<CoolText>("../a.cool.ron");
-        if a == Handle::default() {
-            panic!()
-        }
-    }
+    #[test]
+    fn unapproved_path_forbid_does_not_load_even_with_override() {
+        let app = unapproved_path_setup(UnapprovedPathMode::Forbid);
 
-    fn load_a_asset_override(assets: Res<AssetServer>) {
-        let a = assets.load_override::<CoolText>("../a.cool.ron");
-        if a == Handle::default() {
-            panic!()
-        }
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        assert_eq!(
+            asset_server
+                .load_builder()
+                .override_unapproved()
+                .load::<CoolText>("../a.cool.ron"),
+            Handle::default()
+        );
     }
 
     #[test]
-    #[should_panic]
-    fn unapproved_path_forbid_should_panic() {
-        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
+    fn unapproved_path_deny_does_not_load() {
+        let app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset_override));
-
-        app.world_mut().run_schedule(Update);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        assert_eq!(
+            asset_server.load::<CoolText>("../a.cool.ron"),
+            Handle::default()
+        );
     }
 
     #[test]
-    #[should_panic]
-    fn unapproved_path_deny_should_panic() {
+    fn unapproved_path_deny_loads_with_override() {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset));
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server
+            .load_builder()
+            .override_unapproved()
+            .load::<CoolText>("../a.cool.ron");
+        assert_ne!(handle, Handle::default());
 
-        app.world_mut().run_schedule(Update);
+        // Make sure this asset actually loads.
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
     }
 
     #[test]
-    fn unapproved_path_deny_should_finish() {
-        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
-
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset_override));
-
-        app.world_mut().run_schedule(Update);
-    }
-
-    #[test]
-    fn unapproved_path_allow_should_finish() {
+    fn unapproved_path_allow_loads() {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        app.add_systems(Update, (uses_assets, load_a_asset));
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("../a.cool.ron");
+        assert_ne!(handle, Handle::default());
 
-        app.world_mut().run_schedule(Update);
+        // Make sure this asset actually loads.
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
     }
 
     #[test]
     fn insert_dropped_handle_returns_error() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<TestAsset>();
+        app.init_asset::<TestAsset>();
 
         let handle = app.world().resource::<Assets<TestAsset>>().reserve_handle();
         // We still have the asset ID, but we've dropped the handle so the asset is no longer live.
@@ -2143,6 +2221,7 @@ mod tests {
     // Note: we can't just use the GatedReader, since currently we hold the handle until after
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
+    #[derive(TypePath)]
     struct GatedLoader {
         in_loader_sender: Sender<()>,
         gate_receiver: Receiver<()>,
@@ -2171,14 +2250,7 @@ mod tests {
 
     #[test]
     fn dropping_handle_while_loading_cancels_load() {
-        let dir = Dir::default();
-        let mut app = App::new();
-        let reader = MemoryAssetReader { root: dir.clone() };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(reader.clone())),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        let (mut app, dir) = create_app();
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
@@ -2227,14 +2299,7 @@ mod tests {
 
     #[test]
     fn dropping_subasset_handle_while_loading_cancels_load() {
-        let dir = Dir::default();
-        let mut app = App::new();
-        let reader = MemoryAssetReader { root: dir.clone() };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(reader.clone())),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        let (mut app, dir) = create_app();
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
@@ -2309,6 +2374,7 @@ mod tests {
             TaskPoolPlugin::default(),
             AssetPlugin {
                 watch_for_changes_override: Some(true),
+                use_asset_processor_override: Some(false),
                 ..Default::default()
             },
         ));
@@ -2460,6 +2526,7 @@ mod tests {
         #[derive(Serialize, Deserialize, Default)]
         struct U8LoaderSettings(u8);
 
+        #[derive(TypePath)]
         struct U8Loader;
 
         impl AssetLoader for U8Loader {
@@ -2481,32 +2548,22 @@ mod tests {
             }
         }
 
-        // Create a test asset.
+        // Create a test asset and setup the app.
 
-        let dir = Dir::default();
+        let (mut app, dir) = create_app();
         dir.insert_asset(Path::new("test.u8"), &[]);
 
-        let asset_source =
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
-
-        // Set up the app.
-
-        let mut app = App::new();
-
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<U8Asset>()
-            .register_asset_loader(U8Loader);
+        app.init_asset::<U8Asset>().register_asset_loader(U8Loader);
 
         let asset_server = app.world().resource::<AssetServer>();
 
         // Load the test asset twice but with different settings.
 
         fn load(asset_server: &AssetServer, path: &'static str, value: u8) -> Handle<U8Asset> {
-            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
-                path,
-                move |s: &mut U8LoaderSettings| s.0 = value,
-            )
+            asset_server
+                .load_builder()
+                .with_settings(move |s: &mut U8LoaderSettings| s.0 = value)
+                .load::<U8Asset>(path)
         }
 
         let handle_1 = load(asset_server, "test.u8", 1);
@@ -2545,18 +2602,10 @@ mod tests {
 
     #[test]
     fn loading_two_subassets_does_not_start_two_loads() {
-        let mut app = App::new();
-
-        let dir = Dir::default();
+        let (mut app, dir) = create_app();
         dir.insert_asset(Path::new("test.txt"), &[]);
 
-        let asset_source =
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
-
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<TestAsset>();
-
+        #[derive(TypePath)]
         struct TwoSubassetLoader;
 
         impl AssetLoader for TwoSubassetLoader {
@@ -2570,8 +2619,8 @@ mod tests {
                 _settings: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                load_context.add_labeled_asset("A".into(), TestAsset);
-                load_context.add_labeled_asset("B".into(), TestAsset);
+                load_context.add_labeled_asset("A", TestAsset);
+                load_context.add_labeled_asset("B", TestAsset);
                 Ok(TestAsset)
             }
 
@@ -2580,7 +2629,8 @@ mod tests {
             }
         }
 
-        app.register_asset_loader(TwoSubassetLoader);
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TwoSubassetLoader);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let _subasset_1: Handle<TestAsset> = asset_server.load("test.txt#A");
@@ -2595,42 +2645,36 @@ mod tests {
         assert_eq!(get_started_load_count(app.world()), 2);
     }
 
-    #[test]
-    fn get_strong_handle_prevents_reload_when_asset_still_alive() {
-        let mut app = App::new();
+    /// A loader that immediately returns a [`TestAsset`].
+    #[derive(TypePath)]
+    struct TrivialLoader;
 
-        let dir = Dir::default();
-        dir.insert_asset(Path::new("test.txt"), &[]);
+    impl AssetLoader for TrivialLoader {
+        type Asset = TestAsset;
+        type Settings = ();
+        type Error = std::io::Error;
 
-        let asset_source =
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
-
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<TestAsset>();
-
-        struct TrivialLoader;
-
-        impl AssetLoader for TrivialLoader {
-            type Asset = TestAsset;
-            type Settings = ();
-            type Error = std::io::Error;
-
-            async fn load(
-                &self,
-                _reader: &mut dyn Reader,
-                _settings: &Self::Settings,
-                _load_context: &mut LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(TestAsset)
-            }
-
-            fn extensions(&self) -> &[&str] {
-                &["txt"]
-            }
+        async fn load(
+            &self,
+            _reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            _load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(TestAsset)
         }
 
-        app.register_asset_loader(TrivialLoader);
+        fn extensions(&self) -> &[&str] {
+            &["txt"]
+        }
+    }
+
+    #[test]
+    fn get_strong_handle_prevents_reload_when_asset_still_alive() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset(Path::new("test.txt"), &[]);
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let original_handle: Handle<TestAsset> = asset_server.load("test.txt");
@@ -2671,5 +2715,614 @@ mod tests {
         //
         // assert_eq!(get_started_load_count(app.world()), 1);
         assert_eq!(get_started_load_count(app.world()), 2);
+    }
+
+    #[test]
+    fn immediate_nested_asset_loads_dependency() {
+        let (mut app, dir) = create_app();
+
+        /// This asset holds a handle to its dependency.
+        #[derive(Asset, TypePath)]
+        struct DeferredNested(Handle<TestAsset>);
+
+        #[derive(TypePath)]
+        struct DeferredNestedLoader;
+
+        impl AssetLoader for DeferredNestedLoader {
+            type Asset = DeferredNested;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                reader: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let mut nested_path = String::new();
+                reader.read_to_string(&mut nested_path).await?;
+                Ok(DeferredNested(load_context.load(nested_path)))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["defer"]
+            }
+        }
+
+        /// This asset holds a handle a dependency of one of its dependencies.
+        #[derive(Asset, TypePath)]
+        struct ImmediateNested(Handle<TestAsset>);
+
+        #[derive(TypePath)]
+        struct ImmediateNestedLoader;
+
+        impl AssetLoader for ImmediateNestedLoader {
+            type Asset = ImmediateNested;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                reader: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let mut nested_path = String::new();
+                reader.read_to_string(&mut nested_path).await?;
+                let deferred_nested: LoadedAsset<DeferredNested> = load_context
+                    .load_builder()
+                    .load_value(nested_path)
+                    .await
+                    .unwrap();
+                Ok(ImmediateNested(deferred_nested.get().0.clone()))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["immediate"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<DeferredNested>()
+            .init_asset::<ImmediateNested>()
+            .register_asset_loader(TrivialLoader)
+            .register_asset_loader(DeferredNestedLoader)
+            .register_asset_loader(ImmediateNestedLoader);
+
+        dir.insert_asset_text(Path::new("a.immediate"), "b.defer");
+        dir.insert_asset_text(Path::new("b.defer"), "c.txt");
+        dir.insert_asset_text(Path::new("c.txt"), "hiya");
+
+        let server = app.world().resource::<AssetServer>().clone();
+        let immediate_handle: Handle<ImmediateNested> = server.load("a.immediate");
+
+        run_app_until(&mut app, |world| {
+            let immediate_assets = world.resource::<Assets<ImmediateNested>>();
+            let immediate = immediate_assets.get(&immediate_handle)?;
+
+            let test_asset_handle = immediate.0.clone();
+            world
+                .resource::<Assets<TestAsset>>()
+                .get(&test_asset_handle)?;
+
+            // The immediate asset is loaded, and the asset it got from its immediate load is also
+            // loaded.
+            Some(())
+        });
+    }
+
+    pub(crate) fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
+        let bytes = dir.get_asset(path).unwrap();
+        str::from_utf8(bytes.value()).unwrap().to_string()
+    }
+
+    pub(crate) fn read_meta_as_string(dir: &Dir, path: &Path) -> String {
+        let bytes = dir.get_metadata(path).unwrap();
+        str::from_utf8(bytes.value()).unwrap().to_string()
+    }
+
+    #[test]
+    fn writes_default_meta_for_loader() {
+        let (mut app, source) = create_app();
+
+        app.register_asset_loader(CoolTextLoader);
+
+        const ASSET_PATH: &str = "abc.cool.ron";
+        source.insert_asset_text(Path::new(ASSET_PATH), "blah");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)).unwrap();
+
+        assert_eq!(
+            read_meta_as_string(&source, Path::new(ASSET_PATH)),
+            r#"(
+    meta_format_version: "1.0",
+    asset: Load(
+        loader: "bevy_asset::tests::CoolTextLoader",
+        settings: (),
+    ),
+)"#
+        );
+    }
+
+    #[test]
+    fn write_default_meta_does_not_overwrite() {
+        let (mut app, source) = create_app();
+
+        app.register_asset_loader(CoolTextLoader);
+
+        const ASSET_PATH: &str = "abc.cool.ron";
+        source.insert_asset_text(Path::new(ASSET_PATH), "blah");
+        const META_TEXT: &str = "hey i'm walkin here!";
+        source.insert_meta_text(Path::new(ASSET_PATH), META_TEXT);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        assert!(matches!(
+            block_on(asset_server.write_default_loader_meta_file_for_path(ASSET_PATH)),
+            Err(WriteDefaultMetaError::MetaAlreadyExists)
+        ));
+
+        assert_eq!(
+            read_meta_as_string(&source, Path::new(ASSET_PATH)),
+            META_TEXT
+        );
+    }
+
+    #[test]
+    fn asset_dependency_is_tracked_when_not_loaded() {
+        let (mut app, dir) = create_app();
+
+        #[derive(Asset, TypePath)]
+        struct AssetWithDep {
+            #[dependency]
+            dep: Handle<TestAsset>,
+        }
+
+        #[derive(TypePath)]
+        struct AssetWithDepLoader;
+
+        impl AssetLoader for AssetWithDepLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                // Load the asset in the root context, but then put the handle in the subasset. So
+                // the subasset's (internal) load context never loaded `dep`.
+                let dep = load_context.load::<TestAsset>("abc.ron");
+                load_context.add_labeled_asset("subasset", AssetWithDep { dep });
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["with_deps"]
+            }
+        }
+
+        // Write some data so the loaders have something to load (even though they don't use the
+        // data).
+        dir.insert_asset_text(Path::new("abc.ron"), "");
+        dir.insert_asset_text(Path::new("blah.with_deps"), "");
+
+        let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
+        let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        app.init_asset::<TestAsset>()
+            .init_asset::<AssetWithDep>()
+            .register_asset_loader(GatedLoader {
+                in_loader_sender,
+                gate_receiver,
+            })
+            .register_asset_loader(AssetWithDepLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let subasset_handle: Handle<AssetWithDep> = asset_server.load("blah.with_deps#subasset");
+
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&subasset_handle).then_some(())
+        });
+        // Even though the subasset is loaded, and its load context never loaded its dependency, it
+        // still depends on its dependency, so that is tracked correctly here.
+        assert!(!asset_server.is_loaded_with_dependencies(&subasset_handle));
+
+        let dep_handle: Handle<TestAsset> = app
+            .world()
+            .resource::<Assets<AssetWithDep>>()
+            .get(&subasset_handle)
+            .unwrap()
+            .dep
+            .clone();
+
+        // Pass the gate in the dependency loader.
+        in_loader_receiver.recv_blocking().unwrap();
+        gate_sender.send_blocking(()).unwrap();
+
+        run_app_until(&mut app, |_| {
+            asset_server.is_loaded(&dep_handle).then_some(())
+        });
+        // Now that the dependency is loaded, the subasset is counted as loaded with dependencies!
+        assert!(asset_server.is_loaded_with_dependencies(&subasset_handle));
+    }
+
+    // A simplified version of `LoadState` for easier comparison.
+    #[derive(Debug, PartialEq, Eq)]
+    enum TestLoadState {
+        NotLoaded,
+        Loading,
+        Loaded,
+        Failed(TestAssetLoadError),
+    }
+
+    // A simplified subset of `AssetLoadError` for easier comparison.
+    #[derive(Debug, PartialEq, Eq)]
+    enum TestAssetLoadError {
+        RequestedHandleTypeMismatch {
+            requested: TypeId,
+            actual_asset_name: &'static str,
+        },
+        MissingAssetLoader,
+        AssetReaderErrorNotFound,
+        AssetLoaderError,
+        MissingLabel,
+    }
+
+    impl From<LoadState> for TestLoadState {
+        fn from(value: LoadState) -> Self {
+            match value {
+                LoadState::NotLoaded => Self::NotLoaded,
+                LoadState::Loading => Self::Loading,
+                LoadState::Loaded => Self::Loaded,
+                LoadState::Failed(err) => Self::Failed((&*err).into()),
+            }
+        }
+    }
+
+    impl From<&AssetLoadError> for TestAssetLoadError {
+        fn from(value: &AssetLoadError) -> TestAssetLoadError {
+            match value {
+                AssetLoadError::RequestedHandleTypeMismatch {
+                    requested,
+                    actual_asset_name,
+                    ..
+                } => Self::RequestedHandleTypeMismatch {
+                    requested: *requested,
+                    actual_asset_name,
+                },
+                AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
+                AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {
+                    Self::AssetReaderErrorNotFound
+                }
+                AssetLoadError::AssetLoaderError { .. } => Self::AssetLoaderError,
+                AssetLoadError::MissingLabel { .. } => Self::MissingLabel,
+                _ => panic!("TestAssetLoadError's From<&AssetLoaderError> is missing a case for AssetLoadError \"{:?}\".", value),
+            }
+        }
+    }
+
+    // An asset type that doesn't have a registered loader.
+    #[derive(Asset, TypePath)]
+    struct LoaderlessAsset;
+
+    // Load the given path and test that `AssetServer::get_load_state` returns
+    // the given state.
+    fn test_load_state<A: Asset>(
+        label: &'static str,
+        path: &'static str,
+        expected_load_state: TestLoadState,
+    ) {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_asset::<LoaderlessAsset>()
+            .register_asset_loader(CoolTextLoader);
+
+        dir.insert_asset_text(
+            Path::new("test.cool.ron"),
+            r#"
+(
+    text: "test",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["subasset"],
+)"#,
+        );
+
+        dir.insert_asset_text(Path::new("malformed.cool.ron"), "MALFORMED");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<A>(path);
+        let mut load_state = TestLoadState::NotLoaded;
+
+        for _ in 0..LARGE_ITERATION_COUNT {
+            app.update();
+            load_state = asset_server.get_load_state(&handle).unwrap().into();
+            if load_state == expected_load_state {
+                break;
+            }
+        }
+
+        assert!(
+            load_state == expected_load_state,
+            "For test \"{}\", expected {:?} but got {:?}.",
+            label,
+            expected_load_state,
+            load_state,
+        );
+    }
+
+    // Tests that `AssetServer::get_load_state` returns the correct state after
+    // various loads, some of which trigger errors.
+    #[test]
+    fn load_failure() {
+        test_load_state::<CoolText>("root asset exists", "test.cool.ron", TestLoadState::Loaded);
+
+        test_load_state::<SubText>(
+            "sub-asset exists",
+            "test.cool.ron#subasset",
+            TestLoadState::Loaded,
+        );
+
+        test_load_state::<CoolText>(
+            "root asset does not exist",
+            "does_not_exist.cool.ron",
+            TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset of root asset that does not exist",
+            "does_not_exist.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
+        );
+
+        test_load_state::<SubText>(
+            "sub-asset does not exist",
+            "test.cool.ron#does_not_exist",
+            TestLoadState::Failed(TestAssetLoadError::MissingLabel),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset is not requested type",
+            "test.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::RequestedHandleTypeMismatch {
+                requested: TypeId::of::<CoolText>(),
+                actual_asset_name: "bevy_asset::tests::SubText",
+            }),
+        );
+
+        test_load_state::<CoolText>(
+            "malformed root asset",
+            "malformed.cool.ron",
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset of malformed root asset",
+            "malformed.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
+        );
+
+        test_load_state::<LoaderlessAsset>(
+            "root asset has no loader",
+            "loaderless",
+            TestLoadState::Failed(TestAssetLoadError::MissingAssetLoader),
+        );
+    }
+
+    #[test]
+    fn load_empty_path_returns_default() {
+        let mut app = create_app().0;
+
+        // Not necessary but better to make things more realistic to ensure we hit the right error
+        // case.
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        const TYPE_ID: TypeId = TypeId::of::<TestAsset>();
+
+        fn boring_settings(_: &mut ()) {}
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        for path in ["", "no_path://#WithALabel"] {
+            // TODO: We have way too many "load" variants. We **need** to simplify this.
+            assert_eq!(asset_server.load(path), Handle::<TestAsset>::default());
+            assert_eq!(
+                asset_server.load_builder().with_guard(()).load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .override_unapproved()
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_guard(())
+                    .with_settings(boring_settings)
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().load_erased(TYPE_ID, path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().override_unapproved().load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server.load_builder().load_untyped(path),
+                Handle::default()
+            );
+            assert!(matches!(
+                block_on(asset_server.load_builder().load_untyped_async(path)),
+                Err(AssetLoadError::EmptyPath(reported_path)) if AssetPath::from(path) == reported_path
+            ));
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+            assert_eq!(
+                asset_server
+                    .load_builder()
+                    .with_settings(|_: &mut ()| {})
+                    .override_unapproved()
+                    .load(path),
+                Handle::<TestAsset>::default()
+            );
+        }
+    }
+
+    #[test]
+    fn resource_are_dependencies_loaded() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset_text(Path::new("abc.txt"), "");
+        dir.insert_asset_text(Path::new("def.txt"), "");
+        dir.insert_asset_text(Path::new("ghi.txt"), "");
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        #[derive(Resource, VisitAssetDependencies)]
+        struct MyAssetHolder {
+            #[dependency]
+            abc: Handle<TestAsset>,
+            #[dependency]
+            def: Handle<TestAsset>,
+            #[dependency]
+            ghi: Handle<TestAsset>,
+        }
+
+        app.insert_resource(MyAssetHolder {
+            abc: asset_server.load("abc.txt"),
+            def: asset_server.load("def.txt"),
+            ghi: asset_server.load("ghi.txt"),
+        });
+
+        assert!(!asset_server.are_dependencies_loaded(app.world().resource::<MyAssetHolder>()));
+        assert!(
+            !asset_server.are_direct_dependencies_loaded(app.world().resource::<MyAssetHolder>())
+        );
+
+        run_app_until(&mut app, |world| {
+            asset_server
+                .are_dependencies_loaded(world.resource::<MyAssetHolder>())
+                .then_some(())
+        });
+        assert!(
+            asset_server.are_direct_dependencies_loaded(app.world().resource::<MyAssetHolder>())
+        );
+    }
+
+    #[test]
+    fn hot_reload_folder() {
+        let (mut app, dir, event_sender) = create_app_with_source_event_sender();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let abc_path = Path::new("dir/abc.cool.ron");
+        let def_path = Path::new("dir/def.cool.ron");
+        dir.insert_asset_text(abc_path, &serialize_as_cool_text("abc"));
+        dir.insert_asset_text(def_path, &serialize_as_cool_text("def"));
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let folder_handle = asset_server.load_folder("dir");
+        run_app_until(&mut app, |_| {
+            asset_server
+                .is_loaded_with_dependencies(&folder_handle)
+                .then_some(())
+        });
+
+        let folder = app
+            .world()
+            .resource::<Assets<LoadedFolder>>()
+            .get(&folder_handle)
+            .unwrap();
+        assert_eq!(folder.handles.len(), 2);
+        let mut handles = folder
+            .handles
+            .iter()
+            .cloned()
+            .map(UntypedHandle::typed::<CoolText>)
+            .collect::<Vec<_>>();
+        // Sort the handles so we know abc is first and def is second.
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+
+        let abc_handle = handles[0].clone();
+        let def_handle = handles[1].clone();
+
+        let cool_texts = app.world().resource::<Assets<CoolText>>();
+        assert_eq!(cool_texts.get(&abc_handle).unwrap().text, "abc");
+        assert_eq!(cool_texts.get(&def_handle).unwrap().text, "def");
+
+        // Before doing any hot reloading stuff, clear out any AssetEvent messages.
+        app.world_mut()
+            .resource_mut::<Messages<AssetEvent<LoadedFolder>>>()
+            .clear();
+
+        // Add a new asset to the folder, and send an event to trigger hot-reloading.
+        let ghi_path = Path::new("dir/ghi.cool.ron");
+        dir.insert_asset_text(ghi_path, &serialize_as_cool_text("ghi"));
+        event_sender
+            .send_blocking(AssetSourceEvent::AddedAsset(ghi_path.to_path_buf()))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            for event in world
+                .resource_mut::<Messages<AssetEvent<LoadedFolder>>>()
+                .drain()
+            {
+                if let AssetEvent::LoadedWithDependencies { id } = event
+                    && id == folder_handle.id()
+                {
+                    return Some(());
+                }
+            }
+            None
+        });
+
+        let folder = app
+            .world()
+            .resource::<Assets<LoadedFolder>>()
+            .get(&folder_handle)
+            .unwrap();
+        assert_eq!(folder.handles.len(), 3);
+        let mut handles = folder
+            .handles
+            .iter()
+            .cloned()
+            .map(UntypedHandle::typed::<CoolText>)
+            .collect::<Vec<_>>();
+        // Sort the handles so we know the order is abc, def, and ghi.
+        handles.sort_by_key(|handle| handle.path().unwrap().path().to_path_buf());
+
+        let new_abc_handle = handles[0].clone();
+        let new_def_handle = handles[1].clone();
+        let new_ghi_handle = handles[2].clone();
+
+        assert_eq!(new_abc_handle, abc_handle);
+        assert_eq!(new_def_handle, def_handle);
+
+        let cool_texts = app.world().resource::<Assets<CoolText>>();
+        assert_eq!(cool_texts.get(&new_abc_handle).unwrap().text, "abc");
+        assert_eq!(cool_texts.get(&new_def_handle).unwrap().text, "def");
+        assert_eq!(cool_texts.get(&new_ghi_handle).unwrap().text, "ghi");
     }
 }

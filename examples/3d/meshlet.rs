@@ -12,7 +12,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 const ASSET_URL: &str =
-    "https://github.com/bevyengine/bevy_asset_files/raw/9bf88c42b9d06a3634eed633d90ce5fab02c31da/meshlet/bunny.meshlet_mesh";
+    "https://github.com/bevyengine/bevy_asset_files/raw/6dccaef517bde74d1969734703709aead7211dbc/meshlet/bunny.meshlet_mesh";
 
 fn main() {
     App::new()
@@ -26,6 +26,7 @@ fn main() {
             FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, bunny_wiggler)
         .run();
 }
 
@@ -52,7 +53,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -72,7 +73,7 @@ fn setup(
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
-        commands.spawn((
+        let mut bunny = commands.spawn((
             MeshletMesh3d(meshlet_mesh_handle.clone()),
             MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: match x {
@@ -90,6 +91,9 @@ fn setup(
                 .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
         ));
+        if x == 1 {
+            bunny.insert(BunnyWiggler);
+        }
     }
     for x in -2..=2 {
         commands.spawn((
@@ -110,6 +114,14 @@ fn setup(
             ..default()
         })),
     ));
+}
+
+#[derive(Component)]
+struct BunnyWiggler;
+
+fn bunny_wiggler(mut bunny: Query<&mut Transform, With<BunnyWiggler>>, time: Res<Time>) {
+    bunny.single_mut().as_deref_mut().unwrap().translation.z +=
+        ops::cos(time.elapsed_secs() * 10.0) * 0.003;
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]

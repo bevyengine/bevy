@@ -8,11 +8,16 @@ mod iter_frag_sparse;
 mod iter_frag_wide;
 mod iter_frag_wide_sparse;
 mod iter_simple;
+mod iter_simple_contiguous;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod iter_simple_contiguous_avx2;
 mod iter_simple_foreach;
 mod iter_simple_foreach_hybrid;
 mod iter_simple_foreach_sparse_set;
 mod iter_simple_foreach_wide;
 mod iter_simple_foreach_wide_sparse_set;
+mod iter_simple_no_detection;
+mod iter_simple_no_detection_contiguous;
 mod iter_simple_sparse_set;
 mod iter_simple_system;
 mod iter_simple_wide;
@@ -38,6 +43,27 @@ fn iter_simple(c: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
         let mut bench = iter_simple::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("base_contiguous", |b| {
+        let mut bench = iter_simple_contiguous::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if iter_simple_contiguous_avx2::Benchmark::supported() {
+            group.bench_function("base_contiguous_avx2", |b| {
+                let mut bench = iter_simple_contiguous_avx2::Benchmark::new().unwrap();
+                b.iter(move || bench.run());
+            });
+        }
+    }
+    group.bench_function("base_no_detection", |b| {
+        let mut bench = iter_simple_no_detection::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("base_no_detection_contiguous", |b| {
+        let mut bench = iter_simple_no_detection_contiguous::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.bench_function("wide", |b| {
