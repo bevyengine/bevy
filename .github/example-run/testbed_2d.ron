@@ -1,12 +1,4 @@
 (
     events: [
-        (100, Screenshot),
-        (200, Custom("switch_scene")),
-        (300, Screenshot),
-        (400, Custom("switch_scene")),
-        (500, Screenshot),
-        (600, Custom("switch_scene")),
-        (700, Screenshot),
-        (800, AppExit),
     ]
 )

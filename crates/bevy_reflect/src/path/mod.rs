@@ -82,6 +82,7 @@ pub trait ReflectPath<'a>: Sized {
         })
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a str {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for (access, offset) in PathParser::new(self) {
@@ -127,10 +128,12 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// Note that a leading dot (`.`) or hash (`#`) token is implied for the first item in a path,
 /// and may therefore be omitted.
 ///
+/// Additionally, an empty path may be used to get the struct itself.
+///
 /// ### Example
 /// ```
 /// # use bevy_reflect::{GetPath, Reflect};
-/// #[derive(Reflect)]
+/// #[derive(Reflect, PartialEq, Debug)]
 /// struct MyStruct {
 ///   value: u32
 /// }
@@ -140,6 +143,8 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// assert_eq!(my_struct.path::<u32>(".value").unwrap(), &123);
 /// // Access via field index
 /// assert_eq!(my_struct.path::<u32>("#0").unwrap(), &123);
+/// // Access self
+/// assert_eq!(*my_struct.path::<MyStruct>("").unwrap(), my_struct);
 /// ```
 ///
 /// ## Tuples and Tuple Structs
@@ -233,12 +238,12 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// );
 /// ```
 ///
-/// [`Struct`]: crate::Struct
-/// [`Tuple`]: crate::Tuple
-/// [`TupleStruct`]: crate::TupleStruct
-/// [`List`]: crate::List
-/// [`Array`]: crate::Array
-/// [`Enum`]: crate::Enum
+/// [`Struct`]: crate::structs::Struct
+/// [`Tuple`]: crate::tuple::Tuple
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
+/// [`List`]: crate::list::List
+/// [`Array`]: crate::array::Array
+/// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
@@ -269,7 +274,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
         path.element(self.as_partial_reflect())
     }
@@ -280,7 +285,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
     fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
         path.element_mut(self.as_partial_reflect_mut())
     }
@@ -290,7 +295,8 @@ pub trait GetPath: PartialReflect {
 impl<T: Reflect + ?Sized> GetPath for T {}
 
 /// An [`Access`] combined with an `offset` for more helpful error reporting.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
@@ -358,7 +364,8 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From, Reflect)]
+#[reflect(Clone, Debug, PartialEq, PartialOrd, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,
@@ -409,7 +416,7 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    pub fn parse(string: &str) -> PathResult<Self> {
+    pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
@@ -433,6 +440,7 @@ impl ParsedPath {
         Ok(Self(parts))
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a ParsedPath {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for OffsetAccess { access, offset } in &self.0 {
@@ -450,11 +458,13 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
         Ok(root)
     }
 }
+
 impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
     fn from(value: [OffsetAccess; N]) -> Self {
         ParsedPath(value.to_vec())
     }
 }
+
 impl From<Vec<Access<'static>>> for ParsedPath {
     fn from(value: Vec<Access<'static>>) -> Self {
         ParsedPath(
@@ -468,6 +478,7 @@ impl From<Vec<Access<'static>>> for ParsedPath {
         )
     }
 }
+
 impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     fn from(value: [Access<'static>; N]) -> Self {
         value.to_vec().into()
@@ -489,12 +500,14 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
+
 impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
+
 impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
@@ -502,13 +515,16 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
-    use crate::*;
+    use crate::{enums::VariantType, *};
+    use alloc::vec;
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct A {
         w: usize,
         x: B,
@@ -521,21 +537,21 @@ mod tests {
         tuple: (bool, f32),
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct B {
         foo: usize,
         łørđ: C,
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct C {
         mосква: f32,
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct D(E);
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct E(f32, usize);
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -735,6 +751,7 @@ mod tests {
     fn reflect_path() {
         let mut a = a_sample();
 
+        assert_eq!(*a.path::<A>("").unwrap(), a);
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x.łørđ.mосква").unwrap(), 3.14);

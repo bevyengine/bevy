@@ -34,5 +34,6 @@ disallowed-methods = [
   { path = "f32::copysign", reason = "use ops::copysign instead for no_std compatibility" },
   { path = "f32::round", reason = "use ops::round instead for no_std compatibility" },
   { path = "f32::floor", reason = "use ops::floor instead for no_std compatibility" },
+  { path = "f32::ceil", reason = "use ops::ceil instead for no_std compatibility" },
   { path = "f32::fract", reason = "use ops::fract instead for no_std compatibility" },
 ]

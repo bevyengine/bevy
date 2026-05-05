@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, num::NonZero};
 
 use crate::{
-    render_resource::Buffer,
+    render_resource::{make_buffer_label, Buffer},
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
@@ -27,12 +27,12 @@ use super::IntoBinding;
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
@@ -78,7 +78,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -131,7 +131,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
         if self.changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -164,14 +164,13 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`]
-/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`]
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
@@ -214,7 +213,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
@@ -278,12 +277,12 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         max_count: usize,
         device: &RenderDevice,
         queue: &'a RenderQueue,
-    ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment = if cfg!(feature = "ios_simulator") {
+    ) -> Option<DynamicUniformBufferWriter<T>> {
+        let alignment = if cfg!(target_abi = "sim") {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
             // is respected, but the device reports the correct value for iOS, which is smaller.
             // Use the larger value.
-            // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+            // See https://github.com/gfx-rs/wgpu/issues/7057 - remove if it's not needed anymore.
             AlignmentValue::new(256)
         } else {
             AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)
@@ -297,7 +296,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
         if capacity < size || (self.changed && size > 0) {
             let buffer = device.create_buffer(&BufferDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 size,
                 mapped_at_creation: false,
@@ -308,9 +307,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
 
         if let Some(buffer) = self.buffer.as_deref() {
-            let buffer_view = queue
-                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
-                .unwrap();
+            let buffer_view =
+                queue.write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)?;
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
                     QueueWriteBufferViewWrapper {
@@ -358,27 +356,27 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 /// A writer that can be used to directly write elements into the target buffer.
 ///
 /// For more information, see [`DynamicUniformBuffer::get_writer`].
-pub struct DynamicUniformBufferWriter<'a, T> {
-    buffer: encase::DynamicUniformBuffer<QueueWriteBufferViewWrapper<'a>>,
+pub struct DynamicUniformBufferWriter<T> {
+    buffer: encase::DynamicUniformBuffer<QueueWriteBufferViewWrapper>,
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
+impl<T: ShaderType + WriteInto> DynamicUniformBufferWriter<T> {
     pub fn write(&mut self, value: &T) -> u32 {
         self.buffer.write(value).unwrap() as u32
     }
 }
 
-/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
+/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can implement
 /// [`BufferMut`].
-struct QueueWriteBufferViewWrapper<'a> {
-    buffer_view: wgpu::QueueWriteBufferView<'a>,
+struct QueueWriteBufferViewWrapper {
+    buffer_view: wgpu::QueueWriteBufferView,
     // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
     // invoke a panic.
     capacity: usize,
 }
 
-impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
+impl BufferMut for QueueWriteBufferViewWrapper {
     #[inline]
     fn capacity(&self) -> usize {
         self.capacity
@@ -386,12 +384,16 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
 
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
-        self.buffer_view.write(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 
     #[inline]
     fn write_slice(&mut self, offset: usize, val: &[u8]) {
-        self.buffer_view.write_slice(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 }
 

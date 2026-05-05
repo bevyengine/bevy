@@ -1,8 +1,8 @@
 diff --git a/crates/bevy_pbr/src/cluster/mod.rs b/crates/bevy_pbr/src/cluster/mod.rs
 index a8c218b44..13cc9f9c6 100644
---- a/crates/bevy_pbr/src/cluster/mod.rs
-+++ b/crates/bevy_pbr/src/cluster/mod.rs
-@@ -239,8 +239,8 @@ impl Default for ClusterConfig {
+--- a/crates/bevy_light/src/cluster/mod.rs
++++ b/crates/bevy_light/src/cluster/mod.rs
+@@ -185,8 +185,8 @@ impl Default for ClusterConfig {
          // 24 depth slices, square clusters with at most 4096 total clusters
          // use max light distance as clusters max `Z`-depth, first slice extends to 5.0
          Self::FixedZ {

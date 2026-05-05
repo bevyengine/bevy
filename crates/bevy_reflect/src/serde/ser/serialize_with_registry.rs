@@ -40,6 +40,9 @@ use serde::{Serialize, Serializer};
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [via the registry]: TypeRegistry::register_type_data
 pub trait SerializeWithRegistry {
+    /// Serialize this value using the given [Serializer] and [`TypeRegistry`].
+    ///
+    /// [`Serializer`]: ::serde::Serializer
     fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
         S: Serializer;
@@ -75,7 +78,7 @@ impl<T: Reflect + SerializeWithRegistry> FromType<T> for ReflectSerializeWithReg
             serialize: |value: &dyn Reflect, registry| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
                     panic!(
-                        "Expected value to be of type {:?} but received {:?}",
+                        "Expected value to be of type {} but received {}",
                         core::any::type_name::<T>(),
                         value.reflect_type_path()
                     )

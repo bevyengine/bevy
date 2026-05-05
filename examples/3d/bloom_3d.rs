@@ -1,12 +1,9 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
-    color::palettes::basic::GRAY,
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     math::ops,
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 use std::{
@@ -30,33 +27,32 @@ fn setup_scene(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            hdr: true, // 1. HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // 3. Enable bloom for the camera
-        Bloom::NATURAL,
+        Bloom::NATURAL, // 2. Enable bloom for the camera
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LinearRgba::rgb(0.0, 0.0, 150.0), // 3. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
+        emissive: LinearRgba::rgb(1000.0, 1000.0, 1000.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(5.32, 2.0, 13.99),
+        emissive: LinearRgba::rgb(50.0, 0.0, 0.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
-        base_color: GRAY.into(),
+        base_color: Color::BLACK,
         ..default()
     });
 
-    let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
+    let mesh = meshes.add(Sphere::new(0.4).mesh().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {
@@ -64,20 +60,21 @@ fn setup_scene(
             // the same spheres are always the same colors.
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
-            let rand = (hasher.finish() - 2) % 6;
+            let rand = (hasher.finish() + 3) % 6;
 
-            let material = match rand {
-                0 => material_emissive1.clone(),
-                1 => material_emissive2.clone(),
-                2 => material_emissive3.clone(),
-                3..=5 => material_non_emissive.clone(),
+            let (material, scale) = match rand {
+                0 => (material_emissive1.clone(), 0.5),
+                1 => (material_emissive2.clone(), 0.1),
+                2 => (material_emissive3.clone(), 1.0),
+                3..=5 => (material_non_emissive.clone(), 1.5),
                 _ => unreachable!(),
             };
 
             commands.spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
-                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0)
+                    .with_scale(Vec3::splat(scale)),
                 Bouncing,
             ));
         }
@@ -88,8 +85,8 @@ fn setup_scene(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -109,17 +106,17 @@ fn update_bloom_settings(
     match bloom {
         (entity, Some(mut bloom)) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
-            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
+            text.push_str(&format!("(Q/A) Intensity: {:.2}\n", bloom.intensity));
             text.push_str(&format!(
-                "(W/S) Low-frequency boost: {}\n",
+                "(W/S) Low-frequency boost: {:.2}\n",
                 bloom.low_frequency_boost
             ));
             text.push_str(&format!(
-                "(E/D) Low-frequency boost curvature: {}\n",
+                "(E/D) Low-frequency boost curvature: {:.2}\n",
                 bloom.low_frequency_boost_curvature
             ));
             text.push_str(&format!(
-                "(R/F) High-pass frequency: {}\n",
+                "(R/F) High-pass frequency: {:.2}\n",
                 bloom.high_pass_frequency
             ));
             text.push_str(&format!(
@@ -129,11 +126,15 @@ fn update_bloom_settings(
                     BloomCompositeMode::Additive => "Additive",
                 }
             ));
-            text.push_str(&format!("(Y/H) Threshold: {}\n", bloom.prefilter.threshold));
             text.push_str(&format!(
-                "(U/J) Threshold softness: {}\n",
+                "(Y/H) Threshold: {:.2}\n",
+                bloom.prefilter.threshold
+            ));
+            text.push_str(&format!(
+                "(U/J) Threshold softness: {:.2}\n",
                 bloom.prefilter.threshold_softness
             ));
+            text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -196,6 +197,14 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness += dt / 10.0;
             }
             bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::KeyK) {
+                bloom.scale.x -= dt * 2.0;
+            }
+            if keycode.pressed(KeyCode::KeyI) {
+                bloom.scale.x += dt * 2.0;
+            }
+            bloom.scale.x = bloom.scale.x.clamp(0.0, 8.0);
         }
 
         (entity, None) => {

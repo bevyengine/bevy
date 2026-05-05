@@ -38,6 +38,7 @@ pub(super) struct PathParser<'a> {
     path: &'a str,
     remaining: &'a [u8],
 }
+
 impl<'a> PathParser<'a> {
     pub(super) fn new(path: &'a str) -> Self {
         let remaining = path.as_bytes();
@@ -58,13 +59,16 @@ impl<'a> PathParser<'a> {
         // If we do not find a subsequent token, we are at the end of the parse string.
         let ident_len = to_parse.iter().position(|t| Token::SYMBOLS.contains(t));
         let (ident, remaining) = to_parse.split_at(ident_len.unwrap_or(to_parse.len()));
+        #[expect(
+            unsafe_code,
+            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
+        )]
         // SAFETY: This relies on `self.remaining` always remaining valid UTF8:
         // - self.remaining is a slice derived from self.path (valid &str)
         // - The slice's end is either the same as the valid &str or
         //   the last byte before an ASCII utf-8 character (ie: it is a char
         //   boundary).
         // - The slice always starts after a symbol ie: an ASCII character's boundary.
-        #[allow(unsafe_code)]
         let ident = unsafe { from_utf8_unchecked(ident) };
 
         self.remaining = remaining;
@@ -100,6 +104,7 @@ impl<'a> PathParser<'a> {
         self.path.len() - self.remaining.len()
     }
 }
+
 impl<'a> Iterator for PathParser<'a> {
     type Item = (Result<Access<'a>, ReflectPathError<'a>>, usize);
 
@@ -146,6 +151,7 @@ enum Token<'a> {
     CloseBracket = b']',
     Ident(Ident<'a>),
 }
+
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -157,6 +163,7 @@ impl fmt::Display for Token<'_> {
         }
     }
 }
+
 impl<'a> Token<'a> {
     const SYMBOLS: &'static [u8] = b".#[]";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
