@@ -2,12 +2,98 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError},
+    entity::{Entity, EntityHashMap, EntityHashSet, EntityNotSpawnedError},
+    error::Result,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
         EntityWorldMut,
     },
 };
+
+/// Provides a safe interface for non-structural access to the entities in a [`World`].
+///
+/// This cannot add or remove components, or spawn or despawn entities,
+/// making it relatively safe to access in concert with other ECS data.
+/// This type can be constructed via [`World::entities_and_commands`],
+/// or [`DeferredWorld::entities_and_commands`].
+///
+/// [`World`]: crate::world::World
+/// [`World::entities_and_commands`]: crate::world::World::entities_and_commands
+/// [`DeferredWorld::entities_and_commands`]: crate::world::DeferredWorld::entities_and_commands
+pub struct EntityFetcher<'w> {
+    cell: UnsafeWorldCell<'w>,
+}
+
+impl<'w> EntityFetcher<'w> {
+    // SAFETY:
+    // - The given `cell` has mutable access to all entities.
+    // - No other references to entities exist at the same time.
+    pub(crate) unsafe fn new(cell: UnsafeWorldCell<'w>) -> Self {
+        Self { cell }
+    }
+
+    /// Returns [`EntityRef`]s that expose read-only operations for the given
+    /// `entities`, returning [`Err`] if any of the given entities do not exist.
+    ///
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityRef`].
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
+    ///
+    /// # Errors
+    ///
+    /// If any of the given `entities` do not exist in the world, the first
+    /// [`Entity`] found to be missing will return an [`EntityNotSpawnedError`].
+    ///
+    /// # Examples
+    ///
+    /// For examples, see [`World::entity`].
+    ///
+    /// [`World::entity`]: crate::world::World::entity
+    #[inline]
+    pub fn get<F: WorldEntityFetch>(
+        &self,
+        entities: F,
+    ) -> Result<F::Ref<'_>, EntityNotSpawnedError> {
+        // SAFETY: `&self` gives read access to all entities, and prevents mutable access.
+        unsafe { entities.fetch_ref(self.cell) }
+    }
+
+    /// Returns [`EntityMut`]s that expose read and write operations for the
+    /// given `entities`, returning [`Err`] if any of the given entities do not
+    /// exist.
+    ///
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityMut`].
+    ///    - This reference type allows for structural changes to the entity,
+    ///      such as adding or removing components, or despawning the entity.
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    /// # Errors
+    ///
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if any of the given `entities` do not exist in the world.
+    ///     - Only the first entity found to be missing will be returned.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    ///
+    /// # Examples
+    ///
+    /// For examples, see [`DeferredWorld::entity_mut`].
+    ///
+    /// [`DeferredWorld::entity_mut`]: crate::world::DeferredWorld::entity_mut
+    #[inline]
+    pub fn get_mut<F: WorldEntityFetch>(
+        &mut self,
+        entities: F,
+    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
+        // SAFETY: `&mut self` gives mutable access to all entities,
+        // and prevents any other access to entities.
+        unsafe { entities.fetch_deferred_mut(self.cell) }
+    }
+}
 
 /// Types that can be used to fetch [`Entity`] references from a [`World`].
 ///
@@ -56,11 +142,11 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
+    /// - Returns [`EntityNotSpawnedError`] if the entity does not exist.
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError>;
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
     /// IDs, as determined by `self`.
@@ -73,7 +159,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_mut(
@@ -96,7 +182,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_deferred_mut(
@@ -114,29 +200,29 @@ unsafe impl WorldEntityFetch for Entity {
     type Mut<'w> = EntityWorldMut<'w>;
     type DeferredMut<'w> = EntityMut<'w>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let ecell = cell.get_entity(self)?;
         // SAFETY: caller ensures that the world cell has read-only access to the entity.
         Ok(unsafe { EntityRef::new(ecell) })
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        let location = cell
-            .entities()
-            .get(self)
-            .ok_or(EntityDoesNotExistError::new(self, cell.entities()))?;
+        let location = cell.entities().get_spawned(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.
-        Ok(unsafe { EntityWorldMut::new(world, self, location) })
+        Ok(unsafe { EntityWorldMut::new(world, self, Some(location)) })
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -156,25 +242,31 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
-        <&Self>::fetch_ref(&self, cell)
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_ref(&self, cell) }
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_mut(&self, cell) }
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
-        <&Self>::fetch_deferred_mut(&self, cell)
+        // SAFETY: Upheld by caller
+        unsafe { <&Self>::fetch_deferred_mut(&self, cell) }
     }
 }
 
@@ -187,10 +279,11 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = [MaybeUninit::uninit(); N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
             let ecell = cell.get_entity(id)?;
@@ -204,6 +297,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -230,6 +324,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -249,10 +344,11 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;
@@ -263,6 +359,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -286,6 +383,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -305,10 +403,11 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, EntityNotSpawnedError> {
         let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;
@@ -318,6 +417,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -331,6 +431,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,

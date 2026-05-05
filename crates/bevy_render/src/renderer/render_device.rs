@@ -3,11 +3,11 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use bevy_ecs::resource::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
 };
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
@@ -44,47 +44,70 @@ impl RenderDevice {
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// # Safety
+    ///
+    /// Creates a shader module with user-customizable runtime checks which allows shaders to
+    /// perform operations which can lead to undefined behavior like indexing out of bounds,
+    /// To avoid UB, ensure any unchecked shaders are sound!
+    /// This method should never be called for user-supplied shaders.
     #[inline]
-    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub unsafe fn create_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
             wgpu::ShaderSource::SpirV(source)
                 if self
                     .features()
-                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+                    .contains(wgpu::Features::PASSTHROUGH_SHADERS) =>
             {
                 // SAFETY:
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
                 // No attempt is made to ensure that data is valid SPIR-V.
                 unsafe {
-                    self.device
-                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                    self.device.create_shader_module_passthrough(
+                        wgpu::ShaderModuleDescriptorPassthrough {
                             label: desc.label,
-                            source: source.clone(),
-                        })
+                            spirv: Some(source.clone()),
+                            ..Default::default()
+                        },
+                    )
                 }
             }
-            // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-            // such as indexing out of bounds.
-            // The checks required are prohibitively expensive and a poor default for game engines.
-            // TODO: split this method into safe and unsafe variants, and propagate the safety requirements from
-            // https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.create_shader_module_trusted to the unsafe form.
+            // SAFETY:
+            //
+            // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+            // No attempt is made to ensure that data is valid SPIR-V.
             _ => unsafe {
                 self.device
                     .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
             },
         }
-
         #[cfg(not(feature = "spirv_shader_passthrough"))]
-        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-        // such as indexing out of bounds.
-        // The checks required are prohibitively expensive and a poor default for game engines.
-        // TODO: split this method into safe and unsafe variants, and propagate the safety requirements from
-        // https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.create_shader_module_trusted to the unsafe form.
+        // SAFETY: the caller is responsible for upholding the safety requirements
         unsafe {
             self.device
                 .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
         }
+    }
+
+    /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// See [`ValidateShader`](bevy_shader::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    #[inline]
+    pub fn create_and_validate_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(_source) => panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
+            _ => self.device.create_shader_module(desc),
+        }
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
+        self.device.create_shader_module(desc)
     }
 
     /// Check for resource cleanups and mapping callbacks.
@@ -97,7 +120,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
+    pub fn poll(&self, maintain: wgpu::PollType) -> Result<PollStatus, PollError> {
         self.device.poll(maintain)
     }
 
@@ -115,7 +138,7 @@ impl RenderDevice {
     pub fn create_render_bundle_encoder(
         &self,
         desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 

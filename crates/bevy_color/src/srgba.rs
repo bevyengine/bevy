@@ -15,7 +15,11 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -40,37 +44,25 @@ impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
-    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully black color with full alpha.
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully transparent color with no alpha (alpha = 0.0).
     #[doc(alias = "transparent")]
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
-    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully white color with full alpha.
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
-
+    /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully red color with full alpha.
-    pub const RED: Self = Self {
-        red: 1.0,
-        green: 0.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully green color with full alpha.
-    pub const GREEN: Self = Self {
-        red: 0.0,
-        green: 1.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const GREEN: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully blue color with full alpha.
-    pub const BLUE: Self = Self {
-        red: 0.0,
-        green: 0.0,
-        blue: 1.0,
-        alpha: 1.0,
-    };
+    pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///
@@ -173,8 +165,8 @@ impl Srgba {
     pub fn to_hex(&self) -> String {
         let [r, g, b, a] = self.to_u8_array();
         match a {
-            255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
-            _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
+            255 => format!("#{r:02X}{g:02X}{b:02X}"),
+            _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
     }
 
@@ -420,6 +412,18 @@ impl From<Xyza> for Srgba {
 impl From<Srgba> for Xyza {
     fn from(value: Srgba) -> Self {
         LinearRgba::from(value).into()
+    }
+}
+
+#[cfg(feature = "wgpu-types")]
+impl From<Srgba> for wgpu_types::Color {
+    fn from(color: Srgba) -> Self {
+        wgpu_types::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
     }
 }
 

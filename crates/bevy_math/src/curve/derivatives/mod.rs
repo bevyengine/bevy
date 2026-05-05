@@ -37,24 +37,28 @@ use bevy_reflect::{FromReflect, Reflect};
 /// derivatives to be extracted along with values.
 ///
 /// This is implemented by implementing [`SampleDerivative`].
-pub trait CurveWithDerivative<T>: SampleDerivative<T>
+pub trait CurveWithDerivative<T>: SampleDerivative<T> + Sized
 where
     T: HasTangent,
 {
     /// This curve, but with its first derivative included in sampling.
-    fn with_derivative(self) -> impl Curve<WithDerivative<T>>;
+    ///
+    /// Notably, the output type is a `Curve<WithDerivative<T>>`.
+    fn with_derivative(self) -> SampleDerivativeWrapper<Self>;
 }
 
 /// Trait for curves that have a well-defined notion of second derivative,
 /// allowing for two derivatives to be extracted along with values.
 ///
 /// This is implemented by implementing [`SampleTwoDerivatives`].
-pub trait CurveWithTwoDerivatives<T>: SampleTwoDerivatives<T>
+pub trait CurveWithTwoDerivatives<T>: SampleTwoDerivatives<T> + Sized
 where
     T: HasTangent,
 {
     /// This curve, but with its first two derivatives included in sampling.
-    fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>>;
+    ///
+    /// Notably, the output type is a `Curve<WithTwoDerivatives<T>>`.
+    fn with_two_derivatives(self) -> SampleTwoDerivativesWrapper<Self>;
 }
 
 /// A trait for curves that can sample derivatives in addition to values.
@@ -210,7 +214,7 @@ where
     T: HasTangent,
     C: SampleDerivative<T>,
 {
-    fn with_derivative(self) -> impl Curve<WithDerivative<T>> {
+    fn with_derivative(self) -> SampleDerivativeWrapper<Self> {
         SampleDerivativeWrapper(self)
     }
 }
@@ -220,7 +224,7 @@ where
     T: HasTangent,
     C: SampleTwoDerivatives<T> + CurveWithDerivative<T>,
 {
-    fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>> {
+    fn with_two_derivatives(self) -> SampleTwoDerivativesWrapper<Self> {
         SampleTwoDerivativesWrapper(self)
     }
 }

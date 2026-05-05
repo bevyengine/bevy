@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::mesh_view_bindings
 
 #import bevy_pbr::mesh_view_types as types
+#import bevy_pbr::atmosphere::types as atmosphere_types
 #import bevy_render::{
     view::View,
     globals::Globals,
@@ -28,18 +29,21 @@
 #endif  // PCSS_SAMPLERS_AVAILABLE
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-@group(0) @binding(8) var<storage> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<storage> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #else
-@group(0) @binding(8) var<uniform> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<uniform> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif
 
 @group(0) @binding(11) var<uniform> globals: Globals;
-@group(0) @binding(12) var<uniform> fog: types::Fog;
-@group(0) @binding(13) var<uniform> light_probes: types::LightProbes;
+@group(0) @binding(12) var<uniform> light_probes: types::LightProbes;
+
+#ifdef DISTANCE_FOG
+@group(0) @binding(13) var<uniform> fog: types::Fog;
+#endif
 
 const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
@@ -48,72 +52,112 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(14) var<uniform> visibility_ranges: array<vec4<f32>, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE>;
 #endif
 
+#ifdef SCREEN_SPACE_REFLECTIONS
 @group(0) @binding(15) var<uniform> ssr_settings: types::ScreenSpaceReflectionsSettings;
-@group(0) @binding(16) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
-
-#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
-@group(0) @binding(17) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
-@group(0) @binding(18) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
-#else
-@group(0) @binding(17) var diffuse_environment_map: texture_cube<f32>;
-@group(0) @binding(18) var specular_environment_map: texture_cube<f32>;
-#endif
-@group(0) @binding(19) var environment_map_sampler: sampler;
-@group(0) @binding(20) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
-
-#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
-#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
-@group(0) @binding(21) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
-#else
-@group(0) @binding(21) var irradiance_volume: texture_3d<f32>;
-#endif
-@group(0) @binding(22) var irradiance_volume_sampler: sampler;
 #endif
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
-@group(0) @binding(23) var<storage> clustered_decals: types::ClusteredDecals;
-@group(0) @binding(24) var clustered_decal_textures: binding_array<texture_2d<f32>, 8u>;
-@group(0) @binding(25) var clustered_decal_sampler: sampler;
-#endif  // CLUSTERED_DECALS_ARE_USABLE
+#ifdef CONTACT_SHADOWS
+@group(0) @binding(16) var<uniform> contact_shadows_settings: types::ContactShadowsSettings;
+#endif
 
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+@group(0) @binding(17) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+#endif
+
+#ifdef ENVIRONMENT_MAP
+@group(0) @binding(18) var<uniform> environment_map_uniform: types::EnvironmentMapUniform;
+#endif
+
+#ifdef TONEMAP_IN_SHADER
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
-@group(0) @binding(26) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(27) var dt_lut_sampler: sampler;
+@group(0) @binding(19) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(20) var dt_lut_sampler: sampler;
+#endif
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-@group(0) @binding(28) var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(21) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(29) var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(22) var normal_prepass_texture: texture_multisampled_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(30) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(23) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-@group(0) @binding(28) var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(21) var depth_prepass_texture: texture_depth_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(29) var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(22) var normal_prepass_texture: texture_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(30) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(23) var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
-@group(0) @binding(31) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(24) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(32) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(33) var view_transmission_sampler: sampler;
+@group(0) @binding(25) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(26) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(34) var<storage, read_write> oit_layers: array<vec2<u32>>;
-@group(0) @binding(35) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
-@group(0) @binding(36) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(27) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(28) var<uniform> oit_nodes_capacity: u32;
+@group(0) @binding(29) var<storage, read_write> oit_nodes: array<types::OitFragmentNode>;
+@group(0) @binding(30) var<storage, read_write> oit_heads: array<atomic<u32>>;
+@group(0) @binding(31) var<storage, read_write> oit_atomic_counter: atomic<u32>;
 #endif // OIT_ENABLED
+
+#ifdef ATMOSPHERE
+@group(0) @binding(32) var atmosphere_transmittance_texture: texture_2d<f32>;
+@group(0) @binding(33) var atmosphere_transmittance_sampler: sampler;
+@group(0) @binding(34) var<storage> atmosphere: atmosphere_types::Atmosphere;
+#endif // ATMOSPHERE
+
+#ifdef BLUE_NOISE_TEXTURE
+@group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
+#endif // BLUE_NOISE_TEXTURE
+
+#ifdef AREA_LIGHT_LUTS
+@group(0) @binding(36) var area_light_luts: texture_2d_array<f32>;
+@group(0) @binding(37) var area_light_luts_sampler: sampler;
+#endif
+
+#ifdef DFG_LUT
+@group(0) @binding(38) var dfg_lut: texture_2d<f32>;
+@group(0) @binding(39) var dfg_lut_sampler: sampler;
+#endif // DFG_LUT
+
+#ifdef ENVIRONMENT_MAP
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
+@group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
+@group(1) @binding(1) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
+#else
+@group(1) @binding(0) var diffuse_environment_map: texture_cube<f32>;
+@group(1) @binding(1) var specular_environment_map: texture_cube<f32>;
+#endif
+@group(1) @binding(2) var environment_map_sampler: sampler;
+#endif
+
+#ifdef IRRADIANCE_VOLUME
+#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
+@group(1) @binding(3) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
+#else
+@group(1) @binding(3) var irradiance_volume: texture_3d<f32>;
+#endif
+@group(1) @binding(4) var irradiance_volume_sampler: sampler;
+#endif
+#endif
+
+#ifdef CLUSTERED_DECALS_ARE_USABLE
+@group(1) @binding(5) var<storage> clustered_decals: types::ClusteredDecals;
+@group(1) @binding(6) var clustered_decal_textures: binding_array<texture_2d<f32>, 8u>;
+@group(1) @binding(7) var clustered_decal_sampler: sampler;
+#endif  // CLUSTERED_DECALS_ARE_USABLE
